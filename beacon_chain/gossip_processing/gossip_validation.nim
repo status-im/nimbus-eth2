@@ -247,7 +247,7 @@ proc check_partial_data_column_sidecar_kzg_proofs(
     column_index: ColumnIndex):
     Result[void, ValidationError] =
   let res = p_data_column.verify_partial_data_column_sidecar_kzg_proofs(
-      all_commitments, column_index)
+    all_commitments, column_index)
   if res.isErr:
     return errReject(res.error)
 
@@ -675,6 +675,7 @@ proc validatePartialDataColumnSidecar*(
     return dag.checkedReject(
       "PartialDataColumnSidecar: cells and proofs count mismatch")
 
+  static: doAssert DATA_COLUMN_SIDECAR_SUBNET_COUNT == NUMBER_OF_COLUMNS
   let column_index = ColumnIndex(subnet_id)
 
   # === For verifying the PartialDataColumnHeader ===
@@ -1326,7 +1327,7 @@ proc validateExecutionPayload*(
       return dag.checkedReject("ExecutionPayload: invalid builder signature")
   else:
     return dag.checkedReject("ExecutionPayload: invalid fork")
-  
+
   let onExecutionPayloadCallback =
     envelopeQuarantine[].onExecutionPayloadCallback()
   if not isNil(onExecutionPayloadCallback):

@@ -21,7 +21,7 @@ import
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
-from std/sequtils import repeat, toSeq
+from std/sequtils import mapIt, repeat, toSeq
 from stew/staticfor import staticFor
 
 type
@@ -430,9 +430,7 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
   let cellIndices = repeat(CellIndex(column_index), blobIndices.len)
 
   # Batch verify that the cells match the corresponding commitments and proofs
-  var commitments = newSeqOfCap[KzgCommitment](blobIndices.len)
-  for i in blobIndices:
-    commitments.add(all_commitments[i])
+  let commitments = blobIndices.mapIt(all_commitments[it])
 
   let res = verifyCellKzgProofBatch(
       commitments, cellIndices, sidecar.partial_columns.asSeq,

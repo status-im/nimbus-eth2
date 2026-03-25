@@ -14,7 +14,7 @@ import
   kzg4844/kzg,
   ssz_serialization/types,
   ../el/el_manager,
-  ../spec/[helpers, forks],
+  ../spec/[helpers, forks, network],
   ../consensus_object_pools/[
     attestation_pool, blob_quarantine, block_clearance, block_quarantine,
     blockchain_dag, envelope_quarantine, execution_payload_pool,
@@ -470,9 +470,11 @@ proc processPartialDataColumnSidecar*(
       partial_data_column_sidecars_dropped.inc(1, [$v.error[0]])
       return v
 
+    static: doAssert DATA_COLUMN_SIDECAR_SUBNET_COUNT == NUMBER_OF_COLUMNS
     let
       block_root = hash_tree_root(block_header)
       column_index = ColumnIndex(subnet_id)
+    doAssert compute_subnet_for_data_column_sidecar(column_index) == subnet_id
 
     # Get or create a partial column entry for this (block_root, column_index)
     let numBlobs = header.kzg_commitments.len

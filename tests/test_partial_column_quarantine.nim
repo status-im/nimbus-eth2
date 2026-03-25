@@ -41,12 +41,12 @@ func genKzgProof(index: int): KzgProof =
   copyMem(addr res.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
   res
 
-func genPartialDataColumnHeader(
+proc genPartialDataColumnHeader(
     slot: int, proposerIndex: int, numCommitments: int
 ): PartialDataColumnHeader =
   var commitments: KzgCommitments
   for i in 0 ..< numCommitments:
-    discard commitments.add(genKzgCommitment(i))
+    check commitments.add(genKzgCommitment(i))
   PartialDataColumnHeader(
     kzg_commitments: commitments,
     signed_block_header: SignedBeaconBlockHeader(
@@ -497,7 +497,8 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
       numBlobs = 3
 
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
 
     let
       cell = genKzgCell(42)
@@ -506,17 +507,17 @@ suite "Partial Column Quarantine":
 
     check quarantine.hasCellReceived(root, colIdx, 1)
 
-    let entry = quarantine.getEntry(root, colIdx).get()
+    let updated = quarantine.getEntry(root, colIdx).get()
     check:
-      entry.cells[1].isSome()
-      entry.cells[1].get() == cell
-      entry.proofs[1].isSome()
-      entry.proofs[1].get() == proof
+      updated.cells[1].isSome()
+      updated.cells[1].get() == cell
+      updated.proofs[1].isSome()
+      updated.proofs[1].get() == proof
       # Other slots remain empty
-      entry.cells[0].isNone()
-      entry.cells[2].isNone()
-      entry.proofs[0].isNone()
-      entry.proofs[2].isNone()
+      updated.cells[0].isNone()
+      updated.cells[2].isNone()
+      updated.proofs[0].isNone()
+      updated.proofs[2].isNone()
 
   test "markCellReceived with data on non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
@@ -527,7 +528,8 @@ suite "Partial Column Quarantine":
   test "markCellReceived with data out-of-bounds is no-op":
     var quarantine = PartialColumnQuarantine.init()
     let root = genBlockRoot(1)
-    discard quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs = 2)
+    let entry = quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs = 2)
+    check entry == quarantine.getEntry(root, ColumnIndex(0)).get()
     quarantine.markCellReceived(
       root, ColumnIndex(0), 10, genKzgCell(1), genKzgProof(1))
     check not quarantine.hasCellReceived(root, ColumnIndex(0), 10)
@@ -561,7 +563,8 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(5)
       numBlobs = 4
 
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
 
     # Sidecar with cells at blob indices 0 and 2
     let sidecar = genPartialDataColumnSidecar([0, 2], startCellId = 100)
@@ -573,18 +576,18 @@ suite "Partial Column Quarantine":
       quarantine.hasCellReceived(root, colIdx, 2)
       not quarantine.hasCellReceived(root, colIdx, 3)
 
-    let entry = quarantine.getEntry(root, colIdx).get()
+    let updated = quarantine.getEntry(root, colIdx).get()
     check:
-      entry.cells[0].isSome()
-      entry.cells[0].get() == genKzgCell(100)
-      entry.proofs[0].isSome()
-      entry.proofs[0].get() == genKzgProof(100)
-      entry.cells[2].isSome()
-      entry.cells[2].get() == genKzgCell(101)
-      entry.proofs[2].isSome()
-      entry.proofs[2].get() == genKzgProof(101)
-      entry.cells[1].isNone()
-      entry.cells[3].isNone()
+      updated.cells[0].isSome()
+      updated.cells[0].get() == genKzgCell(100)
+      updated.proofs[0].isSome()
+      updated.proofs[0].get() == genKzgProof(100)
+      updated.cells[2].isSome()
+      updated.cells[2].get() == genKzgCell(101)
+      updated.proofs[2].isSome()
+      updated.proofs[2].get() == genKzgProof(101)
+      updated.cells[1].isNone()
+      updated.cells[3].isNone()
 
   test "addCells accumulates across multiple sidecars":
     var quarantine = PartialColumnQuarantine.init()
@@ -593,7 +596,8 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
       numBlobs = 3
 
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
 
     # First sidecar: blob 0
     quarantine.addCells(root, colIdx,
@@ -607,10 +611,10 @@ suite "Partial Column Quarantine":
       not quarantine.hasCellReceived(root, colIdx, 1)
       quarantine.hasCellReceived(root, colIdx, 2)
 
-    let entry = quarantine.getEntry(root, colIdx).get()
+    let updated = quarantine.getEntry(root, colIdx).get()
     check:
-      entry.cells[0].get() == genKzgCell(10)
-      entry.cells[2].get() == genKzgCell(20)
+      updated.cells[0].get() == genKzgCell(10)
+      updated.cells[2].get() == genKzgCell(20)
 
   test "addCells on non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
@@ -624,7 +628,8 @@ suite "Partial Column Quarantine":
       root = genBlockRoot(1)
       colIdx = ColumnIndex(0)
 
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    check entry == quarantine.getEntry(root, colIdx).get()
 
     # First ingest: blob 1
     quarantine.addCells(root, colIdx,
@@ -642,8 +647,10 @@ suite "Partial Column Quarantine":
     var quarantine = PartialColumnQuarantine.init()
     let root = genBlockRoot(1)
 
-    discard quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs = 3)
-    discard quarantine.getOrCreateEntry(root, ColumnIndex(1), numBlobs = 3)
+    let entry0 = quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs = 3)
+    check entry0 == quarantine.getEntry(root, ColumnIndex(0)).get()
+    let entry1 = quarantine.getOrCreateEntry(root, ColumnIndex(1), numBlobs = 3)
+    check entry1 == quarantine.getEntry(root, ColumnIndex(1)).get()
 
     quarantine.addCells(root, ColumnIndex(0),
       genPartialDataColumnSidecar([0], startCellId = 10))
@@ -669,7 +676,8 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     # Create entry without header (headerValidated = false)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 2)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 2)
+    check entry.headerValidated == false
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0, 1], startCellId = 1))
 
@@ -684,7 +692,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = 3)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    check entry.headerValidated == true
     # Only add 2 of 3 cells
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0, 2], startCellId = 1))
@@ -701,7 +710,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = numBlobs)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0, 1, 2], startCellId = 1))
 
@@ -716,7 +726,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = 1)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 1)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 1)
+    check entry == quarantine.getEntry(root, colIdx).get()
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0], startCellId = 1))
 
@@ -732,7 +743,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = numBlobs)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
 
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0], startCellId = 1))
@@ -759,7 +771,8 @@ suite "Partial Column Quarantine":
       root = genBlockRoot(1)
       colIdx = ColumnIndex(0)
 
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 2)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 2)
+    check entry.headerValidated == false
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0, 1], startCellId = 1))
 
@@ -774,7 +787,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = 3)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    check entry.headerValidated == true
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0, 2], startCellId = 1))
 
@@ -807,7 +821,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = numBlobs)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0, 1, 2], startCellId = 50))
 
@@ -849,7 +864,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = numBlobs)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
 
     # Add cells one by one in non-sequential order
     quarantine.addCells(root, colIdx,
@@ -886,7 +902,8 @@ suite "Partial Column Quarantine":
                                           numCommitments = numBlobs)
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs)
+    check entry == quarantine.getEntry(root, colIdx).get()
 
     quarantine.markCellReceived(root, colIdx, 0, genKzgCell(0), genKzgProof(0))
     quarantine.markCellReceived(root, colIdx, 1, genKzgCell(1), genKzgProof(1))
@@ -913,7 +930,8 @@ suite "Partial Column Quarantine":
       header.kzg_commitments_inclusion_proof[i] = genBlockRoot(100 + int(i))
 
     quarantine.putPartialHeader(root, header)
-    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 1)
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 1)
+    check entry == quarantine.getEntry(root, colIdx).get()
     quarantine.addCells(root, colIdx,
       genPartialDataColumnSidecar([0], startCellId = 1))
 
@@ -937,8 +955,10 @@ suite "Partial Column Quarantine":
     quarantine.putPartialHeader(root, header)
 
     # Set up two columns
-    discard quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs)
-    discard quarantine.getOrCreateEntry(root, ColumnIndex(1), numBlobs)
+    let entry0 = quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs)
+    check entry0 == quarantine.getEntry(root, ColumnIndex(0)).get()
+    let entry1 = quarantine.getOrCreateEntry(root, ColumnIndex(1), numBlobs)
+    check entry1 == quarantine.getEntry(root, ColumnIndex(1)).get()
 
     # Complete column 0
     quarantine.addCells(root, ColumnIndex(0),

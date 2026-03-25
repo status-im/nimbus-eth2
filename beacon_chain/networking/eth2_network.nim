@@ -2627,23 +2627,23 @@ func addDualValidator*[MsgType1, MsgType2](
     var decompressed = snappy.decode(message.data, maxSize)
     let res = if decompressed.len > 0:
       block:
-        var result = ValidationResult.Reject
+        var v = ValidationResult.Reject
         # Try primary type first
         try:
           let decoded = SSZ.decode(decompressed, MsgType1)
-          result = primaryValidator(decoded, message.fromPeer)
+          v = primaryValidator(decoded, message.fromPeer)
         except SerializationError:
           # Try fallback type
           try:
             let decoded = SSZ.decode(decompressed, MsgType2)
-            result = fallbackValidator(decoded, message.fromPeer)
+            v = fallbackValidator(decoded, message.fromPeer)
           except SerializationError as e:
             inc nbc_gossip_failed_ssz
             debug "Error decoding gossip (dual)",
               topic, len = message.data.len,
               decompressed = decompressed.len, error = e.msg
-            result = ValidationResult.Reject
-        result
+            v = ValidationResult.Reject
+        v
     else:
       inc nbc_gossip_failed_snappy
       debug "Error decompressing gossip", topic, len = message.data.len
@@ -2903,15 +2903,6 @@ proc broadcastDataColumnSidecar*(
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, data_column)
-
-proc broadcastPartialDataColumnHeader*(
-    node: Eth2Node, subnet_id: uint64, p_data_column: fulu.PartialDataColumnHeader):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let
-    contextEpoch = p_data_column.signed_block_header.message.slot.epoch
-    topic = getDataColumnSidecarTopic(
-      node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, p_data_column)
 
 proc broadcastPartialDataColumnSidecar*(
     node: Eth2Node, subnet_id: uint64,

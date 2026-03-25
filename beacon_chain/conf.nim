@@ -232,9 +232,10 @@ type
       name: "light-supernode" .}: bool
 
     partialColumns* {.
+      hidden
       defaultValue: false,
       desc: "Backward compatible partial data column sidecar support",
-      name: "partial-columns" .}: bool
+      name: "debug-partial-columns" .}: bool
 
     debugEnableReconstruction* {.
       hidden
