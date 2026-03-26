@@ -859,10 +859,10 @@ func find_head(
   ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#modified-get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
-    wallTime: BeaconTime): FcResult[Eth2Digest] =
+    wallTime: BeaconTime): FcResult[ForkChoiceNode] =
   ? self.update_time(dag, wallTime)
 
   if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:

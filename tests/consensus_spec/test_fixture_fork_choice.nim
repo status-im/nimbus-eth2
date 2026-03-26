@@ -56,6 +56,7 @@ type
     opOnPhase0AttesterSlashing
     opOnElectraAttesterSlashing
     opInvalidateHash
+    opOnExecutionPayload
     opChecks
 
   BlobData = object
@@ -85,6 +86,8 @@ type
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
+    of opOnExecutionPayload:
+      executionPayload: ExecutionPayload
     of opChecks:
       checks: JsonNode
 
@@ -195,6 +198,12 @@ proc loadOps(
           invalidatedHash: Eth2Digest.fromHex(step["block_hash"].getStr()),
           latestValidHash: Eth2Digest.fromHex(
             step["payload_status"]["latest_valid_hash"].getStr()))
+    elif step.hasKey"execution_payload":
+      let filename = step["execution_payload"].getStr()
+      result.add Operation(kind: opOnExecutionPayload,
+        executionPayload: pareseTest(
+          path/filename & ".ssz_snappy", SSZ,
+          gloas.SignedExecutionPayloadEnvelope))
     elif step.hasKey"checks":
       result.add Operation(kind: opChecks,
         checks: step["checks"])
@@ -213,7 +222,7 @@ proc updateHead(
     updateFastConfirm = false) =
   var quarantine = Quarantine.init(dag.cfg)
   let
-    newHeadRoot = fkChoice[].get_head(dag, time).get()
+    newHeadRoot = fkChoice[].get_head(dag, time).get().root
     newHead = dag.getBlockRef(newHeadRoot).get()
   if updateFastConfirm:
     doAssert fkChoice[].will_select_head(dag, newHead, time).isOk
@@ -311,7 +320,7 @@ proc stepChecks(
       let slot = fkChoice.checkpoints.time.slotOrZero(dag.timeParams)
       doAssert slot == time.slotOrZero(dag.timeParams)
     elif check == "head":
-      let headRoot = fkChoice[].get_head(dag, time).get()
+      let headRoot = fkChoice[].get_head(dag, time).get().root
       let headRef = dag.getBlockRef(headRoot).get()
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())
@@ -350,6 +359,9 @@ proc stepChecks(
     elif check == "confirmed_root":
       doAssert fkChoice.backend.confirmed.root ==
         Eth2Digest.fromHex(val.getStr())
+    elif check == "head_payload_status":
+      let headNode = fkChoice[].get_head_node(dag, time).get()
+      doAssert headNode.payloadStatus == PayloadStatus(val.getInt())
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
@@ -426,6 +438,12 @@ proc doRunTest(
       doAssert indices.isOk == step.valid
     of opInvalidateHash:
       invalidatedHashes[step.invalidatedHash] = step.latestValidHash
+    of opOnExecutionPayload:
+      let status = stores.fkChoice[].on_execution_payload(
+        stores.dag,
+        step.executionPayload.message.beacon_block_root,
+        step.executionPayload.message.state_root)
+      doAssert status.isOk == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
@@ -473,9 +491,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
-      when const_preset == "minimal":
-        if path.contains("gloas"):
-          continue
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
         let basePath = testsPath/path/"pyspec_tests"
         if kind != pcDir:
