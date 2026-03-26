@@ -769,8 +769,9 @@ func is_head_weak(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost(
     self: var ForkChoice, dag: ChainDagRef): bool =
-  if self.checkpoints.proposer_boost_root.isZero:
-    return
+  let proposer_root = self.checkpoints.proposer_boost_root
+  if proposer_root.isZero:
+    return false
   
   let idx = self.backend.proto_array.indices.getOrDefault(proposer_root, -1)
   if idx < 0: return false
@@ -789,13 +790,13 @@ proc should_apply_proposer_boost(
     return true
 
   # Apply proposer boost if `parent`is not weak
-  if not is_head_weak(parent_node.bid.root, dag):
+  if not self.is_head_weak(parent_node.bid.root, dag):
     return true
 
   # If `parent` is weak and from the previous slot, apply
   # proposer boost if there are no early equivocations
   for root, child_idx in self.backend.proto_array.indices:
-    let chld = self.getPhysicalNode(child_idx)
+    let child = self.getPhysicalNode(child_idx)
     if child == nil: continue
     if child.bid.slot + 1 != slot: continue
     if child.bid.blck.proposer_index != parent_node.bid.blck.proposer_index:
