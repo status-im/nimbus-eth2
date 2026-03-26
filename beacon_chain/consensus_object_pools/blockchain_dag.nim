@@ -1304,9 +1304,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
           false
         elif i > 0:
           let child = headBlocks[i - 1]
-          discard dag.loadExecutionAndParentBlockHash(child)
-          discard dag.loadExecutionAndParentBlockHash(child.parent)
-          isParentBlockFull(child)
+          isParentBlockFull(dag, child)
         else:
           dag.db.containsExecutionPayloadEnvelope(blck.root())
 
@@ -2063,9 +2061,7 @@ proc updateState*(
         let child = dag.getBlockRef(ancestors[i - 1].root).valueOr:
           debug "Child block is missing from the chain"
           return false
-        discard dag.loadExecutionAndParentBlockHash(child)
-        discard dag.loadExecutionAndParentBlockHash(child.parent)
-        isParentBlockFull(child)
+        isParentBlockFull(dag, child)
       else:
         # No child for this block, but we need to check with the flags.
         skipLastEnvelope notin updateFlags

@@ -421,9 +421,13 @@ template validateBeaconBlockGloas(
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
   template isParentExecutionValid(parent: BlockRef): bool =
-    not isNil(parent) and
-      isParentBlockFull(signed_beacon_block, parent) and
-      dag.db.containsExecutionPayloadEnvelope(parent.root())
+    if dag.cfg.consensusForkAtEpoch(parent.slot().epoch()) >= ConsensusFork.Gloas:
+      isParentBlockFull(dag, signed_beacon_block, parent) and
+        dag.db.containsExecutionPayloadEnvelope(parent.root())
+    else:
+      let parentBlockHash = loadExecutionBlockHash(dag, parent).valueOr:
+        return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
+      bid.parent_block_hash == parentBlockHash
 
   let parent = dag.getBlockRef(bid.parent_block_root).valueOr:
     return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")

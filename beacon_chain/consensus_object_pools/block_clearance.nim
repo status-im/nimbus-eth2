@@ -292,7 +292,7 @@ proc addHeadBlockWithParent*(
     clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
     updateFlags =
       when typeof(signedBlock).kind >= ConsensusFork.Gloas:
-        if isParentBlockFull(signedBlock, parent):
+        if isParentBlockFull(dag, signedBlock, parent):
           dag.updateFlags
         else:
           dag.updateFlags + {skipLastEnvelope}
