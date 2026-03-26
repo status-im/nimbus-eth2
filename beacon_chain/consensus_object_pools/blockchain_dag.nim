@@ -1092,10 +1092,6 @@ func isParentBlockFull(blck: BlockRef): bool =
   ##
   ## It is more likely a port to the fork choice helper
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_parent_node_full
-  ##
-  ## It does not need DAG because it is only useful since Gloas and in Gloas,
-  ## blck should have the execution hashes all the time for updateState() and
-  ## other envelope checks to work properly.
 
   if blck.executionParentHash.isNone() or
       blck.parent.executionBlockHash.isNone() or
@@ -1104,7 +1100,7 @@ func isParentBlockFull(blck: BlockRef): bool =
   else:
     blck.executionParentHash.get() == blck.parent.executionBlockHash.get()
 
-func isParentBlockFull*(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
+func isParentBlockFull(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
   ## A helper to check the parent payload status of a not validated Gloas block
   ## when receiving block from gossip or api.
 
@@ -1115,6 +1111,15 @@ func isParentBlockFull*(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
     false
   else:
     bid.message.parent_block_hash == parent.executionBlockHash.get()
+
+proc isParentBlockFull*(dag: ChainDAGRef, blck: BlockRef): bool =
+  discard dag.loadExecutionAndParentBlockHash(blck)
+  discard dag.loadExecutionAndParentBlockHash(blck.parent)
+  isParentBlockFull(blck)
+
+proc isParentBlockFull*(dag: ChainDAGRef, blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
+  discard dag.loadExecutionAndParentBlockHash(parent)
+  isParentBlockFull(blck, parent)
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
