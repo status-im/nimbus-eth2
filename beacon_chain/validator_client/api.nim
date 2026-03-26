@@ -2254,7 +2254,7 @@ proc produceBlockV3*(
       RestPlainResponse,
       ProduceBlockResponseV3,
       UInt256,
-      vc.SlotDurationSoft,
+      vc.BlockProposalDurationSoft,
       vc.SlotDuration,
       ViableNodeStatus,
       {BeaconNodeRole.BlockProposalData},
