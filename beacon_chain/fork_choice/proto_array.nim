@@ -336,7 +336,8 @@ func onBlock*(
     parent: Eth2Digest,
     checkpoints: FinalityCheckpoints,
     unrealized = Opt.none(FinalityCheckpoints),
-    parent_payload_status = PAYLOAD_STATUS_PENDING): FcResult[void] =
+    parent_payload_status = PAYLOAD_STATUS_PENDING,
+    proposerIndex = 0'u64): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -366,7 +367,8 @@ func onBlock*(
     invalid: false,
     bestChild: Opt.none(int),
     bestDescendant: Opt.none(int),
-    parentPayloadStatus: parent_payload_status)
+    parentPayloadStatus: parent_payload_status,
+    proposerIndex: proposerIndex)
 
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
