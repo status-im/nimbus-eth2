@@ -172,6 +172,7 @@ type
     # Additional state tracking for Gloas
     execution_payload_states*: Table[Eth2Digest, Eth2Digest] # root -> state_root
     ptc_vote*: Table[Eth2Digest, PtcVotes]
+    ptc_data_availability_vote*: Table[Eth2Digest, PtcVotes]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]
