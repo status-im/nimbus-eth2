@@ -7,8 +7,9 @@
 
 {.push raises: [], gcsafe.}
 
-import std/tables
-import ../spec/[digest, forks]
+import
+  std/tables,
+  ../spec/[digest, forks]
 from std/sequtils import addUnique, keepItIf
 
 type
