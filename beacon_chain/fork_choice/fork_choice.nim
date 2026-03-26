@@ -539,7 +539,7 @@ template getPhysicalNode(
     addr self.backend.proto_array.nodes.buf[physicalIdx]
   else: nil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-get_node_children
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-get_node_children
 func get_node_children(
     self: var ForkChoice, node: ForkChoiceNode,
     dag: ChainDAGRef): seq[ForkChoiceNode] =
@@ -1116,7 +1116,25 @@ proc on_execution_payload*(
   self.backend.execution_payload_states[beacon_block_root] =
     execution_payload_state_root
   ok()
-  
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-notify_ptc_messages
+proc notify_ptc_messages*(
+    self: var ForkChoice, dag: ChainDAGRef, state: ForkyBeaconState
+    payload_attestations: openArray[PayloadAttestation]) =
+  ## Extracts a list of ``PayloadAttestationMessage`` from ``payload_attestations``
+  ## and updates the store with them. These Payload attestations are assumed
+  ## to be in the beacon block hence signature verification is not needed
+
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    if state.slot == 0:
+      return
+    for payload_attestation in payload_attestations:
+      let indexed_payload_attestation =
+        get_indexed_payload_attestation(state, payload_attestation)
+      for idx in indexed_payload_attestation.attesting_indices:
+        self.on_payload_attestation_message(
+          dag, state, idx, payload_attestation.data, is_from_block = true)
+
 # Sanity checks
 # ----------------------------------------------------------------------
 # Sanity checks on internal private procedures
