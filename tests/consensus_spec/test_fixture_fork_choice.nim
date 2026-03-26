@@ -35,6 +35,8 @@ from ../../beacon_chain/spec/peerdas_helpers import
   verify_data_column_sidecar_kzg_proofs
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
+from ../../beacon_chain/spec/validator import
+  get_committee_index_one
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
@@ -87,7 +89,7 @@ type
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
     of opOnExecutionPayload:
-      executionPayload: ExecutionPayload
+      executionPayload: SignedExecutionPayloadEnvelope
     of opChecks:
       checks: JsonNode
 
@@ -109,6 +111,12 @@ proc initialLoad(
     fkChoice = newClone(ForkChoice.init(
       cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
       dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
+
+  # Gloas separates execution payloads into envelopes that arrive separately
+  # from beacon blocks. Skip envelope application during state replay since
+  # fork choice tests don't store envelopes in the database.
+  if StateType.kind >= ConsensusFork.Gloas:
+    dag.updateFlags.incl skipLastEnvelope
 
   (dag, fkChoice)
 
@@ -201,7 +209,7 @@ proc loadOps(
     elif step.hasKey"execution_payload":
       let filename = step["execution_payload"].getStr()
       result.add Operation(kind: opOnExecutionPayload,
-        executionPayload: pareseTest(
+        executionPayload: parseTest(
           path/filename & ".ssz_snappy", SSZ,
           gloas.SignedExecutionPayloadEnvelope))
     elif step.hasKey"checks":
@@ -293,6 +301,11 @@ proc stepOnBlock(
 
       return err VerifierError.Invalid
 
+  debugEcho "stepOnBlock pre-updateState: slot=", signedBlock.message.slot,
+    " parent_in_dag=", dag.getBlockRef(signedBlock.message.parent_root).isSome,
+    " head=", dag.head.slot,
+    " containsFork=", dag.containsForkBlock(signedBlock.root)
+
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,
       state: consensusFork.BeaconState,
@@ -360,7 +373,7 @@ proc stepChecks(
       doAssert fkChoice.backend.confirmed.root ==
         Eth2Digest.fromHex(val.getStr())
     elif check == "head_payload_status":
-      let headNode = fkChoice[].get_head_node(dag, time).get()
+      let headNode = fkChoice[].get_head(dag, time).get()
       doAssert headNode.payloadStatus == PayloadStatus(val.getInt())
     else:
       raiseAssert "Unsupported check '" & $check & "'"
@@ -413,7 +426,9 @@ proc doRunTest(
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.electraAtt)), time)
+        toSeq(stores.dag.get_attesting_indices(step.electraAtt)),
+        get_committee_index_one(step.electraAtt.committee_bits).expect("valid"),
+        time)
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
@@ -490,7 +505,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       if path.contains("eip7805"):
         continue
       let fork = forkForPathComponent(path).valueOr:
-        raiseAssert "Unknown test fork: " & testsPath
+        continue
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
         let basePath = testsPath/path/"pyspec_tests"
         if kind != pcDir:

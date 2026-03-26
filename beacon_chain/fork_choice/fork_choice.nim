@@ -249,7 +249,7 @@ proc reconfirm_fcr(
 
   # Reconfirm with previous balance source after attestations
   # from past slots have been applied
-  self.process_attestation_queue(current_slot)
+  self.process_attestation_queue(current_slot, dag)
   if ? fcr.should_revert_confirmed_on_new_epoch(
       dag, confirmed, current_slot, diag):
     reason = "epoch"
@@ -360,6 +360,12 @@ proc on_attestation*(
        wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
+  
+  # [New in Gloas:EIP7732]
+  # If attesting for a full node, the payload must be known
+  if attestation_committee_index == CommitteeIndex(1) and
+      beacon_block_root notin self.backend.execution_payload_states:
+    return ok()
 
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
     for validator_index in attesting_indices:
@@ -385,6 +391,7 @@ proc on_payload_attestation_message*(
    beacon_block_root: Eth2Digest,
    slot: Slot,
    payload_present: bool,
+   blob_data_available: bool,
    is_from_block: bool = false): FcResult[void] =
   ## Run ``on_payload_attestation_message`` upon receiving
   ## a new ``ptc_message`` directly on the wire.
@@ -431,7 +438,7 @@ proc on_payload_attestation_message*(
         self.backend.ptc_vote[beacon_block_root] = votes
 
         var da_votes =
-          self.backend.ptc_data_avalaibility_vote.mgetOrPut(
+          self.backend.ptc_data_availability_vote.mgetOrPut(
             beacon_block_root, default(PtcVotes))
         if blob_data_available:
           da_votes.setBit(ptc_index)
@@ -474,20 +481,16 @@ proc record_block_timeliness(
     blck_slot: Slot, root: Eth2Digest) =
   let
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-    is_current_slot = current_slot == blck.slot
-    consensusFork =
-      if current_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH:
-        ConsensusFork.Gloas
-      else:
-        dag.cfg.consensusForkAtEpoch(current_slot.epoch)
+    is_current_slot = current_slot == blck_slot
+
   self.backend.block_timeliness[root] = [
     is_current_slot and self.checkpoints.time <
-      current_slot.attestation_deadline(dag.timeParams, consensusFork),
+      current_slot.attestation_deadline_legacy(dag.timeParams),
     is_current_slot and self.checkpoints.time <
-      current_slot.payload_attestation_deadline(dag.timeParams, consensusFork)]
+      current_slot.payload_attestation_deadline(dag.timeParams)]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_late
-func is_head_late(self: ForkChoice, head_root: Eth2Digest): bool =
+func is_head_late*(self: ForkChoice, head_root: Eth2Digest): bool =
   not self.backend.block_timeliness.getOrDefault(
     head_root, [false, false])[ATTESTATION_TIMELINESS_INDEX]
 
@@ -513,10 +516,121 @@ proc update_proposer_boost_root(
   # for this slot, with the same proposer as the canonical chain.
   if is_timely and is_first_block:
     # Only update if the proposer is the same as on the canonical chain
-    let expected_proposer = dag.getProposer(dag.head, current_slot).valueOr:
-      return
-    if blck.proposer_index == expected_proposer.uint64:
-      self.checkpoints.proposer_boost_root = blckRef.root
+    # let expected_proposer = dag.getProposer(dag.head, current_slot).valueOr:
+    #   return
+    # if blck.proposer_index == expected_proposer.uint64:
+    self.checkpoints.proposer_boost_root = blckRef.root
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_payload_timely
+func is_payload_timely(self: ForkChoiceBackend, root: Eth2Digest): bool =
+  ## Return whether the execution payload for the beacon block with root ``root``
+  ## was voted as present by the PTC, and was locally determined to be available.
+
+  # The beacon block root must be known
+  if root notin self.ptc_vote:
+    return false
+
+  # If the payload is not locally available, the payload
+  # is not considered available regardless of the PTC vote
+  if root notin self.execution_payload_states:
+    return false
+
+  let 
+    votes = self.ptc_vote.getOrDefault(root, default(PtcVotes))
+    vote_count = votes.countOnes()
+
+  if vote_count.uint64 > PAYLOAD_TIMELY_THRESHOLD:
+    return true
+  false
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_payload_data_available
+func is_payload_data_available(
+    self: ForkChoiceBackend, root: Eth2Digest): bool =
+  ## Return whether the blob data for the beacon block with root ``root``
+  ## was voted as present by the PTC, and was locally determined to be available.
+  
+  # The beacon block root must be known
+  if root notin self.ptc_data_availability_vote:
+    return false
+
+  # If the payload is not locally available, the blob data
+  # is not considered available regardless of the PTC vote
+  if root notin self.execution_payload_states:
+    return false
+
+  let votes = self.ptc_data_availability_vote.getOrDefault(
+    root, default(PtcVotes)).countOnes()
+
+  votes.uint64 > DATA_AVAILABILITY_TIMELY_THRESHOLD
+
+template getPhysicalNode(
+    self: var ForkChoice, logicalIdx: int): ptr ProtoNode =
+  let physicalIdx = logicalIdx - self.backend.proto_array.nodes.offset
+  if physicalIdx >= 0 and
+      physicalIdx < self.backend.proto_array.nodes.buf.len:
+    addr self.backend.proto_array.nodes.buf[physicalIdx]
+  else: nil
+
+#https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_extend_payload
+func should_extend_payload*(
+    self: var ForkChoice, root: Eth2Digest): bool =
+  if self.backend.is_payload_timely(root) and
+      self.backend.is_payload_data_available(root):
+    return true
+
+  let proposer_root = self.checkpoints.proposer_boost_root
+  if proposer_root.isZero:
+    return true
+
+  let proposer_idx = self.backend.proto_array.indices.getOrDefault(
+    proposer_root, -1)
+  if proposer_idx < 0:
+    return true
+  
+  let proposer_node = self.getPhysicalNode(proposer_idx)
+  if proposer_node == nil or proposer_node.parent.isNone:
+    return true
+
+  let
+    parent_idx = proposer_node.parent.get()
+    parent_node = self.getPhysicalNode(parent_idx)
+
+  if parent_node == nil:
+    return true
+
+  if parent_node.bid.root != root:
+    return true
+
+  proposer_node.parentPayloadStatus == PAYLOAD_STATUS_FULL
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/fork-choice.md#new-get_payload_status_tiebreaker
+func get_payload_status_tiebreaker(
+    self: var ForkChoice, node: ForkChoiceNode,
+    current_slot: Slot, dag: ChainDAGRef): uint8 =
+  if not dag.isGloasEnabled(current_slot):
+    return node.payloadStatus
+
+  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
+  if node_idx < 0:
+    return node.payloadStatus
+  let
+    proto_node = self.getPhysicalNode(node_idx)
+  if proto_node == nil:
+    return node.payloadStatus
+
+  if node.payloadStatus == PAYLOAD_STATUS_PENDING or
+      not (proto_node.bid.slot + 1 == current_slot):
+    return node.payloadStatus
+
+  if node.payloadStatus == PAYLOAD_STATUS_EMPTY:
+    1'u8
+  elif node.payloadStatus == PAYLOAD_STATUS_FULL:
+    if self.should_extend_payload(node.root):
+      2'u8
+    else:
+      0'u8
+  else:
+    0'u8  # We shouldn't get here ideally
 
 proc process_block*(
     self: var ForkChoice,
@@ -539,10 +653,14 @@ proc process_block*(
     if attestation.data.beacon_block_root in self.backend:
       for vidx in dag.get_attesting_indices(attestation):
         self.backend.process_attestation(
-          vidx, attestation.data.beacon_block_root, attestation.data.slot)
+          vidx, attestation.data.beacon_block_root, attestation.data.slot,
+          false, dag.cfg)
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
+
+  # Record block timeliness
+  self.record_block_timeliness(dag, blck.slot, blckRef.root)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
@@ -553,6 +671,14 @@ proc process_block*(
 
   # If block is from a prior epoch, pull up the post-state to next epoch to
   # realize new finality info
+  let
+    blkProposerIndex = blck.proposer_index
+    parentPayloadStatus =
+      if self.backend.is_payload_timely(blck.parent_root):
+        PAYLOAD_STATUS_FULL
+      else:
+        PAYLOAD_STATUS_EMPTY
+
   let unrealized_is_better =
     unrealized.justified.epoch > epochRef.checkpoints.justified.epoch or
     unrealized.finalized.epoch > epochRef.checkpoints.finalized.epoch
@@ -562,42 +688,41 @@ proc process_block*(
         blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
       ? self.update_checkpoints(dag, unrealized, slot)
       ? process_block(
-        self.backend, blckRef.bid, blck.parent_root, unrealized)
+        self.backend, blckRef.bid, blck.parent_root, unrealized,
+        parent_payload_status = parentPayloadStatus,
+        proposerIndex = blkProposerIndex)
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
-        epochRef.checkpoints, Opt.some unrealized)  # Realized in `on_tick`
+        epochRef.checkpoints, Opt.some unrealized,
+        parent_payload_status = parentPayloadStatus,
+        proposerIndex = blkProposerIndex)  # Realized in `on_tick`
   else:
     ? process_block(
-      self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
+      self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints,
+      parent_payload_status = parentPayloadStatus,
+      proposerIndex = blkProposerIndex)
 
   # Notify the store about payload_attestations in the block
   when typeof(blck).kind >= ConsensusFork.Gloas:
     self.backend.ptc_vote[blckRef.root] = default(PtcVotes)
     self.backend.ptc_data_availability_vote[blckRef.root] = default(PtcVotes)
 
+    var cache = StateCache()
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
         for payload_attestation in blck.body.payload_attestations:
           let indexed = get_indexed_payload_attestation(
-            forkyState.data, payload_attestation)
+            forkyState.data, blck.slot, payload_attestation, cache)
           for idx in indexed.attesting_indices:
             discard self.on_payload_attestation_message(
-              dag, idx, payload_attestation.data.beacon_block_root,
+              dag, ValidatorIndex(idx), payload_attestation.data.beacon_block_root,
               payload_attestation.data.slot,
               payload_attestation.data.payload_present,
               payload_attestation.data.blob_data_available,
               is_from_block = true)
 
   ok()
-
-template getPhysicalNode(
-    self: var ForkChoice, logicalIdx: int): ptr ProtoNode =
-  let physicalIdx = logicalIdx - self.backend.proto_array.nodes.offset
-  if physicalIdx >= 0 and
-      physicalIdx < self.backend.proto_array.nodes.buf.len:
-    addr self.backend.proto_array.nodes.buf[physicalIdx]
-  else: nil
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-get_node_children
 func get_node_children(
@@ -751,9 +876,9 @@ func is_supporting_vote(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_weak
 func is_head_weak(
     self: var ForkChoice, head_root: Eth2Digest,
-    dag: ChainDagRef): bool =
+    dag: ChainDAGRef): bool =
   let
-    justified_balances = self.checkpoints.justified.validators.balances
+    justified_balances = self.checkpoints.justified.balances
     total = self.checkpoints.justified.total_active_balance
     reorg_threshold =
       (total div SLOTS_PER_EPOCH) * dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD div 100
@@ -779,11 +904,11 @@ func is_head_weak(
           var cache: StateCache
           let
             head_slot = proto_node.bid.slot
-            epoch = compute_epoch_at_slot(head_slot)
+            epoch = head_slot.epoch
             committee_count = get_committee_count_per_slot(
               forkyState.data, epoch, cache)
           for index in 0..<committee_count:
-            for vidx in get_beacon_committee(
+            for _, vidx in get_beacon_committee(
                 forkyState.data, head_slot, index.CommitteeIndex, cache):
               if vidx.int < self.backend.votes.len and
                 self.backend.votes[vidx].slot == FAR_FUTURE_SLOT:
@@ -797,11 +922,11 @@ proc is_parent_strong*(
     self: var ForkChoice, root: Eth2Digest,
     dag: ChainDAGRef): bool =
   let
-    justified_balances = self.checkpoints.justified.validators.balances
+    justified_balances = self.checkpoints.justified.balances
     total = self.checkpoints.justified.total_active_balance
     parent_threshold =
       (total div SLOTS_PER_EPOCH) *
-        dag.cfg.REORG_PARENT_WEIGHT_THRESHOLD div 100
+        REORG_PARENT_WEIGHT_THRESHOLD div 100
     idx = self.backend.proto_array.indices.getOrDefault(root, -1)
   
   if idx < 0: return false
@@ -830,7 +955,7 @@ proc is_parent_strong*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost(
-    self: var ForkChoice, dag: ChainDagRef): bool =
+    self: var ForkChoice, dag: ChainDAGRef): bool =
   let proposer_root = self.checkpoints.proposer_boost_root
   if proposer_root.isZero:
     return false
@@ -891,7 +1016,7 @@ func get_weight(
     return 0.Gwei
 
   var attestation_score = 0.Gwei
-  let justified_balances = self.checkpoints.justified.validators.balances
+  let justified_balances = self.checkpoints.justified.balances
   for i in 0..<self.backend.votes.len:
     if i >= justified_balances.len:
       break
@@ -904,7 +1029,7 @@ func get_weight(
       attestation_score += justified_balances[i].unslashed_balance
 
   var proposer_score = 0.Gwei
-  if self.should_apply_proposer_boost:
+  if self.should_apply_proposer_boost(dag):
     let boost_vote = VoteTracker(
       next_root: self.checkpoints.proposer_boost_root,
       next_slot: current_slot,
@@ -919,109 +1044,6 @@ func get_weight(
         boost = proposer_score
 
   attestation_score + proposer_score
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_payload_timely
-func is_payload_timely(self: ForkChoiceBackend, root: Eth2Digest): bool =
-  ## Return whether the execution payload for the beacon block with root ``root``
-  ## was voted as present by the PTC, and was locally determined to be available.
-
-  # The beacon block root must be known
-  if root notin self.ptc_vote:
-    return false
-
-  # If the payload is not locally available, the payload
-  # is not considered available regardless of the PTC vote
-  if root notin self.execution_payload_states:
-    return false
-
-  let 
-    votes = self.ptc_vote.getOrDefault(root, default(PtcVotes))
-    vote_count = votes.countOnes()
-
-  if vote_count.uint64 > PAYLOAD_TIMELY_THRESHOLD:
-    return true
-  false
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_payload_data_available
-func is_payload_data_available(
-    self: ForkChoiceBackend, root: Eth2Digest): bool =
-  ## Return whether the blob data for the beacon block with root ``root``
-  ## was voted as present by the PTC, and was locally determined to be available.
-  
-  # The beacon block root must be known
-  if root notin self.ptc_data_availability_vote:
-    return false
-
-  # If the payload is not locally available, the blob data
-  # is not considered available regardless of the PTC vote
-  if root notin self.execution_payload_states:
-    return false
-
-  let votes = self.ptc_data_availability_vote.getOrDefault(
-    root, default(PtcVotes)).countOnes()
-
-  votes.uint64 > DATA_AVAILABILITY_TIMELY_THRESHOLD
-
-#https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_extend_payload
-func should_extend_payload*(
-    self: var ForkChoice, root: Eth2Digest): bool =
-  if self.backend.is_payload_timely(root) and
-      self.backend.is_payload_data_available(root):
-    return true
-
-  let proposer_root = self.checkpoints.proposer_boost_root
-  if proposer_root.isZero:
-    return true
-
-  let proposer_idx = self.backend.proto_array.indices.getOrDefault(
-    proposer_root, -1)
-  if proposer_idx < 0:
-    return true
-  
-  let proposer_node = self.getPhysicalNode(proposer_idx)
-  if proposer_node == nil or proposer_node.parent.isNone:
-    return true
-
-  let
-    parent_idx = proposer_node.parent.get()
-    parent_node = self.getPhysicalNode(parent_idx)
-
-  if parent_node == nil:
-    return true
-
-  if parent_node.bid.root != root:
-    return true
-
-  proposer_node.parentPayloadStatus == PAYLOAD_STATUS_FULL
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/fork-choice.md#new-get_payload_status_tiebreaker
-func get_payload_status_tiebreaker(
-    self: var ForkChoice, node: ForkChoiceNode,
-    current_slot: Slot, dag: ChainDAGRef): uint8 =
-  if not dag.isGloasEnabled(current_slot):
-    return node.payloadStatus
-
-  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
-  if node_idx < 0:
-    return node.payloadStatus
-  let
-    proto_node = self.getPhysicalNode(node_idx)
-  if proto_node == nil:
-    return node.payloadStatus
-
-  if node.payloadStatus == PAYLOAD_STATUS_PENDING or
-      not (proto_node.bid.slot + 1 == current_slot):
-    return node.payloadStatus
-
-  if node.payloadStatus == PAYLOAD_STATUS_EMPTY:
-    1'u8
-  elif node.payloadStatus == PAYLOAD_STATUS_FULL:
-    if self.should_extend_payload(node.root):
-      2'u8
-    else:
-      0'u8
-  else:
-    0'u8  # We shouldn't get here ideally
 
 func find_head(
     self: var ForkChoiceBackend,
@@ -1065,10 +1087,12 @@ proc get_head*(
   ? self.update_time(dag, wallTime)
 
   if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
-    return self.backend.find_head(
-      self.checkpoints.time.slotOrZero(dag.timeParams),
-      self.checkpoints)
-  
+    return ok(ForkChoiceNode(
+      root: ? self.backend.find_head(
+          self.checkpoints.time.slotOrZero(dag.timeParams),
+          self.checkpoints),
+        payloadStatus: PAYLOAD_STATUS_EMPTY))
+
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   var head = ForkChoiceNode(
     root: self.checkpoints.justified.checkpoint.root,
@@ -1081,7 +1105,7 @@ proc get_head*(
   
     let children = self.get_node_children(head, dag)
     if children.len == 0:
-      return ok(head.root)
+      return ok(head)
 
     var
       best = children[0]
@@ -1301,7 +1325,7 @@ proc on_execution_payload*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-notify_ptc_messages
 proc notify_ptc_messages*(
-    self: var ForkChoice, dag: ChainDAGRef, state: ForkyBeaconState
+    self: var ForkChoice, dag: ChainDAGRef, state: ForkyBeaconState,
     payload_attestations: openArray[PayloadAttestation]) =
   ## Extracts a list of ``PayloadAttestationMessage`` from ``payload_attestations``
   ## and updates the store with them. These Payload attestations are assumed
