@@ -463,15 +463,38 @@ func process_block*(
     parent_root: Eth2Digest,
     checkpoints: FinalityCheckpoints,
     unrealized = Opt.none(FinalityCheckpoints),
-    parent_payload_status = PAYLOAD_STATUS_PENDING): FcResult[void] =
+    parent_payload_status = PAYLOAD_STATUS_PENDING,
+    proposerIndex = 0'u64): FcResult[void] =
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-record_block_timeliness
+proc record_block_timeliness(
+    self: var ForkChoice, dag: ChainDAGRef,
+    blck_slot: Slot, root: Eth2Digest) =
+  let
+    current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+    is_current_slot = current_slot == blck.slot
+    consensusFork =
+      if current_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH:
+        ConsensusFork.Gloas
+      else:
+        dag.cfg.consensusForkAtEpoch(current_slot.epoch)
+  self.backend.block_timeliness[root] = [
+    is_current_slot and self.checkpoints.time <
+      current_slot.attestation_deadline(dag.timeParams, consensusFork),
+    is_current_slot and self.checkpoints.time <
+      current_slot.payload_attestation_deadline(dag.timeParams, consensusFork)]
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_late
+func is_head_late(self: ForkChoice, head_root: Eth2Digest): bool =
+  not self.backend.block_timeliness.getOrDefault(
+    head_root, [false, false])[ATTESTATION_TIMELINESS_INDEX]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
-  const consensusFork = typeof(blck).kind
 
   template is_first_block: bool =
     self.checkpoints.proposer_boost_root == ZERO_HASH
@@ -479,9 +502,12 @@ proc update_proposer_boost_root(
   template attestation_threshold: BeaconTime =
     current_slot.attestation_deadline(dag.timeParams, consensusFork)
 
-  template is_timely: bool =
-    current_slot == blck.slot and
-    self.checkpoints.time < attestation_threshold
+  # template is_timely: bool =
+  #   current_slot == blck.slot and
+  #   self.checkpoints.time < attestation_threshold
+
+  let is_timely = self.backend.block_timeliness.getOrDefault(
+    blckRef.root, [false, false])[ATTESTATION_TIMELINESS_INDEX]
 
   # Add proposer score boost if the block is the first timely block
   # for this slot, with the same proposer as the canonical chain.
@@ -766,6 +792,42 @@ func is_head_weak(
 
   head_weight < reorg_threshold
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_parent_strong
+proc is_parent_strong*(
+    self: var ForkChoice, root: Eth2Digest,
+    dag: ChainDAGRef): bool =
+  let
+    justified_balances = self.checkpoints.justified.validators.balances
+    total = self.checkpoints.justified.total_active_balance
+    parent_threshold =
+      (total div SLOTS_PER_EPOCH) *
+        dag.cfg.REORG_PARENT_WEIGHT_THRESHOLD div 100
+    idx = self.backend.proto_array.indices.getOrDefault(root, -1)
+  
+  if idx < 0: return false
+  let block_node = self.getPhysicalNode(idx)
+  if block_node == nil: return false
+
+  if block_node.parent.isNone: return false
+  let parent_node = self.getPhysicalNode(block_node.parent.get())
+  if parent_node == nil: return false
+
+  let node = ForkChoiceNode(
+    root: parent_node.bid.root,
+    payloadStatus: block_node.parentPayloadStatus)
+  
+  var parent_weight = 0.Gwei
+  for i in 0..<self.backend.votes.len:
+    if i >= justified_balances.len:
+      break
+    let vote = self.backend.votes[i]
+    if vote.next_root.isZero:
+      continue
+    if self.is_supporting_vote(node, vote, dag):
+      parent_weight += justified_balances[i].unslashed_balance
+  
+  parent_weight > parent_threshold
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost(
     self: var ForkChoice, dag: ChainDagRef): bool =
@@ -778,9 +840,8 @@ proc should_apply_proposer_boost(
   let block_node = self.getPhysicalNode(idx)
   if block_node == nil: return false
 
-  let parent_root = block_node.parent.get(-1)
-  if parent_root < 0: return true
-  let parent_node = self.getPhysicalNode(parent_root)
+  if block_node.parent.isNone: return true
+  let parent_node = self.getPhysicalNode(block_node.parent.get())
   if parent_node == nil: return true
 
   let slot = block_node.bid.slot
@@ -799,10 +860,12 @@ proc should_apply_proposer_boost(
     let child = self.getPhysicalNode(child_idx)
     if child == nil: continue
     if child.bid.slot + 1 != slot: continue
-    if child.bid.blck.proposer_index != parent_node.bid.blck.proposer_index:
+    if child.proposerIndex != parent_node.proposerIndex:
       continue
     if root == parent_node.bid.root: continue
-    # Found an equivocation
+    let timeliness = self.backend.block_timeliness.getOrDefault(
+      root, [false, false])
+    if not timeliness[PTC_TIMELINESS_INDEX]: continue
     return false
   
   true
