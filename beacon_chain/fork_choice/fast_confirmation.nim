@@ -122,7 +122,7 @@ proc do_update_shufflings(
 proc update_latest_shufflings(
     balance_source: var BalanceSource, dag: ChainDAGRef,
     blck: BlockRef, current_slot: Slot): FcResult[void] =
-  result = balance_source.do_update_shufflings(dag, dag.head, current_slot)
+  result = balance_source.do_update_shufflings(dag, blck, current_slot)
   if result.isErr:
     balance_source.shuffling_epochs = DefaultShufflingEpochs
 
