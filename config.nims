@@ -31,20 +31,16 @@ if defined(release) and not defined(disableLTO):
   # "-w" is not passed to the compiler during linking, so we need to disable
   # some warnings by hand.
   switch("passL", "-Wno-stringop-overflow -Wno-stringop-overread")
+  # TODO https://github.com/nim-lang/Nim/issues/25657 cannot use if defined..
+  put("gcc.options.always", get("gcc.options.always") & " -flto=auto -finline-limit=100000")
+  put("gcc.options.linker", get("gcc.options.linker") & " -flto=auto -finline-limit=100000")
 
-  if defined(macosx): # Clang
-    switch("passC", "-flto=thin")
-    switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
-  elif defined(linux):
-    switch("passC", "-flto=auto")
-    switch("passL", "-flto=auto")
-    switch("passC", "-finline-limit=100000")
-    switch("passL", "-finline-limit=100000")
-  else:
-    # On windows, LTO needs more love and attention so "gcc-ar" and "gcc-ranlib" are
-    # used for static libraries.
-    discard
+  put("clang.options.always", get("clang.options.always") & " -flto=thin")
+  put("clang.options.linker", get("clang.options.linker") & " -flto=thin")
 
+  if defined(macosx):
+    # https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-flto
+    put("clang.options.linker", get("clang.options.linker") & " -Wl,-object_path_lto," & nimCachePath & "/lto")
 # Hidden visibility allows for better position-independent codegen - it also
 # resolves a build issue in BLST where otherwise private symbols would require
 # an unsupported relocation on PIE-enabled distros such as ubuntu - BLST itself
@@ -132,7 +128,6 @@ switch("passL", "-fno-omit-frame-pointer")
 --define:nimTypeNames
 
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
-switch("define", "withoutPCRE")
 
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
