@@ -580,20 +580,16 @@ func get_node_children(
   else:
     for root, idx in self.backend.proto_array.indices:
       let child = self.getPhysicalNode(idx)
-      if child == nil:
-        continue
-      if child.parent.isNone:
+      if child == nil or child.parent.isNone:
         continue
 
       let
         parent_idx = child.parent.get()
         parent = self.getPhysicalNode(parent_idx)
-      if parent == nil:
-        continue
 
-      if parent.bid.root != node.root:
+      if parent == nil or parent.bid.root != node.root or
+          child.parentPayloadStatus != node.payloadStatus:
         continue
-      # TODO: Verify child's parent_payload_status matches node status
 
       children.add(ForkChoiceNode(
         root: root, payloadStatus: PAYLOAD_STATUS_PENDING))
