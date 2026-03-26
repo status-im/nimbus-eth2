@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import chronicles
 
@@ -42,9 +42,6 @@ type
 
 proc capellaMono*()  = notice "\n" & staticRead("capella" / "mono.txt")
 proc capellaBlink*() = notice "\n" & staticRead("capella" / "blink.ans")
-
-proc denebMono*()  = notice "\n" & staticRead("deneb" / "mono.txt")
-proc denebColor*() = notice "\n" & staticRead("deneb" / "color.ans")
 
 proc electraMono*()  = notice "\n" & staticRead("electra" / "mono.txt")
 proc electraColor*() = notice "\n" & staticRead("electra" / "color.ans")

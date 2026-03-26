@@ -231,6 +231,12 @@ type
       desc: "Subscribe to the first half of column subnets"
       name: "light-supernode" .}: bool
 
+    debugEnableReconstruction* {.
+      hidden
+      defaultValue: false,
+      desc: "Enables column reconstruction for the currently running beacon node"
+      name: "debug-enable-reconstruction" .}: bool
+
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
@@ -1273,9 +1279,6 @@ func parseCmdArg*(T: type ValidatorPubKey, input: string): T
   if res.isErr(): raise (ref ValueError)(msg: $res.error())
   res.get()
 
-func completeCmdArg*(T: type PubKey0x, input: string): seq[string] =
-  return @[]
-
 func parseCmdArg*(T: type Checkpoint, input: string): T
                  {.raises: [ValueError].} =
   let sepIdx = find(input, ':')
@@ -1526,9 +1529,3 @@ proc engineApiUrls*(config: auto): seq[EngineApiUrl] =
     config.elUrls
 
   (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecretOpt)
-
-proc formatIt*(v: Option[IpAddress]): string =
-  if v.isSome():
-    $v.get()
-  else:
-    "*"

@@ -34,7 +34,7 @@ jobs:
       - name: Build project
         id: make_dist
         run: |
-          make dist-amd64
+          make V=1 dist-amd64
           cd dist
           ARCHIVE=$(echo *.tar.gz)
           tar -xzf ${ARCHIVE}
@@ -93,7 +93,7 @@ jobs:
       - name: Build project
         id: make_dist
         run: |
-          make dist-arm64
+          make V=1 dist-arm64
           cd dist
           ARCHIVE=$(echo *.tar.gz)
           tar -xzf ${ARCHIVE}
@@ -152,7 +152,7 @@ jobs:
       - name: Build project
         id: make_dist
         run: |
-          make dist-arm
+          make V=1 dist-arm
           cd dist
           ARCHIVE=$(echo *.tar.gz)
           tar -xzf ${ARCHIVE}
@@ -203,7 +203,7 @@ jobs:
       - name: Build project
         id: make_dist
         run: |
-          make dist-win64
+          make V=1 dist-win64
           cd dist
           ARCHIVE=$(echo *.tar.gz)
           tar -xzf ${ARCHIVE}
@@ -254,7 +254,7 @@ jobs:
       - name: Build project
         id: make_dist
         run: |
-          make dist-macos-arm64
+          make V=1 dist-macos-arm64
           cd dist
           ARCHIVE=$(echo *.tar.gz)
           tar -xzf ${ARCHIVE}

@@ -65,7 +65,7 @@ suite "state diff tests" & preset():
         applyDiff(
           tmpStateApplyBase[],
           mapIt(
-            testStates[j][].validators.asSeq[
+            testStates[j][].validators[
               testStates[i][].validators.len ..
               testStates[j][].validators.len - 1],
             it.getImmutableValidatorData),

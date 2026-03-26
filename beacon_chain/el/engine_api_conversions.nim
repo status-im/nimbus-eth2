@@ -15,11 +15,6 @@ import
 
 from std/sequtils import mapIt
 
-type
-  BellatrixExecutionPayloadWithValue* = object
-    executionPayload*: ExecutionPayloadV1
-    blockValue*: UInt256
-
 func asEth2Digest*(x: Hash32|Bytes32): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
@@ -62,16 +57,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1):
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
-func asConsensusType*(payloadWithValue: BellatrixExecutionPayloadWithValue):
-    bellatrix.ExecutionPayloadForSigning =
-  bellatrix.ExecutionPayloadForSigning(
-    executionPayload: payloadWithValue.executionPayload.asConsensusType,
-    blockValue: payloadWithValue.blockValue)
-
-template maybeDeref*[T](o: Opt[T]): T = o.get
-template maybeDeref*[V](v: V): V = v
-
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPayloadV2):
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV2):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -93,13 +79,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(maybeDeref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
-
-func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2Response):
-    capella.ExecutionPayloadForSigning =
-  capella.ExecutionPayloadForSigning(
-    executionPayload: payloadWithValue.executionPayload.asConsensusType,
-    blockValue: payloadWithValue.blockValue)
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
 func asConsensusType*(
     rpcExecutionPayload: ExecutionPayloadV3 | ExecutionPayloadV4):
@@ -127,25 +107,6 @@ func asConsensusType*(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
-
-func asConsensusType*(payload: engine_api.GetPayloadV3Response):
-    deneb.ExecutionPayloadForSigning =
-  deneb.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asConsensusType,
-    blockValue: payload.blockValue,
-    # TODO
-    # The `mapIt` calls below are necessary only because we use different distinct
-    # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
-    # Both are defined as `array[N, byte]` under the hood.
-    blobsBundle: deneb.BlobsBundle(
-      commitments: KzgCommitments.init(
-        payload.blobsBundle.commitments.mapIt(
-          kzg_abi.KzgCommitment(bytes: it.data))),
-      proofs: deneb.KzgProofs.init(
-        payload.blobsBundle.proofs.mapIt(
-          kzg_abi.KzgProof(bytes: it.data))),
-      blobs: Blobs.init(
-        payload.blobsBundle.blobs.mapIt(it.data))))
 
 func asConsensusType*(
     payload: engine_api.GetPayloadV4Response):
@@ -283,6 +244,33 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+
+func asEngineExecutionPayloadV4*(executionPayload: deneb.ExecutionPayload):
+    ExecutionPayloadV4 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  engine_api.ExecutionPayloadV4(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: executionPayload.fee_recipient,
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.data.to(Bytes32),
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    blobGasUsed: Quantity(executionPayload.blob_gas_used),
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+    blockAccessList: @[],  # TODO: stub
+    slotNumber: Quantity(0)) # TODO: stub
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: KzgCommitments

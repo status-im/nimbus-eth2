@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm],
@@ -49,7 +49,7 @@ const
 static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Fulu, ConsensusFork.Gloas}
+  OptionalForks* = {ConsensusFork.Gloas}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
@@ -995,7 +995,7 @@ proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
-  let 
+  let
     currentEpoch = slot.epoch()
     consensusFork = vc.getConsensusFork(vc.forkAtEpoch(currentEpoch))
 

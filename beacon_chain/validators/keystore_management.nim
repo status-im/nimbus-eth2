@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[os, unicode, sequtils],
@@ -843,10 +843,6 @@ func configFilePath*(validatorsDir: string, kind: ConfigFileKind,
     validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
   of ConfigFileKind.GraffitiFile:
     validatorsDir.validatorKeystoreDir(pubkey) / GraffitiBytesFilename
-
-proc checkConfigFile*(validatorsDir: string, kind: ConfigFileKind,
-                      pubkey: ValidatorPubKey): bool =
-  fileExists(validatorsDir.configFilePath(kind, pubkey))
 
 proc getSuggestedFeeRecipient*(
     validatorsDir: string, pubkey: ValidatorPubKey,

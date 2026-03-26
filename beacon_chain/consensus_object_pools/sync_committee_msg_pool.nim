@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[algorithm, sequtils, sets, tables],
@@ -361,14 +361,3 @@ proc produceSyncAggregate*(
       raiseAssert "We have checked for the key upfront"
   else:
     SyncAggregate.init()
-
-proc isEpochLeadTime*(
-    pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/altair/validator.md#sync-committee-subnet-stability
-  # This ensures a uniform distribution without requiring additional state:
-  # (1/4)                         = 1/4, 4 slots out
-  # (3/4) * (1/3)                 = 1/4, 3 slots out
-  # (3/4) * (2/3) * (1/2)         = 1/4, 2 slots out
-  # (3/4) * (2/3) * (1/2) * (1/1) = 1/4, 1 slot out
-  doAssert epochsToSyncPeriod > 0
-  epochsToSyncPeriod == 1 or pool.rng[].rand(epochsToSyncPeriod - 1) == 0

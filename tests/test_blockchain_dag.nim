@@ -13,10 +13,13 @@ import
   taskpools,
   ../beacon_chain/el/merkle_minimal,
   ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
-  ../beacon_chain/[beacon_chain_db],
+  ../beacon_chain/spec/[
+    beaconstate, forks, helpers, signatures, state_transition],
+  ../beacon_chain/beacon_chain_db,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, block_clearance],
+    attestation_pool, blockchain_dag, block_quarantine, block_clearance,
+    spec_cache],
+  ../beacon_chain/fork_choice/fast_confirmation,
   ./[testblockutil, testdbutil, teststateutil, testutil]
 
 from std/random import rand, randomize, sample
@@ -24,8 +27,6 @@ from std/sequtils import mapIt, toSeq
 from ../beacon_chain/spec/datatypes/capella import
   SignedBLSToExecutionChangeList
 from ./testbcutil import addHeadBlock
-
-func `$`(x: BlockRef): string = shortLog(x)
 
 const
   nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
@@ -75,6 +76,71 @@ suite "Block pool processing" & preset():
       dag.getBlockRef(dag.finalizedHead.blck.root).get() ==
         dag.finalizedHead.blck
       dag.getBlockRef(dag.head.root).get() == dag.head
+
+  test "isAncestorOf":
+    var tmpState = newClone(dag.headState)
+    let
+      genesisBid = dag.head.bid
+      b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
+      b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
+      b1Fork = addTestBlock(tmpState[], cache).phase0Data
+      b1ForkAdd = dag.addHeadBlock(verifier, b1Fork, nilPhase0Callback)
+      unknown = BlockId(slot: 1.Slot, root: Eth2Digest.fromHex("0x01"))
+    template do_checks(didPruneFork: bool): untyped =
+      check:
+        # Same block
+        dag.isAncestorOf(genesisBid, genesisBid)
+        dag.isAncestorOf(b1Add[].bid, b1Add[].bid)
+        dag.isAncestorOf(b2Add[].bid, b2Add[].bid)
+
+        # Linear chain
+        dag.isAncestorOf(genesisBid, b1Add[].bid)
+        dag.isAncestorOf(genesisBid, b2Add[].bid)
+        dag.isAncestorOf(b1Add[].bid, b2Add[].bid)
+        not dag.isAncestorOf(b2Add[].bid, genesisBid)
+        not dag.isAncestorOf(b2Add[].bid, b1Add[].bid)
+        not dag.isAncestorOf(b1Add[].bid, genesisBid)
+
+        # Fork
+        dag.isAncestorOf(genesisBid, b1ForkAdd[].bid) == not didPruneFork
+        not dag.isAncestorOf(b1Add[].bid, b1ForkAdd[].bid)
+        not dag.isAncestorOf(b1ForkAdd[].bid, b1Add[].bid)
+        not dag.isAncestorOf(b1ForkAdd[].bid, b2Add[].bid)
+        not dag.isAncestorOf(b2Add[].bid, b1ForkAdd[].bid)
+
+        # Unknown root
+        not dag.isAncestorOf(unknown, b2Add[].bid)
+        not dag.isAncestorOf(b2Add[].bid, unknown)
+        dag.isAncestorOf(unknown, unknown)
+    do_checks(didPruneFork = false)
+
+    # Build enough blocks to finalize, then test with pruned blocks
+    let
+      b1Bid = b1Add[].bid
+      b1ForkBid = b1ForkAdd[].bid
+    dag.updateHead(b2Add[], quarantine, [])
+    tmpState = assignClone(dag.headState)
+    for i in 0 ..< (SLOTS_PER_EPOCH * 4):
+      let
+        blck = addTestBlock(
+          tmpState[], cache,
+          attestations = makeFullAttestations(
+            tmpState[], dag.head.root, tmpState[].slot, cache, {})).phase0Data
+        added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+    check:
+      dag.finalizedHead.slot > b1Bid.slot
+      dag.getBlockRef(b1Bid.root).isErr  # pruned
+
+      # Pruned canonical block is ancestor of head
+      dag.isAncestorOf(b1Bid, dag.head.bid)
+      not dag.isAncestorOf(dag.head.bid, b1Bid)
+
+      # Pruned orphaned fork is not ancestor of head
+      not dag.isAncestorOf(b1ForkBid, dag.head.bid)
+    do_checks(didPruneFork = true)
 
   test "Simple block add&get" & preset():
     let
@@ -241,7 +307,7 @@ suite "Block pool processing" & preset():
 
     # Skip slots
     check:
-      dag.updateState(tmpState[], bs1_3, false, cache, dag.updateFlags) # skip slots
+      dag.updateState(tmpState[], bs1_3, false, cache, dag.updateFlags)
       tmpState[].latest_block_root == b1Add[].root
       tmpState[].slot == bs1_3.slot
 
@@ -418,7 +484,8 @@ suite "chain DAG finalization tests" & preset():
       not dag.containsForkBlock(dag.getBlockIdAtSlot(5.Slot).get().bid.root)
       dag.containsForkBlock(dag.finalizedHead.blck.root)
 
-      dag.getBlockRef(dag.getBlockIdAtSlot(0.Slot).get().bid.root).isNone() # Finalized - no BlockRef
+      # Finalized - no BlockRef
+      dag.getBlockRef(dag.getBlockIdAtSlot(0.Slot).get().bid.root).isNone()
 
       dag.getBlockRef(dag.finalizedHead.blck.root).isSome()
 
@@ -1861,8 +1928,8 @@ template runShufflingTests(cfg: RuntimeConfig, numRandomTests: int) =
 
     # The epoch for the first block can range from at least 4 to 10
     for (blockIdx, epoch) in [
-        (findKeyedBlck(64.Slot), 10.Epoch),
-        (findKeyedBlck(255.Slot), 8.Epoch)]:
+        (findKeyedBlck(2.Epoch.start_slot), 10.Epoch),
+        (findKeyedBlck(8.Epoch.start_slot - 1), 8.Epoch)]:
       let
         blck = forkBlocks[blockIdx].data
         epochRef = dag.getEpochRef(blck, epoch, true)
@@ -1882,3 +1949,196 @@ suite "Shufflings (merged)":
     cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     cfg
   runShufflingTests(cfg, numRandomTests = 50)
+
+suite "Fast confirmation" & preset():
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      cfg = defaultRuntimeConfig
+    var
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
+      quarantine = Quarantine.init(dag.cfg)
+      tmpState = newClone(dag.headState)
+      cache = StateCache()
+
+    for i in 0 ..< (SLOTS_PER_EPOCH * 4):
+      let
+        blck = addTestBlock(tmpState[], cache).phase0Data
+        added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check added.isOk()
+      dag.updateHead(added[], quarantine, [])
+      dag.pruneAtFinalization()
+
+  test "Update shufflings for current and previous epoch" & preset():
+    let
+      epoch = dag.head.slot.epoch
+      epochRef = dag.getEpochRef(dag.head, epoch, false).get
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    check:
+      balance_source.update_latest_shufflings(dag, dag.head.slot).isOk
+      balance_source.shuffling_epochs[(epoch - 0).shuffling_index] == epoch - 0
+      balance_source.shuffling_epochs[(epoch - 1).shuffling_index] == epoch - 1
+      balance_source.shuffling_epochs[(epoch - 2).shuffling_index] == epoch - 2
+
+  test "Shuffling dependent roots" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    check balance_source.update_latest_shufflings(dag, dag.head.slot).isOk
+    for i in 0 ..< NumAttesterDuties:
+      let shufflingRef = dag.getShufflingRef(
+        dag.head, balance_source.shuffling_epochs[i], false).get
+      check balance_source.shuffling_roots[i] ==
+        shufflingRef.attester_dependent_root
+
+  test "Assigned slots cross-check" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    check balance_source.update_latest_shufflings(dag, dag.head.slot).isOk
+
+    let
+      epoch = dag.head.slot.epoch
+      prevPrevShuffling = dag.getShufflingRef(dag.head, epoch - 2, false).get
+      prevShuffling = dag.getShufflingRef(dag.head, epoch - 1, false).get
+      curShuffling = dag.getShufflingRef(dag.head, epoch, false).get
+
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
+      check:
+        slots.len == 3
+        slots[0].epoch != slots[1].epoch
+        slots[0].epoch != slots[2].epoch
+        slots[1].epoch != slots[2].epoch
+      for slot in slots:
+        let shuffling =
+          if slot.epoch == prevPrevShuffling.epoch:
+            prevPrevShuffling
+          elif slot.epoch == prevShuffling.epoch:
+            prevShuffling
+          else:
+            curShuffling
+        var found = false
+        for committee_index in get_committee_indices(shuffling):
+          for _, val in shuffling.get_beacon_committee(slot, committee_index):
+            if val == valIdx.ValidatorIndex:
+              found = true
+        check found
+
+  test "Shuffling update idempotency" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var
+      balance_source1 = epochRef.to_balance_checkpoint(dag.head).balance_source
+      balance_source2 = epochRef.to_balance_checkpoint(dag.head).balance_source
+    check:
+      balance_source1.update_latest_shufflings(dag, dag.head.slot).isOk
+      balance_source2.update_latest_shufflings(dag, dag.head.slot).isOk
+      balance_source1.update_latest_shufflings(dag, dag.head.slot).isOk
+    let num_validators = balance_source1.balances.len
+    check num_validators == balance_source2.balances.len
+    for valIdx in 0 ..< num_validators:
+      check:
+        toSeq(balance_source1.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(balance_source2.assigned_slots(valIdx.ValidatorIndex))
+
+  test "Shuffling epoch transition" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+
+    # First update to epoch 3 (populates epochs 1, 2 and 3)
+    let epoch3Slot = (SLOTS_PER_EPOCH * 3).Slot
+    check:
+      balance_source.update_latest_shufflings(dag, epoch3Slot).isOk
+      balance_source.shuffling_epochs[Epoch(1).shuffling_index] == Epoch(1)
+      balance_source.shuffling_epochs[Epoch(2).shuffling_index] == Epoch(2)
+      balance_source.shuffling_epochs[Epoch(3).shuffling_index] == Epoch(3)
+
+    # Now update to latest (epoch 4), populates epochs 2, 3 and 4
+    check:
+      balance_source.update_latest_shufflings(dag, dag.head.slot).isOk
+      balance_source.shuffling_epochs[Epoch(2).shuffling_index] == Epoch(2)
+      balance_source.shuffling_epochs[Epoch(3).shuffling_index] == Epoch(3)
+      balance_source.shuffling_epochs[Epoch(4).shuffling_index] == Epoch(4)
+
+    # Verify assigned_slots yields slots for epochs 2, 3 and 4
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
+      check slots.len == 3
+      for slot in slots:
+        check slot.epoch in [Epoch(2), Epoch(3), Epoch(4)]
+
+  test "Assign shufflings" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var
+      src = epochRef.to_balance_checkpoint(dag.head).balance_source
+      dst: BalanceSource
+    check src.update_latest_shufflings(dag, dag.head.slot).isOk
+    dst.assign_shufflings(src)
+    for valIdx in 0 ..< src.balances.len:
+      check:
+        toSeq(src.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(dst.assigned_slots(valIdx.ValidatorIndex))
+
+  test "Shuffling preserves effective balance" & preset():
+    let epochRef = dag.getEpochRef(dag.head, dag.head.slot.epoch, false).get
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    let knownBalance = balance_source.balances[0].effective_balance
+    check:
+      balance_source.update_latest_shufflings(dag, dag.head.slot).isOk
+      balance_source.balances[0].effective_balance == knownBalance
+
+  test "Older epochRef with current shufflings" & preset():
+    let
+      epoch = dag.head.slot.epoch
+      epochRef = dag.getEpochRef(dag.head, epoch, false).get
+      oldEpochRef = dag.getEpochRef(
+        dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).get
+    var
+      balance_source =
+        epochRef.to_balance_checkpoint(dag.head).balance_source
+      old_balance_source =
+        oldEpochRef.to_balance_checkpoint(dag.finalizedHead.blck).balance_source
+    check:
+      balance_source.update_latest_shufflings(dag, dag.head.slot).isOk
+      old_balance_source.update_latest_shufflings(dag, dag.head.slot).isOk
+      balance_source.shuffling_epochs[(epoch - 0).shuffling_index] == epoch - 0
+      balance_source.shuffling_epochs[(epoch - 1).shuffling_index] == epoch - 1
+      balance_source.shuffling_epochs[(epoch - 2).shuffling_index] == epoch - 2
+      balance_source.shuffling_epochs == old_balance_source.shuffling_epochs
+      balance_source.shuffling_roots == old_balance_source.shuffling_roots
+
+    let num_validators = min(
+      balance_source.balances.len, old_balance_source.balances.len)
+    for valIdx in 0 ..< num_validators:
+      check:
+        toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex)) ==
+        toSeq(old_balance_source.assigned_slots(valIdx.ValidatorIndex))
+
+  test "Genesis epoch" & preset():
+    let epochRef = dag.getEpochRef(dag.head, GENESIS_EPOCH, false).get
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    check:
+      balance_source.update_latest_shufflings(dag, GENESIS_SLOT).isOk
+      balance_source.shuffling_epochs[0] == GENESIS_EPOCH
+      balance_source.shuffling_epochs[1] == FAR_FUTURE_EPOCH
+      balance_source.shuffling_epochs[2] == FAR_FUTURE_EPOCH
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
+      check:
+        slots.len == 1
+        slots[0].epoch == GENESIS_EPOCH
+
+  test "Epoch 1 shares dependent root for both epochs" & preset():
+    let epochRef = dag.getEpochRef(dag.head, Epoch(1), false).get
+    var balance_source = epochRef.to_balance_checkpoint(dag.head).balance_source
+    check:
+      balance_source.update_latest_shufflings(dag, SLOTS_PER_EPOCH.Slot).isOk
+      balance_source.shuffling_epochs[0] == GENESIS_EPOCH
+      balance_source.shuffling_epochs[1] == Epoch(1)
+      balance_source.shuffling_epochs[2] == FAR_FUTURE_EPOCH
+      balance_source.shuffling_roots[0] == balance_source.shuffling_roots[1]
+    for valIdx in 0 ..< balance_source.balances.len:
+      let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
+      check slots.len == 2

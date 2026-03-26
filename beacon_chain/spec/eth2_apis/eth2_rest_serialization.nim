@@ -591,46 +591,6 @@ proc parseRoot(value: string): Result[Eth2Digest, cstring] =
     err("Unable to decode root value")
 
 proc decodeBody*(
-       _: typedesc[RestPublishedSignedBeaconBlock],
-       body: ContentBody,
-       version: string
-     ): Result[RestPublishedSignedBeaconBlock, RestErrorMessage] =
-  if body.contentType == ApplicationJsonMediaType:
-    let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
-
-    try:
-      var res = ForkedSignedBeaconBlock(kind: consensusFork)
-      withBlck(res):
-        forkyBlck = RestJson.decode(body.data, typeof(forkyBlck))
-
-      ok RestPublishedSignedBeaconBlock(res)
-    except SerializationError as exc:
-      debug "Failed to decode JSON data",
-        err = exc.formatMsg("<data>"), data = string.fromBytes(body.data)
-      err RestErrorMessage.init(
-        Http400, UnableDecodeError, [version, exc.formatMsg("<data>")]
-      )
-  elif body.contentType == OctetStreamMediaType:
-    let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
-    try:
-      var res = ForkedSignedBeaconBlock(kind: consensusFork)
-      withBlck(res):
-        forkyBlck = SSZ.decode(body.data, typeof(forkyBlck))
-
-      ok RestPublishedSignedBeaconBlock(res)
-    except SerializationError as exc:
-      err RestErrorMessage.init(
-        Http400, UnableDecodeError, [version, exc.formatMsg("<data>")]
-      )
-  else:
-    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
-                              [version, $body.contentType]))
-
-proc decodeBody*(
        _: typedesc[RestPublishedSignedBlockContents],
        body: ContentBody,
        version: string
@@ -1085,8 +1045,6 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.Block)
   of "block_gossip":
     ok(EventTopic.BlockGossip)
-  of "attestation":
-    ok(EventTopic.Attestation)
   of "single_attestation":
     ok(EventTopic.SingleAttestation)
   of "voluntary_exit":
@@ -1111,6 +1069,12 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.LightClientFinalityUpdate)
   of "light_client_optimistic_update":
     ok(EventTopic.LightClientOptimisticUpdate)
+  of "execution_payload_available":
+    ok(EventTopic.ExecutionPayloadAvailable)
+  of "execution_payload_bid":
+    ok(EventTopic.ExecutionPayloadBid)
+  of "payload_attestation_message":
+    ok(EventTopic.PayloadAttestationMessage)
   else:
     err("Incorrect event's topic value")
 
@@ -1122,8 +1086,6 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("block,")
   if EventTopic.BlockGossip in value:
     res.add("block_gossip,")
-  if EventTopic.Attestation in value:
-    res.add("attestation,")
   if EventTopic.SingleAttestation in value:
     res.add("single_attestation,")
   if EventTopic.VoluntaryExit in value:
@@ -1148,6 +1110,12 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("light_client_finality_update,")
   if EventTopic.LightClientOptimisticUpdate in value:
     res.add("light_client_optimistic_update,")
+  if EventTopic.ExecutionPayloadAvailable in value:
+    res.add("execution_payload_available,")
+  if EventTopic.ExecutionPayloadBid in value:
+    res.add("execution_payload_bid,")
+  if EventTopic.PayloadAttestationMessage in value:
+    res.add("payload_attestation_message,")
   if len(res) == 0:
     return err("Topics set must not be empty")
   res.setLen(len(res) - 1)

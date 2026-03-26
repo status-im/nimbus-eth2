@@ -130,7 +130,7 @@ func get_shuffled_active_validator_indices*(
   # Non-spec function, to cache a data structure from which one can cheaply
   # compute both get_active_validator_indexes() and get_beacon_committee().
   var active_validator_indices = get_active_validator_indices(state, epoch)
-  let seed = get_seed(state, epoch, DOMAIN_BEACON_ATTESTER, mix)
+  let seed = get_seed(epoch, DOMAIN_BEACON_ATTESTER, mix)
   shuffle_list(active_validator_indices, seed)
   active_validator_indices
 

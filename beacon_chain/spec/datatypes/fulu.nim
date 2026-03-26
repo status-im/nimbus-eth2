@@ -17,7 +17,7 @@
 
 import
   std/typetraits,
-  "."/[phase0, base, bellatrix, electra],
+  ./[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs, bitseqs],
@@ -115,6 +115,18 @@ type
     cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     kzg_proofs*: deneb.KzgProofs
+
+  # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
+  PartialDataColumnPartsMetadat* = object
+    available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+
+  # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnheader
+  PartialDataColumnHeader* = object
+    kzg_commitments*: KzgCommitments
+    signed_block_header*: SignedBeaconBlockHeader
+    kzg_commitments_inclusion_proof*:
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
@@ -574,10 +586,6 @@ func shortLog*(xs: seq[DataColumnsByRootIdentifier]): string =
 
 func shortLog*(x: seq[ColumnIndex]): string =
   "<" & x.mapIt($it).join(", ") & ">"
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

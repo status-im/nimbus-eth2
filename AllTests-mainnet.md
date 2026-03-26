@@ -14,11 +14,14 @@ AllTests-mainnet
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
 + Attestations should be combined [Preset: mainnet]                                          OK
 + Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Attester slashing marks validator as equivocating                                          OK
++ Attester slashing retains unrealized checkpoints                                           OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
 + Can add and retrieve simple electra attestations [Preset: mainnet]                         OK
 + Everyone voting for something different [Preset: mainnet]                                  OK
 + Fork choice returns block with attestation                                                 OK
 + Fork choice returns latest block with no attestations                                      OK
++ Invalid block weight does not propagate to ancestors                                       OK
 + Simple add and get with electra nonzero committee [Preset: mainnet]                        OK
 + Trying to add a block twice tags the second as an error                                    OK
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
@@ -137,11 +140,17 @@ AllTests-mainnet
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + basic ops                                                                                  OK
++ isAncestorOf                                                                               OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```
 ## Block processor [Preset: mainnet]
 ```diff
++ Gloas block pops pre-arrived envelope from quarantine [Preset: mainnet]                    OK
++ Gloas block without envelope marks missing [Preset: mainnet]                               OK
++ Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
++ Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
++ Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
 + Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
@@ -248,8 +257,12 @@ AllTests-mainnet
 + Different fork versions                                                                    OK
 + Different genesis validators roots                                                         OK
 + Different lengths and blob limits                                                          OK
++ ENR fork ID transitions from Fulu to Gloas                                                 OK
++ Fulu fork digest resolved via bpos list                                                    OK
 + Fusaka devnet-2                                                                            OK
 + Glamsterdam bal-devnet-2                                                                   OK
++ nextForkEpochAtEpoch includes Gloas from Fulu                                              OK
++ nextForkEpochAtEpoch with BPO before Gloas                                                 OK
 ```
 ## EF - KZG
 ```diff
@@ -616,12 +629,52 @@ AllTests-mainnet
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
 ```
+## EL Manager - Async Operations
+```diff
++ ELManager can be started and stopped safely                                                OK
++ ELManager with custom chain network                                                        OK
+```
+## EL Manager - Helpers
+```diff
++ Rewrite URLs                                                                               OK
+```
+## EL Manager - Multiple Engines
+```diff
++ forkchoiceUpdated with multiple engines                                                    OK
++ getPayload with multiple engines                                                           OK
++ newPayload with multiple engines                                                           OK
++ two engines, one broken, retry                                                             OK
+```
+## EL Manager - Payload Request Caching
+```diff
++ concurrent forkchoiceUpdated calls                                                         OK
++ forkchoiceUpdated without payload attributes doesn't cache                                 OK
++ getPayload makes new forkchoiceUpdated when parameters change                              OK
++ getPayload reuses cached forkchoiceUpdated when parameters match                           OK
++ getPayload with different forkchoiceUpdated attributes                                     OK
++ multiple sequential forkchoiceUpdated calls with payload attributes                        OK
+```
+## EL Manager - forkchoiceUpdated
+```diff
++ forkchoiceUpdated basic call                                                               OK
++ forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated with payload attributes                                                  OK
++ forkchoiceUpdated with response delay                                                      OK
+```
+## EL Manager - getPayload
+```diff
++ success without retry                                                                      OK
+```
+## EL Manager - newPayload
+```diff
++ success without retry                                                                      OK
+```
 ## Engine API conversions
 ```diff
-+ ExecutionPayloadV4 to deneb.ExecutionPayload conversion                                    OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
++ Roundtrip engine RPC V4 and deneb ExecutionPayload representations                         OK
 ```
 ## Envelope Quarantine
 ```diff
@@ -629,10 +682,6 @@ AllTests-mainnet
 + Add orphan                                                                                 OK
 + Clean up orphans                                                                           OK
 + Pop orphan                                                                                 OK
-```
-## Eth1 monitor
-```diff
-+ Rewrite URLs                                                                               OK
 ```
 ## Eth2 specific discovery tests
 ```diff
@@ -649,6 +698,19 @@ AllTests-mainnet
 + Multiple bids for different parents same slot                                              OK
 + Pruning removes old bids                                                                   OK
 + Track seen bids                                                                            OK
+```
+## Fast confirmation [Preset: mainnet]
+```diff
++ Assign shufflings [Preset: mainnet]                                                        OK
++ Assigned slots cross-check [Preset: mainnet]                                               OK
++ Epoch 1 shares dependent root for both epochs [Preset: mainnet]                            OK
++ Genesis epoch [Preset: mainnet]                                                            OK
++ Older epochRef with current shufflings [Preset: mainnet]                                   OK
++ Shuffling dependent roots [Preset: mainnet]                                                OK
++ Shuffling epoch transition [Preset: mainnet]                                               OK
++ Shuffling preserves effective balance [Preset: mainnet]                                    OK
++ Shuffling update idempotency [Preset: mainnet]                                             OK
++ Update shufflings for current and previous epoch [Preset: mainnet]                         OK
 ```
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
@@ -887,7 +949,6 @@ AllTests-mainnet
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
-+ Signing aggregate and proof (getAggregateAndProofSignature(phase0))                        OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK
@@ -904,7 +965,7 @@ AllTests-mainnet
 ```diff
 + Can add and retrieve payload attestations [Preset: mainnet]                                OK
 + Can get payload attestations for block production [Preset: mainnet]                        OK
-+ Different payload presence values [Preset: mainnet]                                        OK
++ Different 'blob data available' and 'payload presence' values [Preset: mainnet]            OK
 + Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
@@ -1134,9 +1195,7 @@ AllTests-mainnet
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage (Electra)                             OK
-+ addValidatorChangeMessage/getAttesterSlashingMessage (Phase 0)                             OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (post-capella)                           OK
-+ addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)                            OK
++ addValidatorChangeMessage/getBlsToExecutionChange                                          OK
 + addValidatorChangeMessage/getProposerSlashingMessage                                       OK
 + addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
 + pre-pre-fork voluntary exit                                                                OK
@@ -1187,6 +1246,74 @@ AllTests-mainnet
 ```diff
 + restoring mnemonic with password                                                           OK
 + restoring mnemonic without password                                                        OK
+```
+## get_ancestor_info
+```diff
++ All slots filled - end of epoch                                                            OK
++ All slots filled - mid epoch                                                               OK
++ All slots filled - start of epoch                                                          OK
++ Current_slot = 0                                                                           OK
++ Current_slot = 1                                                                           OK
++ Entire prev epoch empty                                                                    OK
++ Gap crossing epoch boundary                                                                OK
++ Gap in current epoch                                                                       OK
++ Mid epoch 0                                                                                OK
++ Only genesis                                                                               OK
++ Only one block after genesis                                                               OK
++ Sparse chain with terminal mid-gap                                                         OK
++ Start of epoch 1                                                                           OK
++ Start of epoch 2                                                                           OK
++ Terminal in current epoch                                                                  OK
++ Terminal in prev epoch                                                                     OK
++ Terminal not an ancestor                                                                   OK
+```
+## get_ancestor_support_by_slot
+```diff
++ Balance source, all validator states                                                       OK
++ Basic support                                                                              OK
++ Early epochs                                                                               OK
++ Early epochs with 3 shufflings                                                             OK
++ Empty result                                                                               OK
++ Equivocating, assigned slot at current_slot                                                OK
++ Equivocating, cross-epoch, different blocks                                                OK
++ Equivocating, cross-epoch, same block                                                      OK
++ Equivocating, duties on different blocks                                                   OK
++ Equivocating, last block before previous epoch                                             OK
++ Equivocating, single slot in range                                                         OK
++ Gap in chain                                                                               OK
++ Gap in chain, vote from earlier epoch                                                      OK
++ Gap in chain, vote from later epoch                                                        OK
++ Gap in chain, vote in both epochs                                                          OK
++ Mixed validators                                                                           OK
++ No match                                                                                   OK
++ Non-canonical, deep fork                                                                   OK
++ Non-canonical, fork before range                                                           OK
++ Non-canonical, mixed with canonical                                                        OK
++ Non-canonical, single vote                                                                 OK
++ Non-canonical, three forks                                                                 OK
++ Running totals verification                                                                OK
++ Slashed validator                                                                          OK
++ Stale view, no assigned slot at stale block                                                OK
++ Stale view, vote from later epoch                                                          OK
++ Vote at terminal slot, duty in gap                                                         OK
++ Votes outside range                                                                        OK
++ assign_shufflings dst longer than src                                                      OK
++ assign_shufflings replaces duties                                                          OK
+```
+## get_current_target_info
+```diff
++ Basic support                                                                              OK
++ Empty votes                                                                                OK
++ Equivocating excluded                                                                      OK
++ Gap at epoch start                                                                         OK
++ Inactive excluded                                                                          OK
++ Mixed                                                                                      OK
++ Multiple heads                                                                             OK
++ Multiple voters                                                                            OK
++ Slashed excluded                                                                           OK
++ Vote for target at epoch start                                                             OK
++ Vote for unknown block                                                                     OK
++ Vote in previous epoch                                                                     OK
 ```
 ## removeValidatorFiles()
 ```diff

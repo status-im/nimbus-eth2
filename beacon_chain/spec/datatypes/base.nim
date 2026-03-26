@@ -141,6 +141,7 @@ template ethAmountUnit*(typ: type) {.dirty.} =
   func `mod`*(x, y: typ): typ {.borrow.}
 
   func `+=`*(x: var typ, y: typ) {.borrow.}
+  func `-=`*(x: var typ, y: typ) {.borrow.}
 
   func `<`*(x, y: typ): bool {.borrow.}
   func `<=`*(x, y: typ): bool {.borrow.}
@@ -979,7 +980,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
-func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
+func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:
     distinctBase(result).setLen(n)
   else:

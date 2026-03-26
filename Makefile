@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2025 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2026 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -153,8 +153,6 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-DEPOSITS_DELAY := 0
-
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
 #- https://github.com/status-im/nim-libp2p#use-identify-metrics
@@ -234,8 +232,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--electra-fork-epoch 0 \
-		--fulu-fork-epoch 100000 \
+		--fulu-fork-epoch 1000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
@@ -263,8 +260,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--electra-fork-epoch 0 \
-		--fulu-fork-epoch 100000 \
+		--fulu-fork-epoch 1 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
@@ -783,7 +779,7 @@ publish-book: | book auditors-book
 			echo -e "\nWarning: you're publishing the books from a branch that is neither 'stable' nor 'unstable'!\n"; \
 		fi
 	CURRENT_COMMIT="$$(git rev-parse --short HEAD)" && \
-	git branch -D gh-pages && \
+	{ git branch -D gh-pages || true; } && \
 	git branch --track gh-pages origin/gh-pages && \
 	git worktree add tmp-book gh-pages && \
 	rm -rf tmp-book/* && \

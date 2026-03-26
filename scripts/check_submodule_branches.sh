@@ -1,4 +1,5 @@
 #!/bin/bash
+set -Eeuo pipefail
 
 while read -r file; do
   commit="$(git -C "$file" rev-parse HEAD)"

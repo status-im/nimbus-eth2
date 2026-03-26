@@ -36,6 +36,8 @@ const
     "Invalid request body"
   InvalidBlockObjectError* =
     "Unable to decode block object(s)"
+  UnsupportedForkError* =
+    "Slot is from an unsupported fork"
   InvalidAttestationObjectError* =
     "Unable to decode attestation object(s)"
   AttestationValidationError* =
@@ -215,6 +217,8 @@ const
     "Missing `start_period` value"
   MissingCountValueError* =
     "Missing `count` value"
+  EnvelopeNotFoundError* =
+    "Envelope data has not been found"
   LCBootstrapUnavailable* =
     "LC bootstrap unavailable"
   LCFinUpdateUnavailable* =

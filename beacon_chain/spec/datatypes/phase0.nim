@@ -377,10 +377,6 @@ func shortLog*(v: SomeBeaconBlock): auto =
     blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
-
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
@@ -422,13 +418,13 @@ func init*(
     committee_len: int,
     data: AttestationData,
     signature: ValidatorSig): Result[T, cstring] =
-  var bits = CommitteeValidatorsBits.init(committee_len)
+  var aggregation_bits = CommitteeValidatorsBits.init(committee_len)
   for index_in_committee in indices_in_committee:
     if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
-    bits.setBit index_in_committee
+    aggregation_bits.setBit index_in_committee
 
   ok Attestation(
-    aggregation_bits: bits,
+    aggregation_bits: aggregation_bits,
     data: data,
     signature: signature
   )

@@ -61,18 +61,14 @@ type
     # TODO this belongs somewhere else, ie sync committee pool
     onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [].}
 
-  NoSidecarsAtFork* = typeof(())
-  SomeSidecarsToRoute* =
-    NoSidecarsAtFork |
-    Opt[seq[BlobSidecar]] |
-    Opt[seq[fulu.DataColumnSidecar]] |
+  SomeSidecarsToRoute =
+    seq[BlobSidecar] |
+    seq[fulu.DataColumnSidecar] |
     Opt[seq[gloas.DataColumnSidecar]]
 
   SomeOptSidecars =
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
     Opt[gloas.DataColumnSidecars]
-
-const noSidecarsAtFork* = default(NoSidecarsAtFork)
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -185,9 +181,8 @@ proc publishSidecars(
 proc publishSidecars(
     router: ref MessageRouter,
     blck: fulu.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[fulu.DataColumnSidecar]]
+    cols: seq[fulu.DataColumnSidecar]
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
-  let cols = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
@@ -219,12 +214,11 @@ proc publishSidecars(
 
   Opt.some(finalCols)
 
-proc publishSidecars*(
+proc publishSidecars(
     router: ref MessageRouter,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[BlobSidecar]]
+    blck: electra.SignedBeaconBlock,
+    blobs: seq[BlobSidecar]
 ): Future[Opt[BlobSidecars]] {.async: (raises: [CancelledError]).} =
-  let blobs = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(blobs))
 
   for i, blob in blobs:
@@ -292,7 +286,8 @@ proc addRoutedBlock(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
-    blck: ForkySignedBeaconBlock,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
+          gloas.SignedBeaconBlock,
     someSidecarsOpt: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
@@ -304,30 +299,22 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  when someSidecarsOpt is NoSidecarsAtFork:
-    const finalSidecars = noSidecars
-  else:
-    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+  let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)
 
 proc routeAttestation*(
     router: ref MessageRouter,
-    attestation: phase0.Attestation | SingleAttestation,
+    attestation: SingleAttestation,
     subnet_id: SubnetId, checkSignature, checkValidator: bool):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Process and broadcast attestation - processing will register the it with
   ## the attestation pool
   block:
-    let
-      wallTime = router[].processor.getCurrentBeaconTime()
-      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
-      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
-      res = await router[].processor.processAttestation(
-        MsgSource.api, attestation, subnet_id,
-        checkSignature = checkSignature, checkValidator = checkValidator,
-        currentFork)
+    let res = await router[].processor.processAttestation(
+      MsgSource.api, attestation, subnet_id, checkSignature, checkValidator
+    )
 
     if not res.isGoodForSending:
       warn "Attestation failed validation",
@@ -337,7 +324,9 @@ proc routeAttestation*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = attestation.data.slot
-    delay = sendTime - slot.attestation_deadline(router[].dag.timeParams)
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.attestation_deadline(
+      router[].dag.timeParams, consensusFork)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -354,8 +343,7 @@ proc routeAttestation*(
 
 proc routeAttestation*(
     router: ref MessageRouter,
-    attestation: phase0.Attestation | SingleAttestation,
-    on_chain: static bool = false):
+    attestation: SingleAttestation):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   # Compute subnet, then route attestation
   let
@@ -367,12 +355,12 @@ proc routeAttestation*(
 
     shufflingRef = router[].dag.getShufflingRef(
         target, attestation.data.target.epoch, false).valueOr:
-      warn "Cannot construct EpochRef for attestation, skipping send - report bug",
+      warn "Cannot construct shuffling for attestation, skipping send - report bug",
         target = shortLog(target),
         attestation = shortLog(attestation)
       return
     committee_index =
-      shufflingRef.get_committee_index(attestation.committee_index(on_chain)).valueOr:
+      shufflingRef.get_committee_index(attestation.committee_index).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return err("Invalid committee index in attestation")
@@ -385,7 +373,7 @@ proc routeAttestation*(
 
 proc routeSignedAggregateAndProof*(
     router: ref MessageRouter,
-    proof: phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof,
+    proof: electra.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
@@ -393,13 +381,9 @@ proc routeSignedAggregateAndProof*(
     # Because the aggregate was (most likely) produced by this beacon node,
     # we already know all attestations in it - we skip the coverage check so
     # that all processing happens anyway
-    let
-      wallTime = router[].processor.getCurrentBeaconTime()
-      wallEpoch = wallTime.slotOrZero(router[].dag.timeParams).epoch
-      currentFork = router[].dag.cfg.consensusForkAtEpoch(wallEpoch)
-      res = await router[].processor.processSignedAggregateAndProof(
+    let res = await router[].processor.processSignedAggregateAndProof(
         MsgSource.api, proof, checkSignature = checkSignature,
-        checkCover = false, currentFork)
+        checkCover = false)
     if not res.isGoodForSending:
       warn "Aggregated attestation failed validation",
         attestation = shortLog(proof.message.aggregate),
@@ -410,7 +394,9 @@ proc routeSignedAggregateAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = proof.message.aggregate.data.slot
-    delay = sendTime - slot.aggregate_deadline(router[].dag.timeParams)
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.aggregate_deadline(
+      router[].dag.timeParams, consensusFork)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -445,8 +431,10 @@ proc routeSyncCommitteeMessage*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(msg.slot.epoch)
     delay = sendTime -
-      msg.slot.sync_committee_message_deadline(router[].dag.timeParams)
+      msg.slot.sync_committee_message_deadline(
+        router[].dag.timeParams, consensusFork)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -568,7 +556,9 @@ proc routeSignedContributionAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = msg.message.contribution.slot
-    delay = sendTime - slot.sync_contribution_deadline(router[].dag.timeParams)
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.sync_contribution_deadline(
+      router[].dag.timeParams, consensusFork)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
@@ -608,8 +598,7 @@ proc routeSignedVoluntaryExit*(
   return ok()
 
 proc routeAttesterSlashing*(
-    router: ref MessageRouter,
-    slashing: phase0.AttesterSlashing | electra.AttesterSlashing):
+    router: ref MessageRouter, slashing: electra.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =
@@ -689,7 +678,7 @@ proc routePayloadAttestationMessage*(
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processPayloadAttestationMessage(
-      MsgSource.api, message, checkSignature = checkSignature,
+      message, checkSignature = checkSignature,
       checkValidator = checkValidator)
 
     if not res.isGoodForSending:

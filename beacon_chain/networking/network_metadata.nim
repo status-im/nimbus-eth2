@@ -243,10 +243,10 @@ when IsGnosisSupported:
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
       checkForkConsistency(network.cfg)
-      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Gloas
+      doAssert network.cfg.BLOB_SCHEDULE.len == 0
 
 elif IsMainnetSupported:
   when incbinEnabled:

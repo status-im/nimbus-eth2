@@ -533,7 +533,6 @@ proc signData(v: AttachedValidator,
   else:
     v.signWithDistributedKey(request)
 
-
 proc init(T: type Web3SignerForkedBeaconBlock, blck: ForkyBeaconBlock | ForkyBlindedBeaconBlock): Web3SignerForkedBeaconBlock =
   Web3SignerForkedBeaconBlock(kind: typeof(blck).kind, data: blck.toBeaconBlockHeader())
 

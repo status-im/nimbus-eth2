@@ -17,7 +17,7 @@
 
 import
   std/typetraits,
-  "."/[phase0, base, bellatrix, electra, fulu],
+  ./[phase0, base, bellatrix, electra, fulu],
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -44,6 +44,12 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#state-list-lengths
   BUILDER_PENDING_WITHDRAWALS_LIMIT*: uint64 = 1_048_576
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
+  PAYLOAD_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
+  PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
+  PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
+  PAYLOAD_STATUS_FULL* = PayloadStatus(2)
+
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
@@ -68,6 +74,11 @@ type
     blockValue*: Wei
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/eventstream/index.yaml#L164
+  ExecutionPayloadInfoObject* = object
+    slot*: Slot
+    block_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
@@ -112,7 +123,7 @@ type
 
   TrustedSignedExecutionPayloadEnvelope* = object
     message*: TrustedExecutionPayloadEnvelope
-    signature*: ValidatorSig
+    signature*: TrustedSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationdata
   PayloadAttestationData* = object
@@ -602,10 +613,6 @@ type
     # [New in Gloas:EIP7732]
     processed_builders_sweep_count*: uint64
     processed_sweep_withdrawals_count*: uint64
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func shortLog*(v: DataColumnSidecar): auto =
   (
