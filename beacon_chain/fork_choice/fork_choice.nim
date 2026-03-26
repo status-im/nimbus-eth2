@@ -764,6 +764,26 @@ func is_payload_timely(self: ForkChoiceBackend, root: Eth2Digest): bool =
     return true
   false
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_payload_data_available
+func is_payload_data_available(
+    self: FoekChoiceBackend, root: Eth2Digest): bool =
+  ## Return whether the blob data for the beacon block with root ``root``
+  ## was voted as present by the PTC, and was locally determined to be available.
+  
+  # The beacon block root must be known
+  if root notin self.ptc_data_availability_vote:
+    return false
+
+  # If the payload is not locally available, the blob data
+  # is not considered available regardless of the PTC vote
+  if root notin self.execution_payload_states:
+    return false
+
+  let votes = self.ptc_data_availability_vote.getOrDefault(
+    root, default(PtcVotes)).countOnes()
+
+  votes.uint64 > DATA_AVAILABILITY_TIMELY_THRESHOLD
+
 #https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
     self: var ForkChoice, root: Eth2Digest): bool =
