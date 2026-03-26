@@ -377,7 +377,7 @@ proc on_attestation*(
       committee_index: attestation_committee_index)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-on_payload_attestation_message
 proc on_payload_attestation_message*(
    self: var ForkChoice,
    dag: ChainDAGRef,
@@ -403,6 +403,11 @@ proc on_payload_attestation_message*(
 
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
+      # check that its for the current slot if it is coming from the wire
+      if not is_from_block:
+        if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
+          return ok()
+        
       var
         cache: StateCache
         ptc_index = -1
@@ -413,18 +418,29 @@ proc on_payload_attestation_message*(
           ptc_index = i
           break
         inc i
-
+      
+      # Check that the attester is from the PTC
       if ptc_index >= 0:
         var votes =
           self.backend.ptc_vote.mgetOrPut(
             beacon_block_root, default(PtcVotes))
-
         if payload_present:
           votes.setBit(ptc_index)
         else:
           votes.clearBit(ptc_index)
+        self.backend.ptc_vote[beacon_block_root] = votes
 
-        trace "Recorded PTC vote", validator_index = validator_index
+        var da_votes =
+          self.backend.ptc_data_avalaibility_vote.mgetOrPut(
+            beacon_block_root, default(PtcVotes))
+        if blob_data_available:
+          da_votes.setBit(ptc_index)
+        else:
+          da_votes.clearBit(ptc_index)
+        self.backend.ptc_data_availability_vote[beacon_block_root] = da_votes
+
+        trace "Recorded PTC vote",
+          validator_index, payload_present, blob_data_available
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
