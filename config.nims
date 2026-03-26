@@ -77,10 +77,6 @@ if defined(windows):
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
 
-  # The dynamic Chronicles output currently prevents us from using colors on Windows
-  # because these require direct manipulations of the stdout File object.
-  switch("define", "chronicles_colors=off")
-
   # Avoid some rare stack corruption while using exceptions with a SEH-enabled
   # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
   switch("define", "nimRawSetjmp")
