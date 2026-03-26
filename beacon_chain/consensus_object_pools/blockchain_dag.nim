@@ -39,6 +39,10 @@ declareGauge beacon_reorgs_total, "Total occurrences of reorganizations of the c
 declareGauge beacon_safe_root, "Root of the safe block"
 declareGauge beacon_safe_slot, "Slot of the safe block"
 declareGauge beacon_safe_reorgs_total, "Total occurrences of reorganizations of the safe block"
+declareGauge beacon_safe_reverts_epoch_total, "Total FCR reverts to finalized at epoch boundary"
+declareGauge beacon_safe_reverts_head_total, "Total FCR reverts to finalized on head change"
+declareGauge beacon_safe_restarts_total, "Total FCR restarts to observed justified checkpoint"
+declareGauge beacon_safe_errors_total, "Total FCR internal errors"
 
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
@@ -967,6 +971,18 @@ proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
 
 proc incSafeReorgs*() =
   beacon_safe_reorgs_total.inc()
+
+proc incSafeEpochReverts*() =
+  beacon_safe_reverts_epoch_total.inc()
+
+proc incSafeHeadReverts*() =
+  beacon_safe_reverts_head_total.inc()
+
+proc incSafeRestarts*() =
+  beacon_safe_restarts_total.inc()
+
+proc incSafeErrors*() =
+  beacon_safe_errors_total.inc()
 
 import blockchain_dag_light_client
 

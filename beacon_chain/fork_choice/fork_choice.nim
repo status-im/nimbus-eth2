@@ -232,6 +232,7 @@ proc reconfirm_fcr(
       dag, confirmed, current_slot, diag):
     reason = "epoch"
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
+    incSafeEpochReverts()
 
   # Update observed justified checkpoints at the start of an epoch
   self.update_unrealized_justified(dag)
@@ -243,6 +244,7 @@ proc reconfirm_fcr(
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
     confirmed = fcr.to_block_id(current_epoch_justified)
+    incSafeRestarts()
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
@@ -292,6 +294,7 @@ proc on_tick(
           current_slot, reason = error
         reason = "reconfirm"
         confirmed = self.backend.to_block_id(self.checkpoints.finalized)
+        incSafeErrors()
       self.backend.update_confirmed(dag, confirmed, reason, diag)
 
     else:
@@ -510,10 +513,12 @@ proc advance_fcr(
       blckRef, confirmed, current_slot):
     reason = "head"
     confirmed = fcr.to_block_id(self.checkpoints.finalized)
+    incSafeHeadReverts()
 
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/h"
     confirmed = fcr.to_block_id(current_epoch_justified)
+    incSafeRestarts()
 
   # Attempt to further advance the latest confirmed block.
   if confirmed.slot.epoch + 1 >= current_slot.epoch:
@@ -542,6 +547,7 @@ proc will_select_head*(
       blckRef, current_slot, reason = error
     reason = "advance"
     confirmed = self.backend.to_block_id(self.checkpoints.finalized)
+    incSafeErrors()
   self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
@@ -562,8 +568,7 @@ proc prune(
   if self.current_slot_head notin self.proto_array:
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
-    self.update_confirmed(
-      dag, self.to_block_id(checkpoints.finalized), "prune")
+    self.update_confirmed(dag, self.to_block_id(checkpoints.finalized), "prune")
   ok()
 
 proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
