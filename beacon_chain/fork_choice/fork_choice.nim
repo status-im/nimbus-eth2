@@ -722,6 +722,90 @@ func is_supporting_vote(
 
   node.payloadStatus == ancestor_payload_status
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_weak
+func is_head_weak(
+    self: var ForkChoice, head_root: Eth2Digest,
+    dag: ChainDagRef): bool =
+  let
+    justified_balances = self.checkpoints.justified.validators.balances
+    total = self.checkpoints.justified.total_active_balance
+    reorg_threshold =
+      (total div SLOTS_PER_EPOCH) * dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD div 100
+    head_node = ForkChoiceNode(
+      root: head_root, payloadStatus: PAYLOAD_STATUS_PENDING)
+  
+  var head_weight = 0.Gwei
+  for i in 0..<self.backend.votes.len:
+    if i >= justified_balances.len:
+      break
+    let vote = self.backend.votes[i]
+    if vote.next_root.isZero:
+      continue
+    if self.is_supporting_vote(head_node, vote, dag):
+      head_weight += justified_balances[i].unslashed_balance
+  
+  let head_idx = self.backend.proto_array.indices.getOrDefault(head_root, -1)
+  if head_idx >= 0:
+    let proto_node = self.getPhysicalNode(head_idx)
+    if proto_node != nil:
+      withState(dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          var cache: StateCache
+          let
+            head_slot = proto_node.bid.slot
+            epoch = compute_epoch_at_slot(head_slot)
+            committee_count = get_committee_count_per_slot(
+              forkyState.data, epoch, cache)
+          for index in 0..<committee_count:
+            for vidx in get_beacon_committee(
+                forkyState.data, head_slot, index.CommitteeIndex, cache):
+              if vidx.int < self.backend.votes.len and
+                self.backend.votes[vidx].slot == FAR_FUTURE_SLOT:
+                  if vidx.int < justified_balances.len:
+                    head_weight += justified_balances[vidx.int].unslashed_balance
+
+  head_weight < reorg_threshold
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
+proc should_apply_proposer_boost(
+    self: var ForkChoice, dag: ChainDagRef): bool =
+  if self.checkpoints.proposer_boost_root.isZero:
+    return
+  
+  let idx = self.backend.proto_array.indices.getOrDefault(proposer_root, -1)
+  if idx < 0: return false
+  let block_node = self.getPhysicalNode(idx)
+  if block_node == nil: return false
+
+  let parent_root = block_node.parent.get(-1)
+  if parent_root < 0: return true
+  let parent_node = self.getPhysicalNode(parent_root)
+  if parent_node == nil: return true
+
+  let slot = block_node.bid.slot
+
+  # Apply proposer boost if `parent` is not from the previous slot
+  if parent_node.bid.slot + 1 < slot:
+    return true
+
+  # Apply proposer boost if `parent`is not weak
+  if not is_head_weak(parent_node.bid.root, dag):
+    return true
+
+  # If `parent` is weak and from the previous slot, apply
+  # proposer boost if there are no early equivocations
+  for root, child_idx in self.backend.proto_array.indices:
+    let chld = self.getPhysicalNode(child_idx)
+    if child == nil: continue
+    if child.bid.slot + 1 != slot: continue
+    if child.bid.blck.proposer_index != parent_node.bid.blck.proposer_index:
+      continue
+    if root == parent_node.bid.root: continue
+    # Found an equivocation
+    return false
+  
+  true
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#modified-get_weight
 func get_weight(
     self: var ForkChoice, node: ForkChoiceNode,
@@ -756,7 +840,7 @@ func get_weight(
       attestation_score += justified_balances[i].unslashed_balance
 
   var proposer_score = 0.Gwei
-  if not self.checkpoints.proposer_boost_root.isZero:
+  if self.should_apply_proposer_boost:
     let boost_vote = VoteTracker(
       next_root: self.checkpoints.proposer_boost_root,
       next_slot: current_slot,
@@ -764,7 +848,7 @@ func get_weight(
       payload_present: false)
 
     if self.is_supporting_vote(node, boost_vote, dag):
-      proposer_score = calculateProposerBoost(
+      proposer_score = compute_proposer_score(
         self.checkpoints.justified.total_active_balance)
 
       trace "Applied proposer boost",
