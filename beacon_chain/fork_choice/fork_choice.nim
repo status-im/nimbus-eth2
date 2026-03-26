@@ -545,6 +545,24 @@ proc process_block*(
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
 
+  # Notify the store about payload_attestations in the block
+  when typeof(blck).kind >= ConsensusFork.Gloas:
+    self.backend.ptc_vote[blckRef.root] = default(PtcVotes)
+    self.backend.ptc_data_availability_vote[blckRef.root] = default(PtcVotes)
+
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        for payload_attestation in blck.body.payload_attestations:
+          let indexed = get_indexed_payload_attestation(
+            forkyState.data, payload_attestation)
+          for idx in indexed.attesting_indices:
+            discard self.on_payload_attestation_message(
+              dag, idx, payload_attestation.data.beacon_block_root,
+              payload_attestation.data.slot,
+              payload_attestation.data.payload_present,
+              payload_attestation.data.blob_data_available,
+              is_from_block = true)
+
   ok()
 
 template getPhysicalNode(
