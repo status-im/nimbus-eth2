@@ -1976,7 +1976,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -1986,26 +1986,17 @@ proc validateExecutionPayloadBid*(
 
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
-      # Check builder index is valid
-      if bid.builder_index >= forkyState.data.validators.lenu64:
+      # [REJECT] bid.builder_index is a valid, active builder index
+      if bid.builder_index >= forkyState.data.builders.lenu64:
         return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
 
-      let validator = forkyState.data.validators.item(bid.builder_index)
-
-      # Check builder is active
-      let currentEpoch = get_current_epoch(forkyState.data)
-      if not is_active_validator(validator, currentEpoch):
+      if not is_active_builder(forkyState.data, bid.builder_index):
         return dag.checkedReject("ExecutionPayloadBid: builder not active")
 
-      # Check builder is not slashed
-      if validator.slashed:
-        return dag.checkedReject("ExecutionPayloadBid: builder is slashed")
-
-      # [REJECT] The builder's withdrawal credentials' prefix is BUILDER_WITHDRAWAL_PREFIX
-      if not is_builder_withdrawal_credential(validator.withdrawal_credentials):
+      # [REJECT] bid.execution_payment is zero
+      if bid.execution_payment != 0.Gwei:
         return dag.checkedReject(
-          "ExecutionPayloadBid: invalid withdrawal credentials")
+          "ExecutionPayloadBid: execution_payment is not zero")
 
       # [IGNORE] This is the first signed bid seen with a valid signature from
       # the given builder for this slot
@@ -2024,9 +2015,8 @@ proc validateExecutionPayloadBid*(
           "ExecutionPayloadBid: not the highest value bid for this slot and parent")
 
       # [IGNORE] bid.value is less or equal than the builder's excess balance
-      # i.e. MIN_ACTIVATION_BALANCE + bid.value <= state.balances[bid.builder_index]
-      if forkyState.data.balances.item(bid.builder_index) <
-          MIN_ACTIVATION_BALANCE.Gwei + bid.value:
+      if not can_builder_cover_bid(
+          forkyState.data, bid.builder_index.BuilderIndex, bid.value):
         return errIgnore(
           "ExecutionPayloadBid: insufficient builder balance")
 
@@ -2060,13 +2050,12 @@ proc validateExecutionPayloadBid*(
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
-      let builderPubkey = dag.validatorKey(bid.builder_index).valueOr:
-        return dag.checkedReject(
-          "ExecutionPayloadBid: cannot get builder public key")
+      let builderPubkey =
+        forkyState.data.builders.item(bid.builder_index).pubkey
 
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
-          dag.headState.genesis_validators_root,
+          dag.genesis_validators_root,
           bid.slot.epoch,
           bid,
           builderPubkey,

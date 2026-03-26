@@ -38,6 +38,8 @@ type
       ## Root that can be used to retrieve block data from database
 
     executionBlockHash*: Opt[Eth2Digest]
+    executionParentHash*: Opt[Eth2Digest]
+      ## Added in Gloas for computing the `PayloadStatus`
     optimisticStatus*: OptimisticStatus
 
     parent*: BlockRef ##\
@@ -60,12 +62,14 @@ func init*(
     T: type BlockRef,
     root: Eth2Digest,
     executionBlockHash: Opt[Eth2Digest],
+    executionParentHash: Opt[Eth2Digest],
     optimisticStatus: OptimisticStatus,
     slot: Slot,
 ): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
     executionBlockHash: executionBlockHash,
+    executionParentHash: executionParentHash,
     optimisticStatus: optimisticStatus,
   )
 
@@ -75,7 +79,8 @@ func init*(
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
   # Use same formal parameters for simplicity, but it's impossible for these
   # blocks to be optimistic.
-  BlockRef.init(root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.slot)
+  BlockRef.init(root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
+    OptimisticStatus.valid, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
@@ -85,20 +90,22 @@ func init*(
           electra.SomeBeaconBlock | electra.TrustedBeaconBlock |
           fulu.SomeBeaconBlock | fulu.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, Opt.some blck.body.execution_payload.block_hash, optimisticStatus, blck.slot
+    root,
+    Opt.some blck.body.execution_payload.block_hash,
+    Opt.some ZERO_HASH,
+    optimisticStatus,
+    blck.slot
   )
 
 func init*(
     T: type BlockRef, root: Eth2Digest, optimisticStatus: OptimisticStatus,
     blck: gloas.SomeBeaconBlock | gloas.TrustedBeaconBlock): BlockRef =
+  template bid(): auto = blck.body.signed_execution_payload_bid
   BlockRef.init(
     root,
-    Opt.some blck.body.signed_execution_payload_bid.message.block_hash,
-    if optimisticStatus == OptimisticStatus.valid or
-        blck.body.signed_execution_payload_bid.message.block_hash.isZero:
-      OptimisticStatus.valid
-    else:
-      optimisticStatus,
+    Opt.some bid.message.block_hash,
+    Opt.some bid.message.parent_block_hash,
+    optimisticStatus,
     blck.slot,
   )
 
