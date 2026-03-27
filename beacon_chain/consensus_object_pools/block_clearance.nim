@@ -557,7 +557,7 @@ proc addHeadExecutionPayload*(
 
   if not isNil(onEnvlAdded):
     onEnvlAdded(ExecutionPayloadInfoObject(
-      slot: envelopeSlot,
+      slot: signedEnvelope.message.slot,
       block_root: envelopeBlockRoot))
 
   ok(blck)
