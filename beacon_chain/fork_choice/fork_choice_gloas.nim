@@ -121,69 +121,37 @@ proc update_proposer_boost_root*(
   template is_first_block: bool =
     self.checkpoints.proposer_boost_root == ZERO_HASH
 
-  template attestation_threshold: BeaconTime =
-    current_slot.attestation_deadline(dag.timeParams, consensusFork)
-
-  # template is_timely: bool =
-  #   current_slot == blck.slot and
-  #   self.checkpoints.time < attestation_threshold
-
   let is_timely = self.backend.block_timeliness.getOrDefault(
     blckRef.root, [false, false])[ATTESTATION_TIMELINESS_INDEX]
 
   # Add proposer score boost if the block is the first timely block
   # for this slot, with the same proposer as the canonical chain.
   if is_timely and is_first_block:
-    # Only update if the proposer is the same as on the canonical chain
-    # let expected_proposer = dag.getProposer(dag.head, current_slot).valueOr:
-    #   return
-    # if blck.proposer_index == expected_proposer.uint64:
     self.checkpoints.proposer_boost_root = blckRef.root
 
 # Payload timeliness and data availability
 # ----------------------------------------------------------------------
 
+func ptcVoteAboveThreshold(
+    self: ForkChoiceBackend, root: Eth2Digest,
+    votes: Table[Eth2Digest, PtcVotes], threshold: uint64): bool =
+  # The beacon block root must be known AND payload loacally available
+  root in votes and root in self.execution_payload_states and
+    votes.getOrDefault(root, default(PtcVotes)).countOnes().uint64 > threshold
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_payload_timely
 func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
   ## Return whether the execution payload for the beacon block with root ``root``
   ## was voted as present by the PTC, and was locally determined to be available.
-
-  # The beacon block root must be known
-  if root notin self.ptc_vote:
-    return false
-
-  # If the payload is not locally available, the payload
-  # is not considered available regardless of the PTC vote
-  if root notin self.execution_payload_states:
-    return false
-
-  let
-    votes = self.ptc_vote.getOrDefault(root, default(PtcVotes))
-    vote_count = votes.countOnes()
-
-  if vote_count.uint64 > PAYLOAD_TIMELY_THRESHOLD:
-    return true
-  false
+  self.ptcVoteAboveThreshold(root, self.ptc_vote, PAYLOAD_TIMELY_THRESHOLD)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_payload_data_available
 func is_payload_data_available(
     self: ForkChoiceBackend, root: Eth2Digest): bool =
   ## Return whether the blob data for the beacon block with root ``root``
   ## was voted as present by the PTC, and was locally determined to be available.
-
-  # The beacon block root must be known
-  if root notin self.ptc_data_availability_vote:
-    return false
-
-  # If the payload is not locally available, the blob data
-  # is not considered available regardless of the PTC vote
-  if root notin self.execution_payload_states:
-    return false
-
-  let votes = self.ptc_data_availability_vote.getOrDefault(
-    root, default(PtcVotes)).countOnes()
-
-  votes.uint64 > DATA_AVAILABILITY_TIMELY_THRESHOLD
+  self.ptcVoteAboveThreshold(
+    root, self.ptc_vote, DATA_AVAILABILITY_TIMELY_THRESHOLD)
 
 # Tree navigation helpers
 # ----------------------------------------------------------------------
@@ -581,10 +549,9 @@ func get_weight*(
 
   attestation_score + proposer_score
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-on_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-on_execution_payload
 proc on_execution_payload*(
-    self: var ForkChoice,
-    dag: ChainDAGRef,
+    self: var ForkChoice, dag: ChainDAGRef,
     beacon_block_root: Eth2Digest,
     execution_payload_state_root: Eth2Digest): FcResult[void] =
   ## Run ``on_execution_payload`` upon receiving a new execution payload.
