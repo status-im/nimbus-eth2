@@ -164,6 +164,13 @@ template getPhysicalNode(
     addr self.backend.proto_array.nodes.buf[physicalIdx]
   else: nil
 
+template getNode(
+    self: var ForkChoice, root: Eth2Digest): ptr ProtoNode =
+  let idx = self.backend.proto_array.indices.getOrDefault(root, -1)
+  if idx < 0: nil
+  else:
+    self.getPhysicalNode(idx)
+
 #https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
     self: var ForkChoice, root: Eth2Digest): bool =
@@ -175,23 +182,12 @@ func should_extend_payload*(
   if proposer_root.isZero:
     return true
 
-  let proposer_idx = self.backend.proto_array.indices.getOrDefault(
-    proposer_root, -1)
-  if proposer_idx < 0:
-    return true
-
-  let proposer_node = self.getPhysicalNode(proposer_idx)
+  let proposer_node = self.getNode(proposer_root)
   if proposer_node == nil or proposer_node.parent.isNone:
     return true
 
-  let
-    parent_idx = proposer_node.parent.get()
-    parent_node = self.getPhysicalNode(parent_idx)
-
-  if parent_node == nil:
-    return true
-
-  if parent_node.bid.root != root:
+  let parent_node = self.getPhysicalNode(proposer_node.parent.get())
+  if parent_node == nil or parent_node.bid.root != root:
     return true
 
   proposer_node.parentPayloadStatus == PAYLOAD_STATUS_FULL
@@ -203,11 +199,7 @@ func get_payload_status_tiebreaker*(
   if not dag.isGloasEnabled(current_slot):
     return node.payloadStatus
 
-  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
-  if node_idx < 0:
-    return node.payloadStatus
-  let
-    proto_node = self.getPhysicalNode(node_idx)
+  let proto_node = self.getNode(node.root)
   if proto_node == nil:
     return node.payloadStatus
 
@@ -341,11 +333,7 @@ func is_supporting_vote(
 
   if vote.next_root.isZero: return false
 
-  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
-  if node_idx < 0:
-    return false
-
-  let proto_node = getPhysicalNode(self, node_idx)
+  let proto_node = self.getNode(node.root)
   if proto_node == nil:
     return false
 
@@ -402,25 +390,24 @@ func is_head_weak(
 
   var head_weight = self.sumSupportingWeight(head_node, dag)
 
-  let head_idx = self.backend.proto_array.indices.getOrDefault(head_root, -1)
-  if head_idx >= 0:
-    let proto_node = self.getPhysicalNode(head_idx)
-    if proto_node != nil:
-      withState(dag.headState):
-        when consensusFork >= ConsensusFork.Gloas:
-          var cache: StateCache
-          let
-            head_slot = proto_node.bid.slot
-            epoch = head_slot.epoch
-            committee_count = get_committee_count_per_slot(
-              forkyState.data, epoch, cache)
-          for index in 0..<committee_count:
-            for _, vidx in get_beacon_committee(
-                forkyState.data, head_slot, index.CommitteeIndex, cache):
-              if vidx.int < self.backend.votes.len and
-                self.backend.votes[vidx].slot == FAR_FUTURE_SLOT:
-                  if vidx.int < justified_balances.len:
-                    head_weight += justified_balances[vidx.int].unslashed_balance
+  let proto_node = self.getNode(head_root)
+  if proto_node != nil:
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        var cache: StateCache
+        let
+          justified_balances = self.checkpoints.justified.balances
+          head_slot = proto_node.bid.slot
+          epoch = head_slot.epoch
+          committee_count = get_committee_count_per_slot(
+            forkyState.data, epoch, cache)
+        for index in 0..<committee_count:
+          for _, vidx in get_beacon_committee(
+              forkyState.data, head_slot, index.CommitteeIndex, cache):
+            if vidx.int < self.backend.votes.len and
+              self.backend.votes[vidx].slot == FAR_FUTURE_SLOT:
+                if vidx.int < justified_balances.len:
+                  head_weight += justified_balances[vidx.int].unslashed_balance
 
   head_weight < reorg_threshold
 
@@ -429,15 +416,12 @@ proc is_parent_strong*(
     self: var ForkChoice, root: Eth2Digest,
     dag: ChainDAGRef): bool =
   let
-    justified_balances = self.checkpoints.justified.balances
     total = self.checkpoints.justified.total_active_balance
     parent_threshold =
       (total div SLOTS_PER_EPOCH) *
         REORG_PARENT_WEIGHT_THRESHOLD div 100
-    idx = self.backend.proto_array.indices.getOrDefault(root, -1)
 
-  if idx < 0: return false
-  let block_node = self.getPhysicalNode(idx)
+  let block_node = self.getNode(root)
   if block_node == nil: return false
 
   if block_node.parent.isNone: return false
@@ -500,7 +484,7 @@ func get_weight*(
   if node_idx < 0:
     return 0.Gwei
 
-  let proto_node = self.getPhysicalNode(node_idx)
+  let proto_node = self.getNode(node.root)
   if proto_node == nil:
     return 0.Gwei
 
