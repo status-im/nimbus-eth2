@@ -775,7 +775,7 @@ func will_no_conflicting_checkpoint_be_justified(
 
   let honest_ffg_support = info.compute_honest_ffg_support_for_current_target(
     current_slot, byzantine_threshold)
-  3 * honest_ffg_support >= 1 * info.total_active_balance
+  3 * honest_ffg_support > 1 * info.total_active_balance
 
 func will_current_target_be_justified(
     info: CurrentTargetInfo,
