@@ -377,27 +377,30 @@ func is_supporting_vote(
 
   node.payloadStatus == ancestor_payload_status
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_weak
-func is_head_weak(
-    self: var ForkChoice, head_root: Eth2Digest,
-    dag: ChainDAGRef): bool =
-  let
-    justified_balances = self.checkpoints.justified.balances
-    total = self.checkpoints.justified.total_active_balance
-    reorg_threshold =
-      (total div SLOTS_PER_EPOCH) * dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD div 100
-    head_node = ForkChoiceNode(
-      root: head_root, payloadStatus: PAYLOAD_STATUS_PENDING)
-
-  var head_weight = 0.Gwei
+func sumSupportingWeight(
+    self: var ForkChoice, node: ForkChoiceNode, dag: ChainDAGRef): Gwei =
+  let justified_balances = self.checkpoints.justified.balances
   for i in 0..<self.backend.votes.len:
     if i >= justified_balances.len:
       break
     let vote = self.backend.votes[i]
     if vote.next_root.isZero:
       continue
-    if self.is_supporting_vote(head_node, vote, dag):
-      head_weight += justified_balances[i].unslashed_balance
+    if self.is_supporting_vote(node, vote, dag):
+      result += justified_balances[i].unslashed_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_weak
+func is_head_weak(
+    self: var ForkChoice, head_root: Eth2Digest,
+    dag: ChainDAGRef): bool =
+  let
+    total = self.checkpoints.justified.total_active_balance
+    reorg_threshold =
+      (total div SLOTS_PER_EPOCH) * dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD div 100
+    head_node = ForkChoiceNode(
+      root: head_root, payloadStatus: PAYLOAD_STATUS_PENDING)
+
+  var head_weight = self.sumSupportingWeight(head_node, dag)
 
   let head_idx = self.backend.proto_array.indices.getOrDefault(head_root, -1)
   if head_idx >= 0:
@@ -445,17 +448,7 @@ proc is_parent_strong*(
     root: parent_node.bid.root,
     payloadStatus: block_node.parentPayloadStatus)
 
-  var parent_weight = 0.Gwei
-  for i in 0..<self.backend.votes.len:
-    if i >= justified_balances.len:
-      break
-    let vote = self.backend.votes[i]
-    if vote.next_root.isZero:
-      continue
-    if self.is_supporting_vote(node, vote, dag):
-      parent_weight += justified_balances[i].unslashed_balance
-
-  parent_weight > parent_threshold
+  self.sumSupportingWeight(node, dag) > parent_threshold
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost(
@@ -519,20 +512,10 @@ func get_weight*(
       proto_node[].bid.slot + 1 == current_slot:
     return 0.Gwei
 
-  var attestation_score = 0.Gwei
-  let justified_balances = self.checkpoints.justified.balances
-  for i in 0..<self.backend.votes.len:
-    if i >= justified_balances.len:
-      break
+  var
+    attestation_score = self.sumSupportingWeight(node, dag)
+    proposer_score = 0.Gwei
 
-    let vote = self.backend.votes[i]
-    if vote.next_root.isZero:
-      continue
-
-    if self.is_supporting_vote(node, vote, dag):
-      attestation_score += justified_balances[i].unslashed_balance
-
-  var proposer_score = 0.Gwei
   if self.should_apply_proposer_boost(dag):
     let boost_vote = VoteTracker(
       next_root: self.checkpoints.proposer_boost_root,
