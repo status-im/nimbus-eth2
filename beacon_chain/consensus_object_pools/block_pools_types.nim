@@ -55,6 +55,8 @@ type
     proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
+  OnExecutionPayloadCallback* =
+    proc(data: ExecutionPayloadInfoObject) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -244,6 +246,8 @@ type
       ## On beacon chain reorganization
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
+    onEnvelopeAdded*: OnExecutionPayloadCallback
+      ## On envelope verified callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -393,6 +397,9 @@ template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
 
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
+
+template setEnvelopeCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
+  dag.onEnvelopeAdded = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
