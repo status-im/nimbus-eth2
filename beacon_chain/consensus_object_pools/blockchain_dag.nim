@@ -1175,6 +1175,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            eraPath = ".",
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
            onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
+           onEnvlCb: OnExecutionPayloadCallback = nil,
            vanityLogs = default(VanityLogs),
            lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
   doAssert updateFlags - {strictVerification} == {},
@@ -1218,6 +1219,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       onHeadChanged: onHeadCb,
       onReorgHappened: onReorgCb,
       onFinHappened: onFinCb,
+      onEnvelopeAdded: onEnvlCb,
     )
     loadTick = Moment.now()
 

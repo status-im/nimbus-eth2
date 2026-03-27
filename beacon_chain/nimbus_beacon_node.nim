@@ -555,7 +555,7 @@ proc initFullNode(
   let
     quarantine = newClone(
       Quarantine.init(dag.cfg))
-    envelopeQuarantine = newClone(EnvelopeQuarantine.init(onEnvelopeAdded))
+    envelopeQuarantine = newClone(EnvelopeQuarantine.init())
     attestationPool = newClone(AttestationPool.init(
       dag, quarantine, getBeaconTime(), onSingleAttestationReceived))
     syncCommitteeMsgPool = newClone(
@@ -885,6 +885,7 @@ proc initFullNode(
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
+  dag.setEnvelopeCb(onEnvelopeAdded)
 
   node.dag = dag
   node.dag.eaSlot = eaSlot
