@@ -37,6 +37,7 @@ from ../validators/validator_monitor import
   registerSyncAggregateInBlock
 from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
   getDataColumnSidecar, putDataColumnSidecar
+from ../fork_choice/fork_choice_gloas import on_execution_payload
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -985,6 +986,10 @@ proc addPayload*(
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+
+  # Notify fork choice that the execution payload is available for the block
+  discard self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
+    dag, signedBlock.root, signedEnvelope.message.state_root)
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
