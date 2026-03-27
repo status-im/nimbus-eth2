@@ -284,8 +284,8 @@ proc stepOnBlock(
   # this wouldn't be part of this check, presumably, their FC test vector step
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
-  when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
-    debugGloasComment "skip execution payload for Gloas?"
+  when consensusFork >= ConsensusFork.Bellatrix and
+      consensusFork < ConsensusFork.Gloas:
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
     if executionBlockHash in invalidatedHashes:
@@ -300,11 +300,6 @@ proc stepOnBlock(
         signedBlock.message.parent_root, lvh, executionBlockHash))
 
       return err VerifierError.Invalid
-
-  debugEcho "stepOnBlock pre-updateState: slot=", signedBlock.message.slot,
-    " parent_in_dag=", dag.getBlockRef(signedBlock.message.parent_root).isSome,
-    " head=", dag.head.slot,
-    " containsFork=", dag.containsForkBlock(signedBlock.root)
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,
@@ -511,12 +506,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
-          # TODO https://github.com/ethereum/consensus-specs/pull/4807 modifies
-          # proposer boost mechanics to depend on the canonical chain
-          if  path.contains("voting_source_beyond_two_epoch") or
-              path.contains("justified_update_not_realized_finality") or
-              path.contains("justified_update_always_if_better"):
-            continue
           runTest(suiteName, basePath/path, fork)
 
 fcSuite("ForkChoice", "fork_choice")
