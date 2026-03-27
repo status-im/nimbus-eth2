@@ -984,8 +984,7 @@ proc addPayload*(
 
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")
-  let blck = ?addHeadExecutionPayload(
-    dag, signedBlock, signedEnvelope, dag.onEnvelopeAdded)
+  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
