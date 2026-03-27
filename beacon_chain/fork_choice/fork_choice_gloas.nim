@@ -108,11 +108,6 @@ proc record_block_timeliness*(
     is_current_slot and self.checkpoints.time <
       current_slot.payload_attestation_deadline(dag.timeParams)]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_late
-func is_head_late*(self: ForkChoice, head_root: Eth2Digest): bool =
-  not self.backend.block_timeliness.getOrDefault(
-    head_root, [false, false])[ATTESTATION_TIMELINESS_INDEX]
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root*(
     self: var ForkChoice, dag: ChainDAGRef,
@@ -410,29 +405,6 @@ func is_head_weak(
                   head_weight += justified_balances[vidx.int].unslashed_balance
 
   head_weight < reorg_threshold
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_parent_strong
-proc is_parent_strong*(
-    self: var ForkChoice, root: Eth2Digest,
-    dag: ChainDAGRef): bool =
-  let
-    total = self.checkpoints.justified.total_active_balance
-    parent_threshold =
-      (total div SLOTS_PER_EPOCH) *
-        REORG_PARENT_WEIGHT_THRESHOLD div 100
-
-  let block_node = self.getNode(root)
-  if block_node == nil: return false
-
-  if block_node.parent.isNone: return false
-  let parent_node = self.getPhysicalNode(block_node.parent.get())
-  if parent_node == nil: return false
-
-  let node = ForkChoiceNode(
-    root: parent_node.bid.root,
-    payloadStatus: block_node.parentPayloadStatus)
-
-  self.sumSupportingWeight(node, dag) > parent_threshold
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost(
