@@ -2865,9 +2865,9 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       config.seqNumber,
       netKeys.seckey.asEthKey,
       Opt.some(config.ipExt),
-      if config.tcpEnabled: Opt.some(config.tcpPortExt) else: Opt.none(Port),
+      if config.tcpExtEnabled: Opt.some(config.tcpPortExt) else: Opt.none(Port),
       Opt.some(config.udpPortExt),
-      if config.quicEnabled: Opt.some(config.quicPortExt) else: Opt.none(Port),
+      if config.quicExtEnabled: Opt.some(config.quicPortExt) else: Opt.none(Port),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()

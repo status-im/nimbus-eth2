@@ -823,17 +823,31 @@ type
           desc: "External IP address"
           name: "ip" .}: IpAddress
 
+        tcpExtEnabled* {.
+          hidden
+          desc: "Enable TCP transport"
+          defaultValue: true
+          name: "tcp" .}: bool
+
         tcpPortExt* {.
           desc: "External TCP port"
+          defaultValue: defaultEth2TcpPort
           name: "tcp-port" .}: Port
 
         udpPortExt* {.
           desc: "External UDP port"
           name: "udp-port" .}: Port
 
+        quicExtEnabled* {.
+          hidden
+          desc: "Enable QUIC transport"
+          defaultValue: false
+          name: "debug-quic" .}: bool
+
         quicPortExt* {.
           hidden
           desc: "External QUIC port"
+          defaultValue: defaultEth2QuicPort
           name: "debug-quic-port" .}: Port
 
         seqNumber* {.
