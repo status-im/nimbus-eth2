@@ -1040,7 +1040,7 @@ proc push*[T](
             topics = "syncman"
 
       sr.item.updateScore(PeerScoreMissingValues)
-      sq.del(position)
+      sq.advanceQueue()
 
     of SyncProcessError.NoError:
       sr.item.updateScore(PeerScoreGoodValues)

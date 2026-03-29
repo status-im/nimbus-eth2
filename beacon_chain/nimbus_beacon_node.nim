@@ -645,6 +645,8 @@ proc initFullNode(
               if signedEnvelope.isSome():
                 envelopeQuarantine[].addOrphan(signedEnvelope.get()[])
 
+              envelopeQuarantine[].addMissing(parentRoot)
+
               let parent = dag.getBlockRef(parentRoot).valueOr:
                 return bres
               dag.headPayload = parent
