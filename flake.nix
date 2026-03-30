@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?rev=2a777ace4b722f2714cc06d596f2476ee628c04a";
     nimbusBuildSystem = {
-      url = "git+file:./vendor/nimbus-build-system?submodules=1";
+      url = ./vendor/nimbus-build-system;
       inputs.nixpkgs.follows = "nixpkgs";
     };
     self = {

@@ -7,20 +7,14 @@
         ]
       },
       "locked": {
-        "lastModified": 1774606021,
-        "narHash": "sha256-XHIThT9Df7djv+8xZiEdZ4sGHVDV8IEeY/UHfH5f3ns=",
-        "ref": "refs/heads/master",
-        "rev": "67f395831f94ba4ac5fb4c511beb99bc6ec63e22",
-        "revCount": 247,
-        "submodules": true,
-        "type": "git",
-        "url": "file:./vendor/nimbus-build-system"
+        "path": "vendor/nimbus-build-system",
+        "type": "path"
       },
       "original": {
-        "submodules": true,
-        "type": "git",
-        "url": "file:./vendor/nimbus-build-system"
-      }
+        "path": "vendor/nimbus-build-system",
+        "type": "path"
+      },
+      "parent": []
     },
     "nixpkgs": {
       "locked": {
