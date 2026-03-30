@@ -613,3 +613,6 @@ type
     # [New in Gloas:EIP7732]
     payload_expected_withdrawals*:
       HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
+    ptc_window*:
+      HashArray[Limit ((2 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH),
+        HashArray[Limit PTC_SIZE, uint64]]
