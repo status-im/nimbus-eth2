@@ -314,7 +314,7 @@ from ".."/validator_bucket_sort import
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_pending_validator
 func get_pending_validators*(cfg: RuntimeConfig, state: gloas.BeaconState):
-    HashSet[ValidatorPubkey] =
+    HashSet[ValidatorPubKey] =
   ## Check if a pending deposit with a valid signature is in the queue for the given pubkey.
   var res: HashSet[ValidatorPubKey]
   for pending_deposit in state.pending_deposits:
@@ -522,7 +522,7 @@ proc check_voluntary_exit*(
         voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
         validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
-
+      
   # Checked above
   ValidatorIndex.init(voluntary_exit.validator_index)
 
@@ -535,12 +535,37 @@ proc check_voluntary_exit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_voluntary_exit
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags, exit_queue_info: ExitQueueInfo,
     cache: var StateCache): Result[ExitQueueInfo, cstring] =
+
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    let voluntary_exit = signed_voluntary_exit.message
+    if is_builder_index(voluntary_exit.validator_index):
+      if not (get_current_epoch(state) >= voluntary_exit.epoch):
+        return err("Exit: exit epoch not passed")
+      let builder_index =
+        convert_validator_index_to_builder_index(
+          voluntary_exit.validator_index)
+      if not is_active_builder(state, builder_index):
+        return err("Exit: builder not active")
+      if get_pending_balance_to_withdraw_for_builder(
+          state, builder_index) != 0.Gwei:
+        return err("Exit: builder has pending withdrawals")
+      let voluntary_exit_fork = typeof(state).kind.voluntary_exit_signature_fork(
+        state.fork, cfg.CAPELLA_FORK_VERSION)
+      if not verify_voluntary_exit_signature(
+          voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
+          state.builders.mitem(builder_index).pubkey,
+          signed_voluntary_exit.signature):
+        return err("Exit: invalid builder signature")
+      initiate_builder_exit(cfg, state, builder_index)
+      return ok(exit_queue_info)
+
   let exited_validator =
     ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
   ok(? initiate_validator_exit(
@@ -1423,11 +1448,11 @@ func process_withdrawals*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_builder_index
-func is_builder_index(validator_index: uint64): bool =
+func is_builder_index*(validator_index: uint64): bool =
   (validator_index and BUILDER_INDEX_FLAG) != 0
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-convert_validator_index_to_builder_index
-func convert_validator_index_to_builder_index(validator_index: uint64): BuilderIndex =
+func convert_validator_index_to_builder_index*(validator_index: uint64): BuilderIndex =
   validator_index and not BUILDER_INDEX_FLAG
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-apply_withdrawals

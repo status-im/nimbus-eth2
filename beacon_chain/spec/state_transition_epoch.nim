@@ -1389,6 +1389,30 @@ func process_builder_pending_payments*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-process_ptc_window
+proc process_ptc_window*(
+    state: var gloas.BeaconState, cache: var StateCache) =
+  ## Update the cached PTC window.
+  let
+    current_epoch = state.get_current_epoch()
+    new_epoch = current_epoch + MIN_SEED_LOOKAHEAD + 1
+
+  # Shift all epochs forward by one
+  for i in 0 ..< (1 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH:
+    state.ptc_window[i] = state.ptc_window.item(i + SLOTS_PER_EPOCH)
+
+  # Fill in the last epoch
+  let base_index = (1 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH
+  for slot_offset in 0 ..< SLOTS_PER_EPOCH:
+    let slot = new_epoch.start_slot() + slot_offset
+    var
+      ptcArray: HashArray[Limit PTC_SIZE, uint64]
+      i = 0
+    for idx in compute_ptc(state, slot, cache):
+      ptcArray[i] = uint64(idx)
+      inc i
+    state.ptc_window.mitem(base_index + slot_offset) = ptcArray
+
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
@@ -1593,7 +1617,7 @@ proc process_epoch*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/beacon-chain.md#modified-process_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1629,5 +1653,5 @@ proc process_epoch*(
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
   ? process_proposer_lookahead(state, cache)
-
+  process_ptc_window(state, cache) # [New in Gloas:EIP7732]
   ok()
