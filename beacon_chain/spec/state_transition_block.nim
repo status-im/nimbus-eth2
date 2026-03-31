@@ -425,7 +425,7 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#modified-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     bucket_sorted_validators: BucketSortedValidators,
@@ -482,7 +482,7 @@ proc check_voluntary_exit*(
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
 
-  let voluntary_exit = signed_voluntary_exit.message
+  template voluntary_exit:untyped = signed_voluntary_exit.message
 
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
@@ -522,7 +522,7 @@ proc check_voluntary_exit*(
         voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
         validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
-      
+
   # Checked above
   ValidatorIndex.init(voluntary_exit.validator_index)
 
@@ -544,7 +544,7 @@ proc process_voluntary_exit*(
     cache: var StateCache): Result[ExitQueueInfo, cstring] =
 
   when typeof(state).kind >= ConsensusFork.Gloas:
-    let voluntary_exit = signed_voluntary_exit.message
+    template voluntary_exit: untyped = signed_voluntary_exit.message
     if is_builder_index(voluntary_exit.validator_index):
       if not (get_current_epoch(state) >= voluntary_exit.epoch):
         return err("Exit: exit epoch not passed")
@@ -1446,14 +1446,6 @@ func process_withdrawals*(
     state.next_withdrawal_validator_index = next_validator_index
 
   ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_builder_index
-func is_builder_index*(validator_index: uint64): bool =
-  (validator_index and BUILDER_INDEX_FLAG) != 0
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-convert_validator_index_to_builder_index
-func convert_validator_index_to_builder_index*(validator_index: uint64): BuilderIndex =
-  validator_index and not BUILDER_INDEX_FLAG
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-apply_withdrawals
 func apply_withdrawals(

@@ -497,10 +497,6 @@ iterator compute_balance_weighted_selection*(
   let total = indices.lenu64
   doAssert total > 0
 
-  var effective_balances = newSeqOfCap[Gwei](total)
-  for idx in indices:
-    effective_balances.add(state.validators[idx].effective_balance)
-
   var
     i = 0'u64
     count = 0'u64
@@ -510,7 +506,8 @@ iterator compute_balance_weighted_selection*(
     if shuffle_indices:
       next_index = compute_shuffled_index(next_index, total, seed)
 
-    if compute_balance_weighted_acceptance(effective_balances[next_index], seed, i):
+    if compute_balance_weighted_acceptance(
+        state.validators[indices[next_index]].effective_balance, seed, i):
       yield indices[next_index]
       inc count
     inc i
