@@ -312,6 +312,22 @@ proc process_attester_slashing*(
 from ".."/validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_pending_validator
+func get_pending_validators*(cfg: RuntimeConfig, state: gloas.BeaconState):
+    HashSet[ValidatorPubKey] =
+  ## Check if a pending deposit with a valid signature is in the queue for the given pubkey.
+  var res: HashSet[ValidatorPubKey]
+  for pending_deposit in state.pending_deposits:
+    if verify_deposit_signature(
+        cfg.GENESIS_FORK_VERSION,
+        DepositData(
+          pubkey: pending_deposit.pubkey,
+          withdrawal_credentials: pending_deposit.withdrawal_credentials,
+          amount: pending_deposit.amount,
+          signature: pending_deposit.signature)):
+      res.incl(pending_deposit.pubkey)
+  res
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-apply_deposit
 proc apply_deposit(
@@ -409,11 +425,12 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#modified-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     bucket_sorted_validators: BucketSortedValidators,
     bucket_sorted_builders: var BucketSortedValidators,
+    pending_validators: var HashSet[ValidatorPubKey],
     deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
   # [New in Gloas:EIP7732]
@@ -428,7 +445,8 @@ func process_deposit_request*(
       deposit_request.pubkey).isOk()
     is_builder_prefix =
       is_builder_withdrawal_credential(deposit_request.withdrawal_credentials)
-  if is_builder or (is_builder_prefix and not is_validator):
+  if is_builder or (is_builder_prefix and not is_validator and 
+      deposit_request.pubkey notin pending_validators):
     # Apply builder deposits immediately
     apply_deposit_for_builder(
       cfg, state, bucket_sorted_builders, deposit_request.pubkey,
@@ -443,7 +461,15 @@ func process_deposit_request*(
       amount: deposit_request.amount,
       signature: deposit_request.signature,
       slot: state.slot)):
-    ok()
+      if verify_deposit_signature(
+          cfg.GENESIS_FORK_VERSION,
+          DepositData(
+            pubkey: deposit_request.pubkey,
+            withdrawal_credentials: deposit_request.withdrawal_credentials,
+            amount: deposit_request.amount,
+            signature: deposit_request.signature)):
+        pending_validators.incl(deposit_request.pubkey)
+      ok()
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
@@ -456,7 +482,7 @@ proc check_voluntary_exit*(
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
 
-  let voluntary_exit = signed_voluntary_exit.message
+  template voluntary_exit:untyped = signed_voluntary_exit.message
 
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
@@ -509,12 +535,37 @@ proc check_voluntary_exit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_voluntary_exit
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags, exit_queue_info: ExitQueueInfo,
     cache: var StateCache): Result[ExitQueueInfo, cstring] =
+
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    template voluntary_exit: untyped = signed_voluntary_exit.message
+    if is_builder_index(voluntary_exit.validator_index):
+      if not (get_current_epoch(state) >= voluntary_exit.epoch):
+        return err("Exit: exit epoch not passed")
+      let builder_index =
+        convert_validator_index_to_builder_index(
+          voluntary_exit.validator_index)
+      if not is_active_builder(state, builder_index):
+        return err("Exit: builder not active")
+      if get_pending_balance_to_withdraw_for_builder(
+          state, builder_index) != 0.Gwei:
+        return err("Exit: builder has pending withdrawals")
+      let voluntary_exit_fork = typeof(state).kind.voluntary_exit_signature_fork(
+        state.fork, cfg.CAPELLA_FORK_VERSION)
+      if not verify_voluntary_exit_signature(
+          voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
+          state.builders.mitem(builder_index).pubkey,
+          signed_voluntary_exit.signature):
+        return err("Exit: invalid builder signature")
+      initiate_builder_exit(cfg, state, builder_index)
+      return ok(exit_queue_info)
+
   let exited_validator =
     ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
   ok(? initiate_validator_exit(
@@ -1235,8 +1286,9 @@ proc process_execution_payload*(
         sortValidatorBuckets(state.data.builders.asSeq)
       else:
         nil
+  var pending_validators = get_pending_validators(cfg, state.data)
   for op in envelope.execution_requests.deposits:
-    ? process_deposit_request(cfg, state.data, bsv[], bsb[], op, {})
+    ? process_deposit_request(cfg, state.data, bsv[], bsb[], pending_validators, op, {})
   for op in envelope.execution_requests.withdrawals:
     process_withdrawal_request(cfg, state.data, bsv[], op, cache)
   for op in envelope.execution_requests.consolidations:
@@ -1394,14 +1446,6 @@ func process_withdrawals*(
     state.next_withdrawal_validator_index = next_validator_index
 
   ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_builder_index
-func is_builder_index(validator_index: uint64): bool =
-  (validator_index and BUILDER_INDEX_FLAG) != 0
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-convert_validator_index_to_builder_index
-func convert_validator_index_to_builder_index(validator_index: uint64): BuilderIndex =
-  validator_index and not BUILDER_INDEX_FLAG
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-apply_withdrawals
 func apply_withdrawals(

@@ -127,6 +127,7 @@ type
     timeParams*: TimeParams
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
+    MIN_BUILDER_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
     ETH1_FOLLOW_DISTANCE*: uint64
 
@@ -317,6 +318,8 @@ when const_preset == "mainnet":
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**6 (= 64) epochs ~7 hours
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -513,6 +516,8 @@ elif const_preset == "gnosis":
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**6 (= 64) epochs ~7 hours
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -708,6 +713,8 @@ elif const_preset == "minimal":
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**1 (= 2) epochs
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 2,
     # [customized] higher frequency of committee turnover and faster time to acceptable voluntary exit
     SHARD_COMMITTEE_PERIOD: 64,
     # [customized] process deposits more quickly, but insecure

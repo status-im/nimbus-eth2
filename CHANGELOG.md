@@ -1,3 +1,35 @@
+2026-03-28 v26.3.1
+==================
+
+The Nimbus consensus client `v26.3.1` is a `medium-urgency` release for Ethereum which improves column-handling performance and increases validator client robustness. It is `high-urgency` for Gnosis due to the imminent Fulu fork.
+
+### Improvements
+
+- Schedule Fulu fork for Gnosis:
+  https://github.com/status-im/nimbus-eth2/pull/8144
+
+- Implement the fast confirmation rule:
+  https://github.com/status-im/nimbus-eth2/pull/8072
+  https://github.com/status-im/nimbus-eth2/pull/8121
+  https://github.com/status-im/nimbus-eth2/pull/8129
+  https://github.com/status-im/nimbus-eth2/pull/8130
+  https://github.com/status-im/nimbus-eth2/pull/8132
+  https://github.com/status-im/nimbus-eth2/pull/8137
+
+- Verify block signatures only once rather than for every column:
+  https://github.com/status-im/nimbus-eth2/pull/7949
+
+### Fixes
+
+- Enable timely validator client proposals with partially unresponsive beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/8174
+
+- Show optimistic sync status while backfilling:
+  https://github.com/status-im/nimbus-eth2/pull/8136
+
+- Fix crash when attempting to subscribe to `attestation` beacon API SSE:
+  https://github.com/status-im/nimbus-eth2/pull/8057
+
 2026-03-02 v26.3.0
 ==================
 

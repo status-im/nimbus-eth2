@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,6 +43,7 @@ const
   PendingDepositsDir =           RootDir/"pending_deposits"
   ProposerLookaheadDir =         RootDir/"proposer_lookahead"
   BuilderPendingPaymentsDir =    RootDir/"builder_pending_payments"
+  PtcWindowDir =                 RootDir/"ptc_window"
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==
@@ -52,7 +53,7 @@ doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     SlashingsResetDir, RandaoMixesResetDir, ParticipationFlagDir,
     RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir,
     PendingDepositsDir, PendingConsolidationsDir, ProposerLookaheadDir,
-    BuilderPendingPaymentsDir])
+    BuilderPendingPaymentsDir, PtcWindowDir])
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
@@ -165,6 +166,12 @@ runSuite(ProposerLookaheadDir, "Proposer lookahead"):
 # ---------------------------------------------------------------
 runSuite(BuilderPendingPaymentsDir, "Builder pending payments"):
   process_builder_pending_payments(cfg, state, cache)
+
+# PTC window
+# ---------------------------------------------------------------
+runSuite(PtcWindowDir, "PTC window"):
+  process_ptc_window(state, cache)
+  Result[void, cstring].ok()
 
 # Sync committee updates
 # ---------------------------------------------------------------

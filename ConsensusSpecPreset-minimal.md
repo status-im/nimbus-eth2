@@ -2489,17 +2489,20 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Electra - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_eth1_crede OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_extra_gwei OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_greater_th OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_pending_de OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_sti OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_undefined_ OK
 ```
 ## EF - Electra - Operations - Execution Payload  [Preset: minimal]
 ```diff
@@ -3300,17 +3303,20 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Fulu - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_eth1_credenti OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_greater_than_ OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_pending_depos OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_undefined_cre OK
 ```
 ## EF - Fulu - Operations - Execution Payload  [Preset: minimal]
 ```diff
@@ -3627,6 +3633,9 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnPartsMetadata                                                OK
++   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
@@ -3766,6 +3775,10 @@ ConsensusSpecPreset-minimal
 + Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - Gloas - Epoch Processing - PTC window [Preset: minimal]
+```diff
++ PTC window - process_ptc_window__shifts_all_epochs [Preset: minimal]                       OK
 ```
 ## EF - Gloas - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
@@ -4144,26 +4157,44 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_fu OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_no OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__nonstandard OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_exit OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_firs OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_slot OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_eth1_credent OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_pending_depo OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_undefined_cr OK
 ```
 ## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
 ```diff
@@ -4312,6 +4343,11 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Voluntary Exit  [Preset: minimal]
 ```diff
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__bad_ OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_incorrect_signature           OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_already_exited      OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_exit_in_future      OK
@@ -4326,6 +4362,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__success       OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exit                      OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exits_above_churn         OK
@@ -4529,6 +4566,9 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnPartsMetadata                                                OK
++   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
@@ -5680,6 +5720,25 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Finality - finality_rule_3 [Preset: minimal]                        OK
 + [Valid]   EF - gloas - Finality - finality_rule_4 [Preset: minimal]                        OK
 ```
+## EF - gloas - Random  [Preset: minimal]
+```diff
++ [Valid]   EF - gloas - Random - randomized_0 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_1 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_10 [Preset: minimal]                            OK
++ [Valid]   EF - gloas - Random - randomized_11 [Preset: minimal]                            OK
++ [Valid]   EF - gloas - Random - randomized_12 [Preset: minimal]                            OK
++ [Valid]   EF - gloas - Random - randomized_13 [Preset: minimal]                            OK
++ [Valid]   EF - gloas - Random - randomized_14 [Preset: minimal]                            OK
++ [Valid]   EF - gloas - Random - randomized_15 [Preset: minimal]                            OK
++ [Valid]   EF - gloas - Random - randomized_2 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_3 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_4 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_5 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_6 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_7 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_8 [Preset: minimal]                             OK
++ [Valid]   EF - gloas - Random - randomized_9 [Preset: minimal]                             OK
+```
 ## EF - gloas - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
@@ -5726,6 +5785,10 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
 + [Valid]   EF - gloas - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisf OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsati OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sat OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_uns OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
 + [Valid]   EF - gloas - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK

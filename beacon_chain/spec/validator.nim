@@ -460,12 +460,12 @@ func compute_proposer_indices*(
 
   proposerIndices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-compute_balance_weighted_acceptance
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-compute_balance_weighted_acceptance
 func compute_balance_weighted_acceptance(
-    state: gloas.BeaconState, index: ValidatorIndex,
-    seed: Eth2Digest, i: uint64): bool =
-  ## Return whether to accept the selection of the validator ``index``, with probability
-  ## proportional to its ``effective_balance``, and randomness given by ``seed`` and ``i``.
+    effective_balance: Gwei, seed: Eth2Digest, i: uint64
+): bool =
+  ## Return whether to accept the selection of a validator with the given ``effective_balance``,
+  ## with probability proportional to its balance, and randomness given by ``seed`` and ``i``.
   const MAX_RANDOM_VALUE = (2^16 - 1).uint64
 
   var buffer {.noinit.}: array[40, byte]
@@ -481,12 +481,11 @@ func compute_balance_weighted_acceptance(
 
   let
     random_value = bytes_to_uint64(random_bytes_8)
-    effective_balance = state.validators[index].effective_balance
 
   effective_balance.uint64 * MAX_RANDOM_VALUE >=
     MAX_EFFECTIVE_BALANCE_ELECTRA * random_value
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
 iterator compute_balance_weighted_selection*(
     state: gloas.BeaconState, indices: seq[ValidatorIndex],
     seed: Eth2Digest, size: uint64,
@@ -507,9 +506,9 @@ iterator compute_balance_weighted_selection*(
     if shuffle_indices:
       next_index = compute_shuffled_index(next_index, total, seed)
 
-    let candidate_index = indices[next_index]
-    if compute_balance_weighted_acceptance(state, candidate_index, seed, i):
-      yield candidate_index
+    if compute_balance_weighted_acceptance(
+        state.validators[indices[next_index]].effective_balance, seed, i):
+      yield indices[next_index]
       inc count
     inc i
 

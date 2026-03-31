@@ -186,13 +186,14 @@ suite baseDescription & "Deposit " & preset():
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Deposit Request " & preset():
-  func applyDepositRequest(
+  proc applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
+    var pending = get_pending_validators(defaultRuntimeConfig, preState)
     process_deposit_request(
       defaultRuntimeConfig, preState,
       sortValidatorBuckets(preState.validators.asSeq)[],
-      sortValidatorBuckets(preState.builders.asSeq)[], depositRequest, {})
+      sortValidatorBuckets(preState.builders.asSeq)[], pending, depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
@@ -308,11 +309,11 @@ suite baseDescription & "Voluntary Exit " & preset():
     else:
       err("")
 
-  for path in walkTests(OpVoluntaryExitDir):
-    runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
-      OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
-      applyVoluntaryExit, path)
-
+  for path in walkTests(OpVoluntaryExitDir):                                                                                                                                                        
+    runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](                                                                                                              
+      OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",                                                                                                  
+      applyVoluntaryExit, path)                                                                                                                                           
+                                                                                                                                                                            
 suite baseDescription & "Withdrawals " & preset():
   for path in walkTests(OpWithdrawalsDir):
     # See: https://github.com/status-im/nimbus-eth2/pull/7926#discussion_r2776852494

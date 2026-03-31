@@ -2143,7 +2143,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if (not node.config.peerdasSupernode) and
      (not node.config.lightSupernode) and
-     node.dataColumnQuarantine[].len == 0 and
      node.attachedValidatorBalanceTotal > 0.Gwei:
     # Detect new validator custody at the last slot of every epoch
     node.validatorCustody.detectNewValidatorCustody(slot,
