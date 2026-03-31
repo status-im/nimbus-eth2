@@ -576,15 +576,14 @@ proc proposeBlockAux(
       ))
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
-      Opt.some(signedBlock.assemble_data_column_sidecars(
+      signedBlock.assemble_data_column_sidecars(
         engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))))
+        @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
   elif consensusFork == ConsensusFork.Electra:
     let sidecarsOpt =
-      Opt.some(
-        signedBlock.create_blob_sidecars(
-          engineBlock.blobsBundle.proofs,
-          engineBlock.blobsBundle.blobs))
+      signedBlock.create_blob_sidecars(
+        engineBlock.blobsBundle.proofs,
+        engineBlock.blobsBundle.blobs)
   else:
     static: raiseAssert "Unsupported fork " & $consensusFork
 
@@ -715,7 +714,6 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
-    consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     data = makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
     # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
@@ -1084,7 +1082,7 @@ proc updateValidatorMetrics*(node: BeaconNode) =
           stateRoot = node.dag.headState.root
         0.Gwei
       else:
-        node.dag.headState.balances.item(v.index.get())
+        node.dag.headState.balances[v.index.get()]
 
     if i < 64:
       attached_validator_balance.set(

@@ -1,6 +1,12 @@
-# The build is reproducible only if this base image stays the same.
-FROM statusteam/nimbus_beacon_node:dist_base_20210513160553_macos@sha256:eef4aff594307c0ff615160aa7184b3660648ce929bb670a409428fc32bd04ed
+# beacon_chain
+# Copyright (c) 2021-2026 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# The build is reproducible only if this base image stays the same.
+FROM docker.io/statusteam/nimbus_beacon_node:dist_base_20260308134335_macos_v2@sha256:7074006e79dd39897689938ee214164b7b1ac4126f74ca7ee4a80639aa65efd5
 SHELL ["/bin/bash", "-c"]
 
 ARG USER_ID

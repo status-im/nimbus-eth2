@@ -56,7 +56,7 @@ static:
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, BlockGossip, VoluntaryExit, BLSToExecutionChange,
+    Head, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
     FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate, ExecutionPayloadAvailable,
@@ -304,8 +304,6 @@ type
   PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex
     fee_recipient*: Eth1Address
-
-  RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
 
   DenebSignedBlockContents* = object
     signed_block*: deneb.SignedBeaconBlock
@@ -594,6 +592,7 @@ type
   RestExtraData* = object
     confirmed_root*: Eth2Digest
     current_epoch_observed_justified_checkpoint*: Checkpoint
+    previous_epoch_greatest_unrealized_checkpoint*: Checkpoint
     previous_slot_head*, current_slot_head*: Eth2Digest
 
   GetForkChoiceResponse* = object
@@ -1195,18 +1194,6 @@ template init*(
     ForkedHistoricalSummariesWithProof(
       kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
     )
-
-template withForkyHistoricalSummariesWithProof*(
-    x: ForkedHistoricalSummariesWithProof, body: untyped): untyped =
-  case x.kind
-  of HistoricalSummariesFork.Electra:
-    const historicalFork {.inject, used.} = HistoricalSummariesFork.Electra
-    template forkySummaries: untyped {.inject, used.} = x.electraData
-    body
-  of HistoricalSummariesFork.Capella:
-    const historicalFork {.inject, used.} = HistoricalSummariesFork.Capella
-    template forkySummaries: untyped {.inject, used.} = x.capellaData
-    body
 
 func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
   static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra

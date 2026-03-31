@@ -52,7 +52,9 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
 
-  GETBLOBS_TIMEOUT = 250.milliseconds
+  # https://github.com/ethereum/execution-apis/blob/74feb592ce7b3a33fd8f6866d9464f8028c8a5e3/src/engine/osaka.md#request-1
+  # https://github.com/ethereum/execution-apis/blob/74feb592ce7b3a33fd8f6866d9464f8028c8a5e3/src/engine/osaka.md#request-2
+  GETBLOBS_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold = 15
     ## How many unsuccesful/successful requests we must see
@@ -62,9 +64,6 @@ type
   DeadlineFuture* = Future[void].Raising([CancelledError])
 
   SomeEnginePayloadWithValue =
-    BellatrixExecutionPayloadWithValue |
-    GetPayloadV2Response |
-    GetPayloadV3Response |
     GetPayloadV4Response |
     GetPayloadV5Response |
     GetPayloadV6Response
@@ -366,14 +365,7 @@ proc getPayload(
       # Give the EL some time to build the block
       await sleepAsync(500.milliseconds)
 
-    payload =
-      when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
-        BellatrixExecutionPayloadWithValue(
-          executionPayload: await rpcClient.getPayload(ExecutionPayloadV1, payloadId),
-          blockValue: Wei.zero,
-        )
-      else:
-        await rpcClient.getPayload(GetPayloadResponseType, payloadId)
+    payload = await rpcClient.getPayload(GetPayloadResponseType, payloadId)
 
     break # retryUntilCancelled
 
@@ -413,15 +405,6 @@ proc getPayload(
 
   payload
 
-template EngineApiResponseType(T: type bellatrix.ExecutionPayloadForSigning): type =
-  BellatrixExecutionPayloadWithValue
-
-template EngineApiResponseType(T: type capella.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV2Response
-
-template EngineApiResponseType(T: type deneb.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV3Response
-
 template EngineApiResponseType(T: type electra.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV4Response
 
@@ -441,32 +424,6 @@ func init*(
     headBlockHash: headBlock.asBlockHash,
     safeBlockHash: safeBlock.asBlockHash,
     finalizedBlockHash: finalizedBlock.asBlockHash,
-  )
-
-func init*(
-    T: type PayloadAttributesV1,
-    timestamp: uint64,
-    prevRandao: Eth2Digest,
-    suggestedFeeRecipient: Eth1Address,
-): T =
-  T(
-    timestamp: Quantity timestamp,
-    prevRandao: Bytes32 prevRandao.to(Hash32),
-    suggestedFeeRecipient: suggestedFeeRecipient,
-  )
-
-func init*(
-    T: type PayloadAttributesV2,
-    timestamp: uint64,
-    prevRandao: Eth2Digest,
-    suggestedFeeRecipient: Eth1Address,
-    withdrawals: seq[capella.Withdrawal],
-): T =
-  T(
-    timestamp: Quantity timestamp,
-    prevRandao: Bytes32 prevRandao.to(Hash32),
-    suggestedFeeRecipient: suggestedFeeRecipient,
-    withdrawals: withdrawals.toEngineWithdrawals(),
   )
 
 func init*(

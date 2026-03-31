@@ -23,7 +23,7 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../[digest, ssz_codec],
-  "."/[base, phase0, altair, bellatrix]
+  ./[base, phase0, altair, bellatrix]
 
 export json_serialization, base, ssz_codec
 
@@ -577,10 +577,6 @@ type
     # Append-only; either 0 or 1 per epoch
     historical_summary_added*: bool
     historical_summary*: HistoricalSummary
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

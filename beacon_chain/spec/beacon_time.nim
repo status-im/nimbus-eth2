@@ -203,22 +203,22 @@ func start_beacon_time*(s: Slot, timeParams: TimeParams): BeaconTime =
 func block_deadline*(s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams)
 
-func attestation_deadline*(
+func attestation_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.attestationSlotOffset
 
-func aggregate_deadline*(
+func aggregate_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.aggregateSlotOffset
 
-func sync_committee_message_deadline*(
+func sync_committee_message_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.syncCommitteeMessageSlotOffset
 
-func sync_contribution_deadline*(
+func sync_contribution_deadline_legacy*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.syncContributionSlotOffset

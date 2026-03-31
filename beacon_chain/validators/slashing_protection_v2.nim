@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard library
@@ -606,10 +606,6 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
 
 # DB Multiversioning
 # -------------------------------------------------------------
-
-func getRawDBHandle*(db: SlashingProtectionDB_v2): SqStoreRef =
-  ## Get the underlying raw DB handle
-  db.backend
 
 proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Opt[Eth2Digest] =
   ## Check if the DB has v2 metadata

@@ -689,7 +689,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.committee_index)
 
       if not is_active_validator(
-          node.dag.headState.validators.item(request.validator_index),
+          node.dag.headState.validators[request.validator_index],
           request.slot.epoch):
         return RestApiResponse.jsonError(Http400, ValidatorNotActive)
 
@@ -698,7 +698,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.is_aggregator)
 
       let validator_pubkey =
-        node.dag.headState.validators.item(request.validator_index).pubkey
+        node.dag.headState.validators[request.validator_index].pubkey
 
       node.validatorMonitor[].addAutoMonitor(
         validator_pubkey, request.validator_index)
@@ -734,7 +734,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     for item in subscriptions:
       let validator_pubkey =
-        node.dag.headState.validators.item(item.validator_index).pubkey
+        node.dag.headState.validators[item.validator_index].pubkey
 
       node.consensusManager[].actionTracker.registerSyncDuty(
         validator_pubkey, item.until_epoch)

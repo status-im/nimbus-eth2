@@ -50,7 +50,6 @@ func tiebreak(a, b: Eth2Digest): bool =
 template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   ## Get a value from a Nim Table, turning KeyError into
   ## an AssertionError defect
-  # Pointer is used to work around the lack of a `var` withValue
   try:
     table[key]
   except KeyError as exc:
@@ -65,12 +64,51 @@ func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
     return Opt.none(ProtoNode)
   Opt.some(nodes.buf[i])
 
+func contains(nodes: ProtoNodes, idx: Index): bool =
+  if idx < nodes.offset:
+    return false
+  let i = idx - nodes.offset
+  if i >= nodes.buf.len:
+    return false
+  true
+
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
 
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
+func find(self: ProtoArray, root: Eth2Digest): Index =
+  self.indices.getOrDefault(root, -1)
+
+func contains*(self: ProtoArray, root: Eth2Digest): bool =
+  self.find(root) in self.nodes
+
+func slot*(self: ProtoArray, root: Eth2Digest): Opt[Slot] =
+  ok (? self.nodes[self.find(root)]).bid.slot
+
+func voting_source*(self: ProtoArray, root: Eth2Digest): Opt[Checkpoint] =
+  ok (? self.nodes[self.find(root)]).checkpoints.justified
+
+func unrealized_justified*(
+    self: ProtoArray, root: Eth2Digest): Opt[Checkpoint] =
+  let
+    idx = self.find(root)
+    checkpoints = (? self.nodes[idx]).checkpoints
+  ok self.unrealized.getOrDefault(idx, checkpoints).justified
+
+type NodeCheckpoints* = object
+  voting_source*: Checkpoint
+  unrealized_justified*: Checkpoint
+
+func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
+  let
+    idx = self.find(root)
+    checkpoints = (? self.nodes[idx]).checkpoints
+  result.ok NodeCheckpoints(
+    voting_source: checkpoints.justified,
+    unrealized_justified:
+      self.unrealized.getOrDefault(idx, checkpoints).justified)
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -87,11 +125,11 @@ func nodeLeadsToViableHead(
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
-func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
+func init*(
+    T: type ProtoArray,
+    finalized: Checkpoint, finalizedSlot, currentSlot: Slot): T =
   let node = ProtoNode(
-    bid: BlockId(
-      slot: finalized.epoch.start_slot,
-      root: finalized.root),
+    bid: BlockId(slot: finalizedSlot, root: finalized.root),
     parent: Opt.none(int),
     checkpoints: FinalityCheckpoints(
       justified: finalized,
@@ -102,17 +140,28 @@ func init*(T: type ProtoArray, finalized: Checkpoint, currentSlot: Slot): T =
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
+template updateIfBetter(
+    best: var Checkpoint, bestIdx: var Index,
+    unrealized: Checkpoint, unrealizedIdx: Index) =
+  if unrealized.epoch > best.epoch or
+      (unrealized.epoch == best.epoch and unrealizedIdx < bestIdx):
+    best = unrealized
+    bestIdx = unrealizedIdx
+
 func unrealized_justified*(
     self: ProtoArray, justified: Checkpoint): Checkpoint =
   result = justified
-  for unrealized in self.currentEpochTips.values:
-    if unrealized.justified.epoch > result.epoch:
-      result = unrealized.justified
+  var bestIdx = Index.high
+  for idx, unrealized in self.unrealized:
+    result.updateIfBetter(bestIdx, unrealized.justified, idx)
 
-iterator realizePendingCheckpoints*(
-    self: var ProtoArray): FinalityCheckpoints =
+func realizePendingCheckpoints*(
+    self: var ProtoArray,
+    checkpoints: FinalityCheckpoints): FinalityCheckpoints =
   # Pull-up chain tips from previous epoch
-  for idx, unrealized in self.currentEpochTips:
+  var jIdx, fIdx = Index.high
+  result = checkpoints
+  for idx, unrealized in self.unrealized:
     let physicalIdx = idx - self.nodes.offset
     if unrealized != self.nodes.buf[physicalIdx].checkpoints:
       trace "Pulling up chain tip",
@@ -120,15 +169,15 @@ iterator realizePendingCheckpoints*(
         checkpoints = self.nodes.buf[physicalIdx].checkpoints,
         unrealized
       self.nodes.buf[physicalIdx].checkpoints = unrealized
-
-    yield unrealized
+    result.justified.updateIfBetter(jIdx, unrealized.justified, idx)
+    result.finalized.updateIfBetter(fIdx, unrealized.finalized, idx)
 
   # Reset tip tracking for new epoch
-  self.currentEpochTips.clear()
+  self.unrealized.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-func calculateProposerBoost(justifiedTotalActiveBalance: Gwei): Gwei =
-  let committee_weight = justifiedTotalActiveBalance div SLOTS_PER_EPOCH
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/phase0/fork-choice.md#compute_proposer_score
+func compute_proposer_score*(total_active_balance: Gwei): Gwei =
+  let committee_weight = total_active_balance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(
@@ -181,31 +230,39 @@ func applyScoreChanges*(
     if node.bid.root.isZero:
       continue
 
-    var nodeDelta = deltas[nodePhysicalIdx]
+    var nodeDelta =
+      if node.invalid:
+        # If the node is invalid, remove its weight from ancestors.
+        # Note this makes future deltas for this node inconsistent,
+        # but that is not relevant as node.invalid can never be reset.
+        -node.weight
+      else:
+        deltas[nodePhysicalIdx]
 
-    # If we find the node for which the proposer boost was previously applied,
-    # decrease the delta by the previous score amount.
-    if  (not self.previousProposerBoostRoot.isZero) and
-        self.previousProposerBoostRoot == node.bid.root:
-          if  nodeDelta < 0 and
-              nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
-            return err ForkChoiceError(
+    if not node.invalid:
+      # If we find the node for which the proposer boost was previously applied,
+      # decrease the delta by the previous score amount.
+      if  (not self.previousProposerBoostRoot.isZero) and
+          self.previousProposerBoostRoot == node.bid.root:
+            if  nodeDelta < 0 and
+                nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
+              return err ForkChoiceError(
                 kind: fcDeltaUnderflow,
                 index: nodePhysicalIdx)
-          nodeDelta -= self.previousProposerBoostScore.int64
+            nodeDelta -= self.previousProposerBoostScore.int64
 
-    # If we find the node matching the current proposer boost root, increase
-    # the delta by the new score amount.
-    #
-    # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-    if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
-      proposerBoostScore = calculateProposerBoost(justifiedTotalActiveBalance)
-      if  nodeDelta >= 0 and
-          high(Delta) - nodeDelta < proposerBoostScore.int64:
-        return err ForkChoiceError(
+      # If we find the node matching the current proposer boost root, increase
+      # the delta by the new score amount.
+      #
+      # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
+      if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
+        proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
+        if  nodeDelta >= 0 and
+            high(Delta) - nodeDelta < proposerBoostScore.int64:
+          return err ForkChoiceError(
             kind: fcDeltaOverflow,
             index: nodePhysicalIdx)
-      nodeDelta += proposerBoostScore.int64
+        nodeDelta += proposerBoostScore.int64
 
     # Apply the delta to the node
     # We fail fast if underflow, which shouldn't happen.
@@ -261,8 +318,9 @@ func applyScoreChanges*(
       continue
 
     if node.parent.isSome():
-      let parentLogicalIdx = node.parent.unsafeGet()
-      let parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
+      let
+        parentLogicalIdx = node.parent.unsafeGet()
+        parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
       if parentPhysicalIdx < 0:
         # Orphan
         continue
@@ -290,10 +348,8 @@ func onBlock*(
   if bid.root in self.indices:
     return ok()
 
-  var parentIdx: Index
-  self.indices.withValue(parent, index):
-    parentIdx = index[]
-  do:
+  let parentIdx = self.find(parent)
+  if parentIdx < 0:
     return err ForkChoiceError(
       kind: fcUnknownParent,
       childRoot: bid.root,
@@ -309,9 +365,8 @@ func onBlock*(
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
 
-  self.currentEpochTips.del parentIdx
   if unrealized.isSome:
-    self.currentEpochTips[nodeLogicalIdx] = unrealized.get
+    self.unrealized[nodeLogicalIdx] = unrealized.get
 
   ? self.maybeUpdateBestChildAndDescendant(parentIdx, nodeLogicalIdx)
 
@@ -324,14 +379,11 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## The result may not be accurate if `onBlock` is not followed by
   ## `applyScoreChanges` as `onBlock` does not update the whole tree.
   template justifiedRoot: Eth2Digest = self.checkpoints.justified.root
-  var justifiedIdx: Index
-  self.indices.withValue(justifiedRoot, value):
-    justifiedIdx = value[]
-  do:
+  let justifiedIdx = self.find(justifiedRoot)
+  if justifiedIdx < 0:
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justifiedRoot)
-
   let
     justifiedNode = self.nodes[justifiedIdx].valueOr:
       return err ForkChoiceError(
@@ -369,10 +421,8 @@ func prune*(
   ##   inalized root is different
   ## - Internal error due to invalid indices in `self`
 
-  var finalizedIdx: int
-  self.indices.withValue(checkpoints.finalized.root, index):
-    finalizedIdx = index[]
-  do:
+  let finalizedIdx = self.find(checkpoints.finalized.root)
+  if finalizedIdx < 0:
     return err ForkChoiceError(
       kind: fcFinalizedNodeUnknown,
       blockRoot: checkpoints.finalized.root)
@@ -391,7 +441,7 @@ func prune*(
   let finalPhysicalIdx = finalizedIdx - self.nodes.offset
   for nodePhysicalIdx in 0 ..< finalPhysicalIdx:
     let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-    self.currentEpochTips.del nodeLogicalIdx
+    self.unrealized.del nodeLogicalIdx
     self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
 
   # Drop all nodes prior to finalization.
@@ -625,8 +675,8 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
 
     let unrealized = block:
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-      if self.currentEpochTips.hasKey(nodeLogicalIdx):
-        Opt.some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+      if self.unrealized.hasKey(nodeLogicalIdx):
+        Opt.some self.unrealized.unsafeGet(nodeLogicalIdx)
       else:
         Opt.none(FinalityCheckpoints)
 

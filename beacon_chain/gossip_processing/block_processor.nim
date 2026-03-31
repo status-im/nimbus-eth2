@@ -93,7 +93,6 @@ type
     # Consumer
     # ----------------------------------------------------------------
     consensusManager*: ref ConsensusManager
-      ## Blockchain DAG, AttestationPool and Quarantine
       ## Blockchain DAG, AttestationPool, Quarantine, and ELManager
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
@@ -994,9 +993,14 @@ proc addPayload*(
   # TODO To be removed - Temporary call without import.
   blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
 
+  debug "Envelope processed",
+    head = shortLog(dag.head),
+    blck = shortLog(blck),
+    slot = signedBlock.message.slot
+
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
-  self.envelopeQuarantine[].delOrphan(signedBlock)
+  self.envelopeQuarantine[].remove(signedBlock.root)
 
   ok()
 

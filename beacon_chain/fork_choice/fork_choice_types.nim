@@ -38,6 +38,9 @@ type
     ## Fork Choice Error Kinds
     fcFinalizedNodeUnknown
     fcJustifiedNodeUnknown
+    fcConfirmedNodeUnknown
+    fcPreviousHeadUnknown
+    fcCurrentHeadUnknown
     fcInvalidNodeIndex
     fcInvalidJustifiedIndex
     fcInvalidBestDescendant
@@ -50,7 +53,8 @@ type
     fcInconsistentTick
     fcUnknownParent
     fcPruningFromOutdatedFinalizedRoot
-    fcInvalidEpochRef
+    fcUnknownBlockIdAtSlot
+    fcUnknownShufflingRef
 
   Index* = int
   Delta* = int64
@@ -59,9 +63,12 @@ type
   ForkChoiceError* = object
     case kind*: fcKind
     of fcFinalizedNodeUnknown,
-       fcJustifiedNodeUnknown:
+       fcJustifiedNodeUnknown,
+       fcConfirmedNodeUnknown,
+       fcPreviousHeadUnknown,
+       fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick, fcInvalidEpochRef:
+    of fcInconsistentTick:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
@@ -84,6 +91,10 @@ type
       parentRoot*: Eth2Digest
     of fcPruningFromOutdatedFinalizedRoot:
       finalizedRoot*: Eth2Digest
+    of fcUnknownBlockIdAtSlot,
+       fcUnknownShufflingRef:
+         shufflingRoot*: Eth2Digest
+         shufflingEpoch*: Epoch
 
   FcResult*[T] = Result[T, ForkChoiceError]
 
@@ -97,7 +108,7 @@ type
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
-    currentEpochTips*: Table[Index, FinalityCheckpoints]
+    unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
 
@@ -137,14 +148,15 @@ type
     # and overlap the top bits of `info.balances`. `fork_choice.nim` transfers
     # them from the old to the new `BalanceSource` when it changes.
     info*: BalanceCheckpoint
-    shuffling_epochs*: array[2, Epoch]
-    shuffling_roots*: array[2, Eth2Digest]
+    shuffling_epochs*: array[3, Epoch]
+    shuffling_roots*: array[3, Eth2Digest]
 
   ForkChoiceBackend* = object
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     confirmed*: BlockId
     current_epoch_observed_justified*: BalanceSource
+    previous_epoch_greatest_unrealized_checkpoint*: Checkpoint
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]

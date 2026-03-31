@@ -509,6 +509,23 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar
 
   ok()
 
+# https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#verify_partial_data_column_header_inclusion_proof
+func verify_partial_data_column_header_inclusion_proof*(
+    header: fulu.PartialDataColumnHeader): Result[void, cstring] =
+  ## Verify if the given KZG commitments are included in the given beacon block.
+  let gindex =
+    KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex
+  if not is_valid_merkle_branch(
+      hash_tree_root(header.kzg_commitments),
+      header.kzg_commitments_inclusion_proof,
+      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH.int,
+      get_subtree_index(gindex),
+      header.signed_block_header.message.body_root):
+
+    return err("PartialDataColumnHeader: Inclusion proof is invalid")
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
                                             Result[void, cstring] =

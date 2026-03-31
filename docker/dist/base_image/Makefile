@@ -11,31 +11,35 @@ IMAGE_TAG := dist_base_$(shell date --utc +"%Y%m%d%H%M%S")
 IMAGE_NAME := statusteam/nimbus_beacon_node:$(IMAGE_TAG)
 
 .PHONY: \
+	build \
 	build-amd64 \
 	build-arm64 \
 	build-arm \
 	build-win64 \
 	build-macos \
+	push \
 	push-amd64 \
 	push-arm64 \
 	push-arm \
 	push-win64 \
 	push-macos
 
+build: build-amd64 build-arm64 build-arm build-win64 build-macos
+
 build-amd64:
-	$(CURDIR)/make_base_image.sh amd64 "$(IMAGE_NAME)"
+	$(CURDIR)/make_base_image.sh amd64 "$(IMAGE_NAME)_amd64_v2"
 
 build-arm64:
-	$(CURDIR)/make_base_image.sh arm64 "$(IMAGE_NAME)_arm64_v5"
+	$(CURDIR)/make_base_image.sh arm64 "$(IMAGE_NAME)_arm64_v6"
 
 build-arm:
-	$(CURDIR)/make_base_image.sh arm "$(IMAGE_NAME)_arm_v3"
+	$(CURDIR)/make_base_image.sh arm "$(IMAGE_NAME)_arm_v4"
 
 build-win64:
-	$(CURDIR)/make_base_image.sh win64 "$(IMAGE_NAME)_win64_v2"
+	$(CURDIR)/make_base_image.sh win64 "$(IMAGE_NAME)_win64_v3"
 
 build-macos:
-	$(CURDIR)/make_base_image.sh macos "$(IMAGE_NAME)_macos"
+	$(CURDIR)/make_base_image.sh macos "$(IMAGE_NAME)_macos_v2"
 
 # You probably don't want to recreate and push these base images to Docker Hub,
 # because when older images expire and get deleted, it will no longer be possible
@@ -44,17 +48,19 @@ build-macos:
 # When you really have to, change the Docker tags by appending "_v2", "_v3", etc. to them.
 # This way you won't overwrite the old image.
 
+#push: push-amd64 push-arm64 push-arm push-win64 push-macos
+#
 #push-amd64: build-amd64
-#	docker push $(IMAGE_NAME)
-
+#	docker push $(IMAGE_NAME)_amd64_v2
+#
 #push-arm64: build-arm64
-#	docker push $(IMAGE_NAME)_arm64_v5
-
+#	docker push $(IMAGE_NAME)_arm64_v6
+#
 #push-arm: build-arm
-#	docker push $(IMAGE_NAME)_arm_v3
-
+#	docker push $(IMAGE_NAME)_arm_v4
+#
 #push-win64: build-win64
-#	docker push $(IMAGE_NAME)_win64_v2
-
+#	docker push $(IMAGE_NAME)_win64_v3
+#
 #push-macos: build-macos
-	#docker push $(IMAGE_NAME)_macos
+#	docker push $(IMAGE_NAME)_macos_v2

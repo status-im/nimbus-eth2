@@ -11,7 +11,7 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  "."/[eth2_merkleization, forks, signatures, validator],
+  ./[eth2_merkleization, forks, signatures, validator],
   ../validator_bucket_sort
 
 from std/algorithm import fill, isSorted, sort
@@ -590,11 +590,6 @@ func get_block_root_at_slot*(
 func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, epoch.start_slot())
-
-func get_block_root(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
-  ## Return the block root at the start of a recent ``epoch``.
-  withState(state):
-    get_block_root(forkyState.data, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
@@ -1480,11 +1475,6 @@ func has_execution_withdrawal_credential*(
   has_compounding_withdrawal_credential(consensusFork, validator) or
     has_eth1_withdrawal_credential(validator)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-has_builder_withdrawal_credential
-func has_builder_withdrawal_credential*(validator: Validator): bool =
-  ## Check if ``validator`` has an 0x03 prefixed "builder" withdrawal credential.
-  validator.withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#updated-is_fully_withdrawable_validator
 func is_fully_withdrawable_validator(
@@ -1919,7 +1909,7 @@ func get_validators_sweep_withdrawals(
     epoch = get_current_epoch(state)
     validators_limit = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
   const withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD
-  
+
   # Safe: prior_withdrawals length is bounded by the preceding get_builder_withdrawals
   # and get_partial_withdrawals calls in get_expected_withdrawals
   doAssert len(prior_withdrawals) < withdrawals_limit
@@ -2251,7 +2241,7 @@ func onboard_builders_from_pending_deposits*(
     let
       is_existing_builder = findValidatorIndex(
         state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
-      has_builder_credentials = 
+      has_builder_credentials =
         is_builder_withdrawal_credential(deposit.withdrawal_credentials)
 
     if is_existing_builder or has_builder_credentials:
@@ -2794,7 +2784,7 @@ func upgrade_to_next*(
     for i in 0 ..< res.len:
       setBit(res, i)
     res
-  
+
   template post: untyped = result
   post = gloas.BeaconState(
     # Versioning
@@ -2884,9 +2874,16 @@ func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest):
   if state.slot == state.latest_block_header.slot:
     # process_slot will not yet have updated the header of the "current" block -
     # similar to block creation, we fill it in with the state root
-    var tmp = state.latest_block_header
-    tmp.state_root = state_root
-    hash_tree_root(tmp)
+    #
+    # In Gloas, state_root is filled in process_execution_payload for keeping
+    # the block_root hash the same as block, as state_root would be varied after
+    # applying an envelope.
+    if state.latest_block_header.state_root.isZero:
+      var tmp = state.latest_block_header
+      tmp.state_root = state_root
+      hash_tree_root(tmp)
+    else:
+      hash_tree_root(state.latest_block_header)
   elif state.slot <=
       (state.latest_block_header.slot + SLOTS_PER_HISTORICAL_ROOT):
     # block_roots is limited to about a day - see assert in
@@ -3046,7 +3043,7 @@ func get_indexed_payload_attestation*(
     signature: payload_attestation.signature
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_valid_indexed_payload_attestation
 proc is_valid_indexed_payload_attestation*(
     state: gloas.BeaconState,
     indexed_payload_attestation: IndexedPayloadAttestation): bool =
@@ -3067,7 +3064,8 @@ proc is_valid_indexed_payload_attestation*(
       state.validators[it].pubkey)
     domain = get_domain(
       state.fork, DOMAIN_PTC_ATTESTER,
-      GENESIS_EPOCH, state.genesis_validators_root)
+      indexed_payload_attestation.data.slot.epoch,
+      state.genesis_validators_root)
     signing_root = compute_signing_root(
       indexed_payload_attestation.data, domain)
 

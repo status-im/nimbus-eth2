@@ -77,10 +77,6 @@ if defined(windows):
   # https://github.com/nim-lang/Nim/issues/4057
   --tlsEmulation:off
 
-  # The dynamic Chronicles output currently prevents us from using colors on Windows
-  # because these require direct manipulations of the stdout File object.
-  switch("define", "chronicles_colors=off")
-
   # Avoid some rare stack corruption while using exceptions with a SEH-enabled
   # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
   switch("define", "nimRawSetjmp")
@@ -130,10 +126,6 @@ switch("passL", "-fno-omit-frame-pointer")
 --define:chronicles_line_numbers # These are disabled for release binaries
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
-
-# Workaround for v2.2.8 regression; remove with v2.2.10
-# https://github.com/nim-lang/Nim/pull/25343
---mangle:cpp
 
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")

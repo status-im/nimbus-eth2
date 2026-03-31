@@ -1,9 +1,51 @@
-2025-02-18 v26.2.1
+2026-03-28 v26.3.1
+==================
+
+The Nimbus consensus client `v26.3.1` is a `medium-urgency` release for Ethereum which improves column-handling performance and increases validator client robustness. It is `high-urgency` for Gnosis due to the imminent Fulu fork.
+
+### Improvements
+
+- Schedule Fulu fork for Gnosis:
+  https://github.com/status-im/nimbus-eth2/pull/8144
+
+- Implement the fast confirmation rule:
+  https://github.com/status-im/nimbus-eth2/pull/8072
+  https://github.com/status-im/nimbus-eth2/pull/8121
+  https://github.com/status-im/nimbus-eth2/pull/8129
+  https://github.com/status-im/nimbus-eth2/pull/8130
+  https://github.com/status-im/nimbus-eth2/pull/8132
+  https://github.com/status-im/nimbus-eth2/pull/8137
+
+- Verify block signatures only once rather than for every column:
+  https://github.com/status-im/nimbus-eth2/pull/7949
+
+### Fixes
+
+- Enable timely validator client proposals with partially unresponsive beacon nodes:
+  https://github.com/status-im/nimbus-eth2/pull/8174
+
+- Show optimistic sync status while backfilling:
+  https://github.com/status-im/nimbus-eth2/pull/8136
+
+- Fix crash when attempting to subscribe to `attestation` beacon API SSE:
+  https://github.com/status-im/nimbus-eth2/pull/8057
+
+2026-03-02 v26.3.0
+==================
+
+The Nimbus consensus client `v26.3.0` is a `low-urgency` release which improves blob and column-handling performance.
+
+### Improvements
+
+- Improve blob and column-handling performance:
+  https://github.com/status-im/nimbus-eth2/commit/1a4774a42da0bc636e15a5d6ca234b2d6a3e05ce
+
+2026-02-18 v26.2.1
 ==================
 
 The Nimbus consensus client `v26.2.1` is a `low-urgency`, packaging-fix-only release for ARM and multiarch Docker images for anyone running `v26.2.0` and otherwise `medium-urgency` due to addressing the cause of the Nimbus outage on mainnet present in `v26.1.0` and earlier. Those still running `v26.1.0` or previous versions on mainnet should verify they're still on the canonical chain, restart Nimbus otherwise, and regardless update. There is no change to either the beacon node or validator client between `v26.2.0` and `v26.2.1`.
 
-2025-02-13 v26.2.0
+2026-02-13 v26.2.0
 ==================
 
 The Nimbus consensus client `v26.2.0` is a `medium-urgency` release with improved network stability. In particular, it addresses a scenario during which Nimbus clients falsely rejected as invalid a mainnet block and forked off. Cache corruption in Nimbus's implementation Merkle tree hashing causing this arose from certain size changes of SSZ `List` objects which appeared on mainnet which bypassed correct cache invalidation; https://github.com/status-im/nim-ssz-serialization/pull/150#issuecomment-3895939018 provides additional detail. Because descendants of block inaccurately determined to be invalid could not be processed without violating protocol, Nimbus could not continue to follow mainnet's canonical chain until the node was restarted. This release fills in the previously missing cases of Merkle tree root cache invalidation to prevent recurrence of such an event.
@@ -25,7 +67,7 @@ The Nimbus consensus client `v26.2.0` is a `medium-urgency` release with improve
 - Fix handling of validator custody changes in requesting missing columns:
   https://github.com/status-im/nimbus-eth2/pull/7927
 
-2025-01-29 v26.1.0
+2026-01-29 v26.1.0
 ===================
 
 The Nimbus consensus client `v26.1.0` is a `low-urgency` release with improved validator client stability.
