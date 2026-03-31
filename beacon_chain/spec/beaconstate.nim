@@ -2316,7 +2316,8 @@ iterator compute_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCach
     yield candidate_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-get_ptc
-iterator get_ptc*(state: gloas.BeaconState, slot: Slot): ValidatorIndex =
+func get_ptc*(state: gloas.BeaconState, slot: Slot):
+    seq[ValidatorIndex] =
   ## Get the payload timeliness committee for the given ``slot``
   let
     epoch = slot.epoch()
@@ -2330,8 +2331,10 @@ iterator get_ptc*(state: gloas.BeaconState, slot: Slot): ValidatorIndex =
         doAssert epoch <= state_epoch + MIN_SEED_LOOKAHEAD
         (epoch - state_epoch + 1).Epoch.start_slot.uint64 + slot_in_epoch
 
+  var res: seq[ValidatorIndex]
   for idx in state.ptc_window[index]:
-    yield ValidatorIndex(idx)
+    res.add(ValidatorIndex(idx))
+  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/fork.md#new-initialize_ptc_window
 proc initialize_ptc_window(
