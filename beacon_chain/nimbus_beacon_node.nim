@@ -24,14 +24,13 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./el/el_getblobs_service,
   ./spec/[
-    engine_authentication, weak_subjectivity, peerdas_helpers],
+    engine_authentication, weak_subjectivity, peerdas_helpers, column_map],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
     nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
 
-from std/algorithm import sort
 from std/sequtils import filterIt, mapIt, toSeq
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
@@ -570,35 +569,21 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     supernode = node.config.peerdasSupernode
-    lightSupernode = node.config.lightSupernode
-    localCustodyGroups =
-      if supernode:
-        dag.cfg.NUMBER_OF_CUSTODY_GROUPS
-      elif lightSupernode:
-        (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
-      else:
-        dag.cfg.CUSTODY_REQUIREMENT
-    custodyColumns =
-      if node.config.lightSupernode:
-        # Just the first half of custody columns
-        var res: HashSet[ColumnIndex]
-        for i in 0..<(dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
-          res.incl ColumnIndex(i)
-        res
-      else:
-        dag.cfg.resolve_columns_from_custody_groups(
-          node.network.nodeId, localCustodyGroups)
-
-  var sortedColumns = custodyColumns.toSeq()
-  sort(sortedColumns)
+    validatorCustody = ValidatorCustodyRef.init(
+      node.config, node.network, dag)
 
   let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
-      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
-      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+
+  validatorCustody.setQuarantine(dataColumnQuarantine)
+  validatorCustody.setQuarantine(gloasColumnQuarantine)
+
+  let
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -806,14 +791,12 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, custodyColumns,
+      node.network, validatorCustody,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
       quarantine, envelopeQuarantine, blobQuarantine,
       dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
       rmanEnvelopeVerifier, rmanEnvelopeLoader,
       rmanBlobLoader, rmanDataColumnLoader)
-    validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
-      dataColumnQuarantine)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -833,11 +816,6 @@ proc initFullNode(
   # but there are multiple instances of computing custody columns, especially
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
-
-  if supernode:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
-  else:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -1350,34 +1328,11 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
-func readCustodyGroupSubnets(node: BeaconNode): uint64 =
-  let
-    custodyGroups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
-    vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode:
-    custodyGroups
-  elif node.config.lightSupernode:
-    (custodyGroups div 2) + 1
-  elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
-    vcus_count
-  else:
-    node.dag.cfg.CUSTODY_REQUIREMENT
-
 proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
   let
     custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
-    targetSubnets = node.readCustodyGroupSubnets()
-    custody =
-      if node.config.lightSupernode:
-        # Light supernode serves only half of the custody groups
-        var res = newSeqOfCap[CustodyIndex]((custody_groups div 2) + 1)
-        for i in 0..<(custody_groups div 2) + 1:
-          res.add CustodyIndex(i)
-        res
-      else:
-        node.dag.cfg.get_custody_groups(
-        node.network.nodeId, targetSubnets.uint64)
+    custody = node.validatorCustody.getCustodyGroups()
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1475,9 +1430,7 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
 
   let
-    targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.dag.cfg.get_custody_groups(
-      node.network.nodeId, targetSubnets.uint64)
+    custody = node.validatorCustody.getCustodyGroups()
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -2087,33 +2040,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
-  if (not node.config.peerdasSupernode) and
-     (not node.config.lightSupernode) and
-     node.attachedValidatorBalanceTotal > 0.Gwei:
-    # Detect new validator custody at the last slot of every epoch
-    node.validatorCustody.detectNewValidatorCustody(slot,
-      node.attachedValidatorBalanceTotal)
-
-    if node.validatorCustody.diff_set.len > 0:
-      var custodyColumns =
-        node.validatorCustody.newer_column_set.toSeq()
-      sort(custodyColumns)
-      # update custody columns
-      node.dataColumnQuarantine[].update(node.dag.cfg, custodyColumns)
-      # update custody columns into request manager
-      node.requestManager.custody_columns_set =
-        node.validatorCustody.newer_column_set
-
-      # Update CGC and metadata with respect to the new detected validator custody
-      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
-
-      if new_vcus > node.dag.cfg.CUSTODY_REQUIREMENT.uint8:
-        node.network.loadCgcnetMetadataAndEnr(new_vcus)
-      else:
-        node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.CUSTODY_REQUIREMENT.uint8)
-
-      info "New validator custody count detected",
-        custody_columns = node.dataColumnQuarantine.custodyColumns.len
+  # TODO (cheatfate): This does not include VC provided validators balances.
+  node.validatorCustody.updateValidatorCustody(
+    slot, node.attachedValidatorBalanceTotal)
 
   # Update nfd field for BPOs
   let

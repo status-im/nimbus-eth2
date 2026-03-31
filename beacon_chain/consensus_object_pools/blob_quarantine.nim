@@ -901,10 +901,21 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     onDataColumnSidecarCallback: OnDataColumnSidecarCallback
 ): SidecarQuarantine[A, B] =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
-
   let custodyMap = ColumnMap.init(custodyColumns)
+  T.init(
+    cfg, custodyMap, database, maxDiskSizeMultipler,
+    onDataColumnSidecarCallback)
+
+proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
+    T: typedesc[SidecarQuarantine[A, B]],
+    cfg: RuntimeConfig,
+    custodyMap: ColumnMap,
+    database: QuarantineDB,
+    maxDiskSizeMultipler: int,
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+): SidecarQuarantine[A, B] =
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
-  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+  if len(custodyMap) < NUMBER_OF_COLUMNS:
     for i in 0 ..< len(indexMap):
       indexMap[i] = -1
   for index, item in custodyMap.pairs():
@@ -921,7 +932,7 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   SidecarQuarantine[A, B](
     minEpochsForSidecarsRequests:
       cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS,
-    maxSidecarsPerBlockCount: len(custodyColumns),
+    maxSidecarsPerBlockCount: len(custodyMap),
     maxMemSidecarsCount: size,
     maxDiskSidecarsCount: size * maxDiskSizeMultipler,
     memSidecarsCount: 0,
@@ -937,15 +948,12 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
 proc update*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: var SidecarQuarantine[A, B],
     cfg: RuntimeConfig,
-    custodyColumns: openArray[ColumnIndex]
+    custodyMap: ColumnMap
 ) =
-  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
-  let
-    custodyMap = ColumnMap.init(custodyColumns)
-    maxSidecarsPerBlockCount = len(custodyMap)
+  let maxSidecarsPerBlockCount = len(custodyMap)
 
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
-  if len(custodyColumns) < NUMBER_OF_COLUMNS:
+  if len(custodyMap) < NUMBER_OF_COLUMNS:
     for i in 0 ..< len(indexMap):
       indexMap[i] = -1
   for index, item in custodyMap.pairs():
@@ -1008,3 +1016,12 @@ proc update*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   quarantine.indexMap = indexMap
   quarantine.custodyColumns = toSeq(custodyMap.items)
   quarantine.custodyMap = custodyMap
+
+proc update*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
+    quarantine: var SidecarQuarantine[A, B],
+    cfg: RuntimeConfig,
+    custodyColumns: openArray[ColumnIndex]
+) =
+  doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
+  let custodyMap = ColumnMap.init(custodyColumns)
+  quarantine.update(cfg, custodyMap)
