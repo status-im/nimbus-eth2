@@ -62,6 +62,9 @@ proc readChunkPayload*(
     let res = await readChunkPayload(
       conn, peer, consensusFork.SignedBeaconBlock)
     if res.isOk:
+      let contextEpoch = res.get.message.slot.epoch
+      if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
+        return neterr InvalidContextBytes
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
@@ -81,8 +84,12 @@ proc readChunkPayload*(
 
   withConsensusFork(contextFork):
     when consensusFork >= ConsensusFork.Gloas:
-      let res = await readChunkPayload(conn, peer, gloas.SignedExecutionPayloadEnvelope)
+      let res = await readChunkPayload(
+        conn, peer, gloas.SignedExecutionPayloadEnvelope)
       if res.isOk:
+        let contextEpoch = res.get.message.slot.epoch
+        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
+          return neterr InvalidContextBytes
         return ok newClone(res.get)
       else:
         return err(res.error)
@@ -105,6 +112,9 @@ proc readChunkPayload*(
     when consensusFork >= ConsensusFork.Deneb:
       let res = await readChunkPayload(conn, peer, BlobSidecar)
       if res.isOk:
+        let contextEpoch = res.get.signed_block_header.message.slot.epoch
+        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
+          return neterr InvalidContextBytes
         return ok newClone(res.get)
       else:
         return err(res.error)
@@ -127,6 +137,9 @@ proc readChunkPayload*(
     when consensusFork >= ConsensusFork.Fulu:
       let res = await readChunkPayload(conn, peer, fulu.DataColumnSidecar)
       if res.isOk:
+        let contextEpoch = res.get.signed_block_header.message.slot.epoch
+        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
+          return neterr InvalidContextBytes
         return ok newClone(res.get)
       else:
         return err(res.error)
