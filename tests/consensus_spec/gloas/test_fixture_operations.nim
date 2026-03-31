@@ -309,11 +309,11 @@ suite baseDescription & "Voluntary Exit " & preset():
     else:
       err("")
 
-  for path in walkTests(OpVoluntaryExitDir):                                                                                                                                                        
-    runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](                                                                                                              
-      OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",                                                                                                  
-      applyVoluntaryExit, path)                                                                                                                                           
-                                                                                                                                                                            
+  for path in walkTests(OpVoluntaryExitDir):
+    runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
+      OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
+      applyVoluntaryExit, path)
+
 suite baseDescription & "Withdrawals " & preset():
   for path in walkTests(OpWithdrawalsDir):
     # See: https://github.com/status-im/nimbus-eth2/pull/7926#discussion_r2776852494

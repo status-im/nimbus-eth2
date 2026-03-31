@@ -461,15 +461,15 @@ func process_deposit_request*(
       amount: deposit_request.amount,
       signature: deposit_request.signature,
       slot: state.slot)):
-      if verify_deposit_signature(
-          cfg.GENESIS_FORK_VERSION,
-          DepositData(
-            pubkey: deposit_request.pubkey,
-            withdrawal_credentials: deposit_request.withdrawal_credentials,
-            amount: deposit_request.amount,
-            signature: deposit_request.signature)):
-        pending_validators.incl(deposit_request.pubkey)
-      ok()
+    if verify_deposit_signature(
+        cfg.GENESIS_FORK_VERSION,
+        DepositData(
+          pubkey: deposit_request.pubkey,
+          withdrawal_credentials: deposit_request.withdrawal_credentials,
+          amount: deposit_request.amount,
+          signature: deposit_request.signature)):
+      pending_validators.incl(deposit_request.pubkey)
+    ok()
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
