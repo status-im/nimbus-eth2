@@ -1402,7 +1402,7 @@ proc process_ptc_window*(
     state.ptc_window[i] = state.ptc_window.item(i + SLOTS_PER_EPOCH)
 
   # Fill in the last epoch
-  let base_index = (1 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH
+  const base_index = (1 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH
   for slot_offset in 0 ..< SLOTS_PER_EPOCH:
     let slot = new_epoch.start_slot() + slot_offset
     var

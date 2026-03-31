@@ -309,12 +309,7 @@ suite baseDescription & "Voluntary Exit " & preset():
     else:
       err("")
 
-  for path in walkTests(OpVoluntaryExitDir):                                                                                                                              
-    if not fileExists(
-        OpVoluntaryExitDir / "pyspec_tests" / path / "voluntary_exit.ssz_snappy"):                                                                                        
-      test "[Skip]    " & baseDescription & "Voluntary Exit - " & path:                                                                                                   
-        skip()                                                                                                                                                            
-      continue                                                                                                                                                            
+  for path in walkTests(OpVoluntaryExitDir):                                                                                                                                                        
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](                                                                                                              
       OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",                                                                                                  
       applyVoluntaryExit, path)                                                                                                                                           

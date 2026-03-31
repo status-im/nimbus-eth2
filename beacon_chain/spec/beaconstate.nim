@@ -1768,6 +1768,14 @@ func convert_builder_index_to_validator_index(builder_index: BuilderIndex):
     uint64 =
   builder_index or BUILDER_INDEX_FLAG
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-convert_validator_index_to_builder_index
+func convert_validator_index_to_builder_index*(validator_index: uint64): BuilderIndex =
+  validator_index and not BUILDER_INDEX_FLAG
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_builder_index
+func is_builder_index*(validator_index: uint64): bool =
+  (validator_index and BUILDER_INDEX_FLAG) != 0
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builder_withdrawals
 func get_builder_withdrawals(
     state: gloas.BeaconState, withdrawal_index: WithdrawalIndex,
@@ -2292,7 +2300,7 @@ iterator compute_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCach
   let epoch = slot.epoch()
   var buffer {.noinit.}: array[40, byte]
   buffer[0..31] = get_seed(state, epoch, DOMAIN_PTC_ATTESTER).data
-  buffer[32..39] = uint_to_bytes(slot.uint64)
+  buffer[32..39] = uint_to_bytes(distinctBase(slot))
   let seed = eth2digest(buffer)
 
   var indices = newSeqOfCap[ValidatorIndex](PTC_SIZE)
@@ -2308,24 +2316,22 @@ iterator compute_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCach
     yield candidate_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-get_ptc
-func get_ptc*(state: gloas.BeaconState, slot: Slot):
-    seq[ValidatorIndex]=
+iterator get_ptc*(state: gloas.BeaconState, slot: Slot): ValidatorIndex =
   ## Get the payload timeliness committee for the given ``slot``
   let
     epoch = slot.epoch()
     state_epoch = get_current_epoch(state)
+    slot_in_epoch = slot mod SLOTS_PER_EPOCH
     index =
       if epoch < state_epoch:
         doAssert epoch + 1 == state_epoch
-        slot mod SLOTS_PER_EPOCH
+        slot_in_epoch
       else:
         doAssert epoch <= state_epoch + MIN_SEED_LOOKAHEAD
-        (epoch - state_epoch + 1) * SLOTS_PER_EPOCH + (slot mod SLOTS_PER_EPOCH)
+        (epoch - state_epoch + 1).Epoch.start_slot.uint64 + slot_in_epoch
 
-  var res: seq[ValidatorIndex]
   for idx in state.ptc_window[index]:
-    res.add(ValidatorIndex(idx))
-  res
+    yield ValidatorIndex(idx)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/fork.md#new-initialize_ptc_window
 proc initialize_ptc_window(
