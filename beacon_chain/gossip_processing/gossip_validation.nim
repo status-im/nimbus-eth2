@@ -1130,6 +1130,7 @@ proc validateExecutionPayload*(
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     attestation: SingleAttestation,
     wallTime: BeaconTime,
     subnet_id: SubnetId,
@@ -1195,7 +1196,8 @@ proc validateAttestation*(
     if attestation.data.index == 1:
       template block_root: untyped = attestation.data.beacon_block_root
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin pool.envelopeQuarantine[].orphans:
+          (envelopeQuarantine.isNil or
+            block_root notin envelopeQuarantine[].orphans):
         return errIgnore(
           "SingleAttestation: execution payload not yet seen")
   else:
@@ -1313,6 +1315,7 @@ proc validateAttestation*(
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     signedAggregateAndProof: electra.SignedAggregateAndProof,
     wallTime: BeaconTime,
     checkSignature = true,
@@ -1406,7 +1409,8 @@ proc validateAggregate*(
     if aggregate.data.index == 1:
       template block_root: untyped = aggregate.data.beacon_block_root
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin pool.envelopeQuarantine[].orphans:
+          (envelopeQuarantine.isNil or
+            block_root notin envelopeQuarantine[].orphans):
         return errIgnore(
           "Aggregate: execution payload not yet seen")
   else:

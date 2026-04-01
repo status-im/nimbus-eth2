@@ -113,29 +113,29 @@ suite "Gossip validation " & preset():
       beaconTime = att_1_0.data.slot.start_beacon_time(cfg.timeParams)
 
     check:
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
+      validateAttestation(pool, batchCrypto, nil, att_1_0, beaconTime, subnet, true).waitFor().isOk
 
       # Same validator again
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().error()[0] ==
+      validateAttestation(pool, batchCrypto, nil, att_1_0, beaconTime, subnet, true).waitFor().error()[0] ==
         ValidationResult.Ignore
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
+        pool, batchCrypto, nil, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
+        pool, batchCrypto, nil, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the past
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime -
+        pool, batchCrypto, nil, att_1_0, beaconTime -
         cfg.timeParams.SLOT_DURATION * SLOTS_PER_EPOCH.int64 - 1.seconds,
         subnet, true).waitFor().isErr
 
@@ -146,7 +146,7 @@ suite "Gossip validation " & preset():
       check:
         # Invalid signature
         validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true).waitFor().
+          pool, batchCrypto, nil, broken, beaconTime, subnet, true).waitFor().
             error()[0] == ValidationResult.Reject
 
     block:
@@ -156,9 +156,9 @@ suite "Gossip validation " & preset():
       # One invalid, one valid (batched)
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true)
+          pool, batchCrypto, nil, broken, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, att_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, nil,att_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
@@ -172,9 +172,9 @@ suite "Gossip validation " & preset():
       # One invalid, one valid (batched)
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true)
+          pool, batchCrypto, nil, broken, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, att_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, nil,att_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
@@ -194,9 +194,9 @@ suite "Gossip validation " & preset():
       # the individual attestations are invalid but their aggregate validates!
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken_1_0, beaconTime, subnet, true)
+          pool, batchCrypto, nil, broken_1_0, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, broken_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, nil, broken_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
