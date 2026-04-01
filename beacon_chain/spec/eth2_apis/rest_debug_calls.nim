@@ -42,7 +42,7 @@ proc getStateV2*(
     if resp.contentType.isNone():
       raise newException(RestError, "Missing Content-Type")
 
-    const maxBodyBytes = 4 * 1024 * 1024 * 1024
+    const maxBodyBytes = 3 * 1024 * 1024 * 1024
     let
       data = (await resp.getBodyBytesWithCap(maxBodyBytes)).valueOr:
         raise newException(RestError, "Response too long")
