@@ -1376,8 +1376,26 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
           res.add CustodyIndex(i)
         res
       else:
-        node.dag.cfg.get_custody_groups(
-        node.network.nodeId, targetSubnets.uint64)
+        # Try recovering previously persisted column indices, in times
+        # of restarts, so that shuffled NodeId do not change column indices.
+        block:
+          var res: seq[CustodyIndex]
+          let blckOpt = node.dag.getForkedBlock(node.dag.head.bid)
+          if blckOpt.isSome():
+            withBlck(blckOpt.get()):
+              when consensusFork >= ConsensusFork.Fulu:
+                for i in 0..<NUMBER_OF_COLUMNS.uint64:
+                  var colData: fulu.DataColumnSidecar
+                  if node.dag.db.getDataColumnSidecar(
+                      forkyBlck.root, ColumnIndex(i), colData):
+                    let group = CustodyIndex(i mod custody_groups)
+                    if group notin res:
+                      res.add group
+          if res.len > 0:
+            res
+          else:
+            node.dag.cfg.get_custody_groups(
+              node.network.nodeId, targetSubnets.uint64)
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1475,9 +1493,27 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeCapellaMessageHandlers(forkDigest)
 
   let
+    custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.dag.cfg.get_custody_groups(
-      node.network.nodeId, targetSubnets.uint64)
+    custody =
+      block:
+        var res: seq[CustodyIndex]
+        let blckOpt = node.dag.getForkedBlock(node.dag.head.bid)
+        if blckOpt.isSome():
+          withBlck(blckOpt.get()):
+            when consensusFork >= ConsensusFork.Fulu:
+              for i in 0..<NUMBER_OF_COLUMNS.uint64:
+                var colData: fulu.DataColumnSidecar
+                if node.dag.db.getDataColumnSidecar(
+                    forkyBlck.root, ColumnIndex(i), colData):
+                  let group = CustodyIndex(i mod custody_groups)
+                  if group notin res:
+                    res.add group
+        if res.len > 0:
+          res
+        else:
+          node.dag.cfg.get_custody_groups(
+            node.network.nodeId, targetSubnets.uint64)
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
