@@ -1605,6 +1605,21 @@ func lcDataForkAtConsensusFork*(
   else:
     LightClientDataFork.None
 
+static:
+  for consensusFork in ConsensusFork:
+    withConsensusFork(consensusFork):
+      const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
+      template check(field, T: untyped, path: varargs[untyped]): untyped =
+        doAssert lcDataFork.field == consensusFork.T.get_generalized_index(path)
+
+      when lcDataFork > LightClientDataFork.None:
+        check finalized_root_gindex,
+          BeaconState, "finalized_checkpoint", "root"
+        check current_sync_committee_gindex,
+          BeaconState, "current_sync_committee"
+        check next_sync_committee_gindex,
+          BeaconState, "next_sync_committee"
+
 func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
