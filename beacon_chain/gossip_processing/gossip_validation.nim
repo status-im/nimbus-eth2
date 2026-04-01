@@ -1193,8 +1193,9 @@ proc validateAttestation*(
     # [IGNORE] When attestation.data.index == 1 (payload present for a past block),
     # the execution payload for block has been seen
     if attestation.data.index == 1:
-      if not pool.dag.db.containsExecutionPayloadEnvelope(
-          attestation.data.beacon_block_root):
+      template block_root: untyped = attestation.data.beacon_block_root
+      if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
+          block_root notin pool.envelopeQuarantine[].orphans:
         return errIgnore(
           "SingleAttestation: execution payload not yet seen")
   else:
@@ -1403,8 +1404,9 @@ proc validateAggregate*(
     # [IGNORE] When attestation.data.index == 1 (payload present for a past block),
     # the execution payload for block has been seen
     if aggregate.data.index == 1:
-      if not pool.dag.db.containsExecutionPayloadEnvelope(
-          aggregate.data.beacon_block_root):
+      template block_root: untyped = aggregate.data.beacon_block_root
+      if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
+          block_root notin pool.envelopeQuarantine[].orphans:
         return errIgnore(
           "Aggregate: execution payload not yet seen")
   else:

@@ -557,7 +557,8 @@ proc initFullNode(
       Quarantine.init(dag.cfg))
     envelopeQuarantine = newClone(EnvelopeQuarantine.init(onEnvelopeAdded))
     attestationPool = newClone(AttestationPool.init(
-      dag, quarantine, getBeaconTime(), onSingleAttestationReceived))
+      dag, quarantine, envelopeQuarantine,
+      getBeaconTime(), onSingleAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, dag.cfg, onSyncContribution))
     lightClientPool = newClone(

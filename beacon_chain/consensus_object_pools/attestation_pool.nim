@@ -13,7 +13,7 @@ import
   chronicles, stew/byteutils,
   # Internal
   ../spec/[eth2_merkleization, forks, validator],
-  ./[spec_cache, blockchain_dag, block_quarantine],
+  ./[spec_cache, blockchain_dag, block_quarantine, envelope_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock
 
@@ -82,6 +82,7 @@ type
 
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
+    envelopeQuarantine*: ref EnvelopeQuarantine
 
     forkChoice*: ForkChoice
 
@@ -120,7 +121,9 @@ func init(T: type AttestationData, entry: AttestationEntry): T =
   )
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
-           quarantine: ref Quarantine, wallTime = default(BeaconTime),
+           quarantine: ref Quarantine,
+           envelopeQuarantine: ref EnvelopeQuarantine = nil,
+           wallTime = default(BeaconTime),
            onSingleAttestation: OnSingleAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
@@ -197,6 +200,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   T(
     dag: dag,
     quarantine: quarantine,
+    envelopeQuarantine: envelopeQuarantine,
     forkChoice: forkChoice,
     onSingleAttestationAdded: onSingleAttestation
   )
