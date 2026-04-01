@@ -11,7 +11,7 @@ import
   std/strformat,
   chronos, presto/client,
   ../[helpers, forks],
-  ./[rest_types, eth2_rest_serialization]
+  ./[rest_common, rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -20,15 +20,15 @@ proc getDebugChainHeadsV2*(): RestResponse[GetDebugChainHeadsV2Response] {.
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getDebugChainHeadsV2
 
-proc getStateV2Plain*(state_id: StateIdent): RestPlainResponse {.
+proc getStateV2Plain(state_id: StateIdent): RestHttpResponseRef {.
      rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
      accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
 
-proc getStateV2*(client: RestClientRef, state_id: StateIdent,
-                 cfg: RuntimeConfig, restAccept = ""
-                ): Future[ref ForkedHashedBeaconState] {.async.} =
+proc getStateV2*(
+    client: RestClientRef, state_id: StateIdent, cfg: RuntimeConfig,
+    restAccept = ""): Future[ref ForkedHashedBeaconState] {.async.} =
   # nil is returned if the state is not found due to a 404 - `ref` is needed
   # to manage stack usage
   let resp =
@@ -42,15 +42,18 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
     if resp.contentType.isNone():
       raise newException(RestError, "Missing Content-Type")
 
+    const maxBodyBytes = 3 * 1024 * 1024 * 1024
     let
+      data = (await resp.getBodyBytesWithCap(maxBodyBytes)).valueOr:
+        raise newException(RestError, "Response too long")
       mediaType = resp.contentType.get().mediaType
       state =
         if mediaType == ApplicationJsonMediaType:
-          decodeBytes(GetStateV2Response, resp.data, resp.contentType).valueOr:
+          decodeBytes(GetStateV2Response, data, resp.contentType).valueOr:
             raise newException(RestError, $error)
         elif mediaType == OctetStreamMediaType:
           try:
-            newClone(readSszForkedHashedBeaconState(cfg, resp.data))
+            newClone(readSszForkedHashedBeaconState(cfg, data))
           except CatchableError as exc:
             raise newException(RestError, exc.msg)
         else:
@@ -75,10 +78,18 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
   of 404:
     nil
   of 400, 500:
-    let error = decodeBytes(RestErrorMessage, resp.data, resp.contentType).valueOr:
-      let msg = &"Incorrect response error format ({resp.status}) [{error}]"
-      raise (ref RestResponseError)(msg: msg, status: resp.status)
+    const maxBodyBytes = 128 * 1024
+    let
+      data = (await resp.getBodyBytesWithCap(maxBodyBytes)).valueOr:
+        let msg = &"Error response too long ({resp.status})"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
+      error = decodeBytes(RestErrorMessage, data, resp.contentType).valueOr:
+        let msg = &"Incorrect response error format ({resp.status}) [{error}]"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
     let msg = &"Error response ({resp.status}) [{error.message}]"
-    raise (ref RestResponseError)(msg: msg, status: error.code, message: error.message)
+    raise (ref RestResponseError)(
+      msg: msg, status: error.code, message: error.message)
   else:
-    raiseRestResponseError(resp)
+    raiseRestResponseError(RestPlainResponse(
+      status: resp.status,
+      contentType: resp.contentType))
