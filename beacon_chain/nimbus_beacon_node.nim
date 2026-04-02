@@ -1363,6 +1363,27 @@ func readCustodyGroupSubnets(node: BeaconNode): uint64 =
   else:
     node.dag.cfg.CUSTODY_REQUIREMENT
 
+proc getPersistedCustodyGroups(node: BeaconNode): seq[CustodyIndex] =
+  ## Derives custody groups from column indices persisted in the DB for the
+  ## head block. Falls back to computing from the node ID if nothing is found.
+  let
+    custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+    targetSubnets = node.readCustodyGroupSubnets()
+    blckOpt = node.dag.getForkedBlock(node.dag.head.bid)
+  if blckOpt.isSome():
+    withBlck(blckOpt.get()):
+      when consensusFork >= ConsensusFork.Fulu:
+        for i in 0..<NUMBER_OF_COLUMNS.uint64:
+          var colData: fulu.DataColumnSidecar
+          if node.dag.db.getDataColumnSidecar(
+              forkyBlck.root, ColumnIndex(i), colData):
+            let group = CustodyIndex(i mod custody_groups)
+            if group notin result:
+              result.add group
+  if result.len == 0:
+    result = node.dag.cfg.get_custody_groups(
+      node.network.nodeId, targetSubnets.uint64)
+
 proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
   let
     custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
@@ -1376,26 +1397,7 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
           res.add CustodyIndex(i)
         res
       else:
-        # Try recovering previously persisted column indices, in times
-        # of restarts, so that shuffled NodeId do not change column indices.
-        block:
-          var res: seq[CustodyIndex]
-          let blckOpt = node.dag.getForkedBlock(node.dag.head.bid)
-          if blckOpt.isSome():
-            withBlck(blckOpt.get()):
-              when consensusFork >= ConsensusFork.Fulu:
-                for i in 0..<NUMBER_OF_COLUMNS.uint64:
-                  var colData: fulu.DataColumnSidecar
-                  if node.dag.db.getDataColumnSidecar(
-                      forkyBlck.root, ColumnIndex(i), colData):
-                    let group = CustodyIndex(i mod custody_groups)
-                    if group notin res:
-                      res.add group
-          if res.len > 0:
-            res
-          else:
-            node.dag.cfg.get_custody_groups(
-              node.network.nodeId, targetSubnets.uint64)
+        node.getPersistedCustodyGroups()
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
@@ -1492,28 +1494,7 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   # of columns. Last common ancestor fork for gossip environment is Capellla.
   node.removeCapellaMessageHandlers(forkDigest)
 
-  let
-    custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
-    targetSubnets = node.readCustodyGroupSubnets()
-    custody =
-      block:
-        var res: seq[CustodyIndex]
-        let blckOpt = node.dag.getForkedBlock(node.dag.head.bid)
-        if blckOpt.isSome():
-          withBlck(blckOpt.get()):
-            when consensusFork >= ConsensusFork.Fulu:
-              for i in 0..<NUMBER_OF_COLUMNS.uint64:
-                var colData: fulu.DataColumnSidecar
-                if node.dag.db.getDataColumnSidecar(
-                    forkyBlck.root, ColumnIndex(i), colData):
-                  let group = CustodyIndex(i mod custody_groups)
-                  if group notin res:
-                    res.add group
-        if res.len > 0:
-          res
-        else:
-          node.dag.cfg.get_custody_groups(
-            node.network.nodeId, targetSubnets.uint64)
+  let custody = node.getPersistedCustodyGroups()
 
   for i in custody:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
