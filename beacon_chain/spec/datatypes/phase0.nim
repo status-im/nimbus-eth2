@@ -377,10 +377,6 @@ func shortLog*(v: SomeBeaconBlock): auto =
     blob_kzg_commitments_len: 0,  # Deneb compat
   )
 
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
-
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),

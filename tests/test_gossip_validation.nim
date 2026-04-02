@@ -33,7 +33,7 @@ from ./testbcutil import addHeadBlock
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
-    # pool[].prune() # We test logic without att_1_0 pool / fork choice pruning
+    # pool[].prune(dag) # We test without att_1_0 pool / fork choice pruning
 
 suite "Gossip validation " & preset():
   setup:

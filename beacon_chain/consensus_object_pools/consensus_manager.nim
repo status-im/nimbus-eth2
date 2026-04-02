@@ -160,9 +160,6 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
 func optimisticHead*(self: ConsensusManager): BlockId =
   self.optimisticHead.bid
 
-func optimisticExecutionBlockHash*(self: ConsensusManager): Eth2Digest =
-  self.optimisticHead.execution_block_hash
-
 proc setOptimisticHead*(
     self: var ConsensusManager,
     bid: BlockId, execution_block_hash: Eth2Digest) =
@@ -203,6 +200,8 @@ proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
   self.dag.updateHead(
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
+  updateSafeBlockMetrics(
+    self.attestationPool[].forkChoice.get_safe_beacon_block_id)
   self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
@@ -546,4 +545,4 @@ proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   # Cleanup DAG & fork choice if we have a finalized head
   if self.dag.needStateCachesAndForkChoicePruning():
     self.dag.pruneStateCachesDAG()
-    self.attestationPool[].prune()
+    self.attestationPool[].prune(self.dag)

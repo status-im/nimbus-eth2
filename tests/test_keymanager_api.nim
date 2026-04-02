@@ -150,10 +150,6 @@ func contains*(keylist: openArray[KeystoreInfo], key: ValidatorPubKey): bool =
       return true
   false
 
-func contains*(keylist: openArray[KeystoreInfo], key: string): bool =
-  let pubkey = ValidatorPubKey.fromHex(key).tryGet()
-  contains(keylist, pubkey)
-
 proc prepareNetwork =
   let
     rng = HmacDrbgContext.new()

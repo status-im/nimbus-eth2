@@ -25,7 +25,7 @@
 import
   stew/assign2, chronicles,
   ../extras,
-  "."/[beaconstate, eth2_merkleization, validator]
+  ./[beaconstate, eth2_merkleization, validator]
 
 from std/math import sum, `^`
 from stew/bitops2 import setBit
@@ -44,10 +44,6 @@ logScope: topics = "consens"
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_raw)
-template previous_epoch*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.previous_epoch_raw)
-template current_epoch_attesters*(v: TotalBalances): Gwei =
-  max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_attesters_raw)
 template current_epoch_target_attesters*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT.Gwei, v.current_epoch_target_attesters_raw)
 template previous_epoch_attesters*(v: TotalBalances): Gwei =

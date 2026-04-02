@@ -31,7 +31,8 @@ type
 
   PayloadAttestationPool* = object
     dag*: ChainDAGRef
-    attestations*: Table[Slot, Table[Eth2Digest, PayloadAttestationEntry]]
+    attestations*: Table[Slot,
+      Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]]
 
 func init*(T: type PayloadAttestationPool, dag: ChainDAGRef): T =
   T(dag: dag)
@@ -53,16 +54,20 @@ func addPayloadAttestation*(
     pool: var PayloadAttestationPool, message: PayloadAttestationMessage,
     wallTime: BeaconTime): bool =
   template beacon_block_root: untyped = message.data.beacon_block_root
+
   let
     slot = message.data.slot
     validator_index = message.validator_index
+    key = (beacon_block_root,
+           message.data.payload_present,
+           message.data.blob_data_available)
 
   pool.pruneOldEntries(wallTime)
 
-  # create an entry for this block and slot
+  # create an entry for this attestation data
   let
     entry = addr pool.attestations.mgetOrPut(slot).mgetOrPut(
-      beacon_block_root, PayloadAttestationEntry(data: message.data))
+      key, PayloadAttestationEntry(data: message.data))
 
   # Check for duplicate
   let vidx = ValidatorIndex(validator_index)
@@ -115,12 +120,12 @@ func aggregateMessages(
 
 func getAggregatedPayloadAttestation*(
     pool: var PayloadAttestationPool, slot: Slot,
-    beacon_block_root: Eth2Digest, cache: var StateCache
+    key: (Eth2Digest, bool, bool), cache: var StateCache
 ): Opt[PayloadAttestation] =
-  ## Get aggregated payload attestation for a specific block and slot
+  ## Get aggregated payload attestation for a specific attestation data
 
   pool.attestations.withValue(slot, slotEntries):
-    slotEntries[].withValue(beacon_block_root, entry):
+    slotEntries[].withValue(key, entry):
       if entry[].aggregated.isNone():
         entry[].aggregated = pool.aggregateMessages(slot, entry[], cache)
       return entry[].aggregated
@@ -146,11 +151,11 @@ proc getPayloadAttestationsForBlock*(
     totalCandidates = 0
 
   pool.attestations.withValue(attestation_slot, slotEntries):
-    for beacon_block_root, entry in slotEntries[]:
+    for key, entry in slotEntries[]:
       totalCandidates += 1
       let aggregated =
         pool.getAggregatedPayloadAttestation(
-          attestation_slot, beacon_block_root, cache)
+          attestation_slot, key, cache)
       if aggregated.isSome():
         payload_attestations.add(aggregated.get())
         if payload_attestations.len >= MAX_PAYLOAD_ATTESTATIONS.int:

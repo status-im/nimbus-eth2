@@ -12,7 +12,8 @@
 
 import
   unittest2,
-  ../../beacon_chain/spec/forks
+  ../../beacon_chain/spec/forks,
+  ../../beacon_chain/spec/network
 
 var cfg = defaultRuntimeConfig
 cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
@@ -107,3 +108,98 @@ suite "EF - BPO forkdigests":
         ForkDigest([0xc3'u8, 0x2b, 0x09, 0xc1])
       forkDigests.atEpoch(1.Epoch, cfg) ==
         ForkDigest([0xf2'u8, 0xb5, 0x14, 0xbc])
+
+  test "nextForkEpochAtEpoch includes Gloas from Fulu":
+    var cfg = cfg
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.DENEB_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_EPOCH = GENESIS_EPOCH
+    cfg.GLOAS_FORK_EPOCH = 1.Epoch
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 0.Epoch, MAX_BLOBS_PER_BLOCK: 15)]
+
+    check:
+      cfg.nextForkEpochAtEpoch(0.Epoch) == 1.Epoch
+      cfg.nextForkEpochAtEpoch(1.Epoch) == FAR_FUTURE_EPOCH
+
+  test "nextForkEpochAtEpoch with BPO before Gloas":
+    var cfg = cfg
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.DENEB_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_EPOCH = GENESIS_EPOCH
+    cfg.GLOAS_FORK_EPOCH = 10.Epoch
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 5.Epoch, MAX_BLOBS_PER_BLOCK: 20),
+      BlobParameters(EPOCH: 0.Epoch, MAX_BLOBS_PER_BLOCK: 15)]
+
+    check:
+      cfg.nextForkEpochAtEpoch(0.Epoch) == 5.Epoch
+      cfg.nextForkEpochAtEpoch(5.Epoch) == 10.Epoch
+      cfg.nextForkEpochAtEpoch(10.Epoch) == FAR_FUTURE_EPOCH
+
+  test "ENR fork ID transitions from Fulu to Gloas":
+    var cfg = cfg
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.DENEB_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_VERSION = Version([0x70'u8, 0, 0, 0x38])
+    cfg.GLOAS_FORK_EPOCH = 1.Epoch
+    cfg.GLOAS_FORK_VERSION = Version([0x80'u8, 0, 0, 0x38])
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 0.Epoch, MAX_BLOBS_PER_BLOCK: 15)]
+    let gvr = Eth2Digest.fromHex("0x8488a6ea91e921a17cc3af3a9d79682ef38eb7c39da786e849b31feedd2aba6f")
+
+    let
+      fuluENR = cfg.getENRForkID(0.Epoch, gvr)
+      gloasENR = cfg.getENRForkID(1.Epoch, gvr)
+
+    check:
+      fuluENR.next_fork_version == Version([0x80'u8, 0, 0, 0x38])
+      fuluENR.next_fork_epoch == 1.Epoch
+      gloasENR.next_fork_version == Version([0x80'u8, 0, 0, 0x38])
+      gloasENR.next_fork_epoch == FAR_FUTURE_EPOCH
+      fuluENR.fork_digest != gloasENR.fork_digest
+
+  test "Fulu fork digest resolved via bpos list":
+    var cfg = cfg
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.DENEB_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_VERSION = Version([0x70'u8, 0, 0, 0x38])
+    cfg.GLOAS_FORK_EPOCH = 2.Epoch
+    cfg.GLOAS_FORK_VERSION = Version([0x80'u8, 0, 0, 0x38])
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 1.Epoch, MAX_BLOBS_PER_BLOCK: 20),
+      BlobParameters(EPOCH: 0.Epoch, MAX_BLOBS_PER_BLOCK: 15)]
+    let gvr = Eth2Digest.fromHex("0x8488a6ea91e921a17cc3af3a9d79682ef38eb7c39da786e849b31feedd2aba6f")
+    let forkDigests = ForkDigests.init(cfg, gvr)
+
+    let
+      fuluDigest = forkDigests.atConsensusFork(ConsensusFork.Fulu)
+      gloasDigest = forkDigests.atConsensusFork(ConsensusFork.Gloas)
+
+    check:
+      # Fulu and Gloas resolve to different digests
+      fuluDigest != gloasDigest
+      # Round-trip: digest -> fork -> digest
+      consensusForkForDigest(forkDigests, fuluDigest) ==
+        Opt[ConsensusFork].ok(ConsensusFork.Fulu)
+      consensusForkForDigest(forkDigests, gloasDigest) ==
+        Opt[ConsensusFork].ok(ConsensusFork.Gloas)
+      # BPO at epoch 1 produces a distinct digest from both fork-epoch entries
+      forkDigests.atEpoch(0.Epoch, cfg) == fuluDigest
+      forkDigests.atEpoch(1.Epoch, cfg) != fuluDigest
+      forkDigests.atEpoch(1.Epoch, cfg) != gloasDigest
+      forkDigests.atEpoch(2.Epoch, cfg) == gloasDigest

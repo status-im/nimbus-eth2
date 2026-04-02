@@ -16,6 +16,7 @@ import
 from ../mev/bellatrix_mev import SignedBlindedBeaconBlock
 from ../mev/capella_mev import SignedBlindedBeaconBlock
 from ../mev/deneb_mev import SignedBlindedBeaconBlock
+from ../datatypes/gloas import SignedExecutionPayloadEnvelope
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -460,3 +461,49 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
+
+proc getExecutionPayloadEnvelopePlain*(block_id: BlockIdent): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelope/{block_id}",
+     accept: preferSSZ,
+     meth: MethodGet.}
+  ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
+
+proc getExecutionPayloadEnvelope*(
+    client: RestClientRef, block_id: BlockIdent):
+    Future[Opt[SignedExecutionPayloadEnvelope]] {.async.} =
+  let resp = await client.getExecutionPayloadEnvelopePlain(block_id)
+  return
+    case resp.status
+    of 200:
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
+      else:
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let envelope =
+            decodeBytes(DataOptimisticAndFinalizedObject[
+              SignedExecutionPayloadEnvelope], resp.data,
+              resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          Opt.some(envelope.data)
+        elif mediaType == OctetStreamMediaType:
+          try:
+            Opt.some(SSZ.decode(resp.data, SignedExecutionPayloadEnvelope))
+          except CatchableError as exc:
+            raise newException(RestError, exc.msg)
+        else:
+          raise newException(RestError, "Unsupported Content-Type")
+    of 404:
+      Opt.none(SignedExecutionPayloadEnvelope)
+    of 400, 500:
+      let error = decodeBytes(RestErrorMessage, resp.data,
+                              resp.contentType).valueOr:
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $error & "]"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
+      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
+      raise (ref RestResponseError)(
+        msg: msg, status: error.code, message: error.message)
+    else:
+      raiseRestResponseError(resp)

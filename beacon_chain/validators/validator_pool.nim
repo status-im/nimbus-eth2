@@ -339,7 +339,7 @@ proc doppelgangerChecked*(validator: AttachedValidator, epoch: Epoch) =
         validator = shortLog(validator), check, epoch
       return
 
-    if check - epoch > 1:
+    if epoch - check > 1:
       debug "Doppelganger stale check",
         validator = shortLog(validator), check, epoch
 

@@ -298,6 +298,7 @@ proc addTestEngineBlock*(
     attestations: seq[phase0.Attestation] = newSeq[phase0.Attestation](),
     electraAttestations: seq[electra.Attestation] = newSeq[electra.Attestation](),
     deposits: seq[Deposit] = newSeq[Deposit](),
+    validator_changes = BeaconBlockValidatorChanges(),
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
@@ -327,8 +328,11 @@ proc addTestEngineBlock*(
 
     eps =
       when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-        default(gloas.ExecutionPayloadForSigning)
+        var gloasEps = default(gloas.ExecutionPayloadForSigning)
+        gloasEps.executionPayload.parent_hash = state.data.latest_block_hash
+        gloasEps.executionPayload.block_hash = eth2digest(
+          state.data.slot.uint64.toBytesBE())
+        gloasEps
       elif consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadForSigning(
@@ -340,6 +344,24 @@ proc addTestEngineBlock*(
 
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
+
+    signed_execution_payload_bid =
+      when consensusFork >= ConsensusFork.Gloas:
+        SignedExecutionPayloadBid(
+          message: ExecutionPayloadBid(
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: state.data.slot,
+            block_hash: eps.executionPayload.block_hash,
+            parent_block_hash: state.data.latest_block_hash,
+            parent_block_root: state.latest_block_root,
+            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            value: 0.Gwei,
+          ),
+          signature: ValidatorSig.infinity(),
+        )
+      else:
+        default(SignedExecutionPayloadBid)
+
     message = makeBeaconBlock(
         cfg,
         consensusFork,
@@ -351,12 +373,12 @@ proc addTestEngineBlock*(
         graffiti,
         attestations,
         deposits,
-        BeaconBlockValidatorChanges(),
+        validator_changes,
         sync_aggregate,
         eps,
         verificationFlags = {skipBlsValidation},
         execution_requests = default(ExecutionRequests),
-        signed_execution_payload_bid = default(SignedExecutionPayloadBid),
+        signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )
       .expect("block")
@@ -376,6 +398,7 @@ proc addTestEngineBlockWithBlobs*(
     attestations: seq[phase0.Attestation] = newSeq[phase0.Attestation](),
     electraAttestations: seq[electra.Attestation] = newSeq[electra.Attestation](),
     deposits: seq[Deposit] = newSeq[Deposit](),
+    validator_changes = BeaconBlockValidatorChanges(),
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
@@ -406,8 +429,11 @@ proc addTestEngineBlockWithBlobs*(
 
     eps =
       when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-        default(gloas.ExecutionPayloadForSigning)
+        var gloasEps = default(gloas.ExecutionPayloadForSigning)
+        gloasEps.executionPayload.parent_hash = state.data.latest_block_hash
+        gloasEps.executionPayload.block_hash = eth2digest(
+          state.data.slot.uint64.toBytesBE())
+        gloasEps
       elif consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadWithNonEmptyBlobsForSigning(
@@ -416,6 +442,24 @@ proc addTestEngineBlockWithBlobs*(
           default(consensusFork.ExecutionPayloadForSigning)
       else:
         default(bellatrix.ExecutionPayloadForSigning)
+
+    signed_execution_payload_bid =
+      when consensusFork >= ConsensusFork.Gloas:
+        SignedExecutionPayloadBid(
+          message: ExecutionPayloadBid(
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: state.data.slot,
+            block_hash: eps.executionPayload.block_hash,
+            parent_block_hash: state.data.latest_block_hash,
+            parent_block_root: state.latest_block_root,
+            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            value: 0.Gwei,
+          ),
+          signature: ValidatorSig.infinity(),
+        )
+      else:
+        default(SignedExecutionPayloadBid)
+
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
     message = makeBeaconBlock(
@@ -429,12 +473,12 @@ proc addTestEngineBlockWithBlobs*(
         graffiti,
         attestations,
         deposits,
-        BeaconBlockValidatorChanges(),
+        validator_changes,
         sync_aggregate,
         eps,
         verificationFlags = {skipBlsValidation},
         execution_requests = default(ExecutionRequests),
-        signed_execution_payload_bid = default(SignedExecutionPayloadBid),
+        signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )
       .expect("block")
@@ -466,6 +510,7 @@ proc addTestBlock*(
     attestations: seq[phase0.Attestation] = newSeq[phase0.Attestation](),
     electraAttestations: seq[electra.Attestation] = newSeq[electra.Attestation](),
     deposits: seq[Deposit] = newSeq[Deposit](),
+    validator_changes = BeaconBlockValidatorChanges(),
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
@@ -482,9 +527,8 @@ proc addTestBlock*(
     ForkedSignedBeaconBlock.init(
       addTestEngineBlock(
         cfg, consensusFork, forkyState, cache, eth1_data, attestations,
-        electraAttestations, deposits, sync_aggregate, graffiti, flags,
-      ).blck
-    )
+        electraAttestations, deposits, validator_changes, sync_aggregate,
+        graffiti, flags).blck)
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,
@@ -493,6 +537,7 @@ proc makeTestBlock*(
     attestations = newSeq[phase0.Attestation](),
     electraAttestations = newSeq[electra.Attestation](),
     deposits = newSeq[Deposit](),
+    validator_changes = BeaconBlockValidatorChanges(),
     sync_aggregate = SyncAggregate.init(),
     graffiti = default(GraffitiBytes),
     cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
@@ -502,9 +547,8 @@ proc makeTestBlock*(
   # because the block includes the state root.
   let tmpState = assignClone(state)
   addTestBlock(
-    tmpState[], cache, eth1_data,
-    attestations, electraAttestations, deposits, sync_aggregate, graffiti,
-    cfg = cfg)
+    tmpState[], cache, eth1_data, attestations, electraAttestations,
+    deposits, validator_changes, sync_aggregate, graffiti, cfg = cfg)
 
 func makeAttestationData*(
     state: ForkyBeaconState, slot: Slot, committee_index: CommitteeIndex,
@@ -719,6 +763,38 @@ func makeFullElectraAttestations*(
         attestation.aggregation_bits)
 
     result.add attestation
+
+func makeElectraIndexedAttestation*(
+    state: ForkedHashedBeaconState, slot: Slot,
+    validator_indices: openArray[uint64],
+    beacon_block_root: Eth2Digest): electra.IndexedAttestation =
+  let
+    data = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
+    committee = validator_indices.mapIt(it.ValidatorIndex)
+  var bits = ElectraCommitteeValidatorsBits.init(committee.len)
+  for i in 0 ..< committee.len:
+    bits.setBit i
+  electra.IndexedAttestation(
+    data: data,
+    attesting_indices:
+      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT](
+        @validator_indices),
+    signature: makeAttestationSig(
+      state.fork, state.genesis_validators_root, data, committee, bits))
+
+func makeElectraAttesterSlashing*(
+    state: ForkedHashedBeaconState,
+    validator_indices: openArray[uint64], slot: Slot,
+    root_a = Eth2Digest.fromHex(
+      "0x0100000000000000000000000000000000000000000000000000000000000000"),
+    root_b = Eth2Digest.fromHex(
+      "0x0200000000000000000000000000000000000000000000000000000000000000")
+): electra.AttesterSlashing =
+  electra.AttesterSlashing(
+    attestation_1: makeElectraIndexedAttestation(
+      state, slot, validator_indices, root_a),
+    attestation_2: makeElectraIndexedAttestation(
+      state, slot, validator_indices, root_b))
 
 proc makeSyncAggregate(
     state: ForkedHashedBeaconState,

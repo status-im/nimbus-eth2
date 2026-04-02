@@ -249,6 +249,8 @@ jobs:
   lint:
     name: "Lint"
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -257,7 +259,6 @@ jobs:
           submodules: 'recursive'
 
       - name: Check copyright year
-        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           excluded_files="config.yaml|config.nims|beacon_chain.nimble|Makefile|Product.wxs"
           excluded_extensions="ans|bin|cfg|yml|json|json\\.template|md|png|service|ssz|tpl|txt|lock|nix|gitignore|envrc|sh"
@@ -279,11 +280,10 @@ jobs:
           fi
 
       - name: Check exception tracking
-        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           scripts/check_exception_headers.sh
+
       - name: Check submodules
-        if: ${{ !cancelled() }} && github.event_name == 'pull_request'
         run: |
           scripts/check_submodule_branches.sh
 

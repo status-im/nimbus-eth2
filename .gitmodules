@@ -5,16 +5,6 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-[submodule "vendor/mainnet"]
-	path = vendor/mainnet
-	url = https://github.com/eth-clients/mainnet.git
-	ignore = untracked
-	branch = main
-[submodule "vendor/nim-eth2-scenarios"]
-	path = vendor/nim-eth2-scenarios
-	url = https://github.com/status-im/nim-eth2-scenarios
-	ignore = untracked
-	branch = master
 [submodule "vendor/nim-blscurve"]
 	path = vendor/nim-blscurve
 	url = https://github.com/status-im/nim-blscurve.git
@@ -160,11 +150,6 @@
 	url = https://github.com/status-im/nim-zxcvbn.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/nimbus-benchmarking"]
-	path = vendor/nimbus-benchmarking
-	url = https://github.com/status-im/nimbus-benchmarking.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/nim-unittest2"]
 	path = vendor/nim-unittest2
 	url = https://github.com/status-im/nim-unittest2.git
@@ -177,7 +162,7 @@
 	branch = master
 [submodule "vendor/nim-taskpools"]
 	path = vendor/nim-taskpools
-	url = https://github.com/status-im/nim-taskpools
+	url = https://github.com/status-im/nim-taskpools.git
 	ignore = untracked
 	branch = stable
 [submodule "vendor/nim-ssz-serialization"]
@@ -200,16 +185,6 @@
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/gnosis-chain-configs"]
-	path = vendor/gnosis-chain-configs
-	url = https://github.com/gnosischain/configs.git
-	ignore = untracked
-	branch = main
-[submodule "vendor/sepolia"]
-	path = vendor/sepolia
-	url = https://github.com/eth-clients/sepolia.git
-	ignore = untracked
-	branch = main
 [submodule "vendor/nim-kzg4844"]
 	path = vendor/nim-kzg4844
 	url = https://github.com/status-im/nim-kzg4844.git
@@ -224,17 +199,42 @@
 	path = vendor/nim-minilru
 	url = https://github.com/status-im/nim-minilru.git
 	branch = master
-[submodule "vendor/hoodi"]
-	path = vendor/hoodi
-	url = https://github.com/eth-clients/hoodi
-	ignore = untracked
-	branch = main
 [submodule "vendor/nim-lsquic"]
 	path = vendor/nim-lsquic
-	url = https://github.com/vacp2p/nim-lsquic
+	url = https://github.com/vacp2p/nim-lsquic.git
 	branch = main
 [submodule "vendor/nim-intops"]
 	path = vendor/nim-intops
 	url = https://github.com/vacp2p/nim-intops.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/mainnet"]
+	path = vendor/mainnet
+	url = https://github.com/eth-clients/mainnet.git
+	ignore = untracked
+	branch = main
+[submodule "vendor/gnosis-chain-configs"]
+	path = vendor/gnosis-chain-configs
+	url = https://github.com/gnosischain/configs.git
+	ignore = untracked
+	branch = main
+[submodule "vendor/hoodi"]
+	path = vendor/hoodi
+	url = https://github.com/eth-clients/hoodi.git
+	ignore = untracked
+	branch = main
+[submodule "vendor/sepolia"]
+	path = vendor/sepolia
+	url = https://github.com/eth-clients/sepolia.git
+	ignore = untracked
+	branch = main
+[submodule "vendor/nim-eth2-scenarios"]
+	path = vendor/nim-eth2-scenarios
+	url = https://github.com/status-im/nim-eth2-scenarios.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/nimbus-benchmarking"]
+	path = vendor/nimbus-benchmarking
+	url = https://github.com/status-im/nimbus-benchmarking.git
 	ignore = untracked
 	branch = master

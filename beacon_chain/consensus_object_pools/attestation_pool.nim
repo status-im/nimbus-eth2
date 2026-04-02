@@ -929,8 +929,8 @@ proc selectOptimisticHead*(
   ? pool.willSelectNewHead(headBlock, wallTime)
   ok pool.getBeaconHead(headBlock)
 
-proc prune*(pool: var AttestationPool) =
-  if (let v = pool.forkChoice.prune(); v.isErr):
+proc prune*(pool: var AttestationPool, dag: ChainDAGRef) =
+  if (let v = pool.forkChoice.prune(dag); v.isErr):
     # If pruning fails, it's likely the result of a bug - this shouldn't happen
     # but we'll keep running hoping that the fork choice will recover eventually
     error "Couldn't prune fork choice, bug?", err = v.error()
