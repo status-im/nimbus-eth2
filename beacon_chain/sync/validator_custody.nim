@@ -53,11 +53,15 @@ proc detectNewValidatorCustody*(vcus: ValidatorCustodyRef,
   let
     vcustody =
       vcus.dag.cfg.get_validators_custody_requirement(total_node_balance)
+    persisted = vcus.dag.getPersistedCustodyColumns()
     newer_columns =
-      vcus.dag.cfg.resolve_columns_from_custody_groups(
-        vcus.network.nodeId,
-        max(vcus.dag.cfg.CUSTODY_REQUIREMENT.uint64,
-        vcustody))
+      if persisted.len > 0:
+        persisted
+      else:
+        vcus.dag.cfg.resolve_columns_from_custody_groups(
+          vcus.network.nodeId,
+          max(vcus.dag.cfg.CUSTODY_REQUIREMENT.uint64,
+          vcustody))
 
   # check which custody set is larger
   if newer_columns.len >= vcus.older_column_set.len:

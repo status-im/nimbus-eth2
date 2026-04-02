@@ -388,6 +388,20 @@ proc getForkedBlock*(
           result.err()
           return
 
+proc getPersistedCustodyColumns*(
+    dag: ChainDAGRef): HashSet[ColumnIndex] =
+  ## Returns the set of column indices persisted in the DB for the head block.
+  ## Returns an empty set if no columns are found.
+  let blckOpt = dag.getForkedBlock(dag.head.bid)
+  if blckOpt.isSome():
+    withBlck(blckOpt.get()):
+      when consensusFork >= ConsensusFork.Fulu:
+        for i in 0..<NUMBER_OF_COLUMNS.uint64:
+          var colData: fulu.DataColumnSidecar
+          if dag.db.getDataColumnSidecar(
+              forkyBlck.root, ColumnIndex(i), colData):
+            result.incl ColumnIndex(i)
+
 proc getBlockId*(db: BeaconChainDB, root: Eth2Digest): Opt[BlockId] =
   block: # We might have a summary in the database
     let summary = db.getBeaconBlockSummary(root)

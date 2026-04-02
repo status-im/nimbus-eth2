@@ -586,8 +586,13 @@ proc initFullNode(
           res.incl ColumnIndex(i)
         res
       else:
-        dag.cfg.resolve_columns_from_custody_groups(
-          node.network.nodeId, localCustodyGroups)
+        block:
+          let persisted = dag.getPersistedCustodyColumns()
+          if persisted.len > 0:
+            persisted
+          else:
+            dag.cfg.resolve_columns_from_custody_groups(
+              node.network.nodeId, localCustodyGroups)
 
   var sortedColumns = custodyColumns.toSeq()
   sort(sortedColumns)
@@ -1369,18 +1374,13 @@ proc getPersistedCustodyGroups(node: BeaconNode): seq[CustodyIndex] =
   let
     custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     targetSubnets = node.readCustodyGroupSubnets()
-    blckOpt = node.dag.getForkedBlock(node.dag.head.bid)
-  if blckOpt.isSome():
-    withBlck(blckOpt.get()):
-      when consensusFork >= ConsensusFork.Fulu:
-        for i in 0..<NUMBER_OF_COLUMNS.uint64:
-          var colData: fulu.DataColumnSidecar
-          if node.dag.db.getDataColumnSidecar(
-              forkyBlck.root, ColumnIndex(i), colData):
-            let group = CustodyIndex(i mod custody_groups)
-            if group notin result:
-              result.add group
-  if result.len == 0:
+    persisted = node.dag.getPersistedCustodyColumns()
+  if persisted.len > 0:
+    for col in persisted:
+      let group = CustodyIndex(col mod custody_groups)
+      if group notin result:
+        result.add group
+  else:
     result = node.dag.cfg.get_custody_groups(
       node.network.nodeId, targetSubnets.uint64)
 

@@ -167,9 +167,13 @@ proc publishSidecars(
 
   # Custody filtering
   let metadata = router[].network.metadata.custody_group_count
+  let persisted = router[].dag.getPersistedCustodyColumns()
   let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
+    if persisted.len > 0:
+      persisted
+    else:
+      router[].network.cfg.resolve_columns_from_custody_groups(
+        router[].network.nodeId, metadata)
 
   var finalCols: gloas.DataColumnSidecars
   for dc in cols:
@@ -203,9 +207,13 @@ proc publishSidecars(
 
   # Custody filtering
   let metadata = router[].network.metadata.custody_group_count
+  let persisted = router[].dag.getPersistedCustodyColumns()
   let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
+    if persisted.len > 0:
+      persisted
+    else:
+      router[].network.cfg.resolve_columns_from_custody_groups(
+        router[].network.nodeId, metadata)
 
   var finalCols: fulu.DataColumnSidecars
   for dc in cols:
