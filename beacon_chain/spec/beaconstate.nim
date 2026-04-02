@@ -2325,13 +2325,17 @@ iterator get_ptc*(state: gloas.BeaconState, slot: Slot):
     epoch = slot.epoch()
     state_epoch = get_current_epoch(state)
     slot_in_epoch = slot mod SLOTS_PER_EPOCH
-    index =
-      if epoch < state_epoch:
-        doAssert epoch + 1 == state_epoch
-        slot_in_epoch
-      else:
-        doAssert epoch <= state_epoch + MIN_SEED_LOOKAHEAD
-        (epoch - state_epoch + 1).Epoch.start_slot.uint64 + slot_in_epoch
+
+  if epoch < state_epoch and epoch + 1 != state_epoch:
+    return
+  if epoch >= state_epoch and epoch > state_epoch + MIN_SEED_LOOKAHEAD:
+    return
+
+  let index =
+    if epoch < state_epoch:
+      slot_in_epoch
+    else:
+      (epoch - state_epoch + 1).Epoch.start_slot.uint64 + slot_in_epoch
 
   for idx in state.ptc_window[index]:
     yield ValidatorIndex(idx)
