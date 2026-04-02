@@ -1196,8 +1196,7 @@ proc validateAttestation*(
     if attestation.data.index == 1:
       template block_root: untyped = attestation.data.beacon_block_root
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          (envelopeQuarantine.isNil or
-            block_root notin envelopeQuarantine[].orphans):
+          block_root notin envelopeQuarantine[].orphans:
         return errIgnore(
           "SingleAttestation: execution payload not yet seen")
   else:
@@ -1409,8 +1408,7 @@ proc validateAggregate*(
     if aggregate.data.index == 1:
       template block_root: untyped = aggregate.data.beacon_block_root
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          (envelopeQuarantine.isNil or
-            block_root notin envelopeQuarantine[].orphans):
+          block_root notin envelopeQuarantine[].orphans:
         return errIgnore(
           "Aggregate: execution payload not yet seen")
   else:

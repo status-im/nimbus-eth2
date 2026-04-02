@@ -1768,11 +1768,11 @@ func convert_builder_index_to_validator_index(builder_index: BuilderIndex):
     uint64 =
   builder_index or BUILDER_INDEX_FLAG
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-convert_validator_index_to_builder_index
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-convert_validator_index_to_builder_index
 func convert_validator_index_to_builder_index*(validator_index: uint64): BuilderIndex =
   validator_index and not BUILDER_INDEX_FLAG
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_builder_index
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-is_builder_index
 func is_builder_index*(validator_index: uint64): bool =
   (validator_index and BUILDER_INDEX_FLAG) != 0
 
@@ -2319,7 +2319,7 @@ iterator compute_ptc*(state: gloas.BeaconState, slot: Slot, cache: var StateCach
 # See: https://github.com/nim-lang/Nim/issues/25287
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-get_ptc
 iterator get_ptc*(state: gloas.BeaconState, slot: Slot):
-    ValidatorIndex {. closure .} =
+    ValidatorIndex {.closure.} =
   ## Get the payload timeliness committee for the given ``slot``
   let
     epoch = slot.epoch()
@@ -2353,13 +2353,10 @@ proc initialize_ptc_window(
       base_index = (1 + epoch_offset) * SLOTS_PER_EPOCH
     for slot_offset in 0'u64 ..< SLOTS_PER_EPOCH:
       let slot = epoch.start_slot() + slot_offset
-      var
-        ptcArray: HashArray[Limit PTC_SIZE, uint64]
-        i = 0
+      var i = 0
       for idx in compute_ptc(state, slot, cache):
-        ptcArray[i] = uint64(idx)
+        state.ptc_window.mitem(base_index + slot_offset)[i] = uint64(idx)
         inc i
-      state.ptc_window.mitem(base_index + slot_offset) = ptcArray
 
 # upgrade_to_altair
 func upgrade_to_next*(cfg: RuntimeConfig, pre: phase0.BeaconState, _: var StateCache):

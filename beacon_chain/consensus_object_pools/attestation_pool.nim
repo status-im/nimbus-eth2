@@ -120,8 +120,7 @@ func init(T: type AttestationData, entry: AttestationEntry): T =
   )
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
-           quarantine: ref Quarantine,
-           wallTime = default(BeaconTime),
+           quarantine: ref Quarantine, wallTime = default(BeaconTime),
            onSingleAttestation: OnSingleAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block

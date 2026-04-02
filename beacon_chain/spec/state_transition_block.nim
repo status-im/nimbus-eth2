@@ -312,7 +312,7 @@ proc process_attester_slashing*(
 from ".."/validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_pending_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-is_pending_validator
 func get_pending_validators*(cfg: RuntimeConfig, state: gloas.BeaconState):
     HashSet[ValidatorPubKey] =
   ## Check if a pending deposit with a valid signature is in the queue for the given pubkey.
@@ -482,7 +482,7 @@ proc check_voluntary_exit*(
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
 
-  template voluntary_exit:untyped = signed_voluntary_exit.message
+  template voluntary_exit: untyped = signed_voluntary_exit.message
 
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
