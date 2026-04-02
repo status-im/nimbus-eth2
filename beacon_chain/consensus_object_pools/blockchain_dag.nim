@@ -599,6 +599,10 @@ func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
 
   Opt.some(EpochKey(bid: bsi.bid, epoch: epoch))
 
+func putParticipatingBalances*(
+    dag: ChainDAGRef, value: CachedParticipatingBalances) =
+  dag.participatingBalances.put value
+
 func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
   ## Store shuffling in the cache
   if shufflingRef.epoch < dag.finalizedHead.slot.epoch():
@@ -753,6 +757,12 @@ func loadStateCache*(
         # We often end up sharing sync committees with head during sync / gossip
         # validation / head updates
         cache.sync_committees[period] = dag.headSyncCommittees
+
+  let balances = dag.participatingBalances.findIt(it.bid.root == bid.root)
+  if balances.isSome:
+    cache.participating.ok (
+      epoch: balances.unsafeGet.bid.slot.epoch,
+      balances: balances.unsafeGet.balances)
 
 func containsForkBlock*(dag: ChainDAGRef, root: Eth2Digest): bool =
   ## Checks for blocks at the finalized checkpoint or newer

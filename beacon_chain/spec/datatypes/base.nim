@@ -408,6 +408,17 @@ type
     current_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
     next_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/beacon-chain.md#participation-flag-indices
+  TimelyFlag* {.pure.} = enum
+    TIMELY_SOURCE_FLAG_INDEX = 0
+    TIMELY_TARGET_FLAG_INDEX = 1
+    TIMELY_HEAD_FLAG_INDEX = 2
+
+  ParticipatingBalances* = object
+    previous_epoch*: array[TimelyFlag, Gwei]
+    current_epoch_TIMELY_TARGET*: Gwei
+    current_epoch*: Gwei  # aka total_active_balance
+
   # This doesn't know about forks or branches in the DAG. It's for straight,
   # linear chunks of the chain.
   StateCache* = object
@@ -415,6 +426,7 @@ type
     shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Opt[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
+    participating*: Opt[tuple[epoch: Epoch, balances: ParticipatingBalances]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
@@ -993,11 +1005,16 @@ func prune*(cache: var StateCache, epoch: Epoch) =
       cache.sync_committees.del drop.sync_committee_period
     drops.setLen(0)
 
+  if cache.participating.isSome and
+      cache.participating.unsafeGet.epoch < pruneEpoch:
+    cache.participating.reset()
+
 func clear*(cache: var StateCache) =
   cache.total_active_balance.clear
   cache.shuffled_active_validator_indices.clear
   cache.beacon_proposer_indices.clear
   cache.sync_committees.clear
+  cache.participating.reset()
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =

@@ -27,12 +27,6 @@ export base, sets
 from ssz_serialization/proofs import GeneralizedIndex, get_generalized_index
 export proofs.GeneralizedIndex
 
-type
-  TimelyFlag* {.pure.} = enum
-    TIMELY_SOURCE_FLAG_INDEX
-    TIMELY_TARGET_FLAG_INDEX
-    TIMELY_HEAD_FLAG_INDEX
-
 static:
   # Verify that ordinals follow spec values (the spec uses these as shifts for bit flags)
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#participation-flag-indices
@@ -192,11 +186,6 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  UnslashedParticipatingBalances* = object
-    previous_epoch*: array[TimelyFlag, Gwei]
-    current_epoch_TIMELY_TARGET*: Gwei
-    current_epoch*: Gwei # aka total_active_balance
-
   ParticipationFlag* {.pure.} = enum
     timelySourceAttester
     timelyTargetAttester
@@ -210,7 +199,7 @@ type
   EpochInfo* = object
     ## Information about the outcome of epoch processing
     validators*: seq[ParticipationInfo]
-    balances*: UnslashedParticipatingBalances
+    balances*: ParticipatingBalances
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -657,7 +646,7 @@ chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
-  info.balances = UnslashedParticipatingBalances()
+  info.balances.reset()
 
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |

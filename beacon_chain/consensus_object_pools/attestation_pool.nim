@@ -178,7 +178,11 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
               if blckRef == dag.head:
                 withState(dag.headState):
                   when consensusFork >= ConsensusFork.Altair:
-                    forkyState.data.compute_unrealized_finality()
+                    let (checkpoints, balances) =
+                      forkyState.data.compute_unrealized_finality()
+                    dag.putParticipatingBalances CachedParticipatingBalances(
+                      bid: blckRef.bid, balances: balances)
+                    checkpoints
                   else:
                     var cache: StateCache
                     forkyState.data.compute_unrealized_finality(cache)
