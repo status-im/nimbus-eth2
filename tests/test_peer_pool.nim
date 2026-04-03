@@ -1332,8 +1332,8 @@ suite "lookupCgcFromPeer testing suite":
     let peer = createMinimalPeer()
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == CUSTODY_REQUIREMENT
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT
 
   test "Valid metadata with cgc >= CUSTODY_REQUIREMENT":
     let metadata = fulu.MetaData(custody_group_count: 8)
@@ -1341,8 +1341,8 @@ suite "lookupCgcFromPeer testing suite":
       metadata = Opt.some(metadata))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == 8
+      res.isOk
+      res.get == 8
 
   test "Valid metadata with cgc == CUSTODY_REQUIREMENT (boundary)":
     let metadata = fulu.MetaData(
@@ -1351,8 +1351,8 @@ suite "lookupCgcFromPeer testing suite":
       metadata = Opt.some(metadata))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == CUSTODY_REQUIREMENT
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT
 
   test "Valid metadata with cgc == NUMBER_OF_COLUMNS (supernode)":
     let metadata = fulu.MetaData(
@@ -1361,8 +1361,8 @@ suite "lookupCgcFromPeer testing suite":
       metadata = Opt.some(metadata))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == NUMBER_OF_COLUMNS
+      res.isOk
+      res.get == NUMBER_OF_COLUMNS
 
   test "Metadata cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange":
     let metadata = fulu.MetaData(
@@ -1371,7 +1371,8 @@ suite "lookupCgcFromPeer testing suite":
       metadata = Opt.some(metadata))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.OutOfRange
+      res.isErr
+      res.error == PeerCgcStatus.OutOfRange
 
   test "Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc":
     let
@@ -1383,8 +1384,8 @@ suite "lookupCgcFromPeer testing suite":
         enrRecord = Opt.some(enrRecord))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == 8
+      res.isOk
+      res.get == 8
 
   test "Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc updates metadata":
     let
@@ -1396,8 +1397,8 @@ suite "lookupCgcFromPeer testing suite":
         enrRecord = Opt.some(enrRecord))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == 16
+      res.isOk
+      res.get == 16
       peer.metadata.get.custody_group_count == 16
 
   test "No metadata, valid ENR cgc":
@@ -1408,8 +1409,8 @@ suite "lookupCgcFromPeer testing suite":
         enrRecord = Opt.some(enrRecord))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == 10
+      res.isOk
+      res.get == 10
 
   test "No metadata, ENR cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange":
     let
@@ -1419,7 +1420,8 @@ suite "lookupCgcFromPeer testing suite":
         enrRecord = Opt.some(enrRecord))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.OutOfRange
+      res.isErr
+      res.error == PeerCgcStatus.OutOfRange
 
   test "No metadata, ENR without cgc field - returns default":
     let
@@ -1429,12 +1431,12 @@ suite "lookupCgcFromPeer testing suite":
         enrRecord = Opt.some(enrRecord))
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == CUSTODY_REQUIREMENT
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT
 
   test "No metadata, no ENR - returns default CUSTODY_REQUIREMENT":
     let peer = createMinimalPeer()
     let res = peer.lookupCgcFromPeer()
     check:
-      res.status == PeerCgcStatus.Found
-      res.value == CUSTODY_REQUIREMENT
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT

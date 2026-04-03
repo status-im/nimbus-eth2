@@ -53,12 +53,7 @@ type
     Unavailable,
     OutOfRange
 
-  PeerCgcResult* = object
-    case status*: PeerCgcStatus
-    of PeerCgcStatus.Found:
-      value*: uint64
-    of PeerCgcStatus.Unavailable, PeerCgcStatus.OutOfRange:
-      discard
+  PeerCgcResult* = Result[uint64, PeerCgcStatus]
 
   DirectPeers = Table[PeerId, seq[MultiAddress]]
 
@@ -1700,11 +1695,14 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     # Also, give some time to dial the discovered nodes and update stats etc
     await sleepAsync(5.seconds)
 
-proc fetchNodeIdFromPeerId*(peer: Peer): NodeId=
+proc fetchNodeIdFromPeerId*(peer: Peer): Opt[NodeId] =
   # Convert peer id to node id by extracting the peer's public key
   var key: PublicKey
-  discard peer.peerId.extractPublicKey(key)
-  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
+  if not peer.peerId.extractPublicKey(key):
+    return Opt.none(NodeId)
+  let pubkey = keys.PublicKey.fromRaw(key.skkey.getBytes()).valueOr:
+    return Opt.none(NodeId)
+  Opt.some(pubkey.toNodeId())
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -2526,7 +2524,7 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
     let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
                 metadata.get.custody_group_count
               else:
-                return PeerCgcResult(status: PeerCgcStatus.OutOfRange)
+                return err(PeerCgcStatus.OutOfRange)
 
     # If a peer's metadata hasn't been updated since a Fulu transition, the
     # metadata is present but has no initialized cgc.
@@ -2537,7 +2535,7 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
     # data column discovery. This new field MUST be added once
     # `FULU_FORK_EPOCH` is assigned any value other than `FAR_FUTURE_EPOCH`."
     if cgc >= CUSTODY_REQUIREMENT:
-      return PeerCgcResult(status: PeerCgcStatus.Found, value: cgc)
+      return ok(cgc)
 
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
@@ -2550,17 +2548,17 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
         if cgc > NUMBER_OF_COLUMNS:
-          return PeerCgcResult(status: PeerCgcStatus.OutOfRange)
+          return err(PeerCgcStatus.OutOfRange)
 
         if peer.metadata.isOk:
           peer.metadata.get.custody_group_count = cgc
 
-        return PeerCgcResult(status: PeerCgcStatus.Found, value: cgc.uint64)
+        return ok(cgc.uint64)
       except SszError, SerializationError:
-        return PeerCgcResult(status: PeerCgcStatus.Unavailable)
+        return err(PeerCgcStatus.Unavailable)
 
   # Return default value if no valid custody subnet count is found.
-  PeerCgcResult(status: PeerCgcStatus.Found, value: CUSTODY_REQUIREMENT)
+  ok(CUSTODY_REQUIREMENT)
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
