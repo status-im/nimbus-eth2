@@ -522,10 +522,6 @@ suite "Block processor" & preset():
           assembled.get().kzg_proofs.len == fullSidecars[0].kzg_proofs.len
           assembled.get().kzg_commitments == fullSidecars[0].kzg_commitments
 
-  asyncTest "Process Fulu block via partial-assembled data columns" & preset():
-    # Advance to Fulu fork
-    process_slots(
-      cfg, state[], start_slot(cfg.FULU_FORK_EPOCH),
   asyncTest "Gloas block without envelope marks missing" & preset():
     # Block arrives but envelope hasn't arrived yet.
     # Block should be stored optimistically; envelope marked as missing.

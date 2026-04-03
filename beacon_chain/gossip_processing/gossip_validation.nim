@@ -841,7 +841,6 @@ proc validatePartialDataColumnSidecar*(
 
   ok()
 
-
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
