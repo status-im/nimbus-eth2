@@ -25,7 +25,7 @@
 #   motivated by security or performance considerations
 
 import
-  chronicles, metrics,
+  chronicles,
   ../extras,
   ./[beaconstate, eth2_merkleization, forks, helpers, validator, signatures],
   kzg4844/kzg_abi, kzg4844/kzg

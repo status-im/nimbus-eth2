@@ -1421,7 +1421,7 @@ proc process_epoch*(
 
   ok()
 
-func init*(
+proc init*(
     info: var altair.EpochInfo,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
@@ -1431,6 +1431,12 @@ func init*(
   if cache.participating.isSome and
       cache.participating.unsafeGet.epoch == get_current_epoch(state):
     info.balances = cache.participating.unsafeGet.balances
+    let expected = get_unslashed_participating_balances(state)
+    if info.balances != expected:
+      warn "Participating balances cache mismatch - report bug",
+        slot = state.slot, actual = info.balances, expected
+      incInternalErrors()
+      info.balances = expected
   else:
     info.balances = get_unslashed_participating_balances(state)
   info.validators.setLen(state.validators.len())
@@ -1443,7 +1449,7 @@ func init*(
 
     info.validators[index] = ParticipationInfo(flags: flags)
 
-func init*(
+proc init*(
     T: type altair.EpochInfo,
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
