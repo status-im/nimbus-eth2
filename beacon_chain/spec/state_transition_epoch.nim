@@ -1431,6 +1431,7 @@ proc init*(
   if cache.participating.isSome and
       cache.participating.unsafeGet.epoch == get_current_epoch(state):
     info.balances = cache.participating.unsafeGet.balances
+    debugGloasComment "remove + proc -> func once this got enough maturity"
     let expected = get_unslashed_participating_balances(state)
     if info.balances != expected:
       warn "Participating balances cache mismatch - report bug",
