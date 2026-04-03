@@ -149,15 +149,39 @@ proc recoverCellsAndKzgProofsTask(cellIndices: openArray[CellIndex],
     proc (x: string) =
       discard)
 
+proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
+                  columnCount: int): Result[CellsAndProofs, void] =
+  let
+    idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
+    cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
+  recoverCellsAndKzgProofsTask(
+    idxArr.toOpenArray(0, columnCount - 1),
+    cellsArr.toOpenArray(0, columnCount - 1))
+
+proc spawnWorkerRecover(
+    tp: Taskpool, idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
+    columnCount: int): Flowvar[Result[CellsAndProofs, void]] =
+  # Workaround: tp.spawn cannot be used within {.async.} procs on Nim 2.0
+  # due to generic destructor issues with Isolated type.
+  # See: https://github.com/nim-lang/Nim/issues/22305
+  tp.spawn workerRecover(idxPtr, cellsPtr, columnCount)
+
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref fulu.DataColumnSidecar]):
-    Result[seq[CellsAndProofs], cstring] =
+    Future[Result[seq[CellsAndProofs], cstring]]
+    {.async: (raises: [CancelledError]).} =
   ## Recover blobs from data column sidecars in parallel.
-  ## - Uses Nim sequences with pointer passing for worker inputs
-  ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
+  ## - Uses Nim sequences with pointer passing for worker inputs.
+  ## - Bounds in-flight tasks to tp.numThreads for fairness: other
+  ##   taskpool consumers (attestation batch verification, etc.) can
+  ##   interleave their spawn calls between reconstruction tasks.
+  ## - Yields to the async event loop after each task completion,
+  ##   delaying the next spawn so queued work from other subsystems
+  ##   gets a chance to execute.
   ## - Checks timeout before every spawn operation.
-  ## - Ensures all spawned tasks are awaited (drained) before returning.
+  ## - Ensures all spawned tasks are awaited (drained) before returning,
+  ##   including on cancellation.
 
   if dataColumns.len == 0:
     return err("DataColumnSidecar: Length should not be 0")
@@ -172,27 +196,20 @@ proc recover_cells_and_proofs_parallel*(
     if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
 
-  proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
-                    columnCount: int): Result[CellsAndProofs, void] =
-    let
-      idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
-      cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
-    # Use toOpenArray to create views without copying
-    recoverCellsAndKzgProofsTask(
-      idxArr.toOpenArray(0, columnCount - 1),
-      cellsArr.toOpenArray(0, columnCount - 1))
-
   var
-    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]] (blobCount)
+    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]](blobCount)
     pendingIndices = newSeq[seq[CellIndex]](blobCount)
     pendingCells = newSeq[seq[Cell]](blobCount)
     res = newSeq[CellsAndProofs](blobCount)
 
-  # track how many we've actually spawned
   var spawned = 0
 
-  # Choose a sane limit for concurrent tasks to reduce peak memory pressure.
-  let maxInFlight = min(blobCount, 9)
+  # Limit in-flight tasks to the number of taskpool workers. This ensures
+  # reconstruction never saturates the pool — when a worker finishes a
+  # recovery task and we yield before spawning the replacement, other
+  # subsystems (attestation verification, etc.) get a window to enqueue
+  # their own work.
+  let maxInFlight = min(blobCount, tp.numThreads)
 
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
@@ -201,74 +218,84 @@ proc recover_cells_and_proofs_parallel*(
     completed = 0
     hadError = false
 
-  # ---- Spawn + bounded-await loop ----
-  for blobIdx in 0 ..< blobCount:
-    # Check timeout BEFORE spawning
-    if (Moment.now() - startTime) > reconstructionTimeout:
-      trace "PeerDAS reconstruction timed out before spawning task",
-        spawned = spawned, completed = completed, total = blobCount
-      hadError = true
-      break  # Stop spawning new tasks
+  template drainTasks() =
+    # CRITICAL: Drain all spawned-but-uncompleted tasks before returning.
+    # Workers reference memory owned by this proc — every task MUST be
+    # synced to prevent use-after-free.
+    for i in completed ..< spawned:
+      let futRes = sync pendingFuts[i]
+      if not hadError and futRes.isOk:
+        res[i] = futRes.get
+      elif futRes.isErr:
+        hadError = true
+      completed = i + 1
 
-    # Allocate sequences and assign directly to avoid temporary copies
-    pendingIndices[spawned] = newSeq[CellIndex](columnCount)
-    pendingCells[spawned] = newSeq[Cell](columnCount)
-
-    # Cache addresses to avoid repeated lookups and bounds checks
-    let
-      indicesPtr = addr pendingIndices[spawned]
-      cellsPtr = addr pendingCells[spawned]
-
-    for i in 0 ..< columnCount:
-      indicesPtr[][i] = dataColumns[i][].index
-      cellsPtr[][i] = dataColumns[i][].column[blobIdx]
-
-    # Store sequences and spawn worker with pointers to their data
-    pendingFuts[spawned] = tp.spawn workerRecover(
-      addr pendingIndices[spawned][0],
-      addr pendingCells[spawned][0],
-      columnCount)
-    inc spawned
-
-    # If too many in-flight tasks, await the oldest one
-    while spawned - completed >= maxInFlight:
-      # Check timeout BEFORE syncing
+  try:
+    # ---- Spawn + bounded-await loop ----
+    for blobIdx in 0 ..< blobCount:
+      # Check timeout BEFORE spawning
       if (Moment.now() - startTime) > reconstructionTimeout:
-        trace "PeerDAS reconstruction timed out before syncing task",
-          completed = completed, totalSpawned = spawned
+        trace "PeerDAS reconstruction timed out before spawning task",
+          spawned = spawned, completed = completed, total = blobCount
         hadError = true
         break
 
-      let futRes = sync pendingFuts[completed]
+      pendingIndices[spawned] = newSeq[CellIndex](columnCount)
+      pendingCells[spawned] = newSeq[Cell](columnCount)
 
-      if futRes.isErr:
-        hadError = true
-      else:
-        res[completed] = futRes.get
+      let
+        indicesPtr = addr pendingIndices[spawned]
+        cellsPtr = addr pendingCells[spawned]
 
-      inc completed
+      for i in 0 ..< columnCount:
+        indicesPtr[][i] = dataColumns[i][].index
+        cellsPtr[][i] = dataColumns[i][].column[blobIdx]
 
-    if hadError:
-      break
+      pendingFuts[spawned] = tp.spawnWorkerRecover(
+        addr pendingIndices[spawned][0],
+        addr pendingCells[spawned][0],
+        columnCount)
+      inc spawned
 
-  # ---- CRITICAL: Drain all spawned tasks before returning ----
-  # This ensures no task references memory that will be destroyed
-  for i in completed ..< spawned:
-    let futRes = sync pendingFuts[i]
-    # Store results only if we haven't had an error and the result is ok
-    if not hadError and futRes.isOk:
-      res[i] = futRes.get
-    elif futRes.isErr:
-      hadError = true
+      # When we hit the in-flight limit, sync the oldest task, then yield
+      # to the event loop before spawning the next one.
+      while spawned - completed >= maxInFlight:
+        if (Moment.now() - startTime) > reconstructionTimeout:
+          trace "PeerDAS reconstruction timed out before syncing task",
+            completed = completed, totalSpawned = spawned
+          hadError = true
+          break
+
+        let futRes = sync pendingFuts[completed]
+
+        if futRes.isErr:
+          hadError = true
+        else:
+          res[completed] = futRes.get
+
+        inc completed
+
+        # Yield to the async event loop. This delays the next spawn,
+        # giving other taskpool consumers a window to enqueue work on
+        # the now-free worker.
+        await sleepAsync(0.milliseconds)
+
+      if hadError:
+        break
+
+    drainTasks()
+  except CancelledError as exc:
+    # Drain even on cancellation — workers hold pointers into our locals.
+    drainTasks()
+    raise exc
 
   if hadError:
     if (Moment.now() - startTime) > reconstructionTimeout:
       return err("Data column reconstruction timed out")
-    # Segregate errors from timeouts
     else:
       return err("Data column reconstruction failed")
 
-  ok(res)
+  return ok(res)
 
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock,
