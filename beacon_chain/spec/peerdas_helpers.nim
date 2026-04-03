@@ -158,13 +158,6 @@ proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
     idxArr.toOpenArray(0, columnCount - 1),
     cellsArr.toOpenArray(0, columnCount - 1))
 
-proc spawnWorkerRecover(
-    tp: Taskpool, idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
-    columnCount: int): Flowvar[Result[CellsAndProofs, void]] =
-  # Workaround: tp.spawn cannot be used within {.async.} procs on Nim 2.0
-  # due to generic destructor issues with Isolated type.
-  # See: https://github.com/nim-lang/Nim/issues/22305
-  tp.spawn workerRecover(idxPtr, cellsPtr, columnCount)
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
@@ -207,8 +200,7 @@ proc recover_cells_and_proofs_parallel*(
   # Limit in-flight tasks to the number of taskpool workers. This ensures
   # reconstruction never saturates the pool — when a worker finishes a
   # recovery task and we yield before spawning the replacement, other
-  # subsystems (attestation verification, etc.) get a window to enqueue
-  # their own work.
+  # subsystems get a window to enqueue their own work.
   let maxInFlight = min(blobCount, tp.numThreads)
 
   let startTime = Moment.now()
@@ -251,7 +243,7 @@ proc recover_cells_and_proofs_parallel*(
         indicesPtr[][i] = dataColumns[i][].index
         cellsPtr[][i] = dataColumns[i][].column[blobIdx]
 
-      pendingFuts[spawned] = tp.spawnWorkerRecover(
+      pendingFuts[spawned] = tp.spawn workerRecover(
         addr pendingIndices[spawned][0],
         addr pendingCells[spawned][0],
         columnCount)
