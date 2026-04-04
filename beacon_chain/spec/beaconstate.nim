@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  stew/assign2,
+  stew/[assign2, staticfor],
   json_serialization/std/sets,
   chronicles,
   ./[eth2_merkleization, forks, signatures, validator],
@@ -2332,10 +2332,7 @@ iterator get_ptc*(state: gloas.BeaconState, slot: Slot):
     return
 
   let index =
-    if epoch < state_epoch:
-      slot_in_epoch
-    else:
-      (epoch - state_epoch + 1).Epoch.start_slot.uint64 + slot_in_epoch
+    (epoch + 1 - state_epoch).Epoch.start_slot.uint64 + slot_in_epoch
 
   for idx in state.ptc_window[index]:
     yield ValidatorIndex(idx)
@@ -2347,7 +2344,7 @@ proc initialize_ptc_window(
   ## Used to initialize the ``ptc_window`` field in the beacon state
   ## at genesis and after forks.
   let current_epoch = state.get_current_epoch()
-  for epoch_offset in 0'u64 .. MIN_SEED_LOOKAHEAD:
+  staticFor epoch_offset, 0 .. MIN_SEED_LOOKAHEAD.int:
     let
       epoch = current_epoch + epoch_offset
       base_index = (1 + epoch_offset) * SLOTS_PER_EPOCH

@@ -315,7 +315,7 @@ from ".."/validator_bucket_sort import
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-is_pending_validator
 func get_pending_validators*(cfg: RuntimeConfig, state: gloas.BeaconState):
     HashSet[ValidatorPubKey] =
-  ## Check if a pending deposit with a valid signature is in the queue for the given pubkey.
+  ## Return the set of pubkeys with a valid pending deposit signature in the queue.
   var res: HashSet[ValidatorPubKey]
   for pending_deposit in state.pending_deposits:
     if verify_deposit_signature(
@@ -560,7 +560,7 @@ proc process_voluntary_exit*(
         state.fork, cfg.CAPELLA_FORK_VERSION)
       if not verify_voluntary_exit_signature(
           voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
-          state.builders.mitem(builder_index).pubkey,
+          state.builders.item(builder_index).pubkey,
           signed_voluntary_exit.signature):
         return err("Exit: invalid builder signature")
       initiate_builder_exit(cfg, state, builder_index)

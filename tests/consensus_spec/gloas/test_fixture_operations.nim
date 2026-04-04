@@ -186,7 +186,7 @@ suite baseDescription & "Deposit " & preset():
       OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Deposit Request " & preset():
-  proc applyDepositRequest(
+  func applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
     var pending = get_pending_validators(defaultRuntimeConfig, preState)
