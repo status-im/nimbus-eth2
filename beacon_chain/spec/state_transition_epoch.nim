@@ -1405,13 +1405,10 @@ proc process_ptc_window*(
   const base_index = (1 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH
   for slot_offset in 0 ..< SLOTS_PER_EPOCH:
     let slot = new_epoch.start_slot() + slot_offset
-    var
-      ptcArray: HashArray[Limit PTC_SIZE, uint64]
-      i = 0
+    var i = 0
     for idx in compute_ptc(state, slot, cache):
-      ptcArray[i] = uint64(idx)
+      state.ptc_window.mitem(base_index + slot_offset)[i] = uint64(idx)
       inc i
-    state.ptc_window.mitem(base_index + slot_offset) = ptcArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(

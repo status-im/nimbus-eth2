@@ -2338,16 +2338,15 @@ iterator get_ptc*(state: gloas.BeaconState, slot: Slot):
     yield ValidatorIndex(idx)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/fork.md#new-initialize_ptc_window
-proc initialize_ptc_window(
+func initialize_ptc_window(
     state: var gloas.BeaconState, cache: var StateCache) =
   ## Return the cached PTC window starting from the current epoch.
   ## Used to initialize the ``ptc_window`` field in the beacon state
   ## at genesis and after forks.
   let current_epoch = state.get_current_epoch()
   staticFor epoch_offset, 0 .. MIN_SEED_LOOKAHEAD.int:
-    let
-      epoch = current_epoch + epoch_offset
-      base_index = (1 + epoch_offset) * SLOTS_PER_EPOCH
+    let epoch = current_epoch + epoch_offset
+    const base_index = (1 + epoch_offset) * SLOTS_PER_EPOCH
     for slot_offset in 0'u64 ..< SLOTS_PER_EPOCH:
       let slot = epoch.start_slot() + slot_offset
       var i = 0
@@ -3083,8 +3082,7 @@ func can_advance_slots*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-get_indexed_payload_attestation
 func get_indexed_payload_attestation*(
     state: gloas.BeaconState, slot: Slot,
-    payload_attestation: PayloadAttestation,
-    cache: var StateCache): IndexedPayloadAttestation =
+    payload_attestation: PayloadAttestation): IndexedPayloadAttestation =
   ## Return the indexed payload attestation corresponding to ``payload_attestation``.
   var
     attesting_indices = newSeqOfCap[uint64](PTC_SIZE)
@@ -3142,7 +3140,7 @@ func is_active_builder*(
   builder.deposit_epoch < state.finalized_checkpoint.epoch and
     builder.withdrawable_epoch == FAR_FUTURE_EPOCH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_pending_balance_to_withdraw_for_builder
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-get_pending_balance_to_withdraw_for_builder
 func get_pending_balance_to_withdraw_for_builder*(
     state: gloas.BeaconState, builder_index: BuilderIndex): Gwei =
   var sum: Gwei

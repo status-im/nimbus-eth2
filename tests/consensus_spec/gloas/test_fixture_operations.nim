@@ -243,8 +243,7 @@ suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(
       preState: var gloas.BeaconState,
       payloadAttestation: PayloadAttestation): Result[void, cstring] =
-    var cache: StateCache
-    process_payload_attestation(preState, payloadAttestation, cache)
+    process_payload_attestation(preState, payloadAttestation)
 
   for path in walkTests(OpPayloadAttestationDir):
     runTest[PayloadAttestation, typeof applyPayloadAttestation](

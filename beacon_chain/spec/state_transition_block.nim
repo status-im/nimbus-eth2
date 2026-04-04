@@ -796,10 +796,10 @@ func process_consolidation_request*(
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: source_index.uint64, target_index: target_index.uint64))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payload-attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#payload-attestations
 proc process_payload_attestation*(
-    state: var gloas.BeaconState, payload_attestation: PayloadAttestation,
-    cache: var StateCache): Result[void, cstring] =
+    state: var gloas.BeaconState, payload_attestation: PayloadAttestation):
+    Result[void, cstring] =
   # Check that the attestation is for the parent beacon block
   template data: untyped = payload_attestation.data
 
@@ -812,7 +812,7 @@ proc process_payload_attestation*(
 
   # Verify signature
   let indexed_payload_attestation = get_indexed_payload_attestation(
-    state, data.slot, payload_attestation, cache
+    state, data.slot, payload_attestation
   )
 
   if not is_valid_indexed_payload_attestation(state, indexed_payload_attestation):
@@ -925,7 +925,7 @@ proc process_operations(
   when consensusFork >= ConsensusFork.Gloas:
     for op in body.payload_attestations:
       # [New in Gloas:EIP7732]
-      ? process_payload_attestation(state, op, cache)
+      ? process_payload_attestation(state, op)
 
   ok(operations_rewards)
 
