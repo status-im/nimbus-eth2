@@ -2349,9 +2349,10 @@ func initialize_ptc_window(
     const base_index = (1 + epoch_offset) * SLOTS_PER_EPOCH
     for slot_offset in 0'u64 ..< SLOTS_PER_EPOCH:
       let slot = epoch.start_slot() + slot_offset
+      clearCaches(state.ptc_window, (base_index + slot_offset).Limit)
       var i = 0
       for idx in compute_ptc(state, slot, cache):
-        state.ptc_window.mitem(base_index + slot_offset)[i] = uint64(idx)
+        state.ptc_window.data[base_index + slot_offset][i] = uint64(idx)
         inc i
 
 # upgrade_to_altair
