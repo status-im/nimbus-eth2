@@ -122,6 +122,8 @@ type
     FULU_FORK_EPOCH*: Epoch
     GLOAS_FORK_VERSION*: Version
     GLOAS_FORK_EPOCH*: Epoch
+    HEZE_FORK_VERSION*: Version
+    HEZE_FORK_EPOCH*: Epoch
 
     # Time parameters
     timeParams*: TimeParams
@@ -282,6 +284,9 @@ when const_preset == "mainnet":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x00],
     GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Heze
+    HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x00],
+    HEZE_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -480,6 +485,9 @@ elif const_preset == "gnosis":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x64],
     GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Heze
+    HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x64],
+    HEZE_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -677,6 +685,9 @@ elif const_preset == "minimal":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x01],
     GLOAS_FORK_EPOCH: Epoch(uint64.high),
+    # Heze
+    HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x01],
+    HEZE_FORK_EPOCH: Epoch(uint64.high),
 
     # Time parameters
     # ---------------------------------------------------------------

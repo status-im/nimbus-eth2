@@ -16,7 +16,8 @@ import
   "."/[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
+               heze],
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
 from std/algorithm import sort
@@ -26,7 +27,7 @@ from stew/staticfor import staticFor
 export
   extras, block_id, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
   presets,
-  phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
+  phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas, heze,
   bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
@@ -65,7 +66,8 @@ type
     deneb.BeaconState |
     electra.BeaconState |
     fulu.BeaconState |
-    gloas.BeaconState
+    gloas.BeaconState |
+    heze.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |
@@ -75,7 +77,8 @@ type
     deneb.HashedBeaconState |
     electra.HashedBeaconState |
     fulu.HashedBeaconState |
-    gloas.HashedBeaconState
+    gloas.HashedBeaconState |
+    heze.HashedBeaconState
 
   ForkedHashedBeaconState* = object
     case kind*: ConsensusFork
@@ -342,7 +345,8 @@ type
     deneb.TrustedSignedBeaconBlock |
     electra.TrustedSignedBeaconBlock |
     fulu.TrustedSignedBeaconBlock |
-    gloas.TrustedSignedBeaconBlock
+    gloas.TrustedSignedBeaconBlock |
+    heze.TrustedSignedBeaconBlock
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -1007,7 +1011,7 @@ template withEpochInfo*(
 template withEpochInfo*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
-           gloas.BeaconState,
+           gloas.BeaconState | heze.BeaconState,
     x: var ForkedEpochInfo, body: untyped): untyped =
   if x.kind != EpochInfoFork.Altair:
     # Rare, so efficiency not critical

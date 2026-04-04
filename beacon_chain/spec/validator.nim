@@ -393,7 +393,8 @@ template compute_proposer_index(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#modified-compute_proposer_index
 template compute_proposer_index(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState,
     indices: openArray[ValidatorIndex], seed: Eth2Digest,
     unshuffleTransform: untyped): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
@@ -487,8 +488,8 @@ func compute_balance_weighted_acceptance(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
 iterator compute_balance_weighted_selection*(
-    state: gloas.BeaconState, indices: seq[ValidatorIndex],
-    seed: Eth2Digest, size: uint64,
+    state: gloas.BeaconState | heze.BeaconState,
+    indices: seq[ValidatorIndex], seed: Eth2Digest, size: uint64,
     shuffle_indices: bool): ValidatorIndex =
   ## Return ``size`` indices sampled by effective balance, using ``indices``
   ## as candidates. If ``shuffle_indices`` is ``True``, candidate indices
@@ -514,7 +515,7 @@ iterator compute_balance_weighted_selection*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-compute_proposer_indices
 func compute_proposer_indices*(
-    state: gloas.BeaconState,
+    state: gloas.BeaconState | heze.BeaconState,
     epoch: Epoch, seed: Eth2Digest,
     indices: seq[ValidatorIndex]
 ): seq[ValidatorIndex] =
