@@ -1616,13 +1616,14 @@ template get_effective_balance_update*(
       balance - balance mod EFFECTIVE_BALANCE_INCREMENT.Gwei,
       effective_balance_limit)
 
-template get_updated_effective_balance*(
+template get_updated_effective_balance(
     consensusFork: static ConsensusFork, balance: Gwei,
     effective_balance: Gwei, vidx: uint64): Gwei =
   if effective_balance_might_update(balance, effective_balance):
-    get_effective_balance_update(consensusFork, balance, effective_balance, vidx)
+    get_effective_balance_update(
+      consensusFork, balance, effective_balance, vidx)
   else:
-    balance
+    effective_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 proc get_expected_withdrawals*(
