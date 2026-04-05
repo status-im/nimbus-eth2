@@ -1458,19 +1458,23 @@ proc init*(
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
            gloas.BeaconState | heze.BeaconState,
     cache = default(StateCache)) =
-  # init participation, reusing cached balances when available
-  if cache.participating.isSome and
-      cache.participating.unsafeGet.epoch == get_current_epoch(state):
-    info.balances = cache.participating.unsafeGet.balances
-    debugGloasComment "remove + proc -> func once this got enough maturity"
-    let expected = get_unslashed_participating_balances(state)
-    if info.balances != expected:
-      warn "Participating balances cache mismatch - report bug",
-        slot = state.slot, actual = info.balances, expected
-      incInternalErrors()
-      info.balances = expected
-  else:
-    info.balances = get_unslashed_participating_balances(state)
+  # init participation, overwriting the full structure
+  info.balances =
+    if cache.participating.isSome:
+      let participating = cache.participating.unsafeGet
+      if participating.slot == state.latest_block_header.slot and
+          participating.slot.epoch == get_current_epoch(state):
+        debugGloasComment "remove + proc -> func once this got enough maturity"
+        let expected_balances = get_unslashed_participating_balances(state)
+        if participating.balances != expected_balances:
+          warn "Participating balances cache mismatch - report bug",
+            slot = state.slot, participating, expected_balances
+          incInternalErrors()
+        expected_balances  # participating.balances
+      else:
+        get_unslashed_participating_balances(state)
+    else:
+      get_unslashed_participating_balances(state)
   info.validators.setLen(state.validators.len())
 
   let previous_epoch = get_previous_epoch(state)

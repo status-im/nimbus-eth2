@@ -426,7 +426,7 @@ type
     shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Opt[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
-    participating*: Opt[tuple[epoch: Epoch, balances: ParticipatingBalances]]
+    participating*: Opt[tuple[slot: Slot, balances: ParticipatingBalances]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
@@ -1006,7 +1006,7 @@ func prune*(cache: var StateCache, epoch: Epoch) =
     drops.setLen(0)
 
   if cache.participating.isSome and
-      cache.participating.unsafeGet.epoch < pruneEpoch:
+      cache.participating.unsafeGet.slot.epoch < pruneEpoch:
     cache.participating.reset()
 
 func clear*(cache: var StateCache) =

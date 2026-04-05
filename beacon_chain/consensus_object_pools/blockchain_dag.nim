@@ -764,7 +764,7 @@ func loadStateCache*(
 
   let balances = dag.findParticipatingBalances(bid)
   if balances.isSome:
-    cache.participating.ok (epoch: bid.slot.epoch, balances: balances.unsafeGet)
+    cache.participating.ok (slot: bid.slot, balances: balances.unsafeGet)
 
 func containsForkBlock*(dag: ChainDAGRef, root: Eth2Digest): bool =
   ## Checks for blocks at the finalized checkpoint or newer
