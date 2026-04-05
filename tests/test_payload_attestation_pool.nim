@@ -94,7 +94,7 @@ suite "Payload attestation pool" & preset():
       when consensusFork >= ConsensusFork.Gloas:
         var ptc_member: ValidatorIndex
         var found = false
-        for validator_index in get_ptc(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot):
             ptc_member = validator_index
             found = true
             break
@@ -130,7 +130,7 @@ suite "Payload attestation pool" & preset():
         var messages: seq[PayloadAttestationMessage]
         var ptc_members: seq[ValidatorIndex]
 
-        for validator_index in get_ptc(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot):
           if ptc_members.len >= 3:
             break
           ptc_members.add(validator_index)
@@ -163,7 +163,7 @@ suite "Payload attestation pool" & preset():
           validator_positions: Table[ValidatorIndex, seq[int]]
           ptc_index = 0
 
-        for validator_index in get_ptc(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot):
           if validator_index notin validator_positions:
             validator_positions[validator_index] = @[]
           validator_positions[validator_index].add(ptc_index)
@@ -210,7 +210,7 @@ suite "Payload attestation pool" & preset():
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         var added_count = 0
-        for validator_index in get_ptc(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot):
           if added_count >= 2:
             break
           let
@@ -236,7 +236,7 @@ suite "Payload attestation pool" & preset():
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         var ptc_member: ValidatorIndex
-        for validator_index in get_ptc(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot):
           ptc_member = validator_index
           break
 
@@ -266,7 +266,7 @@ suite "Payload attestation pool" & preset():
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         var ptc_members: seq[ValidatorIndex]
-        for validator_index in get_ptc(forkyState.data, slot, cache):
+        for validator_index in get_ptc(forkyState.data, slot):
           if ptc_members.len >= 4:
             break
           ptc_members.add(validator_index)
@@ -323,7 +323,7 @@ suite "Payload attestation pool" & preset():
         # Get PTC using StateCache version
         var cache = StateCache()
         let stateCacheResults = collect(newSeq):
-          for validator_index in get_ptc(forkyState.data, slot, cache):
+          for validator_index in get_ptc(forkyState.data, slot):
             validator_index
 
         let epochRef = dag.getEpochRef(

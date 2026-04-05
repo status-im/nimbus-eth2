@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-alpha.2"
+const SPEC_VERSION* = "1.7.0-alpha.4"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -1053,3 +1053,4 @@ func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
 
 template debugFuluComment*(s: string) = discard
 template debugGloasComment*(s: string) = discard
+template debugHezeComment*(s: string) = discard

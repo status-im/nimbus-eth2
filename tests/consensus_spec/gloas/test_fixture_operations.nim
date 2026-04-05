@@ -189,10 +189,11 @@ suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
+    var pending = get_pending_validators(defaultRuntimeConfig, preState)
     process_deposit_request(
       defaultRuntimeConfig, preState,
       sortValidatorBuckets(preState.validators.asSeq)[],
-      sortValidatorBuckets(preState.builders.asSeq)[], depositRequest, {})
+      sortValidatorBuckets(preState.builders.asSeq)[], pending, depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
@@ -242,8 +243,7 @@ suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(
       preState: var gloas.BeaconState,
       payloadAttestation: PayloadAttestation): Result[void, cstring] =
-    var cache: StateCache
-    process_payload_attestation(preState, payloadAttestation, cache)
+    process_payload_attestation(preState, payloadAttestation)
 
   for path in walkTests(OpPayloadAttestationDir):
     runTest[PayloadAttestation, typeof applyPayloadAttestation](
