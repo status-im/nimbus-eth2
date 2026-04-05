@@ -112,7 +112,8 @@ type
     deneb.BeaconBlockBody |
     electra.BeaconBlockBody |
     fulu.BeaconBlockBody |
-    gloas.BeaconBlockBody
+    gloas.BeaconBlockBody |
+    heze.BeaconBlockBody
 
   ForkySigVerifiedBeaconBlockBody* =
     phase0.SigVerifiedBeaconBlockBody |
@@ -122,7 +123,8 @@ type
     deneb.SigVerifiedBeaconBlockBody |
     electra.SigVerifiedBeaconBlockBody |
     fulu.SigVerifiedBeaconBlockBody |
-    gloas.SigVerifiedBeaconBlockBody
+    gloas.SigVerifiedBeaconBlockBody |
+    heze.SigVerifiedBeaconBlockBody
 
   ForkyTrustedBeaconBlockBody* =
     phase0.TrustedBeaconBlockBody |
@@ -147,7 +149,8 @@ type
     deneb.BeaconBlock |
     electra.BeaconBlock |
     fulu.BeaconBlock |
-    gloas.BeaconBlock
+    gloas.BeaconBlock |
+    heze.BeaconBlock
 
   ForkySigVerifiedBeaconBlock* =
     phase0.SigVerifiedBeaconBlock |
@@ -157,7 +160,8 @@ type
     deneb.SigVerifiedBeaconBlock |
     electra.SigVerifiedBeaconBlock |
     fulu.SigVerifiedBeaconBlock |
-    gloas.SigVerifiedBeaconBlock
+    gloas.SigVerifiedBeaconBlock |
+    heze.SigVerifiedBeaconBlock
 
   ForkyTrustedBeaconBlock* =
     phase0.TrustedBeaconBlock |
@@ -167,7 +171,8 @@ type
     deneb.TrustedBeaconBlock |
     electra.TrustedBeaconBlock |
     fulu.TrustedBeaconBlock |
-    gloas.TrustedBeaconBlock
+    gloas.TrustedBeaconBlock |
+    heze.TrustedBeaconBlock
 
   SomeForkyBeaconBlock* =
     ForkyBeaconBlock |
@@ -213,7 +218,8 @@ type
     deneb.BlockContents |
     electra.BlockContents |
     fulu.BlockContents |
-    gloas.BlockContents
+    gloas.BlockContents |
+    heze.BlockContents
 
   ForkyAggregateAndProof* =
     phase0.AggregateAndProof |
@@ -294,7 +300,8 @@ type
     deneb.SignedBeaconBlock |
     electra.SignedBeaconBlock |
     fulu.SignedBeaconBlock |
-    gloas.SignedBeaconBlock
+    gloas.SignedBeaconBlock |
+    heze.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind*: ConsensusFork
