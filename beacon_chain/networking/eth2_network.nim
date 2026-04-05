@@ -49,7 +49,6 @@ type
   SendResult* = Result[void, cstring]
 
   PeerCgcStatus* {.pure.} = enum
-    Found,
     Unavailable,
     OutOfRange
 
