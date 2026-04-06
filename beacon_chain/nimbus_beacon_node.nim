@@ -568,7 +568,6 @@ proc initFullNode(
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode
     validatorCustody = ValidatorCustodyRef.init(
       node.config, node.network, dag)
 
@@ -1330,7 +1329,6 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
 proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
   let
-    custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
     forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
     custody = node.validatorCustody.getCustodyGroups()
 
@@ -2244,9 +2242,6 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
     trace "onSecond task completed",
       sleepTime, processingTime = chronos.now(chronos.Moment) - afterSleep
-
-func connectedPeersCount(node: BeaconNode): int =
-  len(node.network.peerPool)
 
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)

@@ -43,8 +43,8 @@ type
       ## When node recently become synced it should stay synced for some period
       ## of time before switch from `LimitedCustody` to `FullCustody`.
 
-  ## Init -> FullCustody -> LimitedCustody -> StablePeriod -> FullCustody
-  ## Init -> LimitedCustody -> StablePeriod -> FullCustody
+  ## Init -> FullCustody -> LimitedCustody -> StabilityPeriod -> FullCustody
+  ## Init -> LimitedCustody -> StabilityPeriod -> FullCustody
 
   ValidatorCustody* = object
     network: Eth2Node
@@ -58,8 +58,6 @@ type
     stabilitySlot: Opt[Slot]
 
   ValidatorCustodyRef* = ref ValidatorCustody
-
-  ColumnQuarantines* = ref ColumnQuarantine | ref GloasColumnQuarantine
 
 func getGroupsCount(
   state: ValidatorCustodyState,
@@ -95,7 +93,7 @@ func getGroupsCount(
 func getColumnMap(
     config: BeaconNodeConf,
     network: Eth2Node,
-    dag: ChainDagRef,
+    dag: ChainDAGRef,
     groupsCount: CgcCount
 ): ColumnMap =
   if uint64(groupsCount) == dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
@@ -156,8 +154,9 @@ func updateState(vcus: ValidatorCustodyRef, currentSlot: Slot) =
     else:
       doAssert(vcus.stabilitySlot.isSome(),
         "Stability start slot should be set at this moment")
-      doAssert(vcus.stabilitySlot.get() <= currentSlot,
-        "Invalid time? Current slot is less than stability start slot")
+      if vcus.stabilitySlot.get() <= currentSlot:
+        # Invalid time, or time shift, so we just update stability slot.
+        vcus.stabilitySlot = Opt.some(currentSlot)
       if currentSlot - vcus.stabilitySlot.get() >= StabilityDistanceSlots:
         vcus.state = ValidatorCustodyState.FullCustody
         vcus.stabilitySlot = Opt.none(Slot)
@@ -183,14 +182,11 @@ proc init*(
     state: ValidatorCustodyState.Init
   )
 
-proc setQuarantine*[T: ColumnQuarantines](
-    vcus: ValidatorCustodyRef,
-    q: T
-) =
-  when T is ColumnQuarantine:
-    vcus.fuluColumnQuarantine = q
-  elif T is GloasColumnQuarantine:
-    vcus.gloasColumnQuarantine = q
+func setQuarantine*(vcus: ValidatorCustodyRef, q: ref ColumnQuarantine) =
+  vcus.fuluColumnQuarantine = q
+
+func setQuarantine*(vcus: ValidatorCustodyRef, q: ref GloasColumnQuarantine) =
+  vcus.gloasColumnQuarantine = q
 
 proc setValidatorCustody*(
   vcus: ValidatorCustodyRef,
@@ -246,9 +242,6 @@ func getSet*(vcus: ValidatorCustodyRef): HashSet[ColumnIndex] =
   for index in vcus.curColumnMap:
     res.incl(index)
   res
-
-func getCustodyGroupSubnets*(vcus: ValidatorCustodyRef): uint64 =
-  uint64(vcus.curGroupsCount)
 
 func isSupernode*(vcus: ValidatorCustodyRef): bool =
   uint64(vcus.curGroupsCount) == vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
