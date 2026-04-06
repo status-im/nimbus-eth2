@@ -121,6 +121,7 @@ RestJson.useDefaultSerializationFor(
   GetStateValidatorsResponse,
   GetValidatorGasLimitResponse,
   GloasSignedBlockContents,
+  HezeSignedBlockContents,
   HeadChangeInfoObject,
   HistoricalSummary,
   ImportDistributedKeystoresBody,

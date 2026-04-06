@@ -325,6 +325,11 @@ type
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
+  HezeSignedBlockContents* = object
+    signed_block*: heze.SignedBeaconBlock
+    kzg_proofs*: fulu.KzgProofs
+    blobs*: deneb.Blobs
+
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock

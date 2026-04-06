@@ -134,7 +134,8 @@ type
     deneb.TrustedBeaconBlockBody |
     electra.TrustedBeaconBlockBody |
     fulu.TrustedBeaconBlockBody |
-    gloas.TrustedBeaconBlockBody
+    gloas.TrustedBeaconBlockBody |
+    heze.TrustedBeaconBlockBody
 
   SomeForkyBeaconBlockBody* =
     ForkyBeaconBlockBody |
@@ -1557,6 +1558,12 @@ func gloasFork*(cfg: RuntimeConfig): Fork =
     previous_version: cfg.FULU_FORK_VERSION,
     current_version: cfg.GLOAS_FORK_VERSION,
     epoch: cfg.GLOAS_FORK_EPOCH)
+
+func hezeFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GLOAS_FORK_VERSION,
+    current_version: cfg.HEZE_FORK_VERSION,
+    epoch: cfg.HEZE_FORK_EPOCH)
 
 func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.consensusForkAtEpoch(epoch)

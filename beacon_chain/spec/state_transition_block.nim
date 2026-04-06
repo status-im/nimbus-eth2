@@ -313,7 +313,8 @@ from ".."/validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-is_pending_validator
-func get_pending_validators*(cfg: RuntimeConfig, state: gloas.BeaconState):
+func get_pending_validators*(
+    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState):
     HashSet[ValidatorPubKey] =
   ## Return the set of pubkeys with a valid pending deposit signature in the queue.
   var res: HashSet[ValidatorPubKey]
@@ -427,7 +428,7 @@ func process_deposit_request*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
-    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_validators: BucketSortedValidators,
     bucket_sorted_builders: var BucketSortedValidators,
     pending_validators: var HashSet[ValidatorPubKey],
@@ -594,7 +595,8 @@ proc process_bls_to_execution_change*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_withdrawal_request
 func process_withdrawal_request*(
     cfg: RuntimeConfig,
-    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+                heze.BeaconState),
     bucketSortedValidators: BucketSortedValidators,
     withdrawal_request: WithdrawalRequest, cache: var StateCache) =
   let
@@ -676,7 +678,8 @@ func process_withdrawal_request*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#new-is_valid_switch_to_compounding_request
 func is_valid_switch_to_compounding_request(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState,
     consolidation_request: ConsolidationRequest,
     source_validator: Validator): bool =
   # Switch to compounding requires source and target be equal
@@ -708,7 +711,8 @@ func is_valid_switch_to_compounding_request(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-process_consolidation_request
 func process_consolidation_request*(
     cfg: RuntimeConfig,
-    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+                heze.BeaconState),
     bucketSortedValidators: BucketSortedValidators,
     consolidation_request: ConsolidationRequest,
     cache: var StateCache) =
@@ -1203,7 +1207,8 @@ proc process_execution_payload*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload
 proc process_execution_payload*(
-    cfg: RuntimeConfig, state: var gloas.HashedBeaconState,
+    cfg: RuntimeConfig,
+    state: var (gloas.HashedBeaconState | heze.HashedBeaconState),
     signed_envelope: SignedExecutionPayloadEnvelope |
                      TrustedSignedExecutionPayloadEnvelope,
     notify_new_payload: deneb.ExecutePayload, cache: var StateCache,

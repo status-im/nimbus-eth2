@@ -291,7 +291,8 @@ func get_activation_exit_churn_limit*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit
 func get_consolidation_churn_limit*(
     cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState,
     cache: var StateCache):
     Gwei =
   get_balance_churn_limit(cfg, state, cache) -
@@ -332,7 +333,8 @@ func compute_exit_epoch_and_update_churn*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_consolidation_epoch_and_update_churn
 func compute_consolidation_epoch_and_update_churn*(
     cfg: RuntimeConfig,
-    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+                heze.BeaconState),
     consolidation_balance: Gwei, cache: var StateCache): Epoch =
   var earliest_consolidation_epoch = max(state.earliest_consolidation_epoch,
     compute_activation_exit_epoch(get_current_epoch(state)))
@@ -1545,7 +1547,8 @@ func is_partially_withdrawable_validator(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-queue_excess_active_balance
 func queue_excess_active_balance(
-    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+                heze.BeaconState),
     index: uint64) =
   let balance = state.balances.item(index)
   if balance > static(MIN_ACTIVATION_BALANCE.Gwei):
@@ -1563,7 +1566,8 @@ func queue_excess_active_balance(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-switch_to_compounding_validator
 func switch_to_compounding_validator*(
-    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+                heze.BeaconState),
     index: ValidatorIndex) =
   let validator = addr state.validators.mitem(index)
   validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
@@ -2187,7 +2191,8 @@ func translate_participation(
           add_flag(state.previous_epoch_participation.item(vidx), flag_index)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_index_for_new_builder
-func get_index_for_new_builder(state: gloas.BeaconState): BuilderIndex =
+func get_index_for_new_builder(
+    state: gloas.BeaconState | heze.BeaconState): BuilderIndex =
   # TODO probably this cannot make it into production as-is; check for
   # performance issues. It will depend on amount of builders
   for index, builder in state.builders:
@@ -2198,7 +2203,7 @@ func get_index_for_new_builder(state: gloas.BeaconState): BuilderIndex =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builder_from_deposit
 func get_builder_from_deposit(
-    state: gloas.BeaconState, pubkey: ValidatorPubKey,
+    state: gloas.BeaconState | heze.BeaconState, pubkey: ValidatorPubKey,
     withdrawal_credentials: Eth2Digest,
     amount: Gwei, slot: Slot): Builder =
   var execution_address {.noinit.}: ExecutionAddress
@@ -2214,7 +2219,7 @@ func get_builder_from_deposit(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-add_builder_to_registry
 func add_builder_to_registry(
-    state: var gloas.BeaconState,
+    state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
     pubkey: ValidatorPubKey,
     withdrawal_credentials: Eth2Digest, amount: Gwei, slot: Slot) =
@@ -2233,7 +2238,7 @@ func add_builder_to_registry(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-apply_deposit_for_builder
 func apply_deposit_for_builder*(
-    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
     pubkey: ValidatorPubKey, withdrawal_credentials: Eth2Digest,
     amount: Gwei, signature: ValidatorSig, slot: Slot) =
