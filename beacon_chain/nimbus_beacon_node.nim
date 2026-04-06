@@ -569,7 +569,7 @@ proc initFullNode(
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     validatorCustody = ValidatorCustodyRef.init(
-      node.config, node.network, dag)
+      node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 
   let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(

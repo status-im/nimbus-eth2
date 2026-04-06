@@ -64,7 +64,7 @@ func getGroupsCount(
   config: BeaconNodeConf,
   network: Eth2Node,
   dag: ChainDAGRef,
-  nodeBalance: Opt[Gwei]
+  nodeBalance: Gwei
 ): CgcCount =
   case state
   of ValidatorCustodyState.Init:
@@ -80,11 +80,11 @@ func getGroupsCount(
     elif config.lightSupernode:
       CgcCount((dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1)
     else:
-      if nodeBalance.isSome():
-        CgcCount(
-          dag.cfg.get_validators_custody_requirement(nodeBalance.get()))
-      else:
+      if nodeBalance == Gwei(0):
+        # While there no active validators attached.
         CgcCount(dag.cfg.CUSTODY_REQUIREMENT)
+      else:
+        CgcCount(dag.cfg.get_validators_custody_requirement(nodeBalance))
   of ValidatorCustodyState.LimitedCustody:
     CgcCount(dag.cfg.CUSTODY_REQUIREMENT)
   of ValidatorCustodyState.StabilityPeriod:
@@ -112,7 +112,7 @@ func getColumnMap(
 
 func getGroupsCount(
     vcus: ValidatorCustodyRef,
-    nodeBalance: Opt[Gwei]
+    nodeBalance: Gwei
 ): CgcCount =
   getGroupsCount(vcus.state, vcus.config, vcus.network, vcus.dag, nodeBalance)
 
@@ -165,11 +165,12 @@ proc init*(
     T: type ValidatorCustodyRef,
     config: BeaconNodeConf,
     network: Eth2Node,
-    dag: ChainDAGRef
+    dag: ChainDAGRef,
+    totalNodeBalance: Gwei
 ): ValidatorCustodyRef =
   let
     localGroupsCount = getGroupsCount(
-      ValidatorCustodyState.Init, config, network, dag, Opt.none(Gwei))
+      ValidatorCustodyState.Init, config, network, dag, totalNodeBalance)
     columnMap = getColumnMap(config, network, dag, localGroupsCount)
 
   network.loadCgcnetMetadataAndEnr(localGroupsCount.uint8)
@@ -227,7 +228,7 @@ proc updateValidatorCustody*(
   vcus.updateState(currentSlot)
 
   let
-    newGroupsCount = vcus.getGroupsCount(Opt.some(totalNodeBalance))
+    newGroupsCount = vcus.getGroupsCount(totalNodeBalance)
     newMap = vcus.getColumnMap(newGroupsCount)
 
   if len(vcus.curColumnMap) != len(newMap):
@@ -244,11 +245,11 @@ func getSet*(vcus: ValidatorCustodyRef): HashSet[ColumnIndex] =
   res
 
 func isSupernode*(vcus: ValidatorCustodyRef): bool =
-  uint64(vcus.curGroupsCount) == vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
+  vcus.curGroupsCount == CgcCount(vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS)
 
 func isLightSupernode*(vcus: ValidatorCustodyRef): bool =
-  uint64(vcus.curGroupsCount) ==
-    (vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
+  vcus.curGroupsCount ==
+    CgcCount(vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
 
 func getCustodyGroups*(vcus: ValidatorCustodyRef): seq[CustodyIndex] =
   if vcus.isLightSupernode():
