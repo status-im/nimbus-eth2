@@ -333,7 +333,8 @@ func adjust_committee_weight_estimate_to_ensure_safety(estimate: Gwei): Gwei =
   # See https://gist.github.com/saltiniroberto/9ee53d29c33878d79417abb2b4468c20
   # for an explanation about the value chosen.
   const COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR = 5'u64
-  estimate div 1000 * (1000 + COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR)
+  let ceil = (estimate + 999.Gwei) div 1000
+  ceil * (1000 + COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR)
 
 func estimate_committee_weight_between_slots(
     total_active_balance: Gwei, slots: Slice[Slot]): Gwei =
