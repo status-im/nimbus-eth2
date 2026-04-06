@@ -70,6 +70,26 @@ type
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
     Opt[gloas.DataColumnSidecars]
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#forwarding
+# Once clients can construct the full DataColumnSidecar after receiving
+# missing cells, they should forward the full DataColumnSidecar over
+# standard gossipsub to peers that do not support partial messages.
+# Avoid forwarding the full DataColumnSidecar message to peers that
+# requested partial messages for that given topic.
+proc setupPartialColumnForwarding*(router: ref MessageRouter) =
+  ## Wire the processor's onFullColumnAssembled callback to forward
+  ## assembled full sidecars to non-partial peers via standard gossipsub.
+  router[].processor[].onFullColumnAssembled = proc(
+      subnet_id: uint64, sidecar: fulu.DataColumnSidecar
+  ) {.gcsafe, raises: [].} =
+    proc forward() {.async: (raises: []).} =
+      try:
+        discard await router[].network.broadcastDataColumnSidecar(
+          subnet_id, sidecar)
+      except CancelledError:
+        discard
+    asyncSpawn forward()
+
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
   # been received via gossip (because they might have been sent to multiple
@@ -246,19 +266,23 @@ proc publishSidecars(
 
   Opt.some(finalBlobs)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
 proc publishPartialSidecars(
     router: ref MessageRouter,
     blck: fulu.SignedBeaconBlock,
     partials: seq[fulu.PartialDataColumnSidecar]
 ): Future[void] {.async: (raises: [CancelledError]).} =
-  ## Broadcast partial data column sidecars over gossip. These are sent
-  ## alongside the full data column sidecars for backward compatibility
-  ## when partial-columns mode is enabled.
-  var workers = newSeq[Future[SendResult]](len(partials))
+  ## Publish partial data column sidecars via the gossipsub Partial Message
+  ## Extension. Parts metadata and materialized cells are sent to peers that
+  ## opted into partial messages on the relevant data column sidecar topics.
+  let blockRoot = hash_tree_root(blck.message)
+
+  var workers = newSeq[Future[void]](len(partials))
 
   for i, pdc in partials:
     let subnet = compute_subnet_for_data_column_sidecar(ColumnIndex(i))
-    workers[i] = router[].network.broadcastPartialDataColumnSidecar(subnet, pdc)
+    workers[i] = router[].network.publishPartialDataColumn(
+      subnet, blockRoot, pdc)
 
   let resAll = await allFinished(workers)
 

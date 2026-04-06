@@ -22,6 +22,7 @@ import
     crypto/secp, builders],
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
+  libp2p/protocols/pubsub/gossipsub/partial_message,
   libp2p/stream/connection,
   libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
@@ -30,7 +31,8 @@ import
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
   "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
-       libp2p_json_serialization, peer_pool, peer_scores]
+       libp2p_json_serialization, peer_pool, peer_scores,
+       gossip_partial_columns]
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
@@ -98,6 +100,11 @@ type
     getBeaconTime*: GetBeaconTimeFn
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+    onPartialColumnRPC*: OnPartialColumnRPCCallback
+      ## Application-level callback for incoming partial data column messages.
+      ## Set by nimbus_beacon_node after processor/quarantine are available.
 
   AverageThroughput* = object
     count*: uint64
@@ -2433,40 +2440,58 @@ proc createEth2Node*(
     except CatchableError:
       err(ValidationResult.Reject)
 
+  # Holds reference to the Eth2Node so the partial message extension callback
+  # can dispatch to the application-level handler once it's set.
+  var nodeRef: Eth2Node
+
   let
-    params = GossipSubParams.init(
-      pruneBackoff = chronos.minutes(1),
-      unsubscribeBackoff = chronos.seconds(10),
-      floodPublish = true,
-      gossipFactor = 0.05,
-      d = 8,
-      dLow = 6,
-      dHigh = 12,
-      dScore = 6,
-      dOut = 6 div 2, # less than dlow and no more than dlow/2
-      dLazy = 6,
-      heartbeatInterval = chronos.milliseconds(700),
-      historyLength = 6,
-      historyGossip = 3,
-      fanoutTTL = chronos.seconds(60),
-      # 2 epochs matching maximum valid attestation lifetime
-      seenTTL = cfg.timeParams.SLOT_DURATION * (SLOTS_PER_EPOCH * 2).int64,
-      gossipThreshold = -4000,
-      publishThreshold = -8000,
-      graylistThreshold = -16000, # also disconnect threshold
-      opportunisticGraftThreshold = 0,
-      decayInterval = chronos.seconds(12),
-      decayToZero = 0.01,
-      retainScore = chronos.seconds(385),
-      appSpecificWeight = 0.0,
-      ipColocationFactorWeight = -53.75,
-      ipColocationFactorThreshold = 3.0,
-      behaviourPenaltyWeight = -15.9,
-      behaviourPenaltyDecay = 0.986,
-      disconnectBadPeers = true,
-      directPeers = directPeers,
-      bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
-    )
+    params = block:
+      var p = GossipSubParams.init(
+        pruneBackoff = chronos.minutes(1),
+        unsubscribeBackoff = chronos.seconds(10),
+        floodPublish = true,
+        gossipFactor = 0.05,
+        d = 8,
+        dLow = 6,
+        dHigh = 12,
+        dScore = 6,
+        dOut = 6 div 2, # less than dlow and no more than dlow/2
+        dLazy = 6,
+        heartbeatInterval = chronos.milliseconds(700),
+        historyLength = 6,
+        historyGossip = 3,
+        fanoutTTL = chronos.seconds(60),
+        # 2 epochs matching maximum valid attestation lifetime
+        seenTTL = cfg.timeParams.SLOT_DURATION * (SLOTS_PER_EPOCH * 2).int64,
+        gossipThreshold = -4000,
+        publishThreshold = -8000,
+        graylistThreshold = -16000, # also disconnect threshold
+        opportunisticGraftThreshold = 0,
+        decayInterval = chronos.seconds(12),
+        decayToZero = 0.01,
+        retainScore = chronos.seconds(385),
+        appSpecificWeight = 0.0,
+        ipColocationFactorWeight = -53.75,
+        ipColocationFactorThreshold = 3.0,
+        behaviourPenaltyWeight = -15.9,
+        behaviourPenaltyDecay = 0.986,
+        disconnectBadPeers = true,
+        directPeers = directPeers,
+        bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
+      )
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+      # Gossipsub's Partial Message Extension enables exchanging selective
+      # parts of a message rather than the whole.
+      when config is BeaconNodeConf:
+        if config.partialColumns:
+          p.partialMessageExtensionConfig = some(
+            makePartialMessageExtensionConfig(
+              proc(peer: PeerId, rpc: PartialMessageExtensionRPC)
+                  {.gcsafe, raises: [].} =
+                if nodeRef != nil and nodeRef.onPartialColumnRPC != nil:
+                  nodeRef.onPartialColumnRPC(peer, rpc)
+            ))
+      p
     pubsub =
       try:
         GossipSub.init(
@@ -2493,6 +2518,9 @@ proc createEth2Node*(
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
+
+  # Complete the closure capture for the partial message extension callback
+  nodeRef = node
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
@@ -2914,6 +2942,75 @@ proc broadcastPartialDataColumnSidecar*(
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, p_data_column)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+proc publishPartialDataColumn*(
+    node: Eth2Node,
+    subnet_id: uint64,
+    blockRoot: Eth2Digest,
+    p_data_column: fulu.PartialDataColumnSidecar):
+    Future[void] {.async: (raises: []).} =
+  ## Publish a partial data column sidecar via the gossipsub Partial Message
+  ## Extension. This sends parts metadata and materialized cells to peers
+  ## that opted into partial messages on the relevant topic.
+  let
+    contextEpoch =
+      if p_data_column.header.len > 0:
+        p_data_column.header[0].signed_block_header.message.slot.epoch
+      else:
+        # Cells-only message: caller must ensure this is valid
+        Epoch(0)
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+    pm = newDataColumnPartialMessage(
+      blockRoot, ColumnIndex(subnet_id), p_data_column)
+  await node.pubsub.publishPartial(topic, pm)
+
+func parseSubnetIdFromTopic*(topic: string): Opt[uint64] =
+  ## Extract subnet_id from a data column sidecar topic string.
+  ## Topic format: /eth2/{forkDigest}/data_column_sidecar_{subnet_id}/ssz_snappy
+  let topicParts = topic.split('/')
+  for part in topicParts:
+    if part.startsWith("data_column_sidecar_"):
+      let subnetStr = part[len("data_column_sidecar_") ..< part.len]
+      try:
+        return Opt.some(parseBiggestUInt(subnetStr))
+      except ValueError:
+        return Opt.none(uint64)
+  Opt.none(uint64)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#encoding-and-decoding-responses
+# All responses MUST be encoded and decoded with the
+# PartialDataColumnSidecar container.
+proc handlePartialColumnRPC*(
+    node: Eth2Node,
+    peer: PeerId,
+    rpc: PartialMessageExtensionRPC
+): Opt[tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar]] =
+  ## Decode and validate an incoming PartialMessageExtensionRPC into a
+  ## (subnet_id, PartialDataColumnSidecar) pair. Returns Opt.none on
+  ## metadata-only updates or decoding failures.
+  if rpc.partialMessage.len == 0:
+    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+
+  let blockRoot = parseGroupId(rpc.groupID).valueOr:
+    debug "Invalid partial column RPC groupId", error, peer
+    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+
+  let subnetId = parseSubnetIdFromTopic(rpc.topicID).valueOr:
+    debug "Failed to parse subnet_id from partial column RPC topic",
+      topic = rpc.topicID, peer
+    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+
+  var pdc: fulu.PartialDataColumnSidecar
+  try:
+    pdc = SSZ.decode(rpc.partialMessage, fulu.PartialDataColumnSidecar)
+  except SerializationError as e:
+    debug "Failed to decode partial data column from extension RPC",
+      error = e.msg, peer
+    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+
+  Opt.some((subnetId: subnetId, pdc: pdc))
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

@@ -194,6 +194,14 @@ type
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
 
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#forwarding
+    # Once clients can construct the full DataColumnSidecar after receiving
+    # missing cells, they should forward the full DataColumnSidecar over
+    # standard gossipsub to peers that do not support partial messages.
+    onFullColumnAssembled*:
+      proc(subnet_id: uint64, sidecar: fulu.DataColumnSidecar
+      ) {.gcsafe, raises: [].}
+
   ValidationRes* = Result[void, ValidationError]
 
 func toValidationResult*(res: ValidationRes): ValidationResult =
@@ -493,7 +501,15 @@ proc processPartialDataColumnSidecar*(
         block_root, column_index)
       if assembled.isSome():
         debug "Partial columns assembled into full data column sidecar"
-        self.dataColumnQuarantine[].put(block_root, newClone(assembled.get()))
+        let fullSidecar = assembled.get()
+        self.dataColumnQuarantine[].put(block_root, newClone(fullSidecar))
+
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#forwarding
+        # Forward the full sidecar to non-partial peers for backwards compat.
+        # Avoid forwarding the full DataColumnSidecar message to peers that
+        # requested partial messages for that given topic.
+        if self.onFullColumnAssembled != nil:
+          self.onFullColumnAssembled(subnet_id, fullSidecar)
 
         # Clean up partial column quarantine entry
         self.partialColumnQuarantine[].removeEntry(block_root, column_index)
