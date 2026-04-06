@@ -2243,6 +2243,9 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     trace "onSecond task completed",
       sleepTime, processingTime = chronos.now(chronos.Moment) - afterSleep
 
+func connectedPeersCount(node: BeaconNode): int =
+  len(node.network.peerPool)
+
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)
   restServer.router.installBuilderApiHandlers()
