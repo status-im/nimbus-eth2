@@ -618,30 +618,42 @@ func should_restart_confirmation_chain*(
     confirmed: BlockId, current_slot: Slot): FcResult[bool] =
   # Restart the confirmation chain if each of the following conditions are true:
   # 1) it is the start of the current epoch,
-  # 2) epoch of self.current_epoch_observed_justified.checkpoint equals to the
-  #    previous epoch,
+  # 2) epoch of self.current_epoch_observed_justified.checkpoint.root
+  #    equals to the previous epoch,
   # 3) self.current_epoch_observed_justified.checkpoint equals to unrealized
   #    justification of the head,
   # 4) confirmed block is older than the block of
   #    self.current_epoch_observed_justified.checkpoint.
+  let is_epoch_start = current_slot.is_epoch
+  if not is_epoch_start:
+    return ok false
+
   template current_epoch_justified: Checkpoint =
     self.current_epoch_observed_justified.checkpoint
-  template current_epoch_justified_slot: Slot =
-    self.proto_array.slot(current_epoch_justified.root).valueOr:
-      return err ForkChoiceError(
-        kind: fcJustifiedNodeUnknown,
-        blockRoot: current_epoch_justified.root)
+  let
+    observed_justified_block_slot =
+      self.proto_array.slot(current_epoch_justified.root).valueOr:
+        return err ForkChoiceError(
+          kind: fcJustifiedNodeUnknown,
+          blockRoot: current_epoch_justified.root)
+    is_observed_justified_block_epoch_ok =
+      observed_justified_block_slot.epoch + 1 == current_slot.epoch
+  if not is_observed_justified_block_epoch_ok:
+    return ok false
 
-  template head_unrealized_justified: Checkpoint =
-    self.proto_array.unrealized_justified(self.current_slot_head).valueOr:
-      return err ForkChoiceError(
-        kind: fcCurrentHeadUnknown,
-        blockRoot: self.current_slot_head)
+  let
+    head_unrealized_justified =
+      self.proto_array.unrealized_justified(self.current_slot_head).valueOr:
+        return err ForkChoiceError(
+          kind: fcCurrentHeadUnknown,
+          blockRoot: self.current_slot_head)
+    is_head_unrealized_justified_ok =
+      current_epoch_justified == head_unrealized_justified
+  if not is_head_unrealized_justified_ok:
+    return ok false
 
-  ok(current_slot.is_epoch and
-    current_epoch_justified.epoch + 1 == current_slot.epoch and
-    current_epoch_justified == head_unrealized_justified and
-    confirmed.slot < current_epoch_justified_slot)
+  let is_confirmed_block_stale = confirmed.slot < observed_justified_block_slot
+  ok is_confirmed_block_stale
 
 func get_current_target(blck: BlockRef, current_slot: Slot): Checkpoint =
   ## Return current epoch target.
