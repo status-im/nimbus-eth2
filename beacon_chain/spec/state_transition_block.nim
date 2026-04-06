@@ -312,6 +312,23 @@ proc process_attester_slashing*(
 from ".."/validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-is_pending_validator
+func get_pending_validators*(
+    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState):
+    HashSet[ValidatorPubKey] =
+  ## Return the set of pubkeys with a valid pending deposit signature in the queue.
+  var res: HashSet[ValidatorPubKey]
+  for pending_deposit in state.pending_deposits:
+    if verify_deposit_signature(
+        cfg.GENESIS_FORK_VERSION,
+        DepositData(
+          pubkey: pending_deposit.pubkey,
+          withdrawal_credentials: pending_deposit.withdrawal_credentials,
+          amount: pending_deposit.amount,
+          signature: pending_deposit.signature)):
+      res.incl(pending_deposit.pubkey)
+  res
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#modified-apply_deposit
 proc apply_deposit(
@@ -409,11 +426,12 @@ func process_deposit_request*(
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#modified-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
-    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_validators: BucketSortedValidators,
     bucket_sorted_builders: var BucketSortedValidators,
+    pending_validators: var HashSet[ValidatorPubKey],
     deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
   # [New in Gloas:EIP7732]
@@ -428,7 +446,8 @@ func process_deposit_request*(
       deposit_request.pubkey).isOk()
     is_builder_prefix =
       is_builder_withdrawal_credential(deposit_request.withdrawal_credentials)
-  if is_builder or (is_builder_prefix and not is_validator):
+  if is_builder or (is_builder_prefix and not is_validator and
+      deposit_request.pubkey notin pending_validators):
     # Apply builder deposits immediately
     apply_deposit_for_builder(
       cfg, state, bucket_sorted_builders, deposit_request.pubkey,
@@ -443,6 +462,14 @@ func process_deposit_request*(
       amount: deposit_request.amount,
       signature: deposit_request.signature,
       slot: state.slot)):
+    if verify_deposit_signature(
+        cfg.GENESIS_FORK_VERSION,
+        DepositData(
+          pubkey: deposit_request.pubkey,
+          withdrawal_credentials: deposit_request.withdrawal_credentials,
+          amount: deposit_request.amount,
+          signature: deposit_request.signature)):
+      pending_validators.incl(deposit_request.pubkey)
     ok()
   else:
     err("process_deposit_request: couldn't add deposit to pending_deposits")
@@ -456,7 +483,7 @@ proc check_voluntary_exit*(
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
 
-  let voluntary_exit = signed_voluntary_exit.message
+  template voluntary_exit: untyped = signed_voluntary_exit.message
 
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
@@ -509,12 +536,37 @@ proc check_voluntary_exit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#voluntary-exits
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#updated-process_voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_voluntary_exit
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags, exit_queue_info: ExitQueueInfo,
     cache: var StateCache): Result[ExitQueueInfo, cstring] =
+
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    template voluntary_exit: untyped = signed_voluntary_exit.message
+    if is_builder_index(voluntary_exit.validator_index):
+      if not (get_current_epoch(state) >= voluntary_exit.epoch):
+        return err("Exit: exit epoch not passed")
+      let builder_index =
+        convert_validator_index_to_builder_index(
+          voluntary_exit.validator_index)
+      if not is_active_builder(state, builder_index):
+        return err("Exit: builder not active")
+      if get_pending_balance_to_withdraw_for_builder(
+          state, builder_index) != 0.Gwei:
+        return err("Exit: builder has pending withdrawals")
+      let voluntary_exit_fork = typeof(state).kind.voluntary_exit_signature_fork(
+        state.fork, cfg.CAPELLA_FORK_VERSION)
+      if not verify_voluntary_exit_signature(
+          voluntary_exit_fork, state.genesis_validators_root, voluntary_exit,
+          state.builders.item(builder_index).pubkey,
+          signed_voluntary_exit.signature):
+        return err("Exit: invalid builder signature")
+      initiate_builder_exit(cfg, state, builder_index)
+      return ok(exit_queue_info)
+
   let exited_validator =
     ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
   ok(? initiate_validator_exit(
@@ -523,7 +575,7 @@ proc process_voluntary_exit*(
 proc process_bls_to_execution_change*(
     cfg: RuntimeConfig,
     state: var (capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState | gloas.BeaconState),
+                fulu.BeaconState | gloas.BeaconState | heze.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   ? check_bls_to_execution_change(
     cfg.GENESIS_FORK_VERSION, state, signed_address_change, {})
@@ -543,7 +595,8 @@ proc process_bls_to_execution_change*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#new-process_withdrawal_request
 func process_withdrawal_request*(
     cfg: RuntimeConfig,
-    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+                heze.BeaconState),
     bucketSortedValidators: BucketSortedValidators,
     withdrawal_request: WithdrawalRequest, cache: var StateCache) =
   let
@@ -625,7 +678,8 @@ func process_withdrawal_request*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#new-is_valid_switch_to_compounding_request
 func is_valid_switch_to_compounding_request(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState,
     consolidation_request: ConsolidationRequest,
     source_validator: Validator): bool =
   # Switch to compounding requires source and target be equal
@@ -657,7 +711,8 @@ func is_valid_switch_to_compounding_request(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-process_consolidation_request
 func process_consolidation_request*(
     cfg: RuntimeConfig,
-    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState),
+    state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+                heze.BeaconState),
     bucketSortedValidators: BucketSortedValidators,
     consolidation_request: ConsolidationRequest,
     cache: var StateCache) =
@@ -745,10 +800,10 @@ func process_consolidation_request*(
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: source_index.uint64, target_index: target_index.uint64))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payload-attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#payload-attestations
 proc process_payload_attestation*(
-    state: var gloas.BeaconState, payload_attestation: PayloadAttestation,
-    cache: var StateCache): Result[void, cstring] =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    payload_attestation: PayloadAttestation): Result[void, cstring] =
   # Check that the attestation is for the parent beacon block
   template data: untyped = payload_attestation.data
 
@@ -761,7 +816,7 @@ proc process_payload_attestation*(
 
   # Verify signature
   let indexed_payload_attestation = get_indexed_payload_attestation(
-    state, data.slot, payload_attestation, cache
+    state, data.slot, payload_attestation
   )
 
   if not is_valid_indexed_payload_attestation(state, indexed_payload_attestation):
@@ -874,7 +929,7 @@ proc process_operations(
   when consensusFork >= ConsensusFork.Gloas:
     for op in body.payload_attestations:
       # [New in Gloas:EIP7732]
-      ? process_payload_attestation(state, op, cache)
+      ? process_payload_attestation(state, op)
 
   ok(operations_rewards)
 
@@ -898,7 +953,7 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
-                fulu.BeaconState | gloas.BeaconState),
+                fulu.BeaconState | gloas.BeaconState | heze.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     flags: UpdateFlags, cache: var StateCache): Result[Gwei, cstring] =
   if strictVerification in flags and state.slot > 1.Slot:
@@ -1152,7 +1207,8 @@ proc process_execution_payload*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload
 proc process_execution_payload*(
-    cfg: RuntimeConfig, state: var gloas.HashedBeaconState,
+    cfg: RuntimeConfig,
+    state: var (gloas.HashedBeaconState | heze.HashedBeaconState),
     signed_envelope: SignedExecutionPayloadEnvelope |
                      TrustedSignedExecutionPayloadEnvelope,
     notify_new_payload: deneb.ExecutePayload, cache: var StateCache,
@@ -1235,8 +1291,9 @@ proc process_execution_payload*(
         sortValidatorBuckets(state.data.builders.asSeq)
       else:
         nil
+  var pending_validators = get_pending_validators(cfg, state.data)
   for op in envelope.execution_requests.deposits:
-    ? process_deposit_request(cfg, state.data, bsv[], bsb[], op, {})
+    ? process_deposit_request(cfg, state.data, bsv[], bsb[], pending_validators, op, {})
   for op in envelope.execution_requests.withdrawals:
     process_withdrawal_request(cfg, state.data, bsv[], op, cache)
   for op in envelope.execution_requests.consolidations:
@@ -1269,13 +1326,16 @@ proc process_execution_payload*(
   ok()
 
 # copy of datatypes/gloas.nim
-type SomeGloasBeaconBlock =
-  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
+type
+  SomeGloasBeaconBlock =
+    gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
+  SomeHezeBeaconBlock =
+    heze.BeaconBlock | heze.SigVerifiedBeaconBlock | heze.TrustedBeaconBlock
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
-    cfg: RuntimeConfig, state: var gloas.BeaconState,
-    blck: SomeGloasBeaconBlock): Result[void, cstring] =
+    cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
+    blck: SomeGloasBeaconBlock | SomeHezeBeaconBlock): Result[void, cstring] =
   template signed_bid: untyped = blck.body.signed_execution_payload_bid
   template bid: untyped = signed_bid.message
   let
@@ -1395,18 +1455,10 @@ func process_withdrawals*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-is_builder_index
-func is_builder_index(validator_index: uint64): bool =
-  (validator_index and BUILDER_INDEX_FLAG) != 0
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-convert_validator_index_to_builder_index
-func convert_validator_index_to_builder_index(validator_index: uint64): BuilderIndex =
-  validator_index and not BUILDER_INDEX_FLAG
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-apply_withdrawals
 func apply_withdrawals(
-    state: var gloas.BeaconState, withdrawals: seq[Withdrawal]):
-    Result[void, cstring] =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    withdrawals: seq[Withdrawal]): Result[void, cstring] =
   for withdrawal in withdrawals:
     # [Modified in Gloas:EIP7732]
     if is_builder_index(withdrawal.validator_index):
@@ -1426,7 +1478,8 @@ func apply_withdrawals(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/capella/beacon-chain.md#new-update_next_withdrawal_index
 func update_next_withdrawal_index(
-    state: var gloas.BeaconState, withdrawals: seq[Withdrawal]) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    withdrawals: seq[Withdrawal]) =
   ## Update the next withdrawal index if this block contained withdrawals
   if len(withdrawals) != 0:
     let latest_withdrawal = withdrawals[^1]
@@ -1434,13 +1487,15 @@ func update_next_withdrawal_index(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-update_payload_expected_withdrawals
 func update_payload_expected_withdrawals(
-    state: var gloas.BeaconState, withdrawals: seq[Withdrawal]) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    withdrawals: seq[Withdrawal]) =
   state.payload_expected_withdrawals =
     HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD].init(withdrawals)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/capella/beacon-chain.md#new-update_next_withdrawal_validator_index
 func update_next_withdrawal_validator_index(
-    state: var gloas.BeaconState, withdrawals: seq[Withdrawal]) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    withdrawals: seq[Withdrawal]) =
   # Update the next validator index to start the next withdrawal sweep
   if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
     # Next sweep starts after the latest withdrawal's validator index
@@ -1457,21 +1512,24 @@ func update_next_withdrawal_validator_index(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-update_builder_pending_withdrawals
 func update_builder_pending_withdrawals(
-    state: var gloas.BeaconState, processed_builder_withdrawals_count: uint64) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    processed_builder_withdrawals_count: uint64) =
   state.builder_pending_withdrawals =
     typeof(state.builder_pending_withdrawals).init(
       state.builder_pending_withdrawals.asSeq[processed_builder_withdrawals_count .. ^1])
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/electra/beacon-chain.md#new-update_pending_partial_withdrawals
 func update_pending_partial_withdrawals(
-    state: var gloas.BeaconState, processed_partial_withdrawals_count: uint64) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    processed_partial_withdrawals_count: uint64) =
   state.pending_partial_withdrawals =
     typeof(state.pending_partial_withdrawals).init(
       state.pending_partial_withdrawals.asSeq[processed_partial_withdrawals_count .. ^1])
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-update_next_withdrawal_builder_index
 func update_next_withdrawal_builder_index(
-    state: var gloas.BeaconState, processed_builders_sweep_count: uint64) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    processed_builders_sweep_count: uint64) =
   if len(state.builders) > 0:
     # Update the next builder index to start the next withdrawal sweep
     let
@@ -1481,7 +1539,7 @@ func update_next_withdrawal_builder_index(
     state.next_withdrawal_builder_index = next_builder_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-process_withdrawals
-func process_withdrawals*(state: var gloas.BeaconState):
+func process_withdrawals*(state: var (gloas.BeaconState | heze.BeaconState)):
     Result[void, cstring] =
   # return early if the parent block was empty
   if not is_parent_block_full(state):
@@ -1760,6 +1818,34 @@ proc process_block*(
     cfg: RuntimeConfig,
     state: var gloas.BeaconState,
     blck: SomeGloasBlock,
+    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+  ? process_withdrawals(state)
+  ? process_execution_payload_bid(cfg, state, blck)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+  var operations_rewards = ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  operations_rewards.sync_aggregate = ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+
+  ok(operations_rewards)
+
+type SomeHezeBlock =
+  heze.BeaconBlock | heze.SigVerifiedBeaconBlock | heze.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var heze.BeaconState,
+    blck: SomeHezeBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when

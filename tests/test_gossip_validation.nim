@@ -19,7 +19,7 @@ import
   ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
-    sync_committee_msg_pool],
+    envelope_quarantine, sync_committee_msg_pool],
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/[
     beaconstate, state_transition, helpers, network, validator],
@@ -48,6 +48,7 @@ suite "Gossip validation " & preset():
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init(dag.cfg))
+      envQuarantine = newClone(EnvelopeQuarantine.init())
       pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
@@ -113,29 +114,29 @@ suite "Gossip validation " & preset():
       beaconTime = att_1_0.data.slot.start_beacon_time(cfg.timeParams)
 
     check:
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
+      validateAttestation(pool, batchCrypto, envQuarantine, att_1_0, beaconTime, subnet, true).waitFor().isOk
 
       # Same validator again
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().error()[0] ==
+      validateAttestation(pool, batchCrypto, envQuarantine, att_1_0, beaconTime, subnet, true).waitFor().error()[0] ==
         ValidationResult.Ignore
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
+        pool, batchCrypto, envQuarantine, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
+        pool, batchCrypto, envQuarantine, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the past
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime -
+        pool, batchCrypto, envQuarantine, att_1_0, beaconTime -
         cfg.timeParams.SLOT_DURATION * SLOTS_PER_EPOCH.int64 - 1.seconds,
         subnet, true).waitFor().isErr
 
@@ -146,7 +147,7 @@ suite "Gossip validation " & preset():
       check:
         # Invalid signature
         validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true).waitFor().
+          pool, batchCrypto, envQuarantine, broken, beaconTime, subnet, true).waitFor().
             error()[0] == ValidationResult.Reject
 
     block:
@@ -156,9 +157,9 @@ suite "Gossip validation " & preset():
       # One invalid, one valid (batched)
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, att_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, att_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
@@ -172,9 +173,9 @@ suite "Gossip validation " & preset():
       # One invalid, one valid (batched)
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, att_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, att_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
@@ -194,9 +195,9 @@ suite "Gossip validation " & preset():
       # the individual attestations are invalid but their aggregate validates!
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken_1_0, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken_1_0, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, broken_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject

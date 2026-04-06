@@ -16,7 +16,8 @@ import
   "."/[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
-  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
+               heze],
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
 from std/algorithm import sort
@@ -26,7 +27,7 @@ from stew/staticfor import staticFor
 export
   extras, block_id, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
   presets,
-  phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
+  phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas, heze,
   bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
@@ -65,7 +66,8 @@ type
     deneb.BeaconState |
     electra.BeaconState |
     fulu.BeaconState |
-    gloas.BeaconState
+    gloas.BeaconState |
+    heze.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |
@@ -75,7 +77,8 @@ type
     deneb.HashedBeaconState |
     electra.HashedBeaconState |
     fulu.HashedBeaconState |
-    gloas.HashedBeaconState
+    gloas.HashedBeaconState |
+    heze.HashedBeaconState
 
   ForkedHashedBeaconState* = object
     case kind*: ConsensusFork
@@ -109,7 +112,8 @@ type
     deneb.BeaconBlockBody |
     electra.BeaconBlockBody |
     fulu.BeaconBlockBody |
-    gloas.BeaconBlockBody
+    gloas.BeaconBlockBody |
+    heze.BeaconBlockBody
 
   ForkySigVerifiedBeaconBlockBody* =
     phase0.SigVerifiedBeaconBlockBody |
@@ -119,7 +123,8 @@ type
     deneb.SigVerifiedBeaconBlockBody |
     electra.SigVerifiedBeaconBlockBody |
     fulu.SigVerifiedBeaconBlockBody |
-    gloas.SigVerifiedBeaconBlockBody
+    gloas.SigVerifiedBeaconBlockBody |
+    heze.SigVerifiedBeaconBlockBody
 
   ForkyTrustedBeaconBlockBody* =
     phase0.TrustedBeaconBlockBody |
@@ -129,7 +134,8 @@ type
     deneb.TrustedBeaconBlockBody |
     electra.TrustedBeaconBlockBody |
     fulu.TrustedBeaconBlockBody |
-    gloas.TrustedBeaconBlockBody
+    gloas.TrustedBeaconBlockBody |
+    heze.TrustedBeaconBlockBody
 
   SomeForkyBeaconBlockBody* =
     ForkyBeaconBlockBody |
@@ -144,7 +150,8 @@ type
     deneb.BeaconBlock |
     electra.BeaconBlock |
     fulu.BeaconBlock |
-    gloas.BeaconBlock
+    gloas.BeaconBlock |
+    heze.BeaconBlock
 
   ForkySigVerifiedBeaconBlock* =
     phase0.SigVerifiedBeaconBlock |
@@ -154,7 +161,8 @@ type
     deneb.SigVerifiedBeaconBlock |
     electra.SigVerifiedBeaconBlock |
     fulu.SigVerifiedBeaconBlock |
-    gloas.SigVerifiedBeaconBlock
+    gloas.SigVerifiedBeaconBlock |
+    heze.SigVerifiedBeaconBlock
 
   ForkyTrustedBeaconBlock* =
     phase0.TrustedBeaconBlock |
@@ -164,7 +172,8 @@ type
     deneb.TrustedBeaconBlock |
     electra.TrustedBeaconBlock |
     fulu.TrustedBeaconBlock |
-    gloas.TrustedBeaconBlock
+    gloas.TrustedBeaconBlock |
+    heze.TrustedBeaconBlock
 
   SomeForkyBeaconBlock* =
     ForkyBeaconBlock |
@@ -210,7 +219,8 @@ type
     deneb.BlockContents |
     electra.BlockContents |
     fulu.BlockContents |
-    gloas.BlockContents
+    gloas.BlockContents |
+    heze.BlockContents
 
   ForkyAggregateAndProof* =
     phase0.AggregateAndProof |
@@ -291,7 +301,8 @@ type
     deneb.SignedBeaconBlock |
     electra.SignedBeaconBlock |
     fulu.SignedBeaconBlock |
-    gloas.SignedBeaconBlock
+    gloas.SignedBeaconBlock |
+    heze.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -342,7 +353,8 @@ type
     deneb.TrustedSignedBeaconBlock |
     electra.TrustedSignedBeaconBlock |
     fulu.TrustedSignedBeaconBlock |
-    gloas.TrustedSignedBeaconBlock
+    gloas.TrustedSignedBeaconBlock |
+    heze.TrustedSignedBeaconBlock
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -1007,7 +1019,7 @@ template withEpochInfo*(
 template withEpochInfo*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
-           gloas.BeaconState,
+           gloas.BeaconState | heze.BeaconState,
     x: var ForkedEpochInfo, body: untyped): untyped =
   if x.kind != EpochInfoFork.Altair:
     # Rare, so efficiency not critical
@@ -1547,6 +1559,12 @@ func gloasFork*(cfg: RuntimeConfig): Fork =
     current_version: cfg.GLOAS_FORK_VERSION,
     epoch: cfg.GLOAS_FORK_EPOCH)
 
+func hezeFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GLOAS_FORK_VERSION,
+    current_version: cfg.HEZE_FORK_VERSION,
+    epoch: cfg.HEZE_FORK_EPOCH)
+
 func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.consensusForkAtEpoch(epoch)
   of ConsensusFork.Gloas:     cfg.gloasFork
@@ -1609,16 +1627,22 @@ static:
   for consensusFork in ConsensusFork:
     withConsensusFork(consensusFork):
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-      template check(field, T: untyped, path: varargs[untyped]): untyped =
-        doAssert lcDataFork.field == consensusFork.T.get_generalized_index(path)
-
       when lcDataFork > LightClientDataFork.None:
-        check finalized_root_gindex,
+        template check(gindex, T: untyped, path: varargs[untyped]): untyped =
+          doAssert gindex == consensusFork.T.get_generalized_index(path)
+
+        check lcDataFork.finalized_root_gindex,
           BeaconState, "finalized_checkpoint", "root"
-        check current_sync_committee_gindex,
+        check lcDataFork.current_sync_committee_gindex,
           BeaconState, "current_sync_committee"
-        check next_sync_committee_gindex,
+        check lcDataFork.next_sync_committee_gindex,
           BeaconState, "next_sync_committee"
+
+        when lcDataFork >= LightClientDataFork.Capella and
+            consensusFork < ConsensusFork.Gloas:
+          debugGloasComment "[PH] LC specs"
+          check EXECUTION_PAYLOAD_GINDEX,
+            BeaconBlockBody, "execution_payload"
 
 func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

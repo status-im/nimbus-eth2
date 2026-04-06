@@ -73,6 +73,7 @@ type
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
     GloasSignedBlockContents |
+    HezeSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
