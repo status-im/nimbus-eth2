@@ -46,8 +46,6 @@ const
   BYTES_PER_CELL* = kzg_abi.FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
   # The number of cells in an extended blob |
 
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
@@ -634,3 +632,9 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+const
+  KZG_COMMITMENTS_GINDEX* = get_generalized_index(
+    BeaconBlockBody, "blob_kzg_commitments")
+static:
+  doAssert KZG_COMMITMENTS_GINDEX == 27.GeneralizedIndex
