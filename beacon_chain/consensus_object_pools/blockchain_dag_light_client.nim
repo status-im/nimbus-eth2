@@ -419,9 +419,9 @@ proc initLightClientUpdateForPeriod(
             union_roots.extract_branch(
               union_indices, lcDataFork.finalized_root_gindex).get
         else:
-          forkyState.data.build_proof(
-            lcDataFork.next_sync_committee_gindex,
-            update.forky(lcDataFork).next_sync_committee_branch).expect("OK")
+          update.forky(lcDataFork).next_sync_committee_branch =
+            forkyState.data.build_proof(
+              lcDataFork.next_sync_committee_gindex).get
       else: raiseAssert "Unreachable"
   do:
     dag.handleUnexpectedLightClientError(attestedBid.slot)
