@@ -923,6 +923,7 @@ AllTests-mainnet
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
 + payload attestation message signatures                                                     OK
++ proposer preferences message signatures                                                    OK
 ```
 ## Network metadata
 ```diff
