@@ -633,10 +633,7 @@ func should_restart_confirmation_chain*(
     self.current_epoch_observed_justified.checkpoint
   let
     observed_justified_block_slot =
-      self.proto_array.slot(current_epoch_justified.root).valueOr:
-        return err ForkChoiceError(
-          kind: fcJustifiedNodeUnknown,
-          blockRoot: current_epoch_justified.root)
+      self.current_epoch_observed_justified.info.block_slot
     is_observed_justified_block_epoch_ok =
       observed_justified_block_slot.epoch + 1 == current_slot.epoch
   if not is_observed_justified_block_epoch_ok:

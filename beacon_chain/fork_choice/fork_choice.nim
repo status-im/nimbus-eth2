@@ -200,6 +200,11 @@ proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
     checkpoint.epoch.start_slot
   result.root = checkpoint.root
 
+func observed_justified_block_id(self: ForkChoiceBackend): BlockId =
+  BlockId(
+    slot: self.current_epoch_observed_justified.info.block_slot,
+    root: self.current_epoch_observed_justified.checkpoint.root)
+
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
   let unrealized = self.backend.previous_epoch_greatest_unrealized_checkpoint
   if unrealized == self.backend.current_epoch_observed_justified.checkpoint:
@@ -243,7 +248,7 @@ proc reconfirm_fcr(
   fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
-    confirmed = fcr.to_block_id(current_epoch_justified)
+    confirmed = fcr.observed_justified_block_id
     incSafeRestarts()
   ok()
 
@@ -517,7 +522,7 @@ proc advance_fcr(
 
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/h"
-    confirmed = fcr.to_block_id(current_epoch_justified)
+    confirmed = fcr.observed_justified_block_id
     incSafeRestarts()
 
   # Attempt to further advance the latest confirmed block.
