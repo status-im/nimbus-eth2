@@ -506,3 +506,29 @@ proc verify_payload_attestation_message_signature*(
   let signing_root = compute_payload_attestation_message_signing_root(
     fork, genesis_validators_root, data)
   blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+func compute_proposer_preferences_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences): Eth2Digest =
+  let
+    epoch = data.proposal_slot.epoch
+    domain = get_domain(
+      fork, DOMAIN_PROPOSER_PREFERENCES, epoch, genesis_validators_root)
+  compute_signing_root(data, domain)
+
+func get_proposer_preferences_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_proposer_preferences_signing_root(
+    fork, genesis_validators_root, data)
+  blsSign(privkey, signing_root.data)
+
+proc verify_proposer_preferences_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_proposer_preferences_signing_root(
+    fork, genesis_validators_root, data)
+  blsVerify(pubkey, signing_root.data, signature)
