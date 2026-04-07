@@ -250,18 +250,15 @@ proc installApiHandlers*(node: SigningNodeRef) =
           return signatureResponse(Http200, signature)
 
         let (feeRecipientIndex, blockHeader) =
-          case request.beaconBlockHeader.kind
-          of ConsensusFork.Phase0 .. ConsensusFork.Capella:
-            return errorResponse(Http400, BlockIncorrectFork)
-          of ConsensusFork.Deneb:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Electra:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Fulu:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Gloas:
-            debugGloasComment "do not this"
-            return errorResponse(Http400, BlockIncorrectFork)
+          withConsensusFork(request.beaconBlockHeader.kind):
+            when consensusFork in ConsensusFork.Deneb ..< ConsensusFork.Gloas:
+              const gindex = get_generalized_index(
+                consensusFork.BeaconBlockBody,
+                "execution_payload", "fee_recipient")
+              (gindex, request.beaconBlockHeader.data)
+            else:
+              debugGloasComment "do not this"
+              return errorResponse(Http400, BlockIncorrectFork)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)

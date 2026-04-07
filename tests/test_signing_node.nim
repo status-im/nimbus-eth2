@@ -240,7 +240,6 @@ func getRemoteKeystoreData(data: string, basePort: int,
       pubkey: publicKey
     )
 
-  debugGloasComment "presumably gloasIndex shouldn't be 801"
   ok case rt
     of RemoteSignerType.Web3Signer:
       KeystoreData(
@@ -254,12 +253,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
         kind: KeystoreKind.Remote,
         remoteType: RemoteSignerType.VerifyingWeb3Signer,
         provenBlockProperties: @[
-          ProvenProperty(
-            path: ".execution_payload.fee_recipient",
-            gloasIndex: GeneralizedIndex(801),
-            fuluIndex: GeneralizedIndex(801),
-            electraIndex: GeneralizedIndex(801),
-          )
+          parseProvenBlockProperty(".execution_payload.fee_recipient").get,
         ],
         version: uint64(4),
         pubkey: publicKey,
