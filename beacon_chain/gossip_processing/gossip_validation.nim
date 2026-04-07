@@ -304,10 +304,6 @@ template checkedReject(
     pool: ValidatorChangePool, msg: cstring): untyped =
   pool.dag.checkedReject(msg)
 
-template checkedReject(
-    pool: ValidatorChangePool, error: ValidationError): untyped =
-  pool.dag.checkedReject(error)
-
 func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
   let epoch = slot.epoch
   if epoch >= cfg.FULU_FORK_EPOCH:
@@ -842,6 +838,7 @@ proc validateDataColumnSidecar*(
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: block_root,
       index: data_column_sidecar.index,
+      slot: data_column_sidecar.slot,
       kzg_commitments: bid.blob_kzg_commitments)
 
   ok()
@@ -1119,7 +1116,7 @@ proc validateExecutionPayload*(
       return dag.checkedReject("ExecutionPayload: invalid builder signature")
   else:
     return dag.checkedReject("ExecutionPayload: invalid fork")
-  
+
   let onExecutionPayloadCallback =
     envelopeQuarantine[].onExecutionPayloadCallback()
   if not isNil(onExecutionPayloadCallback):
@@ -1133,6 +1130,7 @@ proc validateExecutionPayload*(
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     attestation: SingleAttestation,
     wallTime: BeaconTime,
     subnet_id: SubnetId,
@@ -1179,7 +1177,7 @@ proc validateAttestation*(
   let target = check_beacon_and_target_block(pool[], attestation.data).valueOr:
     return pool.checkedResult(error) # [IGNORE/REJECT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
   if consensusFork >= ConsensusFork.Gloas:
     # [REJECT] attestation.data.index < 2
     if not (attestation.data.index < 2):
@@ -1191,6 +1189,16 @@ proc validateAttestation*(
         return pool.checkedReject(
           "SingleAttestation: same-slot attestation must have index 0"
         )
+    # [REJECT] If attestation.data.index == 1 (payload present for a past block),
+    # the execution payload for block passes validation.
+    # [IGNORE] When attestation.data.index == 1 (payload present for a past block),
+    # the execution payload for block has been seen
+    if attestation.data.index == 1:
+      template block_root: untyped = attestation.data.beacon_block_root
+      if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
+          block_root notin envelopeQuarantine[].orphans:
+        return errIgnore(
+          "SingleAttestation: execution payload not yet seen")
   else:
     # [REJECT] attestation.data.index == 0
     if not (attestation.data.index == 0):
@@ -1302,10 +1310,11 @@ proc validateAttestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/p2p-interface.md#beacon_aggregate_and_proof
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     signedAggregateAndProof: electra.SignedAggregateAndProof,
     wallTime: BeaconTime,
     checkSignature = true,
@@ -1391,6 +1400,17 @@ proc validateAggregate*(
     if target.blck.bid.slot == aggregate.data.slot:
       if not (aggregate.data.index == 0):
         return pool.checkedReject("Aggregate: same-slot aggregate must have index 0")
+
+    # [REJECT] If attestation.data.index == 1 (payload present for a past block),
+    # the execution payload for block passes validation.
+    # [IGNORE] When attestation.data.index == 1 (payload present for a past block),
+    # the execution payload for block has been seen
+    if aggregate.data.index == 1:
+      template block_root: untyped = aggregate.data.beacon_block_root
+      if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
+          block_root notin envelopeQuarantine[].orphans:
+        return errIgnore(
+          "Aggregate: execution payload not yet seen")
   else:
     # [REJECT] aggregate.data.index == 0
     if not (aggregate.data.index == 0):
@@ -1980,7 +2000,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -1990,26 +2010,17 @@ proc validateExecutionPayloadBid*(
 
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      # [REJECT] bid.builder_index is a valid, active, and non-slashed builder index
-      # Check builder index is valid
-      if bid.builder_index >= forkyState.data.validators.lenu64:
+      # [REJECT] bid.builder_index is a valid, active builder index
+      if bid.builder_index >= forkyState.data.builders.lenu64:
         return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
 
-      let validator = forkyState.data.validators.item(bid.builder_index)
-
-      # Check builder is active
-      let currentEpoch = get_current_epoch(forkyState.data)
-      if not is_active_validator(validator, currentEpoch):
+      if not is_active_builder(forkyState.data, bid.builder_index):
         return dag.checkedReject("ExecutionPayloadBid: builder not active")
 
-      # Check builder is not slashed
-      if validator.slashed:
-        return dag.checkedReject("ExecutionPayloadBid: builder is slashed")
-
-      # [REJECT] The builder's withdrawal credentials' prefix is BUILDER_WITHDRAWAL_PREFIX
-      if not is_builder_withdrawal_credential(validator.withdrawal_credentials):
+      # [REJECT] bid.execution_payment is zero
+      if bid.execution_payment != 0.Gwei:
         return dag.checkedReject(
-          "ExecutionPayloadBid: invalid withdrawal credentials")
+          "ExecutionPayloadBid: execution_payment is not zero")
 
       # [IGNORE] This is the first signed bid seen with a valid signature from
       # the given builder for this slot
@@ -2028,9 +2039,8 @@ proc validateExecutionPayloadBid*(
           "ExecutionPayloadBid: not the highest value bid for this slot and parent")
 
       # [IGNORE] bid.value is less or equal than the builder's excess balance
-      # i.e. MIN_ACTIVATION_BALANCE + bid.value <= state.balances[bid.builder_index]
-      if forkyState.data.balances.item(bid.builder_index) <
-          MIN_ACTIVATION_BALANCE.Gwei + bid.value:
+      if not can_builder_cover_bid(
+          forkyState.data, bid.builder_index.BuilderIndex, bid.value):
         return errIgnore(
           "ExecutionPayloadBid: insufficient builder balance")
 
@@ -2064,13 +2074,12 @@ proc validateExecutionPayloadBid*(
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
-      let builderPubkey = dag.validatorKey(bid.builder_index).valueOr:
-        return dag.checkedReject(
-          "ExecutionPayloadBid: cannot get builder public key")
+      let builderPubkey =
+        forkyState.data.builders.item(bid.builder_index).pubkey
 
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
-          dag.headState.genesis_validators_root,
+          dag.genesis_validators_root,
           bid.slot.epoch,
           bid,
           builderPubkey,
@@ -2126,11 +2135,10 @@ proc validatePayloadAttestationMessage*(
   # processing the block up to the current slot as determined by fork choice
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      var cache: StateCache
       let vidx = ValidatorIndex(payload_attestation_message.validator_index)
 
       var present = false
-      for idx in get_ptc(forkyState.data, data.slot, cache):
+      for idx in get_ptc(forkyState.data, data.slot):
         if idx == vidx:
           present = true
           break

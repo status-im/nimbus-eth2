@@ -38,6 +38,9 @@ type
     ## Fork Choice Error Kinds
     fcFinalizedNodeUnknown
     fcJustifiedNodeUnknown
+    fcConfirmedNodeUnknown
+    fcPreviousHeadUnknown
+    fcCurrentHeadUnknown
     fcInvalidNodeIndex
     fcInvalidJustifiedIndex
     fcInvalidBestDescendant
@@ -50,7 +53,8 @@ type
     fcInconsistentTick
     fcUnknownParent
     fcPruningFromOutdatedFinalizedRoot
-    fcInvalidEpochRef
+    fcUnknownBlockIdAtSlot
+    fcUnknownShufflingRef
 
   Index* = int
   Delta* = int64
@@ -59,9 +63,12 @@ type
   ForkChoiceError* = object
     case kind*: fcKind
     of fcFinalizedNodeUnknown,
-       fcJustifiedNodeUnknown:
+       fcJustifiedNodeUnknown,
+       fcConfirmedNodeUnknown,
+       fcPreviousHeadUnknown,
+       fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick, fcInvalidEpochRef:
+    of fcInconsistentTick:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
@@ -84,6 +91,10 @@ type
       parentRoot*: Eth2Digest
     of fcPruningFromOutdatedFinalizedRoot:
       finalizedRoot*: Eth2Digest
+    of fcUnknownBlockIdAtSlot,
+       fcUnknownShufflingRef:
+         shufflingRoot*: Eth2Digest
+         shufflingEpoch*: Epoch
 
   FcResult*[T] = Result[T, ForkChoiceError]
 

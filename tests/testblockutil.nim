@@ -328,8 +328,11 @@ proc addTestEngineBlock*(
 
     eps =
       when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-        default(gloas.ExecutionPayloadForSigning)
+        var gloasEps = default(gloas.ExecutionPayloadForSigning)
+        gloasEps.executionPayload.parent_hash = state.data.latest_block_hash
+        gloasEps.executionPayload.block_hash = eth2digest(
+          state.data.slot.uint64.toBytesBE())
+        gloasEps
       elif consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadForSigning(
@@ -341,6 +344,24 @@ proc addTestEngineBlock*(
 
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
+
+    signed_execution_payload_bid =
+      when consensusFork >= ConsensusFork.Gloas:
+        SignedExecutionPayloadBid(
+          message: ExecutionPayloadBid(
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: state.data.slot,
+            block_hash: eps.executionPayload.block_hash,
+            parent_block_hash: state.data.latest_block_hash,
+            parent_block_root: state.latest_block_root,
+            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            value: 0.Gwei,
+          ),
+          signature: ValidatorSig.infinity(),
+        )
+      else:
+        default(SignedExecutionPayloadBid)
+
     message = makeBeaconBlock(
         cfg,
         consensusFork,
@@ -357,7 +378,7 @@ proc addTestEngineBlock*(
         eps,
         verificationFlags = {skipBlsValidation},
         execution_requests = default(ExecutionRequests),
-        signed_execution_payload_bid = default(SignedExecutionPayloadBid),
+        signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )
       .expect("block")
@@ -408,8 +429,11 @@ proc addTestEngineBlockWithBlobs*(
 
     eps =
       when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-        default(gloas.ExecutionPayloadForSigning)
+        var gloasEps = default(gloas.ExecutionPayloadForSigning)
+        gloasEps.executionPayload.parent_hash = state.data.latest_block_hash
+        gloasEps.executionPayload.block_hash = eth2digest(
+          state.data.slot.uint64.toBytesBE())
+        gloasEps
       elif consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadWithNonEmptyBlobsForSigning(
@@ -418,6 +442,24 @@ proc addTestEngineBlockWithBlobs*(
           default(consensusFork.ExecutionPayloadForSigning)
       else:
         default(bellatrix.ExecutionPayloadForSigning)
+
+    signed_execution_payload_bid =
+      when consensusFork >= ConsensusFork.Gloas:
+        SignedExecutionPayloadBid(
+          message: ExecutionPayloadBid(
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: state.data.slot,
+            block_hash: eps.executionPayload.block_hash,
+            parent_block_hash: state.data.latest_block_hash,
+            parent_block_root: state.latest_block_root,
+            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            value: 0.Gwei,
+          ),
+          signature: ValidatorSig.infinity(),
+        )
+      else:
+        default(SignedExecutionPayloadBid)
+
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
     message = makeBeaconBlock(
@@ -436,7 +478,7 @@ proc addTestEngineBlockWithBlobs*(
         eps,
         verificationFlags = {skipBlsValidation},
         execution_requests = default(ExecutionRequests),
-        signed_execution_payload_bid = default(SignedExecutionPayloadBid),
+        signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )
       .expect("block")

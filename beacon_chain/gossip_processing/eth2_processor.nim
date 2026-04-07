@@ -575,7 +575,8 @@ proc processAttestation*(
 
   let v = (
     await self.attestationPool.validateAttestation(
-      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature
+      self.batchCrypto, self.envelopeQuarantine, attestation,
+      wallTime, subnet_id, checkSignature
     )
   ).valueOr:
     debug "Dropping attestation", reason = $error
@@ -647,6 +648,7 @@ proc processSignedAggregateAndProof*(
   let v = (
     await self.attestationPool.validateAggregate(
       self.batchCrypto,
+      self.envelopeQuarantine,
       signedAggregateAndProof,
       wallTime,
       checkSignature = checkSignature,

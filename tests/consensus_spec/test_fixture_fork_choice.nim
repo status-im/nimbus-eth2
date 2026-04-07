@@ -220,7 +220,7 @@ proc updateHead(
   dag.updateHead(newHead, quarantine, [])
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
-    let pruneRes = fkChoice[].prune()
+    let pruneRes = fkChoice[].prune(dag)
     doAssert pruneRes.isOk()
 
 proc stepOnBlock(
@@ -468,7 +468,8 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if path.contains("eip7732") or path.contains("eip7805") or path.contains("gloas"):
+      if path.contains("eip7732") or path.contains("eip7805") or
+          path.contains("gloas") or path.contains("heze"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath

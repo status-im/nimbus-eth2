@@ -21,7 +21,7 @@ import
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base,  ./signatures
+  ./datatypes/base, ./signatures
 
 from std/algorithm import binarySearch
 from std/math import `^`
@@ -285,9 +285,6 @@ template `<`*(lhs, rhs: HttpHostUri): bool =
 template `$`*(m: Mnemonic): string =
   string(m)
 
-template `==`*(lhs, rhs: WalletName): bool =
-  string(lhs) == string(rhs)
-
 template `$`*(x: WalletName): string =
   string(x)
 
@@ -505,11 +502,6 @@ func deriveChildKey*(masterKey: ValidatorPrivKey,
     # and this iterator is used to derive secret keys
     # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
-
-func keyFromPath*(mnemonic: Mnemonic,
-                  password: KeystorePass,
-                  path: KeyPath): ValidatorPrivKey =
-  deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
 func shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   var ctx: sha256

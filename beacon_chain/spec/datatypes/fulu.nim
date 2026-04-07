@@ -17,7 +17,7 @@
 
 import
   std/typetraits,
-  "."/[phase0, base, bellatrix, electra],
+  ./[phase0, base, bellatrix, electra],
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs, bitseqs],
@@ -586,10 +586,6 @@ func shortLog*(xs: seq[DataColumnsByRootIdentifier]): string =
 
 func shortLog*(x: seq[ColumnIndex]): string =
   "<" & x.mapIt($it).join(", ") & ">"
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

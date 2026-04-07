@@ -5,14 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronos,
   results,
   ../consensus_object_pools/block_dag,
   ../beacon_clock,
-  "."/[validator_pool]
+  ./validator_pool
 
 export chronos, results, block_dag, beacon_clock
 
@@ -37,13 +37,6 @@ func toAttestation*(
   phase0.Attestation.init(
     [registered.index_in_committee], registered.committee_len,
     registered.data, signature).expect("valid data")
-
-func toElectraAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig):
-    electra.Attestation =
-  electra.Attestation.init(
-    registered.committee_index, [registered.index_in_committee],
-    registered.committee_len, registered.data, signature).expect("valid data")
 
 func toSingleAttestation*(
     registered: RegisteredAttestation, signature: ValidatorSig): SingleAttestation =
@@ -76,7 +69,7 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
   let
     extraDelay = nanos(clock.timeParams.attestationSlotOffset.nanoseconds div 2)
     afterBlockCutoff = clock.fromNow(min(
-      clock.now(), 
+      clock.now(),
       slot.attestation_deadline(clock.timeParams, consensusFork)) + extraDelay)
 
   if afterBlockCutoff.inFuture:

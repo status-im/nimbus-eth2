@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2026 Status Research & Development GmbH
+# Copyright (c) 2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-# Types specific to phase0 (i.e. known to have changed across hard forks) - see
+# Types specific to Heze (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -16,15 +16,31 @@
 {.experimental: "notnil".}
 
 import
+  std/typetraits,
+  ./[phase0, base, bellatrix, electra, fulu],
   chronicles,
-  ./base
+  json_serialization,
+  ssz_serialization/[merkleization, proofs],
+  ssz_serialization/types as sszTypes,
+  ../digest,
+  kzg4844/[kzg, kzg_abi]
 
-from std/sets import toHashSet
+from ./altair import
+  EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
+  TrustedSyncAggregate, SyncnetBits, num_active_participants
+from ./capella import
+  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
+  SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
+from ./deneb import
+  Blobs, ExecutionPayload, ExecutionPayloadHeader, KzgCommitments, KzgProofs
+from ./gloas import
+  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
+  PayloadAttestation, SignedExecutionPayloadBid
 
-export base
+export json_serialization, base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -41,6 +57,7 @@ type
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+      ## Frozen in Capella, replaced by historical_summaries
 
     # Eth1
     eth1_data*: Eth1Data
@@ -59,48 +76,65 @@ type
     slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
       ## Per-epoch sums of slashed effective balances
 
-    # Attestations
-    previous_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-    current_epoch_attestations*:
-      HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
+    # Participation
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
 
     # Finality
     justification_bits*: JustificationBits
       ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
-
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#get_total_balance
-  TotalBalances* = object
-    # The total effective balance of all active validators during the _current_
-    # epoch.
-    current_epoch_raw*: Gwei
-    # The total effective balance of all active validators during the _previous_
-    # epoch.
-    previous_epoch_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch.
-    current_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _current_ epoch.
-    current_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch.
-    previous_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _previous_ epoch.
-    previous_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # time of attestation.
-    previous_epoch_head_attesters_raw*: Gwei
+    # Inactivity
+    inactivity_scores*: InactivityScores
+
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Execution
+    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+
+    # Withdrawals
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64
+
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+
+    deposit_requests_start_index*: uint64
+    deposit_balance_to_consume*: Gwei
+    exit_balance_to_consume*: Gwei
+    earliest_exit_epoch*: Epoch
+    consolidation_balance_to_consume*: Gwei
+    earliest_consolidation_epoch*: Epoch
+    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
+
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+
+    proposer_lookahead*:
+        HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
+
+    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
+    next_withdrawal_builder_index*: uint64
+    execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    builder_pending_payments*:
+      HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
+    builder_pending_withdrawals*:
+      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
+    latest_block_hash*: Eth2Digest
+    payload_expected_withdrawals*:
+      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
+    ptc_window*:
+      HashArray[Limit ((2 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH),
+        HashArray[Limit PTC_SIZE, uint64]]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -135,6 +169,7 @@ type
   SigVerifiedBeaconBlock* = object
     ## A BeaconBlock that contains verified signatures
     ## but that has not been verified for state transition
+
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
@@ -169,7 +204,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -180,10 +215,20 @@ type
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    attester_slashings*:
+      List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+    sync_aggregate*: SyncAggregate
+
+    # Execution
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
+
+    signed_execution_payload_bid*: SignedExecutionPayloadBid
+    payload_attestations*:
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -193,33 +238,63 @@ type
     ## - ProposerSlashing (SignedBeaconBlockHeader)
     ## - AttesterSlashing (IndexedAttestation)
     ## - SignedVoluntaryExits
+    ## - SyncAggregate
     ##
+    ## However:
     ## - ETH1Data (Deposits) can contain invalid BLS signatures
     ##
     ## The block state transition has NOT been verified
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
+      ## Eth1 data vote
+
     graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*:
+      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+    sync_aggregate*: TrustedSyncAggregate
+
+    # Execution
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
+
+    signed_execution_payload_bid*: SignedExecutionPayloadBid
+    payload_attestations*:
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
+      ## Eth1 data vote
+
     graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*:
+      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*:
+      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+    sync_aggregate*: TrustedSyncAggregate
+
+    # Execution
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
+
+    signed_execution_payload_bid*: SignedExecutionPayloadBid
+    payload_attestations*:
+      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -253,59 +328,6 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#attesterslashing
-  AttesterSlashing* = object
-    attestation_1*: IndexedAttestation
-    attestation_2*: IndexedAttestation
-
-  TrustedAttesterSlashing* = object
-    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
-    # It DOES NOT imply that the state transition was verified.
-    # Currently the code MUST verify the state transition as soon as the signature is verified
-    attestation_1*: TrustedIndexedAttestation
-    attestation_2*: TrustedIndexedAttestation
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#indexedattestation
-  IndexedAttestation* = object
-    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
-    data*: AttestationData
-    signature*: ValidatorSig
-
-  TrustedIndexedAttestation* = object
-    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
-    # It DOES NOT imply that the state transition was verified.
-    # Currently the code MUST verify the state transition as soon as the signature is verified
-    attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
-    data*: AttestationData
-    signature*: TrustedSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#attestation
-  Attestation* = object
-    aggregation_bits*: CommitteeValidatorsBits
-    data*: AttestationData
-    signature*: ValidatorSig
-
-  TrustedAttestation* = object
-    # The Trusted version, at the moment, implies that the cryptographic signature was checked.
-    # It DOES NOT imply that the state transition was verified.
-    # Currently the code MUST verify the state transition as soon as the signature is verified
-    aggregation_bits*: CommitteeValidatorsBits
-    data*: AttestationData
-    signature*: TrustedSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#aggregateandproof
-  AggregateAndProof* = object
-    aggregator_index*: uint64 # `ValidatorIndex` after validation
-    aggregate*: Attestation
-    selection_proof*: ValidatorSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/validator.md#signedaggregateandproof
-  SignedAggregateAndProof* = object
-    message*: AggregateAndProof
-    signature*: ValidatorSig
-
-  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
-  SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
   SomeSignedBeaconBlock* =
     SignedBeaconBlock |
     SigVerifiedSignedBeaconBlock |
@@ -318,42 +340,11 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
-  SomeAttestation* = Attestation | TrustedAttestation
 
-  EpochInfo* = object
-    ## Information about the outcome of epoch processing
-    validators*: seq[RewardStatus]
-    balances*: TotalBalances
-
-chronicles.formatIt BeaconBlock: it.shortLog
-chronicles.formatIt Attestation: it.shortLog
-
-func clear*(info: var EpochInfo) =
-  info.validators.setLen(0)
-  info.balances = TotalBalances()
-
-func shortLog*(v: SomeIndexedAttestation): auto =
-  (
-    attestating_indices: v.attesting_indices,
-    data: shortLog(v.data),
-    signature: shortLog(v.signature)
-  )
-
-iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
-  template attestation_1(): auto = attester_slashing.attestation_1
-  template attestation_2(): auto = attester_slashing.attestation_2
-
-  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
-  for validator_index in attestation_1.attesting_indices.asSeq:
-    if validator_index notin attestation_2_indices:
-      continue
-    yield validator_index
-
-func shortLog*(v: SomeAttesterSlashing): auto =
-  (
-    attestation_1: shortLog(v.attestation_1),
-    attestation_2: shortLog(v.attestation_2),
-  )
+  BlockContents* = object
+    `block`*: heze.BeaconBlock
+    kzg_proofs*: fulu.KzgProofs
+    blobs*: Blobs
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -368,13 +359,14 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants: -1, # Altair logging compatibility
-    block_number: 0'u64, # Bellatrix compat
-    block_hash: "",      # Bellatrix compat
-    parent_hash: "",     # Bellatrix compat
-    fee_recipient: "",   # Bellatrix compat
-    bls_to_execution_changes_len: 0,  # Capella compat
-    blob_kzg_commitments_len: 0,  # Deneb compat
+    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
+    block_number: 0'u64,
+    # TODO checksum hex? shortlog?
+    block_hash: "",
+    parent_hash: "",
+    fee_recipient: "",
+    bls_to_execution_changes_len: v.body.bls_to_execution_changes.len(),
+    blob_kzg_commitments_len: v.body.signed_execution_payload_bid.message.blob_kzg_commitments.len(),
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
@@ -382,16 +374,6 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
   )
-
-func shortLog*(v: SomeAttestation): auto =
-  (
-    aggregation_bits: v.aggregation_bits,
-    data: shortLog(v.data),
-    signature: shortLog(v.signature)
-  )
-
-template asTrusted*(x: Attestation): TrustedAttestation =
-  isomorphicCast[TrustedAttestation](x)
 
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
@@ -411,20 +393,3 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
-
-func init*(
-    T: type Attestation,
-    indices_in_committee: openArray[uint64],
-    committee_len: int,
-    data: AttestationData,
-    signature: ValidatorSig): Result[T, cstring] =
-  var aggregation_bits = CommitteeValidatorsBits.init(committee_len)
-  for index_in_committee in indices_in_committee:
-    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
-    aggregation_bits.setBit index_in_committee
-
-  ok Attestation(
-    aggregation_bits: aggregation_bits,
-    data: data,
-    signature: signature
-  )

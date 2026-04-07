@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "nimbusBuildSystem": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "path": "vendor/nimbus-build-system",
+        "type": "path"
+      },
+      "original": {
+        "path": "vendor/nimbus-build-system",
+        "type": "path"
+      },
+      "parent": []
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1768818593,
@@ -18,6 +34,7 @@
     },
     "root": {
       "inputs": {
+        "nimbusBuildSystem": "nimbusBuildSystem",
         "nixpkgs": "nixpkgs"
       }
     }

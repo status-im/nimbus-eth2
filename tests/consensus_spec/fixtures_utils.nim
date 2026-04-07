@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Standard library
@@ -33,13 +33,6 @@ func forkForPathComponent*(forkPath: string): Opt[ConsensusFork] =
     if ($fork).toLowerAscii() == forkPath:
       return ok fork
   err()
-
-# #######################
-# JSON deserialization
-
-func readValue*(r: var JsonReader, a: var seq[byte]) =
-  ## Custom deserializer for seq[byte]
-  a = hexToSeqByte(r.readValue(string))
 
 # #######################
 # Mock RuntimeConfig
@@ -167,8 +160,7 @@ proc loadBlock*(
     validateBlockHash = true): auto =
   var blck = parseTest(path, SSZ, consensusFork.SignedBeaconBlock)
   blck.root = hash_tree_root(blck.message)
-  debugGloasComment ""
-  when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Bellatrix and consensusFork < ConsensusFork.Gloas:
     if blck.message.is_execution_block and
         not blck.message.body.execution_payload.transactions.anyIt(it.len == 0):
       if blck.message.body.execution_payload.block_hash !=

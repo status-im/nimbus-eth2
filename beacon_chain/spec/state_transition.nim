@@ -125,7 +125,8 @@ func process_slot*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_slot
 func process_slot*(
-    state: var gloas.BeaconState, pre_state_root: Eth2Digest) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming

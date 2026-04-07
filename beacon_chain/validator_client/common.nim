@@ -382,6 +382,9 @@ func SlotDuration*(vc: ValidatorClientRef): Duration =
 func SlotDurationSoft*(vc: ValidatorClientRef): Duration =
   vc.SlotDuration div 2
 
+func BlockProposalDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.SlotDuration div 6
+
 func AttestationToAggregationDuration*(vc: ValidatorClientRef): Duration =
   nanoseconds(vc.timeParams.aggregateSlotOffset.nanoseconds) -
   nanoseconds(vc.timeParams.attestationSlotOffset.nanoseconds)

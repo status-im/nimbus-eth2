@@ -10,8 +10,8 @@ updates:
   - package-ecosystem: gitsubmodule
     directory: /
     ignore:
-      # nim-libp2p releases are not always on master, avoid daily spam
       - dependency-name: vendor/nim-libp2p
+        versions: ["<= 0.0.0"]
     schedule:
       interval: daily
     target-branch: unstable
