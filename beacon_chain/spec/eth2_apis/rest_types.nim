@@ -57,10 +57,10 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
     Head, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
-    FinalizedCheckpoint, ChainReorg, ContributionAndProof,
-    LightClientFinalityUpdate, LightClientOptimisticUpdate, ExecutionPayloadAvailable,
-    ExecutionPayloadBid, PayloadAttestationMessage
+    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar,
+    SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
+    LightClientFinalityUpdate, LightClientOptimisticUpdate,
+    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage
 
 
   EventTopics* = set[EventTopic]
@@ -1133,25 +1133,32 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
 
 ## Types and helpers for historical_summaries + proof endpoint
 const
-  # gIndex for historical_summaries field (27th field in BeaconState)
-  HISTORICAL_SUMMARIES_GINDEX* = GeneralizedIndex(59) # 32 + 27 = 59
-  HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = GeneralizedIndex(91) # 64 + 27 = 91
+  HISTORICAL_SUMMARIES_GINDEX* = get_generalized_index(
+    capella.BeaconState, "historical_summaries")
+  HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = get_generalized_index(
+    electra.BeaconState, "historical_summaries")
+static:
+  doAssert HISTORICAL_SUMMARIES_GINDEX == 59.GeneralizedIndex
+  doAssert HISTORICAL_SUMMARIES_GINDEX_ELECTRA == 91.GeneralizedIndex
 
 type
   # Note: these could go in separate Capella/Electra spec files if they were
   # part of the specification.
-  HistoricalSummariesProof* = array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
+  HistoricalSummariesProof* =
+    array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
   HistoricalSummariesProofElectra* =
     array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_ELECTRA), Eth2Digest]
 
   # REST API types
   GetHistoricalSummariesV1Response* = object
-    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
     proof*: HistoricalSummariesProof
     slot*: Slot
 
   GetHistoricalSummariesV1ResponseElectra* = object
-    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
     proof*: HistoricalSummariesProofElectra
     slot*: Slot
 
@@ -1166,8 +1173,10 @@ type
   # REST client response type
   ForkedHistoricalSummariesWithProof* = object
     case kind*: HistoricalSummariesFork
-    of HistoricalSummariesFork.Capella: capellaData*: GetHistoricalSummariesV1Response
-    of HistoricalSummariesFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
+    of HistoricalSummariesFork.Capella: capellaData*:
+      GetHistoricalSummariesV1Response
+    of HistoricalSummariesFork.Electra: electraData*:
+      GetHistoricalSummariesV1ResponseElectra
 
 template historical_summaries_gindex*(
     kind: static HistoricalSummariesFork): GeneralizedIndex =
@@ -1200,8 +1209,10 @@ template init*(
       kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
     )
 
-func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
-  static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
+func historicalSummariesForkAtConsensusFork*(
+    consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
+  static:
+    doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
   if consensusFork >= ConsensusFork.Electra:
     Opt.some HistoricalSummariesFork.Electra
   elif consensusFork >= ConsensusFork.Capella:
@@ -1209,7 +1220,20 @@ func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[
   else:
     Opt.none HistoricalSummariesFork
 
-func parse*(_: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
+static:
+  for consensusFork in ConsensusFork:
+    withConsensusFork(consensusFork):
+      const historicalSummariesFork =
+        historicalSummariesForkAtConsensusFork(consensusFork)
+      when historicalSummariesFork.isSome:
+        template check(gindex, T: untyped, path: varargs[untyped]): untyped =
+          doAssert gindex == consensusFork.T.get_generalized_index(path)
+
+        check historicalSummariesFork.get.historical_summaries_gindex,
+          BeaconState, "historical_summaries"
+
+func parse*(
+    _: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
   # Either key or index depending on prefix
   if len(value) > 2 and (value[0] == '0') and (value[1] == 'x'):
     let res = ? ValidatorPubKey.fromHex(value)
@@ -1218,7 +1242,8 @@ func parse*(_: type ValidatorIdent, value: string): Result[ValidatorIdent, cstri
     let res = RestValidatorIndex(? Base10.decode(uint64, value))
     ok(ValidatorIdent(kind: ValidatorQueryKind.Index, index: res))
 
-func parse*(_: type ValidatorFilter, value: string): Result[ValidatorFilter, cstring] =
+func parse*(
+    _: type ValidatorFilter, value: string): Result[ValidatorFilter, cstring] =
   case value
   of "pending_initialized":
     ok({ValidatorFilterKind.PendingInitialized})
