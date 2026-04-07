@@ -692,7 +692,7 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
         res.incl(column)
     else:
       if node[].value.count == len(quarantine.custodyColumns):
-        # We already have enough columns for reconstruction.
+        # We already have all columns.
         return
           DataColumnsByRootIdentifier(
             block_root: blockRoot,
