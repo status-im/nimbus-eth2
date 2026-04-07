@@ -425,7 +425,8 @@ template validateBeaconBlockGloas(
   debugGloasComment("request missing envelope if not found in db")
   if not (
       isParentBlockFull(dag, signed_beacon_block, parent) or
-      isParentBlockFull(dag, signed_beacon_block, parent.parent)
+      (parent.parent != nil and
+       isParentBlockFull(dag, signed_beacon_block, parent.parent)
   ):
     return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
 
