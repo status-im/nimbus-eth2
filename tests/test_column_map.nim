@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -103,9 +103,9 @@ suite "ColumnMap test suite":
           vector[2]
 
   test "supernode test":
-    for max in ((NUMBER_OF_COLUMNS div 2) + 1) ..< NUMBER_OF_COLUMNS:
+    block:
       var columns: seq[ColumnIndex]
-      for i in 0 ..< max:
+      for i in 0 ..< NUMBER_OF_COLUMNS:
         columns.add(ColumnIndex(i))
       let map = ColumnMap.init(columns)
       check:

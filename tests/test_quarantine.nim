@@ -4213,9 +4213,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
               finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
+            # In case of super node quarantine returns all
+            # NUMBER_OF_COLUMNS columns.
             let
               start = 0
               finish = len(custodyColumns)
@@ -4230,9 +4229,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
               finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           of "supernode":
-            # In case of super node quarantine returns
-            # NUMBER_OF_COLUMNS div 2 + 1 columns which is enough for
-            # rebuild.
+            # In case of super node quarantine returns all
+            # NUMBER_OF_COLUMNS columns.
             let
               start = len(custodyColumns)
               finish = start + len(custodyColumns)

@@ -739,7 +739,7 @@ func getMissingColumnsMap*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
       for index in 0 ..< NUMBER_OF_COLUMNS:
         res.incl(ColumnIndex(index))
     else:
-      if len(node[].value.sidecars) > NUMBER_OF_COLUMNS div 2:
+      if node[].value.count >= NUMBER_OF_COLUMNS:
         return res
       for index in 0 ..< NUMBER_OF_COLUMNS:
         if node[].value.sidecars[index].isEmpty():
