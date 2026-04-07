@@ -59,6 +59,26 @@ type
 
   ValidatorCustodyRef* = ref ValidatorCustody
 
+func supernodeGroupsCount*(cfg: RuntimeConfig): CgcCount =
+  CgcCount(cfg.NUMBER_OF_CUSTODY_GROUPS)
+
+func lightSupernodeGroupsCount*(cfg: RuntimeConfig): CgcCount =
+  let columnsPerGroup =
+    NUMBER_OF_COLUMNS div cfg.NUMBER_OF_CUSTODY_GROUPS
+  CgcCount((NUMBER_OF_COLUMNS div 2) div columnsPerGroup)
+
+func supernodeGroupsCount*(vcus: ValidatorCustodyRef): CgcCount =
+  supernodeGroupsCount(vcus.dag.cfg)
+
+func lightSupernodeGroupsCount*(vcus: ValidatorCustodyRef): CgcCount =
+  lightSupernodeGroupsCount(vcus.dag.cfg)
+
+func supernodeColumnsCount*(): int =
+  NUMBER_OF_COLUMNS
+
+func lightSupernodeColumnsCount*(): int =
+  NUMBER_OF_COLUMNS div 2
+
 func getGroupsCount(
   state: ValidatorCustodyState,
   config: BeaconNodeConf,
@@ -67,18 +87,11 @@ func getGroupsCount(
   nodeBalance: Gwei
 ): CgcCount =
   case state
-  of ValidatorCustodyState.Init:
+  of ValidatorCustodyState.Init, ValidatorCustodyState.FullCustody:
     if config.peerdasSupernode:
-      CgcCount(dag.cfg.NUMBER_OF_CUSTODY_GROUPS)
+      supernodeGroupsCount(dag.cfg)
     elif config.lightSupernode:
-      CgcCount((dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1)
-    else:
-      CgcCount(dag.cfg.CUSTODY_REQUIREMENT)
-  of ValidatorCustodyState.FullCustody:
-    if config.peerdasSupernode:
-      CgcCount(dag.cfg.NUMBER_OF_CUSTODY_GROUPS)
-    elif config.lightSupernode:
-      CgcCount((dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1)
+      lightSupernodeGroupsCount(dag.cfg)
     else:
       if nodeBalance == Gwei(0):
         # While there no active validators attached.
@@ -96,14 +109,16 @@ func getColumnMap(
     dag: ChainDAGRef,
     groupsCount: CgcCount
 ): ColumnMap =
-  if uint64(groupsCount) == dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+  if config.peerdasSupernode:
+    # Supernode
     var res: ColumnMap
-    for i in 0 ..< dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+    for i in 0 ..< supernodeColumnsCount():
       res.incl(ColumnIndex(i))
     res
-  elif uint64(groupsCount) == (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+  elif config.lightSupernode:
+    # Light supernode
     var res: ColumnMap
-    for i in 0 ..< (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
+    for i in 0 ..< lightSupernodeColumnsCount():
       res.incl(ColumnIndex(i))
     res
   else:
@@ -245,17 +260,23 @@ func getSet*(vcus: ValidatorCustodyRef): HashSet[ColumnIndex] =
   res
 
 func isSupernode*(vcus: ValidatorCustodyRef): bool =
-  vcus.curGroupsCount == CgcCount(vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS)
+  ## This function returns current value, based on current state, so if we are
+  ## not in `LimitedCustody` state it will returns ``true``.
+  vcus.config.peerdasSupernode and
+    vcus.curGroupsCount == vcus.supernodeGroupsCount()
 
 func isLightSupernode*(vcus: ValidatorCustodyRef): bool =
-  vcus.curGroupsCount ==
-    CgcCount(vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
+  ## This function returns current value, based on current state, so if we are
+  ## not in `LimitedCustody` state it will returns ``true``.
+  vcus.config.lightSupernode and
+    vcus.curGroupsCount == vcus.lightSupernodeGroupsCount()
 
 func getCustodyGroups*(vcus: ValidatorCustodyRef): seq[CustodyIndex] =
+  ## Returns current dynamic state of custody groups.
   if vcus.isLightSupernode():
-    let custodyGroups = (vcus.dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
-    var res = newSeqOfCap[CustodyIndex](custodyGroups)
-    for i in 0 ..< custodyGroups:
+    let custodyGroups = vcus.lightSupernodeGroupsCount()
+    var res = newSeqOfCap[CustodyIndex](distinctBase(custodyGroups))
+    for i in CgcCount(0) ..< custodyGroups:
       res.add CustodyIndex(i)
     res
   else:

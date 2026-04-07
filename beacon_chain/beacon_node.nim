@@ -125,6 +125,7 @@ type
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
+    lastColumnCustodyIndices*: seq[CustodyIndex]
     shutdownEvent*: AsyncEvent
 
 # TODO https://github.com/status-im/nim-stew/pull/258

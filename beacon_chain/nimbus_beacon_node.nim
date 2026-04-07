@@ -1336,6 +1336,10 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.subscribe(topic, basicParams())
 
+  # Due to dynamic column changes, we need to maintain the set of columns we
+  # subscribe to, as the column set may change.
+  node.lastColumnCustodyIndices = custody
+
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
@@ -1427,10 +1431,10 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   # of columns. Last common ancestor fork for gossip environment is Capellla.
   node.removeCapellaMessageHandlers(forkDigest)
 
-  let
-    custody = node.validatorCustody.getCustodyGroups()
-
-  for i in custody:
+  # Due to the dynamic column change, we need to unsubscribe from all the
+  # subnets we subscribed to. Because getCustodyGroups() may return a different
+  # set than the one we subscribed to previously.
+  for i in node.lastColumnCustodyIndices:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.unsubscribe(topic)
 
