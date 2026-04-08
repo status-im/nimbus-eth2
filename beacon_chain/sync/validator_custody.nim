@@ -7,7 +7,6 @@
 
 {.push raises: [].}
 
-import std/[sets]
 import chronicles
 import ssz_serialization/[proofs, types]
 import
@@ -253,11 +252,9 @@ proc updateValidatorCustody*(
 func getMap*(vcus: ValidatorCustodyRef): ColumnMap =
   vcus.curColumnMap
 
-func getSet*(vcus: ValidatorCustodyRef): HashSet[ColumnIndex] =
-  var res: HashSet[ColumnIndex]
+iterator getSet*(vcus: ValidatorCustodyRef): ColumnIndex =
   for index in vcus.curColumnMap:
-    res.incl(index)
-  res
+    yield index
 
 func isSupernode*(vcus: ValidatorCustodyRef): bool =
   ## This function returns current value, based on current state, so if we are
@@ -271,13 +268,14 @@ func isLightSupernode*(vcus: ValidatorCustodyRef): bool =
   vcus.config.lightSupernode and
     vcus.curGroupsCount == vcus.lightSupernodeGroupsCount()
 
-func getCustodyGroups*(vcus: ValidatorCustodyRef): seq[CustodyIndex] =
+iterator getCustodyGroups*(vcus: ValidatorCustodyRef): CustodyIndex =
   ## Returns current dynamic state of custody groups.
   if vcus.isLightSupernode():
     let custodyGroups = vcus.lightSupernodeGroupsCount()
     var res = newSeqOfCap[CustodyIndex](distinctBase(custodyGroups))
     for i in CgcCount(0) ..< custodyGroups:
-      res.add CustodyIndex(i)
-    res
+      yield CustodyIndex(i)
   else:
-    vcus.dag.cfg.get_custody_groups(vcus.network.nodeId, vcus.curGroupsCount)
+    for i in vcus.dag.cfg.get_custody_groups(
+      vcus.network.nodeId, vcus.curGroupsCount):
+      yield CustodyIndex(i)
