@@ -614,38 +614,32 @@ func get_beacon_proposer_indices*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
 func is_valid_proposal_slot(
-    state: ForkyBeaconState, slot: Slot, validator_index: uint64): bool =
+    state: gloas.BeaconState | heze.BeaconState,
+    slot: Slot, validator_index: uint64): bool =
   ## Check if the validator is the proposer for the given slot in the current or
   ## next epoch.
-  when typeof(state).kind < ConsensusFork.Fulu:
-    false
-  else:
-    let
-      current_epoch = state.get_current_epoch()
-      start_slot = current_epoch.start_slot()
-    if slot < start_slot or
-        slot - start_slot >= state.proposer_lookahead.lenu64:
-      return false
-    state.proposer_lookahead.item(slot - start_slot) == validator_index
+  let start_slot = state.get_current_epoch().start_slot()
+  if slot < start_slot or
+      slot - start_slot >= state.proposer_lookahead.lenu64:
+    return false
+  state.proposer_lookahead.item(slot - start_slot) == validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/validator.md#broadcasting-signedproposerpreferences
 iterator get_upcoming_proposal_slots(
-    state: ForkyBeaconState, validator_index: uint64): Slot =
+    state: gloas.BeaconState | heze.BeaconState,
+    validator_index: uint64): Slot =
   ## Yield the future slots in the current epoch and the slots in the next
   ## epoch for which ``validator_index`` is proposing.
-  when typeof(state).kind >= ConsensusFork.Gloas:
-    let
-      current_epoch = state.get_current_epoch()
-      current_slot = state.slot
-    const total_slots = (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH
-    for offset in 0'u64 ..< total_slots:
-      if state.proposer_lookahead.item(offset) == validator_index:
-        let
-          epoch_offset = offset div SLOTS_PER_EPOCH
-          slot_in_epoch = offset mod SLOTS_PER_EPOCH
-          slot = (current_epoch + epoch_offset).start_slot + slot_in_epoch
-        if slot > current_slot:
-          yield slot
+  const total_slots = (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH
+  for offset in 0'u64 ..< total_slots:
+    if state.proposer_lookahead.item(offset) == validator_index:
+      let
+        epoch_offset = offset div SLOTS_PER_EPOCH
+        slot_in_epoch = offset mod SLOTS_PER_EPOCH
+        slot = (state.get_current_epoch() + epoch_offset).start_slot +
+          slot_in_epoch
+      if slot > state.slot:
+        yield slot
 
 func initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
