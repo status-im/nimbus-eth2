@@ -1328,13 +1328,13 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
 proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
-  let
-    forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
-    custody = node.validatorCustody.getCustodyGroups()
+  let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
+  var custody: seq[CustodyIndex]
 
-  for i in custody:
+  for i in node.validatorCustody.custodyGroups():
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.subscribe(topic, basicParams())
+    custody.add(i)
 
   # Due to dynamic column changes, we need to maintain the set of columns we
   # subscribe to, as the column set may change.

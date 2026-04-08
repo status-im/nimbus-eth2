@@ -268,12 +268,12 @@ func isLightSupernode*(vcus: ValidatorCustodyRef): bool =
   vcus.config.lightSupernode and
     vcus.curGroupsCount == vcus.lightSupernodeGroupsCount()
 
-iterator getCustodyGroups*(vcus: ValidatorCustodyRef): CustodyIndex =
+iterator custodyGroups*(vcus: ValidatorCustodyRef): CustodyIndex =
   ## Returns current dynamic state of custody groups.
   if vcus.isLightSupernode():
-    let custodyGroups = vcus.lightSupernodeGroupsCount()
-    var res = newSeqOfCap[CustodyIndex](distinctBase(custodyGroups))
-    for i in CgcCount(0) ..< custodyGroups:
+    let groups = vcus.lightSupernodeGroupsCount()
+    var res = newSeqOfCap[CustodyIndex](distinctBase(groups))
+    for i in CgcCount(0) ..< groups:
       yield CustodyIndex(i)
   else:
     for i in vcus.dag.cfg.get_custody_groups(
