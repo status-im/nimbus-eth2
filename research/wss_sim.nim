@@ -294,7 +294,7 @@ cli do(validatorsDir: string, secretsDir: string,
               payload,
               {},
               default(ExecutionRequests),
-              default(SignedExecutionPayloadBid),
+              default(gloas.SignedExecutionPayloadBid),
               newSeq[PayloadAttestation]() ).expect("block")
 
           blockRoot = message.hash_tree_root()

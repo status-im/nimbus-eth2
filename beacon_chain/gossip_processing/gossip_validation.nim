@@ -2013,7 +2013,7 @@ proc validateLightClientOptimisticUpdate*(
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
-    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025-2026 Status Research & Development GmbH
+# Copyright (c) 2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,7 +20,8 @@ import
     altair,
     electra,
     fulu,
-    gloas],
+    gloas,
+    heze],
   # Status libraries
   snappy,
   # Test utilities
@@ -39,7 +40,7 @@ from ../../../beacon_chain/spec/datatypes/deneb import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = SszTestsDir/const_preset/"gloas"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"heze"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -53,7 +54,7 @@ type
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
 proc checkSSZ(
-    T: type gloas.SignedBeaconBlock,
+    T: type heze.SignedBeaconBlock,
     dir: string,
     expectedHash: SSZHashTreeRoot
 ) {.raises: [IOError, SerializationError, UnconsumedInput].} =
@@ -100,7 +101,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot
 # Test runner
 # ----------------------------------------------------------------
 
-suite "EF - Gloas - SSZ consensus objects " & preset():
+suite "EF - Heze - SSZ consensus objects " & preset():
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
@@ -121,10 +122,10 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "Attestation": checkSSZ(electra.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
-          of "BeaconBlock": checkSSZ(gloas.BeaconBlock, path, hash)
-          of "BeaconBlockBody": checkSSZ(gloas.BeaconBlockBody, path, hash)
+          of "BeaconBlock": checkSSZ(heze.BeaconBlock, path, hash)
+          of "BeaconBlockBody": checkSSZ(heze.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
-          of "BeaconState": checkSSZ(gloas.BeaconState, path, hash)
+          of "BeaconState": checkSSZ(heze.BeaconState, path, hash)
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
@@ -151,14 +152,15 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
           of "ExecutionPayloadBid":
-            checkSSZ(gloas.ExecutionPayloadBid, path, hash)
+            checkSSZ(heze.ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
             checkSSZ(electra.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkChoiceNode":
-            debugGloasComment "skipping ForkChoiceNode test for now"
+            debugHezeComment "skipping ForkChoiceNode test for now"
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
+          of "InclusionList": checkSSZ(heze.InclusionList, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation":
             checkSSZ(electra.IndexedAttestation, path, hash)
@@ -193,7 +195,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "SignedAggregateAndProof":
             checkSSZ(electra.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
-            checkSSZ(gloas.SignedBeaconBlock, path, hash)
+            checkSSZ(heze.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedBLSToExecutionChange":
@@ -203,7 +205,9 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "SignedExecutionPayloadEnvelope":
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
-            checkSSZ(gloas.SignedExecutionPayloadBid, path, hash)
+            checkSSZ(heze.SignedExecutionPayloadBid, path, hash)
+          of "SignedInclusionList":
+            checkSSZ(heze.SignedInclusionList, path, hash)
           of "SignedProposerPreferences":
             checkSSZ(SignedProposerPreferences, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
@@ -222,6 +226,6 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           of "PartialDataColumnHeader", "PartialDataColumnPartsMetadata",
              "PartialDataColumnSidecar":
-            debugGloasComment "Skipping PartialDataColumn tests for now"
+            debugHezeComment "Skipping PartialDataColumn tests for now"
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

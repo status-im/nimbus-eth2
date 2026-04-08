@@ -187,7 +187,7 @@ suite "Message signatures":
 
   test "execution payload bid signatures":
     let
-      msg0 = default(ExecutionPayloadBid)
+      msg0 = default(gloas.ExecutionPayloadBid)
       msg1 = (var v = msg0; v.slot = v.slot + 1; v)
       epoch0 = Epoch(0)
       sig = get_execution_payload_bid_signature(fork0, gvr0, epoch0, msg0, privkey0).toValidatorSig

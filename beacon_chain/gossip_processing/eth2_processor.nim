@@ -925,7 +925,7 @@ proc processLightClientOptimisticUpdate*(
   v
 
 proc processExecutionPayloadBid*(
-    self: var Eth2Processor, signedBid: SignedExecutionPayloadBid
+    self: var Eth2Processor, signedBid: gloas.SignedExecutionPayloadBid
 ): ValidationRes =
   let wallTime = self.getCurrentBeaconTime()
 

@@ -2982,6 +2982,7 @@ func upgrade_to_next*(
     heze.BeaconState =
   let epoch = get_current_epoch(pre)
 
+  debugHezeComment "fill in latest execution payload bid"
   heze.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
@@ -3032,7 +3033,7 @@ func upgrade_to_next*(
     next_sync_committee: pre.next_sync_committee,
 
     # Execution
-    latest_execution_payload_bid: pre.latest_execution_payload_bid,
+    #latest_execution_payload_bid: pre.latest_execution_payload_bid,
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,

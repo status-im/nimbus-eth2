@@ -4385,6 +4385,87 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Transition - transition_with_random_half_participation [Preset: mainnet]      OK
 + EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: mai OK
 ```
+## EF - Heze - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Builder                                                                       OK
++   Testing    BuilderPendingPayment                                                         OK
++   Testing    BuilderPendingWithdrawal                                                      OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadBid                                                           OK
++   Testing    ExecutionPayloadEnvelope                                                      OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkChoiceNode                                                                OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    InclusionList                                                                 OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    IndexedPayloadAttestation                                                     OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnPartsMetadata                                                OK
++   Testing    PartialDataColumnSidecar                                                      OK
++   Testing    PayloadAttestation                                                            OK
++   Testing    PayloadAttestationData                                                        OK
++   Testing    PayloadAttestationMessage                                                     OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerPreferences                                                           OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedExecutionPayloadBid                                                     OK
++   Testing    SignedExecutionPayloadEnvelope                                                OK
++   Testing    SignedInclusionList                                                           OK
++   Testing    SignedProposerPreferences                                                     OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
+```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK

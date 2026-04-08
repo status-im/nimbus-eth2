@@ -22,9 +22,9 @@ func makeBid(
     builderIndex: uint64,
     parentBlockRoot: Eth2Digest,
     parentBlockHash: Eth2Digest,
-    value: Gwei): SignedExecutionPayloadBid =
-  SignedExecutionPayloadBid(
-    message: ExecutionPayloadBid(
+    value: Gwei): gloas.SignedExecutionPayloadBid =
+  gloas.SignedExecutionPayloadBid(
+    message: gloas.ExecutionPayloadBid(
       slot: slot,
       builder_index: builderIndex,
       parent_block_root: parentBlockRoot,
