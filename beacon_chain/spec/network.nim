@@ -209,7 +209,7 @@ func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
   if isBehind:
     return static(HashSet[Epoch]())
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  static: doAssert high(ConsensusFork) == ConsensusFork.Heze
   var epochs = newSeqOfCap[Epoch](
     int(high(ConsensusFork)) + 1 + len(cfg.BLOB_SCHEDULE))
   for bpo in cfg.BLOB_SCHEDULE:

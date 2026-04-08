@@ -407,7 +407,12 @@ proc proposeBlockAux(
     validator_index = validator.index.expect("index set for proposer")
 
     engineBid =
-      when consensusFork == ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Heze:
+        debugHezeComment "stub: heze block proposals"
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey
+        )
+      elif consensusFork == ConsensusFork.Gloas:
         # Fetch only engine payload for now
         await node.getExecutionPayload(
           consensusFork, head, state, validator_index, validator.pubkey
@@ -568,11 +573,14 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork == ConsensusFork.Gloas:
+  when consensusFork == ConsensusFork.Heze:
+    debugHezeComment "stub: heze sidecar assembly"
+    let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
+  elif consensusFork == ConsensusFork.Gloas:
     let sidecarsOpt =
       Opt.some(signedBlock.assemble_data_column_sidecars(
         engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+        engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))
       ))
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =

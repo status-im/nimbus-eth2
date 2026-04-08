@@ -445,7 +445,8 @@ proc process_justification_and_finalization*(
 proc compute_unrealized_finality*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState | electra.BeaconState | fulu.BeaconState |
-           gloas.BeaconState): (FinalityCheckpoints, ParticipatingBalances) =
+           gloas.BeaconState | heze.BeaconState):
+    (FinalityCheckpoints, ParticipatingBalances) =
   let balances = get_unslashed_participating_balances(state)
 
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
@@ -986,7 +987,8 @@ func get_slashing_penalty*(
                             adjusted_total_slashing_balance
     penalty_numerator div total_balance * increment
   elif consensusFork in
-      [ConsensusFork.Electra, ConsensusFork.Fulu, ConsensusFork.Gloas]:
+      [ConsensusFork.Electra, ConsensusFork.Fulu, ConsensusFork.Gloas,
+       ConsensusFork.Heze]:
     let
       effective_balance_increments = validator.effective_balance div increment
       penalty_per_effective_balance_increment =

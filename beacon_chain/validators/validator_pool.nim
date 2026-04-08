@@ -546,6 +546,9 @@ proc forkIndex(
     prop.fuluIndex
   elif fork == ConsensusFork.Gloas:
     prop.gloasIndex
+  elif fork == ConsensusFork.Heze:
+    debugHezeComment "add hezeIndex to ProvenProperty"
+    prop.gloasIndex
   else:
     static: raiseAssert "Unknown fork " & $fork
 

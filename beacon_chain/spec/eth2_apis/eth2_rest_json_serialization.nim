@@ -680,6 +680,8 @@ proc readValue*(r: var RestJsonReader, value: var ForkedHashedBeaconState) {.rea
       toValue(fuluData)
     of ConsensusFork.Gloas:
       toValue(gloasData)
+    of ConsensusFork.Heze:
+      toValue(hezeData)
   except SerializationError:
     r.raiseUnexpectedValue(&"Incorrect {v.version} beacon state format")
 

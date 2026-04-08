@@ -91,7 +91,8 @@ suite "Payload attestation pool" & preset():
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Gloas:
+        debugHezeComment "..."
         var ptc_member: ValidatorIndex
         var found = false
         for validator_index in get_ptc(forkyState.data, slot):
@@ -126,7 +127,8 @@ suite "Payload attestation pool" & preset():
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Gloas:
+        debugHezeComment "..."
         var messages: seq[PayloadAttestationMessage]
         var ptc_members: seq[ValidatorIndex]
 
@@ -158,7 +160,8 @@ suite "Payload attestation pool" & preset():
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Gloas:
+        debugHezeComment "..."
         var
           validator_positions: Table[ValidatorIndex, seq[int]]
           ptc_index = 0
@@ -208,7 +211,8 @@ suite "Payload attestation pool" & preset():
       target_slot = slot + 1
 
     withState(state[]):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Gloas:
+        debugHezeComment "..."
         var added_count = 0
         for validator_index in get_ptc(forkyState.data, slot):
           if added_count >= 2:
@@ -234,7 +238,8 @@ suite "Payload attestation pool" & preset():
       future_time = (slot + 5).start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Gloas:
+        debugHezeComment "..."
         var ptc_member: ValidatorIndex
         for validator_index in get_ptc(forkyState.data, slot):
           ptc_member = validator_index
@@ -264,7 +269,8 @@ suite "Payload attestation pool" & preset():
       wallTime = slot.start_beacon_time(dag.cfg.timeParams)
 
     withState(state[]):
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Gloas:
+        debugHezeComment "..."
         var ptc_members: seq[ValidatorIndex]
         for validator_index in get_ptc(forkyState.data, slot):
           if ptc_members.len >= 4:

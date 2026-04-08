@@ -585,7 +585,7 @@ func add(
 func init(
     T: type AttestationCache,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
-           gloas.HashedBeaconState,
+           gloas.HashedBeaconState | heze.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -657,7 +657,7 @@ func check_attestation_compatible*(
 proc getAttestationsForBlock*(
     pool: var AttestationPool,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
-           gloas.HashedBeaconState,
+           gloas.HashedBeaconState | heze.HashedBeaconState,
     cache: var StateCache,
 ): seq[electra.Attestation] =
   let newBlockSlot = state.data.slot.uint64

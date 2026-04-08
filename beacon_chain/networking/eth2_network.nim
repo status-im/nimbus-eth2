@@ -857,7 +857,8 @@ template gossipMaxSize(T: untyped): uint32 =
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
          T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
          T is gloas.SignedExecutionPayloadEnvelope or
-         T is gloas.SignedExecutionPayloadBid:
+         T is gloas.SignedExecutionPayloadBid or
+         T is heze.SignedBeaconBlock:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all

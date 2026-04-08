@@ -113,7 +113,8 @@ cli do(validatorsDir: string, secretsDir: string,
   elManager.start()
   withBlck(blck[]):
     debugGloasComment ""
-    when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Bellatrix and
+         consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
       if forkyBlck.message.is_execution_block:
         template payload(): auto = forkyBlck.message.body.execution_payload
         if not payload.block_hash.isZero:

@@ -56,7 +56,7 @@ func addOrphan*(
 
 func popOrphan*(
     self: var EnvelopeQuarantine,
-    blck: gloas.SignedBeaconBlock,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
 ): Opt[SignedExecutionPayloadEnvelope] =
   if blck.root notin self.orphans:
     return Opt.none(SignedExecutionPayloadEnvelope)

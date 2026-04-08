@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   results,
@@ -230,7 +230,8 @@ func is_aggregator*(shufflingRef: ShufflingRef, slot: Slot,
   return is_aggregator(committee_len, slot_signature)
 
 iterator get_ptc*(
-  state: gloas.BeaconState, shufflingRef: ShufflingRef, slot: Slot):
+  state: gloas.BeaconState | heze.BeaconState,
+  shufflingRef: ShufflingRef, slot: Slot):
     ValidatorIndex {.closure.} =
   let epoch = slot.epoch()
   var buffer {.noinit.}: array[40, byte]

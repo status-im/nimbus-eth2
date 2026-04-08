@@ -312,7 +312,8 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  static: doAssert high(ConsensusFork) == ConsensusFork.Heze
+  debugHezeComment "use Heze getBlock"
   if   (let blck = db.getBlock(root, gloas.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
@@ -1345,6 +1346,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
       of ConsensusFork.Gloas:     gloasFork(cfg)
+      of ConsensusFork.Heze:      hezeFork(cfg)
     stateFork = dag.headState.fork
 
   # Here, we check only the `current_version` field because the spec
@@ -1633,7 +1635,9 @@ proc computeRandaoMix(
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
     debugGloasComment ""
-    when consensusFork == ConsensusFork.Gloas:
+    when consensusFork == ConsensusFork.Heze:
+      return Opt.none(Eth2Digest)
+    elif consensusFork == ConsensusFork.Gloas:
       return Opt.none(Eth2Digest)
     elif consensusFork >= ConsensusFork.Bellatrix:
       if forkyBlck.message.is_execution_block:

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, web3/engine_api_types,
@@ -42,7 +42,9 @@ proc initLightClient*(
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork == ConsensusFork.Gloas:
+        when consensusFork == ConsensusFork.Heze:
+          debugHezeComment ""
+        elif consensusFork == ConsensusFork.Gloas:
           debugGloasComment ""
         elif consensusFork >= ConsensusFork.Bellatrix:
           if forkyBlck.message.is_execution_block:
@@ -186,7 +188,7 @@ proc updateLightClientFromDag*(node: BeaconNode) =
   var header: ForkedLightClientHeader
   withBlck(bdata):
     debugGloasComment ""
-    when consensusFork != ConsensusFork.Gloas:
+    when consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       when lcDataFork > LightClientDataFork.None:
         header = ForkedLightClientHeader.init(

@@ -143,7 +143,7 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: gloas.SignedBeaconBlock,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
@@ -287,7 +287,7 @@ proc addRoutedBlock(
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
     blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
-          gloas.SignedBeaconBlock,
+          gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     someSidecarsOpt: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =

@@ -864,7 +864,9 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
     withConsensusFork(fork):
       debugGloasComment ""
       when consensusFork == ConsensusFork.Gloas:
-        return err("gloas produceblockv3 not available yet")
+        return err("gloas produceblock not available yet")
+      elif consensusFork == ConsensusFork.Heze:
+        return err("heze produceblock not available yet")
       elif consensusFork >= ConsensusFork.Electra:
         if blinded:
           let contents =

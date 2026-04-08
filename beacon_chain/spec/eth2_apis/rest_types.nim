@@ -340,6 +340,7 @@ type
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
     of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
     of ConsensusFork.Gloas:     gloasData*:     GloasSignedBlockContents
+    of ConsensusFork.Heze:      hezeData*:      HezeSignedBlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -626,6 +627,13 @@ func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
   case x.kind
+  of ConsensusFork.Heze:
+    const consensusFork {.inject, used.} = ConsensusFork.Heze
+    template forkyData: untyped {.inject, used.} = x.hezeData
+    template forkyBlck: untyped {.inject, used.} = x.hezeData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.hezeData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.hezeData.blobs
+    body
   of ConsensusFork.Gloas:
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
     template forkyData: untyped {.inject, used.} = x.gloasData
@@ -695,6 +703,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
     of ConsensusFork.Gloas:
       ForkedSignedBeaconBlock.init(contents.gloasData.signed_block)
+    of ConsensusFork.Heze:
+      ForkedSignedBeaconBlock.init(contents.hezeData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -791,6 +801,22 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
     kind: ConsensusFork.Gloas,
     gloasData: GloasSignedBlockContents(
       signed_block: gloas.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
+
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: heze.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Heze,
+    hezeData: HezeSignedBlockContents(
+      signed_block: heze.SignedBeaconBlock(
         message: contents.`block`,
         root: root,
         signature: signature
