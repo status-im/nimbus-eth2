@@ -632,13 +632,11 @@ type
       ## (used to calculate safety threshold)
     current_max_active_participants*: uint64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/sync-protocol.md#modified-get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
 
-  # [New in Electra]
-  # TODO https://github.com/ethereum/consensus-specs/issues/4557
   if epoch >= cfg.DENEB_FORK_EPOCH:
     return hash_tree_root(header.execution)
 
