@@ -923,6 +923,7 @@ AllTests-mainnet
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
 + payload attestation message signatures                                                     OK
++ proposer preferences message signatures                                                    OK
 ```
 ## Network metadata
 ```diff
@@ -1309,6 +1310,19 @@ AllTests-mainnet
 + Vote for target at epoch start                                                             OK
 + Vote for unknown block                                                                     OK
 + Vote in previous epoch                                                                     OK
+```
+## lookupCgcFromPeer testing suite
+```diff
++ Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc                                      OK
++ Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc updates metadata                     OK
++ Metadata cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                                OK
++ No metadata, ENR cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                        OK
++ No metadata, ENR without cgc field - returns default                                       OK
++ No metadata, no ENR - returns default CUSTODY_REQUIREMENT                                  OK
++ No metadata, valid ENR cgc                                                                 OK
++ Valid metadata with cgc == CUSTODY_REQUIREMENT (boundary)                                  OK
++ Valid metadata with cgc == NUMBER_OF_COLUMNS (supernode)                                   OK
++ Valid metadata with cgc >= CUSTODY_REQUIREMENT                                             OK
 ```
 ## removeValidatorFiles()
 ```diff

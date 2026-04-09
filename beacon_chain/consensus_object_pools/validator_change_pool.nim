@@ -251,7 +251,8 @@ proc getValidatorChangeMessagesForBlock(
 
 proc getBeaconBlockValidatorChanges*(
     pool: var ValidatorChangePool, cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState):
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState):
     BeaconBlockValidatorChanges =
   var res: BeaconBlockValidatorChanges
 

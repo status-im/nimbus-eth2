@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025-2026 Status Research & Development GmbH
+# Copyright (c) 2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,15 +17,14 @@ import
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
-  ./test_fixture_rewards,
   ../../helpers/debug_state
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
-from ../../../beacon_chain/spec/datatypes/gloas import BeaconState
+from ../../../beacon_chain/spec/datatypes/heze import BeaconState
 
 const
-  RootDir = SszTestsDir/const_preset/"gloas"/"epoch_processing"
+  RootDir = SszTestsDir/const_preset/"heze"/"epoch_processing"
 
   JustificationFinalizationDir = RootDir/"justification_and_finalization"
   InactivityDir =                RootDir/"inactivity_updates"
@@ -43,7 +42,6 @@ const
   PendingDepositsDir =           RootDir/"pending_deposits"
   ProposerLookaheadDir =         RootDir/"proposer_lookahead"
   BuilderPendingPaymentsDir =    RootDir/"builder_pending_payments"
-  PtcWindowDir =                 RootDir/"ptc_window"
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==
@@ -53,17 +51,17 @@ doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     SlashingsResetDir, RandaoMixesResetDir, ParticipationFlagDir,
     RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir,
     PendingDepositsDir, PendingConsolidationsDir, ProposerLookaheadDir,
-    BuilderPendingPaymentsDir, PtcWindowDir])
+    BuilderPendingPaymentsDir])
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
-  suite "EF - Gloas - Epoch Processing - " & testName & preset():
+  suite "EF - Heze - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(
         suiteDir / "pyspec_tests", yieldFilter = {pcDir}, checkDir = true):
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
-        type T = gloas.BeaconState
+        type T = heze.BeaconState
         let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
         template state: untyped {.inject, used.} = preState[]
@@ -97,8 +95,6 @@ runSuite(RewardsAndPenaltiesDir, "Rewards and penalties"):
   var info = altair.EpochInfo.init(state)
   process_rewards_and_penalties(cfg, state, info)
   Result[void, cstring].ok()
-
-# rest in test_fixture_rewards
 
 # Registry updates
 # ---------------------------------------------------------------
@@ -166,12 +162,6 @@ runSuite(ProposerLookaheadDir, "Proposer lookahead"):
 # ---------------------------------------------------------------
 runSuite(BuilderPendingPaymentsDir, "Builder pending payments"):
   process_builder_pending_payments(cfg, state, cache)
-
-# PTC window
-# ---------------------------------------------------------------
-runSuite(PtcWindowDir, "PTC window"):
-  process_ptc_window(state, cache)
-  Result[void, cstring].ok()
 
 # Sync committee updates
 # ---------------------------------------------------------------

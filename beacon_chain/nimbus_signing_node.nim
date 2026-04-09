@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/[tables, os, strutils]
 import serialization, json_serialization,
@@ -250,18 +250,15 @@ proc installApiHandlers*(node: SigningNodeRef) =
           return signatureResponse(Http200, signature)
 
         let (feeRecipientIndex, blockHeader) =
-          case request.beaconBlockHeader.kind
-          of ConsensusFork.Phase0 .. ConsensusFork.Capella:
-            return errorResponse(Http400, BlockIncorrectFork)
-          of ConsensusFork.Deneb:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Electra:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Fulu:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Gloas:
-            debugGloasComment "do not this"
-            return errorResponse(Http400, BlockIncorrectFork)
+          withConsensusFork(request.beaconBlockHeader.kind):
+            when consensusFork in ConsensusFork.Deneb ..< ConsensusFork.Gloas:
+              const gindex = get_generalized_index(
+                consensusFork.BeaconBlockBody,
+                "execution_payload", "fee_recipient")
+              (gindex, request.beaconBlockHeader.data)
+            else:
+              debugGloasComment "do not this"
+              return errorResponse(Http400, BlockIncorrectFork)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)

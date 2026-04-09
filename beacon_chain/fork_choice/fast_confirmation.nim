@@ -122,7 +122,7 @@ proc do_update_shufflings(
 proc update_latest_shufflings(
     balance_source: var BalanceSource, dag: ChainDAGRef,
     blck: BlockRef, current_slot: Slot): FcResult[void] =
-  result = balance_source.do_update_shufflings(dag, dag.head, current_slot)
+  result = balance_source.do_update_shufflings(dag, blck, current_slot)
   if result.isErr:
     balance_source.shuffling_epochs = DefaultShufflingEpochs
 
@@ -333,7 +333,8 @@ func adjust_committee_weight_estimate_to_ensure_safety(estimate: Gwei): Gwei =
   # See https://gist.github.com/saltiniroberto/9ee53d29c33878d79417abb2b4468c20
   # for an explanation about the value chosen.
   const COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR = 5'u64
-  estimate div 1000 * (1000 + COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR)
+  let ceil = (estimate + 999.Gwei) div 1000
+  ceil * (1000 + COMMITTEE_WEIGHT_ESTIMATION_ADJUSTMENT_FACTOR)
 
 func estimate_committee_weight_between_slots(
     total_active_balance: Gwei, slots: Slice[Slot]): Gwei =
@@ -618,30 +619,39 @@ func should_restart_confirmation_chain*(
     confirmed: BlockId, current_slot: Slot): FcResult[bool] =
   # Restart the confirmation chain if each of the following conditions are true:
   # 1) it is the start of the current epoch,
-  # 2) epoch of self.current_epoch_observed_justified.checkpoint equals to the
-  #    previous epoch,
+  # 2) epoch of self.current_epoch_observed_justified.checkpoint.root
+  #    equals to the previous epoch,
   # 3) self.current_epoch_observed_justified.checkpoint equals to unrealized
   #    justification of the head,
   # 4) confirmed block is older than the block of
   #    self.current_epoch_observed_justified.checkpoint.
+  let is_epoch_start = current_slot.is_epoch
+  if not is_epoch_start:
+    return ok false
+
   template current_epoch_justified: Checkpoint =
     self.current_epoch_observed_justified.checkpoint
-  template current_epoch_justified_slot: Slot =
-    self.proto_array.slot(current_epoch_justified.root).valueOr:
-      return err ForkChoiceError(
-        kind: fcJustifiedNodeUnknown,
-        blockRoot: current_epoch_justified.root)
+  let
+    observed_justified_block_slot =
+      self.current_epoch_observed_justified.info.block_slot
+    is_observed_justified_block_epoch_ok =
+      observed_justified_block_slot.epoch + 1 == current_slot.epoch
+  if not is_observed_justified_block_epoch_ok:
+    return ok false
 
-  template head_unrealized_justified: Checkpoint =
-    self.proto_array.unrealized_justified(self.current_slot_head).valueOr:
-      return err ForkChoiceError(
-        kind: fcCurrentHeadUnknown,
-        blockRoot: self.current_slot_head)
+  let
+    head_unrealized_justified =
+      self.proto_array.unrealized_justified(self.current_slot_head).valueOr:
+        return err ForkChoiceError(
+          kind: fcCurrentHeadUnknown,
+          blockRoot: self.current_slot_head)
+    is_head_unrealized_justified_ok =
+      current_epoch_justified == head_unrealized_justified
+  if not is_head_unrealized_justified_ok:
+    return ok false
 
-  ok(current_slot.is_epoch and
-    current_epoch_justified.epoch + 1 == current_slot.epoch and
-    current_epoch_justified == head_unrealized_justified and
-    confirmed.slot < current_epoch_justified_slot)
+  let is_confirmed_block_stale = confirmed.slot < observed_justified_block_slot
+  ok is_confirmed_block_stale
 
 func get_current_target(blck: BlockRef, current_slot: Slot): Checkpoint =
   ## Return current epoch target.
@@ -775,7 +785,7 @@ func will_no_conflicting_checkpoint_be_justified(
 
   let honest_ffg_support = info.compute_honest_ffg_support_for_current_target(
     current_slot, byzantine_threshold)
-  3 * honest_ffg_support >= 1 * info.total_active_balance
+  3 * honest_ffg_support > 1 * info.total_active_balance
 
 func will_current_target_be_justified(
     info: CurrentTargetInfo,

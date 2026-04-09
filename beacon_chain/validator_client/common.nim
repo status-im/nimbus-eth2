@@ -46,10 +46,10 @@ const
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
 
-static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
+static: doAssert(high(ConsensusFork) == ConsensusFork.Heze,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Gloas}
+  OptionalForks* = {ConsensusFork.Gloas, ConsensusFork.Heze}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
@@ -381,6 +381,9 @@ func SlotDuration*(vc: ValidatorClientRef): Duration =
 
 func SlotDurationSoft*(vc: ValidatorClientRef): Duration =
   vc.SlotDuration div 2
+
+func BlockProposalDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.SlotDuration div 6
 
 func AttestationToAggregationDuration*(vc: ValidatorClientRef): Duration =
   nanoseconds(vc.timeParams.aggregateSlotOffset.nanoseconds) -

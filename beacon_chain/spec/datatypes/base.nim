@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-alpha.2"
+const SPEC_VERSION* = "1.7.0-alpha.4"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -217,6 +217,15 @@ type
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/beacon-chain.md#custom-types
+  ParticipationFlags* = uint8
+
+  EpochParticipationFlags* =
+    distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    ## Not a HashList because the list sees significant updates every block
+    ## effectively making the cost of clearing the cache higher than the typical
+    ## gains
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
@@ -399,6 +408,17 @@ type
     current_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
     next_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/beacon-chain.md#participation-flag-indices
+  TimelyFlag* {.pure.} = enum
+    TIMELY_SOURCE_FLAG_INDEX = 0
+    TIMELY_TARGET_FLAG_INDEX = 1
+    TIMELY_HEAD_FLAG_INDEX = 2
+
+  ParticipatingBalances* = object
+    previous_epoch*: array[TimelyFlag, Gwei]
+    current_epoch_TIMELY_TARGET*: Gwei
+    current_epoch*: Gwei  # aka total_active_balance
+
   # This doesn't know about forks or branches in the DAG. It's for straight,
   # linear chunks of the chain.
   StateCache* = object
@@ -406,6 +426,7 @@ type
     shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Opt[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
+    participating*: Opt[tuple[slot: Slot, balances: ParticipatingBalances]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
@@ -683,6 +704,45 @@ iterator vindices*(
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
 
+template asList*(epochFlags: EpochParticipationFlags): untyped =
+  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+template asList*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr epochFlags)
+  tmp[]
+
+template asSeq*(epochFlags: EpochParticipationFlags): untyped =
+  seq[ParticipationFlags] asList(epochFlags)
+
+template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr seq[ParticipationFlags]](addr epochFlags)
+  tmp[]
+
+template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
+  asList(epochFlags)[idx]
+
+template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64|int): ParticipationFlags =
+  asList(epochFlags)[idx]
+
+template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
+  asList(epochFlags)[idx] = flags
+
+template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
+  asList(epochFlags).add flags
+
+template len*(epochFlags: EpochParticipationFlags): int =
+  asList(epochFlags).len
+
+template low*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).low
+template high*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).high
+
+template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
+  # TODO https://github.com/nim-lang/Nim/issues/21123
+  mixin assign
+  var tmp = cast[ptr seq[ParticipationFlags]](addr v)
+  assign(tmp[], distinctBase src)
+
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
     withdrawal_credentials: d.withdrawal_credentials,
@@ -945,11 +1005,16 @@ func prune*(cache: var StateCache, epoch: Epoch) =
       cache.sync_committees.del drop.sync_committee_period
     drops.setLen(0)
 
+  if cache.participating.isSome and
+      cache.participating.unsafeGet.slot.epoch < pruneEpoch:
+    cache.participating.reset()
+
 func clear*(cache: var StateCache) =
   cache.total_active_balance.clear
   cache.shuffled_active_validator_indices.clear
   cache.beacon_proposer_indices.clear
   cache.sync_committees.clear
+  cache.participating.reset()
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =
@@ -988,3 +1053,4 @@ func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
 
 template debugFuluComment*(s: string) = discard
 template debugGloasComment*(s: string) = discard
+template debugHezeComment*(s: string) = discard

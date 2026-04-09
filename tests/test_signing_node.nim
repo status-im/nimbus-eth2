@@ -101,6 +101,9 @@ proc getBlock(
     of ConsensusFork.Gloas:
       debugGloasComment "gloas test signing node getblock"
       raiseAssert "gloas unsupported"
+    of ConsensusFork.Heze:
+      debugGloasComment "heze test signing node getblock"
+      raiseAssert "heze unsupported"
   except ValueError:
     # https://github.com/nim-lang/Nim/pull/23356
     raiseAssert "Arguments match the format string"
@@ -124,6 +127,10 @@ func init(t: typedesc[Web3SignerForkedBeaconBlock],
     Web3SignerForkedBeaconBlock(
       kind: ConsensusFork.Gloas,
       data: forked.gloasData.toBeaconBlockHeader)
+  of ConsensusFork.Heze:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Heze,
+      data: forked.hezeData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =
@@ -240,7 +247,6 @@ func getRemoteKeystoreData(data: string, basePort: int,
       pubkey: publicKey
     )
 
-  debugGloasComment "presumably gloasIndex shouldn't be 801"
   ok case rt
     of RemoteSignerType.Web3Signer:
       KeystoreData(
@@ -254,12 +260,7 @@ func getRemoteKeystoreData(data: string, basePort: int,
         kind: KeystoreKind.Remote,
         remoteType: RemoteSignerType.VerifyingWeb3Signer,
         provenBlockProperties: @[
-          ProvenProperty(
-            path: ".execution_payload.fee_recipient",
-            gloasIndex: GeneralizedIndex(801),
-            fuluIndex: GeneralizedIndex(801),
-            electraIndex: GeneralizedIndex(801),
-          )
+          parseProvenBlockProperty(".execution_payload.fee_recipient").get,
         ],
         version: uint64(4),
         pubkey: publicKey,

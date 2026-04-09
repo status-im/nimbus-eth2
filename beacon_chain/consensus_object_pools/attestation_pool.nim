@@ -178,7 +178,11 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
               if blckRef == dag.head:
                 withState(dag.headState):
                   when consensusFork >= ConsensusFork.Altair:
-                    forkyState.data.compute_unrealized_finality()
+                    let (checkpoints, balances) =
+                      forkyState.data.compute_unrealized_finality()
+                    dag.putParticipatingBalances CachedParticipatingBalances(
+                      bid: blckRef.bid, balances: balances)
+                    checkpoints
                   else:
                     var cache: StateCache
                     forkyState.data.compute_unrealized_finality(cache)
@@ -581,7 +585,7 @@ func add(
 func init(
     T: type AttestationCache,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
-           gloas.HashedBeaconState,
+           gloas.HashedBeaconState | heze.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -653,7 +657,7 @@ func check_attestation_compatible*(
 proc getAttestationsForBlock*(
     pool: var AttestationPool,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
-           gloas.HashedBeaconState,
+           gloas.HashedBeaconState | heze.HashedBeaconState,
     cache: var StateCache,
 ): seq[electra.Attestation] =
   let newBlockSlot = state.data.slot.uint64

@@ -221,15 +221,16 @@ template finalized_root_gindex*(
   elif kind >= LightClientDataFork.Altair:
     FINALIZED_ROOT_GINDEX
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "finalized_root_gindex unsupported in " & $kind.}
 
-template FinalityBranch*(kind: static LightClientDataFork): typedesc =
+template FinalityBranch*(
+    kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
     electra.FinalityBranch
   elif kind >= LightClientDataFork.Altair:
     altair.FinalityBranch
   else:
-    {.error: "BeaconState unsupported in " & $kind.}
+    {.error: "FinalityBranch unsupported in " & $kind.}
 
 template current_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
@@ -238,15 +239,16 @@ template current_sync_committee_gindex*(
   elif kind >= LightClientDataFork.Altair:
     CURRENT_SYNC_COMMITTEE_GINDEX
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "current_sync_committee_gindex unsupported in " & $kind.}
 
-template CurrentSyncCommitteeBranch*(kind: static LightClientDataFork): typedesc =
+template CurrentSyncCommitteeBranch*(
+    kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
     electra.CurrentSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
     altair.CurrentSyncCommitteeBranch
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "CurrentSyncCommitteeBranch unsupported in " & $kind.}
 
 template next_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
@@ -255,15 +257,16 @@ template next_sync_committee_gindex*(
   elif kind >= LightClientDataFork.Altair:
     NEXT_SYNC_COMMITTEE_GINDEX
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "next_sync_committee_gindex unsupported in " & $kind.}
 
-template NextSyncCommitteeBranch*(kind: static LightClientDataFork): typedesc =
+template NextSyncCommitteeBranch*(
+    kind: static LightClientDataFork): typedesc =
   when kind >= LightClientDataFork.Electra:
     electra.NextSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
     altair.NextSyncCommitteeBranch
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "NextSyncCommitteeBranch unsupported in " & $kind.}
 
 template LightClientHeader*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
@@ -275,7 +278,7 @@ template LightClientHeader*(kind: static LightClientDataFork): typedesc =
   elif kind == LightClientDataFork.Altair:
     altair.LightClientHeader
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "LightClientHeader unsupported in " & $kind.}
 
 template LightClientBootstrap*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
@@ -287,7 +290,7 @@ template LightClientBootstrap*(kind: static LightClientDataFork): typedesc =
   elif kind == LightClientDataFork.Altair:
     altair.LightClientBootstrap
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "LightClientBootstrap unsupported in " & $kind.}
 
 template LightClientUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
@@ -299,7 +302,7 @@ template LightClientUpdate*(kind: static LightClientDataFork): typedesc =
   elif kind == LightClientDataFork.Altair:
     altair.LightClientUpdate
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "LightClientUpdate unsupported in " & $kind.}
 
 template LightClientFinalityUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
@@ -311,7 +314,7 @@ template LightClientFinalityUpdate*(kind: static LightClientDataFork): typedesc 
   elif kind == LightClientDataFork.Altair:
     altair.LightClientFinalityUpdate
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "LightClientFinalityUpdate unsupported in " & $kind.}
 
 template LightClientOptimisticUpdate*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
@@ -323,7 +326,7 @@ template LightClientOptimisticUpdate*(kind: static LightClientDataFork): typedes
   elif kind == LightClientDataFork.Altair:
     altair.LightClientOptimisticUpdate
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "LightClientOptimisticUpdate unsupported in " & $kind.}
 
 template LightClientStore*(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Electra:
@@ -335,7 +338,7 @@ template LightClientStore*(kind: static LightClientDataFork): typedesc =
   elif kind == LightClientDataFork.Altair:
     altair.LightClientStore
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "LightClientStore unsupported in " & $kind.}
 
 template Forky*(
     x: typedesc[ForkedLightClientHeader],
@@ -605,7 +608,7 @@ func init*(
   elif kind == LightClientDataFork.Altair:
     ResultType(kind: kind, altairData: forkyData)
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "init(" & $x & ") unsupported in " & $kind.}
 
 template forky*(
     x:
@@ -622,7 +625,7 @@ template forky*(
   elif kind == LightClientDataFork.Altair:
     x.altairData
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "forky(" & $typeof(x) & ") unsupported in " & $kind.}
 
 func toFull*(
     update: SomeForkyLightClientUpdate): auto =
@@ -1245,7 +1248,7 @@ func toLightClientHeader*(
   elif kind == LightClientDataFork.Altair:
     blck.toAltairLightClientHeader()
   else:
-    static: raiseAssert "Unreachable"
+    {.error: "toLightClientHeader unsupported in " & $kind.}
 
 import chronicles
 

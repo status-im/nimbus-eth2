@@ -1,12 +1,12 @@
 #!/usr/bin/env groovy
 /* beacon_chain
- * Copyright (c) 2025 Status Research & Development GmbH
+ * Copyright (c) 2026 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
-library 'status-jenkins-lib@v1.9.2'
+library 'status-jenkins-lib@v1.9.41'
 
 pipeline {
   agent {
@@ -64,7 +64,7 @@ pipeline {
 
   stages {
     stage('Deps') {
-      steps { 
+      steps {
         timeout(20) {
           script {
             /* To allow the following parallel stages. */
@@ -74,17 +74,17 @@ pipeline {
             /* Download test vectors. */
             sh './scripts/setup_scenarios.sh'
           }
-        } 
+        }
       }
     }
 
     stage('Build') {
-      steps { 
+      steps {
         timeout(50) {
           script {
             sh 'make LOG_LEVEL=TRACE'
           }
-        } 
+        }
       }
     }
 
@@ -99,23 +99,23 @@ pipeline {
     stage('Tests') {
       parallel {
         stage('General') {
-          steps { 
+          steps {
             timeout(60) {
               script {
                 sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 NIMFLAGS="--passC:\"-fno-lto\" --passL:\"-fno-lto\"" test'
                 sh 'git diff --exit-code --ignore-submodules=all'
               }
-            } 
+            }
           }
         }
 
         stage('REST') {
-          steps { 
+          steps {
             timeout(5) {
               script {
                 sh 'make restapi-test'
               }
-            } 
+            }
           }
           post { always {
             sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
@@ -130,12 +130,12 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { 
+          steps {
             timeout(26) {
               script {
                 sh 'make local-testnet-minimal'
               }
-            } 
+            }
           }
           post { always {
             sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/logs/*'
@@ -143,12 +143,12 @@ pipeline {
         }
 
         stage('mainnet') {
-          steps { 
+          steps {
             timeout(62) {
               script {
                 sh 'make local-testnet-mainnet'
               }
-            } 
+            }
           }
           post { always {
             sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/logs/*'

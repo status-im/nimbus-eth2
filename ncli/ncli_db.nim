@@ -253,7 +253,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[deneb.TrustedSignedBeaconBlock],
       seq[electra.TrustedSignedBeaconBlock],
       seq[fulu.TrustedSignedBeaconBlock],
-      seq[gloas.TrustedSignedBeaconBlock])
+      seq[gloas.TrustedSignedBeaconBlock],
+      seq[heze.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -288,6 +289,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Gloas:
         blocks[7].add dag.db.getBlock(
           blck.root, gloas.TrustedSignedBeaconBlock).get()
+      of ConsensusFork.Heze:
+        blocks[8].add dag.db.getBlock(
+          blck.root, heze.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -302,7 +306,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref deneb.HashedBeaconState)(),
       (ref electra.HashedBeaconState)(),
       (ref fulu.HashedBeaconState)(),
-      (ref gloas.HashedBeaconState)())
+      (ref gloas.HashedBeaconState)(),
+      (ref heze.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -372,6 +377,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Gloas:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[7][].data, noRollback)
+              of ConsensusFork.Heze:
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[8][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
@@ -383,9 +391,10 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Electra:   hash_tree_root(loadedState[5][].data)
                 of ConsensusFork.Fulu:      hash_tree_root(loadedState[6][].data)
                 of ConsensusFork.Gloas:     hash_tree_root(loadedState[7][].data)
+                of ConsensusFork.Heze:      hash_tree_root(loadedState[8][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
-  staticFor i, 0 .. 7:
+  staticFor i, 0 .. 8:
     processBlocks(blocks[i])
   printTimers(false, timers)
 

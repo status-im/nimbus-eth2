@@ -346,9 +346,12 @@ proc addTestEngineBlock*(
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
 
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
-        SignedExecutionPayloadBid(
-          message: ExecutionPayloadBid(
+      when consensusFork == ConsensusFork.Heze:
+        debugHezeComment "..."
+        default(gloas.SignedExecutionPayloadBid)
+      elif consensusFork == ConsensusFork.Gloas:
+        gloas.SignedExecutionPayloadBid(
+          message: gloas.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
@@ -360,7 +363,7 @@ proc addTestEngineBlock*(
           signature: ValidatorSig.infinity(),
         )
       else:
-        default(SignedExecutionPayloadBid)
+        default(gloas.SignedExecutionPayloadBid)
 
     message = makeBeaconBlock(
         cfg,
@@ -445,8 +448,11 @@ proc addTestEngineBlockWithBlobs*(
 
     signed_execution_payload_bid =
       when consensusFork >= ConsensusFork.Gloas:
-        SignedExecutionPayloadBid(
-          message: ExecutionPayloadBid(
+        debugHezeComment "..."
+        default(gloas.SignedExecutionPayloadBid)
+      elif consensusFork == ConsensusFork.Gloas:
+        gloas.SignedExecutionPayloadBid(
+          message: gloas.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
@@ -458,7 +464,7 @@ proc addTestEngineBlockWithBlobs*(
           signature: ValidatorSig.infinity(),
         )
       else:
-        default(SignedExecutionPayloadBid)
+        default(gloas.SignedExecutionPayloadBid)
 
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
