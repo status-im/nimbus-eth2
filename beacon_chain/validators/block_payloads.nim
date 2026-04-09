@@ -187,7 +187,7 @@ func decodePayloadRequests(
 
 proc makeExecutionPayloadEnvelope*(
     cfg: RuntimeConfig,
-    state: var gloas.HashedBeaconState,
+    state: var (gloas.HashedBeaconState | heze.HashedBeaconState),
     cache: var StateCache,
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,

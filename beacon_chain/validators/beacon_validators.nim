@@ -655,7 +655,7 @@ proc proposeBlockAux(
       )
 
       let res = await node.router.routeExecutionPayloadEnvelope(
-          signedBlock, signedEnvelope, sidecarsOpt, checkValidator = false)
+        signedBlock, signedEnvelope, sidecarsOpt, checkValidator = false)
       if res.isErr():
         error "Failed to propose envelope", reason = res.error(), slot = slot
         return head
