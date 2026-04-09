@@ -2977,12 +2977,29 @@ func upgrade_to_next*(
   initialize_ptc_window(post, cache)
   # result = post
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/fork.md#upgrading-the-state
+# upgrade_to_heze
 func upgrade_to_next*(
     cfg: RuntimeConfig, pre: gloas.BeaconState, _: var StateCache):
     heze.BeaconState =
-  let epoch = get_current_epoch(pre)
+  let
+    epoch = get_current_epoch(pre)
+    latest_execution_payload_bid = heze.ExecutionPayloadBid(
+      parent_block_hash: pre.latest_execution_payload_bid.parent_block_hash,
+      parent_block_root: pre.latest_execution_payload_bid.parent_block_root,
+      block_hash: pre.latest_execution_payload_bid.block_hash,
+      prev_randao: pre.latest_execution_payload_bid.prev_randao,
+      fee_recipient: pre.latest_execution_payload_bid.fee_recipient,
+      gas_limit: pre.latest_execution_payload_bid.gas_limit,
+      builder_index: pre.latest_execution_payload_bid.builder_index,
+      slot: pre.latest_execution_payload_bid.slot,
+      value: pre.latest_execution_payload_bid.value,
+      execution_payment: pre.latest_execution_payload_bid.execution_payment,
+      blob_kzg_commitments: pre.latest_execution_payload_bid.blob_kzg_commitments,
+      # [New in Heze:EIP7805]
+      # inclusion_list_bits default initialized to empty Bitvector
+    )
 
-  debugHezeComment "fill in latest execution payload bid"
   heze.BeaconState(
     # Versioning
     genesis_time: pre.genesis_time,
@@ -3033,7 +3050,8 @@ func upgrade_to_next*(
     next_sync_committee: pre.next_sync_committee,
 
     # Execution
-    #latest_execution_payload_bid: pre.latest_execution_payload_bid,
+    # [Modified in Heze:EIP7805]
+    latest_execution_payload_bid: latest_execution_payload_bid,
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,

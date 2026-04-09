@@ -4866,6 +4866,11 @@ ConsensusSpecPreset-minimal
 + Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
+## EF - Heze - Fork  [Preset: minimal]
+```diff
++ EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: minimal]   OK
++ EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
+```
 ## EF - Heze - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Heze - Operations - Attestation - invalid_after_max_inclusion_slot          OK

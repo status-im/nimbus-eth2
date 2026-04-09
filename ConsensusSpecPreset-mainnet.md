@@ -4580,6 +4580,11 @@ ConsensusSpecPreset-mainnet
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
+## EF - Heze - Fork  [Preset: mainnet]
+```diff
++ EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: mainnet]   OK
++ EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
+```
 ## EF - Heze - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Heze - Operations - Attestation - invalid_after_max_inclusion_slot          OK
