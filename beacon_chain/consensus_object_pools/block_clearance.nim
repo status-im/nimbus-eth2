@@ -288,9 +288,18 @@ proc addHeadBlockWithParent*(
   # We've verified that the slot of the new block is newer than that of the
   # parent, so we should now be able to create an appropriate clearance state
   # onto which we can apply the new block
-  let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
+  let
+    clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
+    updateFlags =
+      when typeof(signedBlock).kind >= ConsensusFork.Gloas:
+        if isParentBlockFull(dag, signedBlock, parent):
+          dag.updateFlags
+        else:
+          dag.updateFlags + {skipLastEnvelope}
+      else:
+        dag.updateFlags
   if not updateState(
-      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
+      dag, dag.clearanceState, clearanceBlock, true, cache, updateFlags):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
