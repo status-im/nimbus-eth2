@@ -185,6 +185,7 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
 proc makeExecutionPayloadEnvelope*(
     cfg: RuntimeConfig,
     state: var (gloas.HashedBeaconState | heze.HashedBeaconState),
