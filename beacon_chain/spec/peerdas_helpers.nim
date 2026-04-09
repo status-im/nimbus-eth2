@@ -17,7 +17,7 @@ import
     types],
   stew/assign2,
   ./crypto,
-  ./[helpers, digest],
+  ./[helpers, digest, column_map],
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
@@ -80,11 +80,23 @@ func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                                           custody_group_count: CustodyIndex):
                                           HashSet[ColumnIndex] =
   ## Returns a set of unique columns for the custody groups of a node.
-  let custody_groups = cfg.get_custody_groups(node_id, custody_group_count)
+  let custody_groups = cfg.handle_custody_groups(node_id, custody_group_count)
   var columns: HashSet[ColumnIndex]
   for group in custody_groups:
     for index in compute_columns_for_custody_group(cfg, group):
       columns.incl index
+  columns
+
+func resolve_column_map_from_custody_groups*(
+    cfg: RuntimeConfig,
+    node_id: NodeId,
+    custody_group_count: CustodyIndex
+): ColumnMap =
+  let custody_groups = cfg.handle_custody_groups(node_id, custody_group_count)
+  var columns: ColumnMap
+  for group in custody_groups:
+    for index in compute_columns_for_custody_group(cfg, group):
+      columns.incl(index)
   columns
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix

@@ -12,10 +12,7 @@ import
   ssz_serialization/codec,
   ./datatypes/base
 
-from ./datatypes/altair import
-  ParticipationFlags, EpochParticipationFlags
-
-export codec, base, typetraits, ParticipationFlags, EpochParticipationFlags
+export codec, base, typetraits
 
 # Coding and decoding of SSZ to spec-specific types
 

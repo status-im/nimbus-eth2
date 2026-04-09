@@ -39,6 +39,10 @@ declareGauge beacon_reorgs_total, "Total occurrences of reorganizations of the c
 declareGauge beacon_safe_root, "Root of the safe block"
 declareGauge beacon_safe_slot, "Slot of the safe block"
 declareGauge beacon_safe_reorgs_total, "Total occurrences of reorganizations of the safe block"
+declareGauge beacon_safe_reverts_epoch_total, "Total FCR reverts to finalized at epoch boundary"
+declareGauge beacon_safe_reverts_head_total, "Total FCR reverts to finalized on head change"
+declareGauge beacon_safe_restarts_total, "Total FCR restarts to observed justified checkpoint"
+declareGauge beacon_safe_errors_total, "Total FCR internal errors"
 
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
@@ -308,7 +312,8 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  static: doAssert high(ConsensusFork) == ConsensusFork.Heze
+  debugHezeComment "use Heze getBlock"
   if   (let blck = db.getBlock(root, gloas.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
@@ -595,6 +600,14 @@ func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
 
   Opt.some(EpochKey(bid: bsi.bid, epoch: epoch))
 
+func putParticipatingBalances*(
+    dag: ChainDAGRef, value: CachedParticipatingBalances) =
+  dag.participatingBalances.put value
+
+func findParticipatingBalances*(
+    dag: ChainDAGRef, bid: BlockId): Opt[ParticipatingBalances] =
+  ok (? dag.participatingBalances.findIt(it.bid == bid)).balances
+
 func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
   ## Store shuffling in the cache
   if shufflingRef.epoch < dag.finalizedHead.slot.epoch():
@@ -749,6 +762,10 @@ func loadStateCache*(
         # We often end up sharing sync committees with head during sync / gossip
         # validation / head updates
         cache.sync_committees[period] = dag.headSyncCommittees
+
+  let balances = dag.findParticipatingBalances(bid)
+  if balances.isSome:
+    cache.participating.ok (slot: bid.slot, balances: balances.unsafeGet)
 
 func containsForkBlock*(dag: ChainDAGRef, root: Eth2Digest): bool =
   ## Checks for blocks at the finalized checkpoint or newer
@@ -967,6 +984,18 @@ proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
 
 proc incSafeReorgs*() =
   beacon_safe_reorgs_total.inc()
+
+proc incSafeEpochReverts*() =
+  beacon_safe_reverts_epoch_total.inc()
+
+proc incSafeHeadReverts*() =
+  beacon_safe_reverts_head_total.inc()
+
+proc incSafeRestarts*() =
+  beacon_safe_restarts_total.inc()
+
+proc incSafeErrors*() =
+  beacon_safe_errors_total.inc()
 
 import blockchain_dag_light_client
 
@@ -1338,6 +1367,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
       of ConsensusFork.Gloas:     gloasFork(cfg)
+      of ConsensusFork.Heze:      hezeFork(cfg)
     stateFork = dag.headState.fork
 
   # Here, we check only the `current_version` field because the spec
@@ -1626,7 +1656,9 @@ proc computeRandaoMix(
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
     debugGloasComment ""
-    when consensusFork == ConsensusFork.Gloas:
+    when consensusFork == ConsensusFork.Heze:
+      return Opt.none(Eth2Digest)
+    elif consensusFork == ConsensusFork.Gloas:
       return Opt.none(Eth2Digest)
     elif consensusFork >= ConsensusFork.Bellatrix:
       if forkyBlck.message.is_execution_block:

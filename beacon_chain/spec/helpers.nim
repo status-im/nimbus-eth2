@@ -386,7 +386,8 @@ func is_merge_transition_complete*(
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 debugGloasComment ""
-func is_merge_transition_complete*(state: gloas.BeaconState): bool =
+func is_merge_transition_complete*(
+    state: gloas.BeaconState | heze.BeaconState): bool =
   state.latest_block_hash != ZERO_HASH
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
@@ -572,7 +573,7 @@ func compute_execution_block_hash*(
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
-func is_parent_block_full*(state: gloas.BeaconState): bool =
+func is_parent_block_full*(state: gloas.BeaconState | heze.BeaconState): bool =
   state.latest_execution_payload_bid.block_hash == state.latest_block_hash
 
 func attestation_deadline*(

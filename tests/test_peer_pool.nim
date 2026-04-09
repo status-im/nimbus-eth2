@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,9 @@
 
 import std/[random, heapqueue, tables, sequtils, strutils]
 import chronos, chronos/unittest2/asynctests
-import ../beacon_chain/networking/peer_pool
+import eth/enr/enr, eth/common/keys
+import ../beacon_chain/networking/[peer_pool, eth2_network]
+import ../beacon_chain/spec/[forks, network, eth2_ssz_serialization]
 import ./testutil
 
 type
@@ -1301,3 +1303,140 @@ suite "PeerPool testing suite":
         pool9.lenSpace() == high(int) - (i + 1) * 2
         pool9.lenSpace({PeerType.Outgoing}) == high(int) - (i + 1) * 2
         pool9.lenSpace({PeerType.Incoming}) == high(int) - (i + 1) * 2
+
+suite "lookupCgcFromPeer testing suite":
+  proc createEnrWithCgc(rng: ref HmacDrbgContext,
+                        cgcValue: uint8): enr.Record =
+    let pk = keys.PrivateKey.random(rng[])
+    Record.init(
+      1, pk,
+      extraFields = [toFieldPair(enrCustodySubnetCountField,
+                                 SSZ.encode(cgcValue))]).expect(
+      "Valid ENR")
+
+  proc createEnrWithoutCgc(rng: ref HmacDrbgContext): enr.Record =
+    let pk = keys.PrivateKey.random(rng[])
+    Record.init(1, pk).expect("Valid ENR")
+
+  proc createMinimalPeer(
+      metadata: Opt[fulu.MetaData] = Opt.none(fulu.MetaData),
+      enrRecord: Opt[enr.Record] = Opt.none(enr.Record)): Peer =
+    # Create a minimal Peer for testing lookupCgcFromPeer.
+    # Only metadata and enr fields are accessed by the function.
+    Peer(
+      metadata: metadata,
+      enr: enrRecord,
+    )
+
+  test "No metadata, no ENR - returns default CUSTODY_REQUIREMENT":
+    let peer = createMinimalPeer()
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT
+
+  test "Valid metadata with cgc >= CUSTODY_REQUIREMENT":
+    let metadata = fulu.MetaData(custody_group_count: 8)
+    let peer = createMinimalPeer(
+      metadata = Opt.some(metadata))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == 8
+
+  test "Valid metadata with cgc == CUSTODY_REQUIREMENT (boundary)":
+    let metadata = fulu.MetaData(
+      custody_group_count: CUSTODY_REQUIREMENT)
+    let peer = createMinimalPeer(
+      metadata = Opt.some(metadata))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT
+
+  test "Valid metadata with cgc == NUMBER_OF_COLUMNS (supernode)":
+    let metadata = fulu.MetaData(
+      custody_group_count: NUMBER_OF_COLUMNS)
+    let peer = createMinimalPeer(
+      metadata = Opt.some(metadata))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == NUMBER_OF_COLUMNS
+
+  test "Metadata cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange":
+    let metadata = fulu.MetaData(
+      custody_group_count: NUMBER_OF_COLUMNS + 1)
+    let peer = createMinimalPeer(
+      metadata = Opt.some(metadata))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isErr
+      res.error == PeerCgcStatus.OutOfRange
+
+  test "Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc":
+    let
+      rng = HmacDrbgContext.new()
+      enrRecord = createEnrWithCgc(rng, 8)
+      metadata = fulu.MetaData(custody_group_count: 0)
+      peer = createMinimalPeer(
+        metadata = Opt.some(metadata),
+        enrRecord = Opt.some(enrRecord))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == 8
+
+  test "Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc updates metadata":
+    let
+      rng = HmacDrbgContext.new()
+      enrRecord = createEnrWithCgc(rng, 16)
+      metadata = fulu.MetaData(custody_group_count: 0)
+      peer = createMinimalPeer(
+        metadata = Opt.some(metadata),
+        enrRecord = Opt.some(enrRecord))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == 16
+      peer.metadata.get.custody_group_count == 16
+
+  test "No metadata, valid ENR cgc":
+    let
+      rng = HmacDrbgContext.new()
+      enrRecord = createEnrWithCgc(rng, 10)
+      peer = createMinimalPeer(
+        enrRecord = Opt.some(enrRecord))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == 10
+
+  test "No metadata, ENR cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange":
+    let
+      rng = HmacDrbgContext.new()
+      enrRecord = createEnrWithCgc(rng, (NUMBER_OF_COLUMNS + 1).uint8)
+      peer = createMinimalPeer(
+        enrRecord = Opt.some(enrRecord))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isErr
+      res.error == PeerCgcStatus.OutOfRange
+
+  test "No metadata, ENR without cgc field - returns default":
+    let
+      rng = HmacDrbgContext.new()
+      enrRecord = createEnrWithoutCgc(rng)
+      peer = createMinimalPeer(
+        enrRecord = Opt.some(enrRecord))
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT
+
+  test "No metadata, no ENR - returns default CUSTODY_REQUIREMENT":
+    let peer = createMinimalPeer()
+    let res = peer.lookupCgcFromPeer()
+    check:
+      res.isOk
+      res.get == CUSTODY_REQUIREMENT

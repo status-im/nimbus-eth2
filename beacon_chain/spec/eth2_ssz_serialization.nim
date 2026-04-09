@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # This module exports SSZ.encode and SSZ.decode for spec types - don't use
 # ssz_serialization directly! To bypass root updates, use `readSszBytes`
@@ -20,6 +20,7 @@ from ./datatypes/deneb import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/electra import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/fulu import SignedBeaconBlock, TrustedSignedBeaconBlock
 from ./datatypes/gloas import SignedBeaconBlock, TrustedSignedBeaconBlock
+from ./datatypes/heze import SignedBeaconBlock, TrustedSignedBeaconBlock
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
 
@@ -80,6 +81,12 @@ template readSszBytes*(
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var gloas.TrustedSignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var heze.SignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var heze.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(

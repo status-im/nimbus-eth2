@@ -245,7 +245,7 @@ when IsGnosisSupported:
       checkForkConsistency(network.cfg)
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Gloas
+      doAssert ConsensusFork.high == ConsensusFork.Heze
       doAssert network.cfg.BLOB_SCHEDULE.len == 0
 
 elif IsMainnetSupported:
@@ -318,7 +318,7 @@ elif IsMainnetSupported:
         digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0"))
 
   static:
-    doAssert ConsensusFork.high == ConsensusFork.Gloas
+    doAssert ConsensusFork.high == ConsensusFork.Heze
     for network in [mainnetMetadata, sepoliaMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH

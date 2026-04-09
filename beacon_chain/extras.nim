@@ -7,6 +7,8 @@
 
 {.push raises: [].}
 
+import metrics
+
 # Temporary dumping ground for extra types and helpers that could make it into
 # the spec potentially
 #
@@ -42,3 +44,12 @@ type
     ## strict state transition of the last envelope in updateState().
 
   UpdateFlags* = set[UpdateFlag]
+
+# Single metric used for internal inconsistencies that should not happen.
+# If it ever becomes non-0, check the logs for warnings and report a bug.
+
+declareCounter beacon_errors_internal_total,
+  "Total occurrences of internal errors - check logs"
+
+proc incInternalErrors*() =
+  beacon_errors_internal_total.inc()

@@ -2357,17 +2357,20 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Electra - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_eth1_crede OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_extra_gwei OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_greater_th OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_invalid_si OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_max_effect OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_min_activa OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_pending_de OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_set_start_ OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_inv OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_max OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_min OK
 + [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_top_up_sti OK
++ [Valid]   EF - Electra - Operations - Deposit Request - process_deposit_request_undefined_ OK
 ```
 ## EF - Electra - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -3106,17 +3109,20 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Fulu - Operations - Deposit Request  [Preset: mainnet]
 ```diff
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_eth1_credenti OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_greater_than_ OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_invalid_sig   OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_pending_depos OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_min_ac OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
++ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_undefined_cre OK
 ```
 ## EF - Fulu - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -3428,6 +3434,9 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnPartsMetadata                                                OK
++   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
@@ -3561,6 +3570,10 @@ ConsensusSpecPreset-mainnet
 + Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - Gloas - Epoch Processing - PTC window [Preset: mainnet]
+```diff
++ PTC window - process_ptc_window__shifts_all_epochs [Preset: mainnet]                       OK
 ```
 ## EF - Gloas - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
@@ -3888,26 +3901,44 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_fu OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_no OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__nonstandard OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_exit OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_firs OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_slot OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_eth1_credent OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_pending_depo OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_undefined_cr OK
 ```
 ## EF - Gloas - Operations - Execution Payload  [Preset: mainnet]
 ```diff
@@ -4056,6 +4087,11 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__bad_ OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_incorrect_signature           OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_already_exited      OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_exit_in_future      OK
@@ -4070,6 +4106,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__success       OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - exit_existing_churn_and_balance_multi OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - exit_existing_churn_and_churn_limit_b OK
@@ -4266,6 +4303,9 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnPartsMetadata                                                OK
++   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
@@ -4344,6 +4384,282 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Transition - transition_with_proposer_slashing_right_before_fork [Preset: mai OK
 + EF - Gloas - Transition - transition_with_random_half_participation [Preset: mainnet]      OK
 + EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: mai OK
+```
+## EF - Heze - Epoch Processing - Builder pending payments [Preset: mainnet]
+```diff
++ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: mainnet]  OK
++ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
++ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: mainnet OK
++ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
++ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: mainne OK
+```
+## EF - Heze - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - Heze - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - Heze - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - Heze - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - Heze - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - Heze - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - Heze - Epoch Processing - Pending consolidations [Preset: mainnet]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
+```
+## EF - Heze - Epoch Processing - Pending deposits [Preset: mainnet]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
+```
+## EF - Heze - Epoch Processing - Proposer lookahead [Preset: mainnet]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
+```
+## EF - Heze - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - Heze - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - Heze - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - Heze - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - Heze - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
+## EF - Heze - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
++   Testing    Builder                                                                       OK
++   Testing    BuilderPendingPayment                                                         OK
++   Testing    BuilderPendingWithdrawal                                                      OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ConsolidationRequest                                                          OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    DataColumnSidecar                                                             OK
++   Testing    DataColumnsByRootIdentifier                                                   OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    DepositRequest                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadBid                                                           OK
++   Testing    ExecutionPayloadEnvelope                                                      OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    ExecutionRequests                                                             OK
++   Testing    Fork                                                                          OK
++   Testing    ForkChoiceNode                                                                OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
++   Testing    InclusionList                                                                 OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    IndexedPayloadAttestation                                                     OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnPartsMetadata                                                OK
++   Testing    PartialDataColumnSidecar                                                      OK
++   Testing    PayloadAttestation                                                            OK
++   Testing    PayloadAttestationData                                                        OK
++   Testing    PayloadAttestationMessage                                                     OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PendingConsolidation                                                          OK
++   Testing    PendingDeposit                                                                OK
++   Testing    PendingPartialWithdrawal                                                      OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerPreferences                                                           OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedExecutionPayloadBid                                                     OK
++   Testing    SignedExecutionPayloadEnvelope                                                OK
++   Testing    SignedInclusionList                                                           OK
++   Testing    SignedProposerPreferences                                                     OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SingleAttestation                                                             OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
++   Testing    WithdrawalRequest                                                             OK
 ```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
@@ -5295,6 +5611,25 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Finality - finality_rule_3 [Preset: mainnet]                        OK
 + [Valid]   EF - gloas - Finality - finality_rule_4 [Preset: mainnet]                        OK
 ```
+## EF - gloas - Random  [Preset: mainnet]
+```diff
++ [Valid]   EF - gloas - Random - randomized_0 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_1 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_10 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_11 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_12 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_13 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_14 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_15 [Preset: mainnet]                            OK
++ [Valid]   EF - gloas - Random - randomized_2 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_3 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_4 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_5 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_6 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_7 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_8 [Preset: mainnet]                             OK
++ [Valid]   EF - gloas - Random - randomized_9 [Preset: mainnet]                             OK
+```
 ## EF - gloas - Sanity - Blocks  [Preset: mainnet]
 ```diff
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]          OK
@@ -5334,6 +5669,10 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]       OK
 + [Valid]   EF - gloas - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisf OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsati OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sat OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_uns OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
 + [Valid]   EF - gloas - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
