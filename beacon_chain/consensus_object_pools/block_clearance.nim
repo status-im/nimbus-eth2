@@ -599,8 +599,7 @@ proc addBackfillExecutionPayload*(
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
     return err(VerifierError.Duplicate)
 
-  # Check builder index is matched with the block
-  let blck = block:
+  let (proposerIdx, builderIdx) = block:
     let forkedBlck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
       # corrupted.
@@ -610,16 +609,18 @@ proc addBackfillExecutionPayload*(
       when consensusFork >= ConsensusFork.Gloas:
         template bid(): auto =
           forkyBlck.message.body.signed_execution_payload_bid
-        if bid.message.builder_index != envelope.builder_index:
-          return err(VerifierError.Invalid)
-        forkyBlck.asSigned()
+        (forkyBlck.message.proposer_index, bid.message.builder_index)
       else:
         return err(VerifierError.UnviableFork)
+
+  # Check builder index is matched with the block
+  if builderIdx != envelope.builder_index:
+    return err(VerifierError.Invalid)
 
   # Verify signature
   template vIdx(): auto =
     if envelope.builder_index == BUILDER_INDEX_SELF_BUILD:
-      blck.message.proposer_index
+      proposerIdx
     else:
       envelope.builder_index
   let builderKey = dag.validatorKey(vIdx).valueOr:
