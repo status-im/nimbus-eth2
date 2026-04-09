@@ -1729,14 +1729,12 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     # Also, give some time to dial the discovered nodes and update stats etc
     await sleepAsync(5.seconds)
 
-proc fetchNodeIdFromPeerId*(peer: Peer): Opt[NodeId] =
+proc fetchNodeIdFromPeerId*(peer: Peer): NodeId =
   # Convert peer id to node id by extracting the peer's public key
   var key: PublicKey
-  if not peer.peerId.extractPublicKey(key):
-    return Opt.none(NodeId)
-  let pubkey = keys.PublicKey.fromRaw(key.skkey.getBytes()).valueOr:
-    return Opt.none(NodeId)
-  Opt.some(pubkey.toNodeId())
+  # `secp256k1` keys are always stored inside PeerId.
+  discard peer.peerId.extractPublicKey(key)
+  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -1744,13 +1742,9 @@ proc resolvePeer(peer: Peer) =
   # querying the network - as of now, the ENR is not needed, except for
   # debuggging
   logScope: peer = peer.peerId
-  let startTime = now(chronos.Moment)
-  let nodeId =
-    block:
-      var key: PublicKey
-      # `secp256k1` keys are always stored inside PeerId.
-      discard peer.peerId.extractPublicKey(key)
-      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
+  let
+    startTime = now(chronos.Moment)
+    nodeId = fetchNodeIdFromPeerId(peer)
 
   debug "Peer's ENR recovery task started", node_id = $nodeId
 
@@ -2626,14 +2620,12 @@ proc getColumnMapOrDefault*(
   if peer.columnMap.isNone():
     let
       nodeId = peer.fetchNodeIdFromPeerId()
-      custodyGroupCount = peer.lookupCgcFromPeer()
-      count =
-        if custodyGroupCount == 0'u64:
-          defaultCgc
-        else:
-          custodyGroupCount
-    peer.columnMap = Opt.some(
-      ColumnMap.init(peer.network.cfg.get_custody_groups(nodeId, count)))
+      custodyGroupCount = peer.lookupCgcFromPeer().valueOr:
+        defaultCgc
+    peer.columnMap =
+      Opt.some(
+        peer.network.cfg.resolve_column_map_from_custody_groups(
+          nodeId, custodyGroupCount))
   peer.columnMap.get()
 
 func shortForm*(id: NetKeyPair): string =

@@ -17,7 +17,7 @@ import
   ../gossip_processing/block_processor,
   ../[beacon_clock],
   ./[sync_types, sync_dag, sync_queue, sync_protocol, response_utils,
-     block_buffer]
+     block_buffer, validator_custody]
 
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from nimcrypto/utils import isFullZero
@@ -134,6 +134,8 @@ func increaseBlocksCount(
         int(MAX_REQUEST_BLOCKS_DENEB)
       of ConsensusFork.Gloas:
         int(MAX_REQUEST_BLOCKS_DENEB)
+      of ConsensusFork.Heze:
+        raiseAssert "Unsupported fork!"
     res = blocksCount + max(1, blocksCount div 4)
 
   if res > maxCount:
@@ -159,6 +161,8 @@ func increaseSidecarsCount(
         int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
       of ConsensusFork.Gloas:
         int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
+      of ConsensusFork.Heze:
+        raiseAssert "Unsupported fork!"
 
     res = sidecarsCount + max(1, sidecarsCount div 4)
 
@@ -187,7 +191,7 @@ proc getColumnsDistribution(
     useless = 0
     supernodes = 0
 
-  let custodyMap = overseer.columnQuarantine[].custodyMap
+  let custodyMap = overseer.validatorCustody.getMap()
 
   for entry in overseer.sdag.peers.values():
     let
@@ -226,7 +230,7 @@ func getMissingColumnsLog(
     missingCount = 0.0
     totalCount = 0.0
 
-  let blocksColumnsCount = float(len(overseer.columnQuarantine[].custodyMap))
+  let blocksColumnsCount = float(len(overseer.validatorCustody.getMap()))
 
   for blck in blocks:
     withBlck(blck[]):
@@ -475,7 +479,7 @@ proc createQueues(
     overseer.columnQuarantine[].getMissingColumnsMap(blockRoot)
 
   func localMap(): ColumnMap =
-    overseer.columnQuarantine[].custodyMap
+    overseer.validatorCustody.getMap()
 
   template declareBlockVerifier(
       procName: untyped,
@@ -1954,7 +1958,7 @@ proc doRangeSidecarsStep(
           blocks = overseer.sbuffer(direction).peekRange(request.data)
 
         let
-          custodyMap = overseer.columnQuarantine[].custodyMap
+          custodyMap = overseer.validatorCustody.getMap()
           peerMap = peer.getColumnMapOrDefault()
           intersectMap = custodyMap and peerMap
 
@@ -2137,6 +2141,9 @@ proc doRangeSidecarsStep(
         raise exc
 
     of ConsensusFork.Gloas:
+      raiseAssert "Unsupported fork"
+
+    of ConsensusFork.Heze:
       raiseAssert "Unsupported fork"
 
   if resp.count > 0:
@@ -2516,7 +2523,7 @@ proc timeMonitoringLoop(
         useful_peers = distribution[2],
         useless_peers = distribution[3],
         supernodes_peers = distribution[4],
-        columns_count = len(overseer.columnQuarantine[].custodyMap),
+        columns_count = len(overseer.validatorCustody.getMap()),
         columns_fill_rate = distribution[1],
         last_seen_syncdag_path = lastSeenSyncDagPath
 
