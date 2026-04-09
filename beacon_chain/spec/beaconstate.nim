@@ -1134,7 +1134,7 @@ proc check_attestation*(
   ? check_attestation_inclusion((typeof state).kind, slot, state.slot)
 
   # [Modified in Gloas:EIP7732]
-  when state is gloas.BeaconState:
+  when typeof(state).kind >= ConsensusFork.Gloas:
     if not (data.index < 2):
       return err("Gloas attestation data index must be less than 2")
     if is_attestation_same_slot(state, data) and data.index != 0:
