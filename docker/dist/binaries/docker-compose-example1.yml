@@ -23,7 +23,7 @@ services:
     command: >-
       --network=hoodi
       --data-dir=/home/user/nimbus-eth2/build/data/shared_hoodi_0
-      --web3-url=wss://hoodi.infura.io/ws/v3/YOUR_TOKEN
+      --el=wss://hoodi.infura.io/ws/v3/YOUR_TOKEN
       --nat=extip:YOUR_EXTERNAL_IP
       --log-level=info
       --tcp-port=9000

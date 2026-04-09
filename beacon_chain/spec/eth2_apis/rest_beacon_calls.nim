@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,6 +16,7 @@ import
 from ../mev/bellatrix_mev import SignedBlindedBeaconBlock
 from ../mev/capella_mev import SignedBlindedBeaconBlock
 from ../mev/deneb_mev import SignedBlindedBeaconBlock
+from ../datatypes/gloas import SignedExecutionPayloadEnvelope
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -386,25 +387,11 @@ proc getBlockRootPlain*(block_id: BlockIdent): RestPlainResponse {.
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
 
-proc getBlockAttestations*(block_id: BlockIdent
-                        ): RestResponse[GetBlockAttestationsResponse] {.
-     rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/attestations",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations
-
 proc getBlockAttestationsV2Plain*(block_id: BlockIdent
                         ): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/blocks/{block_id}/attestations",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestationsV2
-
-proc getPoolAttestations*(
-    slot: Option[Slot],
-    committee_index: Option[CommitteeIndex]
-              ): RestResponse[GetPoolAttestationsResponse] {.
-     rest, endpoint: "/eth/v1/beacon/pool/attestations",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
 
 proc getPoolAttestationsV2Plain*(
     slot: Option[Slot],
@@ -413,12 +400,6 @@ proc getPoolAttestationsV2Plain*(
      rest, endpoint: "/eth/v2/beacon/pool/attestations",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
-
-proc submitPoolAttestations*(body: seq[phase0.Attestation]):
-     RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/pool/attestations",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
 
 proc submitPoolAttestationsV2Plain*(
     body: seq[ForkyAttestation]
@@ -429,36 +410,30 @@ proc submitPoolAttestationsV2Plain*(
 
 proc submitPoolAttestationsV2*[T: ForkyAttestation](
     client: RestClientRef,
+    fork: ConsensusFork,
     body: seq[T]
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                     RestCommunicationError], raw: true).} =
-  let consensus = T.kind.toString()
   client.submitPoolAttestationsV2Plain(
-    body, extraHeaders = @[("eth-consensus-version", consensus)])
+    body, extraHeaders = @[("eth-consensus-version", fork.toString())])
 
-proc getPoolAttesterSlashings*(): RestResponse[GetPoolAttesterSlashingsResponse] {.
-     rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
-
-proc submitPoolAttesterSlashings*(body: phase0.AttesterSlashing):
-     RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
+proc submitPoolAttestations2Ssz*[T: ForkyAttestation](
+    client: RestClientRef,
+    fork: ConsensusFork,
+    body: seq[T]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  client.submitPoolAttestationsV2Plain(
+    body,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[("eth-consensus-version", fork.toString())])
 
 proc getPoolAttesterSlashingsV2Plain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/pool/attester_slashings",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttesterSlashingsV2
-
-proc submitPoolAttesterSlashings*(
-       body: phase0.AttesterSlashing | electra.AttesterSlashing
-     ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
 
 proc getPoolProposerSlashings*(): RestResponse[GetPoolProposerSlashingsResponse] {.
      rest, endpoint: "/eth/v1/beacon/pool/proposer_slashings",
@@ -486,3 +461,49 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
+
+proc getExecutionPayloadEnvelopePlain*(block_id: BlockIdent): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelope/{block_id}",
+     accept: preferSSZ,
+     meth: MethodGet.}
+  ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
+
+proc getExecutionPayloadEnvelope*(
+    client: RestClientRef, block_id: BlockIdent):
+    Future[Opt[SignedExecutionPayloadEnvelope]] {.async.} =
+  let resp = await client.getExecutionPayloadEnvelopePlain(block_id)
+  return
+    case resp.status
+    of 200:
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
+      else:
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let envelope =
+            decodeBytes(DataOptimisticAndFinalizedObject[
+              SignedExecutionPayloadEnvelope], resp.data,
+              resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          Opt.some(envelope.data)
+        elif mediaType == OctetStreamMediaType:
+          try:
+            Opt.some(SSZ.decode(resp.data, SignedExecutionPayloadEnvelope))
+          except CatchableError as exc:
+            raise newException(RestError, exc.msg)
+        else:
+          raise newException(RestError, "Unsupported Content-Type")
+    of 404:
+      Opt.none(SignedExecutionPayloadEnvelope)
+    of 400, 500:
+      let error = decodeBytes(RestErrorMessage, resp.data,
+                              resp.contentType).valueOr:
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $error & "]"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
+      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
+      raise (ref RestResponseError)(
+        msg: msg, status: error.code, message: error.message)
+    else:
+      raiseRestResponseError(resp)

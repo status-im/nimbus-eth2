@@ -57,7 +57,7 @@ fi
 
 WEB3_URL_ARG=""
 if [[ "$WEB3_URL" != "" ]]; then
-  WEB3_URL_ARG="--web3-url=${WEB3_URL}"
+  WEB3_URL_ARG="--el=${WEB3_URL}"
 fi
 
 # Allow the binary to receive signals directly.

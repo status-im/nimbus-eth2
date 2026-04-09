@@ -1,18 +1,18 @@
-# Light client
+# Consensus light client
 
 !!! warning
-    The light client is currently in BETA and details around running it may change.
+    The consensus light client is currently in BETA and details around running it may change.
 
-The Nimbus Light Client is a light-weight alternative to running a full beacon node, when you're not planning on becoming a validator but still want to run an Ethereum execution layer client.
+The Nimbus Consensus Light Client is a light-weight alternative to running a full beacon node, when you're not planning on becoming a validator but still want to run an Ethereum execution layer client.
 
 Execution layer (EL) clients provide the [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain.
 Since the merge 🐼, execution clients can no longer run standalone.
 
 ## Comparison
 
-Compared to a full beacon node, a light client has several advantages and disadvantages.
+Compared to a full beacon node, a consensus light client has several advantages and disadvantages.
 
-| Feature | Beacon Node | Light Client |
+| Feature | Beacon Node | Consensus Light Client |
 | -- | -- | -- |
 | Disk usage | ~200GB | **<1MB** |
 | Bandwidth | *TBD* | **TBD (low)** |
@@ -20,8 +20,8 @@ Compared to a full beacon node, a light client has several advantages and disadv
 | Head delay | **None** | 4/3 slot (15 s) |
 | Security | **Full** | Light |
 
-Light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants.
-Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).
+Consensus light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants.
+Due to this delegation, consensus light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).
 
 !!! note
     If you are validating, you must run a full beacon node.
@@ -29,7 +29,7 @@ Due to this delegation, light clients are typically behind by ~4/3 slots (~15 se
 
 ## Building from source
 
-The Nimbus light client is currently not bundled as part of the Docker images and needs to be built from source.
+The Nimbus consensus light client is currently not bundled as part of the Docker images and needs to be built from source.
 
 ### 1. Clone the `nimbus-eth2` repository
 
@@ -40,10 +40,10 @@ cd nimbus-eth2
 
 ### 2. Run the build process
 
-To build the Nimbus light client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
+To build the Nimbus consensus light client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
 
 ```sh
-make -j4 nimbus_light_client
+make -j8 nimbus_light_client
 ```
 
 !!! tip
@@ -56,10 +56,10 @@ When the process finishes, the `nimbus_light_client` executable can be found in 
 
 Follow the [regular instructions](./eth1.md) for running the execution client, taking note of its JWT secret configuration that you will need in the next step.
 
-## Running the light client
+## Running the consensus light client
 
-The light client starts syncing from a trusted block.
-This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
+The consensus light client starts syncing from a trusted block.
+This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the consensus light client.
 
 ### 1. Obtaining a trusted block root
 
@@ -80,20 +80,20 @@ A block root may be obtained from another trusted beacon node, or from a trusted
     Otherwise, for example if the bottom-most slot was `Missed`, go back and pick a different epoch.
 
 !!! warning
-    Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state.
-    If that happens, stop the light client and restart it with a new trusted block root.
+    Selecting a block root from an untrusted source or using an outdated block root may lead to the consensus light client syncing to an unexpected state.
+    If that happens, stop the consensus light client and restart it with a new trusted block root.
     Depending on the EL client, its database must be deleted and sync restarted from scratch.
 
-### 2. Starting the light client
+### 2. Starting the consensus light client
 
-To start the light client, run the following commands (inserting your own trusted block root):
+To start the consensus light client, run the following commands (inserting your own trusted block root):
 
 === "Mainnet"
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
     JWTSECRET=path/to/execution/client/jwt.hex
     build/nimbus_light_client \
-        --web3-url=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
+        --el=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
@@ -102,17 +102,17 @@ To start the light client, run the following commands (inserting your own truste
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
     JWTSECRET=path/to/execution/client/jwt.hex
     build/nimbus_light_client --network=hoodi \
-        --web3-url=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
+        --el=http://127.0.0.1:8551 --jwt-secret="$JWTSECRET" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
 !!! tip
-    The light client can be left running in the background.
+    The consensus light client can be left running in the background.
     Note that a new trusted block root is required when restarting.
 
 ## Observing the sync process
 
-After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data.
+After a while, the consensus light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data.
 You should see logs similar to the following:
 
 ### Nimbus
@@ -144,8 +144,7 @@ INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   opt
 
 !!! note
     The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
-    As this is a new protocol, not all implementations are supporting it yet.
-    Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
+    Since not all consensus clients serve the light client data, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 
 === "Geth"
 

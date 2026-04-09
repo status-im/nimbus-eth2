@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2023 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,16 +13,13 @@
 # it once, upload it to Docker Hub and make sure it's being pulled regularly so
 # it's not deleted after 6 months of inactivity.
 
-# We use an older Debian version so we can support Raspbian's glibc-2.28:
-# https://github.com/status-im/nimbus-eth2/issues/2583
-FROM debian:10.10
+FROM debian:11.11
 
 SHELL ["/bin/bash", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
 RUN apt-get -qq update \
  && apt-get -qq -y install build-essential git-lfs \
-  binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu &>/dev/null \
+  g++-aarch64-linux-gnu &>/dev/null \
  && apt-get -qq clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-

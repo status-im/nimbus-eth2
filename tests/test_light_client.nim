@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -24,7 +24,7 @@ suite "Light client" & preset():
   const  # Test config, should be long enough to cover interesting transitions
     headPeriod = 4.SyncCommitteePeriod
   let
-    cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
+    cfg = block:  # Fork schedule that covers each `LightClientDataFork`
       static: doAssert ConsensusFork.high == ConsensusFork.Gloas
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch
@@ -46,7 +46,7 @@ suite "Light client" & preset():
     var cache: StateCache
     const maxAttestedSlotsPerPeriod = 3 * SLOTS_PER_EPOCH
     while true:
-      var slot = getStateField(dag.headState, slot)
+      var slot = dag.headState.slot
       doAssert targetSlot >= slot
       if targetSlot == slot: break
 
@@ -69,7 +69,7 @@ suite "Light client" & preset():
           dag.headState, cache, blocks.int, attested = attested,
           syncCommitteeRatio = syncCommitteeRatio, cfg = cfg):
         let added = withBlck(blck):
-          const nilCallback = (consensusFork.OnBlockAddedCallback)(nil)
+          const nilCallback = OnBlockAdded[consensusFork](nil)
           dag.addHeadBlock(verifier, forkyBlck, nilCallback)
         check: added.isOk()
         dag.updateHead(added[], quarantine, [])
@@ -77,9 +77,9 @@ suite "Light client" & preset():
   setup:
     const num_validators = SLOTS_PER_EPOCH
     let
-      validatorMonitor = newClone(ValidatorMonitor.init())
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
-        cfg, makeTestDB(num_validators, cfg = cfg), validatorMonitor, {},
+        cfg, cfg.makeTestDB(num_validators), validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
           serve: true,
           importMode: LightClientDataImportMode.OnlyNew))
@@ -142,7 +142,7 @@ suite "Light client" & preset():
       periodEpoch = headPeriod.start_epoch
       headSlot = (periodEpoch + 2).start_slot + 5
     dag.advanceToSlot(headSlot, verifier, quarantine[])
-    let currentSlot = getStateField(dag.headState, slot)
+    let currentSlot = dag.headState.slot
 
     # Initialize light client store
     var bootstrap = dag.getLightClientBootstrap(trusted_block_root)
@@ -233,7 +233,7 @@ suite "Light client" & preset():
     dag.advanceToSlot(finalizedSlot, verifier, quarantine[])
 
     # Initialize new DAG from checkpoint
-    let cpDb = BeaconChainDB.new("", cfg = cfg, inMemory = true)
+    let cpDb = BeaconChainDB.new("", cfg, inMemory = true)
     ChainDAGRef.preInit(cpDb, genesisState[])
     ChainDAGRef.preInit(cpDb, dag.headState) # dag.getForkedBlock(dag.head.bid).get)
     let cpDag = ChainDAGRef.init(

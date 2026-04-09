@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2023 Status Research & Development GmbH.
+# Copyright (c) 2023-2026 Status Research & Development GmbH.
 # Licensed under either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -42,12 +42,12 @@ for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
 
   ${NIMBUS_ETH1_BINARY} \
     --data-dir="${NIMBUS_ETH1_DATA_DIR}" \
-    --custom-network="${EXECUTION_GENESIS_JSON}" \
+    --network="${EXECUTION_GENESIS_JSON}" \
     --discovery=None \
     --tcp-port="${NIMBUS_ETH1_NET_PORTS[NIMBUS_ETH1_NODE_IDX]}"  \
     --jwt-secret="${JWT_FILE}" \
     --engine-api --engine-api-port="${NIMBUS_ETH1_AUTH_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
-    --rpc --rpc-port="${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
+    --rpc --rpc-api=eth,admin --http-port="${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" \
       &> "${DATA_DIR}/logs/nimbus_eth1.${NIMBUS_ETH1_NODE_IDX}.txt" &
   PID=$!
   echo $PID > "${DATA_DIR}/pids/nimbus_eth1.${NIMBUS_ETH1_NODE_IDX}"
@@ -60,21 +60,21 @@ for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
   NODE_ID=$(
     "${CURL_BINARY}" -sS -X POST \
                      -H 'Content-Type: application/json' \
-                     -d '{"jsonrpc":"2.0","id":"id","method":"net_nodeInfo"}' \
+                     -d '{"jsonrpc":"2.0","id":"id","method":"admin_nodeInfo"}' \
                      "http://localhost:${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]}" | "${JQ_BINARY}" .result.enode)
   log "EL Node ID" "${NODE_ID}"
   NIMBUS_ETH1_ENODES+=("${NODE_ID}")
 done
 
 # TODO Here we should connect to the Geth nodes as well
-echo "Connect all nodes though the nimbus_addPeer RPC call..."
+echo "Connect all nodes though the admin_addPeer RPC call..."
 for enode in "${NIMBUS_ETH1_ENODES[@]}"
 do
   for port in "${NIMBUS_ETH1_RPC_PORTS[@]}"
   do
     "${CURL_BINARY}" -sS -X POST \
                      -H 'Content-Type: application/json' \
-                     -d '{"jsonrpc":"2.0","id":"1","method":"nimbus_addPeer","params": ['"${enode}"']}' \
+                     -d '{"jsonrpc":"2.0","id":"1","method":"admin_addPeer","params": ['"${enode}"']}' \
                      "http://localhost:${port}" &
   done
 done

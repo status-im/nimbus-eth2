@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -32,14 +32,15 @@ from std/stats import RunningStat
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, addAttestation, addForkChoice, getAttestationsForBlock, init, prune
 from ../beacon_chain/consensus_object_pools/block_quarantine import Quarantine, init
+from ../beacon_chain/consensus_object_pools/payload_attestation_pool import
+  PayloadAttestationPool, addPayloadAttestation, getPayloadAttestationsForBlock, init
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, addContribution, addSyncCommitteeMessage, init,
   produceContribution, produceSyncAggregate, pruneData
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index, get_committee_count_per_slot,
-  get_committee_indices
-from ../beacon_chain/spec/state_transition_block import process_block
-from ../tests/testbcutil import addHeadBlock
+  get_committee_indices, get_ptc
+from ../tests/testbcutil import addHeadBlock, willSelectNewHead
 from ../tests/testblockutil import makeAttestationData, MockPrivKeys, `[]`
 
 type Timers = enum
@@ -50,6 +51,7 @@ type Timers = enum
   tAttest = "Have committee attest to block"
   tSyncCommittees = "Produce sync committee actions"
   tReplay = "Replay all produced blocks"
+  tPayloadAttestations = "Produce payload attestations"
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(
@@ -58,6 +60,9 @@ cli do(
   attesterRatio {.desc: "ratio of validators that attest in each round".} = 0.82,
   syncCommitteeRatio {.
     desc: "ratio of validators that perform sync committee actions in each round"
+  .} = 0.82,
+  payloadAttestationRatio {.
+    desc: "ratio of PTC validators that produce payload attestations"
   .} = 0.82,
   blockRatio {.desc: "ratio of slots with blocks".} = 1.0,
   replay = true
@@ -77,7 +82,7 @@ cli do(
   ChainDAGRef.preInit(db, genesisState[])
   let rng = HmacDrbgContext.new()
   var
-    validatorMonitor = newClone(ValidatorMonitor.init())
+    validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     taskpool =
       try:
@@ -87,10 +92,12 @@ cli do(
     verifier = BatchVerifier.init(rng, taskpool)
     quarantine = newClone(Quarantine.init(cfg))
     attPool = AttestationPool.init(dag, quarantine)
-    batchCrypto = BatchCrypto
-      .new(rng, eager, genesis_validators_root = dag.genesis_validators_root, taskpool)
-      .expect("working batcher")
+    batchCrypto = BatchCrypto.new(
+      rng, cfg.timeParams, eager,
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
+    payloadAttestationPool = PayloadAttestationPool.init(dag)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
@@ -103,8 +110,8 @@ cli do(
 
     dag.withUpdatedState(tmpState[], attestationHead.toBlockSlotId.expect("not nil")):
       let
-        fork = getStateField(updatedState, fork)
-        genesis_validators_root = getStateField(updatedState, genesis_validators_root)
+        fork = updatedState.fork
+        genesis_validators_root = dag.genesis_validators_root
         committees_per_slot =
           get_committee_count_per_slot(updatedState, slot.epoch, cache)
 
@@ -114,39 +121,15 @@ cli do(
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
             if tmpState.kind < ConsensusFork.Electra:
-              let
-                data =
-                  makeAttestationData(updatedState, slot, committee_index, bid.root)
-                sig = get_attestation_signature(
-                  fork, genesis_validators_root, data, MockPrivKeys[validator_index]
-                )
-                attestation = phase0.Attestation
-                  .init(
-                    [uint64 index_in_committee],
-                    committee.len,
-                    data,
-                    sig.toValidatorSig(),
-                  )
-                  .expect("valid data")
-
-              attPool.addAttestation(
-                attestation,
-                [validator_index],
-                attestation.aggregation_bits.len,
-                -1,
-                sig,
-                data.slot.start_beacon_time,
-              )
+              discard # no longer supported
             else:
-              var data =
-                makeAttestationData(updatedState, slot, committee_index, bid.root)
-              data.index = 0 # fix in makeAttestationData for Electra
               let
+                data = makeAttestationData(updatedState, slot, CommitteeIndex(0), bid.root)
                 sig = get_attestation_signature(
                   fork, genesis_validators_root, data, MockPrivKeys[validator_index]
                 )
                 attestation = SingleAttestation(
-                  committee_index: committee_index.distinctBase,
+                  committee_index: committee_index.uint64,
                   attester_index: validator_index.uint64,
                   data: data,
                   signature: sig.toValidatorSig(),
@@ -158,8 +141,7 @@ cli do(
                 committee.len,
                 index_in_committee,
                 sig,
-                data.slot.start_beacon_time,
-              )
+                data.slot.start_beacon_time(cfg.timeParams))
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -173,8 +155,9 @@ cli do(
       syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
       genesis_validators_root = dag.genesis_validators_root
       fork = dag.forkAtEpoch(slot.epoch)
-      messagesTime = slot.attestation_deadline()
-      contributionsTime = slot.sync_contribution_deadline()
+      consensusFork = dag.cfg.consensusForkAtEpoch(slot.epoch)
+      messagesTime = slot.attestation_deadline(cfg.timeParams, consensusFork)
+      contributionsTime = slot.sync_contribution_deadline(cfg.timeParams, consensusFork)
 
     var aggregators: seq[Aggregator]
 
@@ -253,7 +236,43 @@ cli do(
           # We ignore duplicates / already-covered contributions
           doAssert res.error()[0] == ValidationResult.Ignore
 
-  let blockRatio = blockRatio # can't find in proposeBlock otherwise (?)
+  proc handlePayloadAttestations(slot: Slot) =
+
+    dag.withUpdatedState(tmpState[],
+        dag.head.atSlot(slot).toBlockSlotId.expect("not nil")):
+      withState(updatedState):
+        when consensusFork >= ConsensusFork.Gloas:
+          let
+            fork = updatedState.fork
+            genesis_validators_root = dag.genesis_validators_root
+            wallTime = slot.start_beacon_time(dag.timeParams)
+            # We make the assumption that payload was present and blobs available
+            data = gloas.PayloadAttestationData(
+              beacon_block_root: dag.head.root,
+              slot: slot,
+              payload_present: true,
+              blob_data_available: true
+            )
+
+          for validator_index in get_ptc(forkyState.data, slot, cache):
+            if rand(r, 1.0) <= payloadAttestationRatio:
+              let 
+                sig = get_payload_attestation_message_signature(
+                  fork, genesis_validators_root,
+                  data, MockPrivKeys[validator_index])
+                message = gloas.PayloadAttestationMessage(
+                  validator_index: validator_index.uint64,
+                  data: data,
+                  signature: sig.toValidatorSig())
+              discard payloadAttestationPool.addPayloadAttestation(
+                message, wallTime)
+    do:
+      raiseAssert "withUpdatedState failed for payload attestations"
+
+  # These need to be captured in outer scope due to Nim issue with nested generic procs
+  # See: https://github.com/nim-lang/Nim/issues/20811
+  let blockRatio = blockRatio
+
   proc proposeBlock(
       consensusFork: static ConsensusFork,
       state: var ForkyHashedBeaconState,
@@ -271,26 +290,56 @@ cli do(
       )
       sync_aggregate = syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
 
+    let
+      epb =
+        when consensusFork >= ConsensusFork.Gloas:
+          let
+            bid =
+              ExecutionPayloadBid(
+                parent_block_hash: state.data.latest_block_hash,
+                parent_block_root: hash_tree_root(state.data.latest_block_header),
+                block_hash: default(Eth2Digest),
+                prev_randao:
+                  get_randao_mix(state.data, get_current_epoch(state.data)),
+                fee_recipient: default(ExecutionAddress),
+                gas_limit: 30000000'u64,
+                builder_index: BUILDER_INDEX_SELF_BUILD,
+                slot: slot,
+                value: 0.Gwei,
+                execution_payment: 0.Gwei,
+                blob_kzg_commitments: default(KzgCommitments))
+          SignedExecutionPayloadBid(
+            message: bid, signature: ValidatorSig.infinity())
+        else:
+          default(SignedExecutionPayloadBid)
+
+      payload_attestations =
+        when consensusFork >= ConsensusFork.Gloas:
+          payloadAttestationPool.getPayloadAttestationsForBlock(slot, cache)
+        else:
+          newSeq[PayloadAttestation]()
+
       message = makeBeaconBlock(
-          cfg,
-          consensusFork,
-          state,
-          cache,
-          proposerIdx,
-          randao_reveal.toValidatorSig(),
-          default(Eth1Data),
-          default(GraffitiBytes),
-          attPool.getAttestationsForBlock(state, cache),
-          default(seq[Deposit]),
-          default(BeaconBlockValidatorChanges),
-          sync_aggregate,
-          default(consensusFork.ExecutionPayloadForSigning),
-          {},
-        )
-        .expect("block")
+        cfg,
+        consensusFork,
+        state,
+        cache,
+        proposerIdx,
+        randao_reveal.toValidatorSig(),
+        default(Eth1Data),
+        default(GraffitiBytes),
+        attPool.getAttestationsForBlock(state, cache),
+        default(seq[Deposit]),
+        default(BeaconBlockValidatorChanges),
+        sync_aggregate,
+        default(consensusFork.ExecutionPayloadForSigning),
+        {},
+        default(ExecutionRequests),
+        epb,
+        payload_attestations
+      ).expect("block")
 
     var newBlock = consensusFork.SignedBeaconBlock(message: message)
-
     let blockRoot = withTimerRet(timers[tHashBlock]):
       hash_tree_root(newBlock.message)
     newBlock.root = blockRoot
@@ -303,24 +352,25 @@ cli do(
       .toValidatorSig()
 
     # TODO without the OnBlockAdded cast, Nim can't figure out the type (?)
-    let onAdded: OnBlockAdded[consensusFork.TrustedSignedBeaconBlock] = proc(
+    let onAdded: OnBlockAdded[consensusFork] = proc(
         blckRef: BlockRef,
         signedBlock: consensusFork.TrustedSignedBeaconBlock,
+        state: consensusFork.BeaconState,
         epochRef: EpochRef,
         unrealized: FinalityCheckpoints,
     ) =
       # Callback add to fork choice if valid
       attPool.addForkChoice(
         epochRef, blckRef, unrealized, signedBlock.message,
-        blckRef.slot.start_beacon_time,
+        blckRef.slot.start_beacon_time(cfg.timeParams),
       )
 
     let added = dag.addHeadBlock(verifier, newBlock, onAdded)
-
+    discard attPool.willSelectNewHead(added[])
     dag.updateHead(added[], quarantine[], [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()
-      attPool.prune()
+      attPool.prune(dag)
 
   for i in 0 ..< slots:
     let
@@ -333,7 +383,7 @@ cli do(
         var cache = StateCache()
         doAssert dag.updateState(tmpState[], bsi, false, cache, dag.updateFlags)
         withState(tmpState[]):
-          when consensusFork >= ConsensusFork.Bellatrix:
+          when consensusFork >= ConsensusFork.Electra:
             proposeBlock(consensusFork, forkyState, cache)
           else:
             raiseAssert "Unsupported fork " & $consensusFork
@@ -344,6 +394,9 @@ cli do(
     if syncCommitteeRatio > 0.0:
       withTimer(timers[tSyncCommittees]):
         handleSyncCommitteeActions(slot)
+    if payloadAttestationRatio > 0.0:
+      withTimer(timers[tPayloadAttestations]):
+        handlePayloadAttestations(slot)
 
     syncCommitteePool[].pruneData(slot)
 

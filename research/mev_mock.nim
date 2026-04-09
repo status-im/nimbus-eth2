@@ -60,13 +60,7 @@ proc getParentBlock(restClient: RestClientRef):
 
 proc getWithdrawals(restClient: RestClientRef):
     Future[Opt[seq[Withdrawal]]] {.async.} =
-  let resp: RestResponse[rest_types.GetNextWithdrawalsResponse] =
-    await restClient.getNextWithdrawals(StateIdent.init(StateIdentType.Head))
-
-  return if resp.status == HttpOk:
-    Opt.some resp.data.data
-  else:
-    Opt.none seq[Withdrawal]
+  Opt.none seq[Withdrawal]
 
 proc getInfo(parent_hash: Eth2Digest):
     Future[Opt[capella.ExecutionPayload]] {.async.} =

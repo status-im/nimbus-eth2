@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,7 @@ import
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
   "."/[block_pools_types, block_dag, blockchain_dag,
-       blockchain_dag_light_client]
+       blockchain_dag_light_client, block_quarantine]
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -28,18 +28,57 @@ export results, signatures_batch, block_dag, blockchain_dag
 logScope:
   topics = "clearance"
 
+proc verifyBlockProposer*(
+    dag: ChainDAGRef,
+    parent: BlockRef,
+    slot: Slot,
+    proposer_index: uint64,
+    blockRoot: Eth2Digest,
+    signature: ValidatorSig,
+    recentSignatures: RecentSidecarSignatureLru
+): Result[void, tuple[msg: cstring, invalid: bool]] =
+  ## Verify block proposer and signature, making sure to check that the proposer
+  ## was indeed elected for the given slot and that the signature checks out.
+  ##
+  ## Because the signature only covers the block body (via its root), it's
+  ## possible that the block itself is valid while the signature is not: in
+  ## this case false is returned for "invalid".
+  let proposer = dag.getProposer(parent, slot).valueOr:
+    warn "cannot compute proposer for block", parent, slot, proposer_index, blockRoot
+    return err(("verifyBlockProposer: cannot compute proposer", false)) # internal issue
+
+  # `getProposer` returns a trusted proposer index, while `proposer_index` may
+  # be invalid -> convert the former to the latter
+  if distinctBase(proposer) != proposer_index:
+    return err(("verifyBlockProposer: unexpected proposer", true))
+
+  # Fast path: If this (block_root, signature) pair was recently verified, skip verification
+  if (blockRoot, signature) in recentSignatures:
+    return ok()
+
+  let
+    proposerKey = dag.validatorKey(proposer).expect("valid after getProposer")
+    fork = dag.forkAtEpoch(slot.epoch)
+  if not verify_block_signature(
+    fork, dag.genesis_validators_root, slot, blockRoot, proposerKey, signature
+  ):
+    return err(("verifyBlockProposer: invalid signature", false))
+
+  ok()
+
 proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        optimisticStatus: OptimisticStatus,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnForkyBlockAdded,
+       onBlockAdded: OnBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert state.matches_block_slot(
     trustedBlock.root, trustedBlock.message.slot),
     "Given state must have the new block applied"
+  const consensusFork = typeof(trustedBlock).kind
 
   let
     blockRoot = trustedBlock.root
@@ -72,7 +111,7 @@ proc addResolvedHeadBlock(
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
-  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
+  dag.updateValidatorKeys(state.validators)
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
@@ -100,12 +139,15 @@ proc addResolvedHeadBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    let unrealized = withState(state):
+    let unrealized =
       when consensusFork >= ConsensusFork.Altair:
-        forkyState.data.compute_unrealized_finality()
+        state.forky(consensusFork).data.compute_unrealized_finality()
       else:
-        forkyState.data.compute_unrealized_finality(cache)
-    onBlockAdded(blockRef, trustedBlock, epochRef, unrealized)
+        state.forky(consensusFork).data.compute_unrealized_finality(cache)
+    onBlockAdded(
+      blockRef, trustedBlock, state.forky(consensusFork).data, epochRef, unrealized
+    )
+
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
 
@@ -134,29 +176,6 @@ proc checkStateTransition(
     err(VerifierError.Invalid)
   else:
     ok()
-
-proc advanceClearanceState*(dag: ChainDAGRef, nextSlot: Slot) =
-  # When the chain is synced, the most likely block to be produced is the block
-  # right after head - we can exploit this assumption and advance the state
-  # to that slot before the block arrives, thus allowing us to do the expensive
-  # epoch transition ahead of time.
-  # Notably, we use the clearance state here because that's where the block will
-  # first be seen - later, this state will be copied to the head state!
-  let head = dag.head
-  if dag.clearanceState.matches_block_slot(head.root, nextSlot):
-    return
-
-  let startTick = Moment.now()
-  var cache = StateCache()
-  if dag.updateState(
-    dag.clearanceState,
-    BlockSlotId.init(head.bid, nextSlot),
-    true,
-    cache,
-    dag.updateFlags,
-  ):
-    debug "Prepared clearance state for next block",
-      nextSlot, head, updateStateDur = Moment.now() - startTick
 
 proc checkHeadBlock*(
     dag: ChainDAGRef, signedBlock: ForkySignedBeaconBlock):
@@ -228,7 +247,7 @@ proc checkHeadBlock*(
 proc addHeadBlockWithParent*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock, parent: BlockRef,
-    optimisticStatus: OptimisticStatus, onBlockAdded: OnForkyBlockAdded
+    optimisticStatus: OptimisticStatus, onBlockAdded: OnBlockAdded
     ): Result[BlockRef, VerifierError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
@@ -285,13 +304,12 @@ proc addHeadBlockWithParent*(
   if skipBlsValidation notin dag.updateFlags:
     # TODO: remove skipBlsValidation
     var sigs: seq[SignatureSet]
-    if (let e = sigs.collectSignatureSets(
-        signedBlock, dag.db.immutableValidators,
-        dag.clearanceState, dag.cfg.genesisFork(), dag.cfg.CAPELLA_FORK_VERSION,
-        cache); e.isErr()):
+    sigs.collectSignatureSets(
+      signedBlock, dag.db.immutableValidators, dag.clearanceState,
+      dag.cfg.GENESIS_FORK_VERSION, dag.cfg.CAPELLA_FORK_VERSION, cache,
+    ).isOkOr:
       # A PublicKey or Signature isn't on the BLS12-381 curve
-      info "Unable to load signature sets",
-        err = e.error()
+      info "Unable to load signature sets", err = error
       return err(VerifierError.Invalid)
 
     if not verifier.batchVerify(sigs):
@@ -347,8 +365,7 @@ proc addBackfillBlock*(
           info "Invalid genesis block signature"
           return err(VerifierError.Invalid)
       else:
-        let proposerKey = dag.validatorKey(blck.proposer_index)
-        if proposerKey.isNone():
+        let proposerKey = dag.validatorKey(blck.proposer_index).valueOr:
           # We've verified that the block root matches our expectations by following
           # the chain of parents all the way from checkpoint. If all those blocks
           # were valid, the proposer_index in this block must also be valid, and we
@@ -362,10 +379,10 @@ proc addBackfillBlock*(
 
         if not verify_block_signature(
             dag.forkAtEpoch(blck.slot.epoch),
-            getStateField(dag.headState, genesis_validators_root),
+            dag.headState.genesis_validators_root,
             blck.slot,
             signedBlock.root,
-            proposerKey.get(),
+            proposerKey,
             signedBlock.signature):
           info "Block signature verification failed"
           return err(VerifierError.Invalid)
@@ -455,27 +472,161 @@ proc addBackfillBlock*(
 
   ok()
 
-template BlockAdded(kind: static ConsensusFork): untyped =
-  when kind == ConsensusFork.Gloas:
-    OnGloasBlockAdded
-  elif kind == ConsensusFork.Fulu:
-    OnFuluBlockAdded
-  elif kind == ConsensusFork.Electra:
-    OnElectraBlockAdded
-  elif kind == ConsensusFork.Deneb:
-    OnDenebBlockAdded
-  elif kind == ConsensusFork.Capella:
-    OnCapellaBlockAdded
-  elif kind == ConsensusFork.Bellatrix:
-    OnBellatrixBlockAdded
-  elif kind == ConsensusFork.Altair:
-    OnAltairBlockAdded
-  elif kind == ConsensusFork.Phase0:
-    OnPhase0BlockAdded
-  else:
-    static: raiseAssert "Unreachable"
+proc addHeadExecutionPayload*(
+    dag: ChainDAGRef,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+): Result[BlockRef, VerifierError] =
+  ## Try adding the execution payload envelope to the head block, which should
+  ## usually be invoked after the call of addHeadBlockWithParent()
+  ##
+  ## First check that the block and envelope are matched with the DAG block.
+  ## Then verify that it passes the state transition function.
 
-proc verifyBlockProposer*(
+  # Check if there is any valid envelope so that we can save some resources.
+  if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
+    return err(VerifierError.Duplicate)
+
+  template envelopeBlockRoot(): auto =
+    signedEnvelope.message.beacon_block_root
+
+  logScope:
+    blockRoot = shortLog(envelopeBlockRoot())
+    builderIdx = signedEnvelope.message.builder_index
+    slot = signedEnvelope.message.slot
+    signature = shortLog(signedEnvelope.signature)
+
+  const consensusFork = typeof(signedBlock).kind
+
+  # Quick check between the received block and envelope.
+  template bid(): auto =
+    signedBlock.message.body.signed_execution_payload_bid.message
+  if not (
+    signedBlock.message.slot == signedEnvelope.message.slot and
+    signedBlock.root == envelopeBlockRoot() and
+    bid.builder_index == signedEnvelope.message.builder_index and
+    bid.block_hash == signedEnvelope.message.payload.block_hash
+  ):
+    info "Envelope mismatches with this block"
+    return err(VerifierError.Invalid)
+
+  # Check with the DAG head.
+  let blck = dag.head
+  if blck.slot() > signedEnvelope.message.slot:
+    return err(VerifierError.Duplicate)
+  elif blck.slot() < signedEnvelope.message.slot:
+    # Envelopes in future slots would not be able reach here as the valid block
+    # should be missing. If they reach this point, we could not know whether it
+    # is valid or not due to missing of block.
+    return err(VerifierError.MissingParent)
+  elif blck.root() != envelopeBlockRoot():
+    # The above should have ensure that they are in the same slot. Now verify
+    # the envelope is for the head block.
+    debug "Envelope is not for the current head"
+    return err(VerifierError.Invalid)
+  elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
+       signedEnvelope.message.payload.block_hash:
+    # The envelope has been applied to the state so skipping it.
+    return err(VerifierError.Duplicate)
+
+  var cache: StateCache
+
+  # Load state cache for state transition function.
+  loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
+
+  debug "Envelope transitioning"
+
+  # Verify with state transition function.
+  process_execution_payload(
+    dag.cfg,
+    dag.clearanceState.forky(consensusFork),
+    signedEnvelope,
+    func(_: deneb.ExecutionPayload): bool = true,
+    cache,
+  ).isOkOr:
+    assign(dag.clearanceState, dag.headState)
+    info "Envelope transition failed", msg = error
+    return err(VerifierError.Invalid)
+
+  debug "Envelope transitioned"
+
+  # Put the envelope into db and update optimistic status for the block.
+  dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+  blck.markExecutionValid(true)
+
+  ok(blck)
+
+proc addBackfillExecutionPayload*(
+    dag: ChainDAGRef,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+): Result[void, VerifierError] =
+  template blockRoot(): auto = signedEnvelope.message.beacon_block_root
+  template envelope(): auto = signedEnvelope.message
+
+  logScope:
+    blockRoot = shortLog(blockRoot)
+    slot = envelope.slot
+    signature = shortLog(signedEnvelope.signature)
+    backfill = shortLog(dag.backfill)
+
+  let startTick = Moment.now()
+
+  # When a valid block is backfilled, dag.backfill has already moved to next
+  # parent. So we need to check with finalizedHead and database.
+  if envelope.slot > dag.finalizedHead.slot:
+    return err(VerifierError.Invalid)
+
+  # Check root and slot of the block
+  let bsi = dag.getBlockIdAtSlot(envelope.slot).valueOr:
+    # This should not be happening as we backfill envelope after the block is
+    # backfilled successfully.
+    return err(VerifierError.Invalid)
+  if blockRoot != bsi.bid.root:
+    return err(VerifierError.Invalid)
+  if dag.db.containsExecutionPayloadEnvelope(blockRoot):
+    return err(VerifierError.Duplicate)
+
+  # Check builder index is matched with the block
+  block:
+    let blck = dag.getForkedBlock(bsi.bid).valueOr:
+      # The block should exist as we have checked above. Database may be
+      # corrupted.
+      debug "Backfill envelope cannot find forked block, database corrupt?"
+      return err(VerifierError.Invalid)
+    withBlck(blck):
+      when consensusFork >= ConsensusFork.Gloas:
+        template bid(): auto =
+          forkyBlck.message.body.signed_execution_payload_bid
+        if bid.message.builder_index != envelope.builder_index:
+          return err(VerifierError.Invalid)
+      else:
+        return err(VerifierError.UnviableFork)
+
+  # Verify signature
+  let builderKey = dag.validatorKey(envelope.builder_index).valueOr:
+    fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
+      head = shortLog(dag.head), tail = shortLog(dag.tail)
+    quit 1
+  if not verify_execution_payload_envelope_signature(
+      dag.forkAtEpoch(envelope.slot.epoch),
+      dag.genesis_validators_root,
+      envelope.slot.epoch,
+      envelope,
+      builderKey,
+      signedEnvelope.signature):
+    return err(VerifierError.Invalid)
+  let sigVerifyTick = Moment.now
+
+  dag.db.putExecutionPayloadEnvelope(signedEnvelope)
+  let putBlockTick = Moment.now
+
+  debug "Envelope backfilled",
+    sigVerifyDur = sigVerifyTick - startTick,
+    putBlockDur = putBlockTick - sigVerifyTick
+
+  ok()
+
+proc verifyBlockSignatures*(
     verifier: var BatchVerifier,
     fork: Fork,
     genesis_validators_root: Eth2Digest,
@@ -492,75 +643,59 @@ proc verifyBlockProposer*(
   else:
     ok()
 
-proc addBackfillBlockData*(
+proc addLightForwardBlock*(
     dag: ChainDAGRef,
+    consensusFork: static ConsensusFork,
     bdata: BlockData,
     onStateUpdated: OnStateUpdated,
-    onBlockAdded: OnForkedBlockAdded
+    onBlockAdded: OnBlockAdded,
 ): Result[void, VerifierError] =
   var cache = StateCache()
+  template forkyBlck: untyped = bdata.blck.forky(consensusFork)
+  let
+    parent = checkHeadBlock(dag, forkyBlck).valueOr:
+      if error == VerifierError.Duplicate:
+        return ok()
+      return err(error)
+    startTick = Moment.now()
+    clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
+    updateFlags1 = dag.updateFlags
+      # TODO (cheatfate): {skipLastStateRootCalculation} flag here could
+      # improve performance by 100%, but this approach needs some
+      # improvements, which is unclear.
 
-  withBlck(bdata.blck):
-    let
-      parent = checkHeadBlock(dag, forkyBlck).valueOr:
-        if error == VerifierError.Duplicate:
-          return ok()
-        return err(error)
-      startTick = Moment.now()
-      clearanceBlock = BlockSlotId.init(parent.bid, forkyBlck.message.slot)
-      updateFlags1 = dag.updateFlags
-        # TODO (cheatfate): {skipLastStateRootCalculation} flag here could
-        # improve performance by 100%, but this approach needs some
-        # improvements, which is unclear.
+  if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
+                      updateFlags1):
+    error "Unable to load clearance state for parent block, " &
+          "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
+    return err(VerifierError.MissingParent)
 
-    if not updateState(dag, dag.clearanceState, clearanceBlock, true, cache,
-                       updateFlags1):
-      error "Unable to load clearance state for parent block, " &
-            "database corrupt?", clearanceBlock = shortLog(clearanceBlock)
-      return err(VerifierError.MissingParent)
+  let proposerVerifyTick = Moment.now()
 
-    let proposerVerifyTick = Moment.now()
+  if not(isNil(onStateUpdated)):
+    ? onStateUpdated(forkyBlck.message.slot)
 
-    if not(isNil(onStateUpdated)):
-      ? onStateUpdated(forkyBlck.message.slot)
+  let
+    stateDataTick = Moment.now()
+    updateFlags2 =
+      dag.updateFlags + {skipBlsValidation, skipStateRootValidation}
 
-    let
-      stateDataTick = Moment.now()
-      updateFlags2 =
-        dag.updateFlags + {skipBlsValidation, skipStateRootValidation}
+  ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags2)
 
-    ? checkStateTransition(dag, forkyBlck.asSigVerified(), cache, updateFlags2)
+  let stateVerifyTick = Moment.now()
 
-    let stateVerifyTick = Moment.now()
+  if bdata.blob.isSome():
+    for blob in bdata.blob.get():
+      dag.db.putBlobSidecar(blob[])
 
-    if bdata.blob.isSome():
-      for blob in bdata.blob.get():
-        dag.db.putBlobSidecar(blob[])
-
-    type Trusted = typeof forkyBlck.asTrusted()
-
-    proc onBlockAddedHandler(
-        blckRef: BlockRef,
-        trustedBlock: Trusted,
-        epochRef: EpochRef,
-        unrealized: FinalityCheckpoints
-    ) {.gcsafe, raises: [].} =
-      onBlockAdded(
-        blckRef,
-        ForkedTrustedSignedBeaconBlock.init(trustedBlock),
-        epochRef,
-        unrealized)
-
-    let blockHandler: BlockAdded(consensusFork) = onBlockAddedHandler
-
-    discard addResolvedHeadBlock(
-      dag, dag.clearanceState,
-      forkyBlck.asTrusted(),
-      OptimisticStatus.notValidated,
-      parent, cache,
-      blockHandler,
-      proposerVerifyTick - startTick,
-      stateDataTick - proposerVerifyTick,
-      stateVerifyTick - stateDataTick)
+  discard addResolvedHeadBlock(
+    dag, dag.clearanceState,
+    forkyBlck.asTrusted(),
+    OptimisticStatus.notValidated,
+    parent, cache,
+    onBlockAdded,
+    proposerVerifyTick - startTick,
+    stateDataTick - proposerVerifyTick,
+    stateVerifyTick - stateDataTick)
 
   ok()

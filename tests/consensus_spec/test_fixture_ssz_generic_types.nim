@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,7 @@ import
     strutils, streams, strformat, strscans,
     macros, typetraits],
   # Status libraries
-  faststreams, snappy, stint, ../testutil,
+  faststreams, serialization/case_objects, snappy, stint, ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -86,46 +86,72 @@ type
     D: BitList[6]
     E: BitArray[8]
 
-  # ProgressiveBitsStruct = object
-  #   A: BitArray[256]
-  #   B: BitList[256]
-  #   C: BitSeq
-  #   D: BitArray[257]
-  #   E: BitList[257]
-  #   F: BitSeq
-  #   G: BitArray[1280]
-  #   H: BitList[1280]
-  #   I: BitSeq
-  #   J: BitArray[1281]
-  #   K: BitList[1281]
-  #   L: BitSeq
+  ProgressiveBitsStruct = object
+    A: BitArray[256]
+    B: BitList[256]
+    C: BitSeq
+    D: BitArray[257]
+    E: BitList[257]
+    F: BitSeq
+    G: BitArray[1280]
+    H: BitList[1280]
+    I: BitSeq
+    J: BitArray[1281]
+    K: BitList[1281]
+    L: BitSeq
 
-  # ProgressiveSingleFieldContainerTestStruct
-  #     {.sszActiveFields: [1].} = object
-  #   A: byte
+  ProgressiveSingleFieldContainerTestStruct
+      {.sszActiveFields: [1].} = object
+    A: byte
 
-  # ProgressiveSingleListContainerTestStruct
-  #     {.sszActiveFields: [0, 0, 0, 0, 1].} = object
-  #   C: BitSeq
+  ProgressiveSingleListContainerTestStruct
+      {.sszActiveFields: [0, 0, 0, 0, 1].} = object
+    C: BitSeq
 
-  # ProgressiveVarTestStruct
-  #     {.sszActiveFields: [1, 0, 1, 0, 1].} = object
-  #   A: byte
-  #   B: List[uint16, 123]
-  #   C: BitSeq
+  ProgressiveVarTestStruct
+      {.sszActiveFields: [1, 0, 1, 0, 1].} = object
+    A: byte
+    B: List[uint16, 123]
+    C: BitSeq
 
-  # ProgressiveComplexTestStruct
-  #     {.sszActiveFields: [
-  #       1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1
-  #     ].} = object
-  #   A: byte
-  #   B: List[uint16, 123]
-  #   C: BitSeq
-  #   D: seq[uint64]
-  #   E: seq[SmallTestStruct]
-  #   F: seq[seq[VarTestStruct]]
-  #   G: List[ProgressiveSingleFieldContainerTestStruct, 10]
-  #   H: seq[ProgressiveVarTestStruct]
+  ProgressiveComplexTestStruct
+      {.sszActiveFields: [
+        1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1
+      ].} = object
+    A: byte
+    B: List[uint16, 123]
+    C: BitSeq
+    D: seq[uint64]
+    E: seq[SmallTestStruct]
+    F: seq[seq[VarTestStruct]]
+    G: List[ProgressiveSingleFieldContainerTestStruct, 10]
+    H: seq[ProgressiveVarTestStruct]
+
+  SelectorA {.pure.} = enum
+    a = 1
+  CompatibleUnionA {.allowDiscriminatorsWithoutZero.} = object
+    case selector: SelectorA
+    of SelectorA.a: aData: ProgressiveSingleFieldContainerTestStruct
+
+  SelectorBC {.pure.} = enum
+    b = 2
+    c = 3
+  CompatibleUnionBC {.allowDiscriminatorsWithoutZero.} = object
+    case selector: SelectorBC
+    of SelectorBC.b: bData: ProgressiveSingleListContainerTestStruct
+    of SelectorBC.c: cData: ProgressiveVarTestStruct
+
+  SelectorABCA {.pure.} = enum
+    a1 = 1
+    b = 2
+    c = 3
+    a4 = 4
+  CompatibleUnionABCA {.allowDiscriminatorsWithoutZero.} = object
+    case selector: SelectorABCA
+    of SelectorABCA.a1, SelectorABCA.a4:
+      aData: ProgressiveSingleFieldContainerTestStruct
+    of SelectorABCA.b: bData: ProgressiveSingleListContainerTestStruct
+    of SelectorABCA.c: cData: ProgressiveVarTestStruct
 
 # Type specific checks
 # ------------------------------------------------------------------------
@@ -146,33 +172,35 @@ proc checkBasic(
 
   # TODO check the value
 
-# proc checkProgressiveList(
-#     sszSubType, dir: string, expectedHash: SSZHashTreeRoot
-# ) {.raises: [
-#     IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
-#   var typeIdent: string
-#   let wasMatched =
-#     try:
-#       scanf(sszSubType, "proglist_$+", typeIdent)
-#     except ValueError:
-#       false  # Parsed `size` is out of range
-#   doAssert wasMatched
+proc checkProgressiveList(
+    sszSubType, dir: string, expectedHash: SSZHashTreeRoot
+) {.raises: [
+    IOError, SerializationError, TestSizeError, UnconsumedInput, ValueError].} =
+  var typeIdent: string
+  let wasMatched =
+    try:
+      scanf(sszSubType, "proglist_$+_", typeIdent)
+    except ValueError:
+      false  # Parsed `size` is out of range
+  doAssert wasMatched
 
-#   case typeIdent
-#   of "bool":
-#     checkBasic(seq[bool], dir, expectedHash)
-#   of "uint8":
-#     checkBasic(seq[uint8], dir, expectedHash)
-#   of "uint16":
-#     checkBasic(seq[uint16], dir, expectedHash)
-#   of "uint32":
-#     checkBasic(seq[uint32], dir, expectedHash)
-#   of "uint64":
-#     checkBasic(seq[uint64], dir, expectedHash)
-#   of "uint128":
-#     checkBasic(seq[UInt128], dir, expectedHash)
-#   of "uint256":
-#     checkBasic(seq[UInt256], dir, expectedHash)
+  case typeIdent
+  of "bool":
+    checkBasic(seq[bool], dir, expectedHash)
+  of "uint8":
+    checkBasic(seq[uint8], dir, expectedHash)
+  of "uint16":
+    checkBasic(seq[uint16], dir, expectedHash)
+  of "uint32":
+    checkBasic(seq[uint32], dir, expectedHash)
+  of "uint64":
+    checkBasic(seq[uint64], dir, expectedHash)
+  of "uint128":
+    checkBasic(seq[UInt128], dir, expectedHash)
+  of "uint256":
+    checkBasic(seq[UInt256], dir, expectedHash)
+  else:
+    raise newException(ValueError, "unknown ssz type in test: " & sszSubType)
 
 macro testVector(typeIdent: string, size: int): untyped =
   # find the compile-time type to test
@@ -359,10 +387,21 @@ proc sszCheck(dir, sszType, sszSubType: string)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_progressive_list":
-    skip()  # checkProgressiveList(sszSubType, dir, expectedHash)
+    checkProgressiveList(sszSubType, dir, expectedHash)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
   of "bitvector": checkBitVector(sszSubType, dir, expectedHash)
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
+  of "compatible_unions":
+    var name: string
+    let wasMatched = scanf(sszSubType, "$+_", name)
+    doAssert wasMatched
+    case name
+    of "CompatibleUnionA": checkBasic(CompatibleUnionA, dir, expectedHash)
+    of "CompatibleUnionBC": checkBasic(CompatibleUnionBC, dir, expectedHash)
+    of "CompatibleUnionABCA": checkBasic(CompatibleUnionABCA, dir, expectedHash)
+    else:
+      raise newException(ValueError,
+        "unknown compatible union in test: " & sszSubType)
   of "containers":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)
@@ -376,31 +415,30 @@ proc sszCheck(dir, sszType, sszSubType: string)
       checkBasic(ComplexTestStruct, dir, expectedHash)
       checkBasic(HashArrayComplexTestStruct, dir, expectedHash)
     of "ProgressiveTestStruct":
-      skip()  #checkBasic(ProgressiveTestStruct, dir, expectedHash)
+      checkBasic(ProgressiveTestStruct, dir, expectedHash)
     of "BitsStruct": checkBasic(BitsStruct, dir, expectedHash)
     of "ProgressiveBitsStruct":
-      skip()  # checkBasic(ProgressiveBitsStruct, dir, expectedHash)
+      checkBasic(ProgressiveBitsStruct, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown container in test: " & sszSubType)
   of "progressive_bitlist":
-    skip()  # checkBasic(BitSeq, dir, expectedHash)
+    checkBasic(BitSeq, dir, expectedHash)
   of "progressive_containers":
     var name: string
     let wasMatched = scanf(sszSubType, "$+_", name)
     doAssert wasMatched
-    skip()
-    # case name
-    # of "ProgressiveSingleFieldContainerTestStruct":
-    #   checkBasic(ProgressiveSingleFieldContainerTestStruct, dir, expectedHash)
-    # of "ProgressiveSingleListContainerTestStruct":
-    #   checkBasic(ProgressiveSingleListContainerTestStruct, dir, expectedHash)
-    # of "ProgressiveVarTestStruct":
-    #   checkBasic(ProgressiveVarTestStruct, dir, expectedHash)
-    # of "ProgressiveComplexTestStruct":
-    #   checkBasic(ProgressiveComplexTestStruct, dir, expectedHash)
-    # else:
-    #   raise newException(ValueError,
-    #     "unknown progressive container in test: " & sszSubType)
+    case name
+    of "ProgressiveSingleFieldContainerTestStruct":
+      checkBasic(ProgressiveSingleFieldContainerTestStruct, dir, expectedHash)
+    of "ProgressiveSingleListContainerTestStruct":
+      checkBasic(ProgressiveSingleListContainerTestStruct, dir, expectedHash)
+    of "ProgressiveVarTestStruct":
+      checkBasic(ProgressiveVarTestStruct, dir, expectedHash)
+    of "ProgressiveComplexTestStruct":
+      checkBasic(ProgressiveComplexTestStruct, dir, expectedHash)
+    else:
+      raise newException(ValueError,
+        "unknown progressive container in test: " & sszSubType)
   else:
     raise newException(ValueError, "unknown ssz type in test: " & sszType)
 

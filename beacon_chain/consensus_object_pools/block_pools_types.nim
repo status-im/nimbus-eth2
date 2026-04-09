@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,8 +11,7 @@ import
   # Standard library
   std/[tables, hashes],
   # Status libraries
-  chronicles,
-  results,
+  chronicles, libp2p/peerid, results,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
   ".."/[beacon_chain_db, era_db],
@@ -131,12 +130,8 @@ type
 
     eaSlot*: Slot
       ## Earliest available slot is the earliest slot at which the BN can
-      ## guarantee serving blocks with sidecars.
-
-    erSlot*: Slot
-      ## Earliest refilled slot is the earliest slot at which excess
-      ## DataColumnSidecar downloading finishes, if erSlot = GENESIS_SLOT
-      ## we can deduce that validator custody is inactive.
+      ## guarantee serving blocks (and sidecars which are a subset of slots
+      ## pertaining to the DA retention window of sidecars).
 
     validatorMonitor*: ref ValidatorMonitor
 
@@ -277,6 +272,8 @@ type
 
     shuffled_active_validator_indices*: seq[ValidatorIndex]
 
+  ForkChoiceBalance* = distinct Gwei
+
   EpochRef* = ref object
     key*: EpochKey
 
@@ -291,33 +288,15 @@ type
     shufflingRef*: ShufflingRef
 
     total_active_balance*: Gwei
-
-    # balances, as used in fork choice
-    effective_balances_bytes*: seq[byte]
+    fork_choice_balances_bytes*: seq[byte]
 
   BlockData* = object
     blck*: ForkedSignedBeaconBlock
     blob*: Opt[BlobSidecars]
 
-  OnBlockAdded*[T: ForkyTrustedSignedBeaconBlock] = proc(
-    blckRef: BlockRef, blck: T, epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
-  OnPhase0BlockAdded* = OnBlockAdded[phase0.TrustedSignedBeaconBlock]
-  OnAltairBlockAdded* = OnBlockAdded[altair.TrustedSignedBeaconBlock]
-  OnBellatrixBlockAdded* = OnBlockAdded[bellatrix.TrustedSignedBeaconBlock]
-  OnCapellaBlockAdded* = OnBlockAdded[capella.TrustedSignedBeaconBlock]
-  OnDenebBlockAdded* = OnBlockAdded[deneb.TrustedSignedBeaconBlock]
-  OnElectraBlockAdded* = OnBlockAdded[electra.TrustedSignedBeaconBlock]
-  OnFuluBlockAdded* = OnBlockAdded[fulu.TrustedSignedBeaconBlock]
-  OnGloasBlockAdded* = OnBlockAdded[gloas.TrustedSignedBeaconBlock]
-
-  OnForkyBlockAdded* =
-    OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded | OnDenebBlockAdded | OnElectraBlockAdded |
-    OnFuluBlockAdded | OnGloasBlockAdded
-
-  OnForkedBlockAdded* = proc(
-    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
+  OnBlockAdded*[consensusFork: static ConsensusFork] = proc(
+    blckRef: BlockRef, blck: consensusFork.TrustedSignedBeaconBlock,
+    state: consensusFork.BeaconState, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
 
   OnStateUpdated* = proc(
@@ -356,33 +335,18 @@ type
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
 
-template OnBlockAddedCallback*(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Gloas:
-    typedesc[OnGloasBlockAdded]
-  elif kind == ConsensusFork.Fulu:
-    typedesc[OnFuluBlockAdded]
-  elif kind == ConsensusFork.Electra:
-    typedesc[OnElectraBlockAdded]
-  elif kind == ConsensusFork.Deneb:
-    typedesc[OnDenebBlockAdded]
-  elif kind == ConsensusFork.Capella:
-    typedesc[OnCapellaBlockAdded]
-  elif kind == ConsensusFork.Bellatrix:
-    typedesc[OnBellatrixBlockAdded]
-  elif kind == ConsensusFork.Altair:
-    typedesc[OnAltairBlockAdded]
-  elif kind == ConsensusFork.Phase0:
-    typedesc[OnPhase0BlockAdded]
-  else:
-    static: raiseAssert "Unreachable"
+  EventBeaconBlockGossipPeerObject* = object
+    blck*: ForkedSignedBeaconBlock
+    src*: PeerId
+
+template timeParams*(dag: ChainDAGRef): TimeParams =
+  dag.cfg.timeParams
 
 func proposer_dependent_slot*(epochRef: EpochRef): Slot =
   epochRef.key.epoch.proposer_dependent_slot()
 
 func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
   shufflingRef.epoch.attester_dependent_slot()
-
-template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
   ## When there's a gap in the block database, this is the most recent block
@@ -407,7 +371,7 @@ func horizon*(dag: ChainDAGRef): Slot =
     GENESIS_SLOT
 
 func earliestAvailableSlot*(dag: ChainDAGRef): Slot =
-  max(dag.eaSlot, dag.erSlot)
+  dag.eaSlot
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 
@@ -507,3 +471,13 @@ func init*(t: typedesc[EventBeaconBlockGossipObject],
       slot: forkyBlck.message.slot,
       block_root: forkyBlck.root
     )
+
+func init*(
+    t: typedesc[EventBeaconBlockGossipPeerObject],
+    v: ForkySignedBeaconBlock,
+    s: PeerId
+): EventBeaconBlockGossipPeerObject =
+  EventBeaconBlockGossipPeerObject(
+    blck: ForkedSignedBeaconBlock.init(v),
+    src: s
+  )

@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, chronos, snappy, snappy/codec,
@@ -21,6 +21,8 @@ logScope:
 const
   blockResponseCost = allowedOpsPerSecondCost(64)
     ## Allow syncing ~64 blocks/sec (minus request costs)
+  envelopeResponseCost = allowedOpsPerSecondCost(64)
+    ## Part of beacon block so keep it aligned with block's
   blobResponseCost = allowedOpsPerSecondCost(1000)
     ## Multiple can exist per block, they are much smaller than blocks
   dataColumnResponseCost = allowedOpsPerSecondCost(8000)
@@ -63,6 +65,29 @@ proc readChunkPayload*(
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
+
+proc readChunkPayload*(
+    conn: Connection, peer: Peer,
+    MsgType: type (ref gloas.SignedExecutionPayloadEnvelope)):
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+  let contextFork =
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
+
+  withConsensusFork(contextFork):
+    when consensusFork >= ConsensusFork.Gloas:
+      let res = await readChunkPayload(conn, peer, gloas.SignedExecutionPayloadEnvelope)
+      if res.isOk:
+        return ok newClone(res.get)
+      else:
+        return err(res.error)
+    else:
+      return neterr InvalidContextBytes
 
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref BlobSidecar)):
@@ -175,29 +200,33 @@ template getBlobSidecarsByRange(
       dag.getBlockRange(startSlot, blockIds.toOpenArray(0, endIndex))
 
   var
-    found = 0
+    found = 0'u64
     bytes: seq[byte]
 
-  for i in startIndex..endIndex:
-    for j in 0..<blobsPerBlock:
-      if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
-        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-          warn "Cannot read blobs sidecar size, database corrupt?",
-            bytes = bytes.len(), blck = shortLog(blockIds[i])
-          continue
+  block outer:
+    for i in startIndex .. endIndex:
+      for j in 0 ..< blobsPerBlock:
+        if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
+          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+            warn "Cannot read blobs sidecar size, database corrupt?",
+              bytes = bytes.len(), blck = shortLog(blockIds[i])
+            continue
 
-        # TODO extract from libp2pProtocol
-        peer.awaitQuota(
-          blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
-        peer.network.awaitQuota(
-          blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
+          # TODO extract from libp2pProtocol
+          peer.awaitQuota(
+            blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
+          peer.network.awaitQuota(
+            blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
 
-        await response.writeBytesSZ(
-          uncompressedLen, bytes,
-          peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
-        inc found
-      else:
-        break
+          await response.writeBytesSZ(
+            uncompressedLen, bytes,
+            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
+          inc found
+        else:
+          break
+
+        if found >= maxReqSidecars:
+          break outer
 
   debug "BlobSidecar v" & versionNumber & " range request done",
     peer, startSlot, count = reqCount, found
@@ -331,6 +360,106 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
+  proc executionPayloadEnvelopesByRange(
+      peer: Peer,
+      startSlot: Slot,
+      reqCount: uint64,
+      response: MultipleChunksResponse[
+        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS])
+      {.async, libp2pProtocol("execution_payload_envelopes_by_range", 1).} =
+
+    if reqCount == 0:
+      raise newException(InvalidInputsError, "Empty range requested")
+
+    var blocks: array[MAX_REQUEST_BLOCKS.int, BlockId]
+    let dag = peer.networkState.dag
+    if startSlot < dag.backfill.slot:
+      # Peers that are unable to reply to block requests within the
+      # `MIN_EPOCHS_FOR_BLOCK_REQUESTS` epoch range SHOULD respond with
+      # error code `3: ResourceUnavailable`.
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/phase0/p2p-interface.md#responding-side
+      raise newException(ResourceUnavailableError, "Requested envelope is unavailable")
+
+    let
+      # Limit number of blocks in response
+      count = int min(reqCount, blocks.lenu64)
+      endIndex = count - 1
+      startIndex = dag.getBlockRange(
+        startSlot, blocks.toOpenArray(0, endIndex))
+
+    var
+      found = 0
+      bytes: seq[byte]
+
+    for i in startIndex..endIndex:
+      if dag.db.getExecutionPayloadEnvelopeSZ(blocks[i].root, bytes):
+        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+          warn "Cannot read block size, database corrupt?",
+            bytes = bytes.len(), blck = shortLog(blocks[i])
+          continue
+
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_range/1")
+        peer.network.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_range/1")
+
+        await response.writeBytesSZ(
+          uncompressedLen, bytes,
+          peer.network.forkDigestAtEpoch(blocks[i].slot.epoch).data)
+
+        inc found
+
+    if found == 0 and startSlot < dag.horizon:
+      # Distinguish empty response (we know that the slot is empty)
+      # from unavailable response (we have not backfilled / range got pruned).
+      # For slots before the horizon, data is available on a best-effort basis
+      raise newException(ResourceUnavailableError, BlocksUnavailable)
+
+    debug "Envelope range request done", peer, startSlot, count
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyroot-v1
+  proc executionPayloadEnvelopesByRoot(
+      peer: Peer,
+      blockRoots: BlockRootsList,
+      response: MultipleChunksResponse[
+        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS])
+      {.async, libp2pProtocol("execution_payload_envelopes_by_root", 1).} =
+
+    if blockRoots.len == 0:
+      raise newException(InvalidInputsError, "No blocks requested")
+
+    let
+      dag = peer.networkState.dag
+      count = blockRoots.len
+
+    var
+      found = 0
+      bytes: seq[byte]
+
+    for i in 0..<count:
+      let
+        blockRef = dag.getBlockRef(blockRoots[i]).valueOr:
+          continue
+
+      if dag.db.getExecutionPayloadEnvelopeSZ(blockRef.root, bytes):
+        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+          warn "Cannot read block size, database corrupt?",
+            bytes = bytes.len(), blck = shortLog(blockRef)
+          continue
+
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_root/1")
+        peer.network.awaitQuota(envelopeResponseCost, "execution_payload_envelopes_by_root/1")
+
+        await response.writeBytesSZ(
+          uncompressedLen, bytes,
+          peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
+
+        inc found
+
+    debug "Envelope root request done",
+      peer, roots = blockRoots.len, count, found
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
   proc blobSidecarsByRoot(
       peer: Peer,
@@ -375,7 +504,7 @@ p2pProtocol BeaconSync(version = 1,
       peer.networkState.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       peer.networkState.dag.cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
 
-  # https://github.com/ethereum/consensus-specs/blob/b8b5fbb8d16f52d42a716fa93289062fe2124c7c/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
       peer: Peer,
       colIds: DataColumnsByRootIdentifierList,
@@ -387,12 +516,21 @@ p2pProtocol BeaconSync(version = 1,
     if colIds.len == 0:
       raise newException(InvalidInputsError, "No data columns request for root")
 
+    static: doAssert MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS ==
+      MAX_REQUEST_DATA_COLUMN_SIDECARS
     if colIds.lenu64 > MAX_REQUEST_BLOCKS_DENEB:
       raise newException(InvalidInputsError, "Exceeding data column request limit")
 
     let
       dag = peer.networkState.dag
       count = colIds.len
+      epochBoundary =
+        if dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS >=
+            dag.head.slot.epoch:
+          GENESIS_EPOCH
+        else:
+          dag.head.slot.epoch -
+            dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
 
     var
       found = 0
@@ -413,10 +551,15 @@ p2pProtocol BeaconSync(version = 1,
         let bsid = dag.getBlockIdAtSlot(requiredBid.slot).valueOr:
           continue
         requiredBid = bsid.bid
+
+      if requiredBid.slot.epoch < epochBoundary:
+        continue
+
       let indices =
         colIds[i].indices
       for id in indices:
-        if dag.db.getDataColumnSidecarSZ(requiredBid.root, id, bytes):
+        if dag.db.getDataColumnSidecarSZ(
+            ConsensusFork.Fulu, requiredBid.root, id, bytes):
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
             warn "Cannot read data column size, database corrupt?",
               bytes = bytes.len, blck = shortLog(requiredBid), columnIndex = id
@@ -455,14 +598,13 @@ p2pProtocol BeaconSync(version = 1,
 
     let
       dag = peer.networkState.dag
-      # Using MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS until
-      # MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS is released in
-      # Fulu. Effectively both the values are same
       epochBoundary =
-        if dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS >= dag.head.slot.epoch:
+        if dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS >=
+            dag.head.slot.epoch:
           GENESIS_EPOCH
         else:
-          dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+          dag.head.slot.epoch -
+            dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
 
     if startSlot.epoch < epochBoundary:
       raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
@@ -475,32 +617,33 @@ p2pProtocol BeaconSync(version = 1,
         dag.getBlockRange(startSlot, blockIds.toOpenArray(0, endIndex))
 
     var
-      found = 0
+      found = 0'u64
       bytes: seq[byte]
 
-    for i in startIndex..endIndex:
-      for k in reqColumns:
-        if dag.db.getDataColumnSidecarSZ(blockIds[i].root, ColumnIndex k, bytes):
-          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-            warn "Cannot read data column sidecar size, database corrup?",
-              bytes = bytes.len, blck = shortLog(blockIds[i])
-            continue
+    block outer:
+      for i in startIndex..endIndex:
+        for k in reqColumns:
+          if dag.db.getDataColumnSidecarSZ(
+              ConsensusFork.Fulu, blockIds[i].root, ColumnIndex k, bytes):
+            let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+              warn "Cannot read data column sidecar size, database corrup?",
+                bytes = bytes.len, blck = shortLog(blockIds[i])
+              continue
 
-          peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
-          peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
+            peer.network.awaitQuota(dataColumnResponseCost, "data_column_sidecars_by_range/1")
 
-          await response.writeBytesSZ(
-            uncompressedLen, bytes,
-            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
-          inc found
+            await response.writeBytesSZ(
+              uncompressedLen, bytes,
+              peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
+            inc found
 
-          var
-            respondedCols: seq[ColumnIndex]
-          respondedCols.add(k)
+            # additional logging for devnets
+            trace "responded to data column sidecar range request",
+              peer, blck = shortLog(blockIds[i]), column = k
 
-          # additional logging for devnets
-          trace "responded to data column sidecar range request",
-            peer, blck = shortLog(blockIds[i]), columns = respondedCols
+            if found >= MAX_REQUEST_DATA_COLUMN_SIDECARS:
+              break outer
 
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found

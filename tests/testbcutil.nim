@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,20 +9,38 @@
 
 import results
 
+from ../beacon_chain/consensus_object_pools/attestation_pool import
+  AttestationPool, willSelectNewHead
 from ../beacon_chain/consensus_object_pools/block_clearance import
   addHeadBlockWithParent
 from ../beacon_chain/consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus
 from ../beacon_chain/consensus_object_pools/block_pools_types import
-  ChainDAGRef, OnForkyBlockAdded, VerifierError
+  ChainDAGRef, OnBlockAdded, VerifierError
+from ../beacon_chain/spec/beacon_time import start_beacon_time
 from ../beacon_chain/spec/forks import ForkySignedBeaconBlock
 from ../beacon_chain/spec/signatures_batch import BatchVerifier
 
-proc addHeadBlock*(
+proc addHeadBlockImpl(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnForkyBlockAdded
+    onBlockAdded: OnBlockAdded
     ): Result[BlockRef, VerifierError] =
   addHeadBlockWithParent(
     dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
     OptimisticStatus.valid, onBlockAdded)
+
+template addHeadBlock*(
+    dag: ChainDAGRef, verifier: var BatchVerifier,
+    signedBlock: ForkySignedBeaconBlock,
+    onBlockAddedParam: untyped
+    ): Result[BlockRef, VerifierError] =
+  let onBlockAdded: OnBlockAdded[typeof(signedBlock).kind] = onBlockAddedParam
+
+  addHeadBlockImpl(dag, verifier, signedBlock, onBlockAdded)
+
+proc willSelectNewHead*(
+    pool: var AttestationPool, headBlock: BlockRef): Opt[void] =
+  let wallTime =
+    pool.dag.head.bid.slot.start_beacon_time(pool.dag.cfg.timeParams)
+  pool.willSelectNewHead(headBlock, wallTime)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,7 +22,7 @@ import
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0, bellatrix]
+  ./[base, phase0, bellatrix]
 
 from kzg4844 import KzgCommitment, KzgProof
 from stew/bitops2 import log2trunc
@@ -585,17 +585,11 @@ type
   BeaconBlockValidatorChanges* = object
     # Collection of exits that are suitable for block production
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    phase0_attester_slashings*:
-      List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     electra_attester_slashings*:
       List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeIndexedAttestation): auto =
   (

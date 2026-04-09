@@ -7,7 +7,6 @@
 Check our [system requirements](./hardware.md) and [how to prepare your machine](./install.md).
 Note that it is also possible to [run Nimbus on Raspberry Pi](./pi-guide.md).
 
-
 ### I'm currently using Prysm / Lighthouse / Teku, how do I migrate to Nimbus?
 
 See our [migration guide](./migration.md).
@@ -81,8 +80,7 @@ We recommend you to do a [trusted node sync](./trusted-node-sync.md), which take
 
 ### How can I automate running my beacon node?
 
-You can set up a systemd service.
-See [our systemd guide](./beacon-node-systemd.md).
+See our [systemd guide](./beacon-node-systemd.md).
 
 ### Folder Permissions
 
@@ -99,15 +97,11 @@ The following errors are a sign of this:
 
 See the [data directory page](./data-dir.md#permissions) for instructions on how to fix this.
 
-
-
-
-
 ## Networking
 
 ### How can I improve my peer count?
 
-See [the networking guide](./networking.md).
+See our [networking guide](./networking.md).
 
 ### How do I fix the discovered new external address warning log?
 
@@ -123,9 +117,6 @@ If this doesn't fix the problem, the next thing to do is to check your external 
 Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.
 
 See [here](./networking.md#set-up-port-forwarding) for how to set up port forwarding.
-
-
-
 
 
 
@@ -162,14 +153,12 @@ In other words: to keep them honest, their actions need to have financial conseq
 
 ### How much ETH does a validator need to stake?
 
-Before a validator can start to secure the network, they need to stake **32 ETH**.
+Before a validator can start to secure the network, they need to stake at least **32 ETH**.
 This forms the validator's initial balance.
 
 ### Is there any advantage to having more than 32 ETH at stake?
 
-No, there is no advantage to having more than 32 ETH staked.
-
-Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.
+As of the [Electra hard fork](https://eips.ethereum.org/EIPS/eip-7251), you can stake more than 32 ETH and gain voting weight and rewards proportionally. The minimal amount to stake remains at 32 ETH.
 
 !!! note ""
     Remember that a validator’s vote is weighted by the amount it has at stake.

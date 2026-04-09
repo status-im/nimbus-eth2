@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -80,7 +80,7 @@ proc runTest(
       parseTest(testPath/"post.ssz_snappy", SSZ, PostBeaconState))
     when false:
       reportDiff(fhPreState.data, postState)
-    doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
+    doAssert fhPreState[].root == postState[].hash_tree_root()
 
 from ../../beacon_chain/spec/datatypes/phase0 import
   BeaconState, SignedBeaconBlock
@@ -188,8 +188,6 @@ suite "EF - Gloas - Transition " & preset():
     SszTestsDir/const_preset/"gloas"/"transition"/"core"/"pyspec_tests"
 
   for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
-    debugGloasComment "gloas transition tests"
-    if true: continue
     let transitionInfo = getTransitionInfo(TransitionDir / path)
     var cfg = defaultRuntimeConfig
     cfg.GLOAS_FORK_EPOCH = transitionInfo.fork_epoch.Epoch

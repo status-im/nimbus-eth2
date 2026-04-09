@@ -70,5 +70,5 @@ The `hoodi` testnet runs on
 build/nimbus_beacon_node \
     --network=hoodi \
     --data-dir=build/data/shared_hoodi_0 \
-    --web3-url="ws://localhost:8545"
+    --el="ws://localhost:8545"
 ```

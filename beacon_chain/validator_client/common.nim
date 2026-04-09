@@ -1,14 +1,14 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/[tables, os, sets, sequtils, strutils, uri, algorithm],
+  std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm],
   results,
   stew/[base10, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
@@ -49,7 +49,7 @@ const
 static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Fulu, ConsensusFork.Gloas}
+  OptionalForks* = {ConsensusFork.Gloas}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
@@ -176,6 +176,27 @@ type
     BrokenClock,        ## BN wall clock is broken or has significan offset.
     InternalError       ## BN reports internal error.
 
+  FnKind* {.pure.} = enum
+    getProposerDuties
+    getAttesterDuties
+    getSyncCommitteeDuties
+    getHeadBlockRoot
+    getValidators
+    produceAttestationData
+    submitPoolAttestations
+    getAggregatedAttestation
+    publishAggregateAndProofs
+    produceBlock
+    publishBlock
+    publishBlindedBlock
+    produceSyncCommitteeContribution
+    submitPoolSyncCommitteeSignature
+    publishContributionAndProofs
+    submitBeaconCommitteeSelections
+    submitSyncCommitteeSelections
+
+  VCBeaconNodeMode* = array[int(high(FnKind)) + 1, ApiStrategyKind]
+
   BeaconNodesCounters* = object
     data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
 
@@ -233,7 +254,7 @@ type
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     syncCommitteeProofs*: SyncCommitteeProofsMap
-    timeConfig*: TimeConfig
+    timeParams*: TimeParams
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
@@ -268,14 +289,6 @@ type
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
   DefaultSyncCommitteeDuty* = SyncCommitteeDuty()
-  SlotDuration* =
-    int64(SECONDS_PER_SLOT).seconds
-  SlotDurationSoft* =
-    (int64(SECONDS_PER_SLOT) div 2).seconds
-  OneThirdDuration* =
-    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT)).seconds
-  OneThirdDurationSoft* =
-    (int64(SECONDS_PER_SLOT) div int64(INTERVALS_PER_SLOT) div 2'i64).seconds
   AllBeaconNodeRoles* = {
     BeaconNodeRole.Duties,
     BeaconNodeRole.AttestationData,
@@ -319,6 +332,79 @@ const
     RestBeaconNodeStatus.BrokenClock,
     RestBeaconNodeStatus.InternalError
   }
+
+  BestScoreMode* = VCBeaconNodeMode([
+    ApiStrategyKind.First,     # getProposerDuties
+    ApiStrategyKind.First,     # getAttesterDuties
+    ApiStrategyKind.First,     # getSyncCommitteeDuties
+    ApiStrategyKind.Best,      # getHeadBlockRoot
+    ApiStrategyKind.First,     # getValidators
+    ApiStrategyKind.Best,      # produceAttestationData
+    ApiStrategyKind.First,     # submitPoolAttestations
+    ApiStrategyKind.Best,      # getAggregatedAttestation
+    ApiStrategyKind.First,     # publishAggregateAndProofs
+    ApiStrategyKind.Best,      # produceBlock
+    ApiStrategyKind.First,     # publishBlock
+    ApiStrategyKind.First,     # publishBlindedBlock
+    ApiStrategyKind.Best,      # produceSyncCommitteeContribution
+    ApiStrategyKind.First,     # submitPoolSyncCommitteeSignature
+    ApiStrategyKind.First,     # publishContributionAndProofs
+    ApiStrategyKind.Best,      # submitBeaconCommitteeSelections
+    ApiStrategyKind.Best       # submitSyncCommitteeSelections
+  ])
+
+  FallbackMode* = VCBeaconNodeMode([
+    ApiStrategyKind.Priority,  # getProposerDuties
+    ApiStrategyKind.Priority,  # getAttesterDuties
+    ApiStrategyKind.Priority,  # getSyncCommitteeDuties
+    ApiStrategyKind.Priority,  # getHeadBlockRoot
+    ApiStrategyKind.Priority,  # getValidators
+    ApiStrategyKind.Priority,  # produceAttestationData
+    ApiStrategyKind.Priority,  # submitPoolAttestations
+    ApiStrategyKind.Priority,  # getAggregatedAttestation
+    ApiStrategyKind.Priority,  # publishAggregateAndProofs
+    ApiStrategyKind.Priority,  # produceBlock
+    ApiStrategyKind.Priority,  # publishBlock
+    ApiStrategyKind.Priority,  # publishBlindedBlock
+    ApiStrategyKind.Priority,  # produceSyncCommitteeContribution
+    ApiStrategyKind.Priority,  # submitPoolSyncCommitteeSignature
+    ApiStrategyKind.Priority,  # publishContributionAndProofs
+    ApiStrategyKind.Priority,  # submitBeaconCommitteeSelections
+    ApiStrategyKind.Priority   # submitSyncCommitteeSelections
+  ])
+
+template `[]`*(vcs: VCBeaconNodeMode, index: FnKind): ApiStrategyKind =
+  vcs[int(index)]
+
+func SlotDuration*(vc: ValidatorClientRef): Duration =
+  vc.timeParams.SLOT_DURATION
+
+func SlotDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.SlotDuration div 2
+
+func BlockProposalDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.SlotDuration div 6
+
+func AttestationToAggregationDuration*(vc: ValidatorClientRef): Duration =
+  nanoseconds(vc.timeParams.aggregateSlotOffset.nanoseconds) -
+  nanoseconds(vc.timeParams.attestationSlotOffset.nanoseconds)
+
+func AttestationToAggregationDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.AttestationToAggregationDuration div 2
+
+func AggregationToSlotEndDuration*(vc: ValidatorClientRef): Duration =
+  vc.timeParams.SLOT_DURATION -
+  nanoseconds(vc.timeParams.aggregateSlotOffset.nanoseconds)
+
+func AggregationToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.AggregationToSlotEndDuration div 2
+
+func SyncContributionToSlotEndDuration*(vc: ValidatorClientRef): Duration =
+  vc.timeParams.SLOT_DURATION -
+  nanoseconds(vc.timeParams.syncContributionSlotOffset.nanoseconds)
+
+func SyncContributionToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.SyncContributionToSlotEndDuration div 2
 
 proc `$`*(to: TimeOffset): string =
   if to.value < 0:
@@ -510,8 +596,8 @@ chronicles.expandIt(SyncCommitteeDuty):
   validator_index = it.validator_index
   validator_sync_committee_indices = it.validator_sync_committee_indices
 
-func parseConfigValue[T: uint64](_: typedesc[T], str: string): Opt[T] =
-  let res = Base10.decode(uint64, str).valueOr:
+func parseConfigValue[T: uint16 | uint64](_: typedesc[T], str: string): Opt[T] =
+  let res = Base10.decode(T, str).valueOr:
     return Opt.none T
   Opt.some res
 
@@ -557,19 +643,60 @@ func checkConfig*(c: VCRuntimeConfig): bool =
   c.hasKey("ALTAIR_FORK_VERSION") and c.hasKey("ALTAIR_FORK_EPOCH") and
   not(c.equals("ALTAIR_FORK_EPOCH", FAR_FUTURE_EPOCH))
 
-func checkConfig*(c: VCRuntimeConfig, timeConfig: TimeConfig): bool =
-  c.checkConfig and c.equals("SECONDS_PER_SLOT", timeConfig.SECONDS_PER_SLOT)
+func checkConfig*(c: VCRuntimeConfig, timeParams: TimeParams): bool =
+  c.checkConfig and (
+    # If SLOT_DURATION_MS is present, it has to match local config
+    not c.hasKey("SLOT_DURATION_MS") or
+    c.equals("SLOT_DURATION_MS", timeParams.SLOT_DURATION.milliseconds.uint64)
+  ) and (
+    # If SECONDS_PER_SLOT is present, it has to match local config
+    not c.hasKey("SECONDS_PER_SLOT") or
+    c.equals("SECONDS_PER_SLOT", timeParams.SLOT_DURATION.seconds.uint64)
+  ) and (
+    # If defaults are used, local config must also use defaults
+    (c.hasKey("SLOT_DURATION_MS") or c.hasKey("SECONDS_PER_SLOT")) or
+    timeParams.SLOT_DURATION == defaultRuntimeConfig.timeParams.SLOT_DURATION
+  )
 
-func getTimeConfig*(c: VCRuntimeConfig): Opt[TimeConfig] =
-  let SECONDS_PER_SLOT = block:
-    const defaultStr = Base10.toString(
-      defaultRuntimeConfig.time.SECONDS_PER_SLOT)
-    ? uint64.parseConfigValue c.getOrDefault("SECONDS_PER_SLOT", defaultStr)
-  if SECONDS_PER_SLOT notin MIN_SECONDS_PER_SLOT .. MAX_SECONDS_PER_SLOT:
-    return Opt.none TimeConfig
-  if SECONDS_PER_SLOT != presets.SECONDS_PER_SLOT:
-    return Opt.none TimeConfig  # Temporary, until removed from presets
-  Opt.some TimeConfig(SECONDS_PER_SLOT: SECONDS_PER_SLOT)
+func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
+  let SLOT_DURATION =
+    if c.hasKey("SLOT_DURATION_MS"):
+      let rawValue = ? uint64.parseConfigValue(
+        c.getOrDefault("SLOT_DURATION_MS", "missing"))
+      if rawValue > Duration.high.milliseconds.uint64:
+        return Opt.none TimeParams
+      milliseconds(rawValue.int64)
+    elif c.hasKey("SECONDS_PER_SLOT"):
+      let rawValue = ? uint64.parseConfigValue(
+        c.getOrDefault("SECONDS_PER_SLOT", "missing"))
+      if rawValue > Duration.high.seconds.uint64:
+        return Opt.none TimeParams
+      seconds(rawValue.int64)
+    else:
+      defaultRuntimeConfig.timeParams.SLOT_DURATION
+
+  macro parseBps(key: static[string]): uint16 =
+    let keyId = ident key
+    quote do:
+      const defaultStr = Base10.toString(
+        defaultRuntimeConfig.timeParams.`keyId`)
+      ? uint16.parseConfigValue(c.getOrDefault(`key`, defaultStr))
+
+  let res = Opt.some TimeParams(
+    SLOT_DURATION: SLOT_DURATION,
+    PROPOSER_REORG_CUTOFF_BPS: parseBps "PROPOSER_REORG_CUTOFF_BPS",
+    ATTESTATION_DUE_BPS: parseBps "ATTESTATION_DUE_BPS",
+    AGGREGATE_DUE_BPS: parseBps "AGGREGATE_DUE_BPS",
+    SYNC_MESSAGE_DUE_BPS: parseBps "SYNC_MESSAGE_DUE_BPS",
+    CONTRIBUTION_DUE_BPS: parseBps "CONTRIBUTION_DUE_BPS",
+    ATTESTATION_DUE_BPS_GLOAS: parseBps "ATTESTATION_DUE_BPS_GLOAS",
+    AGGREGATE_DUE_BPS_GLOAS: parseBps "AGGREGATE_DUE_BPS_GLOAS",
+    SYNC_MESSAGE_DUE_BPS_GLOAS: parseBps "SYNC_MESSAGE_DUE_BPS_GLOAS",
+    CONTRIBUTION_DUE_BPS_GLOAS: parseBps "CONTRIBUTION_DUE_BPS_GLOAS",
+    PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
+  if not res.get.isValid:
+    return Opt.none TimeParams
+  res
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
@@ -813,11 +940,39 @@ proc init*(t: typedesc[ProposedData], epoch: Epoch, dependentRoot: Eth2Digest,
   ProposedData(epoch: epoch, dependentRoot: dependentRoot, duties: @data)
 
 proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
-  let res = vc.beaconClock.now().toSlot()
+  let res = vc.beaconClock.now().toSlot(vc.timeParams)
   if res.afterGenesis:
     Opt.some(res.slot)
   else:
     Opt.none(Slot)
+
+proc getConsensusFork*(vc: ValidatorClientRef, fork: Fork): ConsensusFork =
+  doAssert(vc.forkConfig.isSome())
+  for key, value in vc.forkConfig.get().pairs():
+    if value.version == fork.current_version:
+      return key
+  raiseAssert "ForkConfig missing fork [" & $fork.current_version & "]"
+
+proc getConsensusForkConfig*(
+    vc: ValidatorClientRef,
+    fork: Fork
+): Opt[tuple[key: ConsensusFork, value: ForkConfigItem]] =
+  doAssert(vc.forkConfig.isSome())
+  for key, value in vc.forkConfig.get().pairs():
+    if value.version == fork.current_version:
+      return Opt.some((key, value))
+  Opt.none(tuple[key: ConsensusFork, value: ForkConfigItem])
+
+proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
+  # If schedule is present, it MUST not be empty.
+  doAssert(len(vc.forks) > 0)
+  var res: Fork
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      res = item
+    else:
+      break
+  res
 
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
                                slot: Slot): seq[DutyAndProof] =
@@ -843,7 +998,10 @@ proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
-  let currentEpoch = slot.epoch()
+  let
+    currentEpoch = slot.epoch()
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(currentEpoch))
+
   for epoch in [currentEpoch, currentEpoch + 1'u64]:
     for key, item in vc.attesters:
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
@@ -856,7 +1014,8 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
   if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $(minSlot.attestation_deadline() - slot.start_beacon_time())
+    $(minSlot.attestation_deadline(vc.timeParams, consensusFork) -
+      slot.start_beacon_time(vc.timeParams))
 
 proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
@@ -873,7 +1032,8 @@ proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
   if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $(minSlot.block_deadline() - slot.start_beacon_time())
+    $(minSlot.block_deadline(vc.timeParams) -
+      slot.start_beacon_time(vc.timeParams))
 
 iterator attesterDutiesForEpoch*(vc: ValidatorClientRef,
                                  epoch: Epoch): DutyAndProof =
@@ -916,17 +1076,6 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             key: ValidatorPubKey, slot: Slot,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
-
-proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
-  # If schedule is present, it MUST not be empty.
-  doAssert(len(vc.forks) > 0)
-  var res: Fork
-  for item in vc.forks:
-    if item.epoch <= epoch:
-      res = item
-    else:
-      break
-  res
 
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
@@ -986,7 +1135,7 @@ proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
   SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
 
 proc currentSlot*(vc: ValidatorClientRef): Slot =
-  vc.beaconClock.now().slotOrZero()
+  vc.beaconClock.now().slotOrZero(vc.timeParams)
 
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let
@@ -1242,12 +1391,13 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
      async: (raises: [CancelledError]).} =
   let
     currentTime = vc.beaconClock.now()
-    currentSlot = currentTime.slotOrZero()
+    currentSlot = currentTime.slotOrZero(vc.timeParams)
     chronosOffset = chronos.nanoseconds(
       if offset.nanoseconds < 0: 0'i64 else: offset.nanoseconds)
 
-  var timeToSlot = (destinationSlot.start_beacon_time() - currentTime) +
-                   chronosOffset
+  var timeToSlot =
+    (destinationSlot.start_beacon_time(vc.timeParams) - currentTime) +
+    chronosOffset
 
   logScope:
     start_time = shortLog(currentTime)
@@ -1260,7 +1410,7 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
 
     let
       wallTime = vc.beaconClock.now()
-      wallSlot = wallTime.slotOrZero()
+      wallSlot = wallTime.slotOrZero(vc.timeParams)
 
     logScope:
       wall_time = shortLog(wallTime)
@@ -1280,8 +1430,9 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
       else:
         # Time moved back by a single slot - this could be a minor adjustment,
         # for example when NTP does its thing after not working for a while
-        timeToSlot = destinationSlot.start_beacon_time() - wallTime +
-                     chronosOffset
+        timeToSlot =
+          (destinationSlot.start_beacon_time(vc.timeParams) - wallTime) +
+          chronosOffset
         if showLogs:
           warn "System time adjusted backwards, rescheduling slot actions"
         continue
@@ -1304,20 +1455,16 @@ proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
                              showLogs: bool): Future[Opt[Slot]] {.
      async: (raises: [CancelledError], raw: true).} =
   let
-    currentTime = vc.beaconClock.now()
-    currentSlot = curSlot.valueOr: currentTime.slotOrZero()
+    currentSlot = curSlot.valueOr: vc.currentSlot()
     nextSlot = currentSlot + 1
-
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
 
 proc checkedWaitForNextSlot*(vc: ValidatorClientRef, offset: TimeDiff,
                              showLogs: bool): Future[Opt[Slot]] {.
      async: (raises: [CancelledError], raw: true).} =
   let
-    currentTime = vc.beaconClock.now()
-    currentSlot = currentTime.slotOrZero()
+    currentSlot = vc.currentSlot()
     nextSlot = currentSlot + 1
-
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
 
 proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
@@ -1346,7 +1493,7 @@ proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
                     node: BeaconNodeServerRef) =
   let
     wallTime = vc.beaconClock.now()
-    delay = wallTime - eblck.slot.start_beacon_time()
+    delay = wallTime - eblck.slot.start_beacon_time(vc.timeParams)
 
   debug "Block received", slot = eblck.slot,
         block_root = shortLog(eblck.block_root), optimistic = eblck.optimistic,
@@ -1389,7 +1536,8 @@ proc waitForBlock*(
   ## by the beacon node.
   let
     startTime = Moment.now()
-    waitTime = (start_beacon_time(slot) + timediff) - vc.beaconClock.now()
+    waitTime =
+      (slot.start_beacon_time(vc.timeParams) + timediff) - vc.beaconClock.now()
 
   logScope:
     slot = slot
@@ -1424,12 +1572,13 @@ proc waitForBlock*(
         shortLog(blocks[0])
       else:
         "[" & blocks.mapIt(shortLog(it)).join(", ") & "]"
+    consensusFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
 
   debug "Block proposal awaited", duration = dur,
         block_root = blockRoot
 
   try:
-    await waitAfterBlockCutoff(vc.beaconClock, slot)
+    await waitAfterBlockCutoff(vc.beaconClock, slot, consensusFork)
   except CancelledError as exc:
     let dur = Moment.now() - startTime
     debug "Waiting for block cutoff was interrupted", duration = dur
@@ -1465,7 +1614,9 @@ proc waitForNextEpoch*(service: ClientServiceRef,
      async: (raises: [CancelledError], raw: true) .}=
   let
     vc = service.client
-    sleepTime = vc.beaconClock.durationToNextEpoch() + delay
+    currentSlot = vc.beaconClock.now().toSlot(vc.timeParams)
+    nextEpochTime = currentSlot.nextEpochStartTime(vc.timeParams)
+    sleepTime = vc.beaconClock.fromNow(nextEpochTime).durationOrZero() + delay
   debug "Sleeping until next epoch", service = service.name,
                                      sleep_time = sleepTime, delay = delay
   sleepAsync(sleepTime)
@@ -1474,12 +1625,21 @@ proc waitForNextEpoch*(service: ClientServiceRef): Future[void] {.
      async: (raises: [CancelledError], raw: true).}=
   waitForNextEpoch(service, ZeroDuration)
 
+proc waitForNextSlot*(
+       vc: ValidatorClientRef,
+       currentSlot: tuple[afterGenesis: bool, slot: Slot]
+     ): Future[void] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    nextSlotTime = currentSlot.nextSlotStartTime(vc.timeParams)
+    sleepTime = vc.beaconClock.fromNow(nextSlotTime).durationOrZero()
+  sleepAsync(sleepTime)
+
 proc waitForNextSlot*(service: ClientServiceRef): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
   let
     vc = service.client
-    sleepTime = vc.beaconClock.durationToNextSlot()
-  sleepAsync(sleepTime)
+    currentSlot = vc.beaconClock.now().toSlot(vc.timeParams)
+  service.client.waitForNextSlot(currentSlot)
 
 func compareUnsorted*[T](a, b: openArray[T]): bool =
   if len(a) != len(b):
@@ -1586,6 +1746,13 @@ proc `+`*(slot: Slot, epochs: Epoch): Slot =
 func finish_slot*(epoch: Epoch): Slot =
   ## Return the last slot of ``epoch``.
   (epoch + 1).start_slot() - 1
+
+func getMode*(vc: ValidatorClientRef): VCBeaconNodeMode =
+  case vc.config.beaconNodeMode
+  of BeaconNodeMode.BestScore:
+    BestScoreMode
+  of BeaconNodeMode.Fallback:
+    FallbackMode
 
 proc getGraffitiBytes*(vc: ValidatorClientRef,
                        validator: AttachedValidator): GraffitiBytes =

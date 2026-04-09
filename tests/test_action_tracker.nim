@@ -12,6 +12,9 @@ import
   unittest2,
   ../beacon_chain/validators/action_tracker
 
+from ../beacon_chain/consensus_object_pools/block_pools_types import
+  ShufflingRef
+
 suite "subnet tracker":
   test "should register stability subnets on attester duties":
     var tracker = ActionTracker.init(default(UInt256), false)
@@ -98,3 +101,60 @@ suite "subnet tracker":
     check:
       tracker.stabilitySubnets(Slot(0)).countOnes() == 64  # All 64 subnets
       tracker.aggregateSubnets(Slot(0)).countOnes() == 0
+
+  test "should register and prune PTC duties":
+    var tracker = ActionTracker.init(default(UInt256), false)
+    tracker.updateSlot(Slot(100))
+
+    check:
+      not tracker.hasPTCDuty(Slot(100))
+
+    # Register past duty
+    tracker.registerPTCDuty(Slot(99), ValidatorIndex(0))
+    check not tracker.hasPTCDuty(Slot(99))
+
+    # Register duty too far in future
+    tracker.registerPTCDuty(Slot(100 + SLOTS_PER_EPOCH * 2), ValidatorIndex(0))
+    check not tracker.hasPTCDuty(Slot(100 + SLOTS_PER_EPOCH * 2))
+
+    tracker.registerPTCDuty(Slot(105), ValidatorIndex(100))
+    tracker.registerPTCDuty(Slot(105), ValidatorIndex(101))
+    tracker.registerPTCDuty(Slot(110), ValidatorIndex(102))
+
+    check:
+      tracker.hasPTCDuty(Slot(105))
+      tracker.hasPTCDuty(Slot(110))
+      not tracker.hasPTCDuty(Slot(107))
+      tracker.knownValidators.len() == 3
+
+    # Update slot to prune old duties
+    tracker.updateSlot(Slot(107))
+    check:
+      not tracker.hasPTCDuty(Slot(105))
+      tracker.hasPTCDuty(Slot(110))
+
+    # Validator decays after a long time
+    tracker.updateSlot(Slot(110 + KNOWN_VALIDATOR_DECAY + 1))
+    check tracker.knownValidators.len() == 0
+
+  test "should track PTC duties in slot bitmaps":
+    var
+      tracker = ActionTracker.init(default(UInt256), false)
+      shufflingRef = ShufflingRef(
+        epoch: Epoch(1),
+        attester_dependent_root: ZERO_HASH,
+        shuffled_active_validator_indices: @[]
+      )
+      beaconProposers: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]
+
+    tracker.registerPTCDuty(Slot(32), ValidatorIndex(0))  # First slot of epoch
+    tracker.registerPTCDuty(Slot(47), ValidatorIndex(1))  # Mid epoch
+    tracker.registerPTCDuty(Slot(63), ValidatorIndex(2))  # Last slot of epoch
+
+    # Update actions to populate bitmaps
+    tracker.updateActions(shufflingRef, beaconProposers)
+
+    check:
+      (tracker.ptcSlots[1] and (1'u32 shl 0)) != 0   # Slot 32
+      (tracker.ptcSlots[1] and (1'u32 shl 15)) != 0   # Slot 47
+      (tracker.ptcSlots[1] and (1'u32 shl 31)) != 0  # Slot 63

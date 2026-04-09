@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,6 +21,7 @@ import
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
+from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
   get_total_active_balance, latest_block_root, process_attestation
@@ -36,7 +37,7 @@ const
   OpDepositsDir               = OpDir/"deposit"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
   OpExecutionPayloadDir       = OpDir/"execution_payload"
-  OpExecutionPayloadHeaderDir = OpDir/"execution_payload_header"
+  OpExecutionPayloadBidDir    = OpDir/"execution_payload_bid"
   OpPayloadAttestationDir     = OpDir/"payload_attestation"
   OpProposerSlashingDir       = OpDir/"proposer_slashing"
   OpSyncAggregateDir          = OpDir/"sync_aggregate"
@@ -49,7 +50,7 @@ const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
   OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
-  OpExecutionPayloadHeaderDir, OpPayloadAttestationDir, OpProposerSlashingDir,
+  OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
   OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
 ])
 
@@ -74,14 +75,18 @@ proc runTest[T, U](
       preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
     if fileExists(testDir/"post.ssz_snappy"):
-      let postState =
-        newClone(parseTest(
+      let
+        postState = newClone(parseTest(
           testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
+        pass = preState[].hash_tree_root() == postState[].hash_tree_root()
 
-      reportDiff(preState, postState)
+      # TODO reportDiff doesn't understand at least one of HashArray or
+      # HashList merkle tree caching, so only check if htr's mismatch.
+      if not pass:
+        reportDiff(preState, postState)
       check:
         done.isOk()
-        preState[].hash_tree_root() == postState[].hash_tree_root()
+        pass
     else:
       check: done.isErr() # No post state = processing should fail
 
@@ -185,24 +190,53 @@ suite baseDescription & "Deposit Request " & preset():
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
     process_deposit_request(
-      defaultRuntimeConfig, preState, depositRequest, {})
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.validators.asSeq)[],
+      sortValidatorBuckets(preState.builders.asSeq)[], depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
 
-suite baseDescription & "Execution Payload Header " & preset():
-  proc applyExecutionPayloadHeader(
+suite baseDescription & "Execution Payload " & preset():
+  proc makeApplyExecutionPayloadCb(path: string): auto =
+    return proc(
+        preState: var gloas.BeaconState,
+        signed_envelope: SignedExecutionPayloadEnvelope):
+        Result[void, cstring] =
+      let payloadValid = os_ops.readFile(
+          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
+        ).contains("execution_valid: true")
+      var
+        cache: StateCache
+      let hashedState = (ref gloas.HashedBeaconState)(
+        data: preState, root: hash_tree_root(preState))
+
+      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
+      let res = process_execution_payload(
+        defaultRuntimeConfig, hashedState[],
+        signed_envelope, executePayload, cache)
+      preState = hashedState.data
+      res
+
+  for path in walkTests(OpExecutionPayloadDir):
+    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
+    runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
+      OpExecutionPayloadDir, suiteName, "Execution Payload", "signed_envelope",
+      applyExecutionPayload, path)
+
+suite baseDescription & "Execution Payload Bid " & preset():
+  proc applyExecutionPayloadBid(
       preState: var gloas.BeaconState,
       blck: gloas.BeaconBlock): Result[void, cstring] =
-    process_execution_payload_header(
+    process_execution_payload_bid(
       defaultRuntimeConfig, preState, blck)
 
-  for path in walkTests(OpExecutionPayloadHeaderDir):
-    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadHeader](
-      OpExecutionPayloadHeaderDir, suiteName, "Execution Payload Header",
-      "block", applyExecutionPayloadHeader, path)
+  for path in walkTests(OpExecutionPayloadBidDir):
+    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadBid](
+      OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
+      "block", applyExecutionPayloadBid, path)
 
 suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(
@@ -280,12 +314,35 @@ suite baseDescription & "Voluntary Exit " & preset():
       applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
-  func applyWithdrawals(
-      preState: var gloas.BeaconState,
-      executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
-    process_withdrawals(preState)
-
   for path in walkTests(OpWithdrawalsDir):
-    runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
-      OpWithdrawalsDir, suiteName, "Withdrawals", "execution_payload",
-      applyWithdrawals, path)
+    # See: https://github.com/status-im/nimbus-eth2/pull/7926#discussion_r2776852494
+    if path in ["invalid_validator_index_pending_partial", 
+                "invalid_builder_index_sweep", 
+                "invalid_validator_index_sweep",
+                "invalid_builder_index_pending"]:
+      continue
+    let prefix =
+      if fileExists(OpWithdrawalsDir / "pyspec_tests" / path / "post.ssz_snappy"):
+        "[Valid]   "
+      else:
+        "[Invalid] "
+    
+    test prefix & baseDescription & "Withdrawals - " & path:
+      let
+        testDir = OpWithdrawalsDir / "pyspec_tests" / path
+        preState = newClone(
+          parseTest(testDir/"pre.ssz_snappy", SSZ, gloas.BeaconState))
+        done = process_withdrawals(preState[])
+
+      if fileExists(testDir/"post.ssz_snappy"):
+        let 
+          postState = newClone(parseTest(
+            testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
+          pass = preState[].hash_tree_root() == postState[].hash_tree_root()
+        if not pass:
+          reportDiff(preState, postState)
+        check:
+          done.isOk()
+          pass
+      else:
+        check: done.isErr()

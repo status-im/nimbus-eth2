@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -128,6 +128,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
           of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
+          of "Builder": checkSSZ(Builder, path, hash)
           of "BuilderPendingPayment": checkSSZ(BuilderPendingPayment, path, hash)
           of "BuilderPendingWithdrawal":
             checkSSZ(BuilderPendingWithdrawal, path, hash)
@@ -145,10 +146,12 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionPayload":
             checkSSZ(deneb.ExecutionPayload, path, hash)
+          of "ExecutionPayloadHeader":
+            checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
-          of "ExecutionPayloadHeader":
-            checkSSZ(gloas.ExecutionPayloadHeader, path, hash)
+          of "ExecutionPayloadBid":
+            checkSSZ(gloas.ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
             checkSSZ(electra.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
@@ -185,6 +188,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "PendingPartialWithdrawal":
             checkSSZ(PendingPartialWithdrawal, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
+          of "ProposerPreferences": checkSSZ(ProposerPreferences, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
             checkSSZ(electra.SignedAggregateAndProof, path, hash)
@@ -198,8 +202,10 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
             checkSSZ(SignedContributionAndProof, path, hash)
           of "SignedExecutionPayloadEnvelope":
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
-          of "SignedExecutionPayloadHeader":
-            checkSSZ(SignedExecutionPayloadHeader, path, hash)
+          of "SignedExecutionPayloadBid":
+            checkSSZ(SignedExecutionPayloadBid, path, hash)
+          of "SignedProposerPreferences":
+            checkSSZ(SignedProposerPreferences, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
           of "SigningData": checkSSZ(SigningData, path, hash)
           of "SingleAttestation": checkSSZ(SingleAttestation, path, hash)

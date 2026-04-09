@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -65,7 +65,7 @@ proc runTest(
         SSZ, consensusFork.BeaconState))
       when false:
         reportDiff(hashedPreState.phase0Data.data, postState)
-      doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
+      doAssert fhPreState[].root == postState[].hash_tree_root()
 
 template runForkBlockTests(consensusFork: static ConsensusFork) =
   const
@@ -78,22 +78,20 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
     SanityBlocksDir =
       SszTestsDir/const_preset/forkDirName/"sanity"/"blocks"/"pyspec_tests"
 
-  debugGloasComment "block sanity"
-  when consensusFork != ConsensusFork.Gloas or const_preset == "mainnet":
-    suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
-      for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-        consensusFork.runTest(
-          "EF - " & forkHumanName & " - Sanity - Blocks",
-          SanityBlocksDir, suiteName, path)
+  suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
+    for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
+      consensusFork.runTest(
+        "EF - " & forkHumanName & " - Sanity - Blocks",
+        SanityBlocksDir, suiteName, path)
 
-  debugGloasComment "finality and random block sanity"
+  suite "EF - " & forkHumanName & " - Finality " & preset():
+    for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
+      consensusFork.runTest(
+        "EF - " & forkHumanName & " - Finality",
+        FinalityDir, suiteName, path)
+
+  debugGloasComment "random block sanity"
   when consensusFork != ConsensusFork.Gloas:
-    suite "EF - " & forkHumanName & " - Finality " & preset():
-      for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-        consensusFork.runTest(
-          "EF - " & forkHumanName & " - Finality",
-          FinalityDir, suiteName, path)
-
     suite "EF - " & forkHumanName & " - Random " & preset():
       for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
         consensusFork.runTest(

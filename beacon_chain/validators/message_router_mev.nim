@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/macros
 import metrics
@@ -123,15 +123,14 @@ proc unblindAndRouteBlockMEV*(
         return err("unblinded blobs bundle fails verification")
       if not ok:
         return err("unblinded blobs bundle is invalid")
-      Opt.some(signedBlock.create_blob_sidecars(
-        blobs_bundle.proofs, blobs_bundle.blobs))
+      signedBlock.create_blob_sidecars(blobs_bundle.proofs, blobs_bundle.blobs)
 
     debug "unblindAndRouteBlockMEV: proposing unblinded block",
       blck = shortLog(signedBlock)
 
     let newBlockRef =
       (await node.router.routeSignedBeaconBlock(
-        signedBlock, blobsOpt, Opt.none(seq[fulu.DataColumnSidecar]), checkValidator = false)).valueOr:
+        signedBlock, blobsOpt, checkValidator = false)).valueOr:
         # submitBlindedBlock has run, so don't allow fallback to run
         return err("routeSignedBeaconBlock error") # Errors logged in router
 

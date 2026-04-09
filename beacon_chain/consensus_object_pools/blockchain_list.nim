@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/sequtils, stew/io2, chronicles, chronos, metrics,
        ../spec/forks,
@@ -28,9 +28,6 @@ type
 
 template chainFilePath*(directory: string): string =
   directory / ChainFileName
-
-template filePath*(clist: ChainListRef): string =
-  chainFilePath(clist.path)
 
 proc init*(T: type ChainListRef, directory: string): ChainListRef =
   let
@@ -167,7 +164,7 @@ proc checkBlobs(signedBlock: ForkedSignedBeaconBlock,
             return err(VerifierError.Invalid)
   ok()
 
-proc addBackfillBlockData*(
+proc addLightForwardBlock*(
     clist: ChainListRef, signedBlock: ForkedSignedBeaconBlock,
     blobsOpt: Opt[BlobSidecars]): Result[void, VerifierError] =
   doAssert(not(isNil(clist)))
@@ -243,5 +240,5 @@ proc untrustedBackfillVerifier*(
 ): Future[Result[void, VerifierError]] {.
   async: (raises: [CancelledError], raw: true).} =
   let retFuture = newFuture[Result[void, VerifierError]]()
-  retFuture.complete(clist.addBackfillBlockData(signedBlock, blobs))
+  retFuture.complete(clist.addLightForwardBlock(signedBlock, blobs))
   retFuture

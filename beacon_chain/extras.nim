@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -36,5 +36,9 @@ type
     ## When process_slots() is being called as part of a state_transition(),
     ## the hash_tree_root() from the block will fill in the state.root so it
     ## should skip calculating that last state root.
+    skipLastEnvelope ##\
+    ## As a full beacon block consists of a beacon block and envelope since
+    ## Gloas, the last envelope may not be there yet. This is used to toggle the
+    ## strict state transition of the last envelope in updateState().
 
   UpdateFlags* = set[UpdateFlag]

@@ -1,12 +1,12 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.used.}
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 # TODO (cheatfate): This test is going to be rewritten from scratch.
 {.pop.}
 
@@ -55,7 +55,6 @@ const
   depositsFile = dataDir / "deposits.json"
   runtimeConfigFile = dataDir / "config.yaml"
   genesisFile = dataDir / "genesis.ssz"
-  depositTreeSnapshotFile = dataDir / "deposit_tree_snapshot.ssz"
   bootstrapEnrFile = dataDir / "bootstrap_node.enr"
   tokenFilePath = dataDir / "keymanager-token.txt"
   defaultBasePort = 49000
@@ -150,10 +149,6 @@ func contains*(keylist: openArray[KeystoreInfo], key: ValidatorPubKey): bool =
     if item.validating_pubkey == key:
       return true
   false
-
-func contains*(keylist: openArray[KeystoreInfo], key: string): bool =
-  let pubkey = ValidatorPubKey.fromHex(key).tryGet()
-  contains(keylist, pubkey)
 
 proc prepareNetwork =
   let
@@ -341,35 +336,42 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
   except CatchableError as exc:
     raiseAssert exc.msg
 
-  let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
-    "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
-    "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
-    "--discv5=off",
-    "--network=" & dataDir,
-    "--data-dir=" & nodeDataDir,
-    "--validators-dir=" & nodeValidatorsDir,
-    "--secrets-dir=" & nodeSecretsDir,
-    "--metrics-address=127.0.0.1",
-    "--metrics-port=" & $(basePort + PortKind.Metrics.ord),
-    "--rest=true",
-    "--rest-address=127.0.0.1",
-    "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--no-el",
-    "--keymanager=true",
-    "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
-    "--keymanager-token-file=" & tokenFilePath,
-    "--suggested-fee-recipient=" & $defaultFeeRecipient,
-    "--doppelganger-detection=off"], it))
-  except Exception as exc: # TODO fix confutils exceptions
-    raiseAssert exc.msg
+  let
+    runNodeConf =
+      try:
+        BeaconNodeConf.load(
+          cmdLine =
+            @[
+              "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+              "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+              "--discv5=off",
+              "--network=" & dataDir,
+              "--data-dir=" & nodeDataDir,
+              "--validators-dir=" & nodeValidatorsDir,
+              "--secrets-dir=" & nodeSecretsDir,
+              "--metrics-address=127.0.0.1",
+              "--metrics-port=" & $(basePort + PortKind.Metrics.ord),
+              "--rest=true",
+              "--rest-address=127.0.0.1",
+              "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
+              "--no-el",
+              "--keymanager=true",
+              "--keymanager-address=127.0.0.1",
+              "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
+              "--keymanager-token-file=" & tokenFilePath,
+              "--suggested-fee-recipient=" & $defaultFeeRecipient,
+              "--doppelganger-detection=off",
+            ]
+        )
+      except CatchableError as exc:
+        raiseAssert exc.msg
 
-  try:
-    let metadata =
-      loadEth2NetworkMetadata(dataDir).expect("Metadata is compatible")
-    await BeaconNode.init(rng, runNodeConf, metadata)
-  except CatchableError as exc:
-    raiseAssert exc.msg
+    taskpool =
+      try:
+        Taskpool.new()
+      except CatchableError as exc:
+        raiseAssert exc.msg
+  (await noCancel BeaconNode.init(rng, runNodeConf, taskpool)).expect("working node")
 
 # proc startValidatorClient(basePort: int) {.async, thread.} =
 #   let rng = HmacDrbgContext.new()
@@ -2054,7 +2056,7 @@ proc main(basePort: int) {.async.} =
   asyncSpawn delayedTests(basePort, node.attachedValidators,
                           node.keymanagerHost)
 
-  node.start()
+  node.run(nil)
 
 let
   basePortStr = os.getEnv("NIMBUS_TEST_KEYMANAGER_BASE_PORT", $defaultBasePort)

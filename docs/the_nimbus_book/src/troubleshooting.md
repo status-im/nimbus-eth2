@@ -30,10 +30,10 @@ Peer count low, no new peers discovered...
 
 Your node is finding it hard to find peers.
 It's possible that you  may be behind a firewall.
-Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `./run-mainnet-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `1.2.3.4`, you'd run:
+Try restarting your client and passing `--nat=extip:$EXT_IP_ADDRESS` as an option to `./run-mainnet-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `1.2.3.4`, you'd run:
 
 ```
-./run-mainnet-beacon-node.sh --nat:extip:1.2.3.4
+./run-mainnet-beacon-node.sh --nat=extip:1.2.3.4
 ```
 
 If this doesn't improve things, you may need to [set enr-auto-update](./networking.md#set-enr-auto-update) and/or [set up port forwarding](./networking.md#set-up-port-forwarding).

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -68,7 +68,7 @@ proc pollForValidatorIndices*(
   for idents in chunks(validatorIdents, ClientMaximumValidatorIds):
     let res =
       try:
-        await vc.getValidators(idents, ApiStrategyKind.First)
+        await vc.getValidators(idents, vc.getMode()[FnKind.getValidators])
       except ValidatorApiError as exc:
         warn "Unable to get head state's validator information",
               reason = exc.getFailureReason()
@@ -123,8 +123,9 @@ proc pollForAttesterDuties*(
               for chunk in indices.chunks(DutiesMaximumValidatorIds):
                 let res =
                   try:
-                    await vc.getAttesterDuties(epoch, chunk,
-                                               ApiStrategyKind.First)
+                    await vc.getAttesterDuties(
+                      epoch, chunk,
+                      vc.getMode()[FnKind.getAttesterDuties])
                   except ValidatorApiError as exc:
                     warn "Unable to get attester duties", epoch = epoch,
                          reason = exc.getFailureReason()
@@ -225,8 +226,9 @@ proc pollForSyncCommitteeDuties*(
         for chunk in indices.chunks(DutiesMaximumValidatorIds):
           let res =
             try:
-              await vc.getSyncCommitteeDuties(epoch, chunk,
-                                              ApiStrategyKind.First)
+              await vc.getSyncCommitteeDuties(
+                epoch, chunk,
+                vc.getMode()[FnKind.getSyncCommitteeDuties])
             except ValidatorApiError as exc:
               warn "Unable to get sync committee duties",
                    period = period, epoch = epoch,
@@ -506,8 +508,8 @@ proc pollForBeaconProposers*(
 
   if vc.attachedValidators[].count() != 0:
     try:
-      let res = await vc.getProposerDuties(currentEpoch,
-                                           ApiStrategyKind.First)
+      let res = await vc.getProposerDuties(
+        currentEpoch, vc.getMode()[FnKind.getProposerDuties])
       let
         dependentRoot = res.dependent_root
         duties = res.data
@@ -724,7 +726,7 @@ proc syncCommitteeDutiesLoop(
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
     middleSlot = Slot(SLOTS_PER_EPOCH div 2)
-    currentSlot = vc.beaconClock.now().slotOrZero()
+    currentSlot = vc.currentSlot()
     slotInEpoch = currentSlot.since_epoch_start()
 
   if slotInEpoch >= middleSlot:
@@ -737,7 +739,7 @@ proc pruneSlashingDatabase(
 ) {.async: (raises: [CancelledError]).} =
   let
     vc = service.client
-    currentSlot = vc.beaconClock.now().slotOrZero()
+    currentSlot = vc.currentSlot()
     startTime = Moment.now()
     blockHeader =
       try:
@@ -775,7 +777,8 @@ proc slashingDatabasePruningLoop(
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
     let slot = await vc.checkedWaitForSlot(vc.getNextEpochMiddleSlot(),
-                                           aggregateSlotOffset, false)
+                                           vc.timeParams.aggregateSlotOffset,
+                                           false)
     if slot.isNone():
       continue
 

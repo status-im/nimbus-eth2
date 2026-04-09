@@ -69,8 +69,14 @@ suite "EF - Merkle proof" & preset():
       let objName = path
       withConsensusFork(fork):
         for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+          let testPath = suitePath/path
+          if not fileExists(testPath/"proof.yaml"):
+            debugGloasComment "proof.yaml missing for Gloas"
+            test "Merkle proof - Single merkle proof - " & path:
+              skip()
+            continue
           case objName
           of "BeaconBlockBody":
-            runTest(suiteName, suitePath/path, consensusFork.BeaconBlockBody)
+            runTest(suiteName, testPath, consensusFork.BeaconBlockBody)
           else:
-            raiseAssert "Unknown test object: " & suitePath/path
+            raiseAssert "Unknown test object: " & testPath

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -154,14 +154,11 @@ func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
 
   shouldSyncOptimistically(
     optimisticSlot = self.optimisticHead.bid.slot,
-    dagSlot = getStateField(self.dag.headState, slot),
+    dagSlot = self.dag.headState.slot,
     wallSlot = wallSlot)
 
 func optimisticHead*(self: ConsensusManager): BlockId =
   self.optimisticHead.bid
-
-func optimisticExecutionBlockHash*(self: ConsensusManager): Eth2Digest =
-  self.optimisticHead.execution_block_hash
 
 proc setOptimisticHead*(
     self: var ConsensusManager,
@@ -192,17 +189,19 @@ func getKnownValidatorsForBlsChangeTracking(
       break
   res
 
-proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
+proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
 
   # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
+  # justified and finalized.
+  # `willSelectNewHead` (part of `selectOptimisticHead`) required before this
   self.dag.updateHead(
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
-
+  updateSafeBlockMetrics(
+    self.attestationPool[].forkChoice.get_safe_beacon_block_id)
   self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
@@ -212,8 +211,8 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   # Grab the new head according to our latest attestation data
   let
-    newHead = self.attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time).valueOr:
+    wallTime = wallSlot.start_beacon_time(self.dag.timeParams)
+    newHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return
@@ -229,7 +228,7 @@ func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # the defaultSyncHorizon, it will start triggering in time so that potential
   # discrepancies between the head here, and the head the DAG has (which might
   # not yet be updated) won't be visible.
-  if dag.head.slot + defaultSyncHorizon < wallSlot:
+  if dag.head.slot + dag.timeParams.defaultSyncHorizon < wallSlot:
     false
   else:
     dag.head.executionValid
@@ -282,22 +281,39 @@ proc getFeeRecipient*(
 proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
-proc proposalForkchoiceUpdated*(
+proc prepareNextSlot*(
     self: ref ConsensusManager, proposalSlot: Slot, deadline: DeadlineFuture
 ) {.async: (raises: [CancelledError]).} =
   ## Send a "warm-up" forkchoiceUpdated to the execution client, assuming that
-  ## `clearanceState` has been updated to the expected epoch of the proposal
-  if self.forkchoiceInflight:
-    debug "Skipping proposal fcU, forkchoiceUpdated already in flight", proposalSlot
+  ## `clearanceState` has been updated to the expected epoch of the proposal -
+  ## at the same time, ensure that the clearance state is ready for the next
+  ## block
+
+  # When the chain is synced, the most likely block to be produced is the block
+  # right after head - we can exploit this assumption and advance the state
+  # to that slot before the block arrives, thus allowing us to do the expensive
+  # epoch transition ahead of time.
+  # Notably, we use the clearance state here because that's what the clearance
+  # function uses to validate the incoming block (or the one that's about to be
+  # produced)
+  let
+    dag = self.dag
+    head = dag.head
+    nextBsi = BlockSlotId.init(head.bid, proposalSlot)
+    startTick = Moment.now()
+
+  var cache = StateCache()
+  if not dag.updateState(dag.clearanceState, nextBsi, true, cache, dag.updateFlags):
+    # This should never happen since we're basically advancing the slots of the
+    # head state
+    warn "Cannot prepare clearance state for next block - bug?"
     return
 
-  let head = self.dag.head
+  debug "Prepared clearance state for next block",
+    nextBsi, updateStateDur = Moment.now() - startTick
 
-  # Sending the proposal fcU requires that the state epoch matches the proposal
-  # epoch so that the withdrawals can be computed correctly
-  if not self.dag.clearanceState.matches_block_slot(head.root, proposalSlot):
-    debug "Skipping proposal fcU, clearance state not prepared", head, proposalSlot
-
+  if self.forkchoiceInflight:
+    debug "Skipping proposal fcU, forkchoiceUpdated already in flight", proposalSlot
     return
 
   let
@@ -312,13 +328,14 @@ proc proposalForkchoiceUpdated*(
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
-  withState(self.dag.clearanceState):
+  withState(dag.clearanceState):
     when consensusFork == ConsensusFork.Gloas:
       debugGloasComment "well, likely can't keep reusing V3 much longer"
-    elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+    elif consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       let
-        timestamp = compute_timestamp_at_slot(forkyState.data, proposalSlot)
+        timestamp = dag.timeParams
+          .compute_timestamp_at_slot(forkyState.data, proposalSlot)
         # If the current head block still forms the basis of the eventual proposal
         # state, then its `get_randao_mix` will remain unchanged as well, as it is
         # constant until the next block.
@@ -327,47 +344,32 @@ proc proposalForkchoiceUpdated*(
           nextProposer, Opt.some(validatorIndex), proposalSlot.epoch
         )
         beaconHead = self.attestationPool[].getBeaconHead(head)
-        headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
+        headBlockHash = dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
           return
 
       if headBlockHash.isZero:
         return
 
-      when consensusFork >= ConsensusFork.Deneb:
-        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/prague.md
-        # does not define any new forkchoiceUpdated, so reuse V3 from Dencun
-        let attributes = PayloadAttributesV3(
-          timestamp: Quantity timestamp,
-          prevRandao: Bytes32 prevRandao.to(Hash32),
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-          parentBeaconBlockRoot: beaconHead.blck.bid.root.to(Hash32),
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
+      let
+        state = ForkchoiceStateV1.init(
+          headBlockHash, beaconHead.safeExecutionBlockHash,
+          beaconHead.finalizedExecutionBlockHash,
         )
-      elif consensusFork >= ConsensusFork.Capella:
-        let attributes = PayloadAttributesV2(
-          timestamp: Quantity timestamp,
-          prevRandao: Bytes32 prevRandao.to(Hash32),
-          suggestedFeeRecipient: feeRecipient,
-          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data),
-        )
-      else:
-        let attributes = PayloadAttributesV1(
-          timestamp: Quantity timestamp,
-          prevRandao: Bytes32 prevRandao.to(Hash32),
-          suggestedFeeRecipient: feeRecipient,
+        attributes = PayloadAttributesV3.init(
+          timestamp,
+          prevRandao,
+          feeRecipient,
+          get_expected_withdrawals(forkyState.data),
+          beaconHead.blck.bid.root,
         )
 
-      let (status, _) = await self.elManager.forkchoiceUpdated(
-        headBlockHash,
-        beaconHead.safeExecutionBlockHash,
-        beaconHead.finalizedExecutionBlockHash,
-        Opt.some(attributes),
-        deadline,
-        false,
-      )
+        (status, _) = await self.elManager.forkchoiceUpdated(
+          state, Opt.some(attributes), deadline, false
+        )
       debug "Fork-choice updated for proposal", status, headBlockHash, attributes
-    elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Altair:
-      discard
+    elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+      debug "Not producing blocks in pre-Electra fork"
     else:
       {.error: "Unknown consensus fork " & $consensusFork.}
 
@@ -380,20 +382,19 @@ proc forkchoiceUpdated*(
 ): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
   ## Call non-proposer version of forkchoiceUpdated using the given slot to
   ## select the correct PayloadAttributes version
+
   withConsensusFork(self[].dag.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Bellatrix:
       if headBlockHash.isZero:
         # Merge not yet activated
         PayloadExecutionStatus.valid
       else:
-        let (status, _) = await self.elManager.forkchoiceUpdated(
-          headBlockHash,
-          safeBlockHash,
-          finalizedBlockHash,
-          Opt.none consensusFork.PayloadAttributes,
-          deadline,
-          retry,
-        )
+        let
+          state =
+            ForkchoiceStateV1.init(headBlockHash, safeBlockHash, finalizedBlockHash)
+          (status, _) = await self.elManager.forkchoiceUpdated(
+            state, Opt.none consensusFork.PayloadAttributes, deadline, retry
+          )
         status
     else:
       PayloadExecutionStatus.valid
@@ -469,7 +470,8 @@ proc forkchoiceUpdated(
 
       head.blck.markExecutionValid(false)
       self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
-      self.quarantine[].addUnviable(head.blck.root)
+      # TODO differentiate invalid execution from invalid consensus
+      discard self.quarantine[].addUnviable(head.blck.root, UnviableKind.Invalid)
       false
 
 proc updateExecutionHead*(
@@ -498,7 +500,8 @@ proc updateExecutionHead*(
     wallTime = getBeaconTimeFn()
     head = self.attestationPool[].getBeaconHead(self.dag.head)
 
-  while not (await self.forkchoiceUpdated(head, wallTime.slotOrZero(), deadline, retry)):
+  while not (await self.forkchoiceUpdated(
+      head, wallTime.slotOrZero(self.dag.timeParams), deadline, retry)):
     # Each failed call to forkchoiceUpdated that fails should reveal new
     # information about the suggested new head - a side effect of the failure is
     # that the block should be marked as invalid and removed from fork choice
@@ -516,9 +519,10 @@ proc updateExecutionHead*(
 
     # Select new head for next attempt
     wallTime = getBeaconTimeFn()
-    let nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
+    let nextHead = self.attestationPool[]
+        .selectOptimisticHead(wallTime).valueOr:
       warn "Head selection failed after invalid block, using previous head",
-        head, wallSlot = wallTime.slotOrZero
+        head, wallSlot = wallTime.slotOrZero(self.dag.timeParams)
       break
 
     warn "updateHeadWithExecution: attempting to recover from invalid payload",
@@ -528,11 +532,7 @@ proc updateExecutionHead*(
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
-    self.dag.updateHead(
-      head.blck,
-      self.quarantine[],
-      self[].getKnownValidatorsForBlsChangeTracking(head.blck),
-    )
+    self[].updateHead(head.blck)
 
     attempts += 1
 
@@ -545,4 +545,4 @@ proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   # Cleanup DAG & fork choice if we have a finalized head
   if self.dag.needStateCachesAndForkChoicePruning():
     self.dag.pruneStateCachesDAG()
-    self.attestationPool[].prune()
+    self.attestationPool[].prune(self.dag)

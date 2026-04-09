@@ -1,8 +1,8 @@
 # Sync from a trusted node
 
-When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take **several hours or even days**.
+When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take **several days**.
 
-Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in **minutes** instead of hours or days.
+Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in **minutes** instead.
 
 To use trusted node sync, you must have access to a node that you trust and that exposes the [Beacon API](./rest-api.md) (for example, a locally running backup node).
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
@@ -30,7 +30,7 @@ To start trusted node sync, run:
 === "Mainnet"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:mainnet \
+      --network=mainnet \
       --data-dir=build/data/shared_mainnet_0 \
       --trusted-node-url=http://localhost:5052
     ```
@@ -38,7 +38,7 @@ To start trusted node sync, run:
 === "Hoodi"
     ```sh
     build/nimbus_beacon_node trustedNodeSync \
-      --network:hoodi \
+      --network=hoodi \
       --data-dir=build/data/shared_hoodi_0 \
       --trusted-node-url=http://localhost:5052
     ```
@@ -46,8 +46,8 @@ To start trusted node sync, run:
 If the command was executed successfully, following log lines will be visible:
 
 ```
-Writing checkpoint state
-Writing checkpoint block
+Database initialized from genesis
+Checkpoint written to database
 ```
 And eventually:
 ```
@@ -82,12 +82,12 @@ The `head` root is also printed in the log output at regular intervals.
 
 ## Advanced
 
-### Verify the downloaded state through the Nimbus light client
+### Verify the downloaded state through the Nimbus consensus light client
 
 !!! note ""
     This feature is available from `v23.4.0` onwards.
 
-The `--trusted-block-root` option enables you to leverage the Nimbus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading a state snapshot, the light client will verify that it conforms to the established consensus on the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers is still recommended.
+The `--trusted-block-root` option enables you to leverage the Nimbus consensus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading a state snapshot, the consensus light client will verify that it conforms to the established consensus on the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers is still recommended.
 
 ### Sync deposit history
 
@@ -122,9 +122,9 @@ While you can choose a different sync point using a state hash or a slot number,
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
-  --network:mainnet \
+  --network=mainnet \
   --data-dir=build/data/shared_mainnet_0 \
-  --state-id:1024
+  --state-id=1024
 ```
 
 ### Sync from checkpoint files
@@ -151,7 +151,7 @@ To recreate a historical index from before the checkpoint, it is necessary to fi
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
-  --network:mainnet \
+  --network=mainnet \
   --data-dir=build/data/shared_mainnet_0 \
-  --reindex=true
+  --reindex
 ```

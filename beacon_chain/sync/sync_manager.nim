@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -580,7 +580,7 @@ proc syncStep[A, B](
   if man.remainingSlots() <= man.maxHeadAge:
     case man.direction
     of SyncQueueKind.Forward:
-      info "We are in sync with network",
+      info "Beacon node in sync with consensus network",
             peer = peer,
             peer_score = peer.getScore(),
             peer_speed = peer.netKbps(),
@@ -880,14 +880,15 @@ proc syncLoop[A, B](
       await man.notInSyncEvent.wait()
 
       # Give the node time to connect to peers and get the sync process started
-      await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
+      const pollInterval = seconds(15)
+      await sleepAsync(pollInterval)
 
       var
         stamp = SyncMoment.now(man.queue.progress())
         syncCount = 0
 
       while man.inProgress:
-        await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
+        await sleepAsync(pollInterval)
 
         let
           newStamp = SyncMoment.now(man.queue.progress())

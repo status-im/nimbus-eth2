@@ -39,6 +39,12 @@ edit_uri: edit/unstable/docs/the_nimbus_book/src
 site_url: https://nimbus.guide
 docs_dir: src
 
+plugins:
+  - redirects:
+      redirect_maps:
+        'el-light-client.md': 'consensus-light-client.md'
+  - search
+
 markdown_extensions:
   - admonition
   - pymdownx.details
@@ -60,7 +66,7 @@ nav:
   - Getting started:
     - 'quick-start.md'
     - 'run-a-validator.md'
-    - 'el-light-client.md'
+    - 'consensus-light-client.md'
     - 'execution-client.md'
     - 'pi-guide.md'
 

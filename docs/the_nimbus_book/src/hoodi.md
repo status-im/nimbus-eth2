@@ -72,7 +72,7 @@ If you come across any issues, please [report them here](https://github.com/stat
     ```sh
     nimbus-eth2/build/nimbus_beacon_node \
         --network=hoodi \
-        --web3-url=http://127.0.0.1:8551 \
+        --el=http://127.0.0.1:8551 \
         --rest \
         --metrics \
         --jwt-secret="/opt/jwtsecret" \

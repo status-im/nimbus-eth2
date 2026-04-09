@@ -1,18 +1,18 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronos,
   results,
   ../consensus_object_pools/block_dag,
   ../beacon_clock,
-  "."/[validator_pool]
+  ./validator_pool
 
 export chronos, results, block_dag, beacon_clock
 
@@ -38,13 +38,6 @@ func toAttestation*(
     [registered.index_in_committee], registered.committee_len,
     registered.data, signature).expect("valid data")
 
-func toElectraAttestation*(
-    registered: RegisteredAttestation, signature: ValidatorSig):
-    electra.Attestation =
-  electra.Attestation.init(
-    registered.committee_index, [registered.index_in_committee],
-    registered.committee_len, registered.data, signature).expect("valid data")
-
 func toSingleAttestation*(
     registered: RegisteredAttestation, signature: ValidatorSig): SingleAttestation =
   SingleAttestation(
@@ -53,6 +46,7 @@ func toSingleAttestation*(
     signature: signature)
 
 proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
+                           consensusFork: ConsensusFork,
                            head: Opt[BlockRef] = Opt.none(BlockRef))
                            {.async: (raises: [CancelledError]).} =
   # The expected block arrived (or expectBlock was called again which
@@ -72,11 +66,11 @@ proc waitAfterBlockCutoff*(clock: BeaconClock, slot: Slot,
   # delay.
 
   # Take into consideration chains with a different slot time
-  const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
   let
-    afterBlockTime = clock.now() + afterBlockDelay
-    afterBlockCutoff = clock.fromNow(
-      min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
+    extraDelay = nanos(clock.timeParams.attestationSlotOffset.nanoseconds div 2)
+    afterBlockCutoff = clock.fromNow(min(
+      clock.now(),
+      slot.attestation_deadline(clock.timeParams, consensusFork)) + extraDelay)
 
   if afterBlockCutoff.inFuture:
     if head.isSome():

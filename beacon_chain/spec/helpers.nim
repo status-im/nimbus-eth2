@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -32,8 +32,22 @@ const ETH_TO_GWEI = 1_000_000_000.Gwei
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
 
-func toGwei*(eth: Ether): Gwei =
-  distinctBase(eth) * ETH_TO_GWEI
+func toEtherWithRemainder*(gwei: Gwei): (Ether, Gwei) =
+  (gwei.toEther, gwei mod ETH_TO_GWEI)
+
+func formatGwei*(amount: Gwei): string =
+  ## Display Gwei as ETH with up through 9 decimal digits,
+  ## without trailing zeros.
+  let (eth, remainder) = amount.toEtherWithRemainder
+  result = $eth
+  if remainder != 0.Gwei:
+    result.add '.'
+    let remainderStr = $remainder
+    for i in remainderStr.len ..< 9:
+      result.add '0'
+    result.add remainderStr
+    while result[^1] == '0':
+      result.setLen(result.len - 1)
 
 type
   FinalityCheckpoints* = object
@@ -97,11 +111,6 @@ func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
     if is_active_validator(state.validators.item(vidx), epoch):
       inc result
 
-func get_active_validator_indices_len*(
-    state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
-  withState(state):
-    get_active_validator_indices_len(forkyState.data, epoch)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
@@ -123,12 +132,6 @@ func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
-func bytes_to_uint32*(data: openArray[byte]): uint32 =
-  doAssert data.len == 4
-
-  # Little-endian data representation
-  uint32.fromBytesLE(data)
-
 func bytes_to_uint64*(data: openArray[byte]): uint64 =
   doAssert data.len == 8
 
@@ -137,8 +140,6 @@ func bytes_to_uint64*(data: openArray[byte]): uint64 =
 
 func uint_to_bytes*(x: uint64): array[8, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint32): array[4, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint16): array[2, byte] = toBytesLE(x)
-func uint_to_bytes*(x: uint8): array[1, byte] = toBytesLE(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.7/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
@@ -169,12 +170,6 @@ func get_domain*(
       fork.current_version
   compute_domain(domain_type, fork_version, genesis_validators_root)
 
-func get_domain*(
-    state: ForkyBeaconState, domain_type: DomainType, epoch: Epoch): Eth2Domain =
-  ## Return the signature domain (fork version concatenated with domain type)
-  ## of a message.
-  get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   ## Return the signing root for the corresponding signing data.
@@ -186,10 +181,9 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(
-    state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType,
-    mix: Eth2Digest): Eth2Digest =
+    epoch: Epoch, domain_type: DomainType, mix: Eth2Digest): Eth2Digest =
   ## Return the seed at ``epoch``.
-  var seed_input : array[4+8+32, byte]
+  var seed_input {.noinit.}: array[4+8+32, byte]
   seed_input[0..3] = domain_type.data
   seed_input[4..11] = uint_to_bytes(epoch.uint64)
   seed_input[12..43] = mix.data
@@ -201,7 +195,7 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
   static: doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
   let mix = get_randao_mix(state, # Avoid underflow
     epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1)
-  state.get_seed(epoch, domain_type, mix)
+  get_seed(epoch, domain_type, mix)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): ParticipationFlags =
@@ -386,16 +380,20 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState |
-           electra.BeaconState | fulu.BeaconState | gloas.BeaconState): bool =
+           electra.BeaconState | fulu.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
+debugGloasComment ""
+func is_merge_transition_complete*(state: gloas.BeaconState): bool =
+  state.latest_block_hash != ZERO_HASH
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =
-  when typeof(body).kind == ConsensusFork.Gloas:
-    debugGloasComment ""
-    false
+  when typeof(body).kind >= ConsensusFork.Gloas:
+    # Execution payload should always be enabled since Gloas.
+    true
   elif typeof(body).kind >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload = default(typeof(body.execution_payload))
     body.execution_payload != defaultExecutionPayload
@@ -429,10 +427,12 @@ func is_execution_enabled*(
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
-func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
+func compute_timestamp_at_slot*(
+    timeParams: TimeParams, state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT
-  state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
+  state.genesis_time +
+    slots_since_genesis * timeParams.SLOT_DURATION.seconds.uint64
 
 template append*(w: var RlpWriter, v: bellatrix.Transaction) =
   w.appendRawBytes(distinctBase v)
@@ -448,7 +448,7 @@ func computeTransactionsTrieRoot(payload: ForkyExecutionPayload): EthHash32 =
   orderedTrieRoot(payload.transactions.asSeq)
 
 # https://eips.ethereum.org/EIPS/eip-7685
-func computeRequestsHash(
+func computeRequestsHash*(
     requests: electra.ExecutionRequests): EthHash32 =
 
   template individualHash(requestType, requestList): Digest =
@@ -526,34 +526,83 @@ func toExecutionBlockHeader(
     requestsHash          : requestsHash)          # EIP-7685
 
 func compute_execution_block_hash*(
-    body: ForkyBeaconBlockBody,
-    parentRoot: Eth2Digest): Eth2Digest =
-  when typeof(body).kind >= ConsensusFork.Electra:
-    body.execution_payload.toExecutionBlockHeader(
-        Opt.some parentRoot, Opt.some body.execution_requests.computeRequestsHash())
-      .computeRlpHash().to(Eth2Digest)
-  elif typeof(body).kind >= ConsensusFork.Deneb:
-    body.execution_payload.toExecutionBlockHeader(
-        Opt.some parentRoot)
-      .computeRlpHash().to(Eth2Digest)
+    consensusFork: static ConsensusFork,
+    payload: ForkyExecutionPayload,
+    parentRoot: Eth2Digest,
+    requestsHash = Opt.none(EthHash32),
+): Eth2Digest =
+  let header =
+    when consensusFork >= ConsensusFork.Electra:
+      payload.toExecutionBlockHeader(Opt.some parentRoot, requestsHash)
+    elif consensusFork >= ConsensusFork.Deneb:
+      payload.toExecutionBlockHeader(Opt.some parentRoot)
+    else:
+      payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
+
+  header.computeRlpHash().to(Eth2Digest)
+
+func compute_execution_block_hash*(
+    body: ForkyBeaconBlockBody, parentRoot: Eth2Digest
+): Eth2Digest =
+  const consensusFork = typeof(body).kind
+  when consensusFork >= ConsensusFork.Electra:
+    compute_execution_block_hash(
+      consensusFork,
+      body.execution_payload,
+      parentRoot,
+      Opt.some body.execution_requests.computeRequestsHash(),
+    )
   else:
-    body.execution_payload.toExecutionBlockHeader(Opt.none(Eth2Digest))
-      .computeRlpHash().to(Eth2Digest)
+    compute_execution_block_hash(
+      consensusFork, body.execution_payload, parentRoot
+    )
 
 func compute_execution_block_hash*(blck: ForkyBeaconBlock): Eth2Digest =
   blck.body.compute_execution_block_hash(blck.parent_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_builder_payment_withdrawable
-func is_builder_payment_withdrawable*(
-    state: gloas.BeaconState, 
-    withdrawal: BuilderPendingWithdrawal): bool =
-  ## Check if the builder is slashed and not yet withdrawable.
-  let 
-    builder = state.validators[withdrawal.builder_index]
-    current_epoch = state.slot.epoch
-  
-  builder.withdrawable_epoch >= current_epoch or not builder.slashed
+func compute_execution_block_hash*(
+    blck: gloas.BeaconBlock,
+    envelope: gloas.ExecutionPayloadEnvelope): Eth2Digest =
+  const consensusFork = typeof(blck).kind
+  compute_execution_block_hash(
+    consensusFork,
+    envelope.payload,
+    blck.parent_root,
+    Opt.some envelope.execution_requests.computeRequestsHash(),
+  )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-is_parent_block_full
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_parent_block_full
 func is_parent_block_full*(state: gloas.BeaconState): bool =
-  state.latest_execution_payload_header.block_hash == state.latest_block_hash
+  state.latest_execution_payload_bid.block_hash == state.latest_block_hash
+
+func attestation_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    attestation_deadline_gloas(s, timeParams)
+  else:
+    attestation_deadline_legacy(s, timeParams)
+
+func aggregate_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    aggregate_deadline_gloas(s, timeParams)
+  else:
+    aggregate_deadline_legacy(s, timeParams)
+
+func sync_committee_message_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_committee_message_deadline_gloas(s, timeParams)
+  else:
+    sync_committee_message_deadline_legacy(s, timeParams)
+
+func sync_contribution_deadline*(
+    s: Slot, timeParams: TimeParams,
+    consensusFork: ConsensusFork): BeaconTime =
+  if consensusFork >= ConsensusFork.Gloas:
+    sync_contribution_deadline_gloas(s, timeParams)
+  else:
+    sync_contribution_deadline_legacy(s, timeParams)

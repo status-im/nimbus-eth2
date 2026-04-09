@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -9,8 +9,12 @@
 
 import
   chronicles,
-  ./mocking/mock_deposits,
-  ../beacon_chain/spec/[forks, state_transition]
+  ../beacon_chain/el/merkle_minimal,
+  ../beacon_chain/spec/[beaconstate, forks, state_transition],
+  ./testblockutil
+
+const mockEth1BlockHash* =
+  Eth2Digest.fromHex("0x4242424242424242424242424242424242424242")
 
 from ".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
@@ -18,12 +22,68 @@ func round_multiple_down(x: Gwei, n: Gwei): Gwei =
   ## Round the input to the previous multiple of "n"
   x - x mod n
 
+proc initGenesisState*(
+    cfg: RuntimeConfig,
+    eth1_block_hash: Eth2Digest,
+    eth1_timestamp: uint64,
+    deposits: openArray[DepositData],
+    flags: UpdateFlags = {},
+): ref ForkedHashedBeaconState =
+  result = (ref ForkedHashedBeaconState)(
+    kind: ConsensusFork.Phase0,
+    phase0Data: initialize_hashed_beacon_state_from_eth1(
+      cfg, eth1_block_hash, eth1_timestamp, deposits, flags
+    ),
+  )
+
+  var cache: StateCache
+  maybeUpgradeState(cfg, result[], cache)
+
+  # Adjust latest_block_header with the right fork
+  # https://github.com/ethereum/consensus-specs/pull/2323
+  withState(result[]):
+    forkyState.data.latest_block_header.body_root =
+      hash_tree_root(default(consensusFork.BeaconBlockBody))
+    forkyState.root = hash_tree_root(forkyState.data)
+
+proc initGenesisState*(
+    cfg: RuntimeConfig, num_validators = 8'u64 * SLOTS_PER_EPOCH
+): ref ForkedHashedBeaconState =
+  initGenesisState(
+    cfg,
+    mockEth1BlockHash,
+    0,
+    makeInitialDeposits(cfg, num_validators, {skipBlsValidation}),
+    {skipBlsValidation},
+  )
+
+proc mockUpdateStateForNewDeposit(
+       state: var ForkyBeaconState,
+       validator_index: int,
+       amount: Gwei,
+       # withdrawal_credentials: Eth2Digest
+       flags: UpdateFlags
+    ): Deposit =
+  # TODO withdrawal credentials
+
+  result.data = makeDepositData(validator_index, amount, flags)
+
+  var result_seq = @[result]
+  let deposit_root = attachMerkleProofs(result_seq)
+  result.proof = result_seq[0].proof
+
+  # TODO: this logic from the consensus-specs test suite seems strange
+  #       but confirmed by running it
+  state.eth1_deposit_index = 0
+  state.eth1_data.deposit_root = deposit_root
+  state.eth1_data.deposit_count = 1
+
 proc valid_deposit(state: var ForkyHashedBeaconState) =
   const deposit_amount = MAX_EFFECTIVE_BALANCE.Gwei
   let validator_index = state.data.validators.len
   let deposit = mockUpdateStateForNewDeposit(
                   state.data,
-                  uint64 validator_index,
+                  validator_index,
                   deposit_amount,
                   flags = {}
                 )
@@ -94,14 +154,19 @@ proc getTestStates*(
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot
-    if getStateField(tmpState[], slot) < slot:
+    if tmpState[].slot < slot:
       process_slots(
         cfg, tmpState[], slot, cache, info, {}).expect("no failure")
 
     if i mod 3 == 0:
       withState(tmpState[]):
         valid_deposit(forkyState)
-    doAssert getStateField(tmpState[], slot) == slot
+    doAssert tmpState[].slot == slot
 
     if tmpState[].kind == consensusFork:
       result.add assignClone(tmpState[])
+
+when isMainModule:
+  # Smoke test
+  let state = initGenesisState(defaultRuntimeConfig, num_validators = SLOTS_PER_EPOCH)
+  doAssert state[].validators.lenu64 == SLOTS_PER_EPOCH

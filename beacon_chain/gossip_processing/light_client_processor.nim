@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,9 +12,9 @@ import
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_clock, sszdump],
-  "."/[eth2_processor, gossip_validation]
+  "."/gossip_validation
 
-export sszdump, eth2_processor, gossip_validation
+export sszdump, gossip_validation, light_client_sync, block_pools_types
 
 logScope: topics = "gossip_lc"
 
@@ -192,7 +192,7 @@ proc tryForceUpdate(
     self: var LightClientProcessor,
     wallTime: BeaconTime) =
   ## Try to force-update to the next sync committee period.
-  let wallSlot = wallTime.slotOrZero()
+  let wallSlot = wallTime.slotOrZero(self.cfg.timeParams)
   doAssert self.finalizationMode == LightClientFinalizationMode.Optimistic
 
   withForkyStore(self.store[]):
@@ -252,7 +252,7 @@ proc doProcessObject(
     withForkyStore(self.store[]):
       when lcDataFork > LightClientDataFork.None:
         let
-          wallSlot = wallTime.slotOrZero()
+          wallSlot = wallTime.slotOrZero(self.cfg.timeParams)
           upgradedUpdate = update.migratingToDataFork(lcDataFork)
         process_light_client_update(
           forkyStore, upgradedUpdate.forky(lcDataFork), wallSlot,
@@ -468,12 +468,8 @@ proc addObject*(
   #   - `LightClientUpdatesByRange`
   #   - `GetLightClientFinalityUpdate`
   #   - `GetLightClientOptimisticUpdate`
-
-  let
-    wallTime = self.getBeaconTime()
-    (afterGenesis, _) = wallTime.toSlot()
-
-  if not afterGenesis:
+  let wallTime = self.getBeaconTime()
+  if not wallTime.afterGenesis:
     let mayProcessBeforeGenesis =
       when obj is ForkedLightClientBootstrap:
         withForkyBootstrap(obj):
@@ -514,7 +510,8 @@ func toValidationError(
           else:
             GENESIS_SLOT
         currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-        forwardTime = signature_slot.light_client_finality_update_time
+        forwardTime = signature_slot
+          .light_client_finality_update_time(self.cfg.timeParams)
       if currentTime < forwardTime:
         # [IGNORE] The `finality_update` is received after the block
         # at `signature_slot` was given enough time to propagate through

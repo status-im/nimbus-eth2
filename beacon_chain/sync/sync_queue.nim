@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1011,7 +1011,7 @@ proc push*[T](
     if pres.code.isError():
       if sq.requests[position.qindex].failuresCount >= sq.failureResetThreshold:
         let point = sq.getRewindPoint(pres.blck.get().slot, sq.getSafeSlot())
-        debug "Multiple repeating errors occured, rewinding",
+        debug "Multiple repeating errors occurred, rewinding",
               voids_count = sq.requests[position.qindex].voidsCount,
               failures_count = sq.requests[position.qindex].failuresCount,
               rewind_slot = point,

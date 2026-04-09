@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -116,12 +116,12 @@ func cacheRecentSyncAggregate(
 
 func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
-  const lcDataFork = max(
-    lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
-  debugGloasComment "..."
   when kind(typeof(blck)) == ConsensusFork.Gloas:
+    debugGloasComment "..."
     default(ForkedLightClientHeader)
   else:
+    const lcDataFork = max(
+      lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
     ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
 
 func sync_aggregate(

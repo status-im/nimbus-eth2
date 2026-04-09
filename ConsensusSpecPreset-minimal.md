@@ -268,9 +268,22 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_is_not_activated OK
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_is_slashed       OK
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_is_withdrawn     OK
++ [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_proposer_withdrawable_cur OK
 + [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_slots_of_different_epochs OK
++ [Invalid] EF - Altair - Operations - Proposer Slashing - invalid_slots_same_epoch_differen OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - basic                             OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - block_header_from_future          OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - block_header_from_past            OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - header_slot_at_epoch_end          OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - header_slot_at_epoch_start        OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - headers_differ_multiple_roots     OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - headers_differ_only_body_root     OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - headers_differ_only_state_root    OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_activated_current_epoch  OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_index_last               OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_index_zero               OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - proposer_withdrawable_next_epoch  OK
++ [Valid]   EF - Altair - Operations - Proposer Slashing - self_slashing_future_slot         OK
 + [Valid]   EF - Altair - Operations - Proposer Slashing - slashed_and_proposer_index_the_sa OK
 ```
 ## EF - Altair - Operations - Sync Aggregate  [Preset: minimal]
@@ -734,9 +747,22 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_is_not_activa OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_is_slashed    OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_is_withdrawn  OK
++ [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_proposer_withdrawable_ OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_slots_of_different_epo OK
++ [Invalid] EF - Bellatrix - Operations - Proposer Slashing - invalid_slots_same_epoch_diffe OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - basic                          OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - block_header_from_future       OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - block_header_from_past         OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - header_slot_at_epoch_end       OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - header_slot_at_epoch_start     OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - headers_differ_multiple_roots  OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - headers_differ_only_body_root  OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - headers_differ_only_state_root OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_activated_current_epo OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_index_last            OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_index_zero            OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - proposer_withdrawable_next_epo OK
++ [Valid]   EF - Bellatrix - Operations - Proposer Slashing - self_slashing_future_slot      OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - slashed_and_proposer_index_the OK
 ```
 ## EF - Bellatrix - Operations - Sync Aggregate  [Preset: minimal]
@@ -1220,9 +1246,22 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_is_not_activate OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_is_slashed      OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_is_withdrawn    OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_withdrawable_cu OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_slots_of_different_epoch OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_slots_same_epoch_differe OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - basic                            OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - block_header_from_future         OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - block_header_from_past           OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - header_slot_at_epoch_end         OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - header_slot_at_epoch_start       OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - headers_differ_multiple_roots    OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - headers_differ_only_body_root    OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - headers_differ_only_state_root   OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_activated_current_epoch OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_index_last              OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_index_zero              OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - proposer_withdrawable_next_epoch OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - self_slashing_future_slot        OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
 ## EF - Capella - Operations - Sync Aggregate  [Preset: minimal]
@@ -1746,7 +1785,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_correct_input__execution_i OK
-+ [Invalid] EF - Deneb - Operations - Execution Payload - invalid_exceed_max_blobs_per_block OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
 + [Invalid] EF - Deneb - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
@@ -1791,9 +1829,22 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_is_not_activated  OK
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_is_slashed        OK
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_is_withdrawn      OK
++ [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_proposer_withdrawable_curr OK
 + [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_slots_of_different_epochs  OK
++ [Invalid] EF - Deneb - Operations - Proposer Slashing - invalid_slots_same_epoch_different OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - basic                              OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - block_header_from_future           OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - block_header_from_past             OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - header_slot_at_epoch_end           OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - header_slot_at_epoch_start         OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - headers_differ_multiple_roots      OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - headers_differ_only_body_root      OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - headers_differ_only_state_root     OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_activated_current_epoch   OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_index_last                OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_index_zero                OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - proposer_withdrawable_next_epoch   OK
++ [Valid]   EF - Deneb - Operations - Proposer Slashing - self_slashing_future_slot          OK
 + [Valid]   EF - Deneb - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
 ```
 ## EF - Deneb - Operations - Sync Aggregate  [Preset: minimal]
@@ -2461,7 +2512,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_pre_randao_regular_p OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_bad_prev_randao_first_pa OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_correct_input__execution OK
-+ [Invalid] EF - Electra - Operations - Execution Payload - invalid_exceed_max_blobs_per_blo OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_future_timestamp_first_p OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_future_timestamp_regular OK
 + [Invalid] EF - Electra - Operations - Execution Payload - invalid_past_timestamp_first_pay OK
@@ -2506,9 +2556,22 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_not_activate OK
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_slashed      OK
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_is_withdrawn    OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_proposer_withdrawable_cu OK
 + [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_slots_of_different_epoch OK
++ [Invalid] EF - Electra - Operations - Proposer Slashing - invalid_slots_same_epoch_differe OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - basic                            OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - block_header_from_future         OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - block_header_from_past           OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - header_slot_at_epoch_end         OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - header_slot_at_epoch_start       OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - headers_differ_multiple_roots    OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - headers_differ_only_body_root    OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - headers_differ_only_state_root   OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_activated_current_epoch OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_index_last              OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_index_zero              OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - proposer_withdrawable_next_epoch OK
++ [Valid]   EF - Electra - Operations - Proposer Slashing - self_slashing_future_slot        OK
 + [Valid]   EF - Electra - Operations - Proposer Slashing - slashed_and_proposer_index_the_s OK
 ```
 ## EF - Electra - Operations - Sync Aggregate  [Preset: minimal]
@@ -3260,7 +3323,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_pre_randao_regular_payl OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_bad_prev_randao_first_paylo OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_correct_input__execution_in OK
-+ [Invalid] EF - Fulu - Operations - Execution Payload - invalid_exceed_max_blobs_per_block  OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_first_payl OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_future_timestamp_regular_pa OK
 + [Invalid] EF - Fulu - Operations - Execution Payload - invalid_past_timestamp_first_payloa OK
@@ -3305,9 +3367,22 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_not_activated   OK
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_slashed         OK
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_is_withdrawn       OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_proposer_withdrawable_curre OK
 + [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_slots_of_different_epochs   OK
++ [Invalid] EF - Fulu - Operations - Proposer Slashing - invalid_slots_same_epoch_different_ OK
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - basic                               OK
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - block_header_from_future            OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - block_header_from_past              OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - header_slot_at_epoch_end            OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - header_slot_at_epoch_start          OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - headers_differ_multiple_roots       OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - headers_differ_only_body_root       OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - headers_differ_only_state_root      OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_activated_current_epoch    OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_index_last                 OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_index_zero                 OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - proposer_withdrawable_next_epoch    OK
++ [Valid]   EF - Fulu - Operations - Proposer Slashing - self_slashing_future_slot           OK
 + [Valid]   EF - Fulu - Operations - Proposer Slashing - slashed_and_proposer_index_the_same OK
 ```
 ## EF - Fulu - Operations - Sync Aggregate  [Preset: minimal]
@@ -3848,11 +3923,40 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - after_fork_deactivate_validators_from_fulu_to_gloas [Preset: minimal]  OK
 + EF - Gloas - Fork - after_fork_deactivate_validators_wo_block_from_fulu_to_gloas [Preset:  OK
 + EF - Gloas - Fork - after_fork_new_validator_active_from_fulu_to_gloas [Preset: minimal]   OK
++ EF - Gloas - Fork - fork_base_state [Preset: minimal]                                      OK
++ EF - Gloas - Fork - fork_builder_deposit_followed_by_non_builder_credentials [Preset: mini OK
++ EF - Gloas - Fork - fork_builder_deposit_uses_deposit_slot_epoch [Preset: minimal]         OK
++ EF - Gloas - Fork - fork_builder_deposit_with_existing_validator_pubkey_builder_creds [Pre OK
++ EF - Gloas - Fork - fork_invalid_builder_deposit_followed_by_valid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_invalid_validator_deposit_followed_by_builder_credentials [Preset OK
++ EF - Gloas - Fork - fork_many_next_epoch [Preset: minimal]                                 OK
++ EF - Gloas - Fork - fork_mixed_pending_deposits [Preset: minimal]                          OK
++ EF - Gloas - Fork - fork_multiple_builder_deposits [Preset: minimal]                       OK
++ EF - Gloas - Fork - fork_multiple_deposits_same_builder [Preset: minimal]                  OK
++ EF - Gloas - Fork - fork_next_epoch [Preset: minimal]                                      OK
++ EF - Gloas - Fork - fork_next_epoch_with_block [Preset: minimal]                           OK
++ EF - Gloas - Fork - fork_no_pending_deposits [Preset: minimal]                             OK
++ EF - Gloas - Fork - fork_pending_deposit_for_existing_validator [Preset: minimal]          OK
++ EF - Gloas - Fork - fork_pending_deposit_validator_credentials [Preset: minimal]           OK
++ EF - Gloas - Fork - fork_random_large_validator_set [Preset: minimal]                      OK
++ EF - Gloas - Fork - fork_random_low_balances [Preset: minimal]                             OK
++ EF - Gloas - Fork - fork_random_misc_balances [Preset: minimal]                            OK
++ EF - Gloas - Fork - fork_single_builder_deposit [Preset: minimal]                          OK
++ EF - Gloas - Fork - fork_valid_builder_deposit_followed_by_invalid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_validator_deposit_followed_by_builder_credentials [Preset: minima OK
++ EF - Gloas - Fork - gloas_fork_random_0 [Preset: minimal]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_1 [Preset: minimal]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_2 [Preset: minimal]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_3 [Preset: minimal]                                  OK
++ EF - Gloas - Fork - gloas_fork_random_large_validator_set [Preset: minimal]                OK
++ EF - Gloas - Fork - gloas_fork_random_low_balances [Preset: minimal]                       OK
++ EF - Gloas - Fork - gloas_fork_random_misc_balances [Preset: minimal]                      OK
 ```
 ## EF - Gloas - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_after_max_inclusion_slot         OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_data_index_not_zero  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_data_index_too_high  OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_attestation_signature            OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_bad_source_root                  OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_before_inclusion_delay           OK
@@ -3874,6 +3978,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_old_source_epoch                 OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_old_target_epoch                 OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_previous_source_root             OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one  OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_source_root_is_target_root       OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_few_aggregation_bits         OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_aggregation_bits        OK
@@ -3882,6 +3987,8 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_0           OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_1           OK
 + [Valid]   EF - Gloas - Operations - Attestation - at_max_inclusion_slot                    OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_no_double_countin OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_tracking          OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_max_incl OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_min_incl OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_one_epoc OK
@@ -3895,11 +4002,20 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_epoch_delay OK
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_min_inclusi OK
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_sqrt_epoch_ OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_false_historical_slot   OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_gets_head_flag          OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_historical_slot    OK
++ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_same_slot          OK
++ [Valid]   EF - Gloas - Operations - Attestation - mismatched_payload_no_head_flag          OK
 + [Valid]   EF - Gloas - Operations - Attestation - multi_proposer_index_iterations          OK
 + [Valid]   EF - Gloas - Operations - Attestation - multiple_committees                      OK
 + [Valid]   EF - Gloas - Operations - Attestation - one_basic_attestation                    OK
 + [Valid]   EF - Gloas - Operations - Attestation - one_committee_with_gap                   OK
 + [Valid]   EF - Gloas - Operations - Attestation - previous_epoch                           OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_zero_previo OK
++ [Valid]   EF - Gloas - Operations - Attestation - valid_same_slot_attestation_index_zero   OK
 ```
 ## EF - Gloas - Operations - Attester Slashing  [Preset: minimal]
 ```diff
@@ -4025,41 +4141,96 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_exit OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_invalid_sig  OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_max_effectiv OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_min_activati OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_set_start_in OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_inval OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_max_e OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_min_a OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
 ```
-## EF - Gloas - Operations - Execution Payload Header  [Preset: minimal]
+## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
 ```diff
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload Header - process_execution_payload_h OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_correct_input__execution_i OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_regular_pay OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_bid_prev OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_missing_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bu OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ga OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pa OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pr OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_sl OK
++ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ti OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_blob_tx_type             OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_block_hash               OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_commitment               OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_commitments_order        OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_1_byt OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_1_ext OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_32_ex OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_empty OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_no_blobs_but OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - no_commitments_for_transactions    OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - no_transactions_with_commitments   OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_large_pa OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_self_bui OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_valid    OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_blo OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_exe OK
++ [Valid]   EF - Gloas - Operations - Execution Payload - zeroed_commitment                  OK
+```
+## EF - Gloas - Operations - Execution Payload Bid  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 ```
 ## EF - Gloas - Operations - Payload Attestation  [Preset: minimal]
 ```diff
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_cros OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_futu OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
@@ -4068,6 +4239,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_part OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_samp OK
++ [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_uses OK
 ```
 ## EF - Gloas - Operations - Proposer Slashing  [Preset: minimal]
 ```diff
@@ -4082,9 +4255,32 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_not_activated  OK
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_slashed        OK
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_is_withdrawn      OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_proposer_withdrawable_curr OK
 + [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_slots_of_different_epochs  OK
++ [Invalid] EF - Gloas - Operations - Proposer Slashing - invalid_slots_same_epoch_different OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - basic                              OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - block_header_from_future           OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - block_header_from_past             OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_current_e OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_previous_ OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_deletion_too_late  OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_current_epoc OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_old_epoch    OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_previous_epo OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - header_slot_at_epoch_end           OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - header_slot_at_epoch_start         OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - headers_differ_multiple_roots      OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - headers_differ_only_body_root      OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - headers_differ_only_state_root     OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_activated_current_epoch   OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_index_last                OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_index_zero                OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - proposer_withdrawable_next_epoch   OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - self_slashing_future_slot          OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - slashed_and_proposer_index_the_sam OK
 ```
 ## EF - Gloas - Operations - Sync Aggregate  [Preset: minimal]
@@ -4172,9 +4368,30 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Withdrawals  [Preset: minimal]
 ```diff
++ [Valid]   EF - Gloas - Operations - Withdrawals - all_builder_withdrawals_zero_balance     OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_and_pending_leave_room_for_sweep OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_max_minus_one_plus_one_regular   OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_payments_exceed_limit_blocks_oth OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_index_wrap_around          OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped   OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_zero_balance_skipped       OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_uses_fee_recipient_address       OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_withdrawal_insufficient_balance  OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_withdrawal_insufficient_balance_ OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_withdrawals_processed_order      OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_zero_withdrawal_amount           OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - compounding_validator_partial_withdrawal OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - duplicate_builder_index_in_pending_withd OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - early_return_empty_parent_block          OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - full_builder_payload_reserves_sweep_slot OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - maximum_withdrawals_per_payload_limit    OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - multiple_builder_sweep_withdrawals       OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - multiple_builder_withdrawals             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - no_builders_max_pending_with_sweep_spill OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - no_builders_no_pending_max_sweep_withdra OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - partially_withdrawable_validator_compoun OK
@@ -4192,6 +4409,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_next_epoch           OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_no_excess_balance    OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_one_skipped_one_effe OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_processing           OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_processing_exceeds_l OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_two_partial_withdraw OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - pending_withdrawals_with_effective_sweep OK
@@ -4204,21 +4423,29 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_3             OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_4             OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - random_partial_withdrawals_5             OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - single_builder_sweep_withdrawal          OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - single_builder_withdrawal                OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_excess_balance_but_no_max_effect OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_max_partial_withdrawable         OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_max_plus_one_withdrawable        OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_mixed_fully_and_partial_withdraw OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_mixed_fully_and_partial_withdraw OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance                OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_excess_balance_compounding    OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance         OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_no_max_effective_balance_compoun OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_full_withdrawal              OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_active_ OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited  OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_exited_ OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_in_exit OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawable_not_yet OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_one_partial_withdrawal           OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_two_partial_withdrawable         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - success_zero_expected_withdrawals        OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_balance         OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
 ## EF - Gloas - Rewards  [Preset: minimal]
 ```diff
@@ -4270,6 +4497,7 @@ ConsensusSpecPreset-minimal
 +   Testing    BeaconState                                                                   OK
 +   Testing    BlobIdentifier                                                                OK
 +   Testing    BlobSidecar                                                                   OK
++   Testing    Builder                                                                       OK
 +   Testing    BuilderPendingPayment                                                         OK
 +   Testing    BuilderPendingWithdrawal                                                      OK
 +   Testing    Checkpoint                                                                    OK
@@ -4284,6 +4512,7 @@ ConsensusSpecPreset-minimal
 +   Testing    Eth1Block                                                                     OK
 +   Testing    Eth1Data                                                                      OK
 +   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
@@ -4308,14 +4537,16 @@ ConsensusSpecPreset-minimal
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
 +   Testing    PowBlock                                                                      OK
++   Testing    ProposerPreferences                                                           OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBLSToExecutionChange                                                    OK
 +   Testing    SignedBeaconBlock                                                             OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
 +   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedExecutionPayloadBid                                                     OK
 +   Testing    SignedExecutionPayloadEnvelope                                                OK
-+   Testing    SignedExecutionPayloadHeader                                                  OK
++   Testing    SignedProposerPreferences                                                     OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
 +   Testing    SingleAttestation                                                             OK
@@ -4335,6 +4566,8 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Slots - double_empty_epoch [Preset: minimal]                                  OK
 + EF - Gloas - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]        OK
 + EF - Gloas - Slots - empty_epoch [Preset: minimal]                                         OK
++ EF - Gloas - Slots - execution_payload_availability_reset_from_set [Preset: minimal]       OK
++ EF - Gloas - Slots - execution_payload_availability_reset_from_unset [Preset: minimal]     OK
 + EF - Gloas - Slots - historical_accumulator [Preset: minimal]                              OK
 + EF - Gloas - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]               OK
 + EF - Gloas - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset: OK
@@ -4347,6 +4580,39 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Slots - slots_1 [Preset: minimal]                                             OK
 + EF - Gloas - Slots - slots_2 [Preset: minimal]                                             OK
 ```
+## EF - Gloas - Transition  [Preset: minimal]
+```diff
++ EF - Gloas - Transition - higher_churn_limit_to_lower [Preset: minimal]                    OK
++ EF - Gloas - Transition - non_empty_historical_roots [Preset: minimal]                     OK
++ EF - Gloas - Transition - normal_transition [Preset: minimal]                              OK
++ EF - Gloas - Transition - simple_transition [Preset: minimal]                              OK
++ EF - Gloas - Transition - transition_attestation_from_previous_fork_with_new_range [Preset OK
++ EF - Gloas - Transition - transition_missing_first_post_block [Preset: minimal]            OK
++ EF - Gloas - Transition - transition_missing_last_pre_fork_block [Preset: minimal]         OK
++ EF - Gloas - Transition - transition_only_blocks_post_fork [Preset: minimal]               OK
++ EF - Gloas - Transition - transition_randomized_state [Preset: minimal]                    OK
++ EF - Gloas - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]       OK
++ EF - Gloas - Transition - transition_with_attester_slashing_right_after_fork [Preset: mini OK
++ EF - Gloas - Transition - transition_with_attester_slashing_right_before_fork [Preset: min OK
++ EF - Gloas - Transition - transition_with_btec_right_after_fork [Preset: minimal]          OK
++ EF - Gloas - Transition - transition_with_btec_right_before_fork [Preset: minimal]         OK
++ EF - Gloas - Transition - transition_with_deposit_right_after_fork [Preset: minimal]       OK
++ EF - Gloas - Transition - transition_with_deposit_right_before_fork [Preset: minimal]      OK
++ EF - Gloas - Transition - transition_with_finality [Preset: minimal]                       OK
++ EF - Gloas - Transition - transition_with_leaking_at_fork [Preset: minimal]                OK
++ EF - Gloas - Transition - transition_with_leaking_pre_fork [Preset: minimal]               OK
++ EF - Gloas - Transition - transition_with_no_attestations_until_after_fork [Preset: minima OK
++ EF - Gloas - Transition - transition_with_non_empty_activation_queue [Preset: minimal]     OK
++ EF - Gloas - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pres OK
++ EF - Gloas - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [Pr OK
++ EF - Gloas - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork [P OK
++ EF - Gloas - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mini OK
++ EF - Gloas - Transition - transition_with_proposer_slashing_right_before_fork [Preset: min OK
++ EF - Gloas - Transition - transition_with_random_half_participation [Preset: minimal]      OK
++ EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: min OK
++ EF - Gloas - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
++ EF - Gloas - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
+```
 ## EF - Light client - Data collection [Preset: minimal]
 ```diff
 + Light client - Data collection - minimal/altair/light_client/data_collection/pyspec_tests/ OK
@@ -4358,6 +4624,7 @@ ConsensusSpecPreset-minimal
 + Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
 + Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
 + Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/fulu/light_client/data_collection/pyspec_tests/li OK
 ```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
@@ -4380,6 +4647,9 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/electra/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconB OK
++ Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
 ```
 ## EF - Light client - Sync [Preset: minimal]
 ```diff
@@ -4418,6 +4688,10 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/advance_finality_without OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync        OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync_no_for OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/supply_sync_committee_fr OK
 ```
 ## EF - Light client - Update ranking [Preset: minimal]
 ```diff
@@ -4426,10 +4700,10 @@ ConsensusSpecPreset-minimal
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
 + Light client - Update ranking - minimal/deneb/light_client/update_ranking/pyspec_tests/upd OK
 + Light client - Update ranking - minimal/electra/light_client/update_ranking/pyspec_tests/u OK
++ Light client - Update ranking - minimal/fulu/light_client/update_ranking/pyspec_tests/upda OK
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
-  Merkle proof - Single merkle proof - eip7805                                               Skip
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
 + Merkle proof - Single merkle proof - minimal/deneb/merkle_proof/single_merkle_proof/Beacon OK
@@ -4442,10 +4716,6 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
-+ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
-+ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
-+ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
-+ Merkle proof - Single merkle proof - minimal/gloas/merkle_proof/single_merkle_proof/Beacon OK
 ```
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
@@ -4653,6 +4923,19 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Proposer Slashing  [Pres OK
@@ -5389,6 +5672,79 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
 + [Valid]   EF - fulu - Sanity - Blocks - zero_blob [Preset: minimal]                        OK
 ```
+## EF - gloas - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - gloas - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
++ [Valid]   EF - gloas - Finality - finality_rule_1 [Preset: minimal]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_2 [Preset: minimal]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_3 [Preset: minimal]                        OK
++ [Valid]   EF - gloas - Finality - finality_rule_4 [Preset: minimal]                        OK
+```
+## EF - gloas - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset: OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: min OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]     OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]    OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mini OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]   OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minim OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
++ [Invalid] EF - gloas - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
++ [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
++ [Valid]   EF - gloas - Sanity - Blocks - attestation [Preset: minimal]                     OK
++ [Valid]   EF - gloas - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
++ [Valid]   EF - gloas - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
++ [Valid]   EF - gloas - Sanity - Blocks - bls_change [Preset: minimal]                      OK
++ [Valid]   EF - gloas - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
++ [Valid]   EF - gloas - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
++ [Valid]   EF - gloas - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
++ [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
++ [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
++ [Valid]   EF - gloas - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_0 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_1 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_2 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - full_random_operations_3 [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - high_proposer_index [Preset: minimal]             OK
++ [Valid]   EF - gloas - Sanity - Blocks - historical_batch [Preset: minimal]                OK
++ [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
++ [Valid]   EF - gloas - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
++ [Valid]   EF - gloas - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]   OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_self_slashing [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
++ [Valid]   EF - gloas - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
++ [Valid]   EF - gloas - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset:  OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset OK
++ [Valid]   EF - gloas - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mini OK
++ [Valid]   EF - gloas - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
++ [Valid]   EF - gloas - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
+```
 ## EF - phase0 - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
@@ -5477,7 +5833,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
-+ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epo OK
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_within_two_epo OK
   ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root  Skip
   ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_roo Skip
@@ -5488,9 +5843,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_update_end_of_ OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding    OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justification_withholding_re OK
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_always_if_b OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_monotonic   OK
-+ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/justified_update_not_realize OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_bl OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
@@ -5525,7 +5878,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
-+ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_within_two_ OK
   ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_ro Skip
   ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ Skip
@@ -5536,9 +5888,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_update_end_ OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justification_withholding OK
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_always_i OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_monotoni OK
-+ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/justified_update_not_real OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_jus OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
@@ -5579,7 +5929,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
-+ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ep OK
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
   ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
@@ -5590,9 +5939,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_update_end_of OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding   OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justification_withholding_r OK
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_always_if_ OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_monotonic  OK
-+ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/justified_update_not_realiz OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_b OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
@@ -5629,7 +5976,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
-+ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoc OK
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoc OK
   ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root   Skip
   ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root Skip
@@ -5644,9 +5990,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_update_end_of_e OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding     OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justification_withholding_rev OK
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_always_if_be OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_monotonic    OK
-+ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/justified_update_not_realized OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifi OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_blo OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
@@ -5685,7 +6029,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
-+ ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_ep OK
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
   ForkChoice - minimal/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - minimal/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
@@ -5700,9 +6043,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justification_update_end_of OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justification_withholding   OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justification_withholding_r OK
-+ ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justified_update_always_if_ OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justified_update_monotonic  OK
-+ ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/justified_update_not_realiz OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_b OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
@@ -5741,7 +6082,6 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head    OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_weig OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
-+ ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoch OK
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoch OK
   ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
   ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
@@ -5752,9 +6092,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justification_update_end_of_ep OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justification_withholding      OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justification_withholding_reve OK
-+ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justified_update_always_if_bet OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justified_update_monotonic     OK
-+ ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/justified_update_not_realized_ OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifie OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_bloc OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK

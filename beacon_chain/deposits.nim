@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[os, sequtils, times],
@@ -17,10 +17,10 @@ import
   "."/[conf, beacon_clock, filepath]
 
 type
-  ValidatorStorageKind* {.pure.} = enum
+  ValidatorStorageKind {.pure.} = enum
     Keystore, Identifier
 
-  ValidatorStorage* = object
+  ValidatorStorage = object
     case kind: ValidatorStorageKind
     of ValidatorStorageKind.Keystore:
       privateKey: ValidatorPrivKey
@@ -30,7 +30,7 @@ type
 static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Fulu, ConsensusFork.Gloas}
+  OptionalForks* = {ConsensusFork.Gloas}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION
@@ -208,14 +208,18 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
     quit 1
 
   let currentEpoch = block:
+    if config.eth2Network.isNone:
+      fatal "Please specify the intended network for the exits"
+      quit 1
     let
-      beaconClock = BeaconClock.init(genesis.genesis_time).valueOr:
+      metadata = config.loadEth2Network()
+      genesisTime = genesis.genesis_time
+      beaconClock = BeaconClock.init(
+          metadata.cfg.timeParams, genesisTime).valueOr:
         error "Server returned invalid genesis time", genesis
         quit 1
-
-      time = getTime()
-      slot = beaconClock.toSlot(time).slot
-    Epoch(slot.uint64 div 32)
+      currentSlot = beaconClock.currentSlot
+    currentSlot.epoch
 
   let exitAtEpoch = if config.exitAtEpoch.isSome:
     Epoch config.exitAtEpoch.get
@@ -370,7 +374,7 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
   case config.depositsCmd
   of DepositsCmd.createTestnetDeposits:
     if config.eth2Network.isNone:
-      fatal "Please specify the intended testnet for the deposits"
+      fatal "Please specify the intended network for the deposits"
       quit 1
     let metadata = config.loadEth2Network()
     var seed: KeySeed
@@ -452,11 +456,6 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     except CatchableError as err:
       fatal "Failed to create launchpad deposit data file", err = err.msg
       quit 1
-  #[
-  of DepositsCmd.status:
-    echo "The status command is not implemented yet"
-    quit 1
-  ]#
 
   of DepositsCmd.`import`:
     let validatorKeysDir = if config.importedDepositsDir.isSome:

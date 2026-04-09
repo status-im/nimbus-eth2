@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/os,
+  std/[os, uri],
   stew/byteutils, stew/shims/macros,
   chronicles,
   eth/common/eth_types_json_serialization,
@@ -43,7 +43,6 @@ type
   Eth1Network* = enum
     mainnet
     sepolia
-    holesky
     hoodi
 
   GenesisMetadataKind* = enum
@@ -65,7 +64,7 @@ type
     of BakedIn:
       networkName*: string
     of BakedInUrl:
-      url*: string
+      url*: Uri
       digest*: Eth2Digest
 
   Eth2NetworkMetadata* = object
@@ -154,6 +153,8 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
+    runtimeConfig.checkForkConsistency()
+
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
       cfg: runtimeConfig,
@@ -161,7 +162,7 @@ proc loadEth2NetworkMetadata*(
       genesis:
         if downloadGenesisFrom.isSome:
           GenesisMetadata(kind: BakedInUrl,
-                          url: downloadGenesisFrom.get.url,
+                          url: parseUri downloadGenesisFrom.get.url,
                           digest: downloadGenesisFrom.get.digest)
         elif useBakedInGenesis.isSome:
           GenesisMetadata(kind: BakedIn, networkName: useBakedInGenesis.get)
@@ -201,7 +202,7 @@ proc loadCompileTimeNetworkMetadata(
   else:
     macros.error "config.yaml not found for network '" & path
 
-when const_preset == "gnosis":
+when IsGnosisSupported:
   when incbinEnabled:
     let
       gnosisGenesisVar {.importc: "gnosis_mainnet_genesis".}: ptr UncheckedArray[byte]
@@ -242,12 +243,12 @@ when const_preset == "gnosis":
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
       checkForkConsistency(network.cfg)
-      doAssert network.cfg.ELECTRA_FORK_EPOCH < FAR_FUTURE_EPOCH
-      doAssert network.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Gloas
+      doAssert network.cfg.BLOB_SCHEDULE.len == 0
 
-elif const_preset == "mainnet":
+elif IsMainnetSupported:
   when incbinEnabled:
     # Nim is very inefficent at loading large constants from binary files so we
     # use this trick instead which saves significant amounts of compile time
@@ -289,13 +290,6 @@ elif const_preset == "mainnet":
       Opt.some sepolia,
       useBakedInGenesis = Opt.some "sepolia")
 
-    holeskyMetadata = loadCompileTimeNetworkMetadata(
-      vendorDir & "/holesky/metadata",
-      Opt.some holesky,
-      downloadGenesisFrom = Opt.some DownloadInfo(
-        url: "https://github.com/status-im/nimbus-eth2/releases/download/v23.9.1/holesky-genesis.ssz.sz",
-        digest: Eth2Digest.fromHex "0x0ea3f6f9515823b59c863454675fefcd1d8b4f2dbe454db166206a41fda060a0"))
-
     # File can be reproduced by `cd vendor/hoodi`, then `git lfs install` and
     # `git lfs pull`, and then from repo root:
     #
@@ -324,17 +318,11 @@ elif const_preset == "mainnet":
         digest: Eth2Digest.fromHex "0x2683ebc120f91f740c7bed4c866672d01e1ba51b4cc360297138465ee5df40f0"))
 
   static:
-    for network in [
-        mainnetMetadata, sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
+    doAssert ConsensusFork.high == ConsensusFork.Gloas
+    for network in [mainnetMetadata, sepoliaMetadata, hoodiMetadata]:
       checkForkConsistency(network.cfg)
-      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert ConsensusFork.high == ConsensusFork.Gloas
-
-    doAssert mainnetMetadata.cfg.FULU_FORK_EPOCH == FAR_FUTURE_EPOCH
-    doAssert mainnetMetadata.cfg.BLOB_SCHEDULE.len == 0
-
-    for network in [sepoliaMetadata, holeskyMetadata, hoodiMetadata]:
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.BLOB_SCHEDULE.len == 2
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
@@ -360,7 +348,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
     warn "https://blog.ethereum.org/2025/09/01/holesky-shutdown-announcement suggests migrating to Hoodi or Sepolia"
 
   let metadata =
-    when const_preset == "gnosis":
+    when IsGnosisSupported:
       case toLowerAscii(networkName)
       of "gnosis":
         gnosisMetadata
@@ -373,14 +361,12 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
       else:
         loadRuntimeMetadata()
 
-    elif const_preset == "mainnet":
+    elif IsMainnetSupported:
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
       of "hoodi":
         hoodiMetadata
-      of "holesky":
-        holeskyMetadata
       of "sepolia":
         sepoliaMetadata
       else:
@@ -404,9 +390,9 @@ proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
     if eth2Network.isSome:
       getMetadataForNetwork(eth2Network.get)
     else:
-      when const_preset == "mainnet":
+      when IsMainnetSupported:
         mainnetMetadata
-      elif const_preset == "gnosis":
+      elif IsGnosisSupported:
         gnosisMetadata
       else:
         # This is a non-standard build (i.e. minimal), and the function was
@@ -416,7 +402,7 @@ proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig =
 
   metadata.cfg
 
-when const_preset in ["mainnet", "gnosis"]:
+when IsMainnetSupported or IsGnosisSupported:
   template bakedInGenesisStateAsBytes(networkName: untyped): untyped =
     when incbinEnabled:
       `networkName Genesis`.toOpenArray(0, `networkName GenesisSize` - 1)
@@ -435,22 +421,22 @@ when const_preset in ["mainnet", "gnosis"]:
   template bakedBytes*(metadata: GenesisMetadata): auto =
     case metadata.networkName
     of "mainnet":
-      when const_preset == "mainnet":
+      when IsMainnetSupported:
         bakedInGenesisStateAsBytes mainnet
       else:
         raiseAssert availableOnlyInMainnetBuild
     of "sepolia":
-      when const_preset == "mainnet":
+      when IsMainnetSupported:
         bakedInGenesisStateAsBytes sepolia
       else:
         raiseAssert availableOnlyInMainnetBuild
     of "gnosis":
-      when const_preset == "gnosis":
+      when IsGnosisSupported:
         bakedInGenesisStateAsBytes gnosis
       else:
         raiseAssert availableOnlyInGnosisBuild
     of "chiado":
-      when const_preset == "gnosis":
+      when IsGnosisSupported:
         bakedInGenesisStateAsBytes chiado
       else:
         raiseAssert availableOnlyInGnosisBuild

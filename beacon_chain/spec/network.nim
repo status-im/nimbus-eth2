@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -25,8 +25,8 @@ const
   topicAttesterSlashingsSuffix = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix = "bls_to_execution_change/ssz_snappy"
-  topicExecutionPayloadHeaderSuffix = "execution_payload_header/ssz_snappy"
-  topicExecutionPayloadSuffix = "execution_payload/ssz_snappy" 
+  topicExecutionPayloadBidSuffix = "execution_payload_bid/ssz_snappy"
+  topicExecutionPayloadSuffix = "execution_payload/ssz_snappy"
   topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
 
 const
@@ -75,9 +75,9 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload_header
-func getExecutionPayloadHeaderTopic*(forkDigest: ForkDigest): string =
-  eth2Prefix(forkDigest) & topicExecutionPayloadHeaderSuffix
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload_bid
+func getExecutionPayloadBidTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicExecutionPayloadBidSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload
 func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =
@@ -251,7 +251,7 @@ func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
     return Opt.some 0'u64
   let epochsBefore =
     EPOCHS_PER_SYNC_COMMITTEE_PERIOD - epoch.since_sync_committee_period_start()
-  if epoch.is_sync_committee_period() or epochsBefore <= SYNC_COMMITTEE_SUBNET_COUNT:
+  if epochsBefore <= SYNC_COMMITTEE_SUBNET_COUNT:
     return Opt.some epochsBefore
 
   Opt.none(uint64)
@@ -281,8 +281,3 @@ iterator blobSidecarTopics*(
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
                                 subnet_id: uint64): string =
   eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
-
-iterator dataColumnSidecarTopics*(forkDigest: ForkDigest,
-                                  targetSubnetCount: uint64): string =
-  for subnet_id in 0'u64..<targetSubnetCount:
-    yield getDataColumnSidecarTopic(forkDigest, subnet_id)

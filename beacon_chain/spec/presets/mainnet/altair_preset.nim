@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,9 +8,9 @@
 {.push raises: [].}
 
 # Mainnet preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.5/presets/mainnet/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/mainnet/altair.yaml
 const
-  # Updated penalty values
+  # Rewards and penalties
   # ---------------------------------------------------------------
   # 3 * 2**24 (= 50,331,648)
   INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64 = 50331648
@@ -19,18 +19,16 @@ const
   # 2
   PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64 = 2
 
-
   # Sync committee
   # ---------------------------------------------------------------
-  # 2**9 (= 512)
+  # 2**9 (= 512) participants
   SYNC_COMMITTEE_SIZE* = 512
-  # 2**8 (= 256)
+  # 2**8 (= 256) epochs
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD* {.intdefine.}: uint64 = 256
-
 
   # Sync protocol
   # ---------------------------------------------------------------
-  # 1
+  # 2**0 (= 1) participants
   MIN_SYNC_COMMITTEE_PARTICIPANTS* = 1
-  # SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD (= 32 * 256)
+  # SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD (= 32 * 256) epochs
   UPDATE_TIMEOUT*: uint64 = 8192

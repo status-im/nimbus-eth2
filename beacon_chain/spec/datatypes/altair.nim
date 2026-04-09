@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -535,10 +535,6 @@ chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
 
 template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto =
   a[i.asInt]
-
-template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
-               idx: IndexInSyncCommittee): auto =
-  arr[int idx]
 
 makeLimitedU8(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
 makeLimitedU16(IndexInSyncCommittee, SYNC_COMMITTEE_SIZE)

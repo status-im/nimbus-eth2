@@ -1,4 +1,4 @@
-# Validating
+# Validator
 
 Once your beacon node is [running](./quick-start.md), the next step is to set up a validator.
 
@@ -7,7 +7,7 @@ This is a simple, safe and efficient way to get started.
 
 !!! tip "Separate validator client"
 
-    While not needed, advanced users may want to use a [separate validator client](./validator-client.md) instead.
+    Running a [separate validator client](./validator-client.md) allows advanced setups such as connecting to multiple beacon nodes or running on separate machines.
 
 
 
@@ -67,10 +67,10 @@ The deposit tool generates a seed phrase, and uses this to create validator and 
     ./deposit new-mnemonic --chain mainnet
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     # Run the deposit tool and follow the instructions on screen
-    ./deposit new-mnemonic --chain holesky
+    ./deposit new-mnemonic --chain hoodi
     ```
 
 ### 3. Make the deposit
@@ -116,9 +116,9 @@ We'll import the signing key of each validator to the [data directory](./data-di
     build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
-    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_holesky_0
+    build/nimbus_beacon_node deposits import --data-dir=build/data/shared_hoodi_0
     ```
 
 On success, a message will be printed that your keys have been imported:
@@ -143,10 +143,10 @@ If your `validator_keys` folder is stored elsewhere, you can pass its location t
       /path/to/keys
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     build/nimbus_beacon_node deposits import \
-      --data-dir=build/data/shared_holesky_0 \
+      --data-dir=build/data/shared_hoodi_0 \
       /path/to/keys
     ```
 
@@ -179,21 +179,21 @@ You can set up a separate address or reuse the address from which you funded you
 
 ### 2. (Re)start the node
 
-Press `Ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the `--suggested-fee-recipient` option in addition to `--web3-url`:
+Press `Ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the `--suggested-fee-recipient` option in addition to `--el`:
 
 === "Mainnet"
     ```sh
     ./run-mainnet-beacon-node.sh \
-        --web3-url=http://127.0.0.1:8551 \
+        --el=http://127.0.0.1:8551 \
         --suggested-fee-recipient=0x...
     ```
 
-=== "Holesky"
+=== "Hoodi"
     ```sh
     build/nimbus_beacon_node \
         --network=hoodi \
         --data-dir=build/data/shared_hoodi_0 \
-        --web3-url=http://127.0.0.1:8551 \
+        --el=http://127.0.0.1:8551 \
         --suggested-fee-recipient=0x...
     ```
 

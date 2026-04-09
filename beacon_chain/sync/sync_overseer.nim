@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,8 +17,6 @@ import
   ../gossip_processing/block_processor,
   ../[beacon_clock, beacon_node],
   ./[sync_types, sync_manager, sync_queue]
-
-from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 export sync_types
 
@@ -60,12 +58,15 @@ iterator chunks*(data: openArray[BlockData],
     yield BlockDataChunk.init(stateCallback,
       data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
 
+proc getWallSlot(overseer: SyncOverseerRef): Slot =
+  overseer.beaconClock.currentSlot
+
 proc syncDistance*(
     overseer: SyncOverseerRef
 ): uint64 =
   let
     dag = overseer.consensusManager.dag
-    wallSlot = overseer.getBeaconTimeFn().slotOrZero()
+    wallSlot = overseer.getWallSlot()
     headSlot = dag.head.slot
   wallSlot - headSlot
 
@@ -148,12 +149,10 @@ proc isWithinWeakSubjectivityPeriod(
     overseer: SyncOverseerRef, slot: Slot): bool =
   let
     dag = overseer.consensusManager.dag
-    currentSlot = overseer.beaconClock.now().slotOrZero()
+    currentSlot = overseer.getWallSlot()
     checkpoint = Checkpoint(
-      epoch:
-        getStateField(dag.headState, slot).epoch(),
-      root:
-        getStateField(dag.headState, latest_block_header).state_root)
+      epoch: dag.headState.slot.epoch(),
+      root: dag.headState.latest_block_header.state_root)
 
   is_within_weak_subjectivity_period(
     dag.cfg, currentSlot, dag.headState, checkpoint)
@@ -161,7 +160,7 @@ proc isWithinWeakSubjectivityPeriod(
 proc getLastBlockRetentionPeriodSlot(overseer: SyncOverseerRef): Slot =
   let
     dag = overseer.consensusManager.dag
-    currentSlot = overseer.beaconClock.now().slotOrZero()
+    currentSlot = overseer.getWallSlot()
     slotsCount = dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
   if currentSlot < slotsCount:
     GENESIS_SLOT
@@ -223,33 +222,6 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
     attestationPool = consensusManager.attestationPool
     validatorMonitor = overseer.validatorMonitor
 
-  proc onBlockAdded(
-    blckRef: BlockRef, blck: ForkedTrustedSignedBeaconBlock, epochRef: EpochRef,
-    unrealized: FinalityCheckpoints) {.gcsafe, raises: [].} =
-
-    let wallTime = overseer.getBeaconTimeFn()
-    withBlck(blck):
-      attestationPool[].addForkChoice(
-        epochRef, blckRef, unrealized, forkyBlck.message, wallTime)
-
-      validatorMonitor[].registerBeaconBlock(
-        MsgSource.sync, wallTime, forkyBlck.message)
-
-      for attestation in forkyBlck.message.body.attestations:
-        for validator_index in
-          dag.get_attesting_indices(attestation, true):
-          validatorMonitor[].registerAttestationInBlock(
-            attestation.data, validator_index, forkyBlck.message.slot)
-
-      withState(dag[].clearanceState):
-        when (consensusFork >= ConsensusFork.Altair) and
-             (type(forkyBlck) isnot phase0.TrustedSignedBeaconBlock):
-          for i in forkyBlck.message.body.sync_aggregate.
-            sync_committee_bits.oneIndices():
-            validatorMonitor[].registerSyncAggregateInBlock(
-              forkyBlck.message.slot, forkyBlck.root,
-              forkyState.data.current_sync_committee.pubkeys.data[i])
-
   block mainLoop:
     while true:
       let bchunk = await overseer.blocksQueue.popFirst()
@@ -257,19 +229,31 @@ proc blockProcessingLoop(overseer: SyncOverseerRef): Future[void] {.
       block innerLoop:
         for bdata in bchunk.blocks:
           block:
-            let res = addBackfillBlockData(dag, bdata, bchunk.onStateUpdatedCb,
-                                           onBlockAdded)
+            let res = withBlck(bdata.blck):
+              addLightForwardBlock(
+                dag,
+                consensusFork,
+                bdata,
+                bchunk.onStateUpdatedCb,
+                onBlockAdded(
+                  dag,
+                  consensusFork,
+                  MsgSource.sync,
+                  overseer.getBeaconTimeFn(),
+                  attestationPool,
+                  validatorMonitor,
+                ),
+              )
             if res.isErr():
-              let msg = "Unable to add block data to database [" &
-                        $res.error & "]"
+              let msg = "Unable to add block data to database [" & $res.error & "]"
               bchunk.resfut.complete(Result[void, string].err(msg))
               break innerLoop
 
-          consensusManager[].updateHead(overseer.getBeaconTimeFn().slotOrZero())
+          consensusManager[].updateHead(overseer.getWallSlot())
 
         bchunk.resfut.complete(Result[void, string].ok())
 
-proc verifyBlockProposer(
+proc verifyBlockSignature(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -297,7 +281,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     clist =
       block:
         overseer.clist.seekForSlot(dag.head.slot).isOkOr:
-          fatal "Unable to find slot in backfill data", reason = error,
+          fatal "Unable to find slot in light forward sync data", reason = error,
                 path = overseer.clist.path
           quit 1
         overseer.clist
@@ -318,7 +302,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
     while true:
       let res = getChainFileTail(handle.handle)
       if res.isErr():
-        fatal "Unable to read backfill data", reason = res.error
+        fatal "Unable to read light forward sync data", reason = res.error
         quit 1
       let bres = res.get()
       if bres.isNone():
@@ -344,17 +328,15 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
               return ok()
 
             let
-              fork =
-                getStateField(dag.clearanceState, fork)
-              genesis_validators_root =
-                getStateField(dag.clearanceState, genesis_validators_root)
+              fork = dag.clearanceState.fork
+              genesis_validators_root = dag.clearanceState.genesis_validators_root
 
-            verifyBlockProposer(batchVerifier[], fork, genesis_validators_root,
-                                dag.db.immutableValidators, blocksOnly).isOkOr:
+            verifyBlockSignatures(batchVerifier[], fork, genesis_validators_root,
+                                  dag.db.immutableValidators, blocksOnly).isOkOr:
               for signedBlock in blocksOnly:
-                verifyBlockProposer(fork, genesis_validators_root,
-                                    dag.db.immutableValidators,
-                                    signedBlock).isOkOr:
+                verifyBlockSignature(fork, genesis_validators_root,
+                                     dag.db.immutableValidators,
+                                     signedBlock).isOkOr:
                   fatal "Unable to verify block proposer",
                         blck = shortLog(signedBlock), reason = error
               return err(VerifierError.Invalid)
@@ -374,8 +356,7 @@ proc rebuildState(overseer: SyncOverseerRef): Future[void] {.
           debug "Number of blocks injected",
                 blocks_count = len(blocks),
                 head = shortLog(dag.head),
-                finalized = shortLog(getStateField(
-                  dag.headState, finalized_checkpoint)),
+                finalized = shortLog(dag.headState.finalized_checkpoint),
                 store_update_time = updateTick - startTick
 
           overseer.updatePerformance(startTick, len(blocks))
@@ -395,7 +376,7 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
 
   notice "Received light client block header",
          beacon_header = shortLog(blockHeader),
-         current_slot = overseer.beaconClock.now().slotOrZero()
+         current_slot = overseer.getWallSlot()
 
   overseer.statusMsg = Opt.some("retrieving block")
 
@@ -408,7 +389,7 @@ proc initUntrustedSync(overseer: SyncOverseerRef): Future[void] {.
 
   overseer.statusMsg = Opt.some("storing block")
 
-  let res = overseer.clist.addBackfillBlockData(blck.blck, blck.blob)
+  let res = overseer.clist.addLightForwardBlock(blck.blck, blck.blob)
   if res.isErr():
     warn "Unable to store initial block", reason = res.error
     return
@@ -465,7 +446,7 @@ proc mainLoop*(
   let
     dag = overseer.consensusManager.dag
     clist = overseer.clist
-    currentSlot = overseer.beaconClock.now().slotOrZero()
+    currentSlot = overseer.getWallSlot()
 
   info "Sync overseer starting",
        wall_slot = currentSlot,
@@ -555,7 +536,7 @@ proc mainLoop*(
         return
 
       clist.clear().isOkOr:
-        warn "Unable to remove backfill data file",
+        warn "Unable to remove light forward sync data file",
              path = clist.path.chainFilePath(), reason = error
         quit 1
 
@@ -580,7 +561,7 @@ proc syncStatusMessage*(
 ): string =
   let
     dag = overseer.consensusManager.dag
-    wallSlot = overseer.getBeaconTimeFn().slotOrZero()
+    wallSlot = overseer.getWallSlot()
     optimistic = not(dag.head.executionValid)
     optSuffix =
       if not(dag.head.executionValid):
@@ -601,7 +582,7 @@ proc syncStatusMessage*(
           ""
       of SyncKind.TrustedNodeSync:
         if overseer.backwardSync.inProgress:
-          "backfill: " & overseer.backwardSync.syncStatus
+          "backfill: " & overseer.backwardSync.syncStatus & optSuffix
         else:
           if overseer.forwardSync.inProgress:
             overseer.forwardSync.syncStatus & optSuffix & lcSuffix

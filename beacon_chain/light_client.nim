@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,8 +8,9 @@
 {.push raises: [].}
 
 import
+  metrics,
   chronicles,
-  ./gossip_processing/light_client_processor,
+  ./gossip_processing/[eth2_processor, light_client_processor],
   ./networking/[eth2_network, topic_params],
   ./spec/datatypes/altair,
   ./spec/helpers,
@@ -136,9 +137,12 @@ proc createLightClient(
     bootstrapObserver, updateObserver, finalityObserver, optimisticObserver,
     strictVerification)
 
-  proc lightClientVerifier(obj: SomeForkedLightClientObject):
-      Future[Result[void, LightClientVerifierError]] {.async: (raises: [CancelledError], raw: true).} =
-    let resfut = Future[Result[void, LightClientVerifierError]].Raising([CancelledError]).init("lightClientVerifier")
+  proc lightClientVerifier(
+      obj: SomeForkedLightClientObject
+  ): Future[Result[void, LightClientVerifierError]] {.
+      async: (raises: [CancelledError], raw: true).} =
+    let resfut = Future[Result[void, LightClientVerifierError]]
+      .Raising([CancelledError]).init("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
   proc bootstrapVerifier(obj: ForkedLightClientBootstrap): auto =
@@ -175,7 +179,7 @@ proc createLightClient(
         GENESIS_SLOT.sync_committee_period
 
   lightClient.manager = LightClientManager.init(
-    lightClient.network, rng, getTrustedBlockRoot,
+    lightClient.network, rng, lightClient.cfg.timeParams, getTrustedBlockRoot,
     bootstrapVerifier, updateVerifier, finalityVerifier, optimisticVerifier,
     isLightClientStoreInitialized, isNextSyncCommitteeKnown,
     getFinalizedPeriod, getOptimisticPeriod, getBeaconTime,
@@ -231,12 +235,6 @@ proc resetToFinalizedHeader*(
     current_sync_committee: altair.SyncCommittee) =
   lightClient.processor[].resetToFinalizedHeader(header, current_sync_committee)
 
-import metrics
-
-from
-  ./gossip_processing/eth2_processor
-import
-  processLightClientFinalityUpdate, processLightClientOptimisticUpdate
 
 declareCounter beacon_light_client_finality_updates_received,
   "Number of valid LC finality updates processed by this node"
@@ -282,8 +280,9 @@ proc installMessageValidators*(
   # When registering multiple message validators, IGNORE results take precedence
   # over ACCEPT results. However, because the opposite behaviour is needed here,
   # we handle both full node and light client validation in this module
-  template getLocalWallPeriod(): auto =
-    lightClient.getBeaconTime().slotOrZero().sync_committee_period
+  template getLocalWallPeriod(): SyncCommitteePeriod =
+    lightClient.getBeaconTime().slotOrZero(lightClient.cfg.timeParams)
+      .sync_committee_period
 
   template validate[T: SomeForkyLightClientObject](
       msg: T,
@@ -307,7 +306,7 @@ proc installMessageValidators*(
     let res1 =
       if eth2Processor != nil:
         let
-          v = eth2Processor[].`validatorProcName`(MsgSource.gossip, obj)
+          v = eth2Processor[].`validatorProcName`(obj)
           res = v.toValidationResult()
         if res == ValidationResult.Reject:
           msg.logDropped(v.error)

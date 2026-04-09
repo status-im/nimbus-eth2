@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,7 +21,7 @@ import
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base,  ./signatures
+  ./datatypes/base, ./signatures
 
 from std/algorithm import binarySearch
 from std/math import `^`
@@ -264,9 +264,9 @@ const
 
   KeystoreCachePruningTime* = 5.minutes
 
-UUID.serializesAsBaseIn Json
-KeyPath.serializesAsBaseIn Json
-WalletName.serializesAsBaseIn Json
+UUID.serializesAsBase Json
+KeyPath.serializesAsBase Json
+WalletName.serializesAsBase Json
 
 ChecksumFunctionKind.serializesAsTextInJson
 CipherFunctionKind.serializesAsTextInJson
@@ -284,9 +284,6 @@ template `<`*(lhs, rhs: HttpHostUri): bool =
 
 template `$`*(m: Mnemonic): string =
   string(m)
-
-template `==`*(lhs, rhs: WalletName): bool =
-  string(lhs) == string(rhs)
 
 template `$`*(x: WalletName): string =
   string(x)
@@ -505,11 +502,6 @@ func deriveChildKey*(masterKey: ValidatorPrivKey,
     # and this iterator is used to derive secret keys
     # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
-
-func keyFromPath*(mnemonic: Mnemonic,
-                  password: KeystorePass,
-                  path: KeyPath): ValidatorPrivKey =
-  deriveChildKey(deriveMasterKey(mnemonic, password), path)
 
 func shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   var ctx: sha256
@@ -1397,7 +1389,7 @@ func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
 func makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 
-func prepareDeposit*(cfg: RuntimeConfig,
+func prepareDeposit*(genesis_fork_version: Version,
                      withdrawalPubKey: CookedPubKey,
                      signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
                      amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
@@ -1406,5 +1398,6 @@ func prepareDeposit*(cfg: RuntimeConfig,
     pubkey: signingPubKey.toPubKey(),
     withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
-  res.signature = get_deposit_signature(cfg, res, signingKey).toValidatorSig()
-  return res
+  res.signature =
+    get_deposit_signature(genesis_fork_version, res, signingKey).toValidatorSig()
+  res

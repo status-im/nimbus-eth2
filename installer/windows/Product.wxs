@@ -50,7 +50,7 @@
         Id="CommandArgs"
         After="InstallFiles"
         Sequence='execute'
-        Value="--run-as-service --network=\&quot;[NETWORK]\&quot; --web3-url=\&quot;[WURL]\&quot; --data-dir=\&quot;[%APPDATA]\Nimbus\BeaconNode\&quot; --log-file=\&quot;[%APPDATA]\Nimbus\BeaconNode\Nimbus.log\&quot;" />
+        Value="--run-as-service --network=\&quot;[NETWORK]\&quot; --el=\&quot;[WURL]\&quot; --data-dir=\&quot;[%APPDATA]\Nimbus\BeaconNode\&quot; --log-file=\&quot;[%APPDATA]\Nimbus\BeaconNode\Nimbus.log\&quot;" />
     <CustomAction
         Id="SCEdit"
         Directory="INSTALLFOLDER"

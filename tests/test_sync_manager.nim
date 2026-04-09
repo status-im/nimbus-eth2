@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1595,7 +1595,7 @@ suite "SyncManager test suite":
     block:
       let
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
                                collector(aq), testforkAtEpoch)
         finalizedSlot = start_slot(Epoch(0'u64))
@@ -1608,7 +1608,7 @@ suite "SyncManager test suite":
     block:
       let
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
                                collector(aq), testforkAtEpoch)
         finalizedSlot = start_slot(Epoch(1'u64))
@@ -1621,11 +1621,11 @@ suite "SyncManager test suite":
     block:
       let
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
                                collector(aq), testforkAtEpoch)
         finalizedSlot = start_slot(Epoch(0'u64))
-        failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
+        failSlot = Slot(0xFFFF_FFFF_FFFF_FFFF'u64)
         failEpoch = epoch(failSlot)
 
       var counter = 1'u64
@@ -1640,12 +1640,12 @@ suite "SyncManager test suite":
     block:
       let
         queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                               Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFF'u64),
                                1'u64, 3, 2, getStaticSlotCb(Slot(0)),
                                collector(aq), testforkAtEpoch)
       let
         finalizedSlot = start_slot(Epoch(1'u64))
-        failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
+        failSlot = Slot(0xFFFF_FFFF_FFFF_FFFF'u64)
         failEpoch = epoch(failSlot)
 
       var counter = 1'u64

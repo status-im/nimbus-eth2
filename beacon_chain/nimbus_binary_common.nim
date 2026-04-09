@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,24 +11,27 @@
 
 import
   # Standard library
-  std/[os, tables, terminal, typetraits],
+  std/[cpuinfo, exitprocs, os, tables, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
-  stew/io2, metrics/chronos_httpserver,
+  stew/io2, metrics/chronos_httpserver, taskpools,
 
   # Local modules
   ./spec/keystore,
   ./buildinfo
 
+from ./spec/datatypes/base import SPEC_VERSION
+
+const specBanner* = "Ethereum consensus spec v" & SPEC_VERSION
+
+from system/ansi_c import c_malloc
+
 when defaultChroniclesStream.outputs.type.arity == 2:
   from ./filepath import secureCreatePath
 
   import stew/staticfor
-
-when defined(posix):
-  import termios
 
 export
   confutils, toml_serialization
@@ -78,8 +81,18 @@ proc setupFileLimits*() =
       setMaxOpenFiles2(16384).isOkOr:
         warn "Cannot increase open file limit", err = osErrorMsg(error)
 
+proc writePanicLine*(v: varargs[string, `$`]) =
+  ## Attempt writing text to stderr, ignoring errors if it fails - useful when
+  ## logging has not yet been set up
+  try:
+    for s in v:
+      stderr.write(s)
+    stderr.write("\p")
+  except IOError:
+    discard # Nothing to do..
+
 proc setupLogging*(
-    logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
+    logLevel: string, stdoutKind: StdoutLogKind, logFile = none(OutFile)) =
   # In the cfg file for nimbus, we create two formats: textlines and json.
   # Here, we either write those logs to an output, or not, depending on the
   # given configuration.
@@ -153,22 +166,61 @@ proc setupLogging*(
     updateLogLevel(logLevel)
   except ValueError as err:
     try:
-      stderr.write "Invalid value for --log-level. " & err.msg
+      stderr.writeLine "Invalid value for --log-level. " & err.msg
     except IOError:
       echo "Invalid value for --log-level. " & err.msg
     quit 1
 
-proc makeBannerAndConfig*(
-    helpBanner: string, versions: openArray[string],
-    environment: openArray[string],
+proc setupTaskpool*(numThreads: int): Taskpool =
+  let taskpool =
+    try:
+      if numThreads < 0:
+        fatal "The number of threads --num-threads cannot be negative."
+        quit QuitFailure
+      elif numThreads == 0:
+        Taskpool.new(numThreads = min(countProcessors(), 16))
+      else:
+        Taskpool.new(numThreads = numThreads)
+    except CatchableError as e:
+      fatal "Cannot start taskpool", err = e.msg
+      quit QuitFailure
+
+  info "Taskpool started", numThreads = taskpool.numThreads
+
+  taskpool
+
+proc obsoleteCmdOpt*(ConfType: type object, opt, msg: string) =
+  if msg.len == 0:
+    warn "Ignoring deprecated configuration option", opt
+  else:
+    warn "Ignoring deprecated configuration option", opt, msg
+
+template loggerSetup(ConfType: type): untyped =
+  proc (config: var ConfType) {.raises: [], gcsafe.} =
+    when compiles(config.logFile):
+      setupLogging(config.logLevel, config.logFormat, config.logFile)
+    else:
+      setupLogging(config.logLevel, config.logFormat)
+
+proc loadWithBanners*(
     ConfType: type,
+    helpBanner, copyright: string,
+    versions: openArray[string],
+    ignoreUnknown = false,
+    environment: openArray[string] = [],
+    setupLogger = false
 ): Result[ConfType, string] =
   let
-    version = helpBanner & "\p" & copyrights & "\p\p" & (@versions & @[nimBanner()]).join("\p")
+    version =
+      [helpBanner, copyright].join("\p") & "\p\p" &
+      (@versions & @[nimBanner()]).join("\p")
 
     cmdLine =
       if len(environment) == 0:
-        commandLineParams()
+        try:
+          commandLineParams()
+        except OSError as exc:
+          return err(exc.msg)
       else:
         @environment
 
@@ -179,12 +231,14 @@ proc makeBannerAndConfig*(
         version = version, # what --version outputs
         copyrightBanner = helpBanner, # what is shown on top of --help
         cmdLine = cmdLine,
+        ignoreUnknown = ignoreUnknown,
         secondarySources = proc(
             config: ConfType, sources: ref SecondarySources
         ) {.raises: [ConfigurationError], gcsafe.} =
           if config.configFile.isSome:
             sources.addConfigFile(Toml, config.configFile.get)
         ,
+        onLoaded = if setupLogger: loggerSetup(ConfType) else: nil
       )
     except CatchableError as exc:
       # Logging not configured yet!
@@ -205,16 +259,6 @@ proc makeBannerAndConfig*(
   {.pop.}
   ok(config)
 
-template makeBannerAndConfig*(helpBanner: string, ConfType: type): auto =
-  makeBannerAndConfig(
-    helpBanner, ["Ethereum consensus spec v" & SPEC_VERSION], [], ConfType
-  ).valueOr:
-    try:
-      stderr.write(error)
-    except IOError:
-      discard
-    quit QuitFailure
-
 proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
                                stopAtEpoch: uint64): bool =
   # Offset backwards slightly to allow this epoch's finalization check to occur
@@ -228,26 +272,14 @@ proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
   else:
     false
 
-proc resetStdin*() =
-  when defined(posix):
-    # restore echoing, in case it was disabled by a password prompt
-    let fd = stdin.getFileHandle()
-    var attrs: Termios
-    discard fd.tcGetAttr(attrs.addr)
-    attrs.c_lflag = attrs.c_lflag or Cflag(ECHO)
-    discard fd.tcSetAttr(TCSANOW, attrs.addr)
-
-proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
-  while true:
-    let exitLoop =
-      try:
-        await sleepAsync(60.seconds)
-        false
-      except CatchableError:
-        cache.clear()
-        true
-    if exitLoop: break
-    cache.pruneExpiredKeys()
+proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async: (raises: []).} =
+  try:
+    while true:
+      await sleepAsync(60.seconds)
+      cache.pruneExpiredKeys()
+  except CancelledError:
+    discard
+  cache.clear()
 
 proc sleepAsync*(t: TimeDiff): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
@@ -434,3 +466,13 @@ proc defaultDataDir*(namespace, network: string): string =
     dir = dir / network
 
   dir
+
+proc createPidFile*(filename: string) {.raises: [IOError].} =
+  var pidFile {.global.}: cstring # avoid gc
+  doAssert pidFile.len == 0, "PID file must only be created once"
+
+  writeFile filename, $os.getCurrentProcessId()
+  pidFile = cast[cstring](c_malloc(csize_t(filename.len + 1)))
+  copyMem(pidFile, cstring(filename), filename.len + 1)
+
+  addExitProc proc {.noconv.} = discard io2.removeFile($pidFile)

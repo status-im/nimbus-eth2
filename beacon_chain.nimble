@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,14 +7,13 @@
 
 mode = ScriptMode.Verbose
 
-version       = "25.9.0"
+version       = "26.3.0"
 author        = "Status Research & Development GmbH"
 description   = "The Nimbus beacon chain node is a highly efficient Ethereum 2.0 client"
 license       = "MIT or Apache License 2.0"
 
 requires(
   "nim == 2.2.4",
-  "https://github.com/status-im/NimYAML",
   "bearssl",
   "blscurve",
   "chronicles",
@@ -28,6 +27,7 @@ requires(
   "libbacktrace",
   "libp2p",
   "metrics",
+  "minilru",
   "nat_traversal",
   "nimcrypto",
   "normalize",
@@ -41,13 +41,15 @@ requires(
   "stint",
   "taskpools",
   "testutils",
+  "toml_serialization",
   "unicodedb >= 0.10",
   "unittest2",
+  "yaml",
   "web3",
   "zlib",
-  "toml_serialization",
   "https://github.com/status-im/nim-kzg4844.git",
-  "zxcvbn"
+  "zxcvbn",
+  "intops"
 )
 
 requires "https://github.com/status-im/nimbus-security-resources.git"

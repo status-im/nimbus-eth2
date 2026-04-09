@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,6 +9,8 @@
 
 import
   std/[json, sequtils, times],
+  stew/objects,
+  serialization/case_objects,
   eth/common/eth_types_rlp,
   eth/common/keys,
   eth/p2p/discoveryv5/random2,
@@ -183,7 +185,7 @@ proc ETHBeaconStateCopyGenesisValidatorsRoot(
   ## Returns:
   ## * Pointer to a copy of the given beacon state's genesis validators root.
   let genesisValRoot = Eth2Digest.new()
-  genesisValRoot[] = getStateField(state[], genesis_validators_root)
+  genesisValRoot[] = state[].genesis_validators_root
   genesisValRoot.toUnmanagedPtr()
 
 proc ETHRootDestroy(root: ptr Eth2Digest) {.exported.} =
@@ -216,8 +218,7 @@ proc ETHForkDigestsCreateFromState(
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#compute_fork_digest
   let forkDigests = ForkDigests.new()
-  forkDigests[] = ForkDigests.init(
-    cfg[], getStateField(state[], genesis_validators_root))
+  forkDigests[] = ForkDigests.init(cfg[], state[].genesis_validators_root)
   forkDigests.toUnmanagedPtr()
 
 proc ETHForkDigestsDestroy(forkDigests: ptr ForkDigests) {.exported.} =
@@ -244,10 +245,11 @@ proc ETHBeaconClockCreateFromState(
   ## Returns:
   ## * Pointer to an initialized beacon clock based on the beacon state or
   ##   NULL if the state contained an invalid time.
-  let beaconClock = BeaconClock.new()
-  beaconClock[] =
-    BeaconClock.init(getStateField(state[], genesis_time)).valueOr:
-      return nil
+  let
+    genesisTime = state[].genesis_time
+    beaconClock = BeaconClock.new()
+  beaconClock[] = BeaconClock.init(cfg[].timeParams, genesisTime).valueOr:
+    return nil
   beaconClock.toUnmanagedPtr()
 
 proc ETHBeaconClockDestroy(beaconClock: ptr BeaconClock) {.exported.} =
@@ -271,7 +273,7 @@ proc ETHBeaconClockGetSlot(beaconClock: ptr BeaconClock): cint {.exported.} =
   ##
   ## See:
   ## * https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#custom-types
-  beaconClock[].now().slotOrZero().cint
+  beaconClock[].currentSlot.cint
 
 const lcDataFork = LightClientDataFork.high
 
@@ -428,7 +430,7 @@ proc ETHLightClientStoreGetNextSyncTask(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let syncTask = nextLightClientSyncTask(
-    current = beaconClock[].now().slotOrZero().sync_committee_period,
+    current = beaconClock[].currentSlot.sync_committee_period,
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
     isNextSyncCommitteeKnown = store[].is_next_sync_committee_known)
@@ -467,6 +469,7 @@ proc ETHLightClientStoreGetMillisecondsToNextSyncTask(
   ## * Number of milliseconds until `ETHLightClientStoreGetNextSyncTask`
   ##   should be called again to obtain the next light client sync task.
   asRef(rng).nextLcSyncTaskDelay(
+    beaconClock[].timeParams,
     wallTime = beaconClock[].now(),
     finalized = store[].finalized_header.beacon.slot.sync_committee_period,
     optimistic = store[].optimistic_header.beacon.slot.sync_committee_period,
@@ -513,8 +516,7 @@ proc ETHLightClientStoreProcessUpdatesByRange(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientUpdatesByRange
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var updates =
     try:
@@ -596,8 +598,7 @@ proc ETHLightClientStoreProcessFinalityUpdate(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientFinalityUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var finalityUpdate =
     try:
@@ -681,8 +682,7 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Beacon/getLightClientOptimisticUpdate
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.1#/Events/eventstream
   let
-    wallTime = beaconClock[].now()
-    currentSlot = wallTime.slotOrZero()
+    currentSlot = beaconClock[].currentSlot
     mediaType = MediaType.init($mediaType)
   var optimisticUpdate =
     try:
@@ -959,7 +959,7 @@ proc ETHLightClientHeaderCopyExecutionHash(
   root.toUnmanagedPtr()
 
 type ExecutionPayloadHeader =
-  typeof(default(lcDataFork.LightClientHeader).execution)
+  typeof(declval(lcDataFork.LightClientHeader).execution)
 
 func ETHLightClientHeaderGetExecution(
     header: ptr lcDataFork.LightClientHeader
@@ -1455,6 +1455,222 @@ template append*(w: var RlpWriter, v: ETHTransaction) =
 
 template toSszType*(v: Hash32): auto = distinctBase(v)
 
+# EIP-6404
+const SECP256K1_ALGORITHM = 0xFF'u8
+
+type
+  TransactionType = uint8
+  ChainId = UInt256
+  FeePerGas = UInt256
+  GasAmount = uint64
+  ExecutionSignature = seq[byte]
+
+  BasicFeesPerGas {.sszActiveFields: [1].} = object
+    regular: FeePerGas
+
+  BlobFeesPerGas {.sszActiveFields: [1, 1].} = object
+    regular: FeePerGas
+    blob: FeePerGas
+
+  AccessTuple = object
+    address: ExecutionAddress
+    storage_keys: seq[Eth2Digest]
+
+  RlpLegacyReplayableBasicTransactionPayload {.
+      sszActiveFields: [1, 0, 1, 1, 1, 1, 1, 1].} = object
+    `type`: TransactionType
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    to: ExecutionAddress
+    value: UInt256
+    `input`: seq[byte]
+
+  RlpLegacyReplayableCreateTransactionPayload {.
+      sszActiveFields: [1, 0, 1, 1, 1, 0, 1, 1].} = object
+    `type`: TransactionType
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    value: UInt256
+    `input`: seq[byte]
+
+  RlpLegacyBasicTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 1, 1, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    to: ExecutionAddress
+    value: UInt256
+    `input`: seq[byte]
+
+  RlpLegacyCreateTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 0, 1, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    value: UInt256
+    `input`: seq[byte]
+
+  RlpAccessListBasicTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    to: ExecutionAddress
+    value: UInt256
+    `input`: seq[byte]
+    access_list: seq[AccessTuple]
+
+  RlpAccessListCreateTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 0, 1, 1, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    value: UInt256
+    `input`: seq[byte]
+    access_list: seq[AccessTuple]
+
+  RlpBasicTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    to: ExecutionAddress
+    value: UInt256
+    `input`: seq[byte]
+    access_list: seq[AccessTuple]
+    max_priority_fees_per_gas: BasicFeesPerGas
+
+  RlpCreateTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 0, 1, 1, 1, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    value: UInt256
+    `input`: seq[byte]
+    access_list: seq[AccessTuple]
+    max_priority_fees_per_gas: BasicFeesPerGas
+
+  RlpBlobTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BlobFeesPerGas
+    gas: GasAmount
+    to: ExecutionAddress
+    value: UInt256
+    `input`: seq[byte]
+    access_list: seq[AccessTuple]
+    max_priority_fees_per_gas: BasicFeesPerGas
+    blob_versioned_hashes: seq[deneb.VersionedHash]
+
+  RlpReplayableBasicAuthorizationPayload {.
+      sszActiveFields: [1, 0, 1, 1].} = object
+    magic: TransactionType
+    address: ExecutionAddress
+    nonce: uint64
+
+  RlpBasicAuthorizationPayload {.
+      sszActiveFields: [1, 1, 1, 1].} = object
+    magic: TransactionType
+    chain_id: ChainId
+    address: ExecutionAddress
+    nonce: uint64
+
+  AuthPayloadSelector {.pure.} = enum
+    replayableBasic = 0x01
+    basic = 0x02
+
+  RlpSetCodeAuthorizationPayload {.
+      allowDiscriminatorsWithoutZero.} = object
+    case selector: AuthPayloadSelector
+    of AuthPayloadSelector.replayableBasic:
+      replayableBasicData:
+        RlpReplayableBasicAuthorizationPayload
+    of AuthPayloadSelector.basic:
+      basicData: RlpBasicAuthorizationPayload
+
+  RlpSetCodeAuthorization = object
+    payload: RlpSetCodeAuthorizationPayload
+    signature: ExecutionSignature
+
+  RlpSetCodeTransactionPayload {.
+      sszActiveFields: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1].} = object
+    `type`: TransactionType
+    chain_id: ChainId
+    nonce: uint64
+    max_fees_per_gas: BasicFeesPerGas
+    gas: GasAmount
+    to: ExecutionAddress
+    value: UInt256
+    `input`: seq[byte]
+    access_list: seq[AccessTuple]
+    max_priority_fees_per_gas: BasicFeesPerGas
+    authorization_list: seq[RlpSetCodeAuthorization]
+
+  TxPayloadSelector {.pure.} = enum
+    rlpLegacyReplayableBasic = 0x01
+    rlpLegacyReplayableCreate = 0x02
+    rlpLegacyBasic = 0x03
+    rlpLegacyCreate = 0x04
+    rlpAccessListBasic = 0x05
+    rlpAccessListCreate = 0x06
+    rlpBasic = 0x07
+    rlpCreate = 0x08
+    rlpBlob = 0x09
+    rlpSetCode = 0x0a
+
+  TransactionPayload {.allowDiscriminatorsWithoutZero.} = object
+    case selector: TxPayloadSelector
+    of TxPayloadSelector.rlpLegacyReplayableBasic:
+      rlpLegacyReplayableBasicData:
+        RlpLegacyReplayableBasicTransactionPayload
+    of TxPayloadSelector.rlpLegacyReplayableCreate:
+      rlpLegacyReplayableCreateData:
+        RlpLegacyReplayableCreateTransactionPayload
+    of TxPayloadSelector.rlpLegacyBasic:
+      rlpLegacyBasicData:
+        RlpLegacyBasicTransactionPayload
+    of TxPayloadSelector.rlpLegacyCreate:
+      rlpLegacyCreateData:
+        RlpLegacyCreateTransactionPayload
+    of TxPayloadSelector.rlpAccessListBasic:
+      rlpAccessListBasicData:
+        RlpAccessListBasicTransactionPayload
+    of TxPayloadSelector.rlpAccessListCreate:
+      rlpAccessListCreateData:
+        RlpAccessListCreateTransactionPayload
+    of TxPayloadSelector.rlpBasic:
+      rlpBasicData:
+        RlpBasicTransactionPayload
+    of TxPayloadSelector.rlpCreate:
+      rlpCreateData:
+        RlpCreateTransactionPayload
+    of TxPayloadSelector.rlpBlob:
+      rlpBlobData:
+        RlpBlobTransactionPayload
+    of TxPayloadSelector.rlpSetCode:
+      rlpSetCodeData:
+        RlpSetCodeTransactionPayload
+
+  Eip6404Transaction = object
+    payload: TransactionPayload
+    signature: ExecutionSignature
+
 proc ETHTransactionsCreateFromJson(
     transactionsRoot #[optional]#: ptr Eth2Digest,
     transactionsJson: cstring): ptr seq[ETHTransaction] {.exported.} =
@@ -1665,159 +1881,216 @@ proc ETHTransactionsCreateFromJson(
         authority: authority,
         signature: @sig)
 
-    # Compute EIP-6404 tranasaction
-    const
-      SECP256K1_SIGNATURE_SIZE = 65
-      MAX_EXECUTION_SIGNATURE_FIELDS = 8
-      MAX_FEES_PER_GAS_FIELDS = 16
-      MAX_CALLDATA_SIZE = 16_777_216
-      MAX_ACCESS_LIST_STORAGE_KEYS = 524_288
-      MAX_ACCESS_LIST_SIZE = 524_288
-      MAX_BLOB_COMMITMENTS_PER_BLOCK = 4_096
-      MAX_AUTHORIZATION_PAYLOAD_FIELDS = 16
-      MAX_AUTHORIZATION_LIST_SIZE = 65_536
-      MAX_TRANSACTION_PAYLOAD_FIELDS = 32
+    # Compute EIP-6404 transaction
+    func toAccessTuples(accessList: AccessList): seq[AccessTuple] =
+      accessList.mapIt(AccessTuple(
+        address: it.address,
+        storage_keys: it.storageKeys.mapIt(it.asEth2Digest)))
 
-    type
-      Eip6404ExecutionSignature {.
-          sszStableContainer: MAX_EXECUTION_SIGNATURE_FIELDS.} = object
-        secp256k1: Opt[array[SECP256K1_SIGNATURE_SIZE, byte]]
-
-      Eip6404TransactionType = uint8
-
-      Eip6404ChainId = UInt256
-
-      FeePerGas = UInt256
-
-      GasAmount = uint64
-
-      FeesPerGas {.sszStableContainer: MAX_FEES_PER_GAS_FIELDS.} = object
-        regular: Opt[FeePerGas]
-        blob: Opt[FeePerGas]
-
-      Eip6404AccessTuple = object
-        address: ExecutionAddress
-        storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
-
-      Eip6404AuthorizationPayload {.
-          sszStableContainer: MAX_AUTHORIZATION_PAYLOAD_FIELDS.} = object
-        magic: Opt[Eip6404TransactionType]
-        chain_id: Opt[Eip6404ChainId]
-        address: Opt[ExecutionAddress]
-        nonce: Opt[uint64]
-
-      Eip6404Authorization = object
-        payload: Eip6404AuthorizationPayload
-        signature: Eip6404ExecutionSignature
-
-      Eip6404TransactionPayload {.
-          sszStableContainer: MAX_TRANSACTION_PAYLOAD_FIELDS.} = object
-        # EIP-2718
-        `type`: Opt[Eip6404TransactionType]
-
-        # EIP-155
-        chain_id: Opt[Eip6404ChainId]
-
-        nonce: Opt[uint64]
-        max_fees_per_gas: Opt[FeesPerGas]
-        gas: Opt[GasAmount]
-        to: Opt[ExecutionAddress]
-        value: Opt[UInt256]
-        input: Opt[List[byte, Limit MAX_CALLDATA_SIZE]]
-
-        # EIP-2930
-        access_list: Opt[List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE]]
-
-        # EIP-1559
-        max_priority_fees_per_gas: Opt[FeesPerGas]
-
-        # EIP-4844
-        blob_versioned_hashes:
-          Opt[List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]]
-
-        # EIP-7702
-        authorization_list:
-          Opt[List[Eip6404Authorization, MAX_AUTHORIZATION_LIST_SIZE]]
-
-      Eip6404Transaction = object
-        payload: Eip6404TransactionPayload
-        signature: Eip6404ExecutionSignature
-
-    var eip6404Tx: Eip6404Transaction
-
-    case tx.txType
-    of TxLegacy:
-      eip6404Tx.payload.`type`.ok 0x00'u8
-    of TxEip2930:
-      eip6404Tx.payload.`type`.ok 0x01'u8
-    of TxEip1559:
-      eip6404Tx.payload.`type`.ok 0x02'u8
-    of TxEip4844:
-      eip6404Tx.payload.`type`.ok 0x03'u8
-    of TxEip7702:
-      eip6404Tx.payload.`type`.ok 0x04'u8
-    if tx.txType != TxLegacy or tx.V notin [27'u64, 28'u64]:
-      # With replay protection
-      eip6404Tx.payload.chain_id.ok tx.chainId
-    eip6404Tx.payload.nonce.ok tx.nonce
-    eip6404Tx.payload.max_fees_per_gas.ok FeesPerGas(
-      regular: Opt.some tx.maxFeePerGas.u256,
-      blob:
-        if tx.txType == TxEip4844:
-          Opt.some tx.maxFeePerBlobGas
-        else:
-          Opt.none FeePerGas)
-    eip6404Tx.payload.gas.ok tx.gasLimit.uint64
-    if tx.to.isSome:
-      eip6404Tx.payload.to.ok tx.to.get
-    eip6404Tx.payload.value.ok tx.value
-    if tx.payload.len > MAX_CALLDATA_SIZE:
-      return nil
-    eip6404Tx.payload.input
-      .ok List[byte, Limit MAX_CALLDATA_SIZE].init(tx.payload)
-    if tx.txType >= TxEip2930:
-      if tx.accessList.len > MAX_ACCESS_LIST_SIZE:
-        return nil
-      for it in tx.accessList:
-        if it.storageKeys.len > MAX_ACCESS_LIST_STORAGE_KEYS:
-          return nil
-      eip6404Tx.payload.access_list
-        .ok List[Eip6404AccessTuple, Limit MAX_ACCESS_LIST_SIZE]
-          .init(tx.accessList.mapIt(Eip6404AccessTuple(
-            address: it.address,
-            storage_keys: List[Eth2Digest, Limit MAX_ACCESS_LIST_STORAGE_KEYS]
-              .init(it.storageKeys.mapIt(it.asEth2Digest)))))
-    if tx.txType >= TxEip1559:
-      eip6404Tx.payload.max_priority_fees_per_gas.ok FeesPerGas(
-        regular: Opt.some tx.maxPriorityFeePerGas.u256,
-        blob:
-          if tx.txType == TxEip4844:
-            Opt.some FeePerGas(UInt256.zero)
+    let
+      isBasic = tx.to.isSome
+      isReplayable = tx.txType == TxLegacy and tx.V in [27'u64, 28'u64]
+      eip6404Tx = block:
+        case tx.txType
+        of TxLegacy:
+          if isReplayable:
+            if isBasic:
+              Eip6404Transaction(
+                payload: TransactionPayload.init(
+                  selector = TxPayloadSelector.rlpLegacyReplayableBasic,
+                  rlpLegacyReplayableBasicData =
+                    RlpLegacyReplayableBasicTransactionPayload(
+                      `type`: 0x00,
+                      nonce: tx.nonce,
+                      max_fees_per_gas: BasicFeesPerGas(
+                        regular: tx.maxFeePerGas.u256),
+                      gas: tx.gasLimit.uint64,
+                      to: tx.to.get,
+                      value: tx.value,
+                      `input`: @(tx.payload))),
+                signature: @[SECP256K1_ALGORITHM] & @rawSig)
+            else:
+              Eip6404Transaction(
+                payload: TransactionPayload.init(
+                  selector = TxPayloadSelector.rlpLegacyReplayableCreate,
+                  rlpLegacyReplayableCreateData =
+                    RlpLegacyReplayableCreateTransactionPayload(
+                      `type`: 0x00,
+                      nonce: tx.nonce,
+                      max_fees_per_gas: BasicFeesPerGas(
+                        regular: tx.maxFeePerGas.u256),
+                      gas: tx.gasLimit.uint64,
+                      value: tx.value,
+                      `input`: @(tx.payload))),
+                signature: @[SECP256K1_ALGORITHM] & @rawSig)
           else:
-            Opt.none FeePerGas)
-    if tx.txType == TxEip4844:
-      eip6404Tx.payload.blob_versioned_hashes
-        .ok List[deneb.VersionedHash, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-          .init(tx.versionedHashes)
-    if tx.txType == TxEip7702:
-      eip6404Tx.payload.authorization_list
-        .ok List[Eip6404Authorization, MAX_AUTHORIZATION_LIST_SIZE]
-          .init(tx.authorizationList.mapIt(Eip6404Authorization(
-            payload: Eip6404AuthorizationPayload(
-              magic: Opt.some 0x05'u8,
-              chain_id:
-                if not it.chainId.isZero:
-                  Opt.some it.chainId
-                else:
-                  Opt.none(Eip6404ChainId),
-              address: Opt.some it.address,
-              nonce: Opt.some it.nonce),
-            signature: Eip6404ExecutionSignature(
-              secp256k1: Opt.some packSignature(it.r, it.s, it.yParity)))))
-    eip6404Tx.signature.secp256k1.ok rawSig
+            if isBasic:
+              Eip6404Transaction(
+                payload: TransactionPayload.init(
+                  selector = TxPayloadSelector.rlpLegacyBasic,
+                  rlpLegacyBasicData =
+                    RlpLegacyBasicTransactionPayload(
+                      `type`: 0x00,
+                      chain_id: tx.chainId,
+                      nonce: tx.nonce,
+                      max_fees_per_gas: BasicFeesPerGas(
+                        regular: tx.maxFeePerGas.u256),
+                      gas: tx.gasLimit.uint64,
+                      to: tx.to.get,
+                      value: tx.value,
+                      `input`: @(tx.payload))),
+                signature: @[SECP256K1_ALGORITHM] & @rawSig)
+            else:
+              Eip6404Transaction(
+                payload: TransactionPayload.init(
+                  selector = TxPayloadSelector.rlpLegacyCreate,
+                  rlpLegacyCreateData =
+                    RlpLegacyCreateTransactionPayload(
+                      `type`: 0x00,
+                      chain_id: tx.chainId,
+                      nonce: tx.nonce,
+                      max_fees_per_gas: BasicFeesPerGas(
+                        regular: tx.maxFeePerGas.u256),
+                      gas: tx.gasLimit.uint64,
+                      value: tx.value,
+                      `input`: @(tx.payload))),
+                signature: @[SECP256K1_ALGORITHM] & @rawSig)
+        of TxEip2930:
+          if isBasic:
+            Eip6404Transaction(
+              payload: TransactionPayload.init(
+                selector = TxPayloadSelector.rlpAccessListBasic,
+                rlpAccessListBasicData =
+                  RlpAccessListBasicTransactionPayload(
+                    `type`: 0x01,
+                    chain_id: tx.chainId,
+                    nonce: tx.nonce,
+                    max_fees_per_gas: BasicFeesPerGas(
+                      regular: tx.maxFeePerGas.u256),
+                    gas: tx.gasLimit.uint64,
+                    to: tx.to.get,
+                    value: tx.value,
+                    `input`: @(tx.payload),
+                    access_list: toAccessTuples(tx.accessList))),
+              signature: @[SECP256K1_ALGORITHM] & @rawSig)
+          else:
+            Eip6404Transaction(
+              payload: TransactionPayload.init(
+                selector = TxPayloadSelector.rlpAccessListCreate,
+                rlpAccessListCreateData =
+                  RlpAccessListCreateTransactionPayload(
+                    `type`: 0x01,
+                    chain_id: tx.chainId,
+                    nonce: tx.nonce,
+                    max_fees_per_gas: BasicFeesPerGas(
+                      regular: tx.maxFeePerGas.u256),
+                    gas: tx.gasLimit.uint64,
+                    value: tx.value,
+                    `input`: @(tx.payload),
+                    access_list: toAccessTuples(tx.accessList))),
+              signature: @[SECP256K1_ALGORITHM] & @rawSig)
+        of TxEip1559:
+          if isBasic:
+            Eip6404Transaction(
+              payload: TransactionPayload.init(
+                selector = TxPayloadSelector.rlpBasic,
+                rlpBasicData = RlpBasicTransactionPayload(
+                  `type`: 0x02,
+                  chain_id: tx.chainId,
+                  nonce: tx.nonce,
+                  max_fees_per_gas: BasicFeesPerGas(
+                    regular: tx.maxFeePerGas.u256),
+                  gas: tx.gasLimit.uint64,
+                  to: tx.to.get,
+                  value: tx.value,
+                  `input`: @(tx.payload),
+                  access_list: toAccessTuples(tx.accessList),
+                  max_priority_fees_per_gas: BasicFeesPerGas(
+                    regular: tx.maxPriorityFeePerGas.u256))),
+              signature: @[SECP256K1_ALGORITHM] & @rawSig)
+          else:
+            Eip6404Transaction(
+              payload: TransactionPayload.init(
+                selector = TxPayloadSelector.rlpCreate,
+                rlpCreateData = RlpCreateTransactionPayload(
+                  `type`: 0x02,
+                  chain_id: tx.chainId,
+                  nonce: tx.nonce,
+                  max_fees_per_gas: BasicFeesPerGas(
+                    regular: tx.maxFeePerGas.u256),
+                  gas: tx.gasLimit.uint64,
+                  value: tx.value,
+                  `input`: @(tx.payload),
+                  access_list: toAccessTuples(tx.accessList),
+                  max_priority_fees_per_gas: BasicFeesPerGas(
+                    regular: tx.maxPriorityFeePerGas.u256))),
+              signature: @[SECP256K1_ALGORITHM] & @rawSig)
+        of TxEip4844:
+          Eip6404Transaction(
+            payload: TransactionPayload.init(
+              selector = TxPayloadSelector.rlpBlob,
+              rlpBlobData = RlpBlobTransactionPayload(
+                `type`: 0x03,
+                chain_id: tx.chainId,
+                nonce: tx.nonce,
+                max_fees_per_gas: BlobFeesPerGas(
+                  regular: tx.maxFeePerGas.u256,
+                  blob: tx.maxFeePerBlobGas),
+                gas: tx.gasLimit.uint64,
+                to: tx.to.get,
+                value: tx.value,
+                `input`: @(tx.payload),
+                access_list: toAccessTuples(tx.accessList),
+                max_priority_fees_per_gas: BasicFeesPerGas(
+                  regular: tx.maxPriorityFeePerGas.u256),
+                blob_versioned_hashes:
+                  tx.versionedHashes)),
+            signature: @[SECP256K1_ALGORITHM] & @rawSig)
+        of TxEip7702:
+          Eip6404Transaction(
+            payload: TransactionPayload.init(
+              selector = TxPayloadSelector.rlpSetCode,
+              rlpSetCodeData = RlpSetCodeTransactionPayload(
+                `type`: 0x04,
+                chain_id: tx.chainId,
+                nonce: tx.nonce,
+                max_fees_per_gas: BasicFeesPerGas(
+                  regular: tx.maxFeePerGas.u256),
+                gas: tx.gasLimit.uint64,
+                to: tx.to.get,
+                value: tx.value,
+                `input`: @(tx.payload),
+                access_list: toAccessTuples(tx.accessList),
+                max_priority_fees_per_gas: BasicFeesPerGas(
+                  regular: tx.maxPriorityFeePerGas.u256),
+                authorization_list:
+                  tx.authorizationList.mapIt(
+                    RlpSetCodeAuthorization(
+                      payload: block:
+                        let sig = packSignature(it.r, it.s, it.yParity)
+                        if it.chainId.isZero:
+                          RlpSetCodeAuthorizationPayload.init(
+                            selector = AuthPayloadSelector.replayableBasic,
+                            replayableBasicData =
+                              RlpReplayableBasicAuthorizationPayload(
+                                magic: 0x05,
+                                address: it.address,
+                                nonce: it.nonce))
+                        else:
+                          RlpSetCodeAuthorizationPayload.init(
+                            selector = AuthPayloadSelector.basic,
+                            basicData =
+                              RlpBasicAuthorizationPayload(
+                                magic: 0x05,
+                                chain_id: it.chainId,
+                                address: it.address,
+                                nonce: it.nonce)),
+                      signature: @[SECP256K1_ALGORITHM] &
+                        @(packSignature(it.r, it.s, it.yParity)))))),
+            signature: @[SECP256K1_ALGORITHM] & @rawSig)
 
-    # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
-    let eip6404Bytes = SSZ.encode(eip6404Tx)
+      # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
+      eip6404Bytes = SSZ.encode(eip6404Tx)
     txs.add ETHTransaction(
       hash: keccak256(rlpBytes).asEth2Digest,
       chainId: tx.chainId,
@@ -2489,6 +2762,49 @@ type
 template append*(w: var RlpWriter, v: ETHReceipt) =
   w.appendRawBytes(v.bytes)
 
+# EIP-6466
+const MAX_TOPICS_PER_LOG = 4
+
+type
+  Eip6466Log = object
+    address: ExecutionAddress
+    topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
+    data: seq[byte]
+
+  BasicReceipt {.sszActiveFields: [1, 1, 0, 1, 1].} = object
+    `from`: ExecutionAddress
+    gas_used: GasAmount
+    logs: seq[Eip6466Log]
+    status: bool
+
+  CreateReceipt {.sszActiveFields: [1, 1, 1, 1, 1].} = object
+    `from`: ExecutionAddress
+    gas_used: GasAmount
+    contract_address: ExecutionAddress
+    logs: seq[Eip6466Log]
+    status: bool
+
+  SetCodeReceipt {.sszActiveFields: [1, 1, 0, 1, 1, 1].} = object
+    `from`: ExecutionAddress
+    gas_used: GasAmount
+    logs: seq[Eip6466Log]
+    status: bool
+    authorities: seq[ExecutionAddress]
+
+  ReceiptSelector {.pure.} = enum
+    basic = 0x01
+    create = 0x02
+    setCode = 0x03
+
+  Receipt {.allowDiscriminatorsWithoutZero.} = object
+    case selector: ReceiptSelector
+    of ReceiptSelector.basic:
+      basicData: BasicReceipt
+    of ReceiptSelector.create:
+      createData: CreateReceipt
+    of ReceiptSelector.setCode:
+      setCodeData: SetCodeReceipt
+
 proc ETHReceiptsCreateFromJson(
     receiptsRoot #[optional]#: ptr Eth2Digest,
     receiptsJson: cstring,
@@ -2538,7 +2854,7 @@ proc ETHReceiptsCreateFromJson(
     # Check fork consistency
     static: doAssert totalSerializedFields(ReceiptObject) == 17,
       "Only update this number once code is adjusted to check new fields!"
-    static: doAssert totalSerializedFields(LogObject) == 9,
+    static: doAssert totalSerializedFields(LogObject) == 10,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
@@ -2617,64 +2933,64 @@ proc ETHReceiptsCreateFromJson(
         except RlpError:
           raiseAssert "Unreachable"
 
-    # Compute EIP-6466 receipt
-    const
-      MAX_AUTHORIZATION_LIST_SIZE = 65_536
-      MAX_TOPICS_PER_LOG = 4
-      MAX_LOG_DATA_SIZE = 16_777_216
-      MAX_LOGS_PER_RECEIPT = 2_097_152
-      MAX_RECEIPT_FIELDS = 32
+      # Compute EIP-6466 receipt
+      transaction = ETHTransactionsGet(transactions, i.cint)
+      isCreatingContract = ETHTransactionIsCreatingContract(transaction)
+      hasAuthorizationList = ETHTransactionHasAuthorizationList(transaction)
 
-    type
-      GasAmount = uint64
-
-      Eip6466Log = object
-        address: ExecutionAddress
-        topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
-        data: List[byte, Limit MAX_LOG_DATA_SIZE]
-
-      Eip6466StableReceipt {.sszStableContainer: MAX_RECEIPT_FIELDS.} = object
-        `from`: Opt[ExecutionAddress]
-        gas_used: Opt[GasAmount]
-        contract_address: Opt[ExecutionAddress]
-        logs: Opt[List[Eip6466Log, MAX_LOGS_PER_RECEIPT]]
-
-        # EIP-658
-        status: Opt[bool]
-
-        # EIP-7702
-        authorities:
-          Opt[List[ExecutionAddress, Limit MAX_AUTHORIZATION_LIST_SIZE]]
-
-    var eip6466Rec: Eip6466StableReceipt
-    let transaction = ETHTransactionsGet(transactions, i.cint)
-
-    eip6466Rec.`from`.ok ETHTransactionGetFrom(transaction)[]
-    eip6466Rec.gas_used.ok distinctBase(data.gasUsed)  # See validity checks
-    if ETHTransactionIsCreatingContract(transaction):
-      eip6466Rec.contract_address.ok ETHTransactionGetTo(transaction)[]
-    if rec.logs.anyIt(it.data.len > MAX_LOG_DATA_SIZE):
-      return nil
-    eip6466Rec.logs.ok List[Eip6466Log, MAX_LOGS_PER_RECEIPT]
-      .init(rec.logs.mapIt(Eip6466Log(
+    func toLogs(logs: openArray[Log]): seq[Eip6466Log] =
+      logs.mapIt(Eip6466Log(
         address: it.address,
         topics: List[Eth2Digest, Limit MAX_TOPICS_PER_LOG]
           .init(it.topics.mapIt(it.asEth2Digest)),
-        data: List[byte, Limit MAX_LOG_DATA_SIZE].init(it.data))))
-    if not rec.isHash:
-      eip6466Rec.status.ok rec.status
-    if ETHTransactionHasAuthorizationList(transaction):
-      let
-        authorizations = ETHTransactionGetAuthorizationList(transaction)
-        numAuthorizations = ETHAuthorizationListGetCount(authorizations)
-      eip6466Rec.authorities.ok List[
-        ExecutionAddress, Limit MAX_AUTHORIZATION_LIST_SIZE].init(
-          (0.cint ..< numAuthorizations)
-            .mapIt ETHAuthorizationGetAuthority(
-              ETHAuthorizationListGet(authorizations, it))[])
+        data: it.data))
 
-    # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
-    let eip6466Bytes = SSZ.encode(eip6466Rec)
+    let
+      eip6466Rec = block:
+        let
+          fromAddr = ETHTransactionGetFrom(transaction)[]
+          gasUsed = distinctBase(data.gasUsed)
+          logs = toLogs(rec.logs)
+          status = rec.status
+        if hasAuthorizationList:
+          let
+            authorizations =
+              ETHTransactionGetAuthorizationList(transaction)
+            numAuthorizations =
+              ETHAuthorizationListGetCount(authorizations)
+          Receipt.init(
+            selector = ReceiptSelector.setCode,
+            setCodeData = SetCodeReceipt(
+              `from`: fromAddr,
+              gas_used: gasUsed,
+              logs: logs,
+              status: status,
+              authorities:
+                (0.cint ..< numAuthorizations)
+                  .mapIt ETHAuthorizationGetAuthority(
+                    ETHAuthorizationListGet(
+                      authorizations, it))[]))
+        elif isCreatingContract:
+          Receipt.init(
+            selector = ReceiptSelector.create,
+            createData = CreateReceipt(
+              `from`: fromAddr,
+              gas_used: gasUsed,
+              contract_address:
+                ETHTransactionGetTo(transaction)[],
+              logs: logs,
+              status: status))
+        else:
+          Receipt.init(
+            selector = ReceiptSelector.basic,
+            basicData = BasicReceipt(
+              `from`: fromAddr,
+              gas_used: gasUsed,
+              logs: logs,
+              status: status))
+
+      # Nim 1.6.14: Inlining `SSZ.encode` into constructor may corrupt memory.
+      eip6466Bytes = SSZ.encode(eip6466Rec)
     recs.add ETHReceipt(
       statusType:
         if rec.isHash:
