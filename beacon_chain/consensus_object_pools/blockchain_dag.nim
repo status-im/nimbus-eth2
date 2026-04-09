@@ -1153,6 +1153,57 @@ proc isParentBlockFull*(
   else:
     bid.message.parent_block_hash == parentBlockHash.get()
 
+proc isParentBlockFull(
+    dag: ChainDAGRef, blckBid: BlockId, parentBid: BlockId): bool =
+  logScope:
+    blck = shortLog(blckBid)
+    parent = shortLog(parentBid)
+
+  # Fast path if both are non-finalized
+  let blckRef = dag.getBlockRef(blckBid.root)
+  if blckRef.isSome() and not isNil(blckRef.get().parent):
+    return
+      if blckRef.get().parent.root() != parentBid.root:
+        debug "Gloas payload status check - incorrect parent"
+        false
+      else:
+        isParentBlockFull(dag, blckRef.get())
+
+  # If either blocks is finalized, we load data from database and compare the
+  # hashes.
+  let
+    blckParentHash = block:
+      if blckRef.isSome():
+        dag.loadExecutionAndParentBlockHash(blckRef.get())[1].valueOr:
+          debug "Gloas payload status check - fail to load block hashes"
+          return false
+      else:
+        let blck = dag.getForkedBlock(blckBid).valueOr:
+          debug "Gloas payload status check - block not found in db"
+          return false
+        withBlck(blck):
+          when consensusFork >= ConsensusFork.Gloas:
+            template bid(): auto =
+              forkyBlck.message.body.signed_execution_payload_bid
+            bid.message.parent_block_hash
+          else:
+            debug "Gloas payload status check - block in incorrect fork"
+            return false
+    parentBlockHash = block:
+      let blck = dag.getForkedBlock(parentBid).valueOr:
+        debug "Gloas payload status check - parent not found in db"
+        return false
+      withBlck(blck):
+        when consensusFork >= ConsensusFork.Gloas:
+          template bid(): auto =
+            forkyBlck.message.body.signed_execution_payload_bid
+          bid.message.block_hash
+        else:
+          debug "Gloas payload status check - parent in incorrect fork"
+          return false
+
+  not blckParentHash.isZero() and blckParentHash == parentBlockHash
+
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
     cache: var StateCache, info: var ForkedEpochInfo,
@@ -1920,33 +1971,41 @@ proc updateState*(
     ancestors: seq[BlockId]
     found = false
 
-  template executionMatch(
-      state: ForkedHashedBeaconState, targetSlot: Slot): auto =
-    # Since Gloas, state would be updated at most twice (envelope may be
-    # missing) in every slot on applying block and envelope. So skipLastEnvelope
-    # flag is used to strictly control the final state at the target slot that
-    # is with or without the envelope.
-    if state.kind == dag.cfg.consensusForkAtEpoch(targetSlot.epoch()):
-      withState(state):
-        when consensusFork >= ConsensusFork.Gloas:
-          (is_parent_block_full(forkyState.data) == (skipLastEnvelope notin updateFlags)) and
-            forkyState.data.slot == targetSlot
-        else:
-          true
-    else:
-      true
-
   template exactMatch(state: ForkedHashedBeaconState, bsi: BlockSlotId): bool =
     # The block is the same and we're at an early enough slot - the state can
     # be used to arrive at the desired blockslot
-    state.matches_block_slot(bsi.bid.root, bsi.slot) and
-      executionMatch(state, bsi.slot)
+    let executionMatch = block:
+      withState(state):
+        when consensusFork >= ConsensusFork.Gloas:
+          # For exactMatch we want the payload status is matched with the flags.
+          is_parent_block_full(forkyState.data) ==
+            (skipLastEnvelope notin updateFlags)
+        else:
+          # Disable this check for pre-Gloas forks.
+          true
+
+    state.matches_block_slot(bsi.bid.root, bsi.slot) and executionMatch
 
   template canAdvance(state: ForkedHashedBeaconState, bsi: BlockSlotId): bool =
     # The block is the same and we're at an early enough slot - the state can
     # be used to arrive at the desired blockslot
-    state.can_advance_slots(bsi.bid.root, bsi.slot) and
-      executionMatch(state, bsi.slot)
+    let executionMatch = block:
+      withState(state):
+        when consensusFork >= ConsensusFork.Gloas:
+          # State should not have the payload applied if canAdvance find the
+          # state as this will be the starting point of replay. Whether should
+          # the payload be applied can only be deteremined after we found the
+          # ancestors.
+          #
+          # For more context, the payload at the current state latest_block_id
+          # will be determined by the next block if there is more than 1
+          # ancestors, or by the flags if there is not any ancestors.
+          not is_parent_block_full(forkyState.data)
+        else:
+          # Disable this check for pre-Gloas forks.
+          true
+
+    state.can_advance_slots(bsi.bid.root, bsi.slot) and executionMatch
 
   # Fast path: check all caches for an exact match - this is faster than
   # advancing a state where there's epoch processing to do, by a wide margin -
@@ -2063,10 +2122,40 @@ proc updateState*(
     ancestor {.used.} = withState(state):
       BlockSlotId.init(forkyState.latest_block_id, forkyState.data.slot)
     ancestorRoot {.used.} = state.root
+    stateStartBid = state.latest_block_id
 
   var info: ForkedEpochInfo
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
+    # Since a full beacon block consists of the beacon block itself together
+    # with the corresponding execution payload envelope, the state transition
+    # should require both components in every slot. The last slot may apply the
+    # envelope, which is controlled by updateFlags, for allowing state
+    # transitioning with a single beacon block.
+
+    template parent(): auto =
+      if i == ancestors.len() - 1:
+        stateStartBid
+      else:
+        ancestors[i + 1]
+
+    let wantsPayload = block:
+      template blckFork(): auto =
+        dag.cfg.consensusForkAtEpoch(ancestors[i].slot.epoch())
+      if blckFork <= ConsensusFork.Fulu:
+        false
+      else:
+        isParentBlockFull(dag, ancestors[i], parent)
+
+    if wantsPayload:
+      dag.applyExecutionPayloadEnvelope(state, parent, cache).isOkOr:
+        warn "Failed to apply envelope from database",
+          blck = shortLog(ancestors[i]),
+          state_bid = shortLog(state.latest_block_id),
+          skipLastEnvelope = skipLastEnvelope in updateFlags,
+          i, error = error
+        return false
+
     # Because the ancestors are in the database, there's no need to persist them
     # again. Also, because we're applying blocks that were loaded from the
     # database, we can skip certain checks that have already been performed
@@ -2075,44 +2164,42 @@ proc updateState*(
                                  updateFlags); res.isErr):
       warn "Failed to apply block from database",
         blck = shortLog(ancestors[i]),
+        wantsPayload,
         state_bid = shortLog(state.latest_block_id),
         error = res.error()
 
       return false
 
-    # Since a full beacon block consists of the beacon block itself together
-    # with the corresponding execution payload envelope, the state transition
-    # should require both components in every slot. The last slot may apply the
-    # envelope, which is controlled by updateFlags, for allowing state
-    # transitioning with a single beacon block.
-    let wantsPayload = block:
-      template blckFork(): auto =
-        dag.cfg.consensusForkAtEpoch(ancestors[i].slot.epoch())
-      if blckFork <= ConsensusFork.Fulu:
-        false
-      elif i > 0:
-        # Conversion from BlockId to BlockRef for ancestors[i] should be
-        # flawless as the BlockId was BlockRef from DAG.
-        let child = dag.getBlockRef(ancestors[i - 1].root).valueOr:
-          debug "Child block is missing from the chain"
-          return false
-        isParentBlockFull(dag, child)
-      else:
-        # No child for this block, but we need to check with the flags.
-        skipLastEnvelope notin updateFlags
+  # ...and make sure to process empty slots as requested
+  if dag.cfg.consensusForkAtEpoch(bsi.bid.slot.epoch()) >= ConsensusFork.Gloas:
+    let
+      stateBid = state.latest_block_id
+      saveCheckpoint = block:
+        save and
+        dag.isStateCheckpoint(BlockSlotId.init(stateBid, bsi.slot)) and
+        not dag.db.containsState(
+          dag.cfg.consensusForkAtEpoch(stateBid.slot.epoch()),
+          state.root, legacy = false
+        )
+      wantsLastEnvelope = block:
+        withState(state):
+          when consensusFork >= ConsensusFork.Gloas:
+            not is_parent_block_full(forkyState.data) and
+              skipLastEnvelope notin updateFlags
+          else:
+            false
 
-    if wantsPayload:
-      dag.applyExecutionPayloadEnvelope(
-          state, ancestors[i], cache).isOkOr:
-        warn "Failed to apply envelope from database",
-          blck = shortLog(ancestors[i]),
-          state_bid = shortLog(state.latest_block_id),
-          skipLastEnvelope = skipLastEnvelope in updateFlags,
-          i, error = error
+    if saveCheckpoint:
+      withState(state):
+        dag.db.putState(forkyState)
+
+    if wantsLastEnvelope:
+      dag.applyExecutionPayloadEnvelope(state, stateBid, cache).isOkOr:
         return false
 
-  # ...and make sure to process empty slots as requested
-  dag.advanceSlots(state, bsi.slot, save, cache, info, updateFlags)
+    dag.advanceSlots(state, bsi.slot, false, cache, info, updateFlags)
+  else:
+    dag.advanceSlots(state, bsi.slot, save, cache, info, updateFlags)
 
   # ...and make sure to load the state cache, if it exists
   loadStateCache(dag, cache, bsi.bid, state.slot.epoch)
