@@ -1121,6 +1121,10 @@ proc isParentBlockFull(dag: ChainDAGRef, blck: BlockRef): bool =
   ##
   ## It is more likely a port to the fork choice helper
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_parent_node_full
+  ##
+  ## Validating the consensus fork by slot (blck and blck.parent), and
+  ## blck.parent is not nil is responsibility of the call site as they cannot be
+  ## flagged by boolean and required different handling.
 
   let
     (_, blckParentHash) = dag.loadExecutionAndParentBlockHash(blck)
