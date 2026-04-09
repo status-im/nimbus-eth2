@@ -17,7 +17,7 @@ import results, chronos,
        ".."/validators/validator_monitor,
        ".."/[beacon_clock, conf],
        ".."/networking/eth2_network,
-       "."/[sync_manager, sync_dag, block_buffer]
+       "."/[sync_manager, validator_custody, sync_dag, block_buffer]
 
 export results, chronos, block_pools_types, conf, sync_dag
 
@@ -63,6 +63,7 @@ type
     loopFuture*: Future[void].Raising([])
     pool*: PeerPool[Peer, PeerId]
     blockProcessor*: ref BlockProcessor
+    validatorCustody*: ref ValidatorCustody
     fblockBuffer*: BlocksRangeBuffer
     bblockBuffer*: BlocksRangeBuffer
     rblockBuffer*: BlocksRootBuffer
@@ -136,6 +137,7 @@ proc new*(
     bt: GetBeaconTimeFn,
     clock: BeaconClock,
     blockProcessor: ref BlockProcessor,
+    validatorCustody: ref ValidatorCustody,
     blockQuarantine: ref Quarantine,
     blobQuarantine: ref BlobQuarantine,
     columnQuarantine: ref ColumnQuarantine,
@@ -153,6 +155,7 @@ proc new*(
     beaconClock: clock,
     pool: net.peerPool,
     blockProcessor: blockProcessor,
+    validatorCustody: validatorCustody,
     blobQuarantine: blobQuarantine,
     columnQuarantine: columnQuarantine,
     blockQuarantine: blockQuarantine,

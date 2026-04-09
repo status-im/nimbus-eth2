@@ -396,9 +396,7 @@ proc checkPeerCustody(rman: RequestManager,
       return intersection
     else:
       let
-        remoteNodeId = fetchNodeIdFromPeerId(peer).valueOr:
-          peer.updateScore(PeerScoreNoValues)
-          return intersection
+        remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
           rman.network.cfg.resolve_columns_from_custody_groups(
             remoteNodeId,
@@ -434,8 +432,7 @@ func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
     let
       remoteCustodyGroupCount = peer.lookupCgcFromPeer().valueOr:
         return false
-      remoteNodeId = fetchNodeIdFromPeerId(peer).valueOr:
-        return false
+      remoteNodeId = fetchNodeIdFromPeerId(peer)
       remoteCustodyColumns =
         rman.network.cfg.resolve_columns_from_custody_groups(
           remoteNodeId,
