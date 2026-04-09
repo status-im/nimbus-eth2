@@ -4661,6 +4661,26 @@ ConsensusSpecPreset-mainnet
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
+## EF - Heze - Sanity - Slots  [Preset: mainnet]
+```diff
++ EF - Heze - Slots - balance_change_affects_proposer [Preset: mainnet]                      OK
++ EF - Heze - Slots - double_empty_epoch [Preset: mainnet]                                   OK
++ EF - Heze - Slots - effective_decrease_balance_updates_lookahead [Preset: mainnet]         OK
++ EF - Heze - Slots - empty_epoch [Preset: mainnet]                                          OK
++ EF - Heze - Slots - execution_payload_availability_reset_from_set [Preset: mainnet]        OK
++ EF - Heze - Slots - execution_payload_availability_reset_from_unset [Preset: mainnet]      OK
++ EF - Heze - Slots - historical_accumulator [Preset: mainnet]                               OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey [Preset: mainnet]                OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset:  OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Preset:  OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: mainnet]    OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: mai OK
++ EF - Heze - Slots - over_epoch_boundary [Preset: mainnet]                                  OK
++ EF - Heze - Slots - pending_consolidation [Preset: mainnet]                                OK
++ EF - Heze - Slots - pending_deposit_extra_gwei [Preset: mainnet]                           OK
++ EF - Heze - Slots - slots_1 [Preset: mainnet]                                              OK
++ EF - Heze - Slots - slots_2 [Preset: mainnet]                                              OK
+```
 ## EF - Light client - Single merkle proof [Preset: mainnet]
 ```diff
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK

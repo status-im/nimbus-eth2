@@ -4947,6 +4947,26 @@ ConsensusSpecPreset-minimal
 +   Testing    Withdrawal                                                                    OK
 +   Testing    WithdrawalRequest                                                             OK
 ```
+## EF - Heze - Sanity - Slots  [Preset: minimal]
+```diff
++ EF - Heze - Slots - balance_change_affects_proposer [Preset: minimal]                      OK
++ EF - Heze - Slots - double_empty_epoch [Preset: minimal]                                   OK
++ EF - Heze - Slots - effective_decrease_balance_updates_lookahead [Preset: minimal]         OK
++ EF - Heze - Slots - empty_epoch [Preset: minimal]                                          OK
++ EF - Heze - Slots - execution_payload_availability_reset_from_set [Preset: minimal]        OK
++ EF - Heze - Slots - execution_payload_availability_reset_from_unset [Preset: minimal]      OK
++ EF - Heze - Slots - historical_accumulator [Preset: minimal]                               OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey [Preset: minimal]                OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_above_upward_threshold [Preset:  OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_below_upward_threshold [Preset:  OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_compounding [Preset: minimal]    OK
++ EF - Heze - Slots - multiple_pending_deposits_same_pubkey_different_signature [Preset: min OK
++ EF - Heze - Slots - over_epoch_boundary [Preset: minimal]                                  OK
++ EF - Heze - Slots - pending_consolidation [Preset: minimal]                                OK
++ EF - Heze - Slots - pending_deposit_extra_gwei [Preset: minimal]                           OK
++ EF - Heze - Slots - slots_1 [Preset: minimal]                                              OK
++ EF - Heze - Slots - slots_2 [Preset: minimal]                                              OK
+```
 ## EF - Light client - Data collection [Preset: minimal]
 ```diff
 + Light client - Data collection - minimal/altair/light_client/data_collection/pyspec_tests/ OK
