@@ -220,7 +220,7 @@ proc makeExecutionPayloadEnvelope*(
   envelope.state_root = hash_tree_root(state.data)
   envelope
 
-func makeSignedExecutionPayloadBid(
+func makeSignedExecutionPayloadBid*(
     executionPayload: deneb.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
