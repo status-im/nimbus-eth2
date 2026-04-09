@@ -90,11 +90,13 @@ template runForkBlockTests(consensusFork: static ConsensusFork) =
         "EF - " & forkHumanName & " - Finality",
         FinalityDir, suiteName, path)
 
-  suite "EF - " & forkHumanName & " - Random " & preset():
-    for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
-      consensusFork.runTest(
-        "EF - " & forkHumanName & " - Random",
-        RandomDir, suiteName, path)
+  when consensusFork != ConsensusFork.Heze:
+    debugHezeComment "no random tests for Heze yet"
+    suite "EF - " & forkHumanName & " - Random " & preset():
+      for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
+        consensusFork.runTest(
+          "EF - " & forkHumanName & " - Random",
+          RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
   runForkBlockTests(consensusFork)

@@ -71,6 +71,10 @@ AllTests-mainnet
 + sanity check gloas data columns [Preset: mainnet]                                          OK
   sanity check gloas states [Preset: mainnet]                                                Skip
   sanity check gloas states, reusing buffers [Preset: mainnet]                               Skip
+  sanity check heze and cross-fork getState rollback [Preset: mainnet]                       Skip
+  sanity check heze blocks [Preset: mainnet]                                                 Skip
+  sanity check heze states [Preset: mainnet]                                                 Skip
+  sanity check heze states, reusing buffers [Preset: mainnet]                                Skip
 + sanity check phase0 blocks [Preset: mainnet]                                               OK
 + sanity check phase0 getState rollback [Preset: mainnet]                                    OK
 + sanity check phase0 states [Preset: mainnet]                                               OK

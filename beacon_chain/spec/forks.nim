@@ -752,8 +752,10 @@ template Forky*(
 
 template withAll*(
     x: typedesc[ConsensusFork], body: untyped): untyped =
-  debugHezeComment "actually iterate Heze"
   static: doAssert ConsensusFork.high == ConsensusFork.Heze
+  block:
+    const consensusFork {.inject, used.} = ConsensusFork.Heze
+    body
   block:
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
     body

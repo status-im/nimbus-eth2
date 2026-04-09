@@ -6641,6 +6641,83 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
 + [Valid]   EF - gloas - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
 ```
+## EF - heze - Finality  [Preset: minimal]
+```diff
++ [Valid]   EF - heze - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
++ [Valid]   EF - heze - Finality - finality_rule_1 [Preset: minimal]                         OK
++ [Valid]   EF - heze - Finality - finality_rule_2 [Preset: minimal]                         OK
++ [Valid]   EF - heze - Finality - finality_rule_3 [Preset: minimal]                         OK
++ [Valid]   EF - heze - Finality - finality_rule_4 [Preset: minimal]                         OK
+```
+## EF - heze - Sanity - Blocks  [Preset: minimal]
+```diff
++ [Invalid] EF - heze - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]           OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mini OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_block_sig [Preset: minimal]      OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_state_root [Preset: minimal]     OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: minim OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_parent_from_same_slot [Preset: minimal]    OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minima OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minima OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
++ [Invalid] EF - heze - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]        OK
++ [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
++ [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
++ [Valid]   EF - heze - Sanity - Blocks - attestation [Preset: minimal]                      OK
++ [Valid]   EF - heze - Sanity - Blocks - attester_slashing [Preset: minimal]                OK
++ [Valid]   EF - heze - Sanity - Blocks - balance_driven_status_transitions [Preset: minimal OK
++ [Valid]   EF - heze - Sanity - Blocks - bls_change [Preset: minimal]                       OK
++ [Valid]   EF - heze - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]           OK
++ [Valid]   EF - heze - Sanity - Blocks - deposit_in_block [Preset: minimal]                 OK
++ [Valid]   EF - heze - Sanity - Blocks - deposit_top_up [Preset: minimal]                   OK
++ [Valid]   EF - heze - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal] OK
++ [Valid]   EF - heze - Sanity - Blocks - empty_block_transition [Preset: minimal]           OK
++ [Valid]   EF - heze - Sanity - Blocks - empty_block_transition_large_validator_set [Preset OK
++ [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition [Preset: minimal]           OK
++ [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition_large_validator_set [Preset OK
++ [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: min OK
++ [Valid]   EF - heze - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]        OK
++ [Valid]   EF - heze - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]     OK
++ [Valid]   EF - heze - Sanity - Blocks - exit_and_bls_change [Preset: minimal]              OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_0 [Preset: minimal]         OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_1 [Preset: minimal]         OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_2 [Preset: minimal]         OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_3 [Preset: minimal]         OK
++ [Valid]   EF - heze - Sanity - Blocks - high_proposer_index [Preset: minimal]              OK
++ [Valid]   EF - heze - Sanity - Blocks - historical_batch [Preset: minimal]                 OK
++ [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
++ [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
++ [Valid]   EF - heze - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisfy OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsatis OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sati OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_unsa OK
++ [Valid]   EF - heze - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
++ [Valid]   EF - heze - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
++ [Valid]   EF - heze - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - heze - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal]    OK
++ [Valid]   EF - heze - Sanity - Blocks - proposer_self_slashing [Preset: minimal]           OK
++ [Valid]   EF - heze - Sanity - Blocks - proposer_slashing [Preset: minimal]                OK
++ [Valid]   EF - heze - Sanity - Blocks - skipped_slots [Preset: minimal]                    OK
++ [Valid]   EF - heze - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]        OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal]  OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]   OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]   OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: mi OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: mi OK
++ [Valid]   EF - heze - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
++ [Valid]   EF - heze - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: minim OK
++ [Valid]   EF - heze - Sanity - Blocks - voluntary_exit [Preset: minimal]                   OK
++ [Valid]   EF - heze - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
+```
 ## EF - phase0 - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK

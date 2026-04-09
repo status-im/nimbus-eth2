@@ -6193,6 +6193,76 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - voluntary_exit [Preset: mainnet]                  OK
 + [Valid]   EF - gloas - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]   OK
 ```
+## EF - heze - Finality  [Preset: mainnet]
+```diff
++ [Valid]   EF - heze - Finality - finality_no_updates_at_genesis [Preset: mainnet]          OK
++ [Valid]   EF - heze - Finality - finality_rule_1 [Preset: mainnet]                         OK
++ [Valid]   EF - heze - Finality - finality_rule_2 [Preset: mainnet]                         OK
++ [Valid]   EF - heze - Finality - finality_rule_3 [Preset: mainnet]                         OK
++ [Valid]   EF - heze - Finality - finality_rule_4 [Preset: mainnet]                         OK
+```
+## EF - heze - Sanity - Blocks  [Preset: mainnet]
+```diff
++ [Invalid] EF - heze - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]           OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: main OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]      OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mainn OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
++ [Invalid] EF - heze - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]        OK
++ [Valid]   EF - heze - Sanity - Blocks - attestation [Preset: mainnet]                      OK
++ [Valid]   EF - heze - Sanity - Blocks - attester_slashing [Preset: mainnet]                OK
++ [Valid]   EF - heze - Sanity - Blocks - balance_driven_status_transitions [Preset: mainnet OK
++ [Valid]   EF - heze - Sanity - Blocks - bls_change [Preset: mainnet]                       OK
++ [Valid]   EF - heze - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]           OK
++ [Valid]   EF - heze - Sanity - Blocks - deposit_in_block [Preset: mainnet]                 OK
++ [Valid]   EF - heze - Sanity - Blocks - deposit_top_up [Preset: mainnet]                   OK
++ [Valid]   EF - heze - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet] OK
++ [Valid]   EF - heze - Sanity - Blocks - empty_block_transition [Preset: mainnet]           OK
++ [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]           OK
++ [Valid]   EF - heze - Sanity - Blocks - exit_and_bls_change [Preset: mainnet]              OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]         OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]         OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]         OK
++ [Valid]   EF - heze - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]         OK
++ [Valid]   EF - heze - Sanity - Blocks - high_proposer_index [Preset: mainnet]              OK
++ [Valid]   EF - heze - Sanity - Blocks - historical_batch [Preset: mainnet]                 OK
++ [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
++ [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]        OK
++ [Valid]   EF - heze - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisfy OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsatis OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sati OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_unsa OK
++ [Valid]   EF - heze - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
++ [Valid]   EF - heze - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
++ [Valid]   EF - heze - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: ma OK
++ [Valid]   EF - heze - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]    OK
++ [Valid]   EF - heze - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]           OK
++ [Valid]   EF - heze - Sanity - Blocks - proposer_slashing [Preset: mainnet]                OK
++ [Valid]   EF - heze - Sanity - Blocks - skipped_slots [Preset: mainnet]                    OK
++ [Valid]   EF - heze - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]        OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__empty [Preset: mainnet]  OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet]   OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet]   OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: ma OK
++ [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: ma OK
++ [Valid]   EF - heze - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
++ [Valid]   EF - heze - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mainn OK
++ [Valid]   EF - heze - Sanity - Blocks - voluntary_exit [Preset: mainnet]                   OK
++ [Valid]   EF - heze - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]    OK
+```
 ## EF - phase0 - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - phase0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]        OK
