@@ -1036,11 +1036,11 @@ proc addPayload*(
       # the next try.
       self.envelopeQuarantine[].addOrphan(signedEnvelope)
     of VerifierError.Invalid, VerifierError.UnviableFork:
-      # The block is verified and has added to the DAG. This could mean that the
-      # envelope may be broken or from dishonest node. We should request it from
-      # peers and discard the entries in the quarantine.
+      # The block is verified and has added to the DAG, but the envelope isn't
+      # valid. It should be marked as invalid so that we can ignore it from
+      # gossip or skip processing the same one.
       self.envelopeQuarantine[].remove(signedBlock.root)
-      self.envelopeQuarantine[].addMissing(signedBlock.root)
+      debugGloasComment("mark as unviable")
     of VerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
 
