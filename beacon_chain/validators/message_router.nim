@@ -143,7 +143,7 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: gloas.SignedBeaconBlock,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
@@ -287,7 +287,7 @@ proc addRoutedBlock(
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
     blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
-          gloas.SignedBeaconBlock,
+          gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     someSidecarsOpt: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
@@ -329,7 +329,9 @@ proc routeAttestation*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = attestation.data.slot
-    delay = sendTime - slot.attestation_deadline(router[].dag.timeParams)
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.attestation_deadline(
+      router[].dag.timeParams, consensusFork)
     res = await router[].network.broadcastAttestation(subnet_id, attestation)
 
   if res.isOk():
@@ -397,7 +399,9 @@ proc routeSignedAggregateAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = proof.message.aggregate.data.slot
-    delay = sendTime - slot.aggregate_deadline(router[].dag.timeParams)
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.aggregate_deadline(
+      router[].dag.timeParams, consensusFork)
     res = await router[].network.broadcastAggregateAndProof(proof)
 
   if res.isOk():
@@ -432,8 +436,10 @@ proc routeSyncCommitteeMessage*(
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(msg.slot.epoch)
     delay = sendTime -
-      msg.slot.sync_committee_message_deadline(router[].dag.timeParams)
+      msg.slot.sync_committee_message_deadline(
+        router[].dag.timeParams, consensusFork)
 
     res = await router[].network.broadcastSyncCommitteeMessage(
       msg, subcommitteeIdx)
@@ -555,7 +561,9 @@ proc routeSignedContributionAndProof*(
   let
     sendTime = router[].processor.getCurrentBeaconTime()
     slot = msg.message.contribution.slot
-    delay = sendTime - slot.sync_contribution_deadline(router[].dag.timeParams)
+    consensusFork = router[].dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = sendTime - slot.sync_contribution_deadline(
+      router[].dag.timeParams, consensusFork)
 
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():

@@ -73,6 +73,7 @@ type
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
     GloasSignedBlockContents |
+    HezeSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
@@ -591,46 +592,6 @@ proc parseRoot(value: string): Result[Eth2Digest, cstring] =
     err("Unable to decode root value")
 
 proc decodeBody*(
-       _: typedesc[RestPublishedSignedBeaconBlock],
-       body: ContentBody,
-       version: string
-     ): Result[RestPublishedSignedBeaconBlock, RestErrorMessage] =
-  if body.contentType == ApplicationJsonMediaType:
-    let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
-
-    try:
-      var res = ForkedSignedBeaconBlock(kind: consensusFork)
-      withBlck(res):
-        forkyBlck = RestJson.decode(body.data, typeof(forkyBlck))
-
-      ok RestPublishedSignedBeaconBlock(res)
-    except SerializationError as exc:
-      debug "Failed to decode JSON data",
-        err = exc.formatMsg("<data>"), data = string.fromBytes(body.data)
-      err RestErrorMessage.init(
-        Http400, UnableDecodeError, [version, exc.formatMsg("<data>")]
-      )
-  elif body.contentType == OctetStreamMediaType:
-    let consensusFork = ConsensusFork.decodeString(version).valueOr:
-      return err(RestErrorMessage.init(Http400, UnableDecodeVersionError,
-                                       [version, $error]))
-    try:
-      var res = ForkedSignedBeaconBlock(kind: consensusFork)
-      withBlck(res):
-        forkyBlck = SSZ.decode(body.data, typeof(forkyBlck))
-
-      ok RestPublishedSignedBeaconBlock(res)
-    except SerializationError as exc:
-      err RestErrorMessage.init(
-        Http400, UnableDecodeError, [version, exc.formatMsg("<data>")]
-      )
-  else:
-    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
-                              [version, $body.contentType]))
-
-proc decodeBody*(
        _: typedesc[RestPublishedSignedBlockContents],
        body: ContentBody,
        version: string
@@ -903,7 +864,9 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
     withConsensusFork(fork):
       debugGloasComment ""
       when consensusFork == ConsensusFork.Gloas:
-        return err("gloas produceblockv3 not available yet")
+        return err("gloas produceblock not available yet")
+      elif consensusFork == ConsensusFork.Heze:
+        return err("heze produceblock not available yet")
       elif consensusFork >= ConsensusFork.Electra:
         if blinded:
           let contents =

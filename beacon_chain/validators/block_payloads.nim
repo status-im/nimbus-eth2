@@ -224,8 +224,8 @@ func makeSignedExecutionPayloadBid(
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
-): SignedExecutionPayloadBid =
-  let bid = ExecutionPayloadBid(
+): gloas.SignedExecutionPayloadBid =
+  let bid = gloas.ExecutionPayloadBid(
     parent_block_hash: executionPayload.parent_hash,
     parent_block_root: parentBlockRoot,
     block_hash: executionPayload.block_hash,
@@ -238,7 +238,7 @@ func makeSignedExecutionPayloadBid(
     execution_payment: 0.Gwei,
     blob_kzg_commitments: blob_kzg_commitments,
   )
-  SignedExecutionPayloadBid(
+  gloas.SignedExecutionPayloadBid(
     message: bid,
     signature: ValidatorSig.infinity()
   )
@@ -268,7 +268,7 @@ proc makeEngineBlock*(
           eps.executionPayload, eps.kzg_commitments, state.latest_block_root, slot
         )
       else:
-        default(SignedExecutionPayloadBid)
+        default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
@@ -496,7 +496,7 @@ proc makeBuilderBlock*(
 
   debugGloasComment "make signed bid from engine payload"
   let
-    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
+    signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)

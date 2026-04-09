@@ -208,18 +208,33 @@ proc loadOps(
       doAssert step.len == 1 + numExtraFields
       result[^1].valid = true
 
+proc updateHead(
+    dag: ChainDAGRef, fkChoice: ref ForkChoice, time: BeaconTime,
+    updateFastConfirm = false) =
+  var quarantine = Quarantine.init(dag.cfg)
+  let
+    newHeadRoot = fkChoice[].get_head(dag, time).get()
+    newHead = dag.getBlockRef(newHeadRoot).get()
+  if updateFastConfirm:
+    doAssert fkChoice[].will_select_head(dag, newHead, time).isOk
+  dag.updateHead(newHead, quarantine, [])
+  if dag.needStateCachesAndForkChoicePruning():
+    dag.pruneStateCachesDAG()
+    let pruneRes = fkChoice[].prune(dag)
+    doAssert pruneRes.isOk()
+
 proc stepOnBlock(
-       dag: ChainDAGRef,
-       fkChoice: ref ForkChoice,
-       verifier: var BatchVerifier,
-       state: var ForkedHashedBeaconState,
-       stateCache: var StateCache,
-       signedBlock: ForkySignedBeaconBlock,
-       blobData: Opt[BlobData],
-       columnsValid: bool,
-       time: BeaconTime,
-       invalidatedHashes: Table[Eth2Digest, Eth2Digest]):
-       Result[BlockRef, VerifierError] =
+    dag: ChainDAGRef,
+    fkChoice: ref ForkChoice,
+    verifier: var BatchVerifier,
+    state: var ForkedHashedBeaconState,
+    stateCache: var StateCache,
+    signedBlock: ForkySignedBeaconBlock,
+    blobData: Opt[BlobData],
+    columnsValid: bool,
+    time: BeaconTime,
+    invalidatedHashes: Table[Eth2Digest, Eth2Digest]
+): Result[BlockRef, VerifierError] =
   # 1. Validate blobs and columns
   when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
@@ -252,7 +267,8 @@ proc stepOnBlock(
   # this wouldn't be part of this check, presumably, their FC test vector step
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
-  when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Bellatrix and
+       consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
     debugGloasComment "skip execution payload for Gloas?"
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
@@ -280,16 +296,7 @@ proc stepOnBlock(
     doAssert status.isOk()
 
     # 5. Update DAG with new head
-    var quarantine = Quarantine.init(dag.cfg)
-    let
-      newHeadRoot = fkChoice[].get_head(dag, time).get()
-      newHead = dag.getBlockRef(newHeadRoot).get()
-    discard fkChoice[].will_select_head(dag, newHead, time)
-    dag.updateHead(newHead, quarantine, [])
-    if dag.needStateCachesAndForkChoicePruning():
-      dag.pruneStateCachesDAG()
-      let pruneRes = fkChoice[].prune()
-      doAssert pruneRes.isOk()
+    dag.updateHead(fkChoice, time)
 
   blockAdded
 
@@ -325,6 +332,25 @@ proc stepChecks(
     elif check == "genesis_time":
       # We do not store genesis in fork choice..
       discard
+    elif check == "previous_epoch_observed_justified_checkpoint":
+      discard  # Not tracked
+    elif check == "current_epoch_observed_justified_checkpoint":
+      let cp = fkChoice.backend.current_epoch_observed_justified.checkpoint
+      doAssert cp.epoch == Epoch(val["epoch"].getInt())
+      doAssert cp.root == Eth2Digest.fromHex(val["root"].getStr())
+    elif check == "previous_epoch_greatest_unrealized_checkpoint":
+      let cp = fkChoice.backend.previous_epoch_greatest_unrealized_checkpoint
+      doAssert cp.epoch == Epoch(val["epoch"].getInt())
+      doAssert cp.root == Eth2Digest.fromHex(val["root"].getStr())
+    elif check == "previous_slot_head":
+      doAssert fkChoice.backend.previous_slot_head ==
+        Eth2Digest.fromHex(val.getStr())
+    elif check == "current_slot_head":
+      doAssert fkChoice.backend.current_slot_head ==
+        Eth2Digest.fromHex(val.getStr())
+    elif check == "confirmed_root":
+      doAssert fkChoice.backend.confirmed.root ==
+        Eth2Digest.fromHex(val.getStr())
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
@@ -364,6 +390,8 @@ proc doRunTest(
       time = BeaconTime(ns_since_genesis: step.tick.seconds.nanoseconds)
       let status = stores.fkChoice[].update_time(stores.dag, time)
       doAssert status.isOk == step.valid
+      if status.isOk:
+        stores.dag.updateHead(stores.fkChoice, time, updateFastConfirm = true)
     of opOnPhase0Attestation:
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.phase0Att.data.slot, step.phase0Att.data.beacon_block_root,
@@ -441,7 +469,8 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if path.contains("eip7732") or path.contains("eip7805") or path.contains("gloas"):
+      if path.contains("eip7732") or path.contains("eip7805") or
+          path.contains("gloas") or path.contains("heze"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
@@ -460,3 +489,4 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")
+fcSuite("Fast Confirmation", "fast_confirmation")

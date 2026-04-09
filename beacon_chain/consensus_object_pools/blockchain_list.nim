@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/sequtils, stew/io2, chronicles, chronos, metrics,
        ../spec/forks,
@@ -28,9 +28,6 @@ type
 
 template chainFilePath*(directory: string): string =
   directory / ChainFileName
-
-template filePath*(clist: ChainListRef): string =
-  chainFilePath(clist.path)
 
 proc init*(T: type ChainListRef, directory: string): ChainListRef =
   let

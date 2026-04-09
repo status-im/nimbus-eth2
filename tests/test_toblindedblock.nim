@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -146,7 +146,8 @@ template fulu_steps() =
 suite "Blinded block conversions":
   withAll(ConsensusFork):
     debugGloasComment "needs toSignedBlindedBeaconBlock"
-    when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+    debugHezeComment "needs toSignedBlindedBeaconBlock"
+    when consensusFork >= ConsensusFork.Bellatrix and consensusFork < ConsensusFork.Gloas:
       test $consensusFork & " toSignedBlindedBeaconBlock":
         var b = default(consensusFork.SignedBeaconBlock)
         do_check
@@ -160,4 +161,5 @@ suite "Blinded block conversions":
         when consensusFork >= ConsensusFork.Fulu:
           fulu_steps
         debugGloasComment ""
-        static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+        debugHezeComment ""
+        static: doAssert high(ConsensusFork) == ConsensusFork.Heze

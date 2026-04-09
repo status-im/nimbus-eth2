@@ -21,7 +21,12 @@ import
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base,  ./signatures
+  ./datatypes/base, ./[ssz_codec, signatures]
+
+from ssz_serialization/proofs import get_generalized_index
+from ./datatypes/electra import BeaconBlockBody
+from ./datatypes/fulu import BeaconBlockBody
+from ./datatypes/gloas import BeaconBlockBody
 
 from std/algorithm import binarySearch
 from std/math import `^`
@@ -285,9 +290,6 @@ template `<`*(lhs, rhs: HttpHostUri): bool =
 template `$`*(m: Mnemonic): string =
   string(m)
 
-template `==`*(lhs, rhs: WalletName): bool =
-  string(lhs) == string(rhs)
-
 template `$`*(x: WalletName): string =
   string(x)
 
@@ -506,11 +508,6 @@ func deriveChildKey*(masterKey: ValidatorPrivKey,
     # if we fail we want to scrub secrets from memory
     result = deriveChildKey(result, idx)
 
-func keyFromPath*(mnemonic: Mnemonic,
-                  password: KeystorePass,
-                  path: KeyPath): ValidatorPrivKey =
-  deriveChildKey(deriveMasterKey(mnemonic, password), path)
-
 func shaChecksum(key, cipher: openArray[byte]): Sha256Digest =
   var ctx: sha256
   ctx.init()
@@ -727,25 +724,48 @@ template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
   writeJsonHexString(w.stream, distinctBase value)
 
-func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
-  if propertyPath == ".execution_payload.fee_recipient":
-    debugGloasComment "almost certainly not correct anymore, execution payload position changes substantially"
-    ok ProvenProperty(
+func parseProvenBlockProperty*(
+    propertyPath: string): Result[ProvenProperty, string] =
+  template gindexOrZero(path: varargs[untyped]): GeneralizedIndex =
+    when compiles(get_generalized_index(path)):
+      get_generalized_index(path)
+    else:
+      0.GeneralizedIndex
+
+  template initProvenProperty(
+      pathArgs: varargs[untyped]): ProvenProperty =
+    ProvenProperty(
       path: propertyPath,
-      electraIndex: GeneralizedIndex(801),
-      fuluIndex: GeneralizedIndex(801),
-      gloasIndex: GeneralizedIndex(801))
-  elif propertyPath == ".graffiti":
-    debugGloasComment "check if graffiti is still generalizedindex 18"
-    ok ProvenProperty(
-      path: propertyPath,
-      electraIndex: GeneralizedIndex(18),
-      fuluIndex: GeneralizedIndex(18),
-      gloasIndex: GeneralizedIndex(18))
+      electraIndex: electra.BeaconBlockBody.gindexOrZero(pathArgs),
+      fuluIndex: fulu.BeaconBlockBody.gindexOrZero(pathArgs),
+      gloasIndex: gloas.BeaconBlockBody.gindexOrZero(pathArgs))
+
+  case propertyPath
+  of ".execution_payload.fee_recipient":
+    let res = initProvenProperty("execution_payload", "fee_recipient")
+    ok res
+  of ".graffiti":
+    let res = initProvenProperty("graffiti")
+    ok res
   else:
     err("Keystores with proven properties different than " &
         "`.execution_payload.fee_recipient` and `.graffiti` " &
         "require a more recent version of Nimbus")
+
+static:
+  debugGloasComment "How to do fee recipient on Gloas?"
+  doAssert parseProvenBlockProperty(".execution_payload.fee_recipient").get ==
+    ProvenProperty(
+      path: ".execution_payload.fee_recipient",
+      electraIndex: 801.GeneralizedIndex,
+      fuluIndex: 801.GeneralizedIndex,
+      gloasIndex: 0.GeneralizedIndex)
+  doAssert parseProvenBlockProperty(".graffiti").get ==
+    ProvenProperty(
+      path: ".graffiti",
+      electraIndex: 18.GeneralizedIndex,
+      fuluIndex: 18.GeneralizedIndex,
+      gloasIndex: 18.GeneralizedIndex)
 
 proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError].} =
@@ -847,20 +867,8 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
           "RemoteKeystore")
       var provenProperties = reader.readValue(seq[ProvenProperty])
       for prop in provenProperties.mitems:
-        if prop.path == ".execution_payload.fee_recipient":
-          debugGloasComment "nearly certainly incorrect fee recipient generalizedindex"
-          prop.electraIndex = GeneralizedIndex(801)
-          prop.fuluIndex = GeneralizedIndex(801)
-          prop.gloasIndex = GeneralizedIndex(801)
-        elif prop.path == ".graffiti":
-          debugGloasComment "check if graffiti is still generalizedindex 18"
-          prop.electraIndex = GeneralizedIndex(18)
-          prop.fuluIndex = GeneralizedIndex(18)
-          prop.gloasIndex = GeneralizedIndex(18)
-        else:
-          reader.raiseUnexpectedValue("Keystores with proven properties different than " &
-                                      "`.execution_payload.fee_recipient` and `.graffiti` " &
-                                      "require a more recent version of Nimbus")
+        prop = parseProvenBlockProperty(prop.path).valueOr:
+          reader.raiseUnexpectedValue(error)
       provenBlockProperties = some provenProperties
     of "threshold":
       if threshold.isSome:

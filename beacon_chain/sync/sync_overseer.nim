@@ -582,7 +582,7 @@ proc syncStatusMessage*(
           ""
       of SyncKind.TrustedNodeSync:
         if overseer.backwardSync.inProgress:
-          "backfill: " & overseer.backwardSync.syncStatus
+          "backfill: " & overseer.backwardSync.syncStatus & optSuffix
         else:
           if overseer.forwardSync.inProgress:
             overseer.forwardSync.syncStatus & optSuffix & lcSuffix

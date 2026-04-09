@@ -339,7 +339,7 @@ proc doppelgangerChecked*(validator: AttachedValidator, epoch: Epoch) =
         validator = shortLog(validator), check, epoch
       return
 
-    if check - epoch > 1:
+    if epoch - check > 1:
       debug "Doppelganger stale check",
         validator = shortLog(validator), check, epoch
 
@@ -536,7 +536,8 @@ proc signData(v: AttachedValidator,
 proc init(T: type Web3SignerForkedBeaconBlock, blck: ForkyBeaconBlock | ForkyBlindedBeaconBlock): Web3SignerForkedBeaconBlock =
   Web3SignerForkedBeaconBlock(kind: typeof(blck).kind, data: blck.toBeaconBlockHeader())
 
-proc forkIndex(prop: ProvenProperty, fork: static ConsensusFork): GeneralizedIndex =
+proc forkIndex(
+    prop: ProvenProperty, fork: static ConsensusFork): GeneralizedIndex =
   when fork < ConsensusFork.Electra:
     static: raiseAssert "Unsupported fork " & $fork
   elif fork == ConsensusFork.Electra:
@@ -544,6 +545,9 @@ proc forkIndex(prop: ProvenProperty, fork: static ConsensusFork): GeneralizedInd
   elif fork == ConsensusFork.Fulu:
     prop.fuluIndex
   elif fork == ConsensusFork.Gloas:
+    prop.gloasIndex
+  elif fork == ConsensusFork.Heze:
+    debugHezeComment "add hezeIndex to ProvenProperty"
     prop.gloasIndex
   else:
     static: raiseAssert "Unknown fork " & $fork
@@ -571,16 +575,19 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           of RemoteSignerType.Web3Signer:
             Web3SignerRequest.init(fork, genesis_validators_root, fbb)
           of RemoteSignerType.VerifyingWeb3Signer:
-            when typeof(blck).kind >= ConsensusFork.Electra:
+            when consensusFork >= ConsensusFork.Electra:
               template blockPropertiesProofs(): seq[Web3SignerMerkleProof] =
                 var proofs: seq[Web3SignerMerkleProof]
 
                 for prop in v.data.provenBlockProperties:
-                  let idx = prop.forkIndex(typeof(blck).kind)
-                  proofs.add Web3SignerMerkleProof(
-                    index: idx,
-                    proof: ?build_proof(blck.body, idx)
-                  )
+                  let idx = prop.forkIndex(consensusFork)
+                  if idx > 0.GeneralizedIndex:
+                    proofs.add Web3SignerMerkleProof(
+                      index: idx,
+                      proof: ?build_proof(blck.body, idx))
+                  else:
+                    warn "Skipping proof of unsupported property",
+                      consensusFork, prop = prop.path
 
                 proofs
 

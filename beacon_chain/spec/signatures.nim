@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 ## Signature production and verification for spec types - for every type of
 ## signature, there are 3 functions:
@@ -432,7 +432,7 @@ proc verify_bls_to_execution_change_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-verify_execution_payload_bid_signature
 func compute_execution_payload_bid_signing_root(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
-    msg: ExecutionPayloadBid): Eth2Digest =
+    msg: gloas.ExecutionPayloadBid): Eth2Digest =
   let
     domain = get_domain(
       fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
@@ -440,7 +440,7 @@ func compute_execution_payload_bid_signing_root(
 
 func get_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    epoch: Epoch, msg: ExecutionPayloadBid,
+    epoch: Epoch, msg: gloas.ExecutionPayloadBid,
     privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_execution_payload_bid_signing_root(
     fork, genesis_validators_root, epoch, msg)
@@ -448,7 +448,7 @@ func get_execution_payload_bid_signature*(
 
 proc verify_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    epoch: Epoch, msg: ExecutionPayloadBid,
+    epoch: Epoch, msg: gloas.ExecutionPayloadBid,
     pubkey: ValidatorPubKey | CookedPubKey,
     signature: SomeSig): bool =
   let signing_root = compute_execution_payload_bid_signing_root(
@@ -504,5 +504,31 @@ proc verify_payload_attestation_message_signature*(
     data: PayloadAttestationData,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_payload_attestation_message_signing_root(
+    fork, genesis_validators_root, data)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+func compute_proposer_preferences_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences): Eth2Digest =
+  let
+    epoch = data.proposal_slot.epoch
+    domain = get_domain(
+      fork, DOMAIN_PROPOSER_PREFERENCES, epoch, genesis_validators_root)
+  compute_signing_root(data, domain)
+
+func get_proposer_preferences_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_proposer_preferences_signing_root(
+    fork, genesis_validators_root, data)
+  blsSign(privkey, signing_root.data)
+
+proc verify_proposer_preferences_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_proposer_preferences_signing_root(
     fork, genesis_validators_root, data)
   blsVerify(pubkey, signing_root.data, signature)

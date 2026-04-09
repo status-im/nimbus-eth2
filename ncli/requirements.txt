@@ -4,7 +4,7 @@ argon2-cffi-bindings==21.2.0
 asttokens==2.0.5
 attrs==21.4.0
 backcall==0.2.0
-black==24.3.0
+black==26.3.1
 bleach==4.1.0
 cffi==1.15.0
 click==8.0.3
@@ -60,7 +60,7 @@ prompt-toolkit==3.0.24
 ptyprocess==0.7.0
 pure-eval==0.2.1
 pycparser==2.21
-Pygments==2.15.0
+Pygments==2.20.0
 pyparsing==3.0.6
 pypng==0.0.21
 pyrsistent==0.18.1

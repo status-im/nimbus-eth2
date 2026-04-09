@@ -17,7 +17,7 @@
 
 import
   std/typetraits,
-  "."/[phase0, base, bellatrix, electra, fulu],
+  ./[phase0, base, bellatrix, electra, fulu],
   chronicles,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -79,7 +79,7 @@ type
   ExecutionPayloadInfoObject* = object
     slot*: Slot
     block_root*: Eth2Digest
-  
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
     parent_block_hash*: Eth2Digest
@@ -279,7 +279,7 @@ type
       ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -381,6 +381,10 @@ type
     # [New in Gloas:EIP7732]
     payload_expected_withdrawals*:
       HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
+    # [New in Gloas:EIP7732]
+    ptc_window*:
+      HashArray[Limit ((2 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH),
+        HashArray[Limit PTC_SIZE, uint64]]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -613,10 +617,6 @@ type
     # [New in Gloas:EIP7732]
     processed_builders_sweep_count*: uint64
     processed_sweep_withdrawals_count*: uint64
-
-# TODO: There should be only a single generic HashedBeaconState definition
-func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
-  HashedBeaconState(data: s)
 
 func shortLog*(v: DataColumnSidecar): auto =
   (

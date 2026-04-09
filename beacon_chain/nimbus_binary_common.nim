@@ -33,9 +33,6 @@ when defaultChroniclesStream.outputs.type.arity == 2:
 
   import stew/staticfor
 
-when defined(posix):
-  import termios
-
 export
   confutils, toml_serialization
 
@@ -274,15 +271,6 @@ proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
     true
   else:
     false
-
-proc resetStdin*() =
-  when defined(posix):
-    # restore echoing, in case it was disabled by a password prompt
-    let fd = stdin.getFileHandle()
-    var attrs: Termios
-    discard fd.tcGetAttr(attrs.addr)
-    attrs.c_lflag = attrs.c_lflag or Cflag(ECHO)
-    discard fd.tcSetAttr(TCSANOW, attrs.addr)
 
 proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async: (raises: []).} =
   try:

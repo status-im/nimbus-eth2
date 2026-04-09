@@ -471,8 +471,9 @@ iterator getBlockIds*(
   while true:
     # `case` ensures we're on a fork for which the `PartialBeaconState`
     # definition is consistent
+    debugHezeComment "actually do this"
     case db.cfg.consensusForkAtEpoch(slot.epoch)
-    of ConsensusFork.Phase0 .. ConsensusFork.Gloas:
+    of ConsensusFork.Phase0 .. ConsensusFork.Heze:
       let stateSlot = (slot.era() + 1).start_slot()
       if not getPartialState(
           db, historical_roots, historical_summaries, stateSlot, state[]):

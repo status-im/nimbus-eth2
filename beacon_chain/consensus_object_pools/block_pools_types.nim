@@ -67,6 +67,10 @@ type
     entries*: array[I, tuple[value: T, lastUsed: uint32]]
     timestamp*: uint32
 
+  CachedParticipatingBalances* = object
+    bid*: BlockId
+    balances*: ParticipatingBalances
+
   ChainDAGRef* = ref object
     ## ChainDAG validates, stores and serves chain history of valid blocks
     ## according to the beacon chain state transition. From genesis to the
@@ -209,6 +213,8 @@ type
 
     cfg*: RuntimeConfig
 
+    participatingBalances*: LRUCache[8, CachedParticipatingBalances]
+
     shufflingRefs*: LRUCache[16, ShufflingRef]
 
     epochRefs*: LRUCache[32, EpochRef]
@@ -347,8 +353,6 @@ func proposer_dependent_slot*(epochRef: EpochRef): Slot =
 
 func attester_dependent_slot*(shufflingRef: ShufflingRef): Slot =
   shufflingRef.epoch.attester_dependent_slot()
-
-template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
   ## When there's a gap in the block database, this is the most recent block

@@ -32,13 +32,14 @@ from std/stats import RunningStat
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, addAttestation, addForkChoice, getAttestationsForBlock, init, prune
 from ../beacon_chain/consensus_object_pools/block_quarantine import Quarantine, init
+from ../beacon_chain/consensus_object_pools/payload_attestation_pool import
+  PayloadAttestationPool, addPayloadAttestation, getPayloadAttestationsForBlock, init
 from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, addContribution, addSyncCommitteeMessage, init,
   produceContribution, produceSyncAggregate, pruneData
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index, get_committee_count_per_slot,
   get_committee_indices, get_ptc
-from ../beacon_chain/spec/state_transition_block import process_block
 from ../tests/testbcutil import addHeadBlock, willSelectNewHead
 from ../tests/testblockutil import makeAttestationData, MockPrivKeys, `[]`
 
@@ -96,14 +97,13 @@ cli do(
       genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
         "working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
+    payloadAttestationPool = PayloadAttestationPool.init(dag)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
     tmpState = assignClone(dag.headState)
 
   let replayState = assignClone(dag.headState)
-
-  var pendingPayloadAttestations: seq[gloas.PayloadAttestationMessage]
 
   proc handleAttestations(slot: Slot) =
     let attestationHead = dag.head.atSlot(slot)
@@ -237,65 +237,37 @@ cli do(
           doAssert res.error()[0] == ValidationResult.Ignore
 
   proc handlePayloadAttestations(slot: Slot) =
-    if slot == GENESIS_SLOT:
-      return
-
-    let previousSlot = slot - 1
 
     dag.withUpdatedState(tmpState[],
         dag.head.atSlot(slot).toBlockSlotId.expect("not nil")):
-      let
-        fork = updatedState.fork
-        genesis_validators_root = dag.genesis_validators_root
-
-      # We make the assumption that payload was present and blobs available
-      let data = gloas.PayloadAttestationData(
-        beacon_block_root: dag.head.root,
-        slot: previousSlot,
-        payload_present: true,
-        blob_data_available: true
-      )
-
       withState(updatedState):
         when consensusFork >= ConsensusFork.Gloas:
-          for validator_index in get_ptc(forkyState.data, previousSlot, cache):
+          let
+            fork = updatedState.fork
+            genesis_validators_root = dag.genesis_validators_root
+            wallTime = slot.start_beacon_time(dag.timeParams)
+            # We make the assumption that payload was present and blobs available
+            data = gloas.PayloadAttestationData(
+              beacon_block_root: dag.head.root,
+              slot: slot,
+              payload_present: true,
+              blob_data_available: true
+            )
+
+          for validator_index in get_ptc(forkyState.data, slot):
             if rand(r, 1.0) <= payloadAttestationRatio:
               let
-                privKey = MockPrivKeys[validator_index]
                 sig = get_payload_attestation_message_signature(
                   fork, genesis_validators_root,
-                  data, privKey
-                )
+                  data, MockPrivKeys[validator_index])
                 message = gloas.PayloadAttestationMessage(
                   validator_index: validator_index.uint64,
                   data: data,
                   signature: sig.toValidatorSig())
-              pendingPayloadAttestations.add(message)
+              discard payloadAttestationPool.addPayloadAttestation(
+                message, wallTime)
     do:
       raiseAssert "withUpdatedState failed for payload attestations"
-
-  proc aggregatePayloadAttestations(): PayloadAttestation =
-    if pendingPayloadAttestations.len == 0:
-      return PayloadAttestation()
-
-    let data = pendingPayloadAttestations[0].data
-    var aggregation_bits: BitArray[int(PTC_SIZE)]
-
-    # For simulation, just create an aggregate with all participants
-    for msg in pendingPayloadAttestations:
-      if msg.data == data:
-        let ptc_index = msg.validator_index mod PTC_SIZE
-        aggregation_bits[ptc_index] = true
-
-    let res = PayloadAttestation(
-      aggregation_bits: aggregation_bits,
-      data: data,
-      signature: pendingPayloadAttestations[0].signature
-    )
-
-    pendingPayloadAttestations.setLen(0)
-
-    res
 
   # These need to be captured in outer scope due to Nim issue with nested generic procs
   # See: https://github.com/nim-lang/Nim/issues/20811
@@ -320,35 +292,32 @@ cli do(
 
     let
       epb =
-        when consensusFork >= ConsensusFork.Gloas:
-          let
-            bid =
-              ExecutionPayloadBid(
-                parent_block_hash: state.data.latest_block_hash,
-                parent_block_root: hash_tree_root(state.data.latest_block_header),
-                block_hash: default(Eth2Digest),
-                prev_randao:
-                  get_randao_mix(state.data, get_current_epoch(state.data)),
-                fee_recipient: default(ExecutionAddress),
-                gas_limit: 30000000'u64,
-                builder_index: BUILDER_INDEX_SELF_BUILD,
-                slot: slot,
-                value: 0.Gwei,
-                execution_payment: 0.Gwei,
-                blob_kzg_commitments: default(KzgCommitments))
-          SignedExecutionPayloadBid(
+        when consensusFork >= ConsensusFork.Heze:
+          debugHezeComment "..."
+          default(gloas.SignedExecutionPayloadBid)
+        elif consensusFork == ConsensusFork.Gloas:
+          let bid =
+            gloas.ExecutionPayloadBid(
+              parent_block_hash: state.data.latest_block_hash,
+              parent_block_root: hash_tree_root(state.data.latest_block_header),
+              block_hash: default(Eth2Digest),
+              prev_randao:
+                get_randao_mix(state.data, get_current_epoch(state.data)),
+              fee_recipient: default(ExecutionAddress),
+              gas_limit: 30000000'u64,
+              builder_index: BUILDER_INDEX_SELF_BUILD,
+              slot: slot,
+              value: 0.Gwei,
+              execution_payment: 0.Gwei,
+              blob_kzg_commitments: default(KzgCommitments))
+          gloas.SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:
-          default(SignedExecutionPayloadBid)
+          default(gloas.SignedExecutionPayloadBid)
 
       payload_attestations =
         when consensusFork >= ConsensusFork.Gloas:
-          if slot > GENESIS_SLOT:
-            let pa = aggregatePayloadAttestations()
-            if pa.data.slot != GENESIS_SLOT:
-              @[pa]
-            else: newSeq[PayloadAttestation]()
-          else: newSeq[PayloadAttestation]()
+          payloadAttestationPool.getPayloadAttestationsForBlock(slot, cache)
         else:
           newSeq[PayloadAttestation]()
 
@@ -403,7 +372,7 @@ cli do(
     dag.updateHead(added[], quarantine[], [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()
-      attPool.prune()
+      attPool.prune(dag)
 
   for i in 0 ..< slots:
     let

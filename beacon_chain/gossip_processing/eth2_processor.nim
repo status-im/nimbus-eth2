@@ -575,7 +575,8 @@ proc processAttestation*(
 
   let v = (
     await self.attestationPool.validateAttestation(
-      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature
+      self.batchCrypto, self.envelopeQuarantine, attestation,
+      wallTime, subnet_id, checkSignature
     )
   ).valueOr:
     debug "Dropping attestation", reason = $error
@@ -647,6 +648,7 @@ proc processSignedAggregateAndProof*(
   let v = (
     await self.attestationPool.validateAggregate(
       self.batchCrypto,
+      self.envelopeQuarantine,
       signedAggregateAndProof,
       wallTime,
       checkSignature = checkSignature,
@@ -802,6 +804,8 @@ proc processSyncCommitteeMessage*(
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero(self.dag.timeParams)
+    consensusFork =
+      self.dag.cfg.consensusForkAtEpoch(syncCommitteeMsg.slot.epoch)
 
   logScope:
     syncCommitteeMsg = shortLog(syncCommitteeMsg)
@@ -810,7 +814,8 @@ proc processSyncCommitteeMessage*(
 
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime -
-    syncCommitteeMsg.slot.sync_committee_message_deadline(self.dag.timeParams)
+    syncCommitteeMsg.slot.sync_committee_message_deadline(
+      self.dag.timeParams, consensusFork)
   debug "Sync committee message received", delay
 
   # Now proceed to validation
@@ -858,7 +863,9 @@ proc processSignedContributionAndProof*(
   # Potential under/overflows are fine; would just create odd metrics and logs
   let
     slot = contributionAndProof.message.contribution.slot
-    delay = wallTime - slot.sync_contribution_deadline(self.dag.timeParams)
+    consensusFork = self.dag.cfg.consensusForkAtEpoch(slot.epoch)
+    delay = wallTime - slot.sync_contribution_deadline(
+      self.dag.timeParams, consensusFork)
   debug "Contribution received",
     delay, contribution = shortLog(contributionAndProof.message.contribution)
 
@@ -918,7 +925,7 @@ proc processLightClientOptimisticUpdate*(
   v
 
 proc processExecutionPayloadBid*(
-    self: var Eth2Processor, signedBid: SignedExecutionPayloadBid
+    self: var Eth2Processor, signedBid: gloas.SignedExecutionPayloadBid
 ): ValidationRes =
   let wallTime = self.getCurrentBeaconTime()
 

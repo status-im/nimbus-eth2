@@ -24,14 +24,13 @@ import
   ./rpc/[rest_api, state_ttl_cache],
   ./el/el_getblobs_service,
   ./spec/[
-    engine_authentication, weak_subjectivity, peerdas_helpers],
+    engine_authentication, weak_subjectivity, peerdas_helpers, column_map],
   ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
     nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
 
-from std/algorithm import sort
 from std/sequtils import filterIt, mapIt, toSeq
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
@@ -179,16 +178,16 @@ proc setupDatabase(
   if config.externalBeaconApiUrl.isSome():
     # When using an external beacon api, require that the checkpoint state is
     # verified with the light client by always using a verified sync target
+    template isGenesisPostAltair: bool =
+      metadata.cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH
     let syncTarget =
       if config.trustedBlockRoot.isSome:
         Opt.some TrustedNodeSyncTarget.fromTrustedBlockRoot(
-          config.trustedBlockRoot.get()
-        )
+          config.trustedBlockRoot.get())
       elif config.trustedStateRoot.isSome:
         Opt.some TrustedNodeSyncTarget.fromStateId(
-          config.trustedStateRoot.get().data.to0xHex()
-        )
-      elif metadata.cfg.ALTAIR_FORK_EPOCH == GENESIS_EPOCH and not genesisState.isNil:
+          config.trustedStateRoot.get().data.to0xHex())
+      elif isGenesisPostAltair and not genesisState.isNil:
         # Sync can be bootstrapped from the genesis block root
         let genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
         notice "Neither `--trusted-block-root` nor `--trusted-state-root` " &
@@ -203,15 +202,17 @@ proc setupDatabase(
         Opt.none TrustedNodeSyncTarget
 
     if syncTarget.isSome():
-      let tmp = await fetchCheckpointState(
-        metadata.cfg, config.externalBeaconApiUrl.get(), syncTarget[], genesisState
-      )
-
-      if checkpointState != nil and tmp != nil:
+      let tmp = await metadata.cfg.fetchCheckpointState(
+        config.externalBeaconApiUrl.get(), syncTarget[], genesisState)
+      if checkpointState == nil:
+        checkpointState = tmp
+      elif tmp != nil:
         # Special case: we loaded a checkpoint state (for example from era
         # files) and then the remote beacon api gave us a newer one!
         if tmp[].slot > checkpointState[].slot:
           checkpointState = tmp
+      else:
+        discard  # Remain on state from era (if any)
     else:
       warn "Ignoring `--external-beacon-api-url`, neither " &
         "`--trusted-block-root` nor `--trusted-state-root` provided",
@@ -220,8 +221,8 @@ proc setupDatabase(
         trustedStateRoot = config.trustedStateRoot
 
   if genesisState.isNil and checkpointState.isNil:
-    fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
-      "with the network configuration"
+    fatal "No database and no genesis snapshot found. " &
+      "Please supply a genesis.ssz with the network configuration"
     return Opt.none(BeaconChainDB)
 
   if not genesisState.isNil and config.longRangeSync == LongRangeSyncMode.Light:
@@ -325,6 +326,8 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
 func getVanityMascot(consensusFork: ConsensusFork): string =
   debugGloasComment "don't know vanity mascot yet"
   case consensusFork
+  of ConsensusFork.Heze:
+    "?"
   of ConsensusFork.Gloas:
     "?"
   of ConsensusFork.Fulu:
@@ -567,36 +570,21 @@ proc initFullNode(
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
     blobQuarantine = newClone(BlobQuarantine.init(
       dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
-    supernode = node.config.peerdasSupernode
-    lightSupernode = node.config.lightSupernode
-    localCustodyGroups =
-      if supernode:
-        dag.cfg.NUMBER_OF_CUSTODY_GROUPS
-      elif lightSupernode:
-        (dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1
-      else:
-        dag.cfg.CUSTODY_REQUIREMENT
-    custodyColumns =
-      if node.config.lightSupernode:
-        # Just the first half of custody columns
-        var res: HashSet[ColumnIndex]
-        for i in 0..<(dag.cfg.NUMBER_OF_CUSTODY_GROUPS div 2) + 1:
-          res.incl ColumnIndex(i)
-        res
-      else:
-        dag.cfg.resolve_columns_from_custody_groups(
-          node.network.nodeId, localCustodyGroups)
-
-  var sortedColumns = custodyColumns.toSeq()
-  sort(sortedColumns)
+    validatorCustody = ValidatorCustodyRef.init(
+      node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 
   let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
-      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
-      dag.cfg, sortedColumns, dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+
+  validatorCustody.setQuarantine(dataColumnQuarantine)
+  validatorCustody.setQuarantine(gloasColumnQuarantine)
+
+  let
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
@@ -612,9 +600,12 @@ proc initFullNode(
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
         Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
       withBlck(signedBlock):
-        when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Gloas:
+        when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Heze:
           # TODO document why there are no columns here
-          when consensusFork == ConsensusFork.Gloas:
+          when consensusFork == ConsensusFork.Heze:
+            # Disable sidecars processing at block time.
+            const sidecarsOpt = noSidecars
+          elif consensusFork == ConsensusFork.Gloas:
             # Disable sidecars processing at block time.
             const sidecarsOpt = noSidecars
           else:
@@ -677,6 +668,63 @@ proc initFullNode(
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
+    rmanEnvelopeVerifier = proc(signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+      ## Envelope verifier contains the same logic as block_processor
+      ## enqueuePayload() except when the valid block or any sidecars is
+      ## missing, we will return ok() as it is not any types of VerifierError.
+      ## Therefore, the call is discarded silently.
+      template blockRoot(): auto = signedEnvelope.message.beacon_block_root
+
+      let
+        blockRef = dag.getBlockRef(blockRoot).valueOr:
+          # Return ok() as we may not have the block yet.
+          return ok()
+        blck =
+          block:
+            let forkedBlock = dag.getForkedBlock(blockRef.bid).valueOr:
+              # We have checked that the block exists in the chain. There might be
+              # issues in reading the database or data in the memory is broken.
+              # Since no result is returned, we log for investigation.
+              debug "Enqueue payload from envelope. Block is missing in DB",
+                bid = shortLog(blockRef.bid)
+              return err(VerifierError.Invalid)
+            withBlck(forkedBlock):
+              when consensusFork == ConsensusFork.Heze:
+                debugHezeComment "..."
+                return err(VerifierError.Duplicate)
+              elif consensusFork == ConsensusFork.Gloas:
+                forkyBlck.asSigned()
+              else:
+                # Incorrect fork which shouldn't be happening.
+                debug "Enqueue payload from envelope. Block is in incorrect fork",
+                  bid = shortLog(blockRef.bid)
+                return err(VerifierError.UnviableFork)
+        envelope = envelopeQuarantine[].popOrphan(blck).valueOr:
+          # At this point, the signedEnvelope is from a different builder since
+          # the block should be the source of truth. We should notify receiving
+          # bad value from the peer.
+          return err(VerifierError.Invalid)
+        sidecarsOpt =
+          block:
+            template bid(): auto =
+              blck.message.body.signed_execution_payload_bid
+            let sidecarsOpt =
+              if bid.message.blob_kzg_commitments.len() == 0:
+                Opt.some(default(gloas.DataColumnSidecars))
+              else:
+                gloasColumnQuarantine[].popSidecars(blockRoot)
+            if sidecarsOpt.isNone():
+              # As sidecars are missing, put envelope back to quarantine.
+              consensusManager.quarantine[].addSidecarless(blck)
+              envelopeQuarantine[].addOrphan(envelope)
+              # Return ok() as columns may arrive late.
+              return ok()
+            sidecarsOpt
+      await blockProcessor.addPayload(blck, envelope, sidecarsOpt)
+    rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
+        Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
+      dag.db.getExecutionPayloadEnvelope(blockRoot)
     rmanBlobLoader = proc(
         blobId: BlobIdentifier): Opt[ref BlobSidecar] =
       var blob_sidecar = BlobSidecar.new()
@@ -750,12 +798,12 @@ proc initFullNode(
       processor: processor,
       network: node.network)
     requestManager = RequestManager.init(
-      node.network, supernode, custodyColumns,
+      node.network, validatorCustody,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
-      quarantine, blobQuarantine, dataColumnQuarantine, rmanBlockVerifier,
-      rmanBlockLoader, rmanBlobLoader, rmanDataColumnLoader)
-    validatorCustody = ValidatorCustodyRef.init(node.network, dag, custodyColumns,
-      dataColumnQuarantine)
+      quarantine, envelopeQuarantine, blobQuarantine,
+      dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
+      rmanEnvelopeVerifier, rmanEnvelopeLoader,
+      rmanBlobLoader, rmanDataColumnLoader)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -775,11 +823,6 @@ proc initFullNode(
   # but there are multiple instances of computing custody columns, especially
   # during peer selection, sync with columns, and so on. That is why,
   # the rationale of populating it at boot and using it gloabally.
-
-  if supernode:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.NUMBER_OF_CUSTODY_GROUPS.uint8)
-  else:
-    node.network.loadCgcnetMetadataAndEnr(dag.cfg.CUSTODY_REQUIREMENT.uint8)
 
   if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
@@ -1292,38 +1335,18 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
-func readCustodyGroupSubnets(node: BeaconNode): uint64 =
-  let
-    custodyGroups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
-    vcus_count = node.dataColumnQuarantine.custodyColumns.lenu64
-  if node.config.peerdasSupernode:
-    custodyGroups
-  elif node.config.lightSupernode:
-    (custodyGroups div 2) + 1
-  elif vcus_count > node.dag.cfg.CUSTODY_REQUIREMENT:
-    vcus_count
-  else:
-    node.dag.cfg.CUSTODY_REQUIREMENT
-
 proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
-  let
-    custody_groups = node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS
-    forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
-    targetSubnets = node.readCustodyGroupSubnets()
-    custody =
-      if node.config.lightSupernode:
-        # Light supernode serves only half of the custody groups
-        var res = newSeqOfCap[CustodyIndex]((custody_groups div 2) + 1)
-        for i in 0..<(custody_groups div 2) + 1:
-          res.add CustodyIndex(i)
-        res
-      else:
-        node.dag.cfg.get_custody_groups(
-        node.network.nodeId, targetSubnets.uint64)
+  let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
+  var custody: seq[CustodyIndex]
 
-  for i in custody:
+  for i in node.validatorCustody.custodyGroups():
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.subscribe(topic, basicParams())
+    custody.add(i)
+
+  # Due to dynamic column changes, we need to maintain the set of columns we
+  # subscribe to, as the column set may change.
+  node.lastColumnCustodyIndices = custody
 
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1416,12 +1439,10 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   # of columns. Last common ancestor fork for gossip environment is Capellla.
   node.removeCapellaMessageHandlers(forkDigest)
 
-  let
-    targetSubnets = node.readCustodyGroupSubnets()
-    custody = node.dag.cfg.get_custody_groups(
-      node.network.nodeId, targetSubnets.uint64)
-
-  for i in custody:
+  # Due to the dynamic column change, we need to unsubscribe from all the
+  # subnets we subscribed to. Because getCustodyGroups() may return a different
+  # set than the one we subscribed to previously.
+  for i in node.lastColumnCustodyIndices:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.unsubscribe(topic)
 
@@ -1589,7 +1610,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     TOPIC_SUBSCRIBE_THRESHOLD_SLOTS = 64
     HYSTERESIS_BUFFER = 16
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  static: doAssert high(ConsensusFork) == ConsensusFork.Heze
 
   let
     head = node.dag.head
@@ -1662,7 +1683,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeDenebMessageHandlers,
     removeElectraMessageHandlers,
     removeFuluMessageHandlers,
-    removeGloasMessageHandlers
+    removeGloasMessageHandlers,
+    removeGloasMessageHandlers  # heze (gloas handlers)
   ]
 
   for gossipEpoch in oldGossipEpochs:
@@ -1678,7 +1700,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addDenebMessageHandlers,
     addElectraMessageHandlers,
     addCapellaMessageHandlers, # no blobs; updateDataColumnSidecarHandlers for rest
-    addGloasMessageHandlers
+    addGloasMessageHandlers,
+    addGloasMessageHandlers  # heze (gloas handlers)
   ]
 
   for gossipEpoch in newGossipEpochs:
@@ -1715,7 +1738,7 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
       let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
       withBlck(blck):
         debugGloasComment " "
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind == ConsensusFork.Gloas: continue
+        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind in [ConsensusFork.Gloas, ConsensusFork.Heze]: continue
         else:
           for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
             if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
@@ -2029,34 +2052,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   node.updateSyncCommitteeTopics(slot + 1)
 
-  if (not node.config.peerdasSupernode) and
-     (not node.config.lightSupernode) and
-     node.dataColumnQuarantine[].len == 0 and
-     node.attachedValidatorBalanceTotal > 0.Gwei:
-    # Detect new validator custody at the last slot of every epoch
-    node.validatorCustody.detectNewValidatorCustody(slot,
-      node.attachedValidatorBalanceTotal)
-
-    if node.validatorCustody.diff_set.len > 0:
-      var custodyColumns =
-        node.validatorCustody.newer_column_set.toSeq()
-      sort(custodyColumns)
-      # update custody columns
-      node.dataColumnQuarantine[].update(node.dag.cfg, custodyColumns)
-      # update custody columns into request manager
-      node.requestManager.custody_columns_set =
-        node.validatorCustody.newer_column_set
-
-      # Update CGC and metadata with respect to the new detected validator custody
-      let new_vcus = CgcCount node.validatorCustody.newer_column_set.lenu64
-
-      if new_vcus > node.dag.cfg.CUSTODY_REQUIREMENT.uint8:
-        node.network.loadCgcnetMetadataAndEnr(new_vcus)
-      else:
-        node.network.loadCgcnetMetadataAndEnr(node.dag.cfg.CUSTODY_REQUIREMENT.uint8)
-
-      info "New validator custody count detected",
-        custody_columns = node.dataColumnQuarantine.custodyColumns.len
+  # TODO (cheatfate): This does not include VC provided validators balances.
+  node.validatorCustody.updateValidatorCustody(
+    slot, node.attachedValidatorBalanceTotal)
 
   # Update nfd field for BPOs
   let
@@ -2150,7 +2148,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-  node.requestManager.switchToColumnLoop()
+  node.requestManager.upgradeLoops()
   await onSlotEnd(node, wallSlot)
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#registration-dissemination
@@ -2314,7 +2312,7 @@ proc installMessageValidators(node: BeaconNode) =
         when consensusFork >= ConsensusFork.Gloas:
           node.network.addValidator(
             getExecutionPayloadBidTopic(digest), proc (
-              signedBid: SignedExecutionPayloadBid,
+              signedBid: gloas.SignedExecutionPayloadBid,
               src: PeerId
             ): ValidationResult =
               toValidationResult(
@@ -2606,24 +2604,6 @@ proc run*(node: BeaconNode, stopper: StopFuture) {.raises: [CatchableError].} =
   # time to say goodbye
   node.stop()
 
-func formatGwei(amount: Gwei): string =
-  # TODO This is implemented in a quite a silly way.
-  # Better routines for formatting decimal numbers
-  # should exists somewhere else.
-  let
-    eth = distinctBase(amount) div 1000000000
-    remainder = distinctBase(amount) mod 1000000000
-
-  result = $eth
-  if remainder != 0:
-    result.add '.'
-    let remainderStr = $remainder
-    for i in remainderStr.len ..< 9:
-      result.add '0'
-    result.add remainderStr
-    while result[^1] == '0':
-      result.setLen(result.len - 1)
-
 when not defined(windows):
   proc initStatusBar(node: BeaconNode) {.raises: [ValueError].} =
     if not isatty(stdout): return
@@ -2634,9 +2614,17 @@ when not defined(windows):
     except Exception as exc: # TODO Exception
       error "Couldn't enable colors", err = exc.msg
 
+    template safe: lent BlockId =
+      node.attestationPool[].forkChoice.get_safe_beacon_block_id()
+
+    var stored_justified: Opt[BlockSlot]
+    template justified: lent BlockSlot =
+      if stored_justified.isNone:
+        stored_justified.ok node.dag.head.atEpochStart(
+          node.dag.headState.current_justified_checkpoint.epoch)
+      stored_justified.unsafeGet
+
     proc dataResolver(expr: string): string {.raises: [].} =
-      template justified: untyped = node.dag.head.atEpochStart(
-        node.dag.headState.current_justified_checkpoint.epoch)
       # TODO:
       # We should introduce a general API for resolving dot expressions
       # such as `db.latest_block.slot` or `metrics.connected_peers`.
@@ -2662,6 +2650,15 @@ when not defined(windows):
         $(node.dag.head.slot.since_epoch_start)
       of "head_slot":
         $(node.dag.head.slot)
+
+      of "safe_root":
+        shortLog(safe.root)
+      of "safe_epoch":
+        $(safe.slot.epoch)
+      of "safe_epoch_slot":
+        $(safe.slot.since_epoch_start)
+      of "safe_slot":
+        $(safe.slot)
 
       of "justifed_root":
         shortLog(justified.blck.root)

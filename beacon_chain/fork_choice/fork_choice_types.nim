@@ -38,6 +38,9 @@ type
     ## Fork Choice Error Kinds
     fcFinalizedNodeUnknown
     fcJustifiedNodeUnknown
+    fcConfirmedNodeUnknown
+    fcPreviousHeadUnknown
+    fcCurrentHeadUnknown
     fcInvalidNodeIndex
     fcInvalidJustifiedIndex
     fcInvalidBestDescendant
@@ -50,7 +53,8 @@ type
     fcInconsistentTick
     fcUnknownParent
     fcPruningFromOutdatedFinalizedRoot
-    fcInvalidEpochRef
+    fcUnknownBlockIdAtSlot
+    fcUnknownShufflingRef
 
   Index* = int
   Delta* = int64
@@ -59,9 +63,12 @@ type
   ForkChoiceError* = object
     case kind*: fcKind
     of fcFinalizedNodeUnknown,
-       fcJustifiedNodeUnknown:
+       fcJustifiedNodeUnknown,
+       fcConfirmedNodeUnknown,
+       fcPreviousHeadUnknown,
+       fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick, fcInvalidEpochRef:
+    of fcInconsistentTick:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
@@ -84,6 +91,10 @@ type
       parentRoot*: Eth2Digest
     of fcPruningFromOutdatedFinalizedRoot:
       finalizedRoot*: Eth2Digest
+    of fcUnknownBlockIdAtSlot,
+       fcUnknownShufflingRef:
+         shufflingRoot*: Eth2Digest
+         shufflingEpoch*: Epoch
 
   FcResult*[T] = Result[T, ForkChoiceError]
 
@@ -97,7 +108,7 @@ type
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
-    currentEpochTips*: Table[Index, FinalityCheckpoints]
+    unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
 
@@ -113,6 +124,7 @@ type
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
+    block_slot*: Slot
     total_active_balance*: Gwei
     balances*: seq[ForkChoiceBalance]
 
@@ -181,6 +193,7 @@ template to_balance_checkpoint*(
     epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
   BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    block_slot: blck.slot,
     total_active_balance: epochRef.total_active_balance,
     balances: epochRef.fork_choice_balances)
 

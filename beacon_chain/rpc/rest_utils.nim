@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/macros,
        results, stew/byteutils, presto/route,
@@ -34,13 +34,6 @@ proc getSyncedHead*(
     return err("Requesting far ahead of the current head")
 
   ok(head)
-
-func getCurrentSlot*(node: BeaconNode, slot: Slot):
-    Result[Slot, cstring] =
-  if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
-    ok(slot)
-  else:
-    err("Requesting slot too far ahead of the current head")
 
 proc getSyncedHead*(
        node: BeaconNode,

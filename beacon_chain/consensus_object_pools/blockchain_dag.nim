@@ -26,8 +26,6 @@ logScope: topics = "chaindag"
 # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
-
-# https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
 declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
 declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
@@ -37,6 +35,15 @@ declareGauge beacon_previous_justified_root, "Current previously justified root"
 
 declareGauge beacon_reorgs_total_total, "Total occurrences of reorganizations of the chain" # On fork choice; backwards-compat name (used to be a counter)
 declareGauge beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # Interop copy
+
+declareGauge beacon_safe_root, "Root of the safe block"
+declareGauge beacon_safe_slot, "Slot of the safe block"
+declareGauge beacon_safe_reorgs_total, "Total occurrences of reorganizations of the safe block"
+declareGauge beacon_safe_reverts_epoch_total, "Total FCR reverts to finalized at epoch boundary"
+declareGauge beacon_safe_reverts_head_total, "Total FCR reverts to finalized on head change"
+declareGauge beacon_safe_restarts_total, "Total FCR restarts to observed justified checkpoint"
+declareGauge beacon_safe_errors_total, "Total FCR internal errors"
+
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
 declareCounter beacon_state_rewinds, "State database rewinds"
@@ -119,7 +126,7 @@ func get_fork_choice_balances*(
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
     let validator = unsafeAddr validators[i]
-    if validator[].is_active_validator(epoch) and not validator[].slashed:
+    if validator[].is_active_validator(epoch):
       result[i] = ForkChoiceBalance(
         if validator[].slashed:
           distinctBase(validator[].effective_balance) or SlashedBit
@@ -305,7 +312,8 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
+  static: doAssert high(ConsensusFork) == ConsensusFork.Heze
+  debugHezeComment "use Heze getBlock"
   if   (let blck = db.getBlock(root, gloas.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
@@ -435,6 +443,19 @@ func isFinalized*(dag: ChainDAGRef, bid: BlockId): bool =
   ## Returns `true` if the given `bid` is part of the finalized history
   ## selected by `dag.finalizedHead`.
   dag.isCanonical(bid) and (bid.slot <= dag.finalizedHead.slot)
+
+func isAncestorOf*(dag: ChainDAGRef, a, b: BlockId): bool =
+  ## Returns `true` if the given `a` is part of the history selected by `b`.
+  ## Does not depend on `dag.head`.
+  if a == b: return true
+  if a.slot >= b.slot: return false
+  let
+    a_blck = dag.getBlockRef(a.root).valueOr:
+      return dag.isCanonical(a) and
+        (dag.getBlockRef(b.root).isOk or dag.isCanonical(b))
+    b_blck = dag.getBlockRef(b.root).valueOr:
+      return false
+  a_blck.isAncestorOf(b_blck)
 
 func parent*(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   if bid.slot == 0:
@@ -578,6 +599,14 @@ func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
     return Opt.none(EpochKey)
 
   Opt.some(EpochKey(bid: bsi.bid, epoch: epoch))
+
+func putParticipatingBalances*(
+    dag: ChainDAGRef, value: CachedParticipatingBalances) =
+  dag.participatingBalances.put value
+
+func findParticipatingBalances*(
+    dag: ChainDAGRef, bid: BlockId): Opt[ParticipatingBalances] =
+  ok (? dag.participatingBalances.findIt(it.bid == bid)).balances
 
 func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
   ## Store shuffling in the cache
@@ -733,6 +762,10 @@ func loadStateCache*(
         # We often end up sharing sync committees with head during sync / gossip
         # validation / head updates
         cache.sync_committees[period] = dag.headSyncCommittees
+
+  let balances = dag.findParticipatingBalances(bid)
+  if balances.isSome:
+    cache.participating.ok (slot: bid.slot, balances: balances.unsafeGet)
 
 func containsForkBlock*(dag: ChainDAGRef, root: Eth2Digest): bool =
   ## Checks for blocks at the finalized checkpoint or newer
@@ -945,6 +978,25 @@ proc updateBeaconMetrics(
         0'u64.toGaugeValue
     )
 
+proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
+  beacon_safe_root.set(safeBlockId.root.toGaugeValue)
+  beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)
+
+proc incSafeReorgs*() =
+  beacon_safe_reorgs_total.inc()
+
+proc incSafeEpochReverts*() =
+  beacon_safe_reverts_epoch_total.inc()
+
+proc incSafeHeadReverts*() =
+  beacon_safe_reverts_head_total.inc()
+
+proc incSafeRestarts*() =
+  beacon_safe_restarts_total.inc()
+
+proc incSafeErrors*() =
+  beacon_safe_errors_total.inc()
+
 import blockchain_dag_light_client
 
 export
@@ -1015,6 +1067,83 @@ proc advanceSlots*(
 
           dag.validatorMonitor[].registerEpochInfo(
             forkyState.data, proposers, info)
+
+proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
+    tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
+  let blockData = dag.getForkedBlock(bid).valueOr:
+    # Besides database inconsistency issues, this is hit with checkpoint sync.
+    # The initial `BlockRef` is created before the checkpoint block is loaded.
+    # It is backfilled later, so return `none` and keep retrying.
+    return (Opt.none(Eth2Digest), Opt.none(Eth2Digest))
+
+  withBlck(blockData):
+    when consensusFork >= ConsensusFork.Gloas:
+      template bid(): auto = forkyBlck.message.body.signed_execution_payload_bid
+      (
+        Opt.some bid.message.block_hash,
+        Opt.some bid.message.parent_block_hash
+      )
+    elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+      (
+        Opt.some forkyBlck.message.body.execution_payload.block_hash,
+        Opt.some ZERO_HASH
+      )
+    else:
+      (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
+
+proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
+    tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
+  if blck.executionBlockHash.isNone() or blck.executionParentHash.isNone():
+    let (blockHash, parentHash) = dag.loadExecutionAndParentBlockHash(blck.bid)
+    blck.executionBlockHash = blockHash
+    blck.executionParentHash = parentHash
+
+    if blck.executionBlockHash == static(Opt.some(ZERO_HASH)):
+      # The block belongs to Bellatrix+ but the merge has not yet happened
+      # meaning that its ancestors are also pre-merge
+      blck.markExecutionValid(true)
+
+      var cur = blck.parent
+      while cur != nil and cur.executionBlockHash.isNone:
+        cur.executionBlockHash = blck.executionBlockHash
+        cur = cur.parent
+
+  (blck.executionBlockHash, blck.executionParentHash)
+
+func isParentBlockFull(blck: BlockRef): bool =
+  ## Since Gloas, we want to skip applying envelope if the envelope of its
+  ## parent is orphaned. This is particularly useful for updateState() as
+  ## orphaned envelopes, even if they are valid, should not be applied to state
+  ## in order to transition to the correct position.
+  ##
+  ## There is a helper but it uses state which is not helpful for updateState().
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_parent_block_full
+  ##
+  ## It is more likely a port to the fork choice helper
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_parent_node_full
+  ##
+  ## It does not need DAG because it is only useful since Gloas and in Gloas,
+  ## blck should have the execution hashes all the time for updateState() and
+  ## other envelope checks to work properly.
+
+  if blck.executionParentHash.isNone() or
+      blck.parent.executionBlockHash.isNone() or
+      blck.executionParentHash.get().isZero():
+    false
+  else:
+    blck.executionParentHash.get() == blck.parent.executionBlockHash.get()
+
+func isParentBlockFull(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
+  ## A helper to check the parent payload status of a not validated Gloas block
+  ## when receiving block from gossip or api.
+
+  template bid(): auto = blck.message.body.signed_execution_payload_bid
+
+  if parent.executionBlockHash.isNone() or
+      bid.message.parent_block_hash.isZero():
+    false
+  else:
+    bid.message.parent_block_hash == parent.executionBlockHash.get()
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -1126,12 +1255,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         BlockRef.init(
           blck.root,
           Opt.none Eth2Digest,
+          Opt.none Eth2Digest,
           OptimisticStatus.notValidated,
           blck.summary.slot,
         )
       else:
         BlockRef.init(
-          blck.root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.summary.slot
+          blck.root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
+          OptimisticStatus.valid, blck.summary.slot
         )
 
     if headRef == nil:
@@ -1215,6 +1346,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Electra:   electraFork(cfg)
       of ConsensusFork.Fulu:      fuluFork(cfg)
       of ConsensusFork.Gloas:     gloasFork(cfg)
+      of ConsensusFork.Heze:      hezeFork(cfg)
     stateFork = dag.headState.fork
 
   # Here, we check only the `current_version` field because the spec
@@ -1306,6 +1438,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.validatorMonitor[].registerState(forkyState.data)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
+  beacon_safe_root.set(dag.finalizedHead.blck.bid.root.toGaugeValue)
+  beacon_safe_slot.set(dag.finalizedHead.blck.bid.slot.toGaugeValue)
 
   let finalizedTick = Moment.now()
 
@@ -1501,7 +1635,9 @@ proc computeRandaoMix(
   ## Compute the requested RANDAO mix for `bdata` without `state`, if possible.
   withBlck(bdata):
     debugGloasComment ""
-    when consensusFork == ConsensusFork.Gloas:
+    when consensusFork == ConsensusFork.Heze:
+      return Opt.none(Eth2Digest)
+    elif consensusFork == ConsensusFork.Gloas:
       return Opt.none(Eth2Digest)
     elif consensusFork >= ConsensusFork.Bellatrix:
       if forkyBlck.message.is_execution_block:
@@ -2072,17 +2208,6 @@ iterator syncSubcommittee*(
     yield syncCommittee[i]
     inc i
 
-iterator syncSubcommitteePairs*(
-    syncCommittee: openArray[ValidatorIndex],
-    subcommitteeIdx: SyncSubcommitteeIndex): tuple[validatorIdx: ValidatorIndex,
-                                             subcommitteeIdx: int] =
-  var i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-  let onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
-
-  while i < onePastEndIdx:
-    yield (syncCommittee[i], i)
-    inc i
-
 func syncCommitteeParticipants*(dag: ChainDAGRef,
                                 slot: Slot): seq[ValidatorIndex] =
   withState(dag.headState):
@@ -2352,36 +2477,10 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
             break
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
-  let blockData = dag.getForkedBlock(bid).valueOr:
-    # Besides database inconsistency issues, this is hit with checkpoint sync.
-    # The initial `BlockRef` is created before the checkpoint block is loaded.
-    # It is backfilled later, so return `none` and keep retrying.
-    return Opt.none(Eth2Digest)
-
-  withBlck(blockData):
-    when consensusFork >= ConsensusFork.Gloas:
-      Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
-    elif consensusFork >= ConsensusFork.Bellatrix:
-      Opt.some forkyBlck.message.body.execution_payload.block_hash
-    else:
-      Opt.some ZERO_HASH
+  dag.loadExecutionAndParentBlockHash(bid)[0]
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
-  if blck.executionBlockHash.isNone:
-    # Execution block hashes are loaded lazily during startup
-    blck.executionBlockHash = dag.loadExecutionBlockHash(blck.bid)
-
-    if blck.executionBlockHash == static(Opt.some(ZERO_HASH)):
-      # The block belongs to Bellatrix+ but the merge has not yet happened
-      # meaning that its ancestors are also pre-merge
-      blck.markExecutionValid(true)
-
-      var cur = blck.parent
-      while cur != nil and cur.executionBlockHash.isNone:
-        cur.executionBlockHash = blck.executionBlockHash
-        cur = cur.parent
-
-  blck.executionBlockHash
+  dag.loadExecutionAndParentBlockHash(blck)[0]
 
 from std/packedsets import PackedSet, incl, items
 
