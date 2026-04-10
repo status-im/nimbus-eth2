@@ -145,6 +145,8 @@ AllTests-mainnet
 + Gloas block without envelope marks missing [Preset: mainnet]                               OK
 + Gloas chain with no envelopes delivered [Preset: mainnet]                                  OK
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
++ Gloas payload reorg around state checkpoint [Preset: mainnet]                              OK
++ Gloas payload reorg at state checkpoint [Preset: mainnet]                                  OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
 + Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
