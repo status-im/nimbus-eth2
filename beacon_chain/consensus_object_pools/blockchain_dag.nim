@@ -1961,7 +1961,7 @@ proc updateState*(
     let executionMatch = block:
       withState(state):
         when consensusFork >= ConsensusFork.Gloas:
-          # For exactMatch we want the payload status is matched with the flags.
+          # For exactMatch we want the payload status matches with the flags.
           is_parent_block_full(forkyState.data) ==
             (skipLastEnvelope notin updateFlags)
         else:
@@ -2111,11 +2111,9 @@ proc updateState*(
   var info: ForkedEpochInfo
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
-    # Since a full beacon block consists of the beacon block itself together
-    # with the corresponding execution payload envelope, the state transition
-    # should require both components in every slot. The last slot may apply the
-    # envelope, which is controlled by updateFlags, for allowing state
-    # transitioning with a single beacon block.
+    # Before applying the block of each ancestor, we need to check whether it
+    # wants the parent's payload or not, as the checkpoint state doesn't have
+    # the envelope applied yet.
 
     template parent(): auto =
       if i == ancestors.len() - 1:
@@ -2136,7 +2134,6 @@ proc updateState*(
         warn "Failed to apply envelope from database",
           blck = shortLog(ancestors[i]),
           state_bid = shortLog(state.latest_block_id),
-          skipLastEnvelope = skipLastEnvelope in updateFlags,
           i, error = error
         return false
 
@@ -2166,23 +2163,30 @@ proc updateState*(
     # We then apply the last envelope and advanceSlots after saving the state.
     let
       stateBid = state.latest_block_id
-      bsiEpochStartSlot = bsi.slot.epoch().start_slot()
-      stateBsi =
-        if bsiEpochStartSlot > stateBid.slot:
-          BlockSlotId.init(stateBid, bsiEpochStartSlot)
+      stateBsi = block:
+        # Calculate the BlockSlotId for isStateCheckpoint as it needs the target
+        # slot to be is_epoch (i.e. slot 0 of epoch)
+        let bsiStartSlot = bsi.slot.epoch().start_slot()
+        if bsiStartSlot > stateBid.slot:
+          BlockSlotId.init(stateBid, bsiStartSlot)
         else:
           BlockSlotId.init(stateBid, bsi.slot)
       isCheckpoint = block:
-        # Logic from dag.putState()
+        # Logic from advanceSlots() and dag.putState()
         save and
         dag.isStateCheckpoint(stateBsi) and
         not dag.db.containsState(
           dag.cfg.consensusForkAtEpoch(stateBid.slot.epoch()),
           state.root, legacy = false
         )
-      wantsLastEnvelope = block:
+      wantsLastPayload = block:
         withState(state):
           when consensusFork >= ConsensusFork.Gloas:
+            # Only wants the last envelope if it has not applied to the state
+            # yet, and the flags allow to do so.
+            #
+            # We need to check the payload status of the state because the
+            # result from exactMatch can have envelope applied.
             not is_parent_block_full(forkyState.data) and
               skipLastEnvelope notin updateFlags
           else:
@@ -2192,16 +2196,17 @@ proc updateState*(
       bsi = shortLog(bsi),
       state_bid = shortLog(stateBid),
       save, isCheckpoint,
-      wantsLastEnvelope
+      wantsLastPayload
 
     if isCheckpoint:
+      let startTick = Moment.now()
       withState(state):
         dag.db.putState(forkyState)
 
-      debug "Stored state for Gloas or later",
-        state_bid = shortLog(stateBid)
+      debug "Stored state for Gloas or later forks",
+        putStateDur = Moment.now() - startTick
 
-    if wantsLastEnvelope:
+    if wantsLastPayload:
       dag.applyExecutionPayloadEnvelope(state, stateBid, cache).isOkOr:
         warn "Failed to apply last envelope from database",
           blck = shortLog(stateBid),
