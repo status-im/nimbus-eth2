@@ -116,3 +116,12 @@ suite "EF - Gloas - Sanity - Slots " & preset():
       sanitySlotsDir, relative = true, checkDir = true):
     runTest(
       gloas.BeaconState, sanitySlotsDir, "Gloas", suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/heze import BeaconState
+
+suite "EF - Heze - Sanity - Slots " & preset():
+  const sanitySlotsDir = sanitySlotsDir("heze")
+  for kind, path in walkDir(
+      sanitySlotsDir, relative = true, checkDir = true):
+    runTest(
+      heze.BeaconState, sanitySlotsDir, "Heze", suiteName, path)

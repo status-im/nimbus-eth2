@@ -1047,8 +1047,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             doAssert strictVerification notin node.dag.updateFlags
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-          static: doAssert high(ConsensusFork) == ConsensusFork.Gloas
-          when consensusFork == ConsensusFork.Gloas:
+          static: doAssert high(ConsensusFork) == ConsensusFork.Heze
+          when consensusFork == ConsensusFork.Heze:
+            debugHezeComment "stub: heze block routing"
+            await node.router.routeSignedBeaconBlock(
+              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
+              checkValidator = true)
+          elif consensusFork == ConsensusFork.Gloas:
             await node.router.routeSignedBeaconBlock(
               forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
               checkValidator = true)
@@ -1111,7 +1116,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     withBlck(bdata.asSigned()):
-      when consensusFork == ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Heze:
+        debugHezeComment ""
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+      elif consensusFork == ConsensusFork.Gloas:
         debugGloasComment ""
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
       elif consensusFork <= ConsensusFork.Altair:
@@ -1348,7 +1356,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          UnsupportedForkError,
                                          $UnsupportedForkError)
-      of ConsensusFork.Electra .. ConsensusFork.Gloas:
+      of ConsensusFork.Electra .. ConsensusFork.Heze:
         decodeAttestations(electra.SingleAttestation)
 
     let failures =
@@ -1431,7 +1439,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                   $error)
-      of ConsensusFork.Electra .. ConsensusFork.Gloas:
+      of ConsensusFork.Electra .. ConsensusFork.Heze:
         decodeAttesterSlashing(electra.AttesterSlashing)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings

@@ -69,6 +69,10 @@ type
     entries*: array[I, tuple[value: T, lastUsed: uint32]]
     timestamp*: uint32
 
+  CachedParticipatingBalances* = object
+    bid*: BlockId
+    balances*: ParticipatingBalances
+
   ChainDAGRef* = ref object
     ## ChainDAG validates, stores and serves chain history of valid blocks
     ## according to the beacon chain state transition. From genesis to the
@@ -210,6 +214,8 @@ type
     updateFlags*: UpdateFlags
 
     cfg*: RuntimeConfig
+
+    participatingBalances*: LRUCache[8, CachedParticipatingBalances]
 
     shufflingRefs*: LRUCache[16, ShufflingRef]
 

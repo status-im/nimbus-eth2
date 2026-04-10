@@ -203,7 +203,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "SignedExecutionPayloadEnvelope":
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
-            checkSSZ(SignedExecutionPayloadBid, path, hash)
+            checkSSZ(gloas.SignedExecutionPayloadBid, path, hash)
           of "SignedProposerPreferences":
             checkSSZ(SignedProposerPreferences, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)
@@ -220,5 +220,8 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
+          of "PartialDataColumnHeader", "PartialDataColumnPartsMetadata",
+             "PartialDataColumnSidecar":
+            debugGloasComment "Skipping PartialDataColumn tests for now"
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

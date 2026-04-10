@@ -274,6 +274,7 @@ proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
+proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock)
 
 proc storeBackfillBlock(
     self: ref BlockProcessor,
@@ -1004,6 +1005,15 @@ proc addPayload*(
 
   ok()
 
+proc addPayload*(
+    self: ref BlockProcessor,
+    signedBlock: heze.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  debugHezeComment "stub: heze addPayload not yet implemented"
+  ok()
+
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
   ## Enqueue payload processing by block that is a valid block.
 
@@ -1030,6 +1040,9 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
 
   discard self.addPayload(blck, envelope, sidecarsOpt)
 
+proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock) =
+  debugHezeComment "stub: heze enqueuePayload not yet implemented"
+
 proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
   ## Enqueue payload processing by block root. If it is not a valid block, the
   ## enqueue request will be discarded silently.
@@ -1048,7 +1061,8 @@ proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
             bid = shortLog(blockRef.bid)
           return
         withBlck(forkedBlock):
-          when consensusFork >= ConsensusFork.Gloas:
+          debugHezeComment "..."
+          when consensusFork == ConsensusFork.Gloas:
             forkyBlck.asSigned()
           else:
             # Incorrect fork which shouldn't be happening.

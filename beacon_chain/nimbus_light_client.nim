@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/os,
@@ -96,7 +96,8 @@ proc main() {.noinline, raises: [CatchableError].} =
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         debugGloasComment ""
-        when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Bellatrix and
+             consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if elManager != nil and not payload.block_hash.isZero:

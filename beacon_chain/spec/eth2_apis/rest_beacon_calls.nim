@@ -29,7 +29,8 @@ type
     DenebSignedBlockContents |
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
-    GloasSignedBlockContents
+    GloasSignedBlockContents |
+    HezeSignedBlockContents
 
 proc getGenesis*(): RestResponse[GetGenesisResponse] {.
      rest, endpoint: "/eth/v1/beacon/genesis",
@@ -192,6 +193,13 @@ proc publishBlockV2(
    meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
+proc publishBlockV2(
+    broadcast_validation: Option[BroadcastValidationType],
+    body: HezeSignedBlockContents
+): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blocks",
+   meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
+
 proc publishBlockV2*(
     client: RestClientRef,
     broadcast_validation: Option[BroadcastValidationType],
@@ -208,6 +216,8 @@ proc publishBlockV2*(
       ConsensusFork.Fulu.toString()
     elif blck is GloasSignedBlockContents:
       ConsensusFork.Gloas.toString()
+    elif blck is HezeSignedBlockContents:
+      ConsensusFork.Heze.toString()
     else:
       typeof(blck).kind.toString()
   client.publishBlockV2(

@@ -101,3 +101,12 @@ suite "EF - Gloas - Fork " & preset():
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
     runTest(fulu.BeaconState, gloas.BeaconState, "Gloas", OpForkDir,
             suiteName, path)
+
+from ../../beacon_chain/spec/datatypes/heze import BeaconState
+
+suite "EF - Heze - Fork " & preset():
+  const OpForkDir =
+    SszTestsDir/const_preset/"heze"/"fork"/"fork"/"pyspec_tests"
+  for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
+    runTest(gloas.BeaconState, heze.BeaconState, "Heze", OpForkDir,
+            suiteName, path)
