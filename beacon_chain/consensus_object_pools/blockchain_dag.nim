@@ -1178,29 +1178,13 @@ proc isParentBlockFull(
           debug "Gloas payload status check - fail to load block hashes"
           return false
       else:
-        let blck = dag.getForkedBlock(blckBid).valueOr:
+        dag.loadExecutionAndParentBlockHash(blckBid)[1].valueOr:
           debug "Gloas payload status check - block not found in db"
           return false
-        withBlck(blck):
-          when consensusFork >= ConsensusFork.Gloas:
-            template bid(): auto =
-              forkyBlck.message.body.signed_execution_payload_bid
-            bid.message.parent_block_hash
-          else:
-            debug "Gloas payload status check - block in incorrect fork"
-            return false
     parentBlockHash = block:
-      let blck = dag.getForkedBlock(parentBid).valueOr:
+      dag.loadExecutionAndParentBlockHash(parentBid)[0].valueOr:
         debug "Gloas payload status check - parent not found in db"
         return false
-      withBlck(blck):
-        when consensusFork >= ConsensusFork.Gloas:
-          template bid(): auto =
-            forkyBlck.message.body.signed_execution_payload_bid
-          bid.message.block_hash
-        else:
-          debug "Gloas payload status check - parent in incorrect fork"
-          return false
 
   not blckParentHash.isZero() and blckParentHash == parentBlockHash
 
@@ -1997,9 +1981,9 @@ proc updateState*(
           # the payload be applied can only be deteremined after we found the
           # ancestors.
           #
-          # For more context, the payload at the current state latest_block_id
-          # will be determined by the next block if there is more than 1
-          # ancestors, or by the flags if there is not any ancestors.
+          # For context, the payload at the current state latest_block_id will
+          # be determined by the next block if there is more than 1 ancestors,
+          # or by the flags if there is not any ancestors.
           not is_parent_block_full(forkyState.data)
         else:
           # Disable this check for pre-Gloas forks.
@@ -2171,12 +2155,27 @@ proc updateState*(
       return false
 
   # ...and make sure to process empty slots as requested
-  if dag.cfg.consensusForkAtEpoch(bsi.bid.slot.epoch()) >= ConsensusFork.Gloas:
+  if state.kind >= ConsensusFork.Gloas:
+    # We are handling state checkpoint differently since Gloas. For more
+    # context, check how ancestors apply and canAdvance.
+    #
+    # First, we save the state if it is at checkpoint before advanceSlots and
+    # applying the last envelope, at the cost of more slots/loop for searching
+    # the checkpoint state.
+    #
+    # We then apply the last envelope and advanceSlots after saving the state.
     let
       stateBid = state.latest_block_id
-      saveCheckpoint = block:
+      bsiEpochStartSlot = bsi.slot.epoch().start_slot()
+      stateBsi =
+        if bsiEpochStartSlot > stateBid.slot:
+          BlockSlotId.init(stateBid, bsiEpochStartSlot)
+        else:
+          BlockSlotId.init(stateBid, bsi.slot)
+      isCheckpoint = block:
+        # Logic from dag.putState()
         save and
-        dag.isStateCheckpoint(BlockSlotId.init(stateBid, bsi.slot)) and
+        dag.isStateCheckpoint(stateBsi) and
         not dag.db.containsState(
           dag.cfg.consensusForkAtEpoch(stateBid.slot.epoch()),
           state.root, legacy = false
@@ -2189,12 +2188,25 @@ proc updateState*(
           else:
             false
 
-    if saveCheckpoint:
+    debug "Applying last envelope",
+      bsi = shortLog(bsi),
+      state_bid = shortLog(stateBid),
+      save, isCheckpoint,
+      wantsLastEnvelope
+
+    if isCheckpoint:
       withState(state):
         dag.db.putState(forkyState)
 
+      debug "Stored state for Gloas or later",
+        state_bid = shortLog(stateBid)
+
     if wantsLastEnvelope:
       dag.applyExecutionPayloadEnvelope(state, stateBid, cache).isOkOr:
+        warn "Failed to apply last envelope from database",
+          blck = shortLog(stateBid),
+          state_bid = shortLog(stateBid),
+          error = error
         return false
 
     dag.advanceSlots(state, bsi.slot, false, cache, info, updateFlags)
