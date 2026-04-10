@@ -350,6 +350,11 @@ proc processExecutionPayloadEnvelope*(
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
+  if not isNil(self.dag.onEnvelopeGossipAdded):
+    self.dag.onEnvelopeGossipAdded(ExecutionPayloadInfoObject(
+      slot: signedEnvelope.message.slot,
+      block_root: signedEnvelope.message.beacon_block_root))
+
   trace "Envelope validated"
   self.envelopeQuarantine[].addOrphan(signedEnvelope)
   self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)

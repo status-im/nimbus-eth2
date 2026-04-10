@@ -253,7 +253,11 @@ type
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
     onEnvelopeAdded*: OnExecutionPayloadCallback
-      ## On envelope verified callback
+      ## On envelope added callback
+    onEnvelopeGossipAdded*: OnExecutionPayloadCallback
+      ## On envelope gossip added callback
+    onEnvelopeAvailable*: OnExecutionPayloadCallback
+      ## On envelope available callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -406,6 +410,12 @@ template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
 
 template setEnvelopeCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeAdded = cb
+
+template setEnvelopeGossipCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
+  dag.onEnvelopeGossipAdded = cb
+
+template setEnvelopeAvailableCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
+  dag.onEnvelopeAvailable = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!

@@ -496,6 +496,10 @@ proc initFullNode(
         data
     node.eventBus.reorgQueue.emit(eventData)
   proc onEnvelopeAdded(data: ExecutionPayloadInfoObject) =
+    node.eventBus.execPayloadAddedQueue.emit(data)
+  proc onEnvelopeGossipAdded(data: ExecutionPayloadInfoObject) =
+    node.eventBus.execPayloadGossipAddedQueue.emit(data)
+  proc onEnvelopeAvailable(data: ExecutionPayloadInfoObject) =
     node.eventBus.execPayloadAvlQueue.emit(data)
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
@@ -845,6 +849,8 @@ proc initFullNode(
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
   dag.setEnvelopeCb(onEnvelopeAdded)
+  dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
+  dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
 
   node.dag = dag
   node.dag.eaSlot = eaSlot
