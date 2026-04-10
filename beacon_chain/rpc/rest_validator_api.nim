@@ -613,7 +613,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          UnsupportedForkError,
                                          $UnsupportedForkError)
-      of ConsensusFork.Electra .. ConsensusFork.Gloas:
+      of ConsensusFork.Electra .. ConsensusFork.Heze:
         addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)

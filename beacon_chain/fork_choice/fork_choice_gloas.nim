@@ -19,8 +19,6 @@ import
   ../consensus_object_pools/[spec_cache, blockchain_dag],
   "."/[fork_choice_types, proto_array]
 
-# Gloas-specific fork choice functions (EIP-7732).
-
 func isGloasEnabled*(dag: ChainDAGRef, slot: Slot): bool =
   slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH
 
@@ -57,11 +55,10 @@ proc on_payload_attestation_message*(
           return ok()
 
       var
-        cache: StateCache
         ptc_index = -1
         i = 0
 
-      for vidx in get_ptc(forkyState.data, slot, cache):
+      for vidx in get_ptc(forkyState.data, slot):
         if vidx == validator_index:
           ptc_index = i
           break

@@ -118,6 +118,9 @@ proc initialLoad(
   if StateType.kind >= ConsensusFork.Gloas:
     dag.updateFlags.incl skipLastEnvelope
 
+    let anchorRoot = dag.finalizedHead.blck.root
+    fkChoice.backend.execution_payload_states[anchorRoot] = default(Eth2Digest)
+
   (dag, fkChoice)
 
 proc loadOps(
@@ -285,7 +288,8 @@ proc stepOnBlock(
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix and
-      consensusFork < ConsensusFork.Gloas:
+       consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
+    debugGloasComment "skip execution payload for Gloas?"
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
     if executionBlockHash in invalidatedHashes:
@@ -497,7 +501,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if path.contains("eip7805"):
+      if path.contains("eip7805") or path.contains("heze"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         continue

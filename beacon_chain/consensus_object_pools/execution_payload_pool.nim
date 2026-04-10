@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[sets, tables],
@@ -20,7 +20,7 @@ logScope: topics = "bidpool"
 
 type
   SlotBids* = object
-    highestBids*: Table[Eth2Digest, SignedExecutionPayloadBid]
+    highestBids*: Table[Eth2Digest, gloas.SignedExecutionPayloadBid]
     seenBuilders*: HashSet[uint64]
 
   ExecutionPayloadBidPool* = object
@@ -40,7 +40,7 @@ func init*(
 
 proc addBid*(
     pool: var ExecutionPayloadBidPool,
-    signedBid: SignedExecutionPayloadBid,
+    signedBid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime) =
   template bid: untyped = signedBid.message
 
@@ -58,7 +58,7 @@ proc addBid*(
   slotData.seenBuilders.incl(bid.builder_index)
 
   let currentBid = slotData.highestBids.getOrDefault(bid.parent_block_hash)
-  if currentBid != default(SignedExecutionPayloadBid):
+  if currentBid != static(default(gloas.SignedExecutionPayloadBid)):
     if bid.value <= currentBid.message.value:
       debug "Bid value not higher than current best",
         current_best = currentBid.message.value
@@ -76,33 +76,33 @@ proc addBid*(
 
 func getBidForSlotAndBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
-    builderIndex: uint64): Opt[SignedExecutionPayloadBid] =
+    builderIndex: uint64): Opt[gloas.SignedExecutionPayloadBid] =
   let slotData = pool.slotBids.getOrDefault(slot)
 
   for bid in slotData.highestBids.values:
     if bid.message.builder_index == builderIndex:
       return Opt.some(bid)
-  Opt.none(SignedExecutionPayloadBid)
+  Opt.none(gloas.SignedExecutionPayloadBid)
 
 func getHighestBidForSlotAndParent*(
     pool: ExecutionPayloadBidPool, slot: Slot,
-    parentBlockHash: Eth2Digest): Opt[SignedExecutionPayloadBid] =
+    parentBlockHash: Eth2Digest): Opt[gloas.SignedExecutionPayloadBid] =
   let
     slotData = pool.slotBids.getOrDefault(slot)
     bid = slotData.highestBids.getOrDefault(parentBlockHash)
-  if bid != default(SignedExecutionPayloadBid):
+  if bid != static(default(gloas.SignedExecutionPayloadBid)):
     Opt.some(bid)
   else:
-    Opt.none(SignedExecutionPayloadBid)
+    Opt.none(gloas.SignedExecutionPayloadBid)
 
 func getBidForBlockRoot*(
     pool: ExecutionPayloadBidPool,
-    blockRoot: Eth2Digest): Opt[SignedExecutionPayloadBid] =
+    blockRoot: Eth2Digest): Opt[gloas.SignedExecutionPayloadBid] =
   let references = pool.blockRootIndex.getOrDefault(blockRoot, @[])
   if references.len > 0:
     let (slot, parentHash) = references[0]
     return pool.getHighestBidForSlotAndParent(slot, parentHash)
-  Opt.none(SignedExecutionPayloadBid)
+  Opt.none(gloas.SignedExecutionPayloadBid)
 
 func hasBidForBlockRoot*(
     pool: ExecutionPayloadBidPool, blockRoot: Eth2Digest): bool =
