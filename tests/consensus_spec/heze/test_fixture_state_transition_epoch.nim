@@ -17,6 +17,7 @@ import
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
+  ./test_fixture_rewards,
   ../../helpers/debug_state
 
 from std/sequtils import mapIt, toSeq

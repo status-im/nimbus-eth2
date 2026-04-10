@@ -5066,6 +5066,43 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Withdrawals - withdrawable_epoch_but_0_balance          OK
 + [Valid]   EF - Heze - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 ```
+## EF - Heze - Rewards  [Preset: mainnet]
+```diff
++ EF - Heze - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                    OK
++ EF - Heze - Rewards - empty [Preset: mainnet]                                              OK
++ EF - Heze - Rewards - empty_leak [Preset: mainnet]                                         OK
++ EF - Heze - Rewards - full_all_correct [Preset: mainnet]                                   OK
++ EF - Heze - Rewards - full_but_partial_participation [Preset: mainnet]                     OK
++ EF - Heze - Rewards - full_but_partial_participation_leak [Preset: mainnet]                OK
++ EF - Heze - Rewards - full_leak [Preset: mainnet]                                          OK
++ EF - Heze - Rewards - full_random_0 [Preset: mainnet]                                      OK
++ EF - Heze - Rewards - full_random_1 [Preset: mainnet]                                      OK
++ EF - Heze - Rewards - full_random_2 [Preset: mainnet]                                      OK
++ EF - Heze - Rewards - full_random_3 [Preset: mainnet]                                      OK
++ EF - Heze - Rewards - full_random_4 [Preset: mainnet]                                      OK
++ EF - Heze - Rewards - full_random_leak [Preset: mainnet]                                   OK
++ EF - Heze - Rewards - full_random_low_balances_0 [Preset: mainnet]                         OK
++ EF - Heze - Rewards - full_random_low_balances_1 [Preset: mainnet]                         OK
++ EF - Heze - Rewards - full_random_misc_balances [Preset: mainnet]                          OK
++ EF - Heze - Rewards - full_random_seven_epoch_leak [Preset: mainnet]                       OK
++ EF - Heze - Rewards - full_random_ten_epoch_leak [Preset: mainnet]                         OK
++ EF - Heze - Rewards - full_random_without_leak_0 [Preset: mainnet]                         OK
++ EF - Heze - Rewards - full_random_without_leak_and_current_exit_0 [Preset: mainnet]        OK
++ EF - Heze - Rewards - half_full [Preset: mainnet]                                          OK
++ EF - Heze - Rewards - half_full_leak [Preset: mainnet]                                     OK
++ EF - Heze - Rewards - quarter_full [Preset: mainnet]                                       OK
++ EF - Heze - Rewards - quarter_full_leak [Preset: mainnet]                                  OK
++ EF - Heze - Rewards - some_very_low_effective_balances_that_attested [Preset: mainnet]     OK
++ EF - Heze - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mainnet OK
++ EF - Heze - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mainne OK
++ EF - Heze - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
++ EF - Heze - Rewards - with_exited_validators [Preset: mainnet]                             OK
++ EF - Heze - Rewards - with_exited_validators_leak [Preset: mainnet]                        OK
++ EF - Heze - Rewards - with_not_yet_activated_validators [Preset: mainnet]                  OK
++ EF - Heze - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]             OK
++ EF - Heze - Rewards - with_slashed_validators [Preset: mainnet]                            OK
++ EF - Heze - Rewards - with_slashed_validators_leak [Preset: mainnet]                       OK
+```
 ## EF - Heze - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
