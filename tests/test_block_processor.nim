@@ -615,7 +615,7 @@ suite "Block processor" & preset():
     # Per spec, absent envelopes are valid and state should progress.
     check res4.isErr
 
-  asyncTest "Gloas process block with payload reorg" & preset():
+  asyncTest "Gloas payload reorg at state checkpoint" & preset():
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
       blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
@@ -706,6 +706,96 @@ suite "Block processor" & preset():
       else:
         raiseAssert "incorrect fork"
 
+  asyncTest "Gloas payload reorg around state checkpoint" & preset():
+    let processor = BlockProcessor.new(
+      false, "", "", batchVerifier, consensusManager, validatorMonitor,
+      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      envelopeQuarantine, getTimeFn,
+    )
+
+    # Advance to Gloas epoch boundary
+    process_slots(
+      cfg, dag.clearanceState, (cfg.GLOAS_FORK_EPOCH + 1).start_slot() - 3,
+      cache, info, {}).expect("gloas epoch")
+
+    withState(dag.clearanceState):
+      when consensusFork == ConsensusFork.Gloas:
+        # 1 - A good full beacon block
+        let
+          fbb1 = addTestEngineBlock(cfg, consensusFork, forkyState, cache)
+          bres1 = await processor.addBlock(
+            MsgSource.gossip, fbb1.blck, noSidecars)
+          pres1 = await processor.addPayload(
+            fbb1.blck, fbb1.envelope,
+            Opt.some(default(gloas.DataColumnSidecars)))
+        check:
+          bres1.isOk()
+          pres1.isOk()
+          forkyState.data.latest_block_hash == fbb1.envelope.message.payload.block_hash
+
+        # 2 - Both are based on the previous block
+        check dag.updateState(
+          dag.clearanceState,
+          BlockSlotId.init(
+            BlockId(root: fbb1.blck.root, slot: fbb1.blck.message.slot),
+            fbb1.blck.message.slot + 2),
+          true, cache, dag.updateFlags)
+
+        let
+          fbb2 = addTestEngineBlock(cfg, consensusFork, forkyState, cache)
+          bres2 = await processor.addBlock(
+            MsgSource.gossip, fbb2.blck, noSidecars)
+          state2 = assignClone(dag.clearanceState)
+          pres2 = await processor.addPayload(
+            fbb2.blck, fbb2.envelope,
+            Opt.some(default(gloas.DataColumnSidecars)))
+        check:
+          bres2.isOk()
+          pres2.isOk()
+          fbb2.blck.message.parent_root == fbb1.blck.root
+          fbb2.envelope.message.payload.parent_hash == fbb1.envelope.message.payload.block_hash
+          state2[].forky(consensusFork).data.latest_block_hash == fbb1.envelope.message.payload.block_hash
+          forkyState.data.latest_block_hash == fbb2.envelope.message.payload.block_hash
+
+        # 3 - Payload reorg
+        var cache2: StateCache
+        process_slots(
+          cfg, state2[], fbb2.blck.message.slot + 2,
+          cache2, info, {}).expect("advance slot")
+        check dag.updateState(
+          dag.clearanceState,
+          BlockSlotId.init(
+            BlockId(root: fbb2.blck.root, slot: fbb2.blck.message.slot),
+            fbb2.blck.message.slot + 2),
+          true,
+          cache,
+          dag.updateFlags)
+
+        block:
+          let
+            stateRoot = dag.db.getStateRoot(
+              fbb2.blck.root, fbb2.blck.message.slot).expect("state root")
+            tmpState = ForkedHashedBeaconState.new((ref gloas.BeaconState)()[])
+          check:
+            dag.db.getState(consensusFork, stateRoot, tmpState[], noRollback)
+            not is_parent_block_full(tmpState[].gloasData.data)
+
+        let
+          fbb3 = addTestEngineBlock(
+            cfg, consensusFork, state2[].gloasData, cache)
+          bres3 = await processor.addBlock(
+            MsgSource.gossip, fbb3.blck, noSidecars)
+          pres3 = await processor.addPayload(
+            fbb3.blck, fbb3.envelope,
+            Opt.some(default(gloas.DataColumnSidecars)))
+        check:
+          bres3.isOk()
+          pres3.isOk()
+          fbb3.blck.message.parent_root == fbb2.blck.root
+          fbb3.envelope.message.payload.parent_hash == fbb1.envelope.message.payload.block_hash
+          forkyState.data.latest_block_hash == fbb3.envelope.message.payload.block_hash
+      else:
+        raiseAssert "incorrect fork"
 
 # Clean up KZG trusted setup at the end of all tests
 doAssert kzg.freeTrustedSetup().isOk
