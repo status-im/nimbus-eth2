@@ -1,116 +1,5 @@
 ConsensusSpecPreset-mainnet
 ===
-## EF - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-```
-## EF - Altair - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Altair - Epoch Processing - Historical roots update [Preset: mainnet]
-```diff
-+ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
-```
-## EF - Altair - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Altair - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Altair - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Altair - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Altair - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Altair - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Altair - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Altair - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
-```
 ## EF - Altair - Fork  [Preset: mainnet]
 ```diff
 + EF - Altair - Fork - after_fork_deactivate_validators_from_phase0_to_altair [Preset: mainn OK
@@ -394,117 +283,6 @@ ConsensusSpecPreset-mainnet
 + process_light_client_update_timeout                                                        OK
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
-```
-## EF - Bellatrix - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-```
-## EF - Bellatrix - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Bellatrix - Epoch Processing - Historical roots update [Preset: mainnet]
-```diff
-+ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
-```
-## EF - Bellatrix - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Bellatrix - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Bellatrix - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Bellatrix - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Bellatrix - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Bellatrix - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Bellatrix - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Bellatrix - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - Bellatrix - Fork  [Preset: mainnet]
 ```diff
@@ -819,117 +597,6 @@ ConsensusSpecPreset-mainnet
 + EF - Bellatrix - Transition - transition_with_proposer_slashing_right_before_fork [Preset: OK
 + EF - Bellatrix - Transition - transition_with_random_half_participation [Preset: mainnet]  OK
 + EF - Bellatrix - Transition - transition_with_random_three_quarters_participation [Preset: OK
-```
-## EF - Capella - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-```
-## EF - Capella - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Capella - Epoch Processing - Historical summaries update [Preset: mainnet]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
-```
-## EF - Capella - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Capella - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Capella - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Capella - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Capella - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Capella - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Capella - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Capella - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - Capella - Fork  [Preset: mainnet]
 ```diff
@@ -1330,117 +997,6 @@ ConsensusSpecPreset-mainnet
 + process_light_client_update_timeout                                                        OK
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
-```
-## EF - Deneb - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-```
-## EF - Deneb - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Deneb - Epoch Processing - Historical summaries update [Preset: mainnet]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
-```
-## EF - Deneb - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Deneb - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Deneb - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Deneb - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Deneb - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Deneb - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Deneb - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Deneb - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - Deneb - Fork  [Preset: mainnet]
 ```diff
@@ -1858,185 +1414,6 @@ ConsensusSpecPreset-mainnet
 + process_light_client_update_timeout                                                        OK
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
-```
-## EF - Electra - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Electra - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Electra - Epoch Processing - Historical summaries update [Preset: mainnet]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
-```
-## EF - Electra - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Electra - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Electra - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Electra - Epoch Processing - Pending consolidations [Preset: mainnet]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
-```
-## EF - Electra - Epoch Processing - Pending deposits [Preset: mainnet]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
-```
-## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Electra - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Electra - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Electra - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Electra - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - Electra - Fork  [Preset: mainnet]
 ```diff
@@ -2573,190 +1950,6 @@ ConsensusSpecPreset-mainnet
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-## EF - Fulu - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Fulu - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Fulu - Epoch Processing - Historical summaries update [Preset: mainnet]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
-```
-## EF - Fulu - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Fulu - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Fulu - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Fulu - Epoch Processing - Pending consolidations [Preset: mainnet]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
-```
-## EF - Fulu - Epoch Processing - Pending deposits [Preset: mainnet]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
-```
-## EF - Fulu - Epoch Processing - Proposer lookahead [Preset: mainnet]
-```diff
-+ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
-+ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
-```
-## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Fulu - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Fulu - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Fulu - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Fulu - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
-```
 ## EF - Fulu - Fork  [Preset: mainnet]
 ```diff
 + EF - Fulu - Fork - after_fork_deactivate_validators_from_electra_to_fulu [Preset: mainnet] OK
@@ -3286,205 +2479,6 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Transition - transition_with_proposer_slashing_right_before_fork [Preset: main OK
 + EF - Fulu - Transition - transition_with_random_half_participation [Preset: mainnet]       OK
 + EF - Fulu - Transition - transition_with_random_three_quarters_participation [Preset: main OK
-```
-## EF - Gloas - Epoch Processing - Builder pending payments [Preset: mainnet]
-```diff
-+ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: mainnet]  OK
-+ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
-+ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: mainnet OK
-+ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
-+ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: mainne OK
-```
-## EF - Gloas - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Gloas - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Gloas - Epoch Processing - Historical summaries update [Preset: mainnet]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
-```
-## EF - Gloas - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Gloas - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Gloas - Epoch Processing - PTC window [Preset: mainnet]
-```diff
-+ PTC window - process_ptc_window__shifts_all_epochs [Preset: mainnet]                       OK
-```
-## EF - Gloas - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Gloas - Epoch Processing - Pending consolidations [Preset: mainnet]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
-```
-## EF - Gloas - Epoch Processing - Pending deposits [Preset: mainnet]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
-```
-## EF - Gloas - Epoch Processing - Proposer lookahead [Preset: mainnet]
-```diff
-+ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
-+ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
-```
-## EF - Gloas - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Gloas - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Gloas - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Gloas - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Gloas - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - Gloas - Fork  [Preset: mainnet]
 ```diff
@@ -4125,201 +3119,6 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Transition - transition_with_proposer_slashing_right_before_fork [Preset: mai OK
 + EF - Gloas - Transition - transition_with_random_half_participation [Preset: mainnet]      OK
 + EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: mai OK
-```
-## EF - Heze - Epoch Processing - Builder pending payments [Preset: mainnet]
-```diff
-+ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: mainnet]  OK
-+ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
-+ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: mainnet OK
-+ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
-+ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: mainne OK
-```
-## EF - Heze - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Heze - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Heze - Epoch Processing - Historical summaries update [Preset: mainnet]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
-```
-## EF - Heze - Epoch Processing - Inactivity [Preset: mainnet]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
-+ Inactivity - genesis [Preset: mainnet]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
-+ Inactivity - randomized_state [Preset: mainnet]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
-+ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
-```
-## EF - Heze - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Heze - Epoch Processing - Participation flag updates [Preset: mainnet]
-```diff
-+ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
-+ Participation flag updates - current_filled [Preset: mainnet]                              OK
-+ Participation flag updates - filled [Preset: mainnet]                                      OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - previous_filled [Preset: mainnet]                             OK
-+ Participation flag updates - random_0 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_1 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_2 [Preset: mainnet]                                    OK
-+ Participation flag updates - random_genesis [Preset: mainnet]                              OK
-```
-## EF - Heze - Epoch Processing - Pending consolidations [Preset: mainnet]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
-```
-## EF - Heze - Epoch Processing - Pending deposits [Preset: mainnet]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
-```
-## EF - Heze - Epoch Processing - Proposer lookahead [Preset: mainnet]
-```diff
-+ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
-+ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
-```
-## EF - Heze - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Heze - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Heze - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Heze - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Heze - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - Heze - Fork  [Preset: mainnet]
 ```diff
@@ -4976,88 +3775,6 @@ ConsensusSpecPreset-mainnet
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 ```
-## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
-```
-## EF - Phase 0 - Epoch Processing - Eth1 data reset [Preset: mainnet]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
-```
-## EF - Phase 0 - Epoch Processing - Historical roots update [Preset: mainnet]
-```diff
-+ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
-```
-## EF - Phase 0 - Epoch Processing - Justification & Finalization [Preset: mainnet]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
-+ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
-```
-## EF - Phase 0 - Epoch Processing - Participation record updates [Preset: mainnet]
-```diff
-+ Participation record updates - updated_participation_record [Preset: mainnet]              OK
-```
-## EF - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
-```
-## EF - Phase 0 - Epoch Processing - Registry updates [Preset: mainnet]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
-+ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
-+ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
-+ Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
-```
-## EF - Phase 0 - Epoch Processing - Rewards and penalties [Preset: mainnet]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
-+ Rewards and penalties - duplicate_participants_different_attestation_1 [Preset: mainnet]   OK
-+ Rewards and penalties - duplicate_participants_different_attestation_2 [Preset: mainnet]   OK
-+ Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: mainnet]   OK
-+ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
-+ Rewards and penalties - full_attestations_random_incorrect_fields [Preset: mainnet]        OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
-```
-## EF - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
-```diff
-+ Slashings - low_penalty [Preset: mainnet]                                                  OK
-+ Slashings - max_penalties [Preset: mainnet]                                                OK
-+ Slashings - minimal_penalty [Preset: mainnet]                                              OK
-+ Slashings - scaled_penalties [Preset: mainnet]                                             OK
-+ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
-```
-## EF - Phase 0 - Epoch Processing - Slashings reset [Preset: mainnet]
-```diff
-+ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
-```
 ## EF - Phase 0 - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: ma OK
@@ -5247,6 +3964,117 @@ ConsensusSpecPreset-mainnet
 + EF - Phase 0 - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Phase 0 - Slots - slots_2 [Preset: mainnet]                                           OK
 ```
+## EF - altair - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+## EF - altair - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - altair - Epoch Processing - Historical roots update [Preset: mainnet]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
+```
+## EF - altair - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - altair - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - altair - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - altair - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - altair - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - altair - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - altair - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - altair - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
 ## EF - altair - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - altair - Finality - finality_no_updates_at_genesis [Preset: mainnet]        OK
@@ -5360,6 +4188,117 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__full [Preset:  OK
 + [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
 + [Valid]   EF - altair - Sanity - Blocks - voluntary_exit [Preset: mainnet]                 OK
+```
+## EF - bellatrix - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+## EF - bellatrix - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - bellatrix - Epoch Processing - Historical roots update [Preset: mainnet]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
+```
+## EF - bellatrix - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - bellatrix - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - bellatrix - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - bellatrix - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - bellatrix - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - bellatrix - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - bellatrix - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - bellatrix - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - bellatrix - Finality  [Preset: mainnet]
 ```diff
@@ -5477,6 +4416,117 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__full [Prese OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - voluntary_exit [Preset: mainnet]              OK
+```
+## EF - capella - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+## EF - capella - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - capella - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - capella - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - capella - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - capella - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - capella - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - capella - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - capella - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - capella - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - capella - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - capella - Finality  [Preset: mainnet]
 ```diff
@@ -5606,6 +4656,117 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
 + [Valid]   EF - capella - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
+```
+## EF - deneb - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+## EF - deneb - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - deneb - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - deneb - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - deneb - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - deneb - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - deneb - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - deneb - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - deneb - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - deneb - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - deneb - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - deneb - Finality  [Preset: mainnet]
 ```diff
@@ -5744,6 +4905,185 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - deneb - Sanity - Blocks - voluntary_exit [Preset: mainnet]                  OK
 + [Valid]   EF - deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]   OK
 + [Valid]   EF - deneb - Sanity - Blocks - zero_blob [Preset: mainnet]                       OK
+```
+## EF - electra - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - electra - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - electra - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - electra - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - electra - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - electra - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - electra - Epoch Processing - Pending consolidations [Preset: mainnet]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
+```
+## EF - electra - Epoch Processing - Pending deposits [Preset: mainnet]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
+```
+## EF - electra - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - electra - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - electra - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - electra - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - electra - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - electra - Finality  [Preset: mainnet]
 ```diff
@@ -5901,6 +5241,190 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - electra - Sanity - Blocks - zero_blob [Preset: mainnet]                     OK
 ```
+## EF - fulu - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - fulu - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - fulu - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - fulu - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - fulu - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - fulu - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - fulu - Epoch Processing - Pending consolidations [Preset: mainnet]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
+```
+## EF - fulu - Epoch Processing - Pending deposits [Preset: mainnet]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
+```
+## EF - fulu - Epoch Processing - Proposer lookahead [Preset: mainnet]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
+```
+## EF - fulu - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - fulu - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - fulu - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - fulu - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - fulu - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
 ## EF - fulu - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - fulu - Finality - finality_no_updates_at_genesis [Preset: mainnet]          OK
@@ -6048,6 +5572,205 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]    OK
 + [Valid]   EF - fulu - Sanity - Blocks - zero_blob [Preset: mainnet]                        OK
 ```
+## EF - gloas - Epoch Processing - Builder pending payments [Preset: mainnet]
+```diff
++ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: mainnet]  OK
++ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
++ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: mainnet OK
++ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
++ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: mainne OK
+```
+## EF - gloas - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - gloas - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - gloas - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - gloas - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - gloas - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - gloas - Epoch Processing - PTC window [Preset: mainnet]
+```diff
++ PTC window - process_ptc_window__shifts_all_epochs [Preset: mainnet]                       OK
+```
+## EF - gloas - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - gloas - Epoch Processing - Pending consolidations [Preset: mainnet]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
+```
+## EF - gloas - Epoch Processing - Pending deposits [Preset: mainnet]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
+```
+## EF - gloas - Epoch Processing - Proposer lookahead [Preset: mainnet]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
+```
+## EF - gloas - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - gloas - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - gloas - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - gloas - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - gloas - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
 ## EF - gloas - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - gloas - Finality - finality_no_updates_at_genesis [Preset: mainnet]         OK
@@ -6174,6 +5897,201 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - voluntary_exit [Preset: mainnet]                  OK
 + [Valid]   EF - gloas - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]   OK
 ```
+## EF - heze - Epoch Processing - Builder pending payments [Preset: mainnet]
+```diff
++ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: mainnet]  OK
++ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: mainnet] OK
++ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
++ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: mainnet OK
++ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
++ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: mainne OK
+```
+## EF - heze - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - heze - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - heze - Epoch Processing - Historical summaries update [Preset: mainnet]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
+```
+## EF - heze - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - randomized_state [Preset: mainnet]                                            OK
++ Inactivity - randomized_state_leaking [Preset: mainnet]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+## EF - heze - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - heze - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+## EF - heze - Epoch Processing - Pending consolidations [Preset: mainnet]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: mainnet]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: mainnet]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: mainnet]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: ma OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: mainnet]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: mainnet]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: mainnet]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: mainnet]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: mainnet]          OK
+```
+## EF - heze - Epoch Processing - Pending deposits [Preset: mainnet]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: mainnet]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: mainnet]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: mainnet]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: mainnet]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: ma OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: mainnet]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: mainnet] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: mainnet]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: mainnet]            OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
+```
+## EF - heze - Epoch Processing - Proposer lookahead [Preset: mainnet]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
+```
+## EF - heze - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - heze - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: mainnet]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - heze - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - heze - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - heze - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
 ## EF - heze - Finality  [Preset: mainnet]
 ```diff
 + [Valid]   EF - heze - Finality - finality_no_updates_at_genesis [Preset: mainnet]          OK
@@ -6280,6 +6198,88 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mainn OK
 + [Valid]   EF - heze - Sanity - Blocks - voluntary_exit [Preset: mainnet]                   OK
 + [Valid]   EF - heze - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]    OK
+```
+## EF - phase0 - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+## EF - phase0 - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+## EF - phase0 - Epoch Processing - Historical roots update [Preset: mainnet]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
+```
+## EF - phase0 - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+## EF - phase0 - Epoch Processing - Participation record updates [Preset: mainnet]
+```diff
++ Participation record updates - updated_participation_record [Preset: mainnet]              OK
+```
+## EF - phase0 - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+## EF - phase0 - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+## EF - phase0 - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - duplicate_participants_different_attestation_1 [Preset: mainnet]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_2 [Preset: mainnet]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: mainnet]   OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - full_attestations_random_incorrect_fields [Preset: mainnet]        OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+## EF - phase0 - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+## EF - phase0 - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 ## EF - phase0 - Finality  [Preset: mainnet]
 ```diff
