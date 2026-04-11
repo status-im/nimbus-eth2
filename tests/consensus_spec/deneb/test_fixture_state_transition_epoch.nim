@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -17,12 +17,11 @@ import
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
-  ./test_fixture_rewards,
+  ../test_fixture_rewards,
   ../../helpers/debug_state
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
-from ../../../beacon_chain/spec/datatypes/deneb import BeaconState
 
 const
   RootDir = SszTestsDir/const_preset/"deneb"/"epoch_processing"
@@ -39,6 +38,8 @@ const
   SyncCommitteeDir =             RootDir/"sync_committee_updates"
   RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
   HistoricalSummariesUpdateDir = RootDir/"historical_summaries_update"
+
+rewardsTestSuite(ConsensusFork.Deneb)
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==

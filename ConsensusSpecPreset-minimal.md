@@ -326,43 +326,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__min_churn        OK
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__scaled_churn     OK
 ```
-## EF - Altair - Rewards  [Preset: minimal]
-```diff
-+ EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
-+ EF - Altair - Rewards - empty [Preset: minimal]                                            OK
-+ EF - Altair - Rewards - empty_leak [Preset: minimal]                                       OK
-+ EF - Altair - Rewards - full_all_correct [Preset: minimal]                                 OK
-+ EF - Altair - Rewards - full_but_partial_participation [Preset: minimal]                   OK
-+ EF - Altair - Rewards - full_but_partial_participation_leak [Preset: minimal]              OK
-+ EF - Altair - Rewards - full_leak [Preset: minimal]                                        OK
-+ EF - Altair - Rewards - full_random_0 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_1 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_2 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_3 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_4 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_leak [Preset: minimal]                                 OK
-+ EF - Altair - Rewards - full_random_low_balances_0 [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_low_balances_1 [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_misc_balances [Preset: minimal]                        OK
-+ EF - Altair - Rewards - full_random_seven_epoch_leak [Preset: minimal]                     OK
-+ EF - Altair - Rewards - full_random_ten_epoch_leak [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_without_leak_0 [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]      OK
-+ EF - Altair - Rewards - half_full [Preset: minimal]                                        OK
-+ EF - Altair - Rewards - half_full_leak [Preset: minimal]                                   OK
-+ EF - Altair - Rewards - quarter_full [Preset: minimal]                                     OK
-+ EF - Altair - Rewards - quarter_full_leak [Preset: minimal]                                OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]   OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minim OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mini OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: OK
-+ EF - Altair - Rewards - with_exited_validators [Preset: minimal]                           OK
-+ EF - Altair - Rewards - with_exited_validators_leak [Preset: minimal]                      OK
-+ EF - Altair - Rewards - with_not_yet_activated_validators [Preset: minimal]                OK
-+ EF - Altair - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]           OK
-+ EF - Altair - Rewards - with_slashed_validators [Preset: minimal]                          OK
-+ EF - Altair - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
-```
 ## EF - Altair - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -810,43 +773,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success_exit_queue__scaled_churn  OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
-```
-## EF - Bellatrix - Rewards  [Preset: minimal]
-```diff
-+ EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
-+ EF - Bellatrix - Rewards - empty [Preset: minimal]                                         OK
-+ EF - Bellatrix - Rewards - empty_leak [Preset: minimal]                                    OK
-+ EF - Bellatrix - Rewards - full_all_correct [Preset: minimal]                              OK
-+ EF - Bellatrix - Rewards - full_but_partial_participation [Preset: minimal]                OK
-+ EF - Bellatrix - Rewards - full_but_partial_participation_leak [Preset: minimal]           OK
-+ EF - Bellatrix - Rewards - full_leak [Preset: minimal]                                     OK
-+ EF - Bellatrix - Rewards - full_random_0 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_1 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_2 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_3 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_4 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_leak [Preset: minimal]                              OK
-+ EF - Bellatrix - Rewards - full_random_low_balances_0 [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_low_balances_1 [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_misc_balances [Preset: minimal]                     OK
-+ EF - Bellatrix - Rewards - full_random_seven_epoch_leak [Preset: minimal]                  OK
-+ EF - Bellatrix - Rewards - full_random_ten_epoch_leak [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_without_leak_0 [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]   OK
-+ EF - Bellatrix - Rewards - half_full [Preset: minimal]                                     OK
-+ EF - Bellatrix - Rewards - half_full_leak [Preset: minimal]                                OK
-+ EF - Bellatrix - Rewards - quarter_full [Preset: minimal]                                  OK
-+ EF - Bellatrix - Rewards - quarter_full_leak [Preset: minimal]                             OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mi OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: m OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Pres OK
-+ EF - Bellatrix - Rewards - with_exited_validators [Preset: minimal]                        OK
-+ EF - Bellatrix - Rewards - with_exited_validators_leak [Preset: minimal]                   OK
-+ EF - Bellatrix - Rewards - with_not_yet_activated_validators [Preset: minimal]             OK
-+ EF - Bellatrix - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]        OK
-+ EF - Bellatrix - Rewards - with_slashed_validators [Preset: minimal]                       OK
-+ EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: minimal]                  OK
 ```
 ## EF - Bellatrix - SSZ consensus objects  [Preset: minimal]
 ```diff
@@ -1366,43 +1292,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
-```
-## EF - Capella - Rewards  [Preset: minimal]
-```diff
-+ EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
-+ EF - Capella - Rewards - empty [Preset: minimal]                                           OK
-+ EF - Capella - Rewards - empty_leak [Preset: minimal]                                      OK
-+ EF - Capella - Rewards - full_all_correct [Preset: minimal]                                OK
-+ EF - Capella - Rewards - full_but_partial_participation [Preset: minimal]                  OK
-+ EF - Capella - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
-+ EF - Capella - Rewards - full_leak [Preset: minimal]                                       OK
-+ EF - Capella - Rewards - full_random_0 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_1 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_2 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_3 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_4 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_leak [Preset: minimal]                                OK
-+ EF - Capella - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_misc_balances [Preset: minimal]                       OK
-+ EF - Capella - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
-+ EF - Capella - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
-+ EF - Capella - Rewards - half_full [Preset: minimal]                                       OK
-+ EF - Capella - Rewards - half_full_leak [Preset: minimal]                                  OK
-+ EF - Capella - Rewards - quarter_full [Preset: minimal]                                    OK
-+ EF - Capella - Rewards - quarter_full_leak [Preset: minimal]                               OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
-+ EF - Capella - Rewards - with_exited_validators [Preset: minimal]                          OK
-+ EF - Capella - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
-+ EF - Capella - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
-+ EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
-+ EF - Capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
-+ EF - Capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
 ## EF - Capella - SSZ consensus objects  [Preset: minimal]
 ```diff
@@ -1949,43 +1838,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_balance         OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
-```
-## EF - Deneb - Rewards  [Preset: minimal]
-```diff
-+ EF - Deneb - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
-+ EF - Deneb - Rewards - empty [Preset: minimal]                                             OK
-+ EF - Deneb - Rewards - empty_leak [Preset: minimal]                                        OK
-+ EF - Deneb - Rewards - full_all_correct [Preset: minimal]                                  OK
-+ EF - Deneb - Rewards - full_but_partial_participation [Preset: minimal]                    OK
-+ EF - Deneb - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
-+ EF - Deneb - Rewards - full_leak [Preset: minimal]                                         OK
-+ EF - Deneb - Rewards - full_random_0 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_1 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_2 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_3 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_4 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_leak [Preset: minimal]                                  OK
-+ EF - Deneb - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_misc_balances [Preset: minimal]                         OK
-+ EF - Deneb - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
-+ EF - Deneb - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
-+ EF - Deneb - Rewards - half_full [Preset: minimal]                                         OK
-+ EF - Deneb - Rewards - half_full_leak [Preset: minimal]                                    OK
-+ EF - Deneb - Rewards - quarter_full [Preset: minimal]                                      OK
-+ EF - Deneb - Rewards - quarter_full_leak [Preset: minimal]                                 OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
-+ EF - Deneb - Rewards - with_exited_validators [Preset: minimal]                            OK
-+ EF - Deneb - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
-+ EF - Deneb - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
-+ EF - Deneb - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
-+ EF - Deneb - Rewards - with_slashed_validators [Preset: minimal]                           OK
-+ EF - Deneb - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
 ```
 ## EF - Deneb - SSZ consensus objects  [Preset: minimal]
 ```diff
@@ -2743,43 +2595,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
-```
-## EF - Electra - Rewards  [Preset: minimal]
-```diff
-+ EF - Electra - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
-+ EF - Electra - Rewards - empty [Preset: minimal]                                           OK
-+ EF - Electra - Rewards - empty_leak [Preset: minimal]                                      OK
-+ EF - Electra - Rewards - full_all_correct [Preset: minimal]                                OK
-+ EF - Electra - Rewards - full_but_partial_participation [Preset: minimal]                  OK
-+ EF - Electra - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
-+ EF - Electra - Rewards - full_leak [Preset: minimal]                                       OK
-+ EF - Electra - Rewards - full_random_0 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_1 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_2 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_3 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_4 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_leak [Preset: minimal]                                OK
-+ EF - Electra - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_misc_balances [Preset: minimal]                       OK
-+ EF - Electra - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
-+ EF - Electra - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
-+ EF - Electra - Rewards - half_full [Preset: minimal]                                       OK
-+ EF - Electra - Rewards - half_full_leak [Preset: minimal]                                  OK
-+ EF - Electra - Rewards - quarter_full [Preset: minimal]                                    OK
-+ EF - Electra - Rewards - quarter_full_leak [Preset: minimal]                               OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
-+ EF - Electra - Rewards - with_exited_validators [Preset: minimal]                          OK
-+ EF - Electra - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
-+ EF - Electra - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
-+ EF - Electra - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
-+ EF - Electra - Rewards - with_slashed_validators [Preset: minimal]                         OK
-+ EF - Electra - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
 ## EF - Electra - SSZ consensus objects  [Preset: minimal]
 ```diff
@@ -3557,43 +3372,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_balance          OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
-```
-## EF - Fulu - Rewards  [Preset: minimal]
-```diff
-+ EF - Fulu - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
-+ EF - Fulu - Rewards - empty [Preset: minimal]                                              OK
-+ EF - Fulu - Rewards - empty_leak [Preset: minimal]                                         OK
-+ EF - Fulu - Rewards - full_all_correct [Preset: minimal]                                   OK
-+ EF - Fulu - Rewards - full_but_partial_participation [Preset: minimal]                     OK
-+ EF - Fulu - Rewards - full_but_partial_participation_leak [Preset: minimal]                OK
-+ EF - Fulu - Rewards - full_leak [Preset: minimal]                                          OK
-+ EF - Fulu - Rewards - full_random_0 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_1 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_2 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_3 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_4 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_leak [Preset: minimal]                                   OK
-+ EF - Fulu - Rewards - full_random_low_balances_0 [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_low_balances_1 [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_misc_balances [Preset: minimal]                          OK
-+ EF - Fulu - Rewards - full_random_seven_epoch_leak [Preset: minimal]                       OK
-+ EF - Fulu - Rewards - full_random_ten_epoch_leak [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_without_leak_0 [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]        OK
-+ EF - Fulu - Rewards - half_full [Preset: minimal]                                          OK
-+ EF - Fulu - Rewards - half_full_leak [Preset: minimal]                                     OK
-+ EF - Fulu - Rewards - quarter_full [Preset: minimal]                                       OK
-+ EF - Fulu - Rewards - quarter_full_leak [Preset: minimal]                                  OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]     OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minima OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
-+ EF - Fulu - Rewards - with_exited_validators [Preset: minimal]                             OK
-+ EF - Fulu - Rewards - with_exited_validators_leak [Preset: minimal]                        OK
-+ EF - Fulu - Rewards - with_not_yet_activated_validators [Preset: minimal]                  OK
-+ EF - Fulu - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]             OK
-+ EF - Fulu - Rewards - with_slashed_validators [Preset: minimal]                            OK
-+ EF - Fulu - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
 ```
 ## EF - Fulu - SSZ consensus objects  [Preset: minimal]
 ```diff
@@ -4484,43 +4262,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_balance         OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-## EF - Gloas - Rewards  [Preset: minimal]
-```diff
-+ EF - Gloas - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
-+ EF - Gloas - Rewards - empty [Preset: minimal]                                             OK
-+ EF - Gloas - Rewards - empty_leak [Preset: minimal]                                        OK
-+ EF - Gloas - Rewards - full_all_correct [Preset: minimal]                                  OK
-+ EF - Gloas - Rewards - full_but_partial_participation [Preset: minimal]                    OK
-+ EF - Gloas - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
-+ EF - Gloas - Rewards - full_leak [Preset: minimal]                                         OK
-+ EF - Gloas - Rewards - full_random_0 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_1 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_2 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_3 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_4 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_leak [Preset: minimal]                                  OK
-+ EF - Gloas - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_misc_balances [Preset: minimal]                         OK
-+ EF - Gloas - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
-+ EF - Gloas - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
-+ EF - Gloas - Rewards - half_full [Preset: minimal]                                         OK
-+ EF - Gloas - Rewards - half_full_leak [Preset: minimal]                                    OK
-+ EF - Gloas - Rewards - quarter_full [Preset: minimal]                                      OK
-+ EF - Gloas - Rewards - quarter_full_leak [Preset: minimal]                                 OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
-+ EF - Gloas - Rewards - with_exited_validators [Preset: minimal]                            OK
-+ EF - Gloas - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
-+ EF - Gloas - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
-+ EF - Gloas - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
-+ EF - Gloas - Rewards - with_slashed_validators [Preset: minimal]                           OK
-+ EF - Gloas - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
-```
 ## EF - Gloas - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -5390,43 +5131,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Withdrawals - withdrawable_epoch_but_0_balance          OK
 + [Valid]   EF - Heze - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 ```
-## EF - Heze - Rewards  [Preset: minimal]
-```diff
-+ EF - Heze - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
-+ EF - Heze - Rewards - empty [Preset: minimal]                                              OK
-+ EF - Heze - Rewards - empty_leak [Preset: minimal]                                         OK
-+ EF - Heze - Rewards - full_all_correct [Preset: minimal]                                   OK
-+ EF - Heze - Rewards - full_but_partial_participation [Preset: minimal]                     OK
-+ EF - Heze - Rewards - full_but_partial_participation_leak [Preset: minimal]                OK
-+ EF - Heze - Rewards - full_leak [Preset: minimal]                                          OK
-+ EF - Heze - Rewards - full_random_0 [Preset: minimal]                                      OK
-+ EF - Heze - Rewards - full_random_1 [Preset: minimal]                                      OK
-+ EF - Heze - Rewards - full_random_2 [Preset: minimal]                                      OK
-+ EF - Heze - Rewards - full_random_3 [Preset: minimal]                                      OK
-+ EF - Heze - Rewards - full_random_4 [Preset: minimal]                                      OK
-+ EF - Heze - Rewards - full_random_leak [Preset: minimal]                                   OK
-+ EF - Heze - Rewards - full_random_low_balances_0 [Preset: minimal]                         OK
-+ EF - Heze - Rewards - full_random_low_balances_1 [Preset: minimal]                         OK
-+ EF - Heze - Rewards - full_random_misc_balances [Preset: minimal]                          OK
-+ EF - Heze - Rewards - full_random_seven_epoch_leak [Preset: minimal]                       OK
-+ EF - Heze - Rewards - full_random_ten_epoch_leak [Preset: minimal]                         OK
-+ EF - Heze - Rewards - full_random_without_leak_0 [Preset: minimal]                         OK
-+ EF - Heze - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]        OK
-+ EF - Heze - Rewards - half_full [Preset: minimal]                                          OK
-+ EF - Heze - Rewards - half_full_leak [Preset: minimal]                                     OK
-+ EF - Heze - Rewards - quarter_full [Preset: minimal]                                       OK
-+ EF - Heze - Rewards - quarter_full_leak [Preset: minimal]                                  OK
-+ EF - Heze - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]     OK
-+ EF - Heze - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal OK
-+ EF - Heze - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minima OK
-+ EF - Heze - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
-+ EF - Heze - Rewards - with_exited_validators [Preset: minimal]                             OK
-+ EF - Heze - Rewards - with_exited_validators_leak [Preset: minimal]                        OK
-+ EF - Heze - Rewards - with_not_yet_activated_validators [Preset: minimal]                  OK
-+ EF - Heze - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]             OK
-+ EF - Heze - Rewards - with_slashed_validators [Preset: minimal]                            OK
-+ EF - Heze - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
-```
 ## EF - Heze - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -5901,58 +5605,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 ```
-## EF - Phase 0 - Rewards  [Preset: minimal]
-```diff
-+ EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
-+ EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
-+ EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
-+ EF - Phase 0 - Rewards - empty_leak [Preset: minimal]                                      OK
-+ EF - Phase 0 - Rewards - full_all_correct [Preset: minimal]                                OK
-+ EF - Phase 0 - Rewards - full_but_partial_participation [Preset: minimal]                  OK
-+ EF - Phase 0 - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
-+ EF - Phase 0 - Rewards - full_correct_target_incorrect_head [Preset: minimal]              OK
-+ EF - Phase 0 - Rewards - full_correct_target_incorrect_head_leak [Preset: minimal]         OK
-+ EF - Phase 0 - Rewards - full_delay_max_slots [Preset: minimal]                            OK
-+ EF - Phase 0 - Rewards - full_delay_one_slot [Preset: minimal]                             OK
-+ EF - Phase 0 - Rewards - full_half_correct_target_incorrect_head [Preset: minimal]         OK
-+ EF - Phase 0 - Rewards - full_half_correct_target_incorrect_head_leak [Preset: minimal]    OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_correct_head [Preset: minimal]         OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_correct_head_leak [Preset: minimal]    OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_incorrect_head [Preset: minimal]       OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_incorrect_head_leak [Preset: minimal]  OK
-+ EF - Phase 0 - Rewards - full_leak [Preset: minimal]                                       OK
-+ EF - Phase 0 - Rewards - full_mixed_delay [Preset: minimal]                                OK
-+ EF - Phase 0 - Rewards - full_random_0 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_1 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_2 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_3 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_4 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_leak [Preset: minimal]                                OK
-+ EF - Phase 0 - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_misc_balances [Preset: minimal]                       OK
-+ EF - Phase 0 - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
-+ EF - Phase 0 - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
-+ EF - Phase 0 - Rewards - half_full [Preset: minimal]                                       OK
-+ EF - Phase 0 - Rewards - half_full_leak [Preset: minimal]                                  OK
-+ EF - Phase 0 - Rewards - one_attestation_one_correct [Preset: minimal]                     OK
-+ EF - Phase 0 - Rewards - one_attestation_one_correct_leak [Preset: minimal]                OK
-+ EF - Phase 0 - Rewards - proposer_not_in_attestations [Preset: minimal]                    OK
-+ EF - Phase 0 - Rewards - quarter_full [Preset: minimal]                                    OK
-+ EF - Phase 0 - Rewards - quarter_full_leak [Preset: minimal]                               OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
-+ EF - Phase 0 - Rewards - with_exited_validators [Preset: minimal]                          OK
-+ EF - Phase 0 - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
-+ EF - Phase 0 - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
-+ EF - Phase 0 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
-+ EF - Phase 0 - Rewards - with_slashed_validators [Preset: minimal]                         OK
-+ EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
-```
 ## EF - Phase 0 - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -6019,6 +5671,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - altair - Random - randomized_7 [Preset: minimal]                            OK
 + [Valid]   EF - altair - Random - randomized_8 [Preset: minimal]                            OK
 + [Valid]   EF - altair - Random - randomized_9 [Preset: minimal]                            OK
+```
+## EF - altair - Rewards  [Preset: minimal]
+```diff
++ EF - altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
++ EF - altair - Rewards - empty [Preset: minimal]                                            OK
++ EF - altair - Rewards - empty_leak [Preset: minimal]                                       OK
++ EF - altair - Rewards - full_all_correct [Preset: minimal]                                 OK
++ EF - altair - Rewards - full_but_partial_participation [Preset: minimal]                   OK
++ EF - altair - Rewards - full_but_partial_participation_leak [Preset: minimal]              OK
++ EF - altair - Rewards - full_leak [Preset: minimal]                                        OK
++ EF - altair - Rewards - full_random_0 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_1 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_2 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_3 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_4 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_leak [Preset: minimal]                                 OK
++ EF - altair - Rewards - full_random_low_balances_0 [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_low_balances_1 [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_misc_balances [Preset: minimal]                        OK
++ EF - altair - Rewards - full_random_seven_epoch_leak [Preset: minimal]                     OK
++ EF - altair - Rewards - full_random_ten_epoch_leak [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_without_leak_0 [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]      OK
++ EF - altair - Rewards - half_full [Preset: minimal]                                        OK
++ EF - altair - Rewards - half_full_leak [Preset: minimal]                                   OK
++ EF - altair - Rewards - quarter_full [Preset: minimal]                                     OK
++ EF - altair - Rewards - quarter_full_leak [Preset: minimal]                                OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]   OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minim OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mini OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: OK
++ EF - altair - Rewards - with_exited_validators [Preset: minimal]                           OK
++ EF - altair - Rewards - with_exited_validators_leak [Preset: minimal]                      OK
++ EF - altair - Rewards - with_not_yet_activated_validators [Preset: minimal]                OK
++ EF - altair - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]           OK
++ EF - altair - Rewards - with_slashed_validators [Preset: minimal]                          OK
++ EF - altair - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
 ```
 ## EF - altair - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6101,6 +5790,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - bellatrix - Random - randomized_7 [Preset: minimal]                         OK
 + [Valid]   EF - bellatrix - Random - randomized_8 [Preset: minimal]                         OK
 + [Valid]   EF - bellatrix - Random - randomized_9 [Preset: minimal]                         OK
+```
+## EF - bellatrix - Rewards  [Preset: minimal]
+```diff
++ EF - bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
++ EF - bellatrix - Rewards - empty [Preset: minimal]                                         OK
++ EF - bellatrix - Rewards - empty_leak [Preset: minimal]                                    OK
++ EF - bellatrix - Rewards - full_all_correct [Preset: minimal]                              OK
++ EF - bellatrix - Rewards - full_but_partial_participation [Preset: minimal]                OK
++ EF - bellatrix - Rewards - full_but_partial_participation_leak [Preset: minimal]           OK
++ EF - bellatrix - Rewards - full_leak [Preset: minimal]                                     OK
++ EF - bellatrix - Rewards - full_random_0 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_1 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_2 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_3 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_4 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_leak [Preset: minimal]                              OK
++ EF - bellatrix - Rewards - full_random_low_balances_0 [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_low_balances_1 [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_misc_balances [Preset: minimal]                     OK
++ EF - bellatrix - Rewards - full_random_seven_epoch_leak [Preset: minimal]                  OK
++ EF - bellatrix - Rewards - full_random_ten_epoch_leak [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_without_leak_0 [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]   OK
++ EF - bellatrix - Rewards - half_full [Preset: minimal]                                     OK
++ EF - bellatrix - Rewards - half_full_leak [Preset: minimal]                                OK
++ EF - bellatrix - Rewards - quarter_full [Preset: minimal]                                  OK
++ EF - bellatrix - Rewards - quarter_full_leak [Preset: minimal]                             OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mi OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: m OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Pres OK
++ EF - bellatrix - Rewards - with_exited_validators [Preset: minimal]                        OK
++ EF - bellatrix - Rewards - with_exited_validators_leak [Preset: minimal]                   OK
++ EF - bellatrix - Rewards - with_not_yet_activated_validators [Preset: minimal]             OK
++ EF - bellatrix - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]        OK
++ EF - bellatrix - Rewards - with_slashed_validators [Preset: minimal]                       OK
++ EF - bellatrix - Rewards - with_slashed_validators_leak [Preset: minimal]                  OK
 ```
 ## EF - bellatrix - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6186,6 +5912,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - capella - Random - randomized_7 [Preset: minimal]                           OK
 + [Valid]   EF - capella - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - capella - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - capella - Rewards  [Preset: minimal]
+```diff
++ EF - capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
++ EF - capella - Rewards - empty [Preset: minimal]                                           OK
++ EF - capella - Rewards - empty_leak [Preset: minimal]                                      OK
++ EF - capella - Rewards - full_all_correct [Preset: minimal]                                OK
++ EF - capella - Rewards - full_but_partial_participation [Preset: minimal]                  OK
++ EF - capella - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
++ EF - capella - Rewards - full_leak [Preset: minimal]                                       OK
++ EF - capella - Rewards - full_random_0 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_1 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_2 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_3 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_4 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_leak [Preset: minimal]                                OK
++ EF - capella - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_misc_balances [Preset: minimal]                       OK
++ EF - capella - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
++ EF - capella - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
++ EF - capella - Rewards - half_full [Preset: minimal]                                       OK
++ EF - capella - Rewards - half_full_leak [Preset: minimal]                                  OK
++ EF - capella - Rewards - quarter_full [Preset: minimal]                                    OK
++ EF - capella - Rewards - quarter_full_leak [Preset: minimal]                               OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - capella - Rewards - with_exited_validators [Preset: minimal]                          OK
++ EF - capella - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
++ EF - capella - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
++ EF - capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
++ EF - capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
++ EF - capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
 ## EF - capella - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6285,6 +6048,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - deneb - Random - randomized_7 [Preset: minimal]                             OK
 + [Valid]   EF - deneb - Random - randomized_8 [Preset: minimal]                             OK
 + [Valid]   EF - deneb - Random - randomized_9 [Preset: minimal]                             OK
+```
+## EF - deneb - Rewards  [Preset: minimal]
+```diff
++ EF - deneb - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
++ EF - deneb - Rewards - empty [Preset: minimal]                                             OK
++ EF - deneb - Rewards - empty_leak [Preset: minimal]                                        OK
++ EF - deneb - Rewards - full_all_correct [Preset: minimal]                                  OK
++ EF - deneb - Rewards - full_but_partial_participation [Preset: minimal]                    OK
++ EF - deneb - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
++ EF - deneb - Rewards - full_leak [Preset: minimal]                                         OK
++ EF - deneb - Rewards - full_random_0 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_1 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_2 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_3 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_4 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_leak [Preset: minimal]                                  OK
++ EF - deneb - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_misc_balances [Preset: minimal]                         OK
++ EF - deneb - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
++ EF - deneb - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
++ EF - deneb - Rewards - half_full [Preset: minimal]                                         OK
++ EF - deneb - Rewards - half_full_leak [Preset: minimal]                                    OK
++ EF - deneb - Rewards - quarter_full [Preset: minimal]                                      OK
++ EF - deneb - Rewards - quarter_full_leak [Preset: minimal]                                 OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
++ EF - deneb - Rewards - with_exited_validators [Preset: minimal]                            OK
++ EF - deneb - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
++ EF - deneb - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
++ EF - deneb - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
++ EF - deneb - Rewards - with_slashed_validators [Preset: minimal]                           OK
++ EF - deneb - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
 ```
 ## EF - deneb - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6393,6 +6193,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - electra - Random - randomized_7 [Preset: minimal]                           OK
 + [Valid]   EF - electra - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - electra - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - electra - Rewards  [Preset: minimal]
+```diff
++ EF - electra - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
++ EF - electra - Rewards - empty [Preset: minimal]                                           OK
++ EF - electra - Rewards - empty_leak [Preset: minimal]                                      OK
++ EF - electra - Rewards - full_all_correct [Preset: minimal]                                OK
++ EF - electra - Rewards - full_but_partial_participation [Preset: minimal]                  OK
++ EF - electra - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
++ EF - electra - Rewards - full_leak [Preset: minimal]                                       OK
++ EF - electra - Rewards - full_random_0 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_1 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_2 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_3 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_4 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_leak [Preset: minimal]                                OK
++ EF - electra - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_misc_balances [Preset: minimal]                       OK
++ EF - electra - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
++ EF - electra - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
++ EF - electra - Rewards - half_full [Preset: minimal]                                       OK
++ EF - electra - Rewards - half_full_leak [Preset: minimal]                                  OK
++ EF - electra - Rewards - quarter_full [Preset: minimal]                                    OK
++ EF - electra - Rewards - quarter_full_leak [Preset: minimal]                               OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - electra - Rewards - with_exited_validators [Preset: minimal]                          OK
++ EF - electra - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
++ EF - electra - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
++ EF - electra - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
++ EF - electra - Rewards - with_slashed_validators [Preset: minimal]                         OK
++ EF - electra - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
 ## EF - electra - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6525,6 +6362,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Random - randomized_8 [Preset: minimal]                              OK
 + [Valid]   EF - fulu - Random - randomized_9 [Preset: minimal]                              OK
 ```
+## EF - fulu - Rewards  [Preset: minimal]
+```diff
++ EF - fulu - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
++ EF - fulu - Rewards - empty [Preset: minimal]                                              OK
++ EF - fulu - Rewards - empty_leak [Preset: minimal]                                         OK
++ EF - fulu - Rewards - full_all_correct [Preset: minimal]                                   OK
++ EF - fulu - Rewards - full_but_partial_participation [Preset: minimal]                     OK
++ EF - fulu - Rewards - full_but_partial_participation_leak [Preset: minimal]                OK
++ EF - fulu - Rewards - full_leak [Preset: minimal]                                          OK
++ EF - fulu - Rewards - full_random_0 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_1 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_2 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_3 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_4 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_leak [Preset: minimal]                                   OK
++ EF - fulu - Rewards - full_random_low_balances_0 [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_low_balances_1 [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_misc_balances [Preset: minimal]                          OK
++ EF - fulu - Rewards - full_random_seven_epoch_leak [Preset: minimal]                       OK
++ EF - fulu - Rewards - full_random_ten_epoch_leak [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_without_leak_0 [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]        OK
++ EF - fulu - Rewards - half_full [Preset: minimal]                                          OK
++ EF - fulu - Rewards - half_full_leak [Preset: minimal]                                     OK
++ EF - fulu - Rewards - quarter_full [Preset: minimal]                                       OK
++ EF - fulu - Rewards - quarter_full_leak [Preset: minimal]                                  OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]     OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minima OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
++ EF - fulu - Rewards - with_exited_validators [Preset: minimal]                             OK
++ EF - fulu - Rewards - with_exited_validators_leak [Preset: minimal]                        OK
++ EF - fulu - Rewards - with_not_yet_activated_validators [Preset: minimal]                  OK
++ EF - fulu - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]             OK
++ EF - fulu - Rewards - with_slashed_validators [Preset: minimal]                            OK
++ EF - fulu - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
+```
 ## EF - fulu - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]           OK
@@ -6647,6 +6521,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Random - randomized_8 [Preset: minimal]                             OK
 + [Valid]   EF - gloas - Random - randomized_9 [Preset: minimal]                             OK
 ```
+## EF - gloas - Rewards  [Preset: minimal]
+```diff
++ EF - gloas - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
++ EF - gloas - Rewards - empty [Preset: minimal]                                             OK
++ EF - gloas - Rewards - empty_leak [Preset: minimal]                                        OK
++ EF - gloas - Rewards - full_all_correct [Preset: minimal]                                  OK
++ EF - gloas - Rewards - full_but_partial_participation [Preset: minimal]                    OK
++ EF - gloas - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
++ EF - gloas - Rewards - full_leak [Preset: minimal]                                         OK
++ EF - gloas - Rewards - full_random_0 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_1 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_2 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_3 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_4 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_leak [Preset: minimal]                                  OK
++ EF - gloas - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_misc_balances [Preset: minimal]                         OK
++ EF - gloas - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
++ EF - gloas - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
++ EF - gloas - Rewards - half_full [Preset: minimal]                                         OK
++ EF - gloas - Rewards - half_full_leak [Preset: minimal]                                    OK
++ EF - gloas - Rewards - quarter_full [Preset: minimal]                                      OK
++ EF - gloas - Rewards - quarter_full_leak [Preset: minimal]                                 OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
++ EF - gloas - Rewards - with_exited_validators [Preset: minimal]                            OK
++ EF - gloas - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
++ EF - gloas - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
++ EF - gloas - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
++ EF - gloas - Rewards - with_slashed_validators [Preset: minimal]                           OK
++ EF - gloas - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
+```
 ## EF - gloas - Sanity - Blocks  [Preset: minimal]
 ```diff
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]          OK
@@ -6723,6 +6634,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Finality - finality_rule_2 [Preset: minimal]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_3 [Preset: minimal]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_4 [Preset: minimal]                         OK
+```
+## EF - heze - Rewards  [Preset: minimal]
+```diff
++ EF - heze - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
++ EF - heze - Rewards - empty [Preset: minimal]                                              OK
++ EF - heze - Rewards - empty_leak [Preset: minimal]                                         OK
++ EF - heze - Rewards - full_all_correct [Preset: minimal]                                   OK
++ EF - heze - Rewards - full_but_partial_participation [Preset: minimal]                     OK
++ EF - heze - Rewards - full_but_partial_participation_leak [Preset: minimal]                OK
++ EF - heze - Rewards - full_leak [Preset: minimal]                                          OK
++ EF - heze - Rewards - full_random_0 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_1 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_2 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_3 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_4 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_leak [Preset: minimal]                                   OK
++ EF - heze - Rewards - full_random_low_balances_0 [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_low_balances_1 [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_misc_balances [Preset: minimal]                          OK
++ EF - heze - Rewards - full_random_seven_epoch_leak [Preset: minimal]                       OK
++ EF - heze - Rewards - full_random_ten_epoch_leak [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_without_leak_0 [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]        OK
++ EF - heze - Rewards - half_full [Preset: minimal]                                          OK
++ EF - heze - Rewards - half_full_leak [Preset: minimal]                                     OK
++ EF - heze - Rewards - quarter_full [Preset: minimal]                                       OK
++ EF - heze - Rewards - quarter_full_leak [Preset: minimal]                                  OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]     OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minima OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
++ EF - heze - Rewards - with_exited_validators [Preset: minimal]                             OK
++ EF - heze - Rewards - with_exited_validators_leak [Preset: minimal]                        OK
++ EF - heze - Rewards - with_not_yet_activated_validators [Preset: minimal]                  OK
++ EF - heze - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]             OK
++ EF - heze - Rewards - with_slashed_validators [Preset: minimal]                            OK
++ EF - heze - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
 ```
 ## EF - heze - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6819,6 +6767,58 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - phase0 - Random - randomized_7 [Preset: minimal]                            OK
 + [Valid]   EF - phase0 - Random - randomized_8 [Preset: minimal]                            OK
 + [Valid]   EF - phase0 - Random - randomized_9 [Preset: minimal]                            OK
+```
+## EF - phase0 - Rewards  [Preset: minimal]
+```diff
++ EF - phase0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
++ EF - phase0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]            OK
++ EF - phase0 - Rewards - empty [Preset: minimal]                                            OK
++ EF - phase0 - Rewards - empty_leak [Preset: minimal]                                       OK
++ EF - phase0 - Rewards - full_all_correct [Preset: minimal]                                 OK
++ EF - phase0 - Rewards - full_but_partial_participation [Preset: minimal]                   OK
++ EF - phase0 - Rewards - full_but_partial_participation_leak [Preset: minimal]              OK
++ EF - phase0 - Rewards - full_correct_target_incorrect_head [Preset: minimal]               OK
++ EF - phase0 - Rewards - full_correct_target_incorrect_head_leak [Preset: minimal]          OK
++ EF - phase0 - Rewards - full_delay_max_slots [Preset: minimal]                             OK
++ EF - phase0 - Rewards - full_delay_one_slot [Preset: minimal]                              OK
++ EF - phase0 - Rewards - full_half_correct_target_incorrect_head [Preset: minimal]          OK
++ EF - phase0 - Rewards - full_half_correct_target_incorrect_head_leak [Preset: minimal]     OK
++ EF - phase0 - Rewards - full_half_incorrect_target_correct_head [Preset: minimal]          OK
++ EF - phase0 - Rewards - full_half_incorrect_target_correct_head_leak [Preset: minimal]     OK
++ EF - phase0 - Rewards - full_half_incorrect_target_incorrect_head [Preset: minimal]        OK
++ EF - phase0 - Rewards - full_half_incorrect_target_incorrect_head_leak [Preset: minimal]   OK
++ EF - phase0 - Rewards - full_leak [Preset: minimal]                                        OK
++ EF - phase0 - Rewards - full_mixed_delay [Preset: minimal]                                 OK
++ EF - phase0 - Rewards - full_random_0 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_1 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_2 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_3 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_4 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_leak [Preset: minimal]                                 OK
++ EF - phase0 - Rewards - full_random_low_balances_0 [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_low_balances_1 [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_misc_balances [Preset: minimal]                        OK
++ EF - phase0 - Rewards - full_random_seven_epoch_leak [Preset: minimal]                     OK
++ EF - phase0 - Rewards - full_random_ten_epoch_leak [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_without_leak_0 [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]      OK
++ EF - phase0 - Rewards - half_full [Preset: minimal]                                        OK
++ EF - phase0 - Rewards - half_full_leak [Preset: minimal]                                   OK
++ EF - phase0 - Rewards - one_attestation_one_correct [Preset: minimal]                      OK
++ EF - phase0 - Rewards - one_attestation_one_correct_leak [Preset: minimal]                 OK
++ EF - phase0 - Rewards - proposer_not_in_attestations [Preset: minimal]                     OK
++ EF - phase0 - Rewards - quarter_full [Preset: minimal]                                     OK
++ EF - phase0 - Rewards - quarter_full_leak [Preset: minimal]                                OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]   OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minim OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mini OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: OK
++ EF - phase0 - Rewards - with_exited_validators [Preset: minimal]                           OK
++ EF - phase0 - Rewards - with_exited_validators_leak [Preset: minimal]                      OK
++ EF - phase0 - Rewards - with_not_yet_activated_validators [Preset: minimal]                OK
++ EF - phase0 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]           OK
++ EF - phase0 - Rewards - with_slashed_validators [Preset: minimal]                          OK
++ EF - phase0 - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
 ```
 ## EF - phase0 - Sanity - Blocks  [Preset: minimal]
 ```diff

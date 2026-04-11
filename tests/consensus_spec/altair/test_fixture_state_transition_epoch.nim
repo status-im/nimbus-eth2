@@ -1,22 +1,21 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
   # Beacon chain internals
   chronicles,
   ../../../beacon_chain/spec/[presets, state_transition_epoch],
-  ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
-  ./test_fixture_rewards,
+  ../test_fixture_rewards,
   ../../helpers/debug_state
 
 from std/sequtils import mapIt, toSeq
@@ -37,6 +36,8 @@ const
   ParticipationFlagDir =         RootDir/"participation_flag_updates"
   SyncCommitteeDir =             RootDir/"sync_committee_updates"
   RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
+
+rewardsTestSuite(ConsensusFork.Altair)
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==

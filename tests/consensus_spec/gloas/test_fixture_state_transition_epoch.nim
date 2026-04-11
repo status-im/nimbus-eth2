@@ -13,16 +13,14 @@ import
   chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[presets, state_transition_epoch],
-  ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
-  ./test_fixture_rewards,
+  ../test_fixture_rewards,
   ../../helpers/debug_state
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
-from ../../../beacon_chain/spec/datatypes/gloas import BeaconState
 
 const
   RootDir = SszTestsDir/const_preset/"gloas"/"epoch_processing"
@@ -44,6 +42,8 @@ const
   ProposerLookaheadDir =         RootDir/"proposer_lookahead"
   BuilderPendingPaymentsDir =    RootDir/"builder_pending_payments"
   PtcWindowDir =                 RootDir/"ptc_window"
+
+rewardsTestSuite(ConsensusFork.Gloas)
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==

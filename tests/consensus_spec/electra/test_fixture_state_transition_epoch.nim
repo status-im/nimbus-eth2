@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -13,16 +13,14 @@ import
   chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[presets, state_transition_epoch],
-  ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
-  ./test_fixture_rewards,
+  ../test_fixture_rewards,
   ../../helpers/debug_state
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
-from ../../../beacon_chain/spec/datatypes/electra import BeaconState
 
 const
   RootDir = SszTestsDir/const_preset/"electra"/"epoch_processing"
@@ -41,6 +39,8 @@ const
   HistoricalSummariesUpdateDir = RootDir/"historical_summaries_update"
   PendingConsolidationsDir =     RootDir/"pending_consolidations"
   PendingDepositsDir =           RootDir/"pending_deposits"
+
+rewardsTestSuite(ConsensusFork.Electra)
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==
