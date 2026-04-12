@@ -117,9 +117,9 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
                                        parentIdx: Index,
                                        childIdx: Index): FcResult[void]
 
-func nodeIsViableForHead(
+func nodeIsViableForHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool
-func nodeLeadsToViableHead(
+func nodeLeadsToViableHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool]
 
 # ProtoArray routines
@@ -337,6 +337,7 @@ func onBlock*(
     checkpoints: FinalityCheckpoints,
     unrealized = Opt.none(FinalityCheckpoints),
     parent_payload_status = PAYLOAD_STATUS_PENDING,
+    bidBlockHash = static(default(Eth2Digest)),
     proposerIndex = 0'u64): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
@@ -368,6 +369,7 @@ func onBlock*(
     bestChild: Opt.none(int),
     bestDescendant: Opt.none(int),
     parentPayloadStatus: parent_payload_status,
+    bidBlockHash: bidBlockHash,
     proposerIndex: proposerIndex)
 
   self.indices[node.bid.root] = nodeLogicalIdx
@@ -555,7 +557,7 @@ func maybeUpdateBestChildAndDescendant(
     .bestDescendant = newBestDescendant
   ok()
 
-func nodeLeadsToViableHead(
+func nodeLeadsToViableHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool] =
   ## Indicates if the node itself or its best-descendant are viable
   ## for blockchain head
@@ -573,7 +575,7 @@ func nodeLeadsToViableHead(
 
   ok(bestDescendantIsViableForHead or self.nodeIsViableForHead(node, nodeIdx))
 
-func nodeIsViableForHead(
+func nodeIsViableForHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
   ## This is the equivalent of `filter_block_tree` function in consensus specs
   ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree

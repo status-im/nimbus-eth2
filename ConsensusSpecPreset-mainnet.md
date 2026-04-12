@@ -6532,6 +6532,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost                OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload/pyspec_tests/on_execution_payl OK
 ```
 ## Sync
 ```diff

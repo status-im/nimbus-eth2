@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[tables, sets],
   # Status libraries
   results, chronicles,
   # Internal
@@ -105,6 +105,7 @@ proc record_block_timeliness*(
     is_current_slot and self.checkpoints.time <
       current_slot.payload_attestation_deadline(dag.timeParams)]
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/fork-choice.md#update_proposer_boost_root
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root*(
     self: var ForkChoice, dag: ChainDAGRef,
@@ -119,7 +120,12 @@ proc update_proposer_boost_root*(
   # Add proposer score boost if the block is the first timely block
   # for this slot, with the same proposer as the canonical chain.
   if is_timely and is_first_block:
-    self.checkpoints.proposer_boost_root = blckRef.root
+    # Only apply boost if the block's proposer matches the expected proposer
+    # on the canonical chain (head advanced to current slot).
+    let expectedProposer = dag.getProposer(dag.head, current_slot)
+    if expectedProposer.isSome and
+        blck.proposer_index == expectedProposer.get().uint64:
+      self.checkpoints.proposer_boost_root = blckRef.root
 
 # Payload timeliness and data availability
 # ----------------------------------------------------------------------
@@ -148,7 +154,7 @@ func is_payload_data_available(
 # Tree navigation helpers
 # ----------------------------------------------------------------------
 
-template getPhysicalNode(
+template getPhysicalNode*(
     self: var ForkChoice, logicalIdx: int): ptr ProtoNode =
   let physicalIdx = logicalIdx - self.backend.proto_array.nodes.offset
   if physicalIdx >= 0 and
@@ -156,7 +162,7 @@ template getPhysicalNode(
     addr self.backend.proto_array.nodes.buf[physicalIdx]
   else: nil
 
-template getNode(
+template getNode*(
     self: var ForkChoice, root: Eth2Digest): ptr ProtoNode =
   let idx = self.backend.proto_array.indices.getOrDefault(root, -1)
   if idx < 0: nil
@@ -209,29 +215,63 @@ func get_payload_status_tiebreaker*(
   else:
     0'u8  # We shouldn't get here ideally
 
+# Parent root --> child (root, logical index) mapping
+type ChildrenIndex* =
+  Table[Eth2Digest, seq[(Eth2Digest, fork_choice_types.Index)]]
+
+func buildChildrenIndex*(self: var ForkChoice): ChildrenIndex =
+  ## Build a parent --> children lookup from proto_array.
+  for root, idx in self.backend.proto_array.indices:
+    let child = self.getPhysicalNode(idx)
+    if child == nil or child.parent.isNone:
+      continue
+    let parent = self.getPhysicalNode(child.parent.get())
+    if parent == nil:
+      continue
+    result.mgetOrPut(parent.bid.root, @[]).add((root, idx))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/fork-choice.md#modified-get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree
+func filter_block_tree*(
+    self: var ForkChoice,
+    block_root: Eth2Digest,
+    childrenIdx: ChildrenIndex,
+    filtered: var HashSet[Eth2Digest]): bool =
+  ## Recursively filter the block tree to only include blocks on branches
+  ## where at least one leaf has compatible justified/finalized checkpoints.
+  let idx = self.backend.proto_array.indices.getOrDefault(block_root, -1)
+  if idx < 0: return false
+  let node = self.getPhysicalNode(idx)
+  if node == nil or node.invalid: return false
+
+  let children = childrenIdx.getOrDefault(block_root)
+  if children.len > 0:
+    var anyViable = false
+    for (childRoot, _) in children:
+      if self.filter_block_tree(childRoot, childrenIdx, filtered):
+        anyViable = true
+    if anyViable:
+      filtered.incl(block_root)
+    return anyViable
+  else:
+    # Leaf: reuse proto_array's viability check
+    if self.backend.proto_array.nodeIsViableForHead(node[], idx):
+      filtered.incl(block_root)
+      return true
+    return false
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-get_node_children
 func get_node_children*(
     self: var ForkChoice, node: ForkChoiceNode,
-    dag: ChainDAGRef): seq[ForkChoiceNode] =
+    dag: ChainDAGRef,
+    childrenIdx: ChildrenIndex,
+    filtered: HashSet[Eth2Digest]): seq[ForkChoiceNode] =
   var children: seq[ForkChoiceNode]
 
   if not dag.isGloasEnabled(dag.head.slot):
-    for root, idx in self.backend.proto_array.indices:
-      let child = self.getPhysicalNode(idx)
-      if child == nil:
-        continue
-
-      # Check if this child's parent is our node
-      let
-        parent_idx = child.parent.get()
-        parent = self.getPhysicalNode(parent_idx)
-      if parent == nil:
-        continue
-
-      if parent.bid.root == node.root:
-        children.add(ForkChoiceNode(
-          root: root, payloadStatus: PAYLOAD_STATUS_PENDING))
-
+    for (root, idx) in childrenIdx.getOrDefault(node.root):
+      children.add(ForkChoiceNode(
+        root: root, payloadStatus: PAYLOAD_STATUS_PENDING))
     return children
 
   if node.payloadStatus == PAYLOAD_STATUS_PENDING:
@@ -248,17 +288,15 @@ func get_node_children*(
       trace "PENDING expanded to EMPTY ONLY",
         has_payload = false
   else:
-    for root, idx in self.backend.proto_array.indices:
-      let child = self.getPhysicalNode(idx)
-      if child == nil or child.parent.isNone:
+    for (root, idx) in childrenIdx.getOrDefault(node.root):
+      if root notin filtered:
         continue
 
-      let
-        parent_idx = child.parent.get()
-        parent = self.getPhysicalNode(parent_idx)
+      let child = self.getPhysicalNode(idx)
+      if child == nil:
+        continue
 
-      if parent == nil or parent.bid.root != node.root or
-          child.parentPayloadStatus != node.payloadStatus:
+      if child.parentPayloadStatus != node.payloadStatus:
         continue
 
       children.add(ForkChoiceNode(

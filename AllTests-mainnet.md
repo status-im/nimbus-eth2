@@ -130,11 +130,6 @@ AllTests-mainnet
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test                         OK
 ```
-## Block Processing
-```diff
-+ on_execution_payload: Enables FULL branch in fork choice                                   OK
-+ on_execution_payload: Marks payload as locally available                                   OK
-```
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK

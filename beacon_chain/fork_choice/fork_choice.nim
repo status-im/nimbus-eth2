@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[tables, sets],
   stew/bitseqs,
   # Status libraries
   results, chronicles,
@@ -368,7 +368,8 @@ proc on_attestation*(
   
   # [New in Gloas:EIP7732]
   # If attesting for a full node, the payload must be known
-  if attestation_committee_index == CommitteeIndex(1) and
+  if dag.isGloasEnabled(attestation_slot) and
+      attestation_committee_index == CommitteeIndex(1) and
       beacon_block_root notin self.backend.execution_payload_states:
     return ok()
 
@@ -385,7 +386,8 @@ proc on_attestation*(
     self.queuedAttestations.add QueuedAttestation(
       attesting_indices: @attesting_indices,
       block_root: beacon_block_root,
-      committee_index: attestation_committee_index)
+      committee_index: attestation_committee_index,
+      slot: attestation_slot)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
@@ -409,9 +411,11 @@ func process_block*(
     checkpoints: FinalityCheckpoints,
     unrealized = Opt.none(FinalityCheckpoints),
     parent_payload_status = PAYLOAD_STATUS_PENDING,
+    bidBlockHash = static(default(Eth2Digest)),
     proposerIndex = 0'u64): FcResult[void] =
   self.proto_array.onBlock(
-    bid, parent_root, checkpoints, unrealized, parent_payload_status)
+    bid, parent_root, checkpoints, unrealized, parent_payload_status,
+    bidBlockHash)
 
 proc process_block*(
     self: var ForkChoice,
@@ -452,13 +456,23 @@ proc process_block*(
 
   # If block is from a prior epoch, pull up the post-state to next epoch to
   # realize new finality info
-  let
-    blkProposerIndex = blck.proposer_index
-    parentPayloadStatus =
-      if blck.parent_root in self.backend.execution_payload_states:
-        PAYLOAD_STATUS_FULL
-      else:
-        PAYLOAD_STATUS_EMPTY
+  let blkProposerIndex = blck.proposer_index
+
+  # Compute parentPayloadStatus per spec's get_parent_payload_status:
+  # compare block's parent_block_hash against parent's bid block_hash
+  var
+    parentPayloadStatus = PAYLOAD_STATUS_EMPTY
+    blkBidBlockHash: Eth2Digest
+  when typeof(blck).kind >= ConsensusFork.Gloas:
+    blkBidBlockHash = blck.body.signed_execution_payload_bid.message.block_hash
+    let parentNode = self.getNode(blck.parent_root)
+    if parentNode != nil and
+        blck.body.signed_execution_payload_bid.message.parent_block_hash ==
+          parentNode.bidBlockHash:
+      parentPayloadStatus = PAYLOAD_STATUS_FULL
+  else:
+    if blck.parent_root in self.backend.execution_payload_states:
+      parentPayloadStatus = PAYLOAD_STATUS_FULL
 
   let unrealized_is_better =
     unrealized.justified.epoch > epochRef.checkpoints.justified.epoch or
@@ -471,17 +485,20 @@ proc process_block*(
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root, unrealized,
         parent_payload_status = parentPayloadStatus,
+        bidBlockHash = blkBidBlockHash,
         proposerIndex = blkProposerIndex)
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
         epochRef.checkpoints, Opt.some unrealized,
         parent_payload_status = parentPayloadStatus,
+        bidBlockHash = blkBidBlockHash,
         proposerIndex = blkProposerIndex)  # Realized in `on_tick`
   else:
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints,
       parent_payload_status = parentPayloadStatus,
+      bidBlockHash = blkBidBlockHash,
       proposerIndex = blkProposerIndex)
 
   # Notify the store about payload_attestations in the block
@@ -505,7 +522,7 @@ proc process_block*(
               is_from_block = true)
 
   ok()
-
+  
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
@@ -555,16 +572,27 @@ proc get_head*(
         payloadStatus: PAYLOAD_STATUS_EMPTY))
 
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+
+  # Build filtered block tree (spec: get_filtered_block_tree)
+  self.backend.proto_array.checkpoints = FinalityCheckpoints(
+    justified: self.checkpoints.justified.checkpoint,
+    finalized: self.checkpoints.finalized)
+  self.backend.proto_array.currentSlot = current_slot
+  let childrenIdx = self.buildChildrenIndex()
+  var filtered: HashSet[Eth2Digest]
+  discard self.filter_block_tree(
+    self.checkpoints.justified.checkpoint.root, childrenIdx, filtered)
+
   var head = ForkChoiceNode(
     root: self.checkpoints.justified.checkpoint.root,
     payloadStatus: PAYLOAD_STATUS_PENDING)
-  
+
   var iterations = 0
 
   while iterations < 1000:
     inc iterations
-  
-    let children = self.get_node_children(head, dag)
+
+    let children = self.get_node_children(head, dag, childrenIdx, filtered)
     if children.len == 0:
       return ok(head)
 

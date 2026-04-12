@@ -33,10 +33,12 @@ from ../testbcutil import addHeadBlock
 from ../../beacon_chain/spec/peerdas_helpers import
   verify_data_column_sidecar_inclusion_proof,
   verify_data_column_sidecar_kzg_proofs
+from ../../beacon_chain/spec/state_transition import noRollback
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
 from ../../beacon_chain/spec/validator import
   get_committee_index_one
+from ../../beacon_chain/spec/beaconstate import latest_block_root
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
@@ -120,6 +122,17 @@ proc initialLoad(
 
     let anchorRoot = dag.finalizedHead.blck.root
     fkChoice.backend.execution_payload_states[anchorRoot] = default(Eth2Digest)
+
+    # Set anchor block's bidBlockHash so child blocks can compute
+    # parentPayloadStatus correctly via get_parent_payload_status
+    let anchorBlock = dag.getForkedBlock(dag.finalizedHead.blck.bid)
+    if anchorBlock.isSome:
+      withBlck(anchorBlock.get()):
+        when typeof(forkyBlck.message).kind >= ConsensusFork.Gloas:
+          let anchorNode = fkChoice[].getNode(anchorRoot)
+          if anchorNode != nil:
+            anchorNode.bidBlockHash =
+              forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
 
   (dag, fkChoice)
 
@@ -237,6 +250,19 @@ proc updateHead(
     newHead = dag.getBlockRef(newHeadRoot).get()
   if updateFastConfirm:
     doAssert fkChoice[].will_select_head(dag, newHead, time).isOk
+
+  # For Gloas+ tests, pre-load the target state from DB into headState so
+  # that updateState's exactMatch succeeds immediately. Without this, the
+  # in-memory canAdvance loop finds a common ancestor and tries to replay
+  # through blocks with missing execution payload envelopes.
+  let targetSlot = newHead.bid.atSlot()
+  if dag.cfg.consensusForkAtEpoch(targetSlot.slot.epoch) >= ConsensusFork.Gloas:
+    let stateRoot = dag.db.getStateRoot(newHead.root, newHead.slot)
+    if stateRoot.isSome:
+      let fork = dag.cfg.consensusForkAtEpoch(newHead.slot.epoch)
+      if dag.db.getState(fork, stateRoot.get(), dag.headState, noRollback):
+        discard  # headState is now at the target; updateHead will exact-match
+
   dag.updateHead(newHead, quarantine, [])
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
@@ -255,7 +281,6 @@ proc stepOnBlock(
     time: BeaconTime,
     invalidatedHashes: Table[Eth2Digest, Eth2Digest]
 ): Result[BlockRef, VerifierError] =
-  # 1. Validate blobs and columns
   when typeof(signedBlock).kind in [ConsensusFork.Deneb, ConsensusFork.Electra]:
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
     if kzgCommits.len > 0 or blobData.isSome:
@@ -268,7 +293,6 @@ proc stepOnBlock(
   if not columnsValid:
     return err(VerifierError.Invalid)
 
-  # 2. Move state to proper slot
   doAssert dag.updateState(
     state,
     dag.getBlockIdAtSlot(time.slotOrZero(dag.timeParams))
@@ -278,7 +302,6 @@ proc stepOnBlock(
     dag.updateFlags
   )
 
-  # 3. Add block to DAG
   const consensusFork = typeof(signedBlock).kind
 
   # In normal Nimbus flow, for this (effectively) newPayload-based INVALID, it
@@ -288,7 +311,7 @@ proc stepOnBlock(
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix and
-       consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
+      consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
     debugGloasComment "skip execution payload for Gloas?"
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
@@ -310,12 +333,18 @@ proc stepOnBlock(
       state: consensusFork.BeaconState,
       epochRef: EpochRef, unrealized: FinalityCheckpoints):
 
-    # 4. Update fork choice if valid
     let status = fkChoice[].process_block(
       dag, epochRef, blckRef, unrealized, signedBlock.message, time)
     doAssert status.isOk()
 
-    # 5. Update DAG with new head
+    # Gloas splits beacon blocks from execution payload envelopes, but fork
+    # Save every post-block state to
+    # the DB so that updateState can load them directly instead of replaying
+    # through blocks and hitting missing envelopes.
+    when consensusFork >= ConsensusFork.Gloas:
+      withState(dag.clearanceState):
+        dag.db.putState(forkyState)
+
     dag.updateHead(fkChoice, time)
 
   blockAdded
@@ -332,7 +361,8 @@ proc stepChecks(
       let slot = fkChoice.checkpoints.time.slotOrZero(dag.timeParams)
       doAssert slot == time.slotOrZero(dag.timeParams)
     elif check == "head":
-      let headRoot = fkChoice[].get_head(dag, time).get().root
+      let headNode = fkChoice[].get_head(dag, time).get()
+      let headRoot = headNode.root
       let headRef = dag.getBlockRef(headRoot).get()
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())

@@ -122,6 +122,7 @@ type
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
     parentPayloadStatus*: PayloadStatus
+    bidBlockHash*: Eth2Digest  ## ExecutionPayloadBid.block_hash for this block
     proposerIndex*: uint64
 
   BalanceCheckpoint* = object
