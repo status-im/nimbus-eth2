@@ -24,7 +24,7 @@ export rest_utils
 
 logScope: topics = "rest_beaconapi"
 
-proc validateBeaconApiQueries*(key: string, value: string): int =
+func validateBeaconApiQueries*(key: string, value: string): int =
   ## This is rough validation procedure which should be simple and fast,
   ## because it will be used for query routing.
   case key
@@ -60,7 +60,7 @@ const
     ValidatorFilterKind.WithdrawalDone
   }
 
-proc validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
+func validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
                                                            cstring] =
   var res: ValidatorFilter
   for item in filters:
@@ -71,7 +71,7 @@ proc validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
     return ok(AllValidatorFilterKinds)
   ok(res)
 
-proc getStatus(validator: Validator,
+func getStatus(validator: Validator,
                current_epoch: Epoch): Result[ValidatorFilterKind, cstring] =
   if validator.activation_epoch > current_epoch:
     # pending
@@ -109,7 +109,7 @@ proc getStatus(validator: Validator,
   else:
     err("Invalid validator status")
 
-proc toString*(kind: ValidatorFilterKind): string =
+func toString*(kind: ValidatorFilterKind): string =
   case kind
   of ValidatorFilterKind.PendingInitialized:
     "pending_initialized"
@@ -291,7 +291,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
-  proc getIndices(
+  func getIndices(
          node: BeaconNode,
          validatorIds: openArray[ValidatorIdent],
          state: ForkedHashedBeaconState
@@ -750,13 +750,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         none[Slot]()
 
     node.withStateForBlockSlotId(bslot):
-      proc getCommittee(slot: Slot,
+      func getCommittee(slot: Slot,
                         index: CommitteeIndex): RestBeaconStatesCommittees =
         let validators = get_beacon_committee(state, slot, index, cache)
         RestBeaconStatesCommittees(index: index, slot: slot,
                                    validators: validators)
 
-      proc forSlot(slot: Slot, cindex: Option[CommitteeIndex],
+      func forSlot(slot: Slot, cindex: Option[CommitteeIndex],
                    res: var seq[RestBeaconStatesCommittees]) =
         let committees_per_slot = get_committee_count_per_slot(
           state, slot.epoch, cache)
@@ -1060,7 +1060,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           elif consensusFork == ConsensusFork.Fulu:
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
-              @(kzg_proofs.mapIt(kzg.KzgProof(it))))
+              kzg_proofs.mapIt(kzg.KzgProof(it)))
             await node.router.routeSignedBeaconBlock(
               forkyBlck,
               data_columns,

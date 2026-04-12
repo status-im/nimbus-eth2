@@ -388,7 +388,7 @@ func is_merge_transition_complete*(
 debugGloasComment ""
 func is_merge_transition_complete*(
     state: gloas.BeaconState | heze.BeaconState): bool =
-  state.latest_block_hash != ZERO_HASH
+  not state.latest_block_hash.isZero
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/sync/optimistic.md#helpers
 func is_execution_block*(body: SomeForkyBeaconBlockBody): bool =

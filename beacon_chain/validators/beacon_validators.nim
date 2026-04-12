@@ -577,21 +577,17 @@ proc proposeBlockAux(
     debugHezeComment "stub: heze sidecar assembly"
     let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
   elif consensusFork == ConsensusFork.Gloas:
-    let sidecarsOpt =
-      Opt.some(signedBlock.assemble_data_column_sidecars(
-        engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))
-      ))
+    let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
+      engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
   elif consensusFork == ConsensusFork.Fulu:
-    let sidecarsOpt =
-      signedBlock.assemble_data_column_sidecars(
-        engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
+    let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
+      engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
   elif consensusFork == ConsensusFork.Electra:
-    let sidecarsOpt =
-      signedBlock.create_blob_sidecars(
-        engineBlock.blobsBundle.proofs,
-        engineBlock.blobsBundle.blobs)
+    let sidecarsOpt = signedBlock.create_blob_sidecars(
+      engineBlock.blobsBundle.proofs,
+      engineBlock.blobsBundle.blobs)
   else:
     static: raiseAssert "Unsupported fork " & $consensusFork
 
