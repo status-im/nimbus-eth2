@@ -609,7 +609,7 @@ func compute_deltas(
   ## Error:
   ## - If a value in indices is greater than `indices.len`
   ## - If a `Eth2Digest` in `votes` does not exist in `indices`
-  ##   except for the `default(Eth2Digest)` (i.e. zero hash)
+  ##   except for the `ZERO_HASH`
 
   for val_index, vote in votes.mpairs():
     # No need to create a score change if the validator has never voted
@@ -728,7 +728,7 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
-        current_root: default(Eth2Digest),
+        current_root: ZERO_HASH,
         next_root: fakeHash(0), # Get a non-zero hash
         slot: Slot(0))
       old_balances.add Balance
@@ -768,7 +768,7 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
-        current_root: default(Eth2Digest),
+        current_root: ZERO_HASH,
         next_root: fakeHash(i), # Each vote for a different root
         slot: Slot(0))
       old_balances.add Balance
@@ -851,7 +851,7 @@ when isMainModule:
     # One validator moves their vote from the block to the zero hash
     votes.add VoteTracker(
       current_root: fakeHash(1),
-      next_root: default(Eth2Digest),
+      next_root: ZERO_HASH,
       slot: Slot(0))
 
     # One validator moves their vote from the block to

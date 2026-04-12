@@ -318,7 +318,7 @@ proc getExecutionPayload*(
       elif consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
       else:
-        (static(default(Eth2Digest)))
+        ZERO_HASH
     latestSafe = beaconHead.safeExecutionBlockHash
     latestFinalized = beaconHead.finalizedExecutionBlockHash
     timestamp = node.dag.timeParams.compute_timestamp_at_slot(forkyState.data, slot)
