@@ -245,7 +245,23 @@ proc makeEngineBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Heze:
+        debugHezeComment "set inclusion_list_bits with FOCIL information"
+        heze.SignedExecutionPayloadBid(
+          message: heze.ExecutionPayloadBid(
+            parent_block_hash: eps.executionPayload.parent_hash,
+            parent_block_root: state.latest_block_root,
+            block_hash: eps.executionPayload.block_hash,
+            prev_randao: eps.executionPayload.prev_randao,
+            fee_recipient: eps.executionPayload.fee_recipient,
+            gas_limit: eps.executionPayload.gas_limit,
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: slot,
+            value: 0.Gwei,
+            execution_payment: 0.Gwei,
+            blob_kzg_commitments: eps.kzg_commitments),
+          signature: ValidatorSig.infinity())
+      elif consensusFork == ConsensusFork.Gloas:
         makeSignedExecutionPayloadBid(
           eps.executionPayload, eps.kzg_commitments, state.latest_block_root, slot
         )
