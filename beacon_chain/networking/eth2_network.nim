@@ -27,7 +27,7 @@ import
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
   ../validators/keystore_management,
   "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
        libp2p_json_serialization, peer_pool, peer_scores]
@@ -102,6 +102,7 @@ type
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
     getBeaconTime*: GetBeaconTimeFn
+    custodyMap: ColumnMap
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
 
@@ -1542,8 +1543,7 @@ proc trimConnections(node: Eth2Node, count: int) =
     inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
-proc getLowSubnets(node: Eth2Node, epoch: Epoch):
-                  (AttnetBits, SyncnetBits, CgcBits) =
+proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subnet with < `dLow` peers from topic subscription
@@ -1608,11 +1608,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
     if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
-      default(SyncnetBits),
-    if epoch >= node.cfg.FULU_FORK_EPOCH:
-      findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT).int)
-    else:
-      default(CgcBits)
+      default(SyncnetBits)
   )
 
 proc getWallEpoch(node: Eth2Node): Epoch =
@@ -1623,29 +1619,27 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
   while true:
     let
-      (wantedAttnets, wantedSyncnets, wantedCgcnets) =
-        node.getLowSubnets(node.getWallEpoch)
+      (wantedAttnets, wantedSyncnets) = node.getLowSubnets(node.getWallEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-      wantedCgcnetsCount = wantedCgcnets.countOnes()
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
-    if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-        wantedCgcnetsCount > 0 or outgoingPeers < targetOutgoingPeers:
+    if (wantedAttnetsCount > 0) or (wantedSyncnetsCount > 0) or
+       (outgoingPeers < targetOutgoingPeers):
 
       let
-        minScore =
-          if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-              wantedCgcnetsCount > 0:
-            1
-          else:
-            0
+        minScore = [
+          (if wantedAttnetsCount > 0: 1 else: 0),
+          (if wantedSyncnetsCount > 0: 10 else: 0),
+          100
+        ]
         discoveredNodes = await node.discovery.queryRandom(
+          node.cfg,
           node.discoveryForkId,
           wantedAttnets,
           wantedSyncnets,
-          wantedCgcnets,
+          node.custodyMap,
           minScore)
 
       let newPeers = block:
@@ -2713,7 +2707,11 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
 
-proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
+proc loadCgcnetMetadataAndEnr*(
+    node: Eth2Node,
+    cgcnets: CgcCount,
+    map: ColumnMap
+) =
   node.metadata.seq_number += 1
   node.metadata.custody_group_count = cgcnets.uint64
 
@@ -2728,6 +2726,7 @@ proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
     # be the correct one and the ENR will not increase in size
     warn "Failed to update the ENR cgc field", error = res.error
   else:
+    node.custodyMap = map
     debug "Updated ENR cgc", cgcnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
