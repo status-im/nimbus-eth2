@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 ## Partial columns for Cell Dissemination
 ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
@@ -97,7 +97,7 @@ func decodePartsMetadata*(data: PartsMetadata): Result[fulu.PartialDataColumnPar
 
 func unionPartsMetadata*(
     a, b: PartsMetadata
-): Result[PartsMetadata, string] {.gcsafe, raises: [].} =
+): Result[PartsMetadata, string] =
   ## Creates a union of two PartialDataColumnPartsMetadata:
   ## - available bits are OR'd together
   ## - requests bits are OR'd together, then any bits already available
@@ -107,12 +107,11 @@ func unionPartsMetadata*(
     metaB = ? decodePartsMetadata(b)
 
   var merged: fulu.PartialDataColumnPartsMetadata
-  for i in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
-    let n = Natural(i)
-    merged.available[n] = metaA.available[n] or metaB.available[n]
+  for i in 0.Natural ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.Natural:
+    merged.available[i] = metaA.available[i] or metaB.available[i]
     # Union of requests, but clear bits that are now available
-    let wantsBit = metaA.requests[n] or metaB.requests[n]
-    merged.requests[n] = wantsBit and not merged.available[n]
+    let wantsBit = metaA.requests[i] or metaB.requests[i]
+    merged.requests[i] = wantsBit and not merged.available[i]
 
   ok(encodePartsMetadata(merged))
 
@@ -123,7 +122,7 @@ func unionPartsMetadata*(
 # PartialDataColumnSidecar container.
 # -----------------------------------------------------------------------------
 
-proc newDataColumnPartialMessage*(
+func newDataColumnPartialMessage*(
     blockRoot: Eth2Digest,
     columnIndex: ColumnIndex,
     sidecar: fulu.PartialDataColumnSidecar
@@ -134,10 +133,10 @@ proc newDataColumnPartialMessage*(
     sidecar: sidecar,
   )
 
-method groupId*(m: DataColumnPartialMessage): GroupId {.gcsafe, raises: [].} =
+proc groupId*(m: DataColumnPartialMessage): GroupId =
   makeGroupId(m.blockRoot)
 
-method partsMetadata*(m: DataColumnPartialMessage): PartsMetadata {.gcsafe, raises: [].} =
+proc partsMetadata*(m: DataColumnPartialMessage): PartsMetadata =
   ## Returns metadata indicating which cells are available in this partial
   ## message.
   var metadata: fulu.PartialDataColumnPartsMetadata
@@ -145,9 +144,9 @@ method partsMetadata*(m: DataColumnPartialMessage): PartsMetadata {.gcsafe, rais
   # We don't set requests here -- this describes what we *have*
   encodePartsMetadata(metadata)
 
-method materializeParts*(
+proc materializeParts*(
     m: DataColumnPartialMessage, metadata: PartsMetadata
-): Result[PartsData, string] {.gcsafe, raises: [].} =
+): Result[PartsData, string] =
   ## Given metadata describing what a peer wants/has, produce a
   ## PartialDataColumnSidecar containing the cells the peer is missing
   ## that we have available.
@@ -167,15 +166,14 @@ method materializeParts*(
     proofs = newSeqOfCap[KzgProof](m.sidecar.kzg_proofs.len)
     ourIdx = 0  # index into our sparse arrays
 
-  for i in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
-    let n = Natural(i)
-    if m.sidecar.cells_present_bitmap[n]:
+  for i in 0.Natural ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.Natural:
+    if m.sidecar.cells_present_bitmap[i]:
       # We have this cell
-      let peerWants = peerMeta.requests[n]
-      let peerDoesntHave = not peerMeta.available[n]
+      let peerWants = peerMeta.requests[i]
+      let peerDoesntHave = not peerMeta.available[i]
       if peerWants or peerDoesntHave:
         # Peer needs this cell -- include it
-        bitmap[n] = true
+        bitmap[i] = true
         cells.add(m.sidecar.partial_columns[ourIdx])
         proofs.add(m.sidecar.kzg_proofs[ourIdx])
       ourIdx.inc
@@ -198,7 +196,7 @@ method materializeParts*(
 
 func validatePartialMessageRPC*(
     rpc: PartialMessageExtensionRPC
-): Result[void, string] {.gcsafe, raises: [].} =
+): Result[void, string] =
   ## Basic sanity checks on incoming PartialMessageExtensionRPC.
   ## Validates the group ID format per spec: version byte must be zero,
   ## total length must be 33 bytes (1 version + 32 block root).
