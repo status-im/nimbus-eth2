@@ -483,6 +483,33 @@ chronicles.formatIt SyncCommitteeContribution: shortLog(it)
 chronicles.formatIt ContributionAndProof: shortLog(it)
 chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
+func clear*(info: var EpochInfo) =
+  info.validators.setLen(0)
+  info.balances.reset()
+
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: SyncAggregate): TrustedSyncAggregate =
+  isomorphicCast[TrustedSyncAggregate](x)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#constants
 const
   FINALIZED_ROOT_GINDEX* = get_generalized_index(
@@ -643,30 +670,3 @@ chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
-
-func clear*(info: var EpochInfo) =
-  info.validators.setLen(0)
-  info.balances.reset()
-
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
-
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)
-
-template asTrusted*(
-    x: SyncAggregate): TrustedSyncAggregate =
-  isomorphicCast[TrustedSyncAggregate](x)
