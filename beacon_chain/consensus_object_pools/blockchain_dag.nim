@@ -2196,7 +2196,7 @@ func is_optimistic*(dag: ChainDAGRef, bid: BlockId): bool =
         # it could have been orphaned or the DB is slightly inconsistent.
         # Report it as optimistic until it becomes reachable or gets deleted
         return true
-  blck.optimisticStatus != OptimisticStatus.valid
+  not blck.executionValid
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
