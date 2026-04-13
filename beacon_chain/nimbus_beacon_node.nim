@@ -25,7 +25,8 @@ import
   ./el/el_getblobs_service,
   ./spec/[
     engine_authentication, weak_subjectivity, peerdas_helpers, column_map],
-  ./sync/[sync_protocol, light_client_protocol, sync_overseer, validator_custody],
+  ./sync/[
+    sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
@@ -71,7 +72,8 @@ proc readState(
       size = bytes.len, digest = eth2digest(bytes), err = err.msg
     Opt.none(ref ForkedHashedBeaconState)
 
-proc readFileState(cfg: RuntimeConfig, path: string): Opt[ref ForkedHashedBeaconState] =
+proc readFileState(
+    cfg: RuntimeConfig, path: string): Opt[ref ForkedHashedBeaconState] =
   ## Read and decode a beacon state from a file path.
   ## Returns nil if file cannot be read, otherwise decodes the SSZ content.
   debug "Reading state", path
@@ -82,7 +84,8 @@ proc readFileState(cfg: RuntimeConfig, path: string): Opt[ref ForkedHashedBeacon
 
   readState(cfg, tmp)
 
-proc readEraState(cfg: RuntimeConfig, file: EraPath): Opt[ref ForkedHashedBeaconState] =
+proc readEraState(
+    cfg: RuntimeConfig, file: EraPath): Opt[ref ForkedHashedBeaconState] =
   ## Extract and decode a beacon state from an era file - unlike the helpers in
   ## EraDB, this function does not validate that the era file corresponds to
   ## a particular history, as identified by summaries.
@@ -165,8 +168,8 @@ proc setupDatabase(
   # While a checkpoint state from any epoch slot is sufficient for launching
   # the client, we'll try to add the genesis state to the database as well.
   var
-    checkpointState =
-      ?fetchCheckpointState(metadata, config.eraDir, config.finalizedCheckpointState)
+    checkpointState = ? fetchCheckpointState(
+      metadata, config.eraDir, config.finalizedCheckpointState)
     genesisState =
       if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
         checkpointState
@@ -799,7 +802,8 @@ proc initFullNode(
       network: node.network)
     requestManager = RequestManager.init(
       node.network, validatorCustody,
-      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime, (proc(): bool = syncManager.inProgress),
+      dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
+      (proc(): bool = syncManager.inProgress),
       quarantine, envelopeQuarantine, blobQuarantine,
       dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
       rmanEnvelopeVerifier, rmanEnvelopeLoader,
@@ -1142,7 +1146,8 @@ proc init*(
     dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(
-    rng, metadata.cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
+    rng, metadata.cfg, dag.forkDigests,
+    getBeaconTime, dag.genesis_validators_root)
 
   await node.initFullNode(rng, dag, clist, taskpool, getBeaconTime)
 
@@ -1221,8 +1226,8 @@ proc updateBlocksGossipStatus*(
 
   let
     isBehind =
-      if node.shouldSyncOptimistically(slot):
-        # If optimistic sync is active, always subscribe to blocks gossip
+      if node.shouldSyncViaLightClient(slot):
+        # When syncing blocks via light client, always subscribe
         false
       else:
         # Use DAG status to determine whether to subscribe for blocks gossip
@@ -1300,7 +1305,8 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
       node.consensusManager[].actionTracker.hasSyncDuty(pubkey, epoch) or
          pubkey in node.attachedValidators[].validators)
 
-func getCurrentSyncCommiteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
+func getCurrentSyncCommiteeSubnets(
+    node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Altair:
       forkyState.data.current_sync_committee
@@ -1309,7 +1315,8 @@ func getCurrentSyncCommiteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits 
 
   getSyncSubnets(node.hasSyncPubKey(epoch), syncCommittee)
 
-func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
+func getNextSyncCommitteeSubnets(
+    node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Altair:
       forkyState.data.next_sync_committee
@@ -2293,9 +2300,9 @@ proc installMessageValidators(node: BeaconNode) =
             signedBlock: consensusFork.SignedBeaconBlock,
             src: PeerId,
           ): ValidationResult =
-            if node.shouldSyncOptimistically(node.currentSlot):
+            if node.shouldSyncViaLightClient(node.currentSlot):
               toValidationResult(
-                node.optimisticProcessor.processSignedBeaconBlock(
+                node.lightBlockProcessor.processSignedBeaconBlock(
                   signedBlock))
             else:
               let res =
@@ -2420,7 +2427,8 @@ proc installMessageValidators(node: BeaconNode) =
                 getSyncCommitteeTopic(digest, idx), proc (
                   msg: SyncCommitteeMessage,
                   src: PeerId
-                ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+                ): Future[ValidationResult] {.
+                    async: (raises: [CancelledError]).} =
                   return toValidationResult(
                     await node.processor.processSyncCommitteeMessage(
                       MsgSource.gossip, msg, idx)))

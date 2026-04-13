@@ -21,27 +21,27 @@ logScope:
   topics = "gossip_opt"
 
 type
-  OptimisticBlockVerifier* = proc(
+  LightBlockVerifier* = proc(
       signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).}
 
-  OptimisticProcessor* = ref object
+  LightBlockProcessor* = ref object
     timeParams: TimeParams
     getBeaconTime: GetBeaconTimeFn
-    optimisticVerifier: OptimisticBlockVerifier
+    lightBlockVerifier: LightBlockVerifier
     processFut: Future[void].Raising([CancelledError])
 
-proc initOptimisticProcessor*(
+proc initLightBlockProcessor*(
     timeParams: TimeParams,
     getBeaconTime: GetBeaconTimeFn,
-    optimisticVerifier: OptimisticBlockVerifier): OptimisticProcessor =
-  OptimisticProcessor(
+    lightBlockVerifier: LightBlockVerifier): LightBlockProcessor =
+  LightBlockProcessor(
     timeParams: timeParams,
     getBeaconTime: getBeaconTime,
-    optimisticVerifier: optimisticVerifier)
+    lightBlockVerifier: lightBlockVerifier)
 
 proc validateBeaconBlock(
-    self: OptimisticProcessor,
+    self: LightBlockProcessor,
     signed_beacon_block: ForkySignedBeaconBlock,
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate a block for potential relevance.
@@ -55,7 +55,7 @@ proc validateBeaconBlock(
   ok()
 
 proc processSignedBeaconBlock*(
-    self: OptimisticProcessor,
+    self: LightBlockProcessor,
     signedBlock: ForkySignedBeaconBlock): ValidationRes =
   let
     wallTime = self.getBeaconTime()
@@ -68,7 +68,7 @@ proc processSignedBeaconBlock*(
     wallSlot
 
   if not afterGenesis:
-    notice "Optimistic block before genesis"
+    notice "Light client block before genesis"
     return errIgnore("Block before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
@@ -77,17 +77,17 @@ proc processSignedBeaconBlock*(
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
-  debug "Optimistic block received", delay
+  debug "Light client block received", delay
 
   let v = self.validateBeaconBlock(signedBlock, wallTime)
   if v.isErr:
-    debug "Dropping optimistic block", error = v.error
+    debug "Dropping light client block", error = v.error
     return err(v.error)
 
   # Only process one block at a time (backpressure)
-  trace "Optimistic block validated"
+  trace "Light client block validated"
   if self.processFut == nil:
-    self.processFut = self.optimisticVerifier(
+    self.processFut = self.lightBlockVerifier(
       ForkedSignedBeaconBlock.init(signedBlock))
 
     proc handleFinishedProcess(future: pointer) =
