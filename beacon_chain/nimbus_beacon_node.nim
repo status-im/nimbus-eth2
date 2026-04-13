@@ -2615,7 +2615,7 @@ when not defined(windows):
       error "Couldn't enable colors", err = exc.msg
 
     template safe: lent BlockId =
-      node.attestationPool[].forkChoice.get_safe_beacon_block_id()
+      node.attestationPool[].forkChoice.retrieve_fast_confirmed_bid()
 
     var stored_justified: Opt[BlockSlot]
     template justified: lent BlockSlot =

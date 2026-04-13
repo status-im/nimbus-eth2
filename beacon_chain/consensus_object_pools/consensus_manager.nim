@@ -201,7 +201,7 @@ proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
   updateSafeBlockMetrics(
-    self.attestationPool[].forkChoice.get_safe_beacon_block_id)
+    self.attestationPool[].forkChoice.retrieve_fast_confirmed_bid)
   self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =

@@ -556,12 +556,12 @@ proc will_select_head*(
   self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
-func get_safe_beacon_block_id*(self: ForkChoice): lent BlockId =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/fork_choice/safe-block.md#get_safe_beacon_block_root
+func retrieve_fast_confirmed_bid*(self: ForkChoice): lent BlockId =
   self.backend.confirmed
 
-func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
-  self.get_safe_beacon_block_id.root
+func retrieve_fast_confirmed_root*(self: ForkChoice): lent Eth2Digest =
+  self.retrieve_fast_confirmed_bid.root
 
 proc prune(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
