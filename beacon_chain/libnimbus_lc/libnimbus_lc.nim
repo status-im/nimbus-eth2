@@ -1198,6 +1198,7 @@ type
     withdrawals: seq[ETHWithdrawal]
     blobGasUsed: uint64
     excessBlobGas: uint64
+    parentBeaconBlockRoot: Eth2Digest
     requestsHash: Eth2Digest
 
 template append*(
@@ -1361,6 +1362,8 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     withdrawals: wds,
     blobGasUsed: blockHeader.blobGasUsed.get(0),
     excessBlobGas: blockHeader.excessBlobGas.get(0),
+    parentBeaconBlockRoot:
+      blockHeader.parentBeaconBlockRoot.get(zeroHash32).asEth2Digest(),
     requestsHash: blockHeader.requestsHash.get(zeroHash32).asEth2Digest())
   executionBlockHeader.toUnmanagedPtr()
 
@@ -1622,6 +1625,22 @@ func ETHExecutionBlockHeaderGetExcessBlobGas(
   ## Returns:
   ## * Excess blob gas.
   executionBlockHeader[].excessBlobGas.cint
+
+func ETHExecutionBlockHeaderGetParentBeaconBlockRoot(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the parent beacon block root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Parent beacon block root.
+  addr executionBlockHeader[].parentBeaconBlockRoot
 
 func ETHExecutionBlockHeaderGetRequestsHash(
     executionBlockHeader: ptr ETHExecutionBlockHeader

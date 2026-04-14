@@ -484,6 +484,12 @@ int main(void)
     int executionExcessBlobGas = ETHExecutionBlockHeaderGetExcessBlobGas(executionBlockHeader);
     printf("    - excess_blob_gas: %d\n", executionExcessBlobGas);
 
+    const ETHRoot *executionParentBeaconBlockRoot =
+        ETHExecutionBlockHeaderGetParentBeaconBlockRoot(executionBlockHeader);
+    printf("    - parent_beacon_block_root: ");
+    printHexString(executionParentBeaconBlockRoot, sizeof *executionParentBeaconBlockRoot);
+    printf("\n");
+
     const ETHRoot *executionRequestsHash =
         ETHExecutionBlockHeaderGetRequestsHash(executionBlockHeader);
     printf("    - requests_hash: ");

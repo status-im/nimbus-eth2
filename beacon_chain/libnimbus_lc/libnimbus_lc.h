@@ -1293,6 +1293,21 @@ int ETHExecutionBlockHeaderGetExcessBlobGas(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
+ * Obtains the parent beacon block root of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Parent beacon block root.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetParentBeaconBlockRoot(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
  * Obtains the requests hash of a given execution block header.
  *
  * - The returned value is allocated in the given execution block header.
