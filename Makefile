@@ -246,8 +246,7 @@ local-testnet-minimal:
 		--run-spamoor \
 		-- \
 		--verify-finalization \
-		--discv5:no \
-		--num-threads:1
+		--discv5:no
 
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
@@ -274,7 +273,8 @@ local-testnet-mainnet:
 		--run-spamoor \
 		-- \
 		--verify-finalization \
-		--discv5:no
+		--discv5:no \
+		--num-threads:1
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES_CORE := \
