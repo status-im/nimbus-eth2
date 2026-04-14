@@ -1961,9 +1961,11 @@ proc updateState*(
     let executionMatch = block:
       withState(state):
         when consensusFork >= ConsensusFork.Gloas:
-          # For exactMatch we want the payload status matches with the flags.
-          is_parent_block_full(forkyState.data) ==
-            (skipLastEnvelope notin updateFlags)
+          if bsi.bid.slot == bsi.slot:
+            is_parent_block_full(forkyState.data) ==
+              (skipLastEnvelope notin updateFlags)
+          else:
+            not is_parent_block_full(forkyState.data)
         else:
           # Disable this check for pre-Gloas forks.
           true
@@ -2131,10 +2133,10 @@ proc updateState*(
 
     if wantsPayload:
       dag.applyExecutionPayloadEnvelope(state, parent, cache).isOkOr:
-        warn "Failed to apply envelope from database",
+        warn "Failed to apply parent envelope from database",
           blck = shortLog(ancestors[i]),
           state_bid = shortLog(state.latest_block_id),
-          i, error = error
+          parent, i, error = error
         return false
 
     # Because the ancestors are in the database, there's no need to persist them
@@ -2152,9 +2154,13 @@ proc updateState*(
       return false
 
   # ...and make sure to process empty slots as requested
-  if state.kind >= ConsensusFork.Gloas:
+  let stateBid = state.latest_block_id
+  if dag.cfg.consensusForkAtEpoch(stateBid.slot.epoch()) >= ConsensusFork.Gloas:
     # We are handling state checkpoint differently since Gloas. For more
-    # context, check how ancestors apply and canAdvance.
+    # context, check how ancestors apply and canAdvance. It checks against
+    # stateBid.slot instead of state.slot() or state.kind because the last
+    # envelope only exists for Gloas or later block, which is based on the
+    # stateBid.
     #
     # First, we save the state if it is at checkpoint before advanceSlots and
     # applying the last envelope, at the cost of more slots/loop for searching
@@ -2162,7 +2168,6 @@ proc updateState*(
     #
     # We then apply the last envelope and advanceSlots after saving the state.
     let
-      stateBid = state.latest_block_id
       stateBsi = block:
         # Calculate the BlockSlotId for isStateCheckpoint as it needs the target
         # slot to be is_epoch (i.e. slot 0 of epoch)
