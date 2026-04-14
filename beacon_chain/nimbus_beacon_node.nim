@@ -1404,6 +1404,8 @@ proc addGloasMessageHandlers(
     getExecutionPayloadTopic(forkDigest), basicParams())
   node.network.subscribe(
     getPayloadAttestationMessageTopic(forkDigest), basicParams())
+  node.network.subscribe(
+    getProposerPreferencesTopic(forkDigest), basicParams())
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -1451,6 +1453,7 @@ proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
   node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
+  node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1925,6 +1928,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if slot.is_epoch:
     node.dynamicFeeRecipientsStore[].pruneOldMappings(slot.epoch)
 
+    # Drop seen proposer-preference entries for slots in the past
+    for s in toSeq(node.processor.seenProposerPreferences.items):
+      if s < slot:
+        node.processor.seenProposerPreferences.excl(s)
+
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head
   if node.isSynced(head) and head.executionValid:
@@ -2344,6 +2352,18 @@ proc installMessageValidators(node: BeaconNode) =
                 await node.processor.processPayloadAttestationMessage(
                   payloadAttestationMessage, checkSignature = true,
                   checkValidator = false)))
+        
+        # proposer_preferences
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addValidator(
+            getProposerPreferencesTopic(digest), proc(
+              signed_preferences: SignedProposerPreferences,
+              src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                node.processor.processProposerPreferences(
+                  MsgSource.gossip, signed_preferences)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
