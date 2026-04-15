@@ -21,7 +21,8 @@ import
   snappy,
   web3/[engine_api_types, eth_api_types, conversions],
   ../el/engine_api_conversions,
-  ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
+  ../spec/eth2_apis/[
+    eth2_rest_serialization, rest_light_client_calls, rest_types],
   ../spec/[helpers, light_client_sync],
   ../sync/light_client_sync_helpers,
   ../beacon_clock
@@ -909,14 +910,23 @@ proc ETHBeaconBlockHeaderCreateFromJson(
   ## See:
   ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v4.0.0#/Beacon/getBlockHeader
   ## * https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/beacon-chain.md#beaconblockheader
-  let beacon = BeaconBlockHeader.new()
-  try:
-    # a direct parameter like RestJson.decode($beaconJson, BeaconBlockHeader)
-    # will cause premature garbage collector kick in.
-    let jsonBytes = $beaconJson
-    beacon[] = RestJson.decode(jsonBytes, BeaconBlockHeader)
-  except SerializationError:
-    return nil
+  let
+    data =
+      try:
+        # a direct parameter like
+        # RestJson.decode($beaconJson, GetBlockHeaderResponse)
+        # will cause premature garbage collector kick in.
+        let jsonBytes = $beaconJson
+        RestJson.decode(jsonBytes, GetBlockHeaderResponse).data.header.message
+      except SerializationError:
+        return nil
+    beacon = BeaconBlockHeader.new()
+  beacon[] = BeaconBlockHeader(
+    slot: data.slot,
+    proposer_index: data.proposer_index.uint64,
+    parent_root: data.parent_root,
+    state_root: data.state_root,
+    body_root: data.body_root)
   if beacon[].hash_tree_root() != beaconRoot[]:
     return nil
   beacon.toUnmanagedPtr()
