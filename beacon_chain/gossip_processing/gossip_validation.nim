@@ -2192,7 +2192,7 @@ proc validatePayloadAttestationMessage*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
-    seen: var HashSet[Slot],
+    seen: var array[2, BitArray[int SLOTS_PER_EPOCH]],
     signed_preferences: SignedProposerPreferences,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template preferences: untyped = signed_preferences.message
@@ -2216,7 +2216,10 @@ proc validateProposerPreferences*(
   # [IGNORE] The signed_proposer_preferences is the first valid message
   # received from the validator with index preferences.validator_index
   # and the given slot preferences.proposal_slot
-  if preferences.proposal_slot in seen:
+  let
+    bucket = proposalEpoch.uint64 mod 2
+    slotInEpoch = int(preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH)
+  if (seen[bucket][slotInEpoch]):
     return errIgnore("ProposerPreferences: already seen")
 
   # [REJECT] preferences.validator_index is present at the correct slot
@@ -2229,9 +2232,9 @@ proc validateProposerPreferences*(
           preferences.validator_index):
         return dag.checkedReject(
           "ProposerPreferences: not the proposer for proposal_slot")
-      else:
-        return dag.checkedReject(
-          "ProposerPreferences: only valid for Gloas fork or later")
+    else:
+      return dag.checkedReject(
+        "ProposerPreferences: only valid for Gloas fork or later")
 
   # [REJECT] signed_proposer_preferences.signature is valid with
   # respect to the validator's public key.
@@ -2244,5 +2247,5 @@ proc validateProposerPreferences*(
       pubkey, signed_preferences.signature):
     return dag.checkedReject("ProposerPreferences: invalid signature")
 
-  seen.incl(preferences.proposal_slot)
+  seen[bucket].setBit(slotInEpoch)
   ok()

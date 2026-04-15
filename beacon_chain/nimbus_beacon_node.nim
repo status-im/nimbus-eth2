@@ -1928,10 +1928,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if slot.is_epoch:
     node.dynamicFeeRecipientsStore[].pruneOldMappings(slot.epoch)
 
-    # Drop seen proposer-preference entries for slots in the past
-    for s in toSeq(node.processor.seenProposerPreferences.items):
-      if s < slot:
-        node.processor.seenProposerPreferences.excl(s)
+    # Clear the preferences bucket for the epoch that just ended
+    if slot.epoch > 0:
+      let justEnded = slot.epoch - Epoch(1)
+      node.processor.seenProposerPreferences[justEnded.uint64 mod 2] =
+        default(BitArray[int SLOTS_PER_EPOCH])
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head

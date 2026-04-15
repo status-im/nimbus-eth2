@@ -152,7 +152,7 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
-    seenProposerPreferences*: HashSet[Slot]
+    seenProposerPreferences*: array[2, BitArray[int SLOTS_PER_EPOCH]]
 
     doppelgangerDetection*: DoppelgangerProtection
 
