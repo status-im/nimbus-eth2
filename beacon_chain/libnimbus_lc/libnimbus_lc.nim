@@ -1181,9 +1181,24 @@ type
     bytes: seq[byte]
 
   ETHExecutionBlockHeader = object
+    parentHash: Eth2Digest
+    feeRecipient: ExecutionAddress
+    stateRoot: Eth2Digest
+    receiptsRoot: Eth2Digest
+    logsBloom: BloomLogs
+    prevRandao: Eth2Digest
+    blockNumber: uint64
+    gasLimit: uint64
+    gasUsed: uint64
+    timestamp: uint64
+    extraData: seq[byte]
+    baseFeePerGas: UInt256
     transactionsRoot: Eth2Digest
     withdrawalsRoot: Eth2Digest
     withdrawals: seq[ETHWithdrawal]
+    blobGasUsed: uint64
+    excessBlobGas: uint64
+    parentBeaconBlockRoot: Eth2Digest
     requestsHash: Eth2Digest
 
 template append*(
@@ -1330,9 +1345,25 @@ proc ETHExecutionBlockHeaderCreateFromJson(
 
   let executionBlockHeader = ETHExecutionBlockHeader.new()
   executionBlockHeader[] = ETHExecutionBlockHeader(
+    parentHash: blockHeader.parentHash.asEth2Digest(),
+    feeRecipient: blockHeader.coinbase,
+    stateRoot: blockHeader.stateRoot.asEth2Digest(),
+    receiptsRoot: blockHeader.receiptsRoot.asEth2Digest(),
+    logsBloom: BloomLogs(data: blockHeader.logsBloom.data),
+    prevRandao: Eth2Digest(data: blockHeader.mixHash.data),
+    blockNumber: blockHeader.number,
+    gasLimit: blockHeader.gasLimit,
+    gasUsed: blockHeader.gasUsed,
+    timestamp: distinctBase(blockHeader.timestamp),
+    extraData: blockHeader.extraData,
+    baseFeePerGas: blockHeader.baseFeePerGas.get(0.u256),
     transactionsRoot: blockHeader.txRoot.asEth2Digest(),
     withdrawalsRoot: blockHeader.withdrawalsRoot.get(zeroHash32).asEth2Digest(),
     withdrawals: wds,
+    blobGasUsed: blockHeader.blobGasUsed.get(0),
+    excessBlobGas: blockHeader.excessBlobGas.get(0),
+    parentBeaconBlockRoot:
+      blockHeader.parentBeaconBlockRoot.get(zeroHash32).asEth2Digest(),
     requestsHash: blockHeader.requestsHash.get(zeroHash32).asEth2Digest())
   executionBlockHeader.toUnmanagedPtr()
 
@@ -1345,6 +1376,185 @@ proc ETHExecutionBlockHeaderDestroy(
   ## Parameters:
   ## * `executionBlockHeader` - Execution block header.
   executionBlockHeader.destroy()
+
+func ETHExecutionBlockHeaderGetParentHash(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the parent execution block hash of a given
+  ## execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Parent execution block hash.
+  addr executionBlockHeader[].parentHash
+
+func ETHExecutionBlockHeaderGetFeeRecipient(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr ExecutionAddress {.exported.} =
+  ## Obtains the fee recipient address of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Fee recipient execution address.
+  addr executionBlockHeader[].feeRecipient
+
+func ETHExecutionBlockHeaderGetStateRoot(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the state MPT root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution state root.
+  addr executionBlockHeader[].stateRoot
+
+func ETHExecutionBlockHeaderGetReceiptsRoot(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the receipts MPT root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution receipts root.
+  addr executionBlockHeader[].receiptsRoot
+
+func ETHExecutionBlockHeaderGetLogsBloom(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr BloomLogs {.exported.} =
+  ## Obtains the logs Bloom of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution logs Bloom.
+  addr executionBlockHeader[].logsBloom
+
+func ETHExecutionBlockHeaderGetPrevRandao(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the previous randao mix of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Previous randao mix.
+  addr executionBlockHeader[].prevRandao
+
+func ETHExecutionBlockHeaderGetBlockNumber(
+    executionBlockHeader: ptr ETHExecutionBlockHeader): cint {.exported.} =
+  ## Obtains the execution block number of a given execution block header.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution block number.
+  executionBlockHeader[].blockNumber.cint
+
+func ETHExecutionBlockHeaderGetGasLimit(
+    executionBlockHeader: ptr ETHExecutionBlockHeader): cint {.exported.} =
+  ## Obtains the gas limit of a given execution block header.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Gas limit.
+  executionBlockHeader[].gasLimit.cint
+
+func ETHExecutionBlockHeaderGetGasUsed(
+    executionBlockHeader: ptr ETHExecutionBlockHeader): cint {.exported.} =
+  ## Obtains the gas used of a given execution block header.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Gas used.
+  executionBlockHeader[].gasUsed.cint
+
+func ETHExecutionBlockHeaderGetTimestamp(
+    executionBlockHeader: ptr ETHExecutionBlockHeader): cint {.exported.} =
+  ## Obtains the timestamp of a given execution block header.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Execution block timestamp.
+  executionBlockHeader[].timestamp.cint
+
+func ETHExecutionBlockHeaderGetExtraDataBytes(
+    executionBlockHeader: ptr ETHExecutionBlockHeader,
+    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+  ## Obtains the extra data buffer of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ## * `numBytes` [out] - Length of buffer.
+  ##
+  ## Returns:
+  ## * Buffer with execution block extra data.
+  numBytes[] = executionBlockHeader[].extraData.len.cint
+  if executionBlockHeader[].extraData.len == 0:
+    # https://github.com/nim-lang/Nim/issues/22389
+    const defaultExtraData: cstring = ""
+    return cast[ptr UncheckedArray[byte]](defaultExtraData)
+  cast[ptr UncheckedArray[byte]](addr executionBlockHeader[].extraData[0])
+
+func ETHExecutionBlockHeaderGetBaseFeePerGas(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr UInt256 {.exported.} =
+  ## Obtains the base fee per gas of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Base fee per gas.
+  addr executionBlockHeader[].baseFeePerGas
 
 func ETHExecutionBlockHeaderGetTransactionsRoot(
     executionBlockHeader: ptr ETHExecutionBlockHeader
@@ -1393,6 +1603,44 @@ func ETHExecutionBlockHeaderGetWithdrawals(
   ## Returns:
   ## * Withdrawal sequence.
   addr executionBlockHeader[].withdrawals
+
+func ETHExecutionBlockHeaderGetBlobGasUsed(
+    executionBlockHeader: ptr ETHExecutionBlockHeader): cint {.exported.} =
+  ## Obtains the blob gas used of a given execution block header.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Blob gas used.
+  executionBlockHeader[].blobGasUsed.cint
+
+func ETHExecutionBlockHeaderGetExcessBlobGas(
+    executionBlockHeader: ptr ETHExecutionBlockHeader): cint {.exported.} =
+  ## Obtains the excess blob gas of a given execution block header.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Excess blob gas.
+  executionBlockHeader[].excessBlobGas.cint
+
+func ETHExecutionBlockHeaderGetParentBeaconBlockRoot(
+    executionBlockHeader: ptr ETHExecutionBlockHeader
+): ptr Eth2Digest {.exported.} =
+  ## Obtains the parent beacon block root of a given execution block header.
+  ##
+  ## * The returned value is allocated in the given execution block header.
+  ##   It must neither be released nor written to, and the execution block
+  ##   header must not be released while the returned value is in use.
+  ##
+  ## Parameters:
+  ## * `executionBlockHeader` - Execution block header.
+  ##
+  ## Returns:
+  ## * Parent beacon block root.
+  addr executionBlockHeader[].parentBeaconBlockRoot
 
 func ETHExecutionBlockHeaderGetRequestsHash(
     executionBlockHeader: ptr ETHExecutionBlockHeader

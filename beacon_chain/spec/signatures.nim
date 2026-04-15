@@ -381,8 +381,7 @@ proc verify_contribution_and_proof_signature*(
 # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/builder.md#signing
 func compute_builder_signing_root(
     genesis_fork_version: Version,
-      msg: electra_mev.BuilderBid | fulu_mev.BuilderBid |
-         ValidatorRegistrationV1): Eth2Digest =
+      msg: fulu_mev.BuilderBid | ValidatorRegistrationV1): Eth2Digest =
   # Fork = none in spec which means GENESIS_FORK_VERSION:
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/phase0/beacon-chain.md#compute_domain
   let domain = compute_domain(
@@ -398,8 +397,7 @@ proc get_builder_signature*(
 
 proc verify_builder_signature*(
     genesis_fork_version: Version,
-    msg: electra_mev.BuilderBid |
-          fulu_mev.BuilderBid | ValidatorRegistrationV1,
+    msg: fulu_mev.BuilderBid | ValidatorRegistrationV1,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_builder_signing_root(genesis_fork_version, msg)
   blsVerify(pubkey, signing_root.data, signature)

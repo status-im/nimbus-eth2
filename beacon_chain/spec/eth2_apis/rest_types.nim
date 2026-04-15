@@ -566,10 +566,7 @@ type
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
-
-  GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
-  SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",

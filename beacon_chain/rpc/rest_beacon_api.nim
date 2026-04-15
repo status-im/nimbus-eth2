@@ -1167,7 +1167,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         debugGloasComment ""
         RestApiResponse.jsonError(
           Http400, $consensusFork & " builder API unsupported")
-      elif consensusFork >= ConsensusFork.Electra:
+      elif consensusFork >= ConsensusFork.Fulu:
         let
           restBlock = decodeBodyJsonOrSsz(
               consensusFork.SignedBlindedBeaconBlock, body).valueOr:

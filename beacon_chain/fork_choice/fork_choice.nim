@@ -122,7 +122,7 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
-    epoch: Epoch, blck: BlockRef, current_slot: Slot) =
+    epoch: Epoch, blck: BlockRef) =
   let epochRef = dag.getEpochRef(blck, epoch, preFinalized = false).valueOr:
     # Shouldn't happen for justified data unless out of sync with ChainDAG
     warn "Skipping justified checkpoint update, no EpochRef - report bug",
@@ -149,7 +149,7 @@ proc update_justified(
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justified.root)
-  self.checkpoints.update_justified(dag, justified.epoch, blck, current_slot)
+  self.checkpoints.update_justified(dag, justified.epoch, blck)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
@@ -556,12 +556,12 @@ proc will_select_head*(
   self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
-func get_safe_beacon_block_id*(self: ForkChoice): lent BlockId =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/fork_choice/safe-block.md#get_safe_beacon_block_root
+func retrieve_fast_confirmed_bid*(self: ForkChoice): lent BlockId =
   self.backend.confirmed
 
-func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
-  self.get_safe_beacon_block_id.root
+func retrieve_fast_confirmed_root*(self: ForkChoice): lent Eth2Digest =
+  self.retrieve_fast_confirmed_bid.root
 
 proc prune(
     self: var ForkChoiceBackend, dag: ChainDAGRef,

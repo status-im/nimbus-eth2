@@ -1813,7 +1813,7 @@ type SomeElectraBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var electra.BeaconState,
-    blck: SomeElectraBlock | electra_mev.SigVerifiedBlindedBeaconBlock,
+    blck: SomeElectraBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
