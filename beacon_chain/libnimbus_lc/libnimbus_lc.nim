@@ -865,6 +865,70 @@ func ETHLightClientHeaderGetBeacon(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#beaconblockheader
   addr header[].beacon
 
+proc ETHLightClientHeaderCopyBeacon(
+    header: ptr lcDataFork.LightClientHeader
+): ptr BeaconBlockHeader {.exported.} =
+  ## Obtains a copy of the beacon block header of a given light client header.
+  ##
+  ## * The beacon block header must be destroyed with
+  ##   `ETHBeaconBlockHeaderDestroy` once no longer needed,
+  ##   to release memory.
+  ##
+  ## Parameters:
+  ## * `header` - Light client header.
+  ##
+  ## Returns:
+  ## * Beacon block header.
+  ##
+  ## See:
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/beacon-chain.md#beaconblockheader
+  let beacon = BeaconBlockHeader.new()
+  beacon[] = header[].beacon
+  beacon.toUnmanagedPtr()
+
+proc ETHBeaconBlockHeaderCreateFromJson(
+    beaconRoot: ptr Eth2Digest,
+    beaconJson: cstring): ptr BeaconBlockHeader {.exported.} =
+  ## Verifies that a JSON beacon block header is valid and that it matches
+  ## the given `beaconRoot`.
+  ##
+  ## * The beacon block header must be destroyed with
+  ##   `ETHBeaconBlockHeaderDestroy` once no longer needed,
+  ##   to release memory.
+  ##
+  ## Parameters:
+  ## * `beaconRoot` - Beacon block root.
+  ## * `beaconJson` - Buffer with JSON encoded header. NULL-terminated.
+  ##
+  ## Returns:
+  ## * Pointer to an initialized beacon block header - If successful.
+  ## * `NULL` - If the given `beaconJson` is malformed or incompatible.
+  ##
+  ## See:
+  ## * https://ethereum.github.io/beacon-APIs/?urls.primaryName=v4.0.0#/Beacon/getBlockHeader
+  ## * https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/beacon-chain.md#beaconblockheader
+  let beacon = BeaconBlockHeader.new()
+  try:
+    # a direct parameter like RestJson.decode($beaconJson, BeaconBlockHeader)
+    # will cause premature garbage collector kick in.
+    let jsonBytes = $beaconJson
+    beacon[] = RestJson.decode(jsonBytes, BeaconBlockHeader)
+  except SerializationError:
+    return nil
+  if beacon[].hash_tree_root() != beaconRoot[]:
+    return nil
+  beacon.toUnmanagedPtr()
+
+proc ETHBeaconBlockHeaderDestroy(
+    beacon: ptr BeaconBlockHeader) {.exported.} =
+  ## Destroys a beacon block header.
+  ##
+  ## * The beacon block header must no longer be used after destruction.
+  ##
+  ## Parameters:
+  ## * `beacon` - Beacon block header.
+  beacon.destroy()
+
 func ETHBeaconBlockHeaderGetSlot(
     beacon: ptr BeaconBlockHeader): cint {.exported.} =
   ## Obtains the slot number of a given beacon block header.
