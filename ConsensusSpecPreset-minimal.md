@@ -1,130 +1,5 @@
 ConsensusSpecPreset-minimal
 ===
-## EF - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-```
-## EF - Altair - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Altair - Epoch Processing - Historical roots update [Preset: minimal]
-```diff
-+ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
-```
-## EF - Altair - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Altair - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Altair - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Altair - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Altair - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Altair - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Altair - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Altair - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Altair - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
-```
 ## EF - Altair - Fork  [Preset: minimal]
 ```diff
 + EF - Altair - Fork - after_fork_deactivate_validators_from_phase0_to_altair [Preset: minim OK
@@ -326,43 +201,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__min_churn        OK
 + [Valid]   EF - Altair - Operations - Voluntary Exit - success_exit_queue__scaled_churn     OK
 ```
-## EF - Altair - Rewards  [Preset: minimal]
-```diff
-+ EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
-+ EF - Altair - Rewards - empty [Preset: minimal]                                            OK
-+ EF - Altair - Rewards - empty_leak [Preset: minimal]                                       OK
-+ EF - Altair - Rewards - full_all_correct [Preset: minimal]                                 OK
-+ EF - Altair - Rewards - full_but_partial_participation [Preset: minimal]                   OK
-+ EF - Altair - Rewards - full_but_partial_participation_leak [Preset: minimal]              OK
-+ EF - Altair - Rewards - full_leak [Preset: minimal]                                        OK
-+ EF - Altair - Rewards - full_random_0 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_1 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_2 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_3 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_4 [Preset: minimal]                                    OK
-+ EF - Altair - Rewards - full_random_leak [Preset: minimal]                                 OK
-+ EF - Altair - Rewards - full_random_low_balances_0 [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_low_balances_1 [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_misc_balances [Preset: minimal]                        OK
-+ EF - Altair - Rewards - full_random_seven_epoch_leak [Preset: minimal]                     OK
-+ EF - Altair - Rewards - full_random_ten_epoch_leak [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_without_leak_0 [Preset: minimal]                       OK
-+ EF - Altair - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]      OK
-+ EF - Altair - Rewards - half_full [Preset: minimal]                                        OK
-+ EF - Altair - Rewards - half_full_leak [Preset: minimal]                                   OK
-+ EF - Altair - Rewards - quarter_full [Preset: minimal]                                     OK
-+ EF - Altair - Rewards - quarter_full_leak [Preset: minimal]                                OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]   OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minim OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mini OK
-+ EF - Altair - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: OK
-+ EF - Altair - Rewards - with_exited_validators [Preset: minimal]                           OK
-+ EF - Altair - Rewards - with_exited_validators_leak [Preset: minimal]                      OK
-+ EF - Altair - Rewards - with_not_yet_activated_validators [Preset: minimal]                OK
-+ EF - Altair - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]           OK
-+ EF - Altair - Rewards - with_slashed_validators [Preset: minimal]                          OK
-+ EF - Altair - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
-```
 ## EF - Altair - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -450,131 +288,6 @@ ConsensusSpecPreset-minimal
 + process_light_client_update_timeout                                                        OK
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
-```
-## EF - Bellatrix - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-```
-## EF - Bellatrix - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Bellatrix - Epoch Processing - Historical roots update [Preset: minimal]
-```diff
-+ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
-```
-## EF - Bellatrix - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Bellatrix - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Bellatrix - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Bellatrix - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Bellatrix - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Bellatrix - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Bellatrix - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Bellatrix - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Bellatrix - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 ## EF - Bellatrix - Fork  [Preset: minimal]
 ```diff
@@ -811,43 +524,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 ```
-## EF - Bellatrix - Rewards  [Preset: minimal]
-```diff
-+ EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
-+ EF - Bellatrix - Rewards - empty [Preset: minimal]                                         OK
-+ EF - Bellatrix - Rewards - empty_leak [Preset: minimal]                                    OK
-+ EF - Bellatrix - Rewards - full_all_correct [Preset: minimal]                              OK
-+ EF - Bellatrix - Rewards - full_but_partial_participation [Preset: minimal]                OK
-+ EF - Bellatrix - Rewards - full_but_partial_participation_leak [Preset: minimal]           OK
-+ EF - Bellatrix - Rewards - full_leak [Preset: minimal]                                     OK
-+ EF - Bellatrix - Rewards - full_random_0 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_1 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_2 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_3 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_4 [Preset: minimal]                                 OK
-+ EF - Bellatrix - Rewards - full_random_leak [Preset: minimal]                              OK
-+ EF - Bellatrix - Rewards - full_random_low_balances_0 [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_low_balances_1 [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_misc_balances [Preset: minimal]                     OK
-+ EF - Bellatrix - Rewards - full_random_seven_epoch_leak [Preset: minimal]                  OK
-+ EF - Bellatrix - Rewards - full_random_ten_epoch_leak [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_without_leak_0 [Preset: minimal]                    OK
-+ EF - Bellatrix - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]   OK
-+ EF - Bellatrix - Rewards - half_full [Preset: minimal]                                     OK
-+ EF - Bellatrix - Rewards - half_full_leak [Preset: minimal]                                OK
-+ EF - Bellatrix - Rewards - quarter_full [Preset: minimal]                                  OK
-+ EF - Bellatrix - Rewards - quarter_full_leak [Preset: minimal]                             OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mi OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: m OK
-+ EF - Bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Pres OK
-+ EF - Bellatrix - Rewards - with_exited_validators [Preset: minimal]                        OK
-+ EF - Bellatrix - Rewards - with_exited_validators_leak [Preset: minimal]                   OK
-+ EF - Bellatrix - Rewards - with_not_yet_activated_validators [Preset: minimal]             OK
-+ EF - Bellatrix - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]        OK
-+ EF - Bellatrix - Rewards - with_slashed_validators [Preset: minimal]                       OK
-+ EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: minimal]                  OK
-```
 ## EF - Bellatrix - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -931,131 +607,6 @@ ConsensusSpecPreset-minimal
 + EF - Bellatrix - Transition - transition_with_random_three_quarters_participation [Preset: OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_after_fork [Preset: min OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mi OK
-```
-## EF - Capella - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-```
-## EF - Capella - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Capella - Epoch Processing - Historical summaries update [Preset: minimal]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
-```
-## EF - Capella - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Capella - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Capella - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Capella - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Capella - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Capella - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Capella - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Capella - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Capella - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 ## EF - Capella - Fork  [Preset: minimal]
 ```diff
@@ -1367,43 +918,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-## EF - Capella - Rewards  [Preset: minimal]
-```diff
-+ EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
-+ EF - Capella - Rewards - empty [Preset: minimal]                                           OK
-+ EF - Capella - Rewards - empty_leak [Preset: minimal]                                      OK
-+ EF - Capella - Rewards - full_all_correct [Preset: minimal]                                OK
-+ EF - Capella - Rewards - full_but_partial_participation [Preset: minimal]                  OK
-+ EF - Capella - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
-+ EF - Capella - Rewards - full_leak [Preset: minimal]                                       OK
-+ EF - Capella - Rewards - full_random_0 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_1 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_2 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_3 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_4 [Preset: minimal]                                   OK
-+ EF - Capella - Rewards - full_random_leak [Preset: minimal]                                OK
-+ EF - Capella - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_misc_balances [Preset: minimal]                       OK
-+ EF - Capella - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
-+ EF - Capella - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
-+ EF - Capella - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
-+ EF - Capella - Rewards - half_full [Preset: minimal]                                       OK
-+ EF - Capella - Rewards - half_full_leak [Preset: minimal]                                  OK
-+ EF - Capella - Rewards - quarter_full [Preset: minimal]                                    OK
-+ EF - Capella - Rewards - quarter_full_leak [Preset: minimal]                               OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
-+ EF - Capella - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
-+ EF - Capella - Rewards - with_exited_validators [Preset: minimal]                          OK
-+ EF - Capella - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
-+ EF - Capella - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
-+ EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
-+ EF - Capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
-+ EF - Capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
-```
 ## EF - Capella - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -1498,134 +1012,6 @@ ConsensusSpecPreset-minimal
 + process_light_client_update_timeout                                                        OK
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
-```
-## EF - Deneb - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-```
-## EF - Deneb - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Deneb - Epoch Processing - Historical summaries update [Preset: minimal]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
-```
-## EF - Deneb - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Deneb - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Deneb - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Deneb - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Deneb - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
-+ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
-+ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Deneb - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Deneb - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Deneb - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Deneb - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 ## EF - Deneb - Fork  [Preset: minimal]
 ```diff
@@ -1950,43 +1336,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 + [Valid]   EF - Deneb - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-## EF - Deneb - Rewards  [Preset: minimal]
-```diff
-+ EF - Deneb - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
-+ EF - Deneb - Rewards - empty [Preset: minimal]                                             OK
-+ EF - Deneb - Rewards - empty_leak [Preset: minimal]                                        OK
-+ EF - Deneb - Rewards - full_all_correct [Preset: minimal]                                  OK
-+ EF - Deneb - Rewards - full_but_partial_participation [Preset: minimal]                    OK
-+ EF - Deneb - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
-+ EF - Deneb - Rewards - full_leak [Preset: minimal]                                         OK
-+ EF - Deneb - Rewards - full_random_0 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_1 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_2 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_3 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_4 [Preset: minimal]                                     OK
-+ EF - Deneb - Rewards - full_random_leak [Preset: minimal]                                  OK
-+ EF - Deneb - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_misc_balances [Preset: minimal]                         OK
-+ EF - Deneb - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
-+ EF - Deneb - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
-+ EF - Deneb - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
-+ EF - Deneb - Rewards - half_full [Preset: minimal]                                         OK
-+ EF - Deneb - Rewards - half_full_leak [Preset: minimal]                                    OK
-+ EF - Deneb - Rewards - quarter_full [Preset: minimal]                                      OK
-+ EF - Deneb - Rewards - quarter_full_leak [Preset: minimal]                                 OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
-+ EF - Deneb - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
-+ EF - Deneb - Rewards - with_exited_validators [Preset: minimal]                            OK
-+ EF - Deneb - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
-+ EF - Deneb - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
-+ EF - Deneb - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
-+ EF - Deneb - Rewards - with_slashed_validators [Preset: minimal]                           OK
-+ EF - Deneb - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
-```
 ## EF - Deneb - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -2087,203 +1436,6 @@ ConsensusSpecPreset-minimal
 + process_light_client_update_timeout                                                        OK
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
-```
-## EF - Electra - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Electra - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Electra - Epoch Processing - Historical summaries update [Preset: minimal]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
-```
-## EF - Electra - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Electra - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Electra - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Electra - Epoch Processing - Pending consolidations [Preset: minimal]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
-```
-## EF - Electra - Epoch Processing - Pending deposits [Preset: minimal]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
-+ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
-```
-## EF - Electra - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Electra - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
-+ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
-+ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Electra - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Electra - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Electra - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Electra - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 ## EF - Electra - Fork  [Preset: minimal]
 ```diff
@@ -2744,43 +1896,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Electra - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-## EF - Electra - Rewards  [Preset: minimal]
-```diff
-+ EF - Electra - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
-+ EF - Electra - Rewards - empty [Preset: minimal]                                           OK
-+ EF - Electra - Rewards - empty_leak [Preset: minimal]                                      OK
-+ EF - Electra - Rewards - full_all_correct [Preset: minimal]                                OK
-+ EF - Electra - Rewards - full_but_partial_participation [Preset: minimal]                  OK
-+ EF - Electra - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
-+ EF - Electra - Rewards - full_leak [Preset: minimal]                                       OK
-+ EF - Electra - Rewards - full_random_0 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_1 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_2 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_3 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_4 [Preset: minimal]                                   OK
-+ EF - Electra - Rewards - full_random_leak [Preset: minimal]                                OK
-+ EF - Electra - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_misc_balances [Preset: minimal]                       OK
-+ EF - Electra - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
-+ EF - Electra - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
-+ EF - Electra - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
-+ EF - Electra - Rewards - half_full [Preset: minimal]                                       OK
-+ EF - Electra - Rewards - half_full_leak [Preset: minimal]                                  OK
-+ EF - Electra - Rewards - quarter_full [Preset: minimal]                                    OK
-+ EF - Electra - Rewards - quarter_full_leak [Preset: minimal]                               OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
-+ EF - Electra - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
-+ EF - Electra - Rewards - with_exited_validators [Preset: minimal]                          OK
-+ EF - Electra - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
-+ EF - Electra - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
-+ EF - Electra - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
-+ EF - Electra - Rewards - with_slashed_validators [Preset: minimal]                         OK
-+ EF - Electra - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
-```
 ## EF - Electra - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -2900,208 +2015,6 @@ ConsensusSpecPreset-minimal
 + process_light_client_update_timeout                                                        OK
 + test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
-```
-## EF - Fulu - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Fulu - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Fulu - Epoch Processing - Historical summaries update [Preset: minimal]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
-```
-## EF - Fulu - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Fulu - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Fulu - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Fulu - Epoch Processing - Pending consolidations [Preset: minimal]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
-```
-## EF - Fulu - Epoch Processing - Pending deposits [Preset: minimal]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
-+ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
-```
-## EF - Fulu - Epoch Processing - Proposer lookahead [Preset: minimal]
-```diff
-+ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
-+ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
-```
-## EF - Fulu - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Fulu - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
-+ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
-+ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Fulu - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Fulu - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Fulu - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Fulu - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 ## EF - Fulu - Fork  [Preset: minimal]
 ```diff
@@ -3558,43 +2471,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 + [Valid]   EF - Fulu - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
 ```
-## EF - Fulu - Rewards  [Preset: minimal]
-```diff
-+ EF - Fulu - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
-+ EF - Fulu - Rewards - empty [Preset: minimal]                                              OK
-+ EF - Fulu - Rewards - empty_leak [Preset: minimal]                                         OK
-+ EF - Fulu - Rewards - full_all_correct [Preset: minimal]                                   OK
-+ EF - Fulu - Rewards - full_but_partial_participation [Preset: minimal]                     OK
-+ EF - Fulu - Rewards - full_but_partial_participation_leak [Preset: minimal]                OK
-+ EF - Fulu - Rewards - full_leak [Preset: minimal]                                          OK
-+ EF - Fulu - Rewards - full_random_0 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_1 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_2 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_3 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_4 [Preset: minimal]                                      OK
-+ EF - Fulu - Rewards - full_random_leak [Preset: minimal]                                   OK
-+ EF - Fulu - Rewards - full_random_low_balances_0 [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_low_balances_1 [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_misc_balances [Preset: minimal]                          OK
-+ EF - Fulu - Rewards - full_random_seven_epoch_leak [Preset: minimal]                       OK
-+ EF - Fulu - Rewards - full_random_ten_epoch_leak [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_without_leak_0 [Preset: minimal]                         OK
-+ EF - Fulu - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]        OK
-+ EF - Fulu - Rewards - half_full [Preset: minimal]                                          OK
-+ EF - Fulu - Rewards - half_full_leak [Preset: minimal]                                     OK
-+ EF - Fulu - Rewards - quarter_full [Preset: minimal]                                       OK
-+ EF - Fulu - Rewards - quarter_full_leak [Preset: minimal]                                  OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]     OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minima OK
-+ EF - Fulu - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
-+ EF - Fulu - Rewards - with_exited_validators [Preset: minimal]                             OK
-+ EF - Fulu - Rewards - with_exited_validators_leak [Preset: minimal]                        OK
-+ EF - Fulu - Rewards - with_not_yet_activated_validators [Preset: minimal]                  OK
-+ EF - Fulu - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]             OK
-+ EF - Fulu - Rewards - with_slashed_validators [Preset: minimal]                            OK
-+ EF - Fulu - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
-```
 ## EF - Fulu - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -3713,223 +2589,6 @@ ConsensusSpecPreset-minimal
 + EF - Fulu - Transition - transition_with_random_three_quarters_participation [Preset: mini OK
 + EF - Fulu - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal] OK
 + EF - Fulu - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minimal OK
-```
-## EF - Gloas - Epoch Processing - Builder pending payments [Preset: minimal]
-```diff
-+ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
-+ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
-+ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
-+ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
-+ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
-```
-## EF - Gloas - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Gloas - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Gloas - Epoch Processing - Historical summaries update [Preset: minimal]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
-```
-## EF - Gloas - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Gloas - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Gloas - Epoch Processing - PTC window [Preset: minimal]
-```diff
-+ PTC window - process_ptc_window__shifts_all_epochs [Preset: minimal]                       OK
-```
-## EF - Gloas - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Gloas - Epoch Processing - Pending consolidations [Preset: minimal]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
-```
-## EF - Gloas - Epoch Processing - Pending deposits [Preset: minimal]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
-+ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
-```
-## EF - Gloas - Epoch Processing - Proposer lookahead [Preset: minimal]
-```diff
-+ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
-+ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
-```
-## EF - Gloas - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Gloas - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
-+ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
-+ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Gloas - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Gloas - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Gloas - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Gloas - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 ## EF - Gloas - Fork  [Preset: minimal]
 ```diff
@@ -4484,43 +3143,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_balance         OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
 ```
-## EF - Gloas - Rewards  [Preset: minimal]
-```diff
-+ EF - Gloas - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
-+ EF - Gloas - Rewards - empty [Preset: minimal]                                             OK
-+ EF - Gloas - Rewards - empty_leak [Preset: minimal]                                        OK
-+ EF - Gloas - Rewards - full_all_correct [Preset: minimal]                                  OK
-+ EF - Gloas - Rewards - full_but_partial_participation [Preset: minimal]                    OK
-+ EF - Gloas - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
-+ EF - Gloas - Rewards - full_leak [Preset: minimal]                                         OK
-+ EF - Gloas - Rewards - full_random_0 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_1 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_2 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_3 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_4 [Preset: minimal]                                     OK
-+ EF - Gloas - Rewards - full_random_leak [Preset: minimal]                                  OK
-+ EF - Gloas - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_misc_balances [Preset: minimal]                         OK
-+ EF - Gloas - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
-+ EF - Gloas - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
-+ EF - Gloas - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
-+ EF - Gloas - Rewards - half_full [Preset: minimal]                                         OK
-+ EF - Gloas - Rewards - half_full_leak [Preset: minimal]                                    OK
-+ EF - Gloas - Rewards - quarter_full [Preset: minimal]                                      OK
-+ EF - Gloas - Rewards - quarter_full_leak [Preset: minimal]                                 OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
-+ EF - Gloas - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
-+ EF - Gloas - Rewards - with_exited_validators [Preset: minimal]                            OK
-+ EF - Gloas - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
-+ EF - Gloas - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
-+ EF - Gloas - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
-+ EF - Gloas - Rewards - with_slashed_validators [Preset: minimal]                           OK
-+ EF - Gloas - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
-```
 ## EF - Gloas - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -4652,219 +3274,6 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: min OK
 + EF - Gloas - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
 + EF - Gloas - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
-```
-## EF - Heze - Epoch Processing - Builder pending payments [Preset: minimal]
-```diff
-+ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
-+ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
-+ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
-+ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
-+ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
-```
-## EF - Heze - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-+ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
-```
-## EF - Heze - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Heze - Epoch Processing - Historical summaries update [Preset: minimal]
-```diff
-+ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
-```
-## EF - Heze - Epoch Processing - Inactivity [Preset: minimal]
-```diff
-+ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
-+ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
-+ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
-+ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
-+ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
-+ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
-+ Inactivity - genesis [Preset: minimal]                                                     OK
-+ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
-+ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
-+ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
-+ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
-+ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
-+ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
-+ Inactivity - randomized_state [Preset: minimal]                                            OK
-+ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
-+ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
-+ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
-+ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
-+ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
-+ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
-```
-## EF - Heze - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Heze - Epoch Processing - Participation flag updates [Preset: minimal]
-```diff
-+ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
-+ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
-+ Participation flag updates - current_filled [Preset: minimal]                              OK
-+ Participation flag updates - filled [Preset: minimal]                                      OK
-+ Participation flag updates - large_random [Preset: minimal]                                OK
-+ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
-+ Participation flag updates - previous_filled [Preset: minimal]                             OK
-+ Participation flag updates - random_0 [Preset: minimal]                                    OK
-+ Participation flag updates - random_1 [Preset: minimal]                                    OK
-+ Participation flag updates - random_2 [Preset: minimal]                                    OK
-+ Participation flag updates - random_genesis [Preset: minimal]                              OK
-+ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
-```
-## EF - Heze - Epoch Processing - Pending consolidations [Preset: minimal]
-```diff
-+ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
-+ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
-+ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
-+ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
-+ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
-+ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
-+ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
-+ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
-+ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
-+ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
-+ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
-```
-## EF - Heze - Epoch Processing - Pending deposits [Preset: minimal]
-```diff
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
-+ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
-+ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
-+ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
-+ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
-+ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
-+ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
-+ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
-+ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
-+ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
-+ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
-+ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
-+ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
-+ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
-+ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
-+ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
-+ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
-+ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
-+ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
-+ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
-+ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
-+ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
-+ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
-+ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
-+ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
-+ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
-+ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
-+ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
-```
-## EF - Heze - Epoch Processing - Proposer lookahead [Preset: minimal]
-```diff
-+ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
-+ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
-```
-## EF - Heze - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Heze - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
-+ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
-+ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
-+ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
-+ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Heze - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Heze - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Heze - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
-## EF - Heze - Epoch Processing - Sync committee updates [Preset: minimal]
-```diff
-+ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
-+ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
-+ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
-+ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 ## EF - Heze - Fork  [Preset: minimal]
 ```diff
@@ -5628,92 +4037,6 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 ```
-## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
-```diff
-+ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
-```
-## EF - Phase 0 - Epoch Processing - Eth1 data reset [Preset: minimal]
-```diff
-+ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
-+ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
-```
-## EF - Phase 0 - Epoch Processing - Historical roots update [Preset: minimal]
-```diff
-+ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
-```
-## EF - Phase 0 - Epoch Processing - Justification & Finalization [Preset: minimal]
-```diff
-+ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
-+ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
-+ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
-+ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
-+ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
-+ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
-```
-## EF - Phase 0 - Epoch Processing - Participation record updates [Preset: minimal]
-```diff
-+ Participation record updates - updated_participation_record [Preset: minimal]              OK
-```
-## EF - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: minimal]
-```diff
-+ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
-```
-## EF - Phase 0 - Epoch Processing - Registry updates [Preset: minimal]
-```diff
-+ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
-+ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
-+ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
-+ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
-+ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
-+ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
-+ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
-+ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
-+ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
-+ Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
-+ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
-+ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
-```
-## EF - Phase 0 - Epoch Processing - Rewards and penalties [Preset: minimal]
-```diff
-+ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
-+ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
-+ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
-+ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
-+ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
-+ Rewards and penalties - duplicate_participants_different_attestation_1 [Preset: minimal]   OK
-+ Rewards and penalties - duplicate_participants_different_attestation_2 [Preset: minimal]   OK
-+ Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: minimal]   OK
-+ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
-+ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
-+ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
-+ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
-+ Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
-+ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
-+ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
-+ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
-+ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
-+ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
-```
-## EF - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
-```diff
-+ Slashings - low_penalty [Preset: minimal]                                                  OK
-+ Slashings - max_penalties [Preset: minimal]                                                OK
-+ Slashings - minimal_penalty [Preset: minimal]                                              OK
-+ Slashings - scaled_penalties [Preset: minimal]                                             OK
-+ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
-```
-## EF - Phase 0 - Epoch Processing - Slashings reset [Preset: minimal]
-```diff
-+ Slashings reset - flush_slashings [Preset: minimal]                                        OK
-```
 ## EF - Phase 0 - Operations - Attestation  [Preset: minimal]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: mi OK
@@ -5864,58 +4187,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Voluntary Exit  [Preset: OK
 ```
-## EF - Phase 0 - Rewards  [Preset: minimal]
-```diff
-+ EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
-+ EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
-+ EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
-+ EF - Phase 0 - Rewards - empty_leak [Preset: minimal]                                      OK
-+ EF - Phase 0 - Rewards - full_all_correct [Preset: minimal]                                OK
-+ EF - Phase 0 - Rewards - full_but_partial_participation [Preset: minimal]                  OK
-+ EF - Phase 0 - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
-+ EF - Phase 0 - Rewards - full_correct_target_incorrect_head [Preset: minimal]              OK
-+ EF - Phase 0 - Rewards - full_correct_target_incorrect_head_leak [Preset: minimal]         OK
-+ EF - Phase 0 - Rewards - full_delay_max_slots [Preset: minimal]                            OK
-+ EF - Phase 0 - Rewards - full_delay_one_slot [Preset: minimal]                             OK
-+ EF - Phase 0 - Rewards - full_half_correct_target_incorrect_head [Preset: minimal]         OK
-+ EF - Phase 0 - Rewards - full_half_correct_target_incorrect_head_leak [Preset: minimal]    OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_correct_head [Preset: minimal]         OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_correct_head_leak [Preset: minimal]    OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_incorrect_head [Preset: minimal]       OK
-+ EF - Phase 0 - Rewards - full_half_incorrect_target_incorrect_head_leak [Preset: minimal]  OK
-+ EF - Phase 0 - Rewards - full_leak [Preset: minimal]                                       OK
-+ EF - Phase 0 - Rewards - full_mixed_delay [Preset: minimal]                                OK
-+ EF - Phase 0 - Rewards - full_random_0 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_1 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_2 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_3 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_4 [Preset: minimal]                                   OK
-+ EF - Phase 0 - Rewards - full_random_leak [Preset: minimal]                                OK
-+ EF - Phase 0 - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_misc_balances [Preset: minimal]                       OK
-+ EF - Phase 0 - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
-+ EF - Phase 0 - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
-+ EF - Phase 0 - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
-+ EF - Phase 0 - Rewards - half_full [Preset: minimal]                                       OK
-+ EF - Phase 0 - Rewards - half_full_leak [Preset: minimal]                                  OK
-+ EF - Phase 0 - Rewards - one_attestation_one_correct [Preset: minimal]                     OK
-+ EF - Phase 0 - Rewards - one_attestation_one_correct_leak [Preset: minimal]                OK
-+ EF - Phase 0 - Rewards - proposer_not_in_attestations [Preset: minimal]                    OK
-+ EF - Phase 0 - Rewards - quarter_full [Preset: minimal]                                    OK
-+ EF - Phase 0 - Rewards - quarter_full_leak [Preset: minimal]                               OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
-+ EF - Phase 0 - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
-+ EF - Phase 0 - Rewards - with_exited_validators [Preset: minimal]                          OK
-+ EF - Phase 0 - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
-+ EF - Phase 0 - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
-+ EF - Phase 0 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
-+ EF - Phase 0 - Rewards - with_slashed_validators [Preset: minimal]                         OK
-+ EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
-```
 ## EF - Phase 0 - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -5956,6 +4227,131 @@ ConsensusSpecPreset-minimal
 + EF - Phase 0 - Slots - slots_1 [Preset: minimal]                                           OK
 + EF - Phase 0 - Slots - slots_2 [Preset: minimal]                                           OK
 ```
+## EF - altair - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
+```
+## EF - altair - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - altair - Epoch Processing - Historical roots update [Preset: minimal]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
+```
+## EF - altair - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - altair - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - altair - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - altair - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - altair - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - altair - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - altair - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - altair - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - altair - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - altair - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - altair - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
@@ -5982,6 +4378,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - altair - Random - randomized_7 [Preset: minimal]                            OK
 + [Valid]   EF - altair - Random - randomized_8 [Preset: minimal]                            OK
 + [Valid]   EF - altair - Random - randomized_9 [Preset: minimal]                            OK
+```
+## EF - altair - Rewards  [Preset: minimal]
+```diff
++ EF - altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
++ EF - altair - Rewards - empty [Preset: minimal]                                            OK
++ EF - altair - Rewards - empty_leak [Preset: minimal]                                       OK
++ EF - altair - Rewards - full_all_correct [Preset: minimal]                                 OK
++ EF - altair - Rewards - full_but_partial_participation [Preset: minimal]                   OK
++ EF - altair - Rewards - full_but_partial_participation_leak [Preset: minimal]              OK
++ EF - altair - Rewards - full_leak [Preset: minimal]                                        OK
++ EF - altair - Rewards - full_random_0 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_1 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_2 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_3 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_4 [Preset: minimal]                                    OK
++ EF - altair - Rewards - full_random_leak [Preset: minimal]                                 OK
++ EF - altair - Rewards - full_random_low_balances_0 [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_low_balances_1 [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_misc_balances [Preset: minimal]                        OK
++ EF - altair - Rewards - full_random_seven_epoch_leak [Preset: minimal]                     OK
++ EF - altair - Rewards - full_random_ten_epoch_leak [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_without_leak_0 [Preset: minimal]                       OK
++ EF - altair - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]      OK
++ EF - altair - Rewards - half_full [Preset: minimal]                                        OK
++ EF - altair - Rewards - half_full_leak [Preset: minimal]                                   OK
++ EF - altair - Rewards - quarter_full [Preset: minimal]                                     OK
++ EF - altair - Rewards - quarter_full_leak [Preset: minimal]                                OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]   OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minim OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mini OK
++ EF - altair - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: OK
++ EF - altair - Rewards - with_exited_validators [Preset: minimal]                           OK
++ EF - altair - Rewards - with_exited_validators_leak [Preset: minimal]                      OK
++ EF - altair - Rewards - with_not_yet_activated_validators [Preset: minimal]                OK
++ EF - altair - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]           OK
++ EF - altair - Rewards - with_slashed_validators [Preset: minimal]                          OK
++ EF - altair - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
 ```
 ## EF - altair - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6038,6 +4471,131 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - altair - Sanity - Blocks - sync_committee_committee_genesis__half [Preset:  OK
 + [Valid]   EF - altair - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
 ```
+## EF - bellatrix - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
+```
+## EF - bellatrix - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - bellatrix - Epoch Processing - Historical roots update [Preset: minimal]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
+```
+## EF - bellatrix - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - bellatrix - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - bellatrix - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - bellatrix - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - bellatrix - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - bellatrix - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - bellatrix - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - bellatrix - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - bellatrix - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - bellatrix - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - bellatrix - Finality - finality_no_updates_at_genesis [Preset: minimal]     OK
@@ -6064,6 +4622,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - bellatrix - Random - randomized_7 [Preset: minimal]                         OK
 + [Valid]   EF - bellatrix - Random - randomized_8 [Preset: minimal]                         OK
 + [Valid]   EF - bellatrix - Random - randomized_9 [Preset: minimal]                         OK
+```
+## EF - bellatrix - Rewards  [Preset: minimal]
+```diff
++ EF - bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
++ EF - bellatrix - Rewards - empty [Preset: minimal]                                         OK
++ EF - bellatrix - Rewards - empty_leak [Preset: minimal]                                    OK
++ EF - bellatrix - Rewards - full_all_correct [Preset: minimal]                              OK
++ EF - bellatrix - Rewards - full_but_partial_participation [Preset: minimal]                OK
++ EF - bellatrix - Rewards - full_but_partial_participation_leak [Preset: minimal]           OK
++ EF - bellatrix - Rewards - full_leak [Preset: minimal]                                     OK
++ EF - bellatrix - Rewards - full_random_0 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_1 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_2 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_3 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_4 [Preset: minimal]                                 OK
++ EF - bellatrix - Rewards - full_random_leak [Preset: minimal]                              OK
++ EF - bellatrix - Rewards - full_random_low_balances_0 [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_low_balances_1 [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_misc_balances [Preset: minimal]                     OK
++ EF - bellatrix - Rewards - full_random_seven_epoch_leak [Preset: minimal]                  OK
++ EF - bellatrix - Rewards - full_random_ten_epoch_leak [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_without_leak_0 [Preset: minimal]                    OK
++ EF - bellatrix - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]   OK
++ EF - bellatrix - Rewards - half_full [Preset: minimal]                                     OK
++ EF - bellatrix - Rewards - half_full_leak [Preset: minimal]                                OK
++ EF - bellatrix - Rewards - quarter_full [Preset: minimal]                                  OK
++ EF - bellatrix - Rewards - quarter_full_leak [Preset: minimal]                             OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mi OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: m OK
++ EF - bellatrix - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Pres OK
++ EF - bellatrix - Rewards - with_exited_validators [Preset: minimal]                        OK
++ EF - bellatrix - Rewards - with_exited_validators_leak [Preset: minimal]                   OK
++ EF - bellatrix - Rewards - with_not_yet_activated_validators [Preset: minimal]             OK
++ EF - bellatrix - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]        OK
++ EF - bellatrix - Rewards - with_slashed_validators [Preset: minimal]                       OK
++ EF - bellatrix - Rewards - with_slashed_validators_leak [Preset: minimal]                  OK
 ```
 ## EF - bellatrix - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6123,6 +4718,131 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - bellatrix - Sanity - Blocks - sync_committee_committee_genesis__half [Prese OK
 + [Valid]   EF - bellatrix - Sanity - Blocks - voluntary_exit [Preset: minimal]              OK
 ```
+## EF - capella - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
+```
+## EF - capella - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - capella - Epoch Processing - Historical summaries update [Preset: minimal]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
+```
+## EF - capella - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - capella - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - capella - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - capella - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - capella - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - capella - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - capella - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - capella - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - capella - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - capella - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - capella - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -6149,6 +4869,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - capella - Random - randomized_7 [Preset: minimal]                           OK
 + [Valid]   EF - capella - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - capella - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - capella - Rewards  [Preset: minimal]
+```diff
++ EF - capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
++ EF - capella - Rewards - empty [Preset: minimal]                                           OK
++ EF - capella - Rewards - empty_leak [Preset: minimal]                                      OK
++ EF - capella - Rewards - full_all_correct [Preset: minimal]                                OK
++ EF - capella - Rewards - full_but_partial_participation [Preset: minimal]                  OK
++ EF - capella - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
++ EF - capella - Rewards - full_leak [Preset: minimal]                                       OK
++ EF - capella - Rewards - full_random_0 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_1 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_2 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_3 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_4 [Preset: minimal]                                   OK
++ EF - capella - Rewards - full_random_leak [Preset: minimal]                                OK
++ EF - capella - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_misc_balances [Preset: minimal]                       OK
++ EF - capella - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
++ EF - capella - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
++ EF - capella - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
++ EF - capella - Rewards - half_full [Preset: minimal]                                       OK
++ EF - capella - Rewards - half_full_leak [Preset: minimal]                                  OK
++ EF - capella - Rewards - quarter_full [Preset: minimal]                                    OK
++ EF - capella - Rewards - quarter_full_leak [Preset: minimal]                               OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
++ EF - capella - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - capella - Rewards - with_exited_validators [Preset: minimal]                          OK
++ EF - capella - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
++ EF - capella - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
++ EF - capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
++ EF - capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
++ EF - capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
 ## EF - capella - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6222,6 +4979,134 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 + [Valid]   EF - capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 ```
+## EF - deneb - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
+```
+## EF - deneb - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - deneb - Epoch Processing - Historical summaries update [Preset: minimal]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
+```
+## EF - deneb - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - deneb - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - deneb - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - deneb - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - deneb - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - deneb - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - deneb - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - deneb - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - deneb - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - deneb - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - deneb - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
@@ -6248,6 +5133,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - deneb - Random - randomized_7 [Preset: minimal]                             OK
 + [Valid]   EF - deneb - Random - randomized_8 [Preset: minimal]                             OK
 + [Valid]   EF - deneb - Random - randomized_9 [Preset: minimal]                             OK
+```
+## EF - deneb - Rewards  [Preset: minimal]
+```diff
++ EF - deneb - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
++ EF - deneb - Rewards - empty [Preset: minimal]                                             OK
++ EF - deneb - Rewards - empty_leak [Preset: minimal]                                        OK
++ EF - deneb - Rewards - full_all_correct [Preset: minimal]                                  OK
++ EF - deneb - Rewards - full_but_partial_participation [Preset: minimal]                    OK
++ EF - deneb - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
++ EF - deneb - Rewards - full_leak [Preset: minimal]                                         OK
++ EF - deneb - Rewards - full_random_0 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_1 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_2 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_3 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_4 [Preset: minimal]                                     OK
++ EF - deneb - Rewards - full_random_leak [Preset: minimal]                                  OK
++ EF - deneb - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_misc_balances [Preset: minimal]                         OK
++ EF - deneb - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
++ EF - deneb - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
++ EF - deneb - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
++ EF - deneb - Rewards - half_full [Preset: minimal]                                         OK
++ EF - deneb - Rewards - half_full_leak [Preset: minimal]                                    OK
++ EF - deneb - Rewards - quarter_full [Preset: minimal]                                      OK
++ EF - deneb - Rewards - quarter_full_leak [Preset: minimal]                                 OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
++ EF - deneb - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
++ EF - deneb - Rewards - with_exited_validators [Preset: minimal]                            OK
++ EF - deneb - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
++ EF - deneb - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
++ EF - deneb - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
++ EF - deneb - Rewards - with_slashed_validators [Preset: minimal]                           OK
++ EF - deneb - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
 ```
 ## EF - deneb - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6330,6 +5252,203 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - deneb - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
 + [Valid]   EF - deneb - Sanity - Blocks - zero_blob [Preset: minimal]                       OK
 ```
+## EF - electra - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - electra - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - electra - Epoch Processing - Historical summaries update [Preset: minimal]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
+```
+## EF - electra - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - electra - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - electra - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - electra - Epoch Processing - Pending consolidations [Preset: minimal]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
+```
+## EF - electra - Epoch Processing - Pending deposits [Preset: minimal]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
++ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - electra - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - electra - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - electra - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - electra - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - electra - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - electra - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - electra - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - electra - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -6356,6 +5475,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - electra - Random - randomized_7 [Preset: minimal]                           OK
 + [Valid]   EF - electra - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - electra - Random - randomized_9 [Preset: minimal]                           OK
+```
+## EF - electra - Rewards  [Preset: minimal]
+```diff
++ EF - electra - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
++ EF - electra - Rewards - empty [Preset: minimal]                                           OK
++ EF - electra - Rewards - empty_leak [Preset: minimal]                                      OK
++ EF - electra - Rewards - full_all_correct [Preset: minimal]                                OK
++ EF - electra - Rewards - full_but_partial_participation [Preset: minimal]                  OK
++ EF - electra - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
++ EF - electra - Rewards - full_leak [Preset: minimal]                                       OK
++ EF - electra - Rewards - full_random_0 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_1 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_2 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_3 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_4 [Preset: minimal]                                   OK
++ EF - electra - Rewards - full_random_leak [Preset: minimal]                                OK
++ EF - electra - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_misc_balances [Preset: minimal]                       OK
++ EF - electra - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
++ EF - electra - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
++ EF - electra - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
++ EF - electra - Rewards - half_full [Preset: minimal]                                       OK
++ EF - electra - Rewards - half_full_leak [Preset: minimal]                                  OK
++ EF - electra - Rewards - quarter_full [Preset: minimal]                                    OK
++ EF - electra - Rewards - quarter_full_leak [Preset: minimal]                               OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
++ EF - electra - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - electra - Rewards - with_exited_validators [Preset: minimal]                          OK
++ EF - electra - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
++ EF - electra - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
++ EF - electra - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
++ EF - electra - Rewards - with_slashed_validators [Preset: minimal]                         OK
++ EF - electra - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 ```
 ## EF - electra - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6461,6 +5617,208 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - electra - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - electra - Sanity - Blocks - zero_blob [Preset: minimal]                     OK
 ```
+## EF - fulu - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - fulu - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - fulu - Epoch Processing - Historical summaries update [Preset: minimal]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
+```
+## EF - fulu - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - fulu - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - fulu - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - fulu - Epoch Processing - Pending consolidations [Preset: minimal]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
+```
+## EF - fulu - Epoch Processing - Pending deposits [Preset: minimal]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
++ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - fulu - Epoch Processing - Proposer lookahead [Preset: minimal]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
+```
+## EF - fulu - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - fulu - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - fulu - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - fulu - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - fulu - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - fulu - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - fulu - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - fulu - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
@@ -6487,6 +5845,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Random - randomized_7 [Preset: minimal]                              OK
 + [Valid]   EF - fulu - Random - randomized_8 [Preset: minimal]                              OK
 + [Valid]   EF - fulu - Random - randomized_9 [Preset: minimal]                              OK
+```
+## EF - fulu - Rewards  [Preset: minimal]
+```diff
++ EF - fulu - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
++ EF - fulu - Rewards - empty [Preset: minimal]                                              OK
++ EF - fulu - Rewards - empty_leak [Preset: minimal]                                         OK
++ EF - fulu - Rewards - full_all_correct [Preset: minimal]                                   OK
++ EF - fulu - Rewards - full_but_partial_participation [Preset: minimal]                     OK
++ EF - fulu - Rewards - full_but_partial_participation_leak [Preset: minimal]                OK
++ EF - fulu - Rewards - full_leak [Preset: minimal]                                          OK
++ EF - fulu - Rewards - full_random_0 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_1 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_2 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_3 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_4 [Preset: minimal]                                      OK
++ EF - fulu - Rewards - full_random_leak [Preset: minimal]                                   OK
++ EF - fulu - Rewards - full_random_low_balances_0 [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_low_balances_1 [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_misc_balances [Preset: minimal]                          OK
++ EF - fulu - Rewards - full_random_seven_epoch_leak [Preset: minimal]                       OK
++ EF - fulu - Rewards - full_random_ten_epoch_leak [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_without_leak_0 [Preset: minimal]                         OK
++ EF - fulu - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]        OK
++ EF - fulu - Rewards - half_full [Preset: minimal]                                          OK
++ EF - fulu - Rewards - half_full_leak [Preset: minimal]                                     OK
++ EF - fulu - Rewards - quarter_full [Preset: minimal]                                       OK
++ EF - fulu - Rewards - quarter_full_leak [Preset: minimal]                                  OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]     OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minima OK
++ EF - fulu - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
++ EF - fulu - Rewards - with_exited_validators [Preset: minimal]                             OK
++ EF - fulu - Rewards - with_exited_validators_leak [Preset: minimal]                        OK
++ EF - fulu - Rewards - with_not_yet_activated_validators [Preset: minimal]                  OK
++ EF - fulu - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]             OK
++ EF - fulu - Rewards - with_slashed_validators [Preset: minimal]                            OK
++ EF - fulu - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
 ```
 ## EF - fulu - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6583,6 +5978,223 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - fulu - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
 + [Valid]   EF - fulu - Sanity - Blocks - zero_blob [Preset: minimal]                        OK
 ```
+## EF - gloas - Epoch Processing - Builder pending payments [Preset: minimal]
+```diff
++ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
++ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
++ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
++ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
++ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
+```
+## EF - gloas - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - gloas - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - gloas - Epoch Processing - Historical summaries update [Preset: minimal]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
+```
+## EF - gloas - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - gloas - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - gloas - Epoch Processing - PTC window [Preset: minimal]
+```diff
++ PTC window - process_ptc_window__shifts_all_epochs [Preset: minimal]                       OK
+```
+## EF - gloas - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - gloas - Epoch Processing - Pending consolidations [Preset: minimal]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
+```
+## EF - gloas - Epoch Processing - Pending deposits [Preset: minimal]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
++ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - gloas - Epoch Processing - Proposer lookahead [Preset: minimal]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
+```
+## EF - gloas - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - gloas - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - gloas - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - gloas - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - gloas - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - gloas - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - gloas - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - gloas - Finality - finality_no_updates_at_genesis [Preset: minimal]         OK
@@ -6609,6 +6221,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Random - randomized_7 [Preset: minimal]                             OK
 + [Valid]   EF - gloas - Random - randomized_8 [Preset: minimal]                             OK
 + [Valid]   EF - gloas - Random - randomized_9 [Preset: minimal]                             OK
+```
+## EF - gloas - Rewards  [Preset: minimal]
+```diff
++ EF - gloas - Rewards - all_balances_too_low_for_reward [Preset: minimal]                   OK
++ EF - gloas - Rewards - empty [Preset: minimal]                                             OK
++ EF - gloas - Rewards - empty_leak [Preset: minimal]                                        OK
++ EF - gloas - Rewards - full_all_correct [Preset: minimal]                                  OK
++ EF - gloas - Rewards - full_but_partial_participation [Preset: minimal]                    OK
++ EF - gloas - Rewards - full_but_partial_participation_leak [Preset: minimal]               OK
++ EF - gloas - Rewards - full_leak [Preset: minimal]                                         OK
++ EF - gloas - Rewards - full_random_0 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_1 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_2 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_3 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_4 [Preset: minimal]                                     OK
++ EF - gloas - Rewards - full_random_leak [Preset: minimal]                                  OK
++ EF - gloas - Rewards - full_random_low_balances_0 [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_low_balances_1 [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_misc_balances [Preset: minimal]                         OK
++ EF - gloas - Rewards - full_random_seven_epoch_leak [Preset: minimal]                      OK
++ EF - gloas - Rewards - full_random_ten_epoch_leak [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_without_leak_0 [Preset: minimal]                        OK
++ EF - gloas - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]       OK
++ EF - gloas - Rewards - half_full [Preset: minimal]                                         OK
++ EF - gloas - Rewards - half_full_leak [Preset: minimal]                                    OK
++ EF - gloas - Rewards - quarter_full [Preset: minimal]                                      OK
++ EF - gloas - Rewards - quarter_full_leak [Preset: minimal]                                 OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]    OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minima OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minim OK
++ EF - gloas - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset:  OK
++ EF - gloas - Rewards - with_exited_validators [Preset: minimal]                            OK
++ EF - gloas - Rewards - with_exited_validators_leak [Preset: minimal]                       OK
++ EF - gloas - Rewards - with_not_yet_activated_validators [Preset: minimal]                 OK
++ EF - gloas - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]            OK
++ EF - gloas - Rewards - with_slashed_validators [Preset: minimal]                           OK
++ EF - gloas - Rewards - with_slashed_validators_leak [Preset: minimal]                      OK
 ```
 ## EF - gloas - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6679,6 +6328,219 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - voluntary_exit [Preset: minimal]                  OK
 + [Valid]   EF - gloas - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]   OK
 ```
+## EF - heze - Epoch Processing - Builder pending payments [Preset: minimal]
+```diff
++ Builder pending payments - process_builder_pending_payments_above_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
++ Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
++ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
++ Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
++ Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
++ Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
+```
+## EF - heze - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
++ Effective balance updates - effective_balance_hysteresis_with_compounding_credentials [Pre OK
+```
+## EF - heze - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - heze - Epoch Processing - Historical summaries update [Preset: minimal]
+```diff
++ Historical summaries update - historical_summaries_accumulator [Preset: minimal]           OK
+```
+## EF - heze - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - randomized_state [Preset: minimal]                                            OK
++ Inactivity - randomized_state_leaking [Preset: minimal]                                    OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+## EF - heze - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - heze - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+## EF - heze - Epoch Processing - Pending consolidations [Preset: minimal]
+```diff
++ Pending consolidations - all_consolidation_cases_together [Preset: minimal]                OK
++ Pending consolidations - basic_pending_consolidation [Preset: minimal]                     OK
++ Pending consolidations - consolidation_not_yet_withdrawable_validator [Preset: minimal]    OK
++ Pending consolidations - pending_consolidation_balance_computation_compounding [Preset: mi OK
++ Pending consolidations - pending_consolidation_balance_computation_eth1 [Preset: minimal]  OK
++ Pending consolidations - pending_consolidation_compounding_creds [Preset: minimal]         OK
++ Pending consolidations - pending_consolidation_future_epoch [Preset: minimal]              OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective [ OK
++ Pending consolidations - pending_consolidation_source_balance_greater_than_max_effective_c OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective [Pre OK
++ Pending consolidations - pending_consolidation_source_balance_less_than_max_effective_comp OK
++ Pending consolidations - pending_consolidation_with_pending_deposit [Preset: minimal]      OK
++ Pending consolidations - skip_consolidation_when_source_slashed [Preset: minimal]          OK
+```
+## EF - heze - Epoch Processing - Pending deposits [Preset: minimal]
+```diff
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_max [Preset: m OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max [Pres OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_over_max_next_ OK
++ Pending deposits - apply_pending_deposit_compounding_withdrawal_credentials_under_max [Pre OK
++ Pending deposits - apply_pending_deposit_correct_sig_but_forked_state [Preset: minimal]    OK
++ Pending deposits - apply_pending_deposit_effective_deposit_with_genesis_fork_version [Pres OK
++ Pending deposits - apply_pending_deposit_eth1_withdrawal_credentials [Preset: minimal]     OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_new_deposit [Preset: minimal]       OK
++ Pending deposits - apply_pending_deposit_incorrect_sig_top_up [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
++ Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
++ Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials_over_min_act OK
++ Pending deposits - apply_pending_deposit_over_min_activation [Preset: minimal]             OK
++ Pending deposits - apply_pending_deposit_over_min_activation_next_increment [Preset: minim OK
++ Pending deposits - apply_pending_deposit_success_top_up_to_withdrawn_validator [Preset: mi OK
++ Pending deposits - apply_pending_deposit_top_up__less_effective_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__max_effective_balance_compounding [Preset OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance [Preset: minimal]  OK
++ Pending deposits - apply_pending_deposit_top_up__min_activation_balance_compounding [Prese OK
++ Pending deposits - apply_pending_deposit_under_min_activation [Preset: minimal]            OK
++ Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: minimal]      OK
++ Pending deposits - ineffective_deposit_with_current_fork_version [Preset: minimal]         OK
++ Pending deposits - process_pending_deposits_balance_above_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_balance_equal_churn [Preset: minimal]          OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: minim OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: mi OK
++ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: minima OK
++ Pending deposits - process_pending_deposits_limit_is_reached [Preset: minimal]             OK
++ Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: mi OK
++ Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: minimal]   OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_above_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_deposits_below_churn [Preset: OK
++ Pending deposits - process_pending_deposits_multiple_pending_one_skipped [Preset: minimal] OK
++ Pending deposits - process_pending_deposits_multiple_skipped_deposits_exiting_validators [ OK
++ Pending deposits - process_pending_deposits_not_finalized [Preset: minimal]                OK
++ Pending deposits - process_pending_deposits_preexisting_churn [Preset: minimal]            OK
++ Pending deposits - process_pending_deposits_scaled_churn [Preset: minimal]                 OK
++ Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
++ Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
++ Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - heze - Epoch Processing - Proposer lookahead [Preset: minimal]
+```diff
++ Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: minima OK
++ Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: minim OK
+```
+## EF - heze - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - heze - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_churn_limit__equal_to_activation_limit [Preset: minimal]     OK
++ Registry updates - activation_churn_limit__greater_than_activation_limit [Preset: minimal] OK
++ Registry updates - activation_churn_limit__less_than_activation_limit [Preset: minimal]    OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_eligibility__greater_than_min_activation_balance [Pres OK
++ Registry updates - activation_queue_eligibility__less_than_min_activation_balance [Preset: OK
++ Registry updates - activation_queue_eligibility__min_activation_balance [Preset: minimal]  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_compounding_creds  OK
++ Registry updates - activation_queue_eligibility__min_activation_balance_eth1_creds [Preset OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - heze - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - heze - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - heze - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+## EF - heze - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_at_period_boundary [Preset: minim OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
 ## EF - heze - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - heze - Finality - finality_no_updates_at_genesis [Preset: minimal]          OK
@@ -6686,6 +6548,43 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Finality - finality_rule_2 [Preset: minimal]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_3 [Preset: minimal]                         OK
 + [Valid]   EF - heze - Finality - finality_rule_4 [Preset: minimal]                         OK
+```
+## EF - heze - Rewards  [Preset: minimal]
+```diff
++ EF - heze - Rewards - all_balances_too_low_for_reward [Preset: minimal]                    OK
++ EF - heze - Rewards - empty [Preset: minimal]                                              OK
++ EF - heze - Rewards - empty_leak [Preset: minimal]                                         OK
++ EF - heze - Rewards - full_all_correct [Preset: minimal]                                   OK
++ EF - heze - Rewards - full_but_partial_participation [Preset: minimal]                     OK
++ EF - heze - Rewards - full_but_partial_participation_leak [Preset: minimal]                OK
++ EF - heze - Rewards - full_leak [Preset: minimal]                                          OK
++ EF - heze - Rewards - full_random_0 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_1 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_2 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_3 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_4 [Preset: minimal]                                      OK
++ EF - heze - Rewards - full_random_leak [Preset: minimal]                                   OK
++ EF - heze - Rewards - full_random_low_balances_0 [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_low_balances_1 [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_misc_balances [Preset: minimal]                          OK
++ EF - heze - Rewards - full_random_seven_epoch_leak [Preset: minimal]                       OK
++ EF - heze - Rewards - full_random_ten_epoch_leak [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_without_leak_0 [Preset: minimal]                         OK
++ EF - heze - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]        OK
++ EF - heze - Rewards - half_full [Preset: minimal]                                          OK
++ EF - heze - Rewards - half_full_leak [Preset: minimal]                                     OK
++ EF - heze - Rewards - quarter_full [Preset: minimal]                                       OK
++ EF - heze - Rewards - quarter_full_leak [Preset: minimal]                                  OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]     OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minima OK
++ EF - heze - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: m OK
++ EF - heze - Rewards - with_exited_validators [Preset: minimal]                             OK
++ EF - heze - Rewards - with_exited_validators_leak [Preset: minimal]                        OK
++ EF - heze - Rewards - with_not_yet_activated_validators [Preset: minimal]                  OK
++ EF - heze - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]             OK
++ EF - heze - Rewards - with_slashed_validators [Preset: minimal]                            OK
++ EF - heze - Rewards - with_slashed_validators_leak [Preset: minimal]                       OK
 ```
 ## EF - heze - Sanity - Blocks  [Preset: minimal]
 ```diff
@@ -6756,6 +6655,92 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - voluntary_exit [Preset: minimal]                   OK
 + [Valid]   EF - heze - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal]    OK
 ```
+## EF - phase0 - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
+```
+## EF - phase0 - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+## EF - phase0 - Epoch Processing - Historical roots update [Preset: minimal]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
+```
+## EF - phase0 - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+## EF - phase0 - Epoch Processing - Participation record updates [Preset: minimal]
+```diff
++ Participation record updates - updated_participation_record [Preset: minimal]              OK
+```
+## EF - phase0 - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+## EF - phase0 - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+## EF - phase0 - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - duplicate_participants_different_attestation_1 [Preset: minimal]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_2 [Preset: minimal]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: minimal]   OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_default_balances_except_a_validator_with_one_gwe OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+## EF - phase0 - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+## EF - phase0 - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
 ## EF - phase0 - Finality  [Preset: minimal]
 ```diff
 + [Valid]   EF - phase0 - Finality - finality_no_updates_at_genesis [Preset: minimal]        OK
@@ -6782,6 +6767,58 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - phase0 - Random - randomized_7 [Preset: minimal]                            OK
 + [Valid]   EF - phase0 - Random - randomized_8 [Preset: minimal]                            OK
 + [Valid]   EF - phase0 - Random - randomized_9 [Preset: minimal]                            OK
+```
+## EF - phase0 - Rewards  [Preset: minimal]
+```diff
++ EF - phase0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
++ EF - phase0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]            OK
++ EF - phase0 - Rewards - empty [Preset: minimal]                                            OK
++ EF - phase0 - Rewards - empty_leak [Preset: minimal]                                       OK
++ EF - phase0 - Rewards - full_all_correct [Preset: minimal]                                 OK
++ EF - phase0 - Rewards - full_but_partial_participation [Preset: minimal]                   OK
++ EF - phase0 - Rewards - full_but_partial_participation_leak [Preset: minimal]              OK
++ EF - phase0 - Rewards - full_correct_target_incorrect_head [Preset: minimal]               OK
++ EF - phase0 - Rewards - full_correct_target_incorrect_head_leak [Preset: minimal]          OK
++ EF - phase0 - Rewards - full_delay_max_slots [Preset: minimal]                             OK
++ EF - phase0 - Rewards - full_delay_one_slot [Preset: minimal]                              OK
++ EF - phase0 - Rewards - full_half_correct_target_incorrect_head [Preset: minimal]          OK
++ EF - phase0 - Rewards - full_half_correct_target_incorrect_head_leak [Preset: minimal]     OK
++ EF - phase0 - Rewards - full_half_incorrect_target_correct_head [Preset: minimal]          OK
++ EF - phase0 - Rewards - full_half_incorrect_target_correct_head_leak [Preset: minimal]     OK
++ EF - phase0 - Rewards - full_half_incorrect_target_incorrect_head [Preset: minimal]        OK
++ EF - phase0 - Rewards - full_half_incorrect_target_incorrect_head_leak [Preset: minimal]   OK
++ EF - phase0 - Rewards - full_leak [Preset: minimal]                                        OK
++ EF - phase0 - Rewards - full_mixed_delay [Preset: minimal]                                 OK
++ EF - phase0 - Rewards - full_random_0 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_1 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_2 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_3 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_4 [Preset: minimal]                                    OK
++ EF - phase0 - Rewards - full_random_leak [Preset: minimal]                                 OK
++ EF - phase0 - Rewards - full_random_low_balances_0 [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_low_balances_1 [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_misc_balances [Preset: minimal]                        OK
++ EF - phase0 - Rewards - full_random_seven_epoch_leak [Preset: minimal]                     OK
++ EF - phase0 - Rewards - full_random_ten_epoch_leak [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_without_leak_0 [Preset: minimal]                       OK
++ EF - phase0 - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]      OK
++ EF - phase0 - Rewards - half_full [Preset: minimal]                                        OK
++ EF - phase0 - Rewards - half_full_leak [Preset: minimal]                                   OK
++ EF - phase0 - Rewards - one_attestation_one_correct [Preset: minimal]                      OK
++ EF - phase0 - Rewards - one_attestation_one_correct_leak [Preset: minimal]                 OK
++ EF - phase0 - Rewards - proposer_not_in_attestations [Preset: minimal]                     OK
++ EF - phase0 - Rewards - quarter_full [Preset: minimal]                                     OK
++ EF - phase0 - Rewards - quarter_full_leak [Preset: minimal]                                OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]   OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minim OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mini OK
++ EF - phase0 - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: OK
++ EF - phase0 - Rewards - with_exited_validators [Preset: minimal]                           OK
++ EF - phase0 - Rewards - with_exited_validators_leak [Preset: minimal]                      OK
++ EF - phase0 - Rewards - with_not_yet_activated_validators [Preset: minimal]                OK
++ EF - phase0 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]           OK
++ EF - phase0 - Rewards - with_slashed_validators [Preset: minimal]                          OK
++ EF - phase0 - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
 ```
 ## EF - phase0 - Sanity - Blocks  [Preset: minimal]
 ```diff

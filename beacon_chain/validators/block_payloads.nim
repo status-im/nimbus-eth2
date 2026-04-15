@@ -202,10 +202,12 @@ func makeExecutionPayloadEnvelope*(
   )
 
 func makeSignedExecutionPayloadBid(
+    T: type gloas.SignedExecutionPayloadBid,
     executionPayload: deneb.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
+    _: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE],
 ): gloas.SignedExecutionPayloadBid =
   let bid = gloas.ExecutionPayloadBid(
     parent_block_hash: executionPayload.parent_hash,
@@ -224,6 +226,31 @@ func makeSignedExecutionPayloadBid(
     message: bid,
     signature: ValidatorSig.infinity()
   )
+
+func makeSignedExecutionPayloadBid(
+    T: type heze.SignedExecutionPayloadBid,
+    executionPayload: deneb.ExecutionPayload,
+    blob_kzg_commitments: KzgCommitments,
+    parentBlockRoot: Eth2Digest,
+    slot: Slot,
+    inclusion_list_bits: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE],
+): heze.SignedExecutionPayloadBid =
+  let bid = heze.ExecutionPayloadBid(
+    parent_block_hash: executionPayload.parent_hash,
+    parent_block_root: parentBlockRoot,
+    block_hash: executionPayload.block_hash,
+    prev_randao: executionPayload.prev_randao,
+    fee_recipient: executionPayload.fee_recipient,
+    gas_limit: executionPayload.gas_limit,
+    builder_index: BUILDER_INDEX_SELF_BUILD,
+    slot: slot,
+    value: 0.Gwei,
+    execution_payment: 0.Gwei,
+    blob_kzg_commitments: blob_kzg_commitments,
+    inclusion_list_bits: inclusion_list_bits)
+  heze.SignedExecutionPayloadBid(
+    message: bid,
+    signature: ValidatorSig.infinity())
 
 proc makeEngineBlock*(
     node: BeaconNode,
@@ -245,10 +272,17 @@ proc makeEngineBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Heze:
+        debugHezeComment "set inclusion_list_bits with FOCIL information"
         makeSignedExecutionPayloadBid(
-          eps.executionPayload, eps.kzg_commitments, state.latest_block_root, slot
-        )
+          heze.SignedExecutionPayloadBid,
+          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
+          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
+      elif consensusFork == ConsensusFork.Gloas:
+        makeSignedExecutionPayloadBid(
+          gloas.SignedExecutionPayloadBid,
+          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
+          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       else:
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
@@ -318,7 +352,7 @@ proc getExecutionPayload*(
       elif consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
       else:
-        (static(default(Eth2Digest)))
+        ZERO_HASH
     latestSafe = beaconHead.safeExecutionBlockHash
     latestFinalized = beaconHead.finalizedExecutionBlockHash
     timestamp = node.dag.timeParams.compute_timestamp_at_slot(forkyState.data, slot)

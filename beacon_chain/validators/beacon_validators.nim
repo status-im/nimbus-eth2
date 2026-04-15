@@ -417,7 +417,7 @@ proc proposeBlockAux(
         await node.getExecutionPayload(
           consensusFork, head, state, validator_index, validator.pubkey
         )
-      elif consensusFork in ConsensusFork.Electra..ConsensusFork.Fulu:
+      elif consensusFork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
         let
@@ -508,15 +508,8 @@ proc proposeBlockAux(
                 return head
 
             if unblindedBlockRef.isNone:
-              when consensusFork >= ConsensusFork.Fulu:
-                # This corresponds to 202 in Fulu MEV.
-                return head
-              else:
-                warn "Failed to unblind or route builder payload",
-                  validator = shortLog(validator),
-                  blck = shortLog(blindedBlock.message),
-                  err = "Unblinded block not returned to proposer"
-                return head
+              # This corresponds to 202 in Fulu MEV.
+              return head
 
             beacon_blocks_proposed.inc()
             return unblindedBlockRef.get
@@ -538,6 +531,9 @@ proc proposeBlockAux(
             return head
 
         bids.engineBid
+      elif consensusFork == ConsensusFork.Electra:
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey)
       else:
         static: raiseAssert "Unsupported fork " & $consensusFork
 
@@ -577,21 +573,17 @@ proc proposeBlockAux(
     debugHezeComment "stub: heze sidecar assembly"
     let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
   elif consensusFork == ConsensusFork.Gloas:
-    let sidecarsOpt =
-      Opt.some(signedBlock.assemble_data_column_sidecars(
-        engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))
-      ))
+    let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
+      engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
   elif consensusFork == ConsensusFork.Fulu:
-    let sidecarsOpt =
-      signedBlock.assemble_data_column_sidecars(
-        engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
+    let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
+      engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
   elif consensusFork == ConsensusFork.Electra:
-    let sidecarsOpt =
-      signedBlock.create_blob_sidecars(
-        engineBlock.blobsBundle.proofs,
-        engineBlock.blobsBundle.blobs)
+    let sidecarsOpt = signedBlock.create_blob_sidecars(
+      engineBlock.blobsBundle.proofs,
+      engineBlock.blobsBundle.blobs)
   else:
     static: raiseAssert "Unsupported fork " & $consensusFork
 
@@ -723,7 +715,20 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
-    data = makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
+    payloadIndex =
+      if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas or
+          attestationHead.blck.slot >= slot:
+        0'u64
+      else:
+        withState(node.dag.headState):
+          when consensusFork >= ConsensusFork.Gloas:
+            if forkyState.data.execution_payload_availability[
+                attestationHead.blck.slot mod SLOTS_PER_HISTORICAL_ROOT]:
+              1'u64
+            else: 0'u64
+          else: 0'u64
+    data = makeAttestationData(
+      epochRef, attestationHead, CommitteeIndex(payloadIndex))
     # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
     signingRoot =
       compute_attestation_signing_root(fork, genesis_validators_root, data)

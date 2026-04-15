@@ -191,22 +191,17 @@ type
     gloas.ExecutionPayloadForSigning
 
   ForkyBlindedBeaconBlock* =
-    electra_mev.BlindedBeaconBlock |
     fulu_mev.BlindedBeaconBlock
 
   SomeForkyBlindedBeaconBlock* =
     ForkyBlindedBeaconBlock |
-    electra_mev.SigVerifiedBlindedBeaconBlock |
     fulu_mev.SigVerifiedBlindedBeaconBlock
 
   SomeForkyBlindedBeaconBlockBody* =
-    electra_mev.BlindedBeaconBlockBody |
     fulu_mev.BlindedBeaconBlockBody |
-    electra_mev.SigVerifiedBlindedBeaconBlockBody |
     fulu_mev.SigVerifiedBlindedBeaconBlockBody
 
   ForkyBuilderBid* =
-    electra_mev.BuilderBid |
     fulu_mev.BuilderBid
 
   ForkyBlobsBundle* =
@@ -214,7 +209,6 @@ type
     fulu.BlobsBundle
 
   ForkySignedBuilderBid* =
-    electra_mev.SignedBuilderBid |
     fulu_mev.SignedBuilderBid
 
   ForkyBlockContents* =
@@ -285,7 +279,7 @@ type
     of ConsensusFork.Deneb:
       denebData*: deneb.BlockContents
     of ConsensusFork.Electra:
-      electraData*: electra_mev.MaybeBlindedBeaconBlock
+      electraData*: electra.BlockContents
     of ConsensusFork.Fulu:
       fuluData*: fulu_mev.MaybeBlindedBeaconBlock
     of ConsensusFork.Gloas:
@@ -505,10 +499,7 @@ template kind*(
       electra.TrustedSignedBeaconBlock |
       electra.AggregateAndProof |
       electra.SignedAggregateAndProof |
-      electra_mev.BlindedBeaconBlock |
-      electra_mev.SignedBlindedBeaconBlock |
-      electra_mev.SignedBuilderBid |
-      electra_mev.ExecutionPayloadAndBlobsBundle]): ConsensusFork =
+      electra_mev.SignedBlindedBeaconBlock]): ConsensusFork =
   ConsensusFork.Electra
 
 template kind*(
@@ -700,40 +691,30 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
     fulu_mev.BlindedBeaconBlock
-  elif kind == ConsensusFork.Electra:
-    electra_mev.BlindedBeaconBlock
   else:
     {.error: "BlindedBeaconBlock unsupported in " & $kind.}
 
 template MaybeBlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
     fulu_mev.MaybeBlindedBeaconBlock
-  elif kind == ConsensusFork.Electra:
-    electra_mev.MaybeBlindedBeaconBlock
   else:
     {.error: "MaybeBlindedBeaconBlock unsupported in " & $kind.}
 
 template SignedBlindedBeaconBlock*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
     fulu_mev.SignedBlindedBeaconBlock
-  elif kind == ConsensusFork.Electra:
-    electra_mev.SignedBlindedBeaconBlock
   else:
     {.error: "SignedBlindedBeaconBlock unsupported in " & $kind.}
 
 template BuilderBid*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
     fulu_mev.BuilderBid
-  elif kind == ConsensusFork.Electra:
-    electra_mev.BuilderBid
   else:
     {.error: "BuilderBid unsupported in " & $kind.}
 
 template SignedBuilderBid*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Fulu:
     fulu_mev.SignedBuilderBid
-  elif kind == ConsensusFork.Electra:
-    electra_mev.SignedBuilderBid
   else:
     {.error: "SignedBuilderBid unsupported in " & $kind.}
 
@@ -931,13 +912,6 @@ template init*(T: type ForkedSignedBeaconBlock, blck: gloas.SignedBeaconBlock): 
   T(kind: ConsensusFork.Gloas, gloasData: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: heze.SignedBeaconBlock): T =
   T(kind: ConsensusFork.Heze, hezeData: blck)
-
-template init*(T: type ForkedSignedBlindedBeaconBlock,
-               blck: electra_mev.BlindedBeaconBlock, blockRoot: Eth2Digest,
-               signature: ValidatorSig): T =
-  T(kind: ConsensusFork.Electra,
-    electraData: electra_mev.SignedBlindedBeaconBlock(
-      message: blck, signature: signature))
 
 template init*(T: type ForkedSignedBlindedBeaconBlock,
                blck: fulu_mev.BlindedBeaconBlock, blockRoot: Eth2Digest,
@@ -1395,17 +1369,11 @@ template withForkyMaybeBlindedBlck*(
       template forkyMaybeBlindedBlck: untyped {.inject, used.} = d.data
       body
   of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template d: untyped = b.electraData
-    case d.isBlinded:
-    of true:
-      const isBlinded {.inject, used.} = true
-      template forkyMaybeBlindedBlck: untyped {.inject, used.} = d.blindedData
-      body
-    of false:
-      const isBlinded {.inject, used.} = false
-      template forkyMaybeBlindedBlck: untyped {.inject, used.} = d.data
-      body
+    const
+      consensusFork {.inject, used.} = ConsensusFork.Electra
+      isBlinded {.inject, used.} = false
+    template forkyMaybeBlindedBlck: untyped {.inject, used.} = b.electraData
+    body
   of ConsensusFork.Deneb:
     const
       consensusFork {.inject, used.} = ConsensusFork.Deneb
@@ -1951,22 +1919,10 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
                evalue: Opt[UInt256], cvalue: Opt[UInt256]): T =
   ForkedMaybeBlindedBeaconBlock(
     kind: ConsensusFork.Electra,
-    electraData: electra_mev.MaybeBlindedBeaconBlock(
-      isBlinded: false,
-      data: blck),
+    electraData: blck,
     consensusValue: cvalue,
     executionValue: evalue)
 
-template init*(T: type ForkedMaybeBlindedBeaconBlock,
-               blck: electra_mev.BlindedBeaconBlock,
-               evalue: Opt[UInt256], cvalue: Opt[UInt256]): T =
-  ForkedMaybeBlindedBeaconBlock(
-    kind: ConsensusFork.Electra,
-    electraData: electra_mev.MaybeBlindedBeaconBlock(
-      isBlinded: true,
-      blindedData: blck),
-    consensusValue: cvalue,
-    executionValue: evalue)
 
 template init*(T: type ForkedMaybeBlindedBeaconBlock,
                blck: fulu.BlockContents,

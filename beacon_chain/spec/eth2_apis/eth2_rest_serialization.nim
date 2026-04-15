@@ -96,9 +96,7 @@ type
     seq[RestSyncCommitteeSelection]
 
   MevDecodeTypes* =
-    GetHeaderResponseElectra |
-    GetHeaderResponseFulu |
-    SubmitBlindedBlockResponseElectra
+    GetHeaderResponseFulu
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -867,7 +865,7 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
         return err("gloas produceblock not available yet")
       elif consensusFork == ConsensusFork.Heze:
         return err("heze produceblock not available yet")
-      elif consensusFork >= ConsensusFork.Electra:
+      elif consensusFork >= ConsensusFork.Fulu:
         if blinded:
           let contents =
             ? readSszResBytes(consensusFork.BlindedBlockContents, value)

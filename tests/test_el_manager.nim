@@ -319,17 +319,10 @@ suite "EL Manager - getPayload":
   test "success without retry":
     let
       manager = createELManager(@[setup.url])
-      state = ForkchoiceStateV1.init(
-        default(Eth2Digest), default(Eth2Digest), default(Eth2Digest)
-      )
+      state = ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH)
       attrs = PayloadAttributesV3.init(
-        default(uint64),
-        default(Eth2Digest),
-        default(Eth1Address),
-        default(seq[capella.Withdrawal]),
-        default(Eth2Digest),
-      )
-
+        0'u64, ZERO_HASH, default(Eth1Address),
+        default(seq[capella.Withdrawal]), ZERO_HASH)
       resp =
         waitFor manager.getPayload(electra.ExecutionPayloadForSigning, state, attrs)
 

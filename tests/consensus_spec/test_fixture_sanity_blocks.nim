@@ -15,9 +15,7 @@ import
   ../testutil
 
 from std/sequtils import toSeq
-from std/strutils import contains, toLowerAscii
-from ../../beacon_chain/spec/presets import
-  const_preset, defaultRuntimeConfig
+from ../../beacon_chain/spec/presets import const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
   readSszBytes, toSszType
@@ -69,33 +67,32 @@ proc runTest(
 
 template runForkBlockTests(consensusFork: static ConsensusFork) =
   const
-    forkHumanName = $consensusFork
-    forkDirName = forkHumanName.toLowerAscii()
+    forkName = $consensusFork
     FinalityDir =
-      SszTestsDir/const_preset/forkDirName/"finality"/"finality"/"pyspec_tests"
+      SszTestsDir/const_preset/forkName/"finality"/"finality"/"pyspec_tests"
     RandomDir =
-      SszTestsDir/const_preset/forkDirName/"random"/"random"/"pyspec_tests"
+      SszTestsDir/const_preset/forkName/"random"/"random"/"pyspec_tests"
     SanityBlocksDir =
-      SszTestsDir/const_preset/forkDirName/"sanity"/"blocks"/"pyspec_tests"
+      SszTestsDir/const_preset/forkName/"sanity"/"blocks"/"pyspec_tests"
 
-  suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
+  suite "EF - " & forkName & " - Sanity - Blocks " & preset():
     for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
       consensusFork.runTest(
-        "EF - " & forkHumanName & " - Sanity - Blocks",
+        "EF - " & forkName & " - Sanity - Blocks",
         SanityBlocksDir, suiteName, path)
 
-  suite "EF - " & forkHumanName & " - Finality " & preset():
+  suite "EF - " & forkName & " - Finality " & preset():
     for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
       consensusFork.runTest(
-        "EF - " & forkHumanName & " - Finality",
+        "EF - " & forkName & " - Finality",
         FinalityDir, suiteName, path)
 
   when consensusFork != ConsensusFork.Heze:
     debugHezeComment "no random tests for Heze yet"
-    suite "EF - " & forkHumanName & " - Random " & preset():
+    suite "EF - " & forkName & " - Random " & preset():
       for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
         consensusFork.runTest(
-          "EF - " & forkHumanName & " - Random",
+          "EF - " & forkName & " - Random",
           RandomDir, suiteName, path)
 
 withAll(ConsensusFork):
