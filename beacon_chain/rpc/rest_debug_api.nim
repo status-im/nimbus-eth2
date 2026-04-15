@@ -104,7 +104,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
       finalized_checkpoint: forkChoice.checkpoints.finalized,
       extra_data: RestExtraData(
-        confirmed_root: forkChoice.get_safe_beacon_block_root,
+        confirmed_root: forkChoice.retrieve_fast_confirmed_root(),
         current_epoch_observed_justified_checkpoint:
           forkChoice.backend.current_epoch_observed_justified.checkpoint,
         previous_epoch_greatest_unrealized_checkpoint:

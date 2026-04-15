@@ -881,8 +881,8 @@ proc getBeaconHead*(
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
         .get(ZERO_HASH)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/fork_choice/safe-block.md#get_safe_execution_payload_hash
-    safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/fork_choice/safe-block.md#get_safe_execution_block_hash
+    safeBlockRoot = pool.forkChoice.retrieve_fast_confirmed_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionBlockHash =
       if safeBlock.isErr:
@@ -904,7 +904,7 @@ proc willSelectNewHead*(
     pool: var AttestationPool,
     headBlock: BlockRef, wallTime: BeaconTime): Opt[void] =
   ## Informs fork choice that a new head will be selected.
-  ## This may affect `get_safe_beacon_block_root` so must be called before that.
+  ## This may affect `retrieve_fast_confirmed_root`; must call this before that.
   pool.forkChoice.will_select_head(pool.dag, headBlock, wallTime).isOkOr:
     error "Couldn't store head to fork choice", err = error
     return err()

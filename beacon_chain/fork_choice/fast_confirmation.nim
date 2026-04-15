@@ -326,7 +326,7 @@ func is_full_validator_set_covered(slots: Slice[Slot]): bool =
 
 func adjust_committee_weight_estimate_to_ensure_safety(estimate: Gwei): Gwei =
   ## Return adjusted ``estimate`` of the weight of a committee for a sequence
-  ## of slots not covering a full epoch.
+  ## of slots spanning an epoch boundary that does not cover any full epoch.
   # Per mille value to add to the estimation of the committee weight across a
   # range of slots not covering a full epoch in order to ensure the safety of
   # the confirmation rule with high probability.
