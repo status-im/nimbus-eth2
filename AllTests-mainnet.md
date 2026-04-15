@@ -617,7 +617,11 @@ AllTests-mainnet
 ```
 ## EIP-7594 Unit Tests
 ```diff
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)                                 OK
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)                                OK
 + EIP-7594: Compute Matrix                                                                   OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
 + EIP:7594: Recover Matrix                                                                   OK
 ```
 ## EL Configuration

@@ -576,6 +576,83 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: gloas.DataColumnSidecar,
 
   ok()
 
+proc verify_data_column_sidecar_kzg_proofs*(
+    sidecars: openArray[fulu.DataColumnSidecar]): Result[void, cstring] =
+  ## Batch verify KZG proofs across multiple DataColumnSidecars.
+  ## All cells/commitments/proofs from every sidecar are flattened into a
+  ## single `verifyCellKzgProofBatch` call, which is more efficient than
+  ## verifying each sidecar individually.
+  if sidecars.len == 0:
+    return ok()
+
+  var totalCells = 0
+  for sidecar in sidecars:
+    if sidecar.column.len != sidecar.kzg_commitments.len or
+        sidecar.column.len != sidecar.kzg_proofs.len:
+      return err("DataColumnSidecar: length mismatch")
+    totalCells += sidecar.column.len
+
+  var
+    commitments = newSeqOfCap[KzgCommitment](totalCells)
+    cellIndices = newSeqOfCap[CellIndex](totalCells)
+    cells = newSeqOfCap[KzgCell](totalCells)
+    proofs = newSeqOfCap[KzgProof](totalCells)
+
+  for sidecar in sidecars:
+    let idx = CellIndex(sidecar.index)
+    for i in 0 ..< sidecar.column.len:
+      commitments.add(sidecar.kzg_commitments[i])
+      cellIndices.add(idx)
+      cells.add(sidecar.column[i])
+      proofs.add(sidecar.kzg_proofs[i])
+
+  let res = verifyCellKzgProofBatch(
+      commitments, cellIndices, cells, proofs).valueOr:
+    return err("DataColumnSidecar: validation error")
+
+  if not res:
+    return err("DataColumnSidecar: validation failed")
+
+  ok()
+
+proc verify_data_column_sidecar_kzg_proofs*(
+    sidecars: openArray[gloas.DataColumnSidecar],
+    kzg_commitments: KzgCommitments): Result[void, cstring] =
+  ## Batch verify KZG proofs across multiple Gloas DataColumnSidecars that
+  ## share the same `kzg_commitments` (from the enclosing block's bid).
+  if sidecars.len == 0:
+    return ok()
+
+  var totalCells = 0
+  for sidecar in sidecars:
+    if sidecar.column.len != kzg_commitments.len or
+        sidecar.column.len != sidecar.kzg_proofs.len:
+      return err("DataColumnSidecar: length mismatch")
+    totalCells += sidecar.column.len
+
+  var
+    commitments = newSeqOfCap[KzgCommitment](totalCells)
+    cellIndices = newSeqOfCap[CellIndex](totalCells)
+    cells = newSeqOfCap[KzgCell](totalCells)
+    proofs = newSeqOfCap[KzgProof](totalCells)
+
+  for sidecar in sidecars:
+    let idx = CellIndex(sidecar.index)
+    for i in 0 ..< sidecar.column.len:
+      commitments.add(kzg_commitments[i])
+      cellIndices.add(idx)
+      cells.add(sidecar.column[i])
+      proofs.add(sidecar.kzg_proofs[i])
+
+  let res = verifyCellKzgProofBatch(
+      commitments, cellIndices, cells, proofs).valueOr:
+    return err("DataColumnSidecar: validation error")
+
+  if not res:
+    return err("DataColumnSidecar: validation failed")
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#validator-custody
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
                                          total_node_balance: Gwei):
