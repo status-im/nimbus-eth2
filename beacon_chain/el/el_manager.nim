@@ -334,10 +334,15 @@ proc getPayload(
   retryUntilCancelled:
     let
       rpcClient = await connection.connectedRpcClient()
-      # Use prepared payload if it was given or still pending, otherwise make a
-      # new request
+      # Use prepared payload if it was given or still pending; otherwise make a
+      # new request. `safeBlockHash` and `finalizedBlockHash` are intentionally
+      # excluded, because the payload depends on neither and the FCR safe block
+      # typically change between when the payload preparation was requested and
+      # getPayload is sent.
       useLastPayload =
-        payloadReq.resp != nil and payloadReq.params == params and
+        payloadReq.resp != nil and
+        payloadReq.params.state.headBlockHash == params.state.headBlockHash and
+        payloadReq.params.attributes == params.attributes and
         (not payloadReq.resp.completed or payloadReq.resp.value().payloadId.isSome())
 
       forkchoiceUpdated = await(
