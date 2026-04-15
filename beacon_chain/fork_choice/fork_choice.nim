@@ -122,7 +122,7 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
-    epoch: Epoch, blck: BlockRef, current_slot: Slot) =
+    epoch: Epoch, blck: BlockRef) =
   let epochRef = dag.getEpochRef(blck, epoch, preFinalized = false).valueOr:
     # Shouldn't happen for justified data unless out of sync with ChainDAG
     warn "Skipping justified checkpoint update, no EpochRef - report bug",
@@ -149,7 +149,7 @@ proc update_justified(
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justified.root)
-  self.checkpoints.update_justified(dag, justified.epoch, blck, current_slot)
+  self.checkpoints.update_justified(dag, justified.epoch, blck)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
@@ -556,12 +556,12 @@ proc will_select_head*(
   self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
-func get_safe_beacon_block_id*(self: ForkChoice): lent BlockId =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/fork_choice/safe-block.md#get_safe_beacon_block_root
+func retrieve_fast_confirmed_bid*(self: ForkChoice): lent BlockId =
   self.backend.confirmed
 
-func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
-  self.get_safe_beacon_block_id.root
+func retrieve_fast_confirmed_root*(self: ForkChoice): lent Eth2Digest =
+  self.retrieve_fast_confirmed_bid.root
 
 proc prune(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
@@ -609,7 +609,7 @@ func compute_deltas(
   ## Error:
   ## - If a value in indices is greater than `indices.len`
   ## - If a `Eth2Digest` in `votes` does not exist in `indices`
-  ##   except for the `default(Eth2Digest)` (i.e. zero hash)
+  ##   except for the `ZERO_HASH`
 
   for val_index, vote in votes.mpairs():
     # No need to create a score change if the validator has never voted
@@ -728,7 +728,7 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
-        current_root: default(Eth2Digest),
+        current_root: ZERO_HASH,
         next_root: fakeHash(0), # Get a non-zero hash
         slot: Slot(0))
       old_balances.add Balance
@@ -768,7 +768,7 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
-        current_root: default(Eth2Digest),
+        current_root: ZERO_HASH,
         next_root: fakeHash(i), # Each vote for a different root
         slot: Slot(0))
       old_balances.add Balance
@@ -851,7 +851,7 @@ when isMainModule:
     # One validator moves their vote from the block to the zero hash
     votes.add VoteTracker(
       current_root: fakeHash(1),
-      next_root: default(Eth2Digest),
+      next_root: ZERO_HASH,
       slot: Slot(0))
 
     # One validator moves their vote from the block to

@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles,
@@ -34,6 +34,7 @@ proc makeTestDB*(
     cfg.FULU_FORK_EPOCH = 120000.Epoch
   if cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH:
     cfg.GLOAS_FORK_EPOCH = 130000.Epoch
+  debugHezeComment "..."
 
   let genState = initGenesisState(cfg, validators.uint64)
 
@@ -62,7 +63,7 @@ proc getEarliestInvalidBlockRoot*(
   var curBlck = dag.getBlockRef(initialSearchRoot).valueOr:
     # Being asked to traverse a chain which the DAG doesn't know about -- but
     # that'd imply the block's otherwise invalid for CL as well as EL.
-    return static(default(Eth2Digest))
+    return ZERO_HASH
 
   # Only allow this special case outside loop; it's when the LVH is the direct
   # parent of the reported invalid block

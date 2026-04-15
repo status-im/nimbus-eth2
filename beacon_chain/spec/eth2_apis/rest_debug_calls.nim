@@ -5,12 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/strformat,
   chronos, presto/client,
-  ../[helpers, forks],
+  ../forks,
   ./[rest_common, rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
@@ -42,7 +42,7 @@ proc getStateV2*(
     if resp.contentType.isNone():
       raise newException(RestError, "Missing Content-Type")
 
-    const maxBodyBytes = 3 * 1024 * 1024 * 1024
+    const maxBodyBytes = int32.high.int
     let
       data = (await resp.getBodyBytesWithCap(maxBodyBytes)).valueOr:
         raise newException(RestError, "Response too long")

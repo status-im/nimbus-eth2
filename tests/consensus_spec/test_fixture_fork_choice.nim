@@ -278,8 +278,7 @@ proc stepOnBlock(
       # before the block itself, while Nimbus fork choice treats invalidating
       # a non-existent block root as a no-op and does not remember it for the
       # future.
-      let lvh = invalidatedHashes.getOrDefault(
-        executionBlockHash, static(default(Eth2Digest)))
+      let lvh = invalidatedHashes.getOrDefault(executionBlockHash, ZERO_HASH)
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
         signedBlock.message.parent_root, lvh, executionBlockHash))
 

@@ -1506,11 +1506,13 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   while true:
     var found = false
     withAll(ConsensusFork):
-      if not found:
-        let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
-        if blck.isSome:
-          res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
-          found = true
+      debugHezeComment "enable Heze block retrieval for backwards compat"
+      when consensusFork != ConsensusFork.Heze:
+        if not found:
+          let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
+          if blck.isSome:
+            res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
+            found = true
     found = found or db.v0.backend.getSnappySSZ(
       subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found
     if not found:

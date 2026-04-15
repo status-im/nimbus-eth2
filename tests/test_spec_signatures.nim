@@ -44,7 +44,7 @@ suite "Message signatures":
 
   test "Slot signatures":
     let
-      root0 = default(Eth2Digest)
+      root0 = ZERO_HASH
       root1 = gvr1
       sig = get_block_signature(fork0, gvr0, slot0, root0, privkey0).toValidatorSig
 
@@ -122,7 +122,7 @@ suite "Message signatures":
 
   test "Sync committee message signatures":
     let
-      root0 = default(Eth2Digest)
+      root0 = ZERO_HASH
       root1 = gvr1
       sig = get_sync_committee_message_signature(fork0, gvr0, slot0, root0, privkey0)
         .toValidatorSig()
@@ -293,7 +293,7 @@ suite "Message signatures":
       not verify_builder_signature(version1, reg0, pubkey0, sig)
       not verify_builder_signature(version0, reg1, pubkey0, sig)
       not verify_builder_signature(version0, reg0, pubkey1, sig)
-  
+
     test "proposer preferences message signatures":
       let
         data0 = default(ProposerPreferences)

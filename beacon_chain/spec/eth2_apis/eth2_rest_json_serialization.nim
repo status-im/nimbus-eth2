@@ -283,10 +283,7 @@ RestJson.useDefaultSerializationFor(
   electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
   electra_mev.BlindedBeaconBlockBody,
-  electra_mev.BuilderBid,
-  electra_mev.ExecutionPayloadAndBlobsBundle,
   electra_mev.SignedBlindedBeaconBlock,
-  electra_mev.SignedBuilderBid,
   fulu.BeaconBlock,
   fulu.BeaconBlockBody,
   fulu.BeaconState,
@@ -1272,7 +1269,7 @@ proc readValue*(
         ForkedMaybeBlindedBeaconBlock.init(
           RestJson.decode(string(v.data), consensusFork.BlockContents)
         )
-      elif consensusFork >= ConsensusFork.Electra:
+      elif consensusFork >= ConsensusFork.Fulu:
         if v.execution_payload_blinded:
           ForkedMaybeBlindedBeaconBlock.init(
             RestJson.decode(string(v.data), consensusFork.BlindedBlockContents),
