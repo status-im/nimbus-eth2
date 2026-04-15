@@ -73,6 +73,7 @@ type
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
     GloasSignedBlockContents |
+    HezeSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
@@ -95,9 +96,7 @@ type
     seq[RestSyncCommitteeSelection]
 
   MevDecodeTypes* =
-    GetHeaderResponseElectra |
-    GetHeaderResponseFulu |
-    SubmitBlindedBlockResponseElectra
+    GetHeaderResponseFulu
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -863,8 +862,10 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
     withConsensusFork(fork):
       debugGloasComment ""
       when consensusFork == ConsensusFork.Gloas:
-        return err("gloas produceblockv3 not available yet")
-      elif consensusFork >= ConsensusFork.Electra:
+        return err("gloas produceblock not available yet")
+      elif consensusFork == ConsensusFork.Heze:
+        return err("heze produceblock not available yet")
+      elif consensusFork >= ConsensusFork.Fulu:
         if blinded:
           let contents =
             ? readSszResBytes(consensusFork.BlindedBlockContents, value)

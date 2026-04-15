@@ -2433,6 +2433,8 @@ proc publishBlockV2*(
           publishBlockV2(it, some(broadcast_validation), data.fuluData)
         of ConsensusFork.Gloas:
           publishBlockV2(it, some(broadcast_validation), data.gloasData)
+        of ConsensusFork.Heze:
+          publishBlockV2(it, some(broadcast_validation), data.hezeData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2488,6 +2490,8 @@ proc publishBlockV2*(
         publishBlockV2(it, some(broadcast_validation), data.fuluData)
       of ConsensusFork.Gloas:
         publishBlockV2(it, some(broadcast_validation), data.gloasData)
+      of ConsensusFork.Heze:
+        publishBlockV2(it, some(broadcast_validation), data.hezeData)
 
     do:
       if apiResponse.isErr():
@@ -2553,6 +2557,9 @@ proc publishBlindedBlockV2*(
         of ConsensusFork.Gloas:
           debugGloasComment ""
           return false
+        of ConsensusFork.Heze:
+          debugHezeComment ""
+          return false
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2601,6 +2608,9 @@ proc publishBlindedBlockV2*(
           data.fuluData)
       of ConsensusFork.Gloas:
         debugGloasComment ""
+        return false
+      of ConsensusFork.Heze:
+        debugHezeComment ""
         return false
     do:
       if apiResponse.isErr():
@@ -2669,6 +2679,8 @@ proc publishBlindedBlock*(
           publishBlindedBlock(it, data.fuluData)
         of ConsensusFork.Gloas:
           publishBlindedBlock(it, data.gloasData)
+        of ConsensusFork.Heze:
+          publishBlindedBlock(it, data.hezeData)
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2720,6 +2732,8 @@ proc publishBlindedBlock*(
         publishBlindedBlock(it, data.fuluData)
       of ConsensusFork.Gloas:
         publishBlindedBlock(it, data.gloasData)
+      of ConsensusFork.Heze:
+        publishBlindedBlock(it, data.hezeData)
     do:
       if apiResponse.isErr():
         handleCommunicationError()

@@ -59,8 +59,9 @@ func getSimulationConfig*(): RuntimeConfig {.compileTime.} =
   cfg.CAPELLA_FORK_EPOCH = 0.Epoch
   cfg.DENEB_FORK_EPOCH = 0.Epoch
   cfg.ELECTRA_FORK_EPOCH = 0.Epoch
-  cfg.FULU_FORK_EPOCH = 3.Epoch
-  cfg.GLOAS_FORK_EPOCH = 5.Epoch
+  cfg.FULU_FORK_EPOCH = 0.Epoch
+  cfg.GLOAS_FORK_EPOCH = 3.Epoch
+  cfg.HEZE_FORK_EPOCH = 5.Epoch
   cfg
 
 proc loadGenesis*(
@@ -125,7 +126,7 @@ proc loadGenesis*(
 
     info "Saving genesis file", fileName = genesisFn
     try:
-      SSZ.saveFile(genesisFn, res.electraData.data)
+      SSZ.saveFile(genesisFn, res.fuluData.data)
     except IOError as exc:
       fatal "Genesis file failed to save",
         fileName = genesisFn, exc = exc.msg

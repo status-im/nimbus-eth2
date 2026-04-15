@@ -17,7 +17,7 @@ import
     types],
   stew/assign2,
   ./crypto,
-  ./[helpers, digest],
+  ./[helpers, digest, column_map],
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
@@ -80,11 +80,23 @@ func resolve_columns_from_custody_groups*(cfg: RuntimeConfig, node_id: NodeId,
                                           custody_group_count: CustodyIndex):
                                           HashSet[ColumnIndex] =
   ## Returns a set of unique columns for the custody groups of a node.
-  let custody_groups = cfg.get_custody_groups(node_id, custody_group_count)
+  let custody_groups = cfg.handle_custody_groups(node_id, custody_group_count)
   var columns: HashSet[ColumnIndex]
   for group in custody_groups:
     for index in compute_columns_for_custody_group(cfg, group):
       columns.incl index
+  columns
+
+func resolve_column_map_from_custody_groups*(
+    cfg: RuntimeConfig,
+    node_id: NodeId,
+    custody_group_count: CustodyIndex
+): ColumnMap =
+  let custody_groups = cfg.handle_custody_groups(node_id, custody_group_count)
+  var columns: ColumnMap
+  for group in custody_groups:
+    for index in compute_columns_for_custody_group(cfg, group):
+      columns.incl(index)
   columns
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix
@@ -304,6 +316,8 @@ proc assemble_data_column_sidecars*(
     staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
       assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
+  let inclusion_proof =
+    blck.body.build_proof(KZG_COMMITMENTS_GINDEX).expect("Valid gindex")
   for columnIndex in 0..<CELLS_PER_EXT_BLOB:
     var
       column = newSeqOfCap[KzgCell](blobs.len)
@@ -312,16 +326,13 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    var sidecar = fulu.DataColumnSidecar(
+    sidecars.add fulu.DataColumnSidecar(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
       kzg_commitments: blck.body.blob_kzg_commitments,
       kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
-      signed_block_header: signed_beacon_block_header)
-    blck.body.build_proof(
-      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
-      sidecar.kzg_commitments_inclusion_proof).expect("Valid gindex")
-    sidecars.add(sidecar)
+      signed_block_header: signed_beacon_block_header,
+      kzg_commitments_inclusion_proof: inclusion_proof)
 
   sidecars
 
@@ -493,18 +504,16 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSi
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_inclusion_proof
-func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar):
-                                                 Result[void, cstring] =
+func verify_data_column_sidecar_inclusion_proof*(
+    sidecar: fulu.DataColumnSidecar): Result[void, cstring] =
   ## Verify if the given KZG commitments included in the given beacon block.
-  let gindex =
-    KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex
+  const gindex = KZG_COMMITMENTS_GINDEX
   if not is_valid_merkle_branch(
       hash_tree_root(sidecar.kzg_commitments),
       sidecar.kzg_commitments_inclusion_proof,
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH.int,
       get_subtree_index(gindex),
       sidecar.signed_block_header.message.body_root):
-
     return err("DataColumnSidecar: Inclusion proof is invalid")
 
   ok()
@@ -513,15 +522,13 @@ func verify_data_column_sidecar_inclusion_proof*(sidecar: fulu.DataColumnSidecar
 func verify_partial_data_column_header_inclusion_proof*(
     header: fulu.PartialDataColumnHeader): Result[void, cstring] =
   ## Verify if the given KZG commitments are included in the given beacon block.
-  let gindex =
-    KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex
+  const gindex = KZG_COMMITMENTS_GINDEX
   if not is_valid_merkle_branch(
       hash_tree_root(header.kzg_commitments),
       header.kzg_commitments_inclusion_proof,
       KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH.int,
       get_subtree_index(gindex),
       header.signed_block_header.message.body_root):
-
     return err("PartialDataColumnHeader: Inclusion proof is invalid")
 
   ok()

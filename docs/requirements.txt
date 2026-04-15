@@ -64,7 +64,7 @@ pip-tools==7.4.1
     # via -r requirements.in
 platformdirs==4.3.6
     # via mkdocs-get-deps
-pygments==2.18.0
+pygments==2.20.0
     # via mkdocs-material
 pymdown-extensions==10.16.1
     # via mkdocs-material

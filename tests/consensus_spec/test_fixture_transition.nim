@@ -195,3 +195,19 @@ suite "EF - Gloas - Transition " & preset():
       fulu.BeaconState, gloas.BeaconState, fulu.SignedBeaconBlock,
       gloas.SignedBeaconBlock, cfg, "EF - Gloas - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
+
+from ../../beacon_chain/spec/datatypes/heze import
+  BeaconState, SignedBeaconBlock
+
+suite "EF - Heze - Transition " & preset():
+  const TransitionDir =
+    SszTestsDir/const_preset/"heze"/"transition"/"core"/"pyspec_tests"
+
+  for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
+    let transitionInfo = getTransitionInfo(TransitionDir / path)
+    var cfg = defaultRuntimeConfig
+    cfg.HEZE_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
+    runTest(
+      gloas.BeaconState, heze.BeaconState, gloas.SignedBeaconBlock,
+      heze.SignedBeaconBlock, cfg, "EF - Heze - Transition",
+      TransitionDir, suiteName, path, transitionInfo.fork_block)

@@ -201,7 +201,7 @@ proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
   updateSafeBlockMetrics(
-    self.attestationPool[].forkChoice.get_safe_beacon_block_id)
+    self.attestationPool[].forkChoice.retrieve_fast_confirmed_bid)
   self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
@@ -329,7 +329,9 @@ proc prepareNextSlot*(
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
   withState(dag.clearanceState):
-    when consensusFork == ConsensusFork.Gloas:
+    when consensusFork == ConsensusFork.Heze:
+      debugHezeComment "well, likely can't keep reusing V3 much longer"
+    elif consensusFork == ConsensusFork.Gloas:
       debugGloasComment "well, likely can't keep reusing V3 much longer"
     elif consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer

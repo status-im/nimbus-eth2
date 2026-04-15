@@ -1054,6 +1054,173 @@ ETHExecutionBlockHeader *_Nullable ETHExecutionBlockHeaderCreateFromJson(
 void ETHExecutionBlockHeaderDestroy(ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
+ * Obtains the parent execution block hash of a given
+ * execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Parent execution block hash.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetParentHash(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the fee recipient address of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Fee recipient execution address.
+ */
+ETH_RESULT_USE_CHECK
+const ETHExecutionAddress *ETHExecutionBlockHeaderGetFeeRecipient(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the state MPT root of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Execution state root.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetStateRoot(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the receipts MPT root of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Execution receipts root.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetReceiptsRoot(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the logs Bloom of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Execution logs Bloom.
+ */
+ETH_RESULT_USE_CHECK
+const ETHLogsBloom *ETHExecutionBlockHeaderGetLogsBloom(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the previous randao mix of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Previous randao mix.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetPrevRandao(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the execution block number of a given execution block header.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Execution block number.
+ */
+ETH_RESULT_USE_CHECK
+int ETHExecutionBlockHeaderGetBlockNumber(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the gas limit of a given execution block header.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Gas limit.
+ */
+ETH_RESULT_USE_CHECK
+int ETHExecutionBlockHeaderGetGasLimit(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the gas used of a given execution block header.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Gas used.
+ */
+ETH_RESULT_USE_CHECK
+int ETHExecutionBlockHeaderGetGasUsed(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the timestamp of a given execution block header.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Execution block timestamp.
+ */
+ETH_RESULT_USE_CHECK
+int ETHExecutionBlockHeaderGetTimestamp(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the extra data buffer of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ * @param[out] numBytes             Length of buffer.
+ *
+ * @return Buffer with execution block extra data.
+ */
+ETH_RESULT_USE_CHECK
+const void *ETHExecutionBlockHeaderGetExtraDataBytes(
+    const ETHExecutionBlockHeader *executionBlockHeader,
+    int *numBytes);
+
+/**
+ * Obtains the base fee per gas of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Base fee per gas.
+ */
+ETH_RESULT_USE_CHECK
+const ETHUInt256 *ETHExecutionBlockHeaderGetBaseFeePerGas(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
  * Obtains the transactions MPT root of a given execution block header.
  *
  * - The returned value is allocated in the given execution block header.
@@ -1101,6 +1268,43 @@ typedef struct ETHWithdrawals ETHWithdrawals;
  */
 ETH_RESULT_USE_CHECK
 const ETHWithdrawals *ETHExecutionBlockHeaderGetWithdrawals(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the blob gas used of a given execution block header.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Blob gas used.
+ */
+ETH_RESULT_USE_CHECK
+int ETHExecutionBlockHeaderGetBlobGasUsed(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the excess blob gas of a given execution block header.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Excess blob gas.
+ */
+ETH_RESULT_USE_CHECK
+int ETHExecutionBlockHeaderGetExcessBlobGas(
+    const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Obtains the parent beacon block root of a given execution block header.
+ *
+ * - The returned value is allocated in the given execution block header.
+ *   It must neither be released nor written to, and the execution block
+ *   header must not be released while the returned value is in use.
+ *
+ * @param      executionBlockHeader Execution block header.
+ *
+ * @return Parent beacon block root.
+ */
+ETH_RESULT_USE_CHECK
+const ETHRoot *ETHExecutionBlockHeaderGetParentBeaconBlockRoot(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**

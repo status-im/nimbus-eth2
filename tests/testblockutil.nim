@@ -171,7 +171,7 @@ func makeExecutionPayloadForSigning*(
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
-  let parent_root = state.latest_block_root(default(Eth2Digest))
+  let parent_root = state.latest_block_root(ZERO_HASH)
   payload.block_hash =
     when consensusFork >= ConsensusFork.Electra:
       let emptyRequestsHash = computeRequestsHash(default(electra.ExecutionRequests))
@@ -260,7 +260,7 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
-  let parent_root = state.latest_block_root(default(Eth2Digest))
+  let parent_root = state.latest_block_root(ZERO_HASH)
   payload.block_hash =
     when consensusFork >= ConsensusFork.Electra:
       # Use correct empty requests hash
@@ -346,9 +346,20 @@ proc addTestEngineBlock*(
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
 
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
-        SignedExecutionPayloadBid(
-          message: ExecutionPayloadBid(
+      when consensusFork >= ConsensusFork.Heze:
+        heze.SignedExecutionPayloadBid(
+          message: heze.ExecutionPayloadBid(
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: state.data.slot,
+            block_hash: eps.executionPayload.block_hash,
+            parent_block_hash: state.data.latest_block_hash,
+            parent_block_root: state.latest_block_root,
+            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            value: 0.Gwei),
+          signature: ValidatorSig.infinity())
+      elif consensusFork == ConsensusFork.Gloas:
+        gloas.SignedExecutionPayloadBid(
+          message: gloas.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
@@ -360,7 +371,7 @@ proc addTestEngineBlock*(
           signature: ValidatorSig.infinity(),
         )
       else:
-        default(SignedExecutionPayloadBid)
+        default(gloas.SignedExecutionPayloadBid)
 
     message = makeBeaconBlock(
         cfg,
@@ -444,9 +455,20 @@ proc addTestEngineBlockWithBlobs*(
         default(bellatrix.ExecutionPayloadForSigning)
 
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
-        SignedExecutionPayloadBid(
-          message: ExecutionPayloadBid(
+      when consensusFork >= ConsensusFork.Heze:
+        heze.SignedExecutionPayloadBid(
+          message: heze.ExecutionPayloadBid(
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: state.data.slot,
+            block_hash: eps.executionPayload.block_hash,
+            parent_block_hash: state.data.latest_block_hash,
+            parent_block_root: state.latest_block_root,
+            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            value: 0.Gwei),
+          signature: ValidatorSig.infinity())
+      elif consensusFork == ConsensusFork.Gloas:
+        gloas.SignedExecutionPayloadBid(
+          message: gloas.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
@@ -458,7 +480,7 @@ proc addTestEngineBlockWithBlobs*(
           signature: ValidatorSig.infinity(),
         )
       else:
-        default(SignedExecutionPayloadBid)
+        default(gloas.SignedExecutionPayloadBid)
 
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations

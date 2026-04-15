@@ -254,9 +254,9 @@ cli do(
               blob_data_available: true
             )
 
-          for validator_index in get_ptc(forkyState.data, slot, cache):
+          for validator_index in get_ptc(forkyState.data, slot):
             if rand(r, 1.0) <= payloadAttestationRatio:
-              let 
+              let
                 sig = get_payload_attestation_message_signature(
                   fork, genesis_validators_root,
                   data, MockPrivKeys[validator_index])
@@ -290,28 +290,43 @@ cli do(
       )
       sync_aggregate = syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
 
-    let
       epb =
-        when consensusFork >= ConsensusFork.Gloas:
-          let
-            bid =
-              ExecutionPayloadBid(
-                parent_block_hash: state.data.latest_block_hash,
-                parent_block_root: hash_tree_root(state.data.latest_block_header),
-                block_hash: default(Eth2Digest),
-                prev_randao:
-                  get_randao_mix(state.data, get_current_epoch(state.data)),
-                fee_recipient: default(ExecutionAddress),
-                gas_limit: 30000000'u64,
-                builder_index: BUILDER_INDEX_SELF_BUILD,
-                slot: slot,
-                value: 0.Gwei,
-                execution_payment: 0.Gwei,
-                blob_kzg_commitments: default(KzgCommitments))
-          SignedExecutionPayloadBid(
+        when consensusFork >= ConsensusFork.Heze:
+          let bid =
+            heze.ExecutionPayloadBid(
+              parent_block_hash: state.data.latest_block_hash,
+              parent_block_root: hash_tree_root(state.data.latest_block_header),
+              block_hash: ZERO_HASH,
+              prev_randao:
+                get_randao_mix(state.data, get_current_epoch(state.data)),
+              fee_recipient: static(default(ExecutionAddress)),
+              gas_limit: 30000000'u64,
+              builder_index: BUILDER_INDEX_SELF_BUILD,
+              slot: slot,
+              value: 0.Gwei,
+              execution_payment: 0.Gwei,
+              blob_kzg_commitments: default(KzgCommitments))
+          heze.SignedExecutionPayloadBid(
+            message: bid, signature: ValidatorSig.infinity())
+        elif consensusFork == ConsensusFork.Gloas:
+          let bid =
+            gloas.ExecutionPayloadBid(
+              parent_block_hash: state.data.latest_block_hash,
+              parent_block_root: hash_tree_root(state.data.latest_block_header),
+              block_hash: ZERO_HASH,
+              prev_randao:
+                get_randao_mix(state.data, get_current_epoch(state.data)),
+              fee_recipient: static(default(ExecutionAddress)),
+              gas_limit: 30000000'u64,
+              builder_index: BUILDER_INDEX_SELF_BUILD,
+              slot: slot,
+              value: 0.Gwei,
+              execution_payment: 0.Gwei,
+              blob_kzg_commitments: default(KzgCommitments))
+          gloas.SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:
-          default(SignedExecutionPayloadBid)
+          default(gloas.SignedExecutionPayloadBid)
 
       payload_attestations =
         when consensusFork >= ConsensusFork.Gloas:

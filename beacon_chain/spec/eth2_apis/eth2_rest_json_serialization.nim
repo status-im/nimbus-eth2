@@ -121,6 +121,7 @@ RestJson.useDefaultSerializationFor(
   GetStateValidatorsResponse,
   GetValidatorGasLimitResponse,
   GloasSignedBlockContents,
+  HezeSignedBlockContents,
   HeadChangeInfoObject,
   HistoricalSummary,
   ImportDistributedKeystoresBody,
@@ -197,7 +198,6 @@ RestJson.useDefaultSerializationFor(
   SignedBLSToExecutionChange,
   SignedBeaconBlockHeader,
   SignedContributionAndProof,
-  SignedExecutionPayloadBid,
   SignedExecutionPayloadEnvelope,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
@@ -283,10 +283,7 @@ RestJson.useDefaultSerializationFor(
   electra.TrustedAttestation,
   electra_mev.BlindedBeaconBlock,
   electra_mev.BlindedBeaconBlockBody,
-  electra_mev.BuilderBid,
-  electra_mev.ExecutionPayloadAndBlobsBundle,
   electra_mev.SignedBlindedBeaconBlock,
-  electra_mev.SignedBuilderBid,
   fulu.BeaconBlock,
   fulu.BeaconBlockBody,
   fulu.BeaconState,
@@ -304,6 +301,13 @@ RestJson.useDefaultSerializationFor(
   gloas.BlockContents,
   gloas.DataColumnSidecar,
   gloas.ExecutionPayloadBid,
+  gloas.SignedExecutionPayloadBid,
+  heze.BeaconBlock,
+  heze.BeaconBlockBody,
+  heze.BeaconState,
+  heze.BlockContents,
+  heze.ExecutionPayloadBid,
+  heze.SignedExecutionPayloadBid,
   phase0.AggregateAndProof,
   phase0.Attestation,
   phase0.AttesterSlashing,
@@ -675,6 +679,8 @@ proc readValue*(r: var RestJsonReader, value: var ForkedHashedBeaconState) {.rea
       toValue(fuluData)
     of ConsensusFork.Gloas:
       toValue(gloasData)
+    of ConsensusFork.Heze:
+      toValue(hezeData)
   except SerializationError:
     r.raiseUnexpectedValue(&"Incorrect {v.version} beacon state format")
 
@@ -1263,7 +1269,7 @@ proc readValue*(
         ForkedMaybeBlindedBeaconBlock.init(
           RestJson.decode(string(v.data), consensusFork.BlockContents)
         )
-      elif consensusFork >= ConsensusFork.Electra:
+      elif consensusFork >= ConsensusFork.Fulu:
         if v.execution_payload_blinded:
           ForkedMaybeBlindedBeaconBlock.init(
             RestJson.decode(string(v.data), consensusFork.BlindedBlockContents),

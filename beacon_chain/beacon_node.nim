@@ -66,7 +66,7 @@ type
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
     execPayloadAvlQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
-    execPayloadBidQueue*: AsyncEventQueue[SignedExecutionPayloadBid]
+    execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
     payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
 
   BeaconNode* = ref object
@@ -125,6 +125,7 @@ type
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
+    lastColumnCustodyIndices*: seq[CustodyIndex]
     shutdownEvent*: AsyncEvent
 
 # TODO https://github.com/status-im/nim-stew/pull/258
@@ -202,6 +203,6 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
     execPayloadAvlQueue: newAsyncEventQueue[ExecutionPayloadInfoObject](),
-    execPayloadBidQueue: newAsyncEventQueue[SignedExecutionPayloadBid](),
+    execPayloadBidQueue: newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
     payloadAttMsgQueue: newAsyncEventQueue[PayloadAttestationMessage]()
   )

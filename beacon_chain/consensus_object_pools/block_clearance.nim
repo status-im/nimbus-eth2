@@ -139,14 +139,14 @@ proc addResolvedHeadBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    let unrealized =
-      when consensusFork >= ConsensusFork.Altair:
-        state.forky(consensusFork).data.compute_unrealized_finality()
-      else:
-        state.forky(consensusFork).data.compute_unrealized_finality(cache)
-    onBlockAdded(
-      blockRef, trustedBlock, state.forky(consensusFork).data, epochRef, unrealized
-    )
+    template forkyState: auto = state.forky(consensusFork)
+    when consensusFork >= ConsensusFork.Altair:
+      let (unrealized, balances) = forkyState.data.compute_unrealized_finality()
+      dag.putParticipatingBalances CachedParticipatingBalances(
+        bid: blockRef.bid, balances: balances)
+    else:
+      let unrealized = forkyState.data.compute_unrealized_finality(cache)
+    onBlockAdded(blockRef, trustedBlock, forkyState.data, epochRef, unrealized)
 
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))

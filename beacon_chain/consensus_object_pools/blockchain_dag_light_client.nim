@@ -8,9 +8,6 @@
 {.push raises: [], gcsafe.}
 
 import
-  # Status libraries
-  stew/bitops2,
-  # Beacon chain internals
   ../spec/forks,
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
@@ -116,7 +113,10 @@ func cacheRecentSyncAggregate(
 
 func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
-  when kind(typeof(blck)) == ConsensusFork.Gloas:
+  when kind(typeof(blck)) == ConsensusFork.Heze:
+    debugHezeComment "..."
+    default(ForkedLightClientHeader)
+  elif kind(typeof(blck)) == ConsensusFork.Gloas:
     debugGloasComment "..."
     default(ForkedLightClientHeader)
   else:
@@ -252,6 +252,8 @@ proc initLightClientBootstrapForPeriod(
       withStateAndBlck(tmpState[], bdata):
         when consensusFork == ConsensusFork.Gloas:
           debugGloasComment "..."
+        elif consensusFork == ConsensusFork.Heze:
+          debugHezeComment "..."
         elif consensusFork >= ConsensusFork.Altair:
           const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           if not dag.lcDataStore.db.hasSyncCommittee(period):
@@ -407,16 +409,24 @@ proc initLightClientUpdateForPeriod(
         debugGloasComment ""
       elif consensusFork >= ConsensusFork.Altair:
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-        update = ForkedLightClientUpdate.init(lcDataFork.LightClientUpdate(
+        update = ForkedLightClientUpdate.init lcDataFork.LightClientUpdate(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
-          next_sync_committee: forkyState.data.next_sync_committee,
-          next_sync_committee_branch: forkyState.data.build_proof(
-            lcDataFork.next_sync_committee_gindex).get,
-          finality_branch:
-            if finalizedBid.slot != FAR_FUTURE_SLOT:
-              forkyState.data.build_proof(lcDataFork.finalized_root_gindex).get
-            else:
-              default(lcDataFork.FinalityBranch)))
+          next_sync_committee: forkyState.data.next_sync_committee)
+        if finalizedBid.slot != FAR_FUTURE_SLOT:
+          const union_indices = get_union_indices(
+            lcDataFork.next_sync_committee_gindex,
+            lcDataFork.finalized_root_gindex)
+          let union_roots = forkyState.data.hash_tree_root(union_indices).get
+          update.forky(lcDataFork).next_sync_committee_branch =
+            union_roots.extract_branch(
+              union_indices, lcDataFork.next_sync_committee_gindex).get
+          update.forky(lcDataFork).finality_branch =
+            union_roots.extract_branch(
+              union_indices, lcDataFork.finalized_root_gindex).get
+        else:
+          update.forky(lcDataFork).next_sync_committee_branch =
+            forkyState.data.build_proof(
+              lcDataFork.next_sync_committee_gindex).get
       else: raiseAssert "Unreachable"
   do:
     dag.handleUnexpectedLightClientError(attestedBid.slot)
@@ -427,7 +437,7 @@ proc initLightClientUpdateForPeriod(
       return err()
     withBlck(bdata):
       debugGloasComment ""
-      when consensusFork != ConsensusFork.Gloas:
+      when consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
         withForkyUpdate(update):
           when lcDataFork > LightClientDataFork.None:
             when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
@@ -474,6 +484,34 @@ func getLightClientData(
   try: dag.lcDataStore.cache.data[bid]
   except KeyError: raiseAssert "Unreachable"
 
+func union_indices(
+    lcDataFork: static LightClientDataFork): auto {.compileTime.} =
+  get_union_indices(
+    lcDataFork.current_sync_committee_gindex,
+    lcDataFork.next_sync_committee_gindex,
+    lcDataFork.finalized_root_gindex)
+
+template current_sync_committee_branch(
+    cachedData: CachedLightClientData): auto =
+  const
+    union_indices = lcDataFork.union_indices
+    index = lcDataFork.current_sync_committee_gindex
+  cachedData.union_roots.extract_branch(union_indices, index).get
+
+template next_sync_committee_branch(
+    cachedData: CachedLightClientData): auto =
+  const
+    union_indices = lcDataFork.union_indices
+    index = lcDataFork.next_sync_committee_gindex
+  cachedData.union_roots.extract_branch(union_indices, index).get
+
+template finality_branch(
+    cachedData: CachedLightClientData): auto =
+  const
+    union_indices = lcDataFork.union_indices
+    index = lcDataFork.finalized_root_gindex
+  cachedData.union_roots.extract_branch(union_indices, index).get
+
 func cacheLightClientData(
     dag: ChainDAGRef,
     state: ForkyHashedBeaconState,
@@ -483,27 +521,18 @@ func cacheLightClientData(
   ## Cache data for a given block and its post-state to speed up creating future
   ## `LightClientUpdate` and `LightClientBootstrap` instances that refer to this
   ## block and state.
-  const lcDataFork = lcDataForkAtConsensusFork(typeof(state).kind)
-  let
-    bid = blck.toBlockId()
-    cachedData = CachedLightClientData(
-      current_sync_committee_branch: normalize_merkle_branch(
-        state.data.build_proof(lcDataFork.current_sync_committee_gindex).get,
-        LightClientDataFork.high.current_sync_committee_gindex),
-      next_sync_committee_branch: normalize_merkle_branch(
-        state.data.build_proof(lcDataFork.next_sync_committee_gindex).get,
-        LightClientDataFork.high.next_sync_committee_gindex),
-      finalized_slot:
-        state.data.finalized_checkpoint.epoch.start_slot,
-      finality_branch: normalize_merkle_branch(
-        state.data.build_proof(lcDataFork.finalized_root_gindex).get,
-        LightClientDataFork.high.finalized_root_gindex),
-      current_period_best_update:
-        current_period_best_update,
-      latest_signature_slot:
-        latest_signature_slot)
+  const
+    lcDataFork = lcDataForkAtConsensusFork(typeof(state).kind)
+    union_indices = lcDataFork.union_indices
+  var cachedData = CachedLightClientData(
+    finalized_slot: state.data.finalized_checkpoint.epoch.start_slot,
+    current_period_best_update: current_period_best_update,
+    latest_signature_slot: latest_signature_slot,
+    union_roots: newSeqUninit[Eth2Digest](union_indices.len))
+  state.data.hash_tree_root(union_indices, cachedData.union_roots).expect("OK")
+  let bid = blck.toBlockId()
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
-    doAssert false, "Redundant `cacheLightClientData` call"
+    raiseAssert "Redundant `cacheLightClientData` call"
   dag.cacheRecentLightClientHeader(bid, blck.lightClientHeader())
   dag.cacheRecentSyncAggregate(bid, blck.sync_aggregate())
 
@@ -561,18 +590,15 @@ proc assignLightClientData(
         when lcDataFork > LightClientDataFork.None:
           forkyObject.next_sync_committee =
             next_sync_committee.get
-          forkyObject.next_sync_committee_branch = normalize_merkle_branch(
-            attested_data.next_sync_committee_branch,
-            lcDataFork.next_sync_committee_gindex)
+          forkyObject.next_sync_committee_branch =
+            attested_data.next_sync_committee_branch
     else:
       doAssert next_sync_committee.isNone
     var finalized_slot = attested_data.finalized_slot
     withForkyObject(obj):
       when lcDataFork > LightClientDataFork.None:
         if finalized_slot == forkyObject.finalized_header.beacon.slot:
-          forkyObject.finality_branch = normalize_merkle_branch(
-            attested_data.finality_branch,
-            lcDataFork.finalized_root_gindex)
+          forkyObject.finality_branch = attested_data.finality_branch
         elif finalized_slot < max(dag.tail.slot, dag.backfill.slot):
           forkyObject.finalized_header.reset()
           forkyObject.finality_branch.reset()
@@ -590,14 +616,10 @@ proc assignLightClientData(
               attested_data.finalized_slot = finalized_slot
               dag.lcDataStore.cache.data[attested_bid] = attested_data
             if finalized_slot == forkyObject.finalized_header.beacon.slot:
-              forkyObject.finality_branch = normalize_merkle_branch(
-                attested_data.finality_branch,
-                lcDataFork.finalized_root_gindex)
+              forkyObject.finality_branch = attested_data.finality_branch
             elif finalized_slot == GENESIS_SLOT:
               forkyObject.finalized_header.reset()
-              forkyObject.finality_branch = normalize_merkle_branch(
-                attested_data.finality_branch,
-                lcDataFork.finalized_root_gindex)
+              forkyObject.finality_branch = attested_data.finality_branch
             else:
               var fin_header = dag.getExistingLightClientHeader(finalized_bid)
               if fin_header.kind == LightClientDataFork.None:
@@ -607,9 +629,7 @@ proc assignLightClientData(
               else:
                 fin_header.migrateToDataFork(lcDataFork)
                 forkyObject.finalized_header = fin_header.forky(lcDataFork)
-                forkyObject.finality_branch = normalize_merkle_branch(
-                  attested_data.finality_branch,
-                  lcDataFork.finalized_root_gindex)
+                forkyObject.finality_branch = attested_data.finality_branch
   withForkyObject(obj):
     when lcDataFork > LightClientDataFork.None:
       forkyObject.sync_aggregate = sync_aggregate
@@ -730,14 +750,13 @@ proc createLightClientBootstrap(
       dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
   withBlck(bdata):
     debugGloasComment ""
-    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Altair and
+         consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       dag.lcDataStore.db.putHeader(
         forkyBlck.toLightClientHeader(lcDataFork))
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
-        bid.slot, normalize_merkle_branch(
-          dag.getLightClientData(bid).current_sync_committee_branch,
-          lcDataFork.current_sync_committee_gindex))
+        bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
     else: raiseAssert "Unreachable"
   ok()
 
@@ -1111,7 +1130,8 @@ proc getLightClientBootstrap*(
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
     debugGloasComment ""
-    when consensusFork >= ConsensusFork.Altair and consensusFork != ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Altair and
+         consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       let
         header = forkyBlck.toLightClientHeader(lcDataFork)

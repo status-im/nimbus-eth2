@@ -361,7 +361,8 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest): ForkedSignedBeaconB
 proc addSidecarless(
     quarantine: var Quarantine, finalizedSlot: Opt[Slot],
     signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-                 fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+                 fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
+                 heze.SignedBeaconBlock
 ): bool =
   if finalizedSlot.isSome():
     if signedBlock.message.isUnviableFork(finalizedSlot.get()):
@@ -379,14 +380,16 @@ proc addSidecarless(
 proc addSidecarless*(
   quarantine: var Quarantine, finalizedSlot: Slot,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
+               heze.SignedBeaconBlock
 ): bool =
   quarantine.addSidecarless(Opt.some(finalizedSlot), signedBlock)
 
 proc addSidecarless*(
   quarantine: var Quarantine,
   signedBlock: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
+               fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
+               heze.SignedBeaconBlock
 ) =
   discard quarantine.addSidecarless(Opt.none(Slot), signedBlock)
 

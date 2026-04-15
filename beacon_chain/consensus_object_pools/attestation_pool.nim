@@ -48,6 +48,7 @@ type
     ## Single votes are used to top up (or construct) aggregates.
     slot*: Slot
     index*: uint64
+    payloadIndex*: uint64
     beacon_block_root*: Eth2Digest
     source*: Checkpoint
     target*: Checkpoint
@@ -104,6 +105,7 @@ func init(
   T(
     slot: data.slot,
     index: committee_index,
+    payloadIndex: data.index,
     beacon_block_root: data.beacon_block_root,
     source: data.source,
     target: data.target,
@@ -113,7 +115,7 @@ func init(
 func init(T: type AttestationData, entry: AttestationEntry): T =
   T(
     slot: entry.slot,
-    index: 0,
+    index: entry.payloadIndex,
     beacon_block_root: entry.beacon_block_root,
     source: entry.source,
     target: entry.target,
@@ -178,7 +180,11 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
               if blckRef == dag.head:
                 withState(dag.headState):
                   when consensusFork >= ConsensusFork.Altair:
-                    forkyState.data.compute_unrealized_finality()
+                    let (checkpoints, balances) =
+                      forkyState.data.compute_unrealized_finality()
+                    dag.putParticipatingBalances CachedParticipatingBalances(
+                      bid: blckRef.bid, balances: balances)
+                    checkpoints
                   else:
                     var cache: StateCache
                     forkyState.data.compute_unrealized_finality(cache)
@@ -581,7 +587,7 @@ func add(
 func init(
     T: type AttestationCache,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
-           gloas.HashedBeaconState,
+           gloas.HashedBeaconState | heze.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -653,7 +659,7 @@ func check_attestation_compatible*(
 proc getAttestationsForBlock*(
     pool: var AttestationPool,
     state: electra.HashedBeaconState | fulu.HashedBeaconState |
-           gloas.HashedBeaconState,
+           gloas.HashedBeaconState | heze.HashedBeaconState,
     cache: var StateCache,
 ): seq[electra.Attestation] =
   let newBlockSlot = state.data.slot.uint64
@@ -875,8 +881,8 @@ proc getBeaconHead*(
       pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
         .get(ZERO_HASH)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/fork_choice/safe-block.md#get_safe_execution_payload_hash
-    safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/fork_choice/safe-block.md#get_safe_execution_block_hash
+    safeBlockRoot = pool.forkChoice.retrieve_fast_confirmed_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionBlockHash =
       if safeBlock.isErr:
@@ -898,7 +904,7 @@ proc willSelectNewHead*(
     pool: var AttestationPool,
     headBlock: BlockRef, wallTime: BeaconTime): Opt[void] =
   ## Informs fork choice that a new head will be selected.
-  ## This may affect `get_safe_beacon_block_root` so must be called before that.
+  ## This may affect `retrieve_fast_confirmed_root`; must call this before that.
   pool.forkChoice.will_select_head(pool.dag, headBlock, wallTime).isOkOr:
     error "Couldn't store head to fork choice", err = error
     return err()

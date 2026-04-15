@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -27,8 +27,9 @@ suite "Light client processor" & preset():
     lastPeriodWithSupermajority = 4.SyncCommitteePeriod
     highPeriod = 6.SyncCommitteePeriod
   debugGloasComment "add res.GLOAS_FORK_EPOCH = ..."
+  debugHezeComment "add res.HEZE_FORK_EPOCH = ..."
   let cfg = block:  # Fork schedule that covers each `LightClientDataFork`
-    static: doAssert ConsensusFork.high == ConsensusFork.Gloas
+    static: doAssert ConsensusFork.high == ConsensusFork.Heze
     var res = defaultRuntimeConfig
     res.ALTAIR_FORK_EPOCH = 1.Epoch
     res.BELLATRIX_FORK_EPOCH = 2.Epoch

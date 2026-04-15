@@ -163,18 +163,11 @@ NIM_PARAMS += -d:disable_libbacktrace
 endif
 
 deps: | deps-common nat-libs build/generate_makefile
-ifneq ($(USE_LIBBACKTRACE), 0)
-deps: | libbacktrace
-endif
 
 #- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
 	rm -f build/generate_makefile
 	rm -fr nimcache/
-
-# nim-libbacktrace
-libbacktrace:
-	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
 # Make sure ports don't overlap to support concurrent execution of tests
 # Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
@@ -232,7 +225,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--fulu-fork-epoch 1000 \
+		--fulu-fork-epoch 10000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
@@ -253,8 +246,7 @@ local-testnet-minimal:
 		--run-spamoor \
 		-- \
 		--verify-finalization \
-		--discv5:no \
-		--num-threads:1
+		--discv5:no
 
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
@@ -281,7 +273,8 @@ local-testnet-mainnet:
 		--run-spamoor \
 		-- \
 		--verify-finalization \
-		--discv5:no
+		--discv5:no \
+		--num-threads:1
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES_CORE := \
@@ -430,9 +423,6 @@ endif
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
 # It's OK to only build this once. `make update` deletes the binary, forcing a rebuild.
-ifneq ($(USE_LIBBACKTRACE), 0)
-build/generate_makefile: | libbacktrace
-endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
 	+ echo -e $(BUILD_MSG) "$@" && \
 	$(ENV_SCRIPT) $(NIMC) c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
@@ -744,9 +734,6 @@ ntu: | build deps
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,transition*,generate_makefile,nimbus-wix/obj}
-ifneq ($(USE_LIBBACKTRACE), 0)
-	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
-endif
 
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
