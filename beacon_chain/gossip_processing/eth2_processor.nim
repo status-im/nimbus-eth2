@@ -152,6 +152,7 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
+    seenProposerPreferences*: array[2, BitArray[int SLOTS_PER_EPOCH]]
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -966,3 +967,20 @@ proc processPayloadAttestationMessage*(
 
   trace "Payload attestation validated"
   return ok()
+
+proc processProposerPreferences*(
+    self: ref Eth2Processor, src: MsgSource,
+    signed_preferences: SignedProposerPreferences
+): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    currentSlot = wallTime.slotOrZero(self.dag.timeParams)
+  
+  let v = validateProposerPreferences(
+    self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
+  if v.isErr():
+    debug "Dropping proposer preferences", reason = $v.error
+    return err(v.error())
+  
+  trace "Proposer preferences validated"
+  ok()

@@ -987,6 +987,15 @@ AllTests-mainnet
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
+## Proposer preferences validation  [Preset: mainnet]
+```diff
++ validateProposerPreferences - duplicate ignored                                            OK
++ validateProposerPreferences - happy case                                                   OK
++ validateProposerPreferences - invalid signature rejected                                   OK
++ validateProposerPreferences - proposal_slot already passed                                 OK
++ validateProposerPreferences - proposal_slot outside current/next epoch                     OK
++ validateProposerPreferences - wrong proposer rejected                                      OK
+```
 ## Pruning
 ```diff
 + prune states                                                                               OK
