@@ -1886,7 +1886,8 @@ proc new(T: type Eth2Node,
       config, ip, tcpPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
-        enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
+        enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
+        enrNextForkDigestField: SSZ.encode(default(ForkDigest))                                                   
       },
     rng),
     discoveryEnabled: discovery,
