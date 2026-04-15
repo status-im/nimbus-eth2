@@ -680,9 +680,12 @@ AllTests-mainnet
 ```
 ## Eth2 specific discovery tests
 ```diff
++ Attestation subnet query                                                                   OK
++ Columns subcustody query                                                                   OK
++ Combination subnet query                                                                   OK
 + Invalid attnets field                                                                      OK
-+ Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
++ Sync subnet query                                                                          OK
 ```
 ## Execution Payload Bid Pool
 ```diff
