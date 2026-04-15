@@ -56,7 +56,7 @@ type
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
-    proc(data: ExecutionPayloadInfoObject) {.gcsafe, raises: [].}
+    proc(data: SignedExecutionPayloadEnvelope) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -353,6 +353,25 @@ type
     blck*: ForkedSignedBeaconBlock
     src*: PeerId
 
+  EventExecutionPayloadObject* = object
+    slot*: Slot
+    builder_index*: uint64
+    block_hash*: Eth2Digest
+    block_root*: Eth2Digest
+    state_root*: Eth2Digest
+    execution_optimistic*: bool
+
+  EventExecutionPayloadGossipObject* = object
+    slot*: Slot
+    builder_index*: uint64
+    block_hash*: Eth2Digest
+    block_root*: Eth2Digest
+    state_root*: Eth2Digest
+
+  EventExecutionPayloadAvailableObject* = object
+    slot*: Slot
+    block_root*: Eth2Digest
+
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams
 
@@ -503,4 +522,39 @@ func init*(
   EventBeaconBlockGossipPeerObject(
     blck: ForkedSignedBeaconBlock.init(v),
     src: s
+  )
+
+func init*(
+    T: typedesc[EventExecutionPayloadObject],
+    v: SignedExecutionPayloadEnvelope,
+    optimistic: bool,
+): EventExecutionPayloadObject =
+  EventExecutionPayloadObject(
+    slot: v.message.slot,
+    builder_index: v.message.builder_index,
+    block_hash: v.message.payload.block_hash,
+    block_root: v.message.beacon_block_root,
+    state_root: v.message.state_root,
+    execution_optimistic: optimistic,
+  )
+
+func init*(
+    T: typedesc[EventExecutionPayloadGossipObject],
+    v: SignedExecutionPayloadEnvelope,
+): EventExecutionPayloadGossipObject =
+  EventExecutionPayloadGossipObject(
+    slot: v.message.slot,
+    builder_index: v.message.builder_index,
+    block_hash: v.message.payload.block_hash,
+    block_root: v.message.beacon_block_root,
+    state_root: v.message.state_root,
+  )
+
+func init*(
+    T: typedesc[EventExecutionPayloadAvailableObject],
+    v: SignedExecutionPayloadEnvelope,
+): EventExecutionPayloadAvailableObject =
+  EventExecutionPayloadAvailableObject(
+    slot: v.message.slot,
+    block_root: v.message.beacon_block_root,
   )

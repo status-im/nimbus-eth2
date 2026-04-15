@@ -966,9 +966,7 @@ proc addPayload*(
     deadline = sleepAsync(deadlineTime)
 
   if not isNil(dag.onEnvelopeAvailable):
-    dag.onEnvelopeAvailable(ExecutionPayloadInfoObject(
-      slot: signedEnvelope.message.slot,
-      block_root: signedEnvelope.message.beacon_block_root))
+    dag.onEnvelopeAvailable(signedEnvelope)
 
   let
     optimisticStatusRes =

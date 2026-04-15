@@ -75,11 +75,6 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/eventstream/index.yaml#L164
-  ExecutionPayloadInfoObject* = object
-    slot*: Slot
-    block_root*: Eth2Digest
-
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
     parent_block_hash*: Eth2Digest

@@ -498,12 +498,18 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
-  proc onEnvelopeAdded(data: ExecutionPayloadInfoObject) =
-    node.eventBus.execPayloadAddedQueue.emit(data)
-  proc onEnvelopeGossipAdded(data: ExecutionPayloadInfoObject) =
-    node.eventBus.execPayloadGossipAddedQueue.emit(data)
-  proc onEnvelopeAvailable(data: ExecutionPayloadInfoObject) =
-    node.eventBus.execPayloadAvlQueue.emit(data)
+  proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
+    let optimistic = node.dag.is_optimistic(BlockId(
+      root: data.message.beacon_block_root,
+      slot: data.message.slot))
+    node.eventBus.execPayloadAddedQueue.emit(
+      EventExecutionPayloadObject.init(data, optimistic))
+  proc onEnvelopeGossipAdded(data: SignedExecutionPayloadEnvelope) =
+    node.eventBus.execPayloadGossipAddedQueue.emit(
+      EventExecutionPayloadGossipObject.init(data))
+  proc onEnvelopeAvailable(data: SignedExecutionPayloadEnvelope) =
+    node.eventBus.execPayloadAvlQueue.emit(
+      EventExecutionPayloadAvailableObject.init(data))
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.

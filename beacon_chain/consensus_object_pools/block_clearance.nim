@@ -555,9 +555,7 @@ proc addHeadExecutionPayload*(
   blck.markExecutionValid(true)
 
   if not isNil(dag.onEnvelopeAdded):
-    dag.onEnvelopeAdded(ExecutionPayloadInfoObject(
-      slot: signedEnvelope.message.slot,
-      block_root: envelopeBlockRoot))
+    dag.onEnvelopeAdded(signedEnvelope)
 
   ok(blck)
 
