@@ -755,4 +755,4 @@ proc routeProposerPreferences*(
       proposal_slot = signed_preferences.message.proposal_slot,
       error = res.error()
 
-  return ok()
+  ok()

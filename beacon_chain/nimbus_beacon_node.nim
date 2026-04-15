@@ -1931,8 +1931,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # Clear the preferences bucket for the epoch that just ended
     if slot.epoch > 0:
       let justEnded = slot.epoch - Epoch(1)
-      node.processor.seenProposerPreferences[justEnded.uint64 mod 2] =
-        default(BitArray[int SLOTS_PER_EPOCH])
+      node.processor.seenProposerPreferences[justEnded.uint64 mod 2].reset()
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head
