@@ -35,6 +35,16 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
     dag.pruneStateCachesDAG()
     # pool[].prune(dag) # We test without att_1_0 pool / fork choice pruning
 
+proc signProposerPreferences(
+    dag: ChainDAGRef, prefs: ProposerPreferences,
+    privkey: ValidatorPrivKey): SignedProposerPreferences =
+  let
+    fork = dag.forkAtEpoch(prefs.proposal_slot.epoch)
+    sig = get_proposer_preferences_signature(
+      fork, dag.genesis_validators_root, prefs, privkey)
+  SignedProposerPreferences(
+    message: prefs, signature: sig.toValidatorSig())
+
 suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
@@ -481,3 +491,85 @@ suite "Gossip validation - Altair":
         msg, subcommitteeIdx,
         state[].data.slot.start_beacon_time(cfg.timeParams),
         true).waitFor().isErr()
+
+suite "Proposer preferences validation " & preset():
+  setup:
+    var
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
+        validatorMonitor, {})
+      seen: array[2, BitArray[int SLOTS_PER_EPOCH]]
+
+    # Pick an upcoming slot and its scheduled proposer from the head state's
+    # proposer_lookahead.
+    var
+      proposerSlot: Slot
+      proposerIndex: uint64
+      proposerFound = false
+      wrongValidator: uint64
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        let startSlot = forkyState.data.get_current_epoch().start_slot()
+        for offset in 1'u64 ..< forkyState.data.proposer_lookahead.lenu64:
+          let slot = startSlot + offset
+          if slot > forkyState.data.slot:
+            proposerSlot = slot
+            proposerIndex = forkyState.data.proposer_lookahead.item(offset)
+            proposerFound = true
+            break
+        # wrongValidator just needs to differ from the scheduled proposer at
+        # proposerSlot; other slots don't matter for is_valid_proposal_slot.
+        wrongValidator = proposerIndex + 1
+        if forkyState.data.proposer_lookahead.item(
+            proposerSlot - startSlot) == wrongValidator:
+          wrongValidator += 1
+    check proposerFound
+
+    let
+      prefs = ProposerPreferences(
+        proposal_slot: proposerSlot,
+        validator_index: proposerIndex,
+        fee_recipient: default(ExecutionAddress),
+        gas_limit: 30_000_000)
+      signed = signProposerPreferences(
+        dag, prefs, MockPrivKeys[proposerIndex.ValidatorIndex])
+      wallTime = dag.head.slot.start_beacon_time(dag.cfg.timeParams)
+
+  test "validateProposerPreferences - happy case":
+    check:
+      validateProposerPreferences(dag, seen, signed, wallTime).isOk
+
+  test "validateProposerPreferences - duplicate ignored":
+    check:
+      validateProposerPreferences(dag, seen, signed, wallTime).isOk
+      validateProposerPreferences(dag, seen, signed, wallTime).isErr
+
+  test "validateProposerPreferences - proposal_slot already passed":
+    let past = (proposerSlot + 1).start_beacon_time(dag.cfg.timeParams)
+    # Still within current/next epoch window, but wallTime >= proposal_slot.
+    check:
+      validateProposerPreferences(dag, seen, signed, past).isErr
+
+  test "validateProposerPreferences - proposal_slot outside current/next epoch":
+    var msg = prefs
+    msg.proposal_slot = proposerSlot + SLOTS_PER_EPOCH * 3
+    let farAhead = signProposerPreferences(
+      dag, msg, MockPrivKeys[proposerIndex.ValidatorIndex])
+    check:
+      validateProposerPreferences(dag, seen, farAhead, wallTime).isErr
+
+  test "validateProposerPreferences - wrong proposer rejected":
+    var msg = prefs
+    msg.validator_index = wrongValidator
+    let wrong = signProposerPreferences(
+      dag, msg, MockPrivKeys[wrongValidator.ValidatorIndex])
+    check:
+      validateProposerPreferences(dag, seen, wrong, wallTime).isErr
+
+  test "validateProposerPreferences - invalid signature rejected":
+    var tampered = signed
+    tampered.signature = default(ValidatorSig)
+    check:
+      validateProposerPreferences(dag, seen, tampered, wallTime).isErr

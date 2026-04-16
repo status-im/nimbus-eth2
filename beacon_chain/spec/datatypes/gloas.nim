@@ -593,6 +593,20 @@ func shortLog*(v: PayloadAttestationMessage): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: ProposerPreferences): auto =
+  (
+    proposal_slot: v.proposal_slot,
+    validator_index: v.validator_index,
+    fee_recipient: v.fee_recipient,
+    gas_limit: v.gas_limit
+  )
+
+func shortLog*(v: SignedProposerPreferences): auto =
+  (
+    message: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =

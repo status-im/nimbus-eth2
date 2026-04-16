@@ -980,7 +980,6 @@ proc sendPayloadAttestations(
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      var cache: StateCache
       for vidx in get_ptc(forkyState.data, slot):
         let validator = node.getValidatorForDuties(vidx, slot).valueOr:
           continue
