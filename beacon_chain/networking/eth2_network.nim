@@ -1897,9 +1897,9 @@ proc new(T: type Eth2Node,
     seenThreshold: seenThreshold,
     directPeers: directPeers,
     announcedAddresses: @announcedAddresses,
-    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
+    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime),
+    node.nextForkDigest: initialNextForkDigest
   )
-  node.nextForkDigest = initialNextForkDigest
 
   proc peerHook(
       peerId: PeerId,
