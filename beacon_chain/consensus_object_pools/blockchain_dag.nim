@@ -1342,7 +1342,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       if wantsPayload:
         dag.applyExecutionPayloadEnvelope(
           dag.headState, headBlocks[i].bid,
-          cache).expect("head envelopes shoudl apply")
+          cache).expect("head envelopes should apply")
 
     dag.head = headRef
     dag.heads = @[headRef]
