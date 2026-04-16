@@ -609,9 +609,8 @@ proc proposeBlockAux(
 
   beacon_blocks_proposed.inc()
 
-  when consensusFork == ConsensusFork.Heze:
-    debugHezeComment("")
-  elif consensusFork == ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Gloas:
+    debugHezeComment("heze envelope proposal")
     # State here is for computing the state_root, so can be discarded afterward.
     # It requires the proposed block applied in order to get the correct
     # state_root.
@@ -649,7 +648,7 @@ proc proposeBlockAux(
       )
 
       let res = await node.router.routeExecutionPayloadEnvelope(
-        signedBlock, signedEnvelope, sidecarsOpt, checkValidator = false)
+        signedBlock, signedEnvelope, sidecarsOpt)
       if res.isErr():
         error "Failed to propose envelope", reason = res.error(), slot = slot
         return newBlockRef.get()

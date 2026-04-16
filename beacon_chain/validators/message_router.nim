@@ -712,7 +712,6 @@ proc routeExecutionPayloadEnvelope*(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
-    checkValidator: bool
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
   # Publish envelope
   let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
