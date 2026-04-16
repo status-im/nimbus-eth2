@@ -1126,13 +1126,6 @@ proc validateExecutionPayload*(
   else:
     return dag.checkedReject("ExecutionPayload: invalid fork")
 
-  let onExecutionPayloadCallback =
-    envelopeQuarantine[].onExecutionPayloadCallback()
-  if not isNil(onExecutionPayloadCallback):
-    onExecutionPayloadCallback ExecutionPayloadInfoObject(
-      slot: envelope.slot,
-      block_root: envelope.beacon_block_root)
-
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#beacon_attestation_subnet_id

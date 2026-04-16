@@ -554,6 +554,9 @@ proc addHeadExecutionPayload*(
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
   blck.markExecutionValid(true)
 
+  if not isNil(dag.onEnvelopeAdded):
+    dag.onEnvelopeAdded(signedEnvelope)
+
   ok(blck)
 
 proc addBackfillExecutionPayload*(

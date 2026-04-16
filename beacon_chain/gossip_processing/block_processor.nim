@@ -965,6 +965,9 @@ proc addPayload*(
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
+
   let
     optimisticStatusRes =
       block:
