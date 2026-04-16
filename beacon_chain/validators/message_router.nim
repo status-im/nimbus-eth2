@@ -709,7 +709,7 @@ proc routePayloadAttestationMessage*(
 
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
-    signedBlock: gloas.SignedBeaconBlock,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
 ): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
