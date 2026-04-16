@@ -1847,6 +1847,7 @@ proc new(T: type Eth2Node,
          config: BeaconNodeConf | LightClientConf, runtimeCfg: RuntimeConfig,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
+         initialNextForkDigest: ForkDigest,
          switch: Switch, pubsub: GossipSub,
          ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
@@ -1887,7 +1888,7 @@ proc new(T: type Eth2Node,
       {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
-        enrNextForkDigestField: SSZ.encode(default(ForkDigest))                                                   
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)                                                   
       },
     rng),
     discoveryEnabled: discovery,
@@ -1898,6 +1899,7 @@ proc new(T: type Eth2Node,
     announcedAddresses: @announcedAddresses,
     quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
+  node.nextForkDigest = initialNextForkDigest
 
   proc peerHook(
       peerId: PeerId,
@@ -2375,7 +2377,12 @@ proc createEth2Node*(
     wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
     discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
-
+    nextForkEpoch = cfg.nextForkEpochAtEpoch(wallEpoch)
+    initialNextForkDigest =
+      if nextForkEpoch == FAR_FUTURE_EPOCH:
+        default(ForkDigest)
+      else:
+        forkDigests[].atEpoch(nextForkEpoch, cfg)
     listenAddress =
       if config.listenAddress.isSome():
         config.listenAddress.get()
@@ -2499,7 +2506,7 @@ proc createEth2Node*(
     return err("Cannot mount pubsub: " & exc.msg)
 
   let node = Eth2Node.new(
-    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
+    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, initialNextForkDigest, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
