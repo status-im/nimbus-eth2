@@ -535,8 +535,8 @@ func verify_partial_data_column_header_inclusion_proof*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar_kzg_proofs
-proc verify_data_column_sidecar_kzg_proofs*[
-    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+proc verify_data_column_sidecar_kzg_proofs*[T:
+    fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     sidecar: T,
     kzg_commitments: KzgCommitments): Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
