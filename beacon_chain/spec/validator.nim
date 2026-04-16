@@ -613,7 +613,7 @@ func get_beacon_proposer_indices*(
     get_beacon_proposer_indices(state, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
-func is_valid_proposal_slot(
+func is_valid_proposal_slot*(
     state: gloas.BeaconState | heze.BeaconState,
     slot: Slot, validator_index: uint64): bool =
   ## Check if the validator is the proposer for the given slot in the current or
@@ -625,7 +625,7 @@ func is_valid_proposal_slot(
   state.proposer_lookahead.item(slot - start_slot) == validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/validator.md#broadcasting-signedproposerpreferences
-iterator get_upcoming_proposal_slots(
+iterator get_upcoming_proposal_slots*(
     state: gloas.BeaconState | heze.BeaconState,
     validator_index: uint64): Slot =
   ## Yield the future slots in the current epoch and the slots in the next

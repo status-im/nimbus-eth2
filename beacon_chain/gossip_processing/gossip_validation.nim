@@ -2188,3 +2188,64 @@ proc validatePayloadAttestationMessage*(
       discard
 
   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+proc validateProposerPreferences*(
+    dag: ChainDAGRef,
+    seen: var array[2, BitArray[int SLOTS_PER_EPOCH]],
+    signed_preferences: SignedProposerPreferences,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template preferences: untyped = signed_preferences.message
+
+  let
+    currentSlot = wallTime.slotOrZero(dag.timeParams)
+    currentEpoch = currentSlot.epoch
+    proposalEpoch = preferences.proposal_slot.epoch
+  
+  # [IGNORE] preferences.proposal_slot is in the current or next epoch
+  # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
+  # [get_current_epoch(state), get_current_epoch(state) + 1].
+  if proposalEpoch != currentEpoch and proposalEpoch != currentEpoch + 1:
+    return errIgnore("ProposerPreferences: proposal_slot in current/next epoch")
+
+  # [IGNORE] preferences.proposal_slot has not already passed
+  # -- i.e. preferences.proposal_slot > state.slot
+  if preferences.proposal_slot <= currentSlot:
+    return errIgnore("ProposerPreferences: proposal_slot not in future")
+
+  # [IGNORE] The signed_proposer_preferences is the first valid message
+  # received from the validator with index preferences.validator_index
+  # and the given slot preferences.proposal_slot
+  let
+    bucket = proposalEpoch.uint64 mod 2
+    slotInEpoch = int(preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH)
+  if (seen[bucket][slotInEpoch]):
+    return errIgnore("ProposerPreferences: already seen")
+
+  # [REJECT] preferences.validator_index is present at the correct slot
+  # in the current or next epoch's portion of state.proposer_lookahead
+  # i.e. is_valid_proposal_slot(state, preferences) returns True.
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      if not is_valid_proposal_slot(
+          forkyState.data, preferences.proposal_slot,
+          preferences.validator_index):
+        return dag.checkedReject(
+          "ProposerPreferences: not the proposer for proposal_slot")
+    else:
+      return dag.checkedReject(
+        "ProposerPreferences: only valid for Gloas fork or later")
+
+  # [REJECT] signed_proposer_preferences.signature is valid with
+  # respect to the validator's public key.
+  let
+    pubkey = dag.validatorKey(preferences.validator_index).valueOr:
+      return dag.checkedReject("ProposerPreferences: invalid validator index")
+    fork = dag.forkAtEpoch(preferences.proposal_slot.epoch)
+  if not verify_proposer_preferences_signature(
+      fork, dag.genesis_validators_root, preferences,
+      pubkey, signed_preferences.signature):
+    return dag.checkedReject("ProposerPreferences: invalid signature")
+
+  seen[bucket].setBit(slotInEpoch)
+  ok()

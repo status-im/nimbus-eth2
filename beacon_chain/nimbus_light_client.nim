@@ -12,14 +12,13 @@ import
   chronicles, chronos, stew/io2,
   eth/db/kvstore_sqlite3,
   ./el/el_manager,
-  ./gossip_processing/optimistic_processor,
+  ./gossip_processing/block_processor_light_client,
   ./networking/[topic_params, network_metadata_downloads],
   ./spec/beaconstate,
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   ./[
     beacon_clock, buildinfo, filepath, light_client, light_client_db,
-    nimbus_binary_common, process_state, version,
-  ]
+    nimbus_binary_common, process_state, version]
 
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
@@ -91,7 +90,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       else:
         nil
 
-    optimisticHandler = proc(
+    lightBlockHandler = proc(
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
@@ -103,8 +102,8 @@ proc main() {.noinline, raises: [CatchableError].} =
             if elManager != nil and not payload.block_hash.isZero:
               discard await elManager.newExecutionPayload(forkyBlck.message)
         else: discard
-    optimisticProcessor = initOptimisticProcessor(
-      cfg.timeParams, getBeaconTime, optimisticHandler)
+    lightBlockProcessor = initLightBlockProcessor(
+      cfg.timeParams, getBeaconTime, lightBlockHandler)
 
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,
@@ -131,15 +130,15 @@ proc main() {.noinline, raises: [CatchableError].} =
                 src: PeerId
             ): ValidationResult =
               toValidationResult(
-                optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+                lightBlockProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()
 
-  func isSynced(optimisticSlot: Slot, wallSlot: Slot): bool =
+  func isSynced(lightClientSlot: Slot, wallSlot: Slot): bool =
     # Check whether light client has synced sufficiently close to wall slot
     const maxAge = 2 * SLOTS_PER_EPOCH
-    optimisticSlot >= max(wallSlot, maxAge.Slot) - maxAge
+    lightClientSlot >= max(wallSlot, maxAge.Slot) - maxAge
 
   proc onFinalizedHeader(
       lightClient: LightClient, finalizedHeader: ForkedLightClientHeader) =
@@ -153,11 +152,11 @@ proc main() {.noinline, raises: [CatchableError].} =
         db.putSyncCommittee(period, syncCommittee)
         db.putLatestFinalizedHeader(finalizedHeader)
 
-  var optimisticFcuFut: Future[(PayloadExecutionStatus, Opt[Hash32])]
+  var lightClientFcuFut: Future[(PayloadExecutionStatus, Opt[Hash32])]
     .Raising([CancelledError])
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
-    if optimisticFcuFut != nil:
+    if lightClientFcuFut != nil:
       return
     withForkyHeader(optimisticHeader):
       when lcDataFork > LightClientDataFork.None:
@@ -194,11 +193,11 @@ proc main() {.noinline, raises: [CatchableError].} =
                 finalizedBlockHash, # justified not available
                 finalizedBlockHash
               )
-              optimisticFcuFut = elManager.forkchoiceUpdated(
+              lightClientFcuFut = elManager.forkchoiceUpdated(
                 state, payloadAttributes = Opt.none(consensusFork.PayloadAttributes)
               )
-              optimisticFcuFut.addCallback do (future: pointer):
-                optimisticFcuFut = nil
+              lightClientFcuFut.addCallback do (future: pointer):
+                lightClientFcuFut = nil
         else:
           info "Ignoring new LC optimistic header until Capella"
 
@@ -236,7 +235,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       else:
         false
 
-  func shouldSyncOptimistically(wallSlot: Slot): bool =
+  func shouldSyncViaLightClient(wallSlot: Slot): bool =
     # Check whether an EL is connected
     if elManager == nil:
       return false
@@ -246,7 +245,7 @@ proc main() {.noinline, raises: [CatchableError].} =
   var blocksGossipState: GossipState
   proc updateBlocksGossipStatus(slot: Slot) =
     let
-      isBehind = not shouldSyncOptimistically(slot)
+      isBehind = not shouldSyncViaLightClient(slot)
       targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
 
     template currentGossipState(): auto = blocksGossipState
