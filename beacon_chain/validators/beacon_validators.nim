@@ -609,7 +609,9 @@ proc proposeBlockAux(
 
   beacon_blocks_proposed.inc()
 
-  when consensusFork >= ConsensusFork.Gloas:
+  when consensusFork == ConsensusFork.Heze:
+    debugHezeComment("")
+  elif consensusFork == ConsensusFork.Gloas:
     # State here is for computing the state_root, so can be discarded afterward.
     # It requires the proposed block applied in order to get the correct
     # state_root.
@@ -627,7 +629,7 @@ proc proposeBlockAux(
 
     if envelope.state_root.isZero():
       debug "Proposed envelope failed to verify with transition"
-      return head
+      return newBlockRef.get()
 
     let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
       node.dag.forkAtEpoch(slot.epoch),
@@ -639,7 +641,7 @@ proc proposeBlockAux(
     if signatureRes.isErr:
       error "Failed to sign sign execution payload envelope",
         slot, validator = shortLog(validator), err = signatureRes.error
-      return head
+      return newBlockRef.get()
     else:
       let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
         message: envelope,
@@ -650,7 +652,7 @@ proc proposeBlockAux(
         signedBlock, signedEnvelope, sidecarsOpt, checkValidator = false)
       if res.isErr():
         error "Failed to propose envelope", reason = res.error(), slot = slot
-        return head
+        return newBlockRef.get()
 
       notice "Payload Envelope proposed",
         blockRoot = shortLog(blockRoot),

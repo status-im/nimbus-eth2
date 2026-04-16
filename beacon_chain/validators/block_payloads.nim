@@ -217,6 +217,7 @@ proc makeExecutionPayloadEnvelope*(
     # successfully created.
     return envelope
 
+  debugHezeComment("performance concern")
   envelope.state_root = hash_tree_root(state.data)
   envelope
 
