@@ -25,15 +25,16 @@ wait_for_port() {
   done
 }
 
-if [ -d /opt/homebrew/lib ]; then
-  # BEWARE
-  # The recent versions of homebrew/macOS can't add the libraries
-  # installed by Homebrew in the system's library search path, so
-  # Nimbus will fail to load RocksDB on start-up. THe new rules in
-  # macOS make it very difficult for the user to solve the problem
-  # in their profile, so we add an override here as the lessed evil:
-  export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:/opt/homebrew/lib"
-  # See https://github.com/Homebrew/brew/issues/13481 for more details
+if uname | grep -qi darwin; then
+  # Ensure dynamically linked libraries (e.g. RocksDB) can be found at runtime.
+  # Check Nix paths first, then fall back to Homebrew.
+  # See https://github.com/Homebrew/brew/issues/13481 for more details.
+  for libdir in /run/current-system/sw/lib /opt/homebrew/lib /usr/local/lib; do
+    if [ -d "$libdir" ]; then
+      DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:+$DYLD_LIBRARY_PATH:}$libdir"
+    fi
+  done
+  export DYLD_LIBRARY_PATH
 fi
 
 for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do

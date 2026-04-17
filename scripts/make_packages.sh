@@ -9,16 +9,13 @@
 
 set -e
 
+SCRIPTS_DIR="$(dirname "${BASH_SOURCE[0]}")"
+
 ####################
 # argument parsing #
 ####################
 
-GETOPT_BINARY="getopt"
-if uname | grep -qi darwin; then
-  # macOS
-  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null || true)
-  [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
-fi
+GETOPT_BINARY="${SCRIPTS_DIR}/getopt-wrapper.sh"
 
 ! ${GETOPT_BINARY} --test > /dev/null
 if [ ${PIPESTATUS[0]} != 4 ]; then
