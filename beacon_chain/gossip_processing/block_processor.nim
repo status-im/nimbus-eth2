@@ -996,7 +996,8 @@ proc storePayload(
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")
   # TODO To be removed - Temporary call without import.
-  blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+  if blck.slot() >= dag.head.slot():
+    blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
 
   if optimisticStatusRes.isSome():
     await self.consensusManager.updateExecutionHead(
@@ -1027,9 +1028,6 @@ proc addPayload*(
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res.get())
   else:
-    if sidecarsOpt.isSome():
-      self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
-
     case res.error()
     of VerifierError.MissingParent:
       # MissingParent is returned when block or parents cannot be found in the
@@ -1038,6 +1036,8 @@ proc addPayload*(
       # processing block. So we only put the envelope into the quarantine for
       # the next try.
       self.envelopeQuarantine[].addOrphan(signedEnvelope)
+      if sidecarsOpt.isSome():
+        self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
     of VerifierError.Invalid, VerifierError.UnviableFork:
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from

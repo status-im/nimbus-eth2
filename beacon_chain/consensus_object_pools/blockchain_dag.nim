@@ -2797,14 +2797,9 @@ proc updateHeadExecutionPayload*(
     slot = envelopeSlot()
     head = shortLog(dag.head)
 
-  let consensusFork = dag.cfg.consensusForkAtEpoch(envelopeSlot().epoch)
+  let consensusFork = dag.cfg.consensusForkAtEpoch(envelopeSlot.epoch())
 
   # Check if state replay is needed.
-  if head.slot() < dag.head.slot():
-    # When it is a missing envelope older than the head slot, we may not need
-    # state replay as this block should be in a different fork.
-    debug "The block is older than the head when updating execution payload"
-    return
   if consensusFork < ConsensusFork.Gloas:
     trace "Updating execution payload in incorrect fork"
     return

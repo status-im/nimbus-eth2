@@ -466,7 +466,7 @@ suite "Block processor" & preset():
         check:
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
-          # Envelope was popped, not marked as missing
+          # Envelope was popped, not marked as orphan
           engineBlock.blck.root notin envelopeQuarantine[].orphans
 
   asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
