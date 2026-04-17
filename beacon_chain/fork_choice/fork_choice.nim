@@ -152,7 +152,7 @@ proc update_justified(
   self.checkpoints.update_justified(dag, justified.epoch, blck)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var ForkChoice, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints, current_slot: Slot): FcResult[void] =
@@ -252,7 +252,7 @@ proc reconfirm_fcr(
     incSafeRestarts()
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   ## Must be called at least once per slot.
@@ -335,7 +335,7 @@ proc update_time*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
     self: var ForkChoice,
     dag: ChainDAGRef,
@@ -361,7 +361,7 @@ proc on_attestation*(
       slot: attestation_slot)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
     self: var ForkChoice, validator_index: ValidatorIndex) =
   self.backend.votes.extend(validator_index.int + 1)
@@ -374,7 +374,7 @@ func process_equivocation*(
 
     trace "Integrating equivocation in fork choice", validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_block
 func process_block*(
     self: var ForkChoiceBackend,
     bid: BlockId,
@@ -383,7 +383,7 @@ func process_block*(
     unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
@@ -497,7 +497,7 @@ func find_head(
     fork_choice_head = shortLog(new_head)
   ok(new_head)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -556,7 +556,7 @@ proc will_select_head*(
   self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.4/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/fork_choice/safe-block.md#get_safe_execution_block_hash
 func retrieve_fast_confirmed_bid*(self: ForkChoice): lent BlockId =
   self.backend.confirmed
 
