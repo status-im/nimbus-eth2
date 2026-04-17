@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,7 @@ import
   kzg4844/[kzg_abi, kzg],
   ./consensus_spec/[os_ops, fixtures_utils],
   ../beacon_chain/spec/[helpers, peerdas_helpers],
-  ../beacon_chain/spec/datatypes/[fulu, deneb]
+  ../beacon_chain/spec/datatypes/[fulu, gloas, deneb]
 
 from std/strutils import rsplit
 
@@ -51,6 +51,61 @@ iterator chunks[T](lst: seq[T], n: int): seq[T] =
   ## Iterator that yields N-sized chunks from the list.
   for i in countup(0, len(lst) - 1, n):
     yield lst[i..min(i + n - 1, len(lst) - 1)]
+
+type
+  BuiltSidecars = object
+    commitments: KzgCommitments
+    fuluSidecars: seq[fulu.DataColumnSidecar]
+    gloasSidecars: seq[gloas.DataColumnSidecar]
+
+proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
+  ## Build one sidecar per column index for both fulu and gloas variants,
+  ## populating only the fields relevant to KZG proof verification.
+  var
+    allCells = newSeq[array[kzg_abi.CELLS_PER_EXT_BLOB, KzgCell]](blobs.len)
+    allProofs = newSeq[array[kzg_abi.CELLS_PER_EXT_BLOB, KzgProof]](blobs.len)
+    commitmentsSeq = newSeqOfCap[KzgCommitment](blobs.len)
+
+  for i, blob in blobs:
+    let cp = computeCellsAndKzgProofs(blob).valueOr:
+      raiseAssert "computeCellsAndKzgProofs failed"
+    allCells[i] = cp.cells
+    allProofs[i] = cp.proofs
+    let c = blobToKzgCommitment(blob).valueOr:
+      raiseAssert "blobToKzgCommitment failed"
+    commitmentsSeq.add(c)
+
+  let commitments = KzgCommitments.init(commitmentsSeq)
+
+  var
+    fuluSidecars =
+      newSeqOfCap[fulu.DataColumnSidecar](kzg_abi.CELLS_PER_EXT_BLOB)
+    gloasSidecars =
+      newSeqOfCap[gloas.DataColumnSidecar](kzg_abi.CELLS_PER_EXT_BLOB)
+
+  for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
+    var
+      col = newSeqOfCap[KzgCell](blobs.len)
+      cpr = newSeqOfCap[KzgProof](blobs.len)
+    for row in 0 ..< blobs.len:
+      col.add(allCells[row][columnIndex])
+      cpr.add(allProofs[row][columnIndex])
+
+    fuluSidecars.add fulu.DataColumnSidecar(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(col),
+      kzg_commitments: commitments,
+      kzg_proofs: deneb.KzgProofs.init(cpr))
+
+    gloasSidecars.add gloas.DataColumnSidecar(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(col),
+      kzg_proofs: deneb.KzgProofs.init(cpr))
+
+  BuiltSidecars(
+    commitments: commitments,
+    fuluSidecars: fuluSidecars,
+    gloasSidecars: gloasSidecars)
 
 suite "EIP-7594 Unit Tests":
   test "EIP-7594: Compute Matrix":
@@ -92,5 +147,135 @@ suite "EIP-7594 Unit Tests":
       # Ensure that the recovered matrix matches the original matrix
       doAssert recovered_matrix.get == extended_matrix.get, "Both matrices don't match!"
     testRecoverMatrix()
+
+  test "EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)":
+    proc testSingleFulu() =
+      var rng = initRand(41)
+      let
+        blobCount = rng.rand(1..8)
+        blobs = createSampleKzgBlobs(blobCount, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+
+      # Every well-formed sidecar verifies individually.
+      for s in built.fuluSidecars:
+        doAssert verify_data_column_sidecar_kzg_proofs(s).isOk
+
+      # Corrupting a single proof must make verification fail.
+      block:
+        var sidecar = built.fuluSidecars[0]
+        var flipped = sidecar.kzg_proofs.asSeq
+        flipped[0].bytes[0] = flipped[0].bytes[0] xor 0xff'u8
+        sidecar.kzg_proofs = deneb.KzgProofs.init(flipped)
+        doAssert verify_data_column_sidecar_kzg_proofs(sidecar).isErr
+    testSingleFulu()
+
+  test "EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)":
+    proc testSingleGloas() =
+      var rng = initRand(42)
+      let
+        blobCount = rng.rand(1..8)
+        blobs = createSampleKzgBlobs(blobCount, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+
+      # Every well-formed sidecar verifies individually.
+      for s in built.gloasSidecars:
+        doAssert verify_data_column_sidecar_kzg_proofs(
+          s, built.commitments).isOk
+
+      # Corrupting a single proof must make verification fail.
+      block:
+        var sidecar = built.gloasSidecars[0]
+        var flipped = sidecar.kzg_proofs.asSeq
+        flipped[0].bytes[0] = flipped[0].bytes[0] xor 0xff'u8
+        sidecar.kzg_proofs = deneb.KzgProofs.init(flipped)
+        doAssert verify_data_column_sidecar_kzg_proofs(
+          sidecar, built.commitments).isErr
+
+      # Mismatched commitments length is rejected.
+      block:
+        let
+          sidecar = built.gloasSidecars[0]
+          fullCommitments = built.commitments.asSeq
+          shortened = fullCommitments[0 ..< fullCommitments.len - 1]
+        doAssert verify_data_column_sidecar_kzg_proofs(
+          sidecar, KzgCommitments.init(shortened)).isErr
+    testSingleGloas()
+
+  test "EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)":
+    proc testBatchFulu() =
+      var rng = initRand(43)
+      let
+        blobCount = rng.rand(1..8)
+        blobs = createSampleKzgBlobs(blobCount, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+        sidecars = built.fuluSidecars
+
+      # Valid batch verifies successfully.
+      doAssert verify_data_column_sidecar_kzg_proofs(sidecars).isOk
+
+      # A partial slice of a valid batch must also verify.
+      doAssert verify_data_column_sidecar_kzg_proofs(
+        sidecars[0 ..< sidecars.len div 2]).isOk
+
+      # Empty batch is trivially ok.
+      doAssert verify_data_column_sidecar_kzg_proofs(
+        newSeq[fulu.DataColumnSidecar](0)).isOk
+
+      # Corrupting a proof anywhere in the batch must fail the whole batch.
+      block:
+        var corrupted = sidecars
+        var flipped = corrupted[0].kzg_proofs.asSeq
+        flipped[0].bytes[0] = flipped[0].bytes[0] xor 0xff'u8
+        corrupted[0].kzg_proofs = deneb.KzgProofs.init(flipped)
+        doAssert verify_data_column_sidecar_kzg_proofs(corrupted).isErr
+
+      # Mismatched column / commitments / proofs lengths are rejected.
+      block:
+        var lenMismatch = sidecars
+        let
+          fullCommitments = lenMismatch[0].kzg_commitments.asSeq
+          shortened = fullCommitments[0 ..< fullCommitments.len - 1]
+        lenMismatch[0].kzg_commitments = KzgCommitments.init(shortened)
+        doAssert verify_data_column_sidecar_kzg_proofs(lenMismatch).isErr
+    testBatchFulu()
+
+  test "EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)":
+    proc testBatchGloas() =
+      var rng = initRand(44)
+      let
+        blobCount = rng.rand(1..8)
+        blobs = createSampleKzgBlobs(blobCount, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+        sidecars = built.gloasSidecars
+        commitments = built.commitments
+
+      # Valid batch verifies successfully.
+      doAssert verify_data_column_sidecar_kzg_proofs(sidecars, commitments).isOk
+
+      # A partial slice of a valid batch must also verify.
+      doAssert verify_data_column_sidecar_kzg_proofs(
+        sidecars[0 ..< sidecars.len div 2], commitments).isOk
+
+      # Empty batch is trivially ok.
+      doAssert verify_data_column_sidecar_kzg_proofs(
+        newSeq[gloas.DataColumnSidecar](0), commitments).isOk
+
+      # Corrupting a proof anywhere in the batch must fail the whole batch.
+      block:
+        var corrupted = sidecars
+        var flipped = corrupted[0].kzg_proofs.asSeq
+        flipped[0].bytes[0] = flipped[0].bytes[0] xor 0xff'u8
+        corrupted[0].kzg_proofs = deneb.KzgProofs.init(flipped)
+        doAssert verify_data_column_sidecar_kzg_proofs(
+          corrupted, commitments).isErr
+
+      # Mismatched column / commitments lengths are rejected.
+      block:
+        let
+          fullCommitments = commitments.asSeq
+          shortened = fullCommitments[0 ..< fullCommitments.len - 1]
+        doAssert verify_data_column_sidecar_kzg_proofs(
+          sidecars, KzgCommitments.init(shortened)).isErr
+    testBatchGloas()
 
 doAssert freeTrustedSetup().isOk

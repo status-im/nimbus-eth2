@@ -60,6 +60,7 @@ type
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar,
     SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate,
+    ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
     ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage
 
 

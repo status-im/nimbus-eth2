@@ -66,7 +66,9 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
-    execPayloadAvlQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
+    execPayloadAddedQueue*: AsyncEventQueue[EventExecutionPayloadObject]
+    execPayloadGossipAddedQueue*: AsyncEventQueue[EventExecutionPayloadGossipObject]
+    execPayloadAvlQueue*: AsyncEventQueue[EventExecutionPayloadAvailableObject]
     execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
     payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
 
@@ -219,8 +221,12 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue:
       newAsyncEventQueue[ForkedLightClientHeader](),
+    execPayloadAddedQueue:
+      newAsyncEventQueue[EventExecutionPayloadObject](),
+    execPayloadGossipAddedQueue:
+      newAsyncEventQueue[EventExecutionPayloadGossipObject](),
     execPayloadAvlQueue:
-      newAsyncEventQueue[ExecutionPayloadInfoObject](),
+      newAsyncEventQueue[EventExecutionPayloadAvailableObject](),
     execPayloadBidQueue:
       newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
     payloadAttMsgQueue:

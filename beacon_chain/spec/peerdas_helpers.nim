@@ -534,37 +534,16 @@ func verify_partial_data_column_header_inclusion_proof*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
-proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
-                                            Result[void, cstring] =
-  ## Verify if the KZG proofs are correct.
-
-  # Iterate through the cell indices
-  var cellIndices = newSeqOfCap[CellIndex](sidecar.column.len)
-  for _ in 0..<sidecar.column.len:
-    cellIndices.add(CellIndex(sidecar.index))
-
-  let res = verifyCellKzgProofBatch(
-      sidecar.kzg_commitments.asSeq, cellIndices, sidecar.column.asSeq,
-      sidecar.kzg_proofs.asSeq).valueOr:
-    return err("DataColumnSidecar: validation error")
-
-  if not res:
-    return err("DataColumnSidecar: validation failed")
-
-  ok()
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar_kzg_proofs
-proc verify_data_column_sidecar_kzg_proofs*(sidecar: gloas.DataColumnSidecar,
-                                            kzg_commitments: KzgCommitments):
-                                            Result[void, cstring] =
+proc verify_data_column_sidecar_kzg_proofs*[
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+    sidecar: T, kzg_commitments: KzgCommitments): Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
 
   # The column index also represents the cell index
   let cellIndices = repeat(CellIndex(sidecar.index), sidecar.column.len)
 
-  # Batch verify that the cells match the corresponding commitments and proofs
   let res = verifyCellKzgProofBatch(
-      # [Modified in Gloas:EIP7732]
       kzg_commitments.asSeq,
       cellIndices,
       sidecar.column.asSeq,
@@ -575,6 +554,59 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: gloas.DataColumnSidecar,
     return err("DataColumnSidecar: validation failed")
 
   ok()
+
+proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
+                                            Result[void, cstring] =
+  ## Verify if the KZG proofs are correct.
+  verify_data_column_sidecar_kzg_proofs(sidecar, sidecar.kzg_commitments)
+
+proc verify_data_column_sidecar_kzg_proofs*[
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+    sidecars: openArray[T],
+    kzg_commitments: KzgCommitments): Result[void, cstring] =
+  ## Batch verify KZG proofs across multiple DataColumnSidecars.
+  ## All cells/commitments/proofs from every sidecar are flattened into a
+  ## single `verifyCellKzgProofBatch` call, which is more efficient than
+  ## verifying each sidecar individually.
+  if sidecars.len == 0:
+    return ok()
+
+  var totalCells = 0
+  for sidecar in sidecars:
+    if sidecar.column.len != kzg_commitments.len or
+        sidecar.column.len != sidecar.kzg_proofs.len:
+      return err("DataColumnSidecar: length mismatch")
+    totalCells += sidecar.column.len
+
+  var
+    commitments = newSeqOfCap[KzgCommitment](totalCells)
+    cellIndices = newSeqOfCap[CellIndex](totalCells)
+    cells = newSeqOfCap[KzgCell](totalCells)
+    proofs = newSeqOfCap[KzgProof](totalCells)
+
+  for sidecar in sidecars:
+    let idx = CellIndex(sidecar.index)
+    for i in 0 ..< sidecar.column.len:
+      commitments.add(kzg_commitments[i])
+      cellIndices.add(idx)
+      cells.add(sidecar.column[i])
+      proofs.add(sidecar.kzg_proofs[i])
+
+  let res = verifyCellKzgProofBatch(
+      commitments, cellIndices, cells, proofs).valueOr:
+    return err("DataColumnSidecar: validation error")
+
+  if not res:
+    return err("DataColumnSidecar: validation failed")
+
+  ok()
+
+proc verify_data_column_sidecar_kzg_proofs*(
+    sidecars: openArray[fulu.DataColumnSidecar]): Result[void, cstring] =
+  ## Batch verify KZG proofs across multiple fulu DataColumnSidecars.
+  if sidecars.len == 0:
+    return ok()
+  verify_data_column_sidecar_kzg_proofs(sidecars, sidecars[0].kzg_commitments)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#validator-custody
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
