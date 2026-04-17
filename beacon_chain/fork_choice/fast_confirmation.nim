@@ -326,7 +326,7 @@ func is_full_validator_set_covered(slots: Slice[Slot]): bool =
 
 func adjust_committee_weight_estimate_to_ensure_safety(estimate: Gwei): Gwei =
   ## Return adjusted ``estimate`` of the weight of a committee for a sequence
-  ## of slots not covering a full epoch.
+  ## of slots spanning an epoch boundary that does not cover any full epoch.
   # Per mille value to add to the estimation of the committee weight across a
   # range of slots not covering a full epoch in order to ensure the safety of
   # the confirmation rule with high probability.
@@ -498,7 +498,7 @@ func is_one_confirmed(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): bool =
   ## Return ``true`` if and only if the block is LMD-GHOST safe.
-  if chain[i].blck.optimisticStatus != OptimisticStatus.valid:
+  if not chain[i].blck.executionValid:
     return false  # Do not confirm optimistically imported / invalid blocks
 
   let

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronos, presto/client,
@@ -47,31 +47,12 @@ proc getHeader*(
     restAcceptType = "application/octet-stream,application/json;q=0.5",
   )
 
-proc submitBlindedBlockPlain*(
-    body: electra_mev.SignedBlindedBeaconBlock
-): RestPlainResponse {.
-  rest, endpoint: "/eth/v1/builder/blinded_blocks",
-  meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.5.0/apis/builder/blinded_blocks.yaml
-
 proc submitBlindedBlockV2Plain*(
     body: fulu_mev.SignedBlindedBeaconBlock
 ): RestPlainResponse {.
   rest, endpoint: "/eth/v2/builder/blinded_blocks",
   meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/ae1d97d080a12bfb7ca248b58fb1fc6b10aed02e/apis/builder/blinded_blocks_v2.yaml
-
-proc submitBlindedBlock*(
-    client: RestClientRef,
-    body: electra_mev.SignedBlindedBeaconBlock
-): Future[RestPlainResponse] {.
-  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
-                   RestCommunicationError], raw: true).} =
-  client.submitBlindedBlockPlain(
-    body,
-    restAcceptType = "application/octet-stream,application/json;q=0.5",
-    extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
-  )
 
 proc submitBlindedBlock*(
     client: RestClientRef,

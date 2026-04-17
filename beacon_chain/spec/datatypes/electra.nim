@@ -512,6 +512,79 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)
+
+from std/sets import toHashSet
+
+iterator getValidatorIndices*(
+    attester_slashing: AttesterSlashing | TrustedAttesterSlashing): uint64 =
+  template attestation_1(): auto = attester_slashing.attestation_1
+  template attestation_2(): auto = attester_slashing.attestation_2
+
+  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
+  for validator_index in attestation_1.attesting_indices.asSeq:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
+
+func shortLog*(v: ElectraCommitteeValidatorsBits): auto =
+  $v.countOnes() & "/" & $v.len()
+
+func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
+  (
+    aggregation_bits: shortLog(v.aggregation_bits),
+    committee_bits: v.committee_bits,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: SingleAttestation): auto =
+  (
+    committee_index: v.committee_index,
+    attester_index: v.attester_index,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func init*(
+    T: type Attestation,
+    committee_index: CommitteeIndex,
+    indices_in_committee: openArray[uint64],
+    committee_len: int,
+    data: AttestationData,
+    signature: ValidatorSig): Result[T, cstring] =
+  var committee_bits: AttestationCommitteeBits
+  committee_bits[int(committee_index)] = true
+
+  var bits = ElectraCommitteeValidatorsBits.init(committee_len)
+  for index_in_committee in indices_in_committee:
+    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
+    bits.setBit index_in_committee
+
+  ok Attestation(
+    aggregation_bits: bits,
+    committee_bits: committee_bits,
+    data: data,
+    signature: signature
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/sync-protocol.md#new-constants
 const
   FINALIZED_ROOT_GINDEX_ELECTRA* = get_generalized_index(
@@ -808,76 +881,3 @@ func upgrade_lc_store_to_electra*(
     optimistic_header: upgrade_lc_header_to_electra(pre.optimistic_header),
     previous_max_active_participants: pre.previous_max_active_participants,
     current_max_active_participants: pre.current_max_active_participants)
-
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
-
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)
-
-from std/sets import toHashSet
-
-iterator getValidatorIndices*(
-    attester_slashing: AttesterSlashing | TrustedAttesterSlashing): uint64 =
-  template attestation_1(): auto = attester_slashing.attestation_1
-  template attestation_2(): auto = attester_slashing.attestation_2
-
-  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
-  for validator_index in attestation_1.attesting_indices.asSeq:
-    if validator_index notin attestation_2_indices:
-      continue
-    yield validator_index
-
-func shortLog*(v: ElectraCommitteeValidatorsBits): auto =
-  $v.countOnes() & "/" & $v.len()
-
-func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
-  (
-    aggregation_bits: shortLog(v.aggregation_bits),
-    committee_bits: v.committee_bits,
-    data: shortLog(v.data),
-    signature: shortLog(v.signature)
-  )
-
-func shortLog*(v: SingleAttestation): auto =
-  (
-    committee_index: v.committee_index,
-    attester_index: v.attester_index,
-    data: shortLog(v.data),
-    signature: shortLog(v.signature)
-  )
-
-func init*(
-    T: type Attestation,
-    committee_index: CommitteeIndex,
-    indices_in_committee: openArray[uint64],
-    committee_len: int,
-    data: AttestationData,
-    signature: ValidatorSig): Result[T, cstring] =
-  var committee_bits: AttestationCommitteeBits
-  committee_bits[int(committee_index)] = true
-
-  var bits = ElectraCommitteeValidatorsBits.init(committee_len)
-  for index_in_committee in indices_in_committee:
-    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
-    bits.setBit index_in_committee
-
-  ok Attestation(
-    aggregation_bits: bits,
-    committee_bits: committee_bits,
-    data: data,
-    signature: signature
-  )

@@ -165,15 +165,15 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "IndexedPayloadAttestation":
             checkSSZ(IndexedPayloadAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(gloas.LightClientBootstrap, path, hash)
+            checkSSZ(electra.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            checkSSZ(gloas.LightClientHeader, path, hash)
+            checkSSZ(electra.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            checkSSZ(gloas.LightClientUpdate, path, hash)
+            checkSSZ(electra.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(gloas.LightClientFinalityUpdate, path, hash)
+            checkSSZ(electra.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(gloas.LightClientOptimisticUpdate, path, hash)
+            checkSSZ(electra.LightClientOptimisticUpdate, path, hash)
           of "MatrixEntry":
             checkSSZ(MatrixEntry, path, hash)
           of "PayloadAttestation":

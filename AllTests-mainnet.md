@@ -71,6 +71,10 @@ AllTests-mainnet
 + sanity check gloas data columns [Preset: mainnet]                                          OK
   sanity check gloas states [Preset: mainnet]                                                Skip
   sanity check gloas states, reusing buffers [Preset: mainnet]                               Skip
+  sanity check heze and cross-fork getState rollback [Preset: mainnet]                       Skip
+  sanity check heze blocks [Preset: mainnet]                                                 Skip
+  sanity check heze states [Preset: mainnet]                                                 Skip
+  sanity check heze states, reusing buffers [Preset: mainnet]                                Skip
 + sanity check phase0 blocks [Preset: mainnet]                                               OK
 + sanity check phase0 getState rollback [Preset: mainnet]                                    OK
 + sanity check phase0 states [Preset: mainnet]                                               OK
@@ -613,7 +617,11 @@ AllTests-mainnet
 ```
 ## EIP-7594 Unit Tests
 ```diff
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)                                 OK
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)                                OK
 + EIP-7594: Compute Matrix                                                                   OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
 + EIP:7594: Recover Matrix                                                                   OK
 ```
 ## EL Configuration
@@ -898,15 +906,15 @@ AllTests-mainnet
 ```
 ## MEV calls serialization/deserialization and behavior test suite
 ```diff
-+ /eth/v1/builder/blinded_blocks [json/json] test                                            OK
-+ /eth/v1/builder/blinded_blocks [json/ssz] test                                             OK
-+ /eth/v1/builder/blinded_blocks [ssz/json] test                                             OK
-+ /eth/v1/builder/blinded_blocks [ssz/ssz] test                                              OK
 + /eth/v1/builder/header [json] test                                                         OK
 + /eth/v1/builder/header [ssz] test                                                          OK
 + /eth/v1/builder/status test                                                                OK
 + /eth/v1/builder/validators [json] test                                                     OK
 + /eth/v1/builder/validators [ssz] test                                                      OK
++ /eth/v2/builder/blinded_blocks [json/json] test                                            OK
++ /eth/v2/builder/blinded_blocks [json/ssz] test                                             OK
++ /eth/v2/builder/blinded_blocks [ssz/json] test                                             OK
++ /eth/v2/builder/blinded_blocks [ssz/ssz] test                                              OK
 ```
 ## Message signatures
 ```diff
@@ -982,6 +990,15 @@ AllTests-mainnet
 + addPeer() test                                                                             OK
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
+```
+## Proposer preferences validation  [Preset: mainnet]
+```diff
++ validateProposerPreferences - duplicate ignored                                            OK
++ validateProposerPreferences - happy case                                                   OK
++ validateProposerPreferences - invalid signature rejected                                   OK
++ validateProposerPreferences - proposal_slot already passed                                 OK
++ validateProposerPreferences - proposal_slot outside current/next epoch                     OK
++ validateProposerPreferences - wrong proposer rejected                                      OK
 ```
 ## Pruning
 ```diff

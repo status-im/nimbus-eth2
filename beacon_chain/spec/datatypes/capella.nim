@@ -546,6 +546,25 @@ func shortLog*(v: SignedBLSToExecutionChange): auto =
     signature: shortLog(v.signature)
   )
 
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/capella/light-client/sync-protocol.md#constants
 const
   EXECUTION_PAYLOAD_GINDEX* = get_generalized_index(
@@ -785,21 +804,3 @@ func upgrade_lc_store_to_capella*(
     previous_max_active_participants: pre.previous_max_active_participants,
     current_max_active_participants: pre.current_max_active_participants)
 
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
-
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)

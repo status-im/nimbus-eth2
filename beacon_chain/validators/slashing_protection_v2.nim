@@ -1506,7 +1506,7 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR):
 
     selectRootStmt.dispose()
 
-    if dbGenValRoot != default(Eth2Digest) and
+    if dbGenValRoot != ZERO_HASH and
          dbGenValRoot != spdir.metadata.genesis_validators_root.Eth2Digest:
       error "The slashing protection database and imported file refer to different blockchains.",
         DB_genesis_validators_root = dbGenValRoot,
@@ -1519,7 +1519,7 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR):
       # is in an earlier version that used the kvstore table
       db.setupDB(spdir.metadata.genesis_validators_root.Eth2Digest)
 
-    # TODO: dbGenValRoot == default(Eth2Digest)
+    # TODO: dbGenValRoot == ZERO_HASH
 
   db.setupCachedQueries()
 
