@@ -495,6 +495,7 @@ iterator compute_balance_weighted_selection*(
   ## as candidates. If ``shuffle_indices`` is ``True``, candidate indices
   ## are themselves sampled from ``indices`` by shuffling it, otherwise
   ## ``indices`` is traversed in order.
+  const MAX_RANDOM_VALUE = (2^16 - 1).uint64
   let total = indices.lenu64
   doAssert total > 0
 
@@ -503,6 +504,7 @@ iterator compute_balance_weighted_selection*(
     count = 0'u64
 
   while count < size:
+    debugGloasComment("")
     var next_index = i mod total
     if shuffle_indices:
       next_index = compute_shuffled_index(next_index, total, seed)

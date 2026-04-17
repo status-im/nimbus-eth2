@@ -260,6 +260,20 @@ func initiate_builder_exit*(
   builder.withdrawable_epoch =
     get_current_epoch(state) + cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-settle_builder_payment
+func settle_builder_payment*(
+    state: var (gloas.BeaconState | heze.BeaconState),
+    payment_index: uint64): Result[void, cstring] =
+  if not (payment_index < len(state.builder_pending_payments)):
+    return err("settle_builder_payment: payment index incorrect")
+
+  let payment = state.builder_pending_payments[payment_index]
+  if payment.withdrawal.amount > 0:
+      state.builder_pending_withdrawals.add(payment.withdrawal)
+  state.builder_pending_payments[payment_index] = default(BuilderPendingPayment)
+
+  ok()
+
 func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_balance_churn_limit
