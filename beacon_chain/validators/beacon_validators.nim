@@ -1443,9 +1443,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
-  
-  if slot.is_epoch:
-    asyncSpawn sendProposerPreferences(node, head, slot)
+
+  asyncSpawn sendProposerPreferences(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
