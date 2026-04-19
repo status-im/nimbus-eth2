@@ -618,7 +618,11 @@ AllTests-mainnet
 ```
 ## EIP-7594 Unit Tests
 ```diff
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)                                 OK
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)                                OK
 + EIP-7594: Compute Matrix                                                                   OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
 + EIP:7594: Recover Matrix                                                                   OK
 ```
 ## EL Configuration
@@ -938,6 +942,7 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -987,6 +992,15 @@ AllTests-mainnet
 + addPeer() test                                                                             OK
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
+```
+## Proposer preferences validation  [Preset: mainnet]
+```diff
++ validateProposerPreferences - duplicate ignored                                            OK
++ validateProposerPreferences - happy case                                                   OK
++ validateProposerPreferences - invalid signature rejected                                   OK
++ validateProposerPreferences - proposal_slot already passed                                 OK
++ validateProposerPreferences - proposal_slot outside current/next epoch                     OK
++ validateProposerPreferences - wrong proposer rejected                                      OK
 ```
 ## Pruning
 ```diff

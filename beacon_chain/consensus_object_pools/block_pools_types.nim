@@ -55,6 +55,8 @@ type
     proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
+  OnExecutionPayloadCallback* =
+    proc(data: SignedExecutionPayloadEnvelope) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -250,6 +252,12 @@ type
       ## On beacon chain reorganization
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
+    onEnvelopeAdded*: OnExecutionPayloadCallback
+      ## On envelope added callback
+    onEnvelopeGossipAdded*: OnExecutionPayloadCallback
+      ## On envelope gossip added callback
+    onEnvelopeAvailable*: OnExecutionPayloadCallback
+      ## On envelope available callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -345,6 +353,25 @@ type
     blck*: ForkedSignedBeaconBlock
     src*: PeerId
 
+  EventExecutionPayloadObject* = object
+    slot*: Slot
+    builder_index*: uint64
+    block_hash*: Eth2Digest
+    block_root*: Eth2Digest
+    state_root*: Eth2Digest
+    execution_optimistic*: bool
+
+  EventExecutionPayloadGossipObject* = object
+    slot*: Slot
+    builder_index*: uint64
+    block_hash*: Eth2Digest
+    block_root*: Eth2Digest
+    state_root*: Eth2Digest
+
+  EventExecutionPayloadAvailableObject* = object
+    slot*: Slot
+    block_root*: Eth2Digest
+
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams
 
@@ -399,6 +426,15 @@ template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
 
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
+
+template setEnvelopeCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
+  dag.onEnvelopeAdded = cb
+
+template setEnvelopeGossipCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
+  dag.onEnvelopeGossipAdded = cb
+
+template setEnvelopeAvailableCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
+  dag.onEnvelopeAvailable = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
@@ -486,4 +522,39 @@ func init*(
   EventBeaconBlockGossipPeerObject(
     blck: ForkedSignedBeaconBlock.init(v),
     src: s
+  )
+
+func init*(
+    T: typedesc[EventExecutionPayloadObject],
+    v: SignedExecutionPayloadEnvelope,
+    optimistic: bool,
+): EventExecutionPayloadObject =
+  EventExecutionPayloadObject(
+    slot: v.message.slot,
+    builder_index: v.message.builder_index,
+    block_hash: v.message.payload.block_hash,
+    block_root: v.message.beacon_block_root,
+    state_root: v.message.state_root,
+    execution_optimistic: optimistic,
+  )
+
+func init*(
+    T: typedesc[EventExecutionPayloadGossipObject],
+    v: SignedExecutionPayloadEnvelope,
+): EventExecutionPayloadGossipObject =
+  EventExecutionPayloadGossipObject(
+    slot: v.message.slot,
+    builder_index: v.message.builder_index,
+    block_hash: v.message.payload.block_hash,
+    block_root: v.message.beacon_block_root,
+    state_root: v.message.state_root,
+  )
+
+func init*(
+    T: typedesc[EventExecutionPayloadAvailableObject],
+    v: SignedExecutionPayloadEnvelope,
+): EventExecutionPayloadAvailableObject =
+  EventExecutionPayloadAvailableObject(
+    slot: v.message.slot,
+    block_root: v.message.beacon_block_root,
   )

@@ -1051,5 +1051,5 @@ func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
   else:
     raise newException(SszSizeMismatchError)
 
-template debugGloasComment*(s: string) = discard
-template debugHezeComment*(s: string) = discard
+template debugGloasComment*(_: string) = discard
+template debugHezeComment*(_: string) = discard

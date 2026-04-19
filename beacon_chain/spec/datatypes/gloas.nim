@@ -75,11 +75,6 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/eventstream/index.yaml#L164
-  ExecutionPayloadInfoObject* = object
-    slot*: Slot
-    block_root*: Eth2Digest
-
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
     parent_block_hash*: Eth2Digest
@@ -590,6 +585,20 @@ func shortLog*(v: PayloadAttestationMessage): auto =
   (
     validator_index: v.validator_index,
     data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: ProposerPreferences): auto =
+  (
+    proposal_slot: v.proposal_slot,
+    validator_index: v.validator_index,
+    fee_recipient: v.fee_recipient,
+    gas_limit: v.gas_limit
+  )
+
+func shortLog*(v: SignedProposerPreferences): auto =
+  (
+    message: shortLog(v.message),
     signature: shortLog(v.signature)
   )
 

@@ -2916,3 +2916,12 @@ proc broadcastExecutionPayloadEnvelope*(
     topic = getExecutionPayloadTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, envelope)
+
+proc broadcastProposerPreferences*(
+    node: Eth2Node, msg: SignedProposerPreferences):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = msg.message.proposal_slot.epoch
+    topic = getProposerPreferencesTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, msg)

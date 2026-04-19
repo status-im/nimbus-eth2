@@ -143,7 +143,7 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
@@ -180,7 +180,7 @@ proc publishSidecars(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: fulu.SignedBeaconBlock,
+    _: fulu.SignedBeaconBlock,
     cols: seq[fulu.DataColumnSidecar]
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   var workers = newSeq[Future[SendResult]](len(cols))
@@ -729,3 +729,30 @@ proc routeExecutionPayloadEnvelope*(
       error = res.error()
 
   return ok()
+
+proc routeProposerPreferences*(
+    router: ref MessageRouter,
+    signed_preferences: SignedProposerPreferences
+): Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res = router.processor.processProposerPreferences(
+      MsgSource.api, signed_preferences)
+
+    if not res.isGoodForSending:
+      warn "Proposer preferences failed validation",
+        message = shortLog(signed_preferences), error = res.error()
+      return err(res.error()[1])
+
+  let res =
+    await router[].network.broadcastProposerPreferences(signed_preferences)
+
+  if res.isOk():
+    info "Proposer preferences sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
+      validator_index = signed_preferences.message.validator_index
+  else:
+    notice "Proposer preferences not sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
+      error = res.error()
+
+  ok()

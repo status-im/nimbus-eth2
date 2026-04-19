@@ -1110,7 +1110,7 @@ proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
 
   (blck.executionBlockHash, blck.executionParentHash)
 
-func isParentBlockFull(blck: BlockRef): bool =
+proc isParentBlockFull(dag: ChainDAGRef, blck: BlockRef): bool =
   ## Since Gloas, we want to skip applying envelope if the envelope of its
   ## parent is orphaned. This is particularly useful for updateState() as
   ## orphaned envelopes, even if they are valid, should not be applied to state
@@ -1122,28 +1122,36 @@ func isParentBlockFull(blck: BlockRef): bool =
   ## It is more likely a port to the fork choice helper
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_parent_node_full
   ##
-  ## It does not need DAG because it is only useful since Gloas and in Gloas,
-  ## blck should have the execution hashes all the time for updateState() and
-  ## other envelope checks to work properly.
+  ## Validating the consensus fork by slot (blck and blck.parent), and
+  ## blck.parent is not nil is responsibility of the call site as they cannot be
+  ## flagged by boolean and required different handling.
 
-  if blck.executionParentHash.isNone() or
-      blck.parent.executionBlockHash.isNone() or
-      blck.executionParentHash.get().isZero():
+  let
+    (_, blckParentHash) = dag.loadExecutionAndParentBlockHash(blck)
+    (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(blck.parent)
+
+  if blckParentHash.isNone() or parentBlockHash.isNone() or
+      blckParentHash.get().isZero():
     false
   else:
-    blck.executionParentHash.get() == blck.parent.executionBlockHash.get()
+    blckParentHash.get() == parentBlockHash.get()
 
-func isParentBlockFull(blck: gloas.SignedBeaconBlock, parent: BlockRef): bool =
+proc isParentBlockFull*(
+    dag: ChainDAGRef,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    parent: BlockRef): bool =
   ## A helper to check the parent payload status of a not validated Gloas block
   ## when receiving block from gossip or api.
 
+  let (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(parent)
+
   template bid(): auto = blck.message.body.signed_execution_payload_bid
 
-  if parent.executionBlockHash.isNone() or
+  if parentBlockHash.isNone() or
       bid.message.parent_block_hash.isZero():
     false
   else:
-    bid.message.parent_block_hash == parent.executionBlockHash.get()
+    bid.message.parent_block_hash == parentBlockHash.get()
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -1315,10 +1323,26 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     var info: ForkedEpochInfo
 
-    while headBlocks.len > 0:
+    for i in countdown(headBlocks.len() - 1, 0):
       dag.applyBlock(
-        dag.headState, headBlocks.pop().bid, cache,
+        dag.headState, headBlocks[i].bid, cache,
         info, dag.updateFlags).expect("head blocks should apply")
+
+      let wantsPayload = block:
+        template blckFork(): auto =
+          dag.cfg.consensusForkAtEpoch(headBlocks[i].slot().epoch())
+        if blckFork <= ConsensusFork.Fulu:
+          false
+        elif i > 0:
+          let child = headBlocks[i - 1]
+          isParentBlockFull(dag, child)
+        else:
+          dag.db.containsExecutionPayloadEnvelope(headBlocks[i].root())
+
+      if wantsPayload:
+        dag.applyExecutionPayloadEnvelope(
+          dag.headState, headBlocks[i].bid,
+          cache).expect("head envelopes should apply")
 
     dag.head = headRef
     dag.heads = @[headRef]

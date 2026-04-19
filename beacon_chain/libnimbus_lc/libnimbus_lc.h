@@ -702,6 +702,54 @@ const ETHBeaconBlockHeader *ETHLightClientHeaderGetBeacon(
     const ETHLightClientHeader *header);
 
 /**
+ * Obtains a copy of the beacon block header of a given light client header.
+ *
+ * - The beacon block header must be destroyed with
+ *   `ETHBeaconBlockHeaderDestroy` once no longer needed,
+ *   to release memory.
+ *
+ * @param      header               Light client header.
+ *
+ * @return Beacon block header.
+ *
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/beacon-chain.md#beaconblockheader
+ */
+ETH_RESULT_USE_CHECK
+ETHBeaconBlockHeader *ETHLightClientHeaderCopyBeacon(
+    const ETHLightClientHeader *header);
+
+/**
+ * Verifies that a JSON beacon block header is valid and that it matches
+ * the given `beaconRoot`.
+ *
+ * - The beacon block header must be destroyed with
+ *   `ETHBeaconBlockHeaderDestroy` once no longer needed,
+ *   to release memory.
+ *
+ * @param      beaconRoot           Beacon block root.
+ * @param      beaconJson           Buffer with JSON encoded header. NULL-terminated.
+ *
+ * @return Pointer to an initialized beacon block header - If successful.
+ * @return `NULL` - If the given `beaconJson` is malformed or incompatible.
+ *
+ * @see https://ethereum.github.io/beacon-APIs/?urls.primaryName=v4.0.0#/Beacon/getBlockHeader
+ * @see https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/beacon-chain.md#beaconblockheader
+ */
+ETH_RESULT_USE_CHECK
+ETHBeaconBlockHeader *_Nullable ETHBeaconBlockHeaderCreateFromJson(
+    const ETHRoot *beaconRoot,
+    const char *beaconJson);
+
+/**
+ * Destroys a beacon block header.
+ *
+ * - The beacon block header must no longer be used after destruction.
+ *
+ * @param      beacon               Beacon block header.
+ */
+void ETHBeaconBlockHeaderDestroy(ETHBeaconBlockHeader *beacon);
+
+/**
  * Obtains the slot number of a given beacon block header.
  *
  * @param      beacon               Beacon block header.
