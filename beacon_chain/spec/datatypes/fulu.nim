@@ -144,11 +144,13 @@ type
     proofs*: fulu.KzgProofs
     blobs*: Blobs
 
-  # Here the array size should be NUMBER_OF_CUSTODY_GROUPS, however,
-  # since NUMBER_OF_COLUMNS are the same as NUMBER_OF_CUSTODY_GROUPS,
-  # more so, because now there is 1 column per subnet and, NUMBER_OF_COLUMNS is a constant,
-  # and not runtime configurable, for these following reasons we have to chosen to
-  # limit the BitArray to NUMBER_OF_COLUMNS and not NUMBER_OF_CUSTODY_GROUPS.
+  # BitArray needs a compile-time size but NUMBER_OF_CUSTODY_GROUPS is
+  # runtime-configurable. We use NUMBER_OF_COLUMNS (compile-time, 128)
+  # instead, which is safe because NUMBER_OF_CUSTODY_GROUPS <=
+  # NUMBER_OF_COLUMNS always holds: each custody group maps to one or
+  # more columns, so there can never be more groups than columns.
+  # If NUMBER_OF_CUSTODY_GROUPS shrinks (e.g. to 64 or 32), the array
+  # is slightly oversized but still correct — unused high bits stay zero.
   CgcBits* = BitArray[NUMBER_OF_COLUMNS]
 
   CgcCount* = uint8
