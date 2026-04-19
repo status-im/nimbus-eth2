@@ -50,7 +50,7 @@ const
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
-  enrCustodySubnetCountField* = "cgc"
+  enrCustodyGroupCountField* = "cgc"
   enrNextForkDigestField* = "nfd"
   enrForkIdField* = "eth2"
 

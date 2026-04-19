@@ -47,7 +47,12 @@ const
   # The number of cells in an extended blob |
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
+  # The number of data column sidecar subnets used in the gossipsub protocol.
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#data-availability-sampling
+  # Number of custody groups available for nodes to custody.
+  NUMBER_OF_CUSTODY_GROUPS* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#custody-setting
   CUSTODY_REQUIREMENT* = 4
@@ -143,8 +148,8 @@ type
     proofs*: fulu.KzgProofs
     blobs*: Blobs
 
-  # Not in spec, defined in order to compute custody subnets
-  CgcBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
+  # Not in spec, defined to track custody-group participation.
+  CgcBits* = BitArray[NUMBER_OF_CUSTODY_GROUPS]
 
   CgcCount* = uint8
 
