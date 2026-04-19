@@ -145,7 +145,7 @@ type
     blobs*: Blobs
 
   # Here the array size should be NUMBER_OF_CUSTODY_GROUPS, however,
-  # since NUMBER_OF_COLUMNS_are the same as NUMBER_OF_CUSTODY_GROUPS,
+  # since NUMBER_OF_COLUMNS are the same as NUMBER_OF_CUSTODY_GROUPS,
   # more so, because now there is 1 column per subnet and, NUMBER_OF_COLUMNS is a constant,
   # and not runtime configurable, for these following reasons we have to chosen to
   # limit the BitArray to NUMBER_OF_COLUMNS and not NUMBER_OF_CUSTODY_GROUPS.
