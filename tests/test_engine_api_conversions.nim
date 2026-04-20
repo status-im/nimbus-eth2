@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -13,8 +13,6 @@ import
   ../beacon_chain/el/engine_api_conversions,
   ../beacon_chain/spec/datatypes/base,
   ./testutil
-
-from std/sequtils import mapIt
 
 from eth/common/base import FixedBytes
 from ssz_serialization/types import Limit, List, init, `==`

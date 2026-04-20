@@ -90,8 +90,8 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
     )
 
-  server.rpc("engine_forkchoiceUpdatedV3") do(
-    fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV3]
+  server.rpc("engine_forkchoiceUpdatedV4") do(
+    fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV4]
   ) -> ForkchoiceUpdatedResponse:
     inc state.forkchoiceCallCount
     if state.responseDelay > 0.milliseconds:
@@ -124,6 +124,17 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
         (ref ApplicationError)(code: -32603, msg: "Internal error: getPayload failed")
 
     return GetPayloadV4Response()
+
+  server.rpc("engine_getPayloadV6") do(payloadId: Bytes8) -> GetPayloadV6Response:
+    inc state.getPayloadCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailGetPayload:
+      raise
+        (ref ApplicationError)(code: -32603, msg: "Internal error: getPayload failed")
+
+    return GetPayloadV6Response()
 
   server.rpc("eth_chainId") do() -> UInt256:
     inc state.chainIdCallCount
@@ -240,7 +251,7 @@ suite "EL Manager - forkchoiceUpdated":
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
     let (status, payload) = waitFor manager.forkchoiceUpdated(
-      state, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
+      state, Opt.none(PayloadAttributesV4), sleepAsync(5.seconds), false
     )
 
     # Verify the call was made
@@ -252,11 +263,9 @@ suite "EL Manager - forkchoiceUpdated":
     let manager = createELManager(@[setup.url])
     manager.start()
 
-    let attributes = Opt.some(
-      PayloadAttributesV3.init(
-        1234567890, Eth2Digest.default, EthAddress.default, @[], Eth2Digest.default
-      )
-    )
+    let attributes = Opt.some(PayloadAttributesV4.init(
+      1234567890, Eth2Digest.default, EthAddress.default, @[], Eth2Digest.default,
+      0'u64))
 
     check setup.state.forkchoiceCallCount == 0
 
@@ -282,7 +291,7 @@ suite "EL Manager - forkchoiceUpdated":
     let state2 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
     let (status2, payload2) = waitFor manager.forkchoiceUpdated(
-      state2, Opt.none(PayloadAttributesV3), deadline, false
+      state2, Opt.none(PayloadAttributesV4), deadline, false
     )
     let duration = Moment.now() - startTime
 
@@ -303,7 +312,7 @@ suite "EL Manager - forkchoiceUpdated":
         Eth2Digest.default, Eth2Digest.default, Eth2Digest.default
       )
       let (status3, _) = waitFor manager.forkchoiceUpdated(
-        state3, Opt.none(PayloadAttributesV3), deadline, false
+        state3, Opt.none(PayloadAttributesV4), deadline, false
       )
       check:
         status3 == PayloadExecutionStatus.valid
@@ -363,8 +372,8 @@ suite "EL Manager - Payload Request Caching":
     let manager = createELManager(@[setup.url])
     manager.start()
 
-    let attrsPayload = PayloadAttributesV3.init(
-      1234567890, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    let attrsPayload = PayloadAttributesV4.init(
+      1234567890, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default, 0'u64
     )
     let attributes = Opt.some(attrsPayload)
 
@@ -399,8 +408,8 @@ suite "EL Manager - Payload Request Caching":
     let manager = createELManager(@[setup.url])
     manager.start()
     let
-      attrs1 = PayloadAttributesV3.init(
-        1234567890, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+      attrs1 = PayloadAttributesV4.init(
+        1234567890, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default, 0'u64
       )
       attributes1 = Opt.some(attrs1)
 
@@ -417,8 +426,8 @@ suite "EL Manager - Payload Request Caching":
     # Now change a parameter (timestamp) and call getPayload
     let stateForGet2 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let attrsGet2 = PayloadAttributesV3.init(
-      1234567999, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    let attrsGet2 = PayloadAttributesV4.init(
+      1234567999, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default, 0'u64
     )
     let payload = waitFor manager.getPayload(
       electra.ExecutionPayloadForSigning, stateForGet2, attrsGet2
@@ -436,8 +445,8 @@ suite "EL Manager - Payload Request Caching":
     let manager = createELManager(@[setup.url])
     manager.start()
 
-    let attrsSeq = PayloadAttributesV3.init(
-      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    let attrsSeq = PayloadAttributesV4.init(
+      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default, 0'u64
     )
     let attributes = Opt.some(attrsSeq)
 
@@ -464,7 +473,7 @@ suite "EL Manager - Payload Request Caching":
     let stateNoAttrs =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
     let (status, _) = waitFor manager.forkchoiceUpdated(
-      stateNoAttrs, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
+      stateNoAttrs, Opt.none(PayloadAttributesV4), sleepAsync(5.seconds), false
     )
 
     check:
@@ -477,8 +486,8 @@ suite "EL Manager - Payload Request Caching":
     let manager = createELManager(@[setup.url])
     manager.start()
 
-    let attrsConcurrent = PayloadAttributesV3.init(
-      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    let attrsConcurrent = PayloadAttributesV4.init(
+      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default, 0'u64
     )
     let attributes = Opt.some(attrsConcurrent)
 
@@ -513,8 +522,8 @@ suite "EL Manager - Payload Request Caching":
     let withdrawals = seq[capella.Withdrawal] @[]
 
     # Scenario 1: forkchoiceUpdated with attributes, then getPayload with same params
-    let attrsVar = PayloadAttributesV3.init(
-      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    let attrsVar = PayloadAttributesV4.init(
+      1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default, 0'u64
     )
     var attributes = Opt.some(attrsVar)
 
@@ -538,8 +547,8 @@ suite "EL Manager - Payload Request Caching":
     check setup.state.forkchoiceCallCount == 1 # Should still be 1
 
     # Scenario 2: forkchoiceUpdated with different timestamp
-    let attrsVar2 = PayloadAttributesV3.init(
-      2000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
+    let attrsVar2 = PayloadAttributesV4.init(
+      2000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default, 0'u64
     )
     attributes = Opt.some(attrsVar2)
 
@@ -580,7 +589,7 @@ suite "EL Manager - Multiple Engines":
     let stateMulti =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
     let (status, _) = waitFor manager.forkchoiceUpdated(
-      stateMulti, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
+      stateMulti, Opt.none(PayloadAttributesV4), sleepAsync(5.seconds), false
     )
 
     check:
