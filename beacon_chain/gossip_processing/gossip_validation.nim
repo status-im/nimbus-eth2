@@ -2203,8 +2203,8 @@ proc validateProposerPreferences*(
   # and the given slot preferences.proposal_slot
   let
     bucket = proposalEpoch.uint64 mod 2
-    slotInEpoch = int(preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH)
-  if seen[bucket][slotInEpoch.uint64].isSome:
+    slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
+  if seen[bucket][slotInEpoch].isSome:
     return errIgnore("ProposerPreferences: already seen")
 
   # [REJECT] preferences.validator_index is present at the correct slot
@@ -2232,5 +2232,5 @@ proc validateProposerPreferences*(
       pubkey, signed_preferences.signature):
     return dag.checkedReject("ProposerPreferences: invalid signature")
 
-  seen[bucket][slotInEpoch.uint64] = Opt.some(preferences)
+  seen[bucket][slotInEpoch] = Opt.some(preferences)
   ok()
