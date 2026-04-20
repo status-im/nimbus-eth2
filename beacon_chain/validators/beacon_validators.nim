@@ -633,7 +633,7 @@ proc proposeBlockAux(
         signature: signatureRes.get()
       )
 
-      discard await node.router.routeExecutionPayloadEnvelope(
+      await node.router.routeExecutionPayloadEnvelope(
         signedEnvelope, checkValidator = false)
 
       notice "Payload Envelope proposed",
@@ -940,7 +940,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
     signature: signature
   )
 
-  discard await node.router.routePayloadAttestationMessage(
+  await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
@@ -1008,7 +1008,7 @@ proc sendProposerPreferences(
           let signed = SignedProposerPreferences(
             message: data, signature: signatureRes.get)
           
-          discard await node.router.routeProposerPreferences(signed)
+          await node.router.routeProposerPreferences(signed)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
