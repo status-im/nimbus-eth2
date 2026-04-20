@@ -73,7 +73,7 @@ type
     ## call - if all parameters match, we can use the payload id given in
     ## response, else we have to make a new call
     state: ForkchoiceStateV1
-    attributes: PayloadAttributesV3
+    attributes: PayloadAttributesV4
       # V3 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
@@ -417,7 +417,7 @@ template EngineApiResponseType(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
 template EngineApiResponseType(T: type gloas.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV5Response
+  engine_api.GetPayloadV6Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -452,7 +452,7 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -466,7 +466,7 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -474,8 +474,24 @@ func init(
       parentBeaconBlockRoot: default(Hash32),
     ),
   )
+
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
+): T =
+  debugGloasComment("check if all attributes are mapped")
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV4(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: attributes.withdrawals,
+      parentBeaconBlockRoot: default(Hash32),
+    ),
+  )
+
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV4
 ): T =
   PayloadParams(state: state, attributes: attributes)
 
@@ -523,11 +539,8 @@ proc getPayload*(
         url = m.elConnections[idx].engineUrl.url
 
   if bestPayloadIdx.isSome():
-    debugGloasComment "Temp workaround for Gloas using GetPayloadV5Response"
-    when PayloadType.kind == ConsensusFork.Gloas:
-      ok(requests[bestPayloadIdx.get()].value().asConsensusTypeGloas)
-    else:
-      ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+    debugHezeComment("")
+    ok(requests[bestPayloadIdx.get()].value().asConsensusType)
   else:
     Opt.none(PayloadType)
 
@@ -887,7 +900,8 @@ proc forkchoiceUpdated(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3],
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4],
     retry: bool,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
@@ -909,7 +923,8 @@ proc forkchoiceUpdated*(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3],
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4],
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
@@ -979,7 +994,8 @@ proc forkchoiceUpdated*(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3]
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4]
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
