@@ -3,8 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?rev=2a777ace4b722f2714cc06d596f2476ee628c04a";
+    # WARNING: Do not use relative path, it breaks caching of NBS.
+    # Remember to call 'nix flake update' when NBS is updated.
     nimbusBuildSystem = {
-      url = ./vendor/nimbus-build-system;
+      url = "git+https://github.com/status-im/nimbus-build-system?submodules=1#";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     self = {
