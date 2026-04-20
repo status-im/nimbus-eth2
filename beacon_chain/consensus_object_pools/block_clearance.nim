@@ -492,6 +492,10 @@ proc addHeadExecutionPayload*(
   ## First check that the block and envelope are matched with the DAG block.
   ## Then verify that it passes the state transition function.
 
+  # reference
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
+  debugGloasComment("review with verify_execution_payload_envelope")
+
   # Check if there is any valid envelope so that we can save some resources.
   if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
     return err(VerifierError.Duplicate)
@@ -598,7 +602,7 @@ proc addBackfillExecutionPayload*(
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
     return err(VerifierError.Duplicate)
 
-  let (proposerIdx, builderIdx) = block:
+  let (builderIdx, bidBuilderIdx) = block:
     let forkedBlck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
       # corrupted.
@@ -608,21 +612,16 @@ proc addBackfillExecutionPayload*(
       when consensusFork >= ConsensusFork.Gloas:
         template bid(): auto =
           forkyBlck.message.body.signed_execution_payload_bid
-        (forkyBlck.message.proposer_index, bid.message.builder_index)
+        (forkyBlck.builder_index, bid.message.builder_index)
       else:
         return err(VerifierError.UnviableFork)
 
   # Check builder index is matched with the block
-  if builderIdx != envelope.builder_index:
+  if bidBuilderIdx != envelope.builder_index:
     return err(VerifierError.Invalid)
 
   # Verify signature
-  template vIdx(): auto =
-    if envelope.builder_index == BUILDER_INDEX_SELF_BUILD:
-      proposerIdx
-    else:
-      envelope.builder_index
-  let builderKey = dag.validatorKey(vIdx).valueOr:
+  let builderKey = dag.validatorKey(builderIdx).valueOr:
     fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
       head = shortLog(dag.head), tail = shortLog(dag.tail)
     quit 1

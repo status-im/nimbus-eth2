@@ -1105,13 +1105,7 @@ proc validateExecutionPayload*(
   # [REJECT] signed_execution_payload_envelope.signature is valid with respect
   # to the builder's public key.
   if dag.headState.kind >= ConsensusFork.Gloas:
-    template vIdx(): auto =
-      if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
-        blck.proposer_index
-      else:
-        bid.builder_index
-
-    let builderKey = dag.validatorKey(vIdx).valueOr:
+    let builderKey = dag.validatorKey(blck.builder_index).valueOr:
       return dag.checkedReject("ExecutionPayload: unknown builder")
     if not verify_execution_payload_envelope_signature(
         dag.forkAtEpoch(envelope.slot.epoch),

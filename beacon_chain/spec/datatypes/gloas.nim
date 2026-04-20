@@ -678,10 +678,12 @@ template asTrusted*(
 template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
 template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
 
-template builder_index*(v: BeaconBlock): uint64 =
+template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
   template bid(): auto = v.body.signed_execution_payload_bid
   if bid.message.builder_index == BUILDER_INDEX_SELF_BUILD:
     v.proposer_index
   else:
     bid.message.builder_index
-template builder_index*(v: SignedBeaconBlock): uint64 = v.message.builder_index
+template builder_index*(
+    v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
+  v.message.builder_index
