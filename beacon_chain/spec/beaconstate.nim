@@ -256,7 +256,7 @@ func initiate_builder_exit*(
   ## Initiate the exit of the builder with index ``index``.
 
   # Set builder exit epoch
-  var builder = state.builders.mitem(builder_index)
+  let builder = addr state.builders.mitem(builder_index)
   builder.withdrawable_epoch =
     get_current_epoch(state) + cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY
 
@@ -269,8 +269,9 @@ func settle_builder_payment*(
 
   var payment = state.builder_pending_payments.mitem(payment_index)
   if uint64(payment.withdrawal.amount) > 0'u64:
-    discard state.builder_pending_withdrawals.add(payment.withdrawal)
-  reset(payment)
+    if not state.builder_pending_withdrawals.add(payment.withdrawal):
+      return err("settle_builder_payment: couldn't add to builder_pending_withdrawals")
+  state.builder_pending_payments.mitem(payment_index).reset()
 
   ok()
 
