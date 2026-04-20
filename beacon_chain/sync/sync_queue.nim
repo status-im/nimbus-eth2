@@ -788,14 +788,8 @@ proc getRewindPoint*[M, N](
            sync_ident = sq.ident,
            direction = sq.kind,
            topics = "sync"
-      # Calculate the rewind epoch, which will be equal to last rewind point or
-      # finalizedEpoch
-      let rewindEpoch =
-        if sq.rewind.isNone():
-          finalizedEpoch
-        else:
-          epoch(sq.rewind.get().failSlot) - sq.rewind.get().epochCount
-      rewindEpoch.start_slot()
+      # We should never return slot which is behind finalized epoch.
+      finalizedEpoch.start_slot()
     else:
       # Calculate the rewind epoch, which should not be less than the latest
       # finalized epoch.
