@@ -264,13 +264,13 @@ func initiate_builder_exit*(
 func settle_builder_payment*(
     state: var (gloas.BeaconState | heze.BeaconState),
     payment_index: uint64): Result[void, cstring] =
-  if not (payment_index < len(state.builder_pending_payments)):
+  if not (payment_index < lenu64(state.builder_pending_payments)):
     return err("settle_builder_payment: payment index incorrect")
 
-  let payment = state.builder_pending_payments[payment_index]
-  if payment.withdrawal.amount > 0:
-      state.builder_pending_withdrawals.add(payment.withdrawal)
-  state.builder_pending_payments[payment_index] = default(BuilderPendingPayment)
+  var payment = state.builder_pending_payments.mitem(payment_index)
+  if uint64(payment.withdrawal.amount) > 0'u64:
+    discard state.builder_pending_withdrawals.add(payment.withdrawal)
+  reset(payment)
 
   ok()
 

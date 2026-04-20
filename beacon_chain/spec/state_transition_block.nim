@@ -1229,11 +1229,11 @@ proc apply_parent_execution_payload(
         nil
   var pending_validators = get_pending_validators(cfg, state)
   for op in requests.deposits:
-    ? process_deposit_request(cfg, data, bsv[], bsb[], pending_validators, op, {})
+    ? process_deposit_request(cfg, state, bsv[], bsb[], pending_validators, op, {})
   for op in requests.withdrawals:
-    process_withdrawal_request(cfg, data, bsv[], op, cache)
+    process_withdrawal_request(cfg, state, bsv[], op, cache)
   for op in requests.consolidations:
-    process_consolidation_request(cfg, data, bsv[], op, cache)
+    process_consolidation_request(cfg, state, bsv[], op, cache)
 
   # Settle the builder payment
   if parent_epoch == state.slot.epoch():
@@ -1242,8 +1242,8 @@ proc apply_parent_execution_payload(
   elif parent_epoch == state.slot.epoch().get_previous_epoch():
     let payment_index = parent_slot mod SLOTS_PER_EPOCH
     ? settle_builder_payment(state, payment_index)
-  elif parent_bid.value > 0:
-    state.builder_pending_withdrawals.add(
+  elif uint64(parent_bid.value) > 0'u64:
+    discard state.builder_pending_withdrawals.add(
       BuilderPendingWithdrawal(
         fee_recipient: parent_bid.fee_recipient,
         amount: parent_bid.value,
@@ -1258,13 +1258,17 @@ proc apply_parent_execution_payload(
 
   ok()
 
+# copy of datatypes/gloas.nim
+type SomeGloasBeaconBlock =
+  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-process_parent_execution_payload
 proc process_parent_execution_payload*(
     cfg: RuntimeConfig,
-    state: var (gloas.BeaconState | heze.BeaconState),
-    blck: gloas.BeaconBlock | heze.BeaconBlock,
+    state: var gloas.BeaconState,
+    blck: SomeGloasBeaconBlock,
     cache: var StateCache): Result[void, cstring] =
-  template bid(): auto = blck.body.signed_execution_payload_bid
+  template bid(): auto = blck.body.signed_execution_payload_bid.message
   template parent_bid(): auto = state.latest_execution_payload_bid
   template requests(): auto = blck.body.parent_execution_requests
 
@@ -1281,10 +1285,6 @@ proc process_parent_execution_payload*(
   if not (hash_tree_root(requests) == parent_bid.execution_requests_root):
     return err("process_parent_execution_payload: execution requests root mismatch")
   apply_parent_execution_payload(cfg, state, parent_bid, requests, cache)
-
-# copy of datatypes/gloas.nim
-type SomeGloasBeaconBlock =
-  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
@@ -1353,6 +1353,30 @@ proc process_execution_payload_bid*(
 # copy of datatypes/heze.nim
 type SomeHezeBeaconBlock =
   heze.BeaconBlock | heze.SigVerifiedBeaconBlock | heze.TrustedBeaconBlock
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-process_parent_execution_payload
+proc process_parent_execution_payload*(
+    cfg: RuntimeConfig,
+    state: var heze.BeaconState,
+    blck: SomeHezeBeaconBlock,
+    cache: var StateCache): Result[void, cstring] =
+  template bid(): auto = blck.body.signed_execution_payload_bid.message
+  template parent_bid(): auto = state.latest_execution_payload_bid
+  template requests(): auto = blck.body.parent_execution_requests
+
+  # True if this block built on the parent's full payload
+  let is_parent_block_full = bid.parent_block_hash == parent_bid.block_hash
+
+  if not is_parent_block_full:
+    # Parent was EMPTY -- no execution requests expected
+    if not (requests == default(ExecutionRequests)):
+      return err("process_parent_execution_payload: execution requests not empty")
+    return ok()
+
+  # Parent was FULL -- verify the bid commitment and apply the payload
+  if not (hash_tree_root(requests) == parent_bid.execution_requests_root):
+    return err("process_parent_execution_payload: execution requests root mismatch")
+  apply_parent_execution_payload(cfg, state, parent_bid, requests, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
@@ -1847,7 +1871,7 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_parent_execution_payload(state, blck, cache)
+  ? process_parent_execution_payload(cfg, state, blck, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)
@@ -1876,7 +1900,7 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_parent_execution_payload(state, blck, cache)
+  ? process_parent_execution_payload(cfg, state, blck, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)

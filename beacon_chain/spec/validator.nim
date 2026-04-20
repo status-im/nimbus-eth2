@@ -473,13 +473,13 @@ iterator compute_balance_weighted_selection*(
   const MAX_RANDOM_VALUE = (2^16 - 1).uint64
   let total = indices.lenu64
   doAssert total > 0
-  template effective_balances(idx: int): uint64 =
+  template effective_balances(idx: uint64): uint64 =
     uint64(state.validators[indices[idx]].effective_balance)
 
   var
     i = 0'u64
     count = 0'u64
-    random_bytes: array[32 * 8, byte]
+    random_bytes: array[32, byte]
 
   while count < size:
     let offset = (i mod 16) * 2
