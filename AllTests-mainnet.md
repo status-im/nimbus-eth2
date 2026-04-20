@@ -662,6 +662,7 @@ AllTests-mainnet
 ```diff
 + forkchoiceUpdated basic call                                                               OK
 + forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
 ```
@@ -671,6 +672,7 @@ AllTests-mainnet
 ```
 ## EL Manager - newPayload
 ```diff
++ newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
 ```
 ## Engine API conversions

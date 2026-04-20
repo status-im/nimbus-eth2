@@ -855,7 +855,7 @@ proc newPayload*(
       if responseProcessor.selectedResponse.isSome():
         discard await race(race(pending), earlyDeadline)
       else:
-        discard await race(pending)
+        discard await race(race(pending), deadline)
     except ValueError:
       raiseAssert "race error cannot happen"
 
@@ -946,7 +946,7 @@ proc forkchoiceUpdated*(
       if responseProcessor.selectedResponse.isSome():
         discard await race(race(pending), earlyDeadline)
       else:
-        discard await race(pending)
+        discard await race(race(pending), deadline)
     except ValueError:
       raiseAssert "race error cannot happen"
 
