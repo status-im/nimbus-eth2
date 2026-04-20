@@ -17,17 +17,14 @@ RESTTEST_DELAY="30"
 TEST_DIRNAME="resttest0_data"
 KILL_OLD_PROCESSES="0"
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCRIPTS_DIR="${REPO_ROOT}/scripts"
+
 ####################
 # argument parsing #
 ####################
 
-GETOPT_BINARY="getopt"
-if uname | grep -qi darwin; then
-  # macOS
-  # Without the head -n1 constraint, it gets confused by multiple matches
-  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null | head -n1 || true)
-  [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
-fi
+GETOPT_BINARY="${SCRIPTS_DIR}/getopt-wrapper.sh"
 
 ! ${GETOPT_BINARY} --test > /dev/null
 if [ ${PIPESTATUS[0]} != 4 ]; then

@@ -36,6 +36,7 @@ AllTests-mainnet
 ```
 ## Beacon chain DB [Preset: mainnet]
 ```diff
++ batch delete data columns [Preset: mainnet]                                                OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
@@ -661,6 +662,7 @@ AllTests-mainnet
 ```diff
 + forkchoiceUpdated basic call                                                               OK
 + forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
 ```
@@ -670,6 +672,7 @@ AllTests-mainnet
 ```
 ## EL Manager - newPayload
 ```diff
++ newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
 ```
 ## Engine API conversions
@@ -941,6 +944,7 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)

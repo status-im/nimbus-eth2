@@ -6,6 +6,8 @@
   nim ? null,
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
   targets ? ["nimbus_beacon_node"],
+  # Options: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL, NONE
+  highestLogLevel ? "DEBUG",
   # Options: 0,1,2
   verbosity ? 1,
   # These are the only platforms tested in CI and considered stable.
@@ -38,17 +40,21 @@ in stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  # Disable CPU optmizations that make binary not portable.
-  NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
-  # Avoid errors about missing user home.
-  NIMBLE_DIR = "/tmp";
-  # Avoid Nim cache permission errors.
-  XDG_CACHE_HOME = "/tmp";
+  env = {
+    # Disable CPU optmizations that make binary not portable.
+    NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
+    # Avoid errors about missing user home.
+    NIMBLE_DIR = "/tmp";
+    # Avoid Nim cache permission errors.
+    XDG_CACHE_HOME = "/tmp";
+  };
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
     # Built from nimbus-build-system via flake.
     "USE_SYSTEM_NIM=1"
+    # Define highest available log level.
+    "LOG_LEVEL=${highestLogLevel}"
   ];
 
   patchPhase = ''

@@ -26,17 +26,19 @@ from ../consensus_object_pools/block_dag import
 from ../consensus_object_pools/block_pools_types import
   ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
-  addSidecarless, addOrphan, addUnviable, clearProcessing, contains, get, pop,
-  remove, startProcessing, clearProcessing, UnviableKind
+  addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
+  get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/blob_quarantine import
-  BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put
+  BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put,
+  slot
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan, remove
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../beacon_chain_db import getBlobSidecar, putBlobSidecar,
-  getDataColumnSidecar, putDataColumnSidecar
+from ../beacon_chain_db import
+  containsExecutionPayloadEnvelope, getBlobSidecar, getDataColumnSidecar,
+  putBlobSidecar, putDataColumnSidecar
 from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
@@ -942,15 +944,12 @@ proc storeBackfillPayload(
   self.storeSidecars(sidecarsOpt)
   ok()
 
-proc addPayload*(
+proc storePayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
-
+): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
@@ -992,10 +991,17 @@ proc addPayload*(
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
+  let previousExecutionValid = dag.head.executionValid
+
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")
   # TODO To be removed - Temporary call without import.
-  blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+  if blck.slot() >= dag.head.slot():
+    blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
+
+  if optimisticStatusRes.isSome():
+    await self.consensusManager.updateExecutionHead(
+      deadline, retry = previousExecutionValid, self.getBeaconTime)
 
   debug "Envelope processed",
     head = shortLog(dag.head),
@@ -1006,7 +1012,42 @@ proc addPayload*(
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
 
-  ok()
+  ok(blck)
+
+proc addPayload*(
+    self: ref BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
+
+  let res = await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
+  if res.isOk():
+    # Once a block is successfully stored, enqueue the direct descendants
+    self.enqueueQuarantine(res.get())
+  else:
+    case res.error()
+    of VerifierError.MissingParent:
+      # MissingParent is returned when block or parents cannot be found in the
+      # DAG. This could happen if we process envelope before block, or there is
+      # any missing parents. In either case, they should be caught when
+      # processing block. So we only put the envelope into the quarantine for
+      # the next try.
+      self.envelopeQuarantine[].addOrphan(signedEnvelope)
+      if sidecarsOpt.isSome():
+        self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
+    of VerifierError.Invalid, VerifierError.UnviableFork:
+      # The block is verified and has added to the DAG, but the envelope isn't
+      # valid. It should be marked as invalid so that we can ignore it from
+      # gossip or skip processing the same one.
+      self.envelopeQuarantine[].remove(signedBlock.root)
+      debugGloasComment("mark as unviable")
+    of VerifierError.Duplicate:
+      self.envelopeQuarantine[].remove(signedBlock.root)
+
+  res.mapConvert(void)
 
 proc addPayload*(
     self: ref BlockProcessor,

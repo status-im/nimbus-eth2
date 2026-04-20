@@ -1847,6 +1847,7 @@ proc new(T: type Eth2Node,
          config: BeaconNodeConf | LightClientConf, runtimeCfg: RuntimeConfig,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
+         initialNextForkDigest: ForkDigest,
          switch: Switch, pubsub: GossipSub,
          ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
@@ -1886,7 +1887,8 @@ proc new(T: type Eth2Node,
       config, ip, tcpPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
-        enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
+        enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)                                                   
       },
     rng),
     discoveryEnabled: discovery,
@@ -1895,7 +1897,8 @@ proc new(T: type Eth2Node,
     seenThreshold: seenThreshold,
     directPeers: directPeers,
     announcedAddresses: @announcedAddresses,
-    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
+    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime),
+    nextForkDigest: initialNextForkDigest
   )
 
   proc peerHook(
@@ -2374,7 +2377,7 @@ proc createEth2Node*(
     wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
     discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
-
+    initialNextForkDigest = cfg.nextForkDigestAtEpoch(forkDigests[], wallEpoch)
     listenAddress =
       if config.listenAddress.isSome():
         config.listenAddress.get()
@@ -2498,7 +2501,7 @@ proc createEth2Node*(
     return err("Cannot mount pubsub: " & exc.msg)
 
   let node = Eth2Node.new(
-    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
+    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, initialNextForkDigest, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
@@ -2749,7 +2752,7 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
 proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/fulu/p2p-interface.md#next-fork-digest
   if node.nextForkDigest == next_fork_digest:
     return
 

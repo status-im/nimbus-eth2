@@ -894,6 +894,42 @@ proc delDataColumnSidecar*(
     return false
   db.columns[consensusFork].del(columnkey(root, index)).expectDb()
 
+proc delDataColumnSidecars*(
+    db: BeaconChainDB, consensusFork: ConsensusFork,
+    root: Eth2Digest): int =
+  ## Delete every data column sidecar stored for `root` in a single ranged
+  ## SQL `DELETE`. Column keys are laid out as `[root (32B)][index_BE (8B)]`,
+  ## so all sidecars for a block form one contiguous primary-key range that
+  ## SQLite sweeps in one statement. Returns the number of rows removed.
+  if db.columns[consensusFork] == nil:
+    return 0
+
+  let tableName =
+    case consensusFork
+    of ConsensusFork.Fulu: "fulu_columns"
+    of ConsensusFork.Gloas: "gloas_columns"
+    else: return 0
+
+  var bounds: (array[40, byte], array[40, byte])
+  bounds[0][0..<32] = root.data
+  bounds[1][0..<32] = root.data
+  for i in 32..<40:
+    bounds[1][i] = 0xFF'u8
+
+  let stmt = expectDb db.db.prepareStmt(
+    "DELETE FROM '" & tableName &
+      "' WHERE key BETWEEN ? AND ? RETURNING 1;",
+    (array[40, byte], array[40, byte]), int64, managed = false)
+  defer: stmt.dispose()
+
+  var
+    deleted = 0
+    row: int64
+  for rowRes in exec(stmt, bounds, row):
+    expectDb rowRes
+    inc deleted
+  deleted
+
 proc putExecutionPayloadEnvelope*(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
   template key: untyped = value.message.beacon_block_root

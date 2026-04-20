@@ -287,7 +287,7 @@ proc makeEngineBlock*(
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
       else:
         default(seq[PayloadAttestation])
 
@@ -515,7 +515,7 @@ proc makeBuilderBlock*(
     signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
       else:
         newSeq[PayloadAttestation]()
 
