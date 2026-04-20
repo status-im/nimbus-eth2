@@ -273,7 +273,7 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
-func asEngineExecutionPayloadV4*(executionPayload: gloas.ExecutionPayload):
+func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     ExecutionPayloadV4 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)

@@ -809,13 +809,10 @@ proc newPayload*(
       executionPayload = shortLog(executionPayload)
     return Opt.none(PayloadExecutionStatus)
 
+  debugHezeComment("payload")
   let
     startTime = Moment.now()
-    payload =
-      when consensusFork >= ConsensusFork.Gloas:
-        executionPayload.asEngineExecutionPayloadV4()
-      else:
-        executionPayload.asEngineExecutionPayload()
+    payload = executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
