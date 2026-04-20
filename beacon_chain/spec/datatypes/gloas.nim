@@ -89,9 +89,9 @@ type
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
     # [New in Gloas:EIP7928]
-    block_access_list*: List[byte, MAX_BYTES_PER_TRANSACTION]# [New in Gloas:EIP7843]
+    block_access_list*: List[byte, MAX_BYTES_PER_TRANSACTION]
     # [New in Gloas:EIP7843]
-    slot_number*: uint64
+    slot_number*: Slot
 
   ExecutionPayloadForSigning* = object
     executionPayload*: ExecutionPayload
@@ -601,6 +601,27 @@ func shortLog*(v: ExecutionPayloadEnvelope): auto =
     builder_index: v.builder_index,
   )
 
+func shortLog*(v: ExecutionPayload): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    num_transactions: len(v.transactions),
+    num_withdrawals: len(v.withdrawals),
+    blob_gas_used: $(v.blob_gas_used),
+    excess_blob_gas: $(v.excess_blob_gas),
+    slot_number: v.slot_number,
+  )
+
 func shortLog*(v: PayloadAttestationData): auto =
   (
     beacon_block_root: shortLog(v.beacon_block_root),
@@ -652,3 +673,15 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+# Helpers to frequently used values
+template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
+template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
+
+template builder_index*(v: BeaconBlock): uint64 =
+  template bid(): auto = v.body.signed_execution_payload_bid
+  if bid.message.builder_index == BUILDER_INDEX_SELF_BUILD:
+    v.proposer_index
+  else:
+    bid.message.builder_index
+template builder_index*(v: SignedBeaconBlock): uint64 = v.message.builder_index
