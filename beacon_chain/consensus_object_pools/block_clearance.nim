@@ -557,21 +557,8 @@ proc addHeadExecutionPayload*(
     debug "Envelope has been applied to the state"
     return err(VerifierError.Duplicate)
 
-  debug "Envelope transitioning"
-
   # Verify with state transition function.
-  process_execution_payload(
-    dag.cfg,
-    dag.clearanceState.forky(consensusFork),
-    signedEnvelope,
-    func(_: deneb.ExecutionPayload): bool = true,
-    cache,
-  ).isOkOr:
-    assign(dag.clearanceState, dag.headState)
-    info "Envelope transition failed", msg = error
-    return err(VerifierError.Invalid)
-
-  debug "Envelope transitioned"
+  debugGloasComment("verify sig")
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
