@@ -426,7 +426,7 @@ proc getBackfillSidecarFinalSlot(overseer: SyncOverseerRef2): Slot =
   else:
     min(backfillSlot, dag.finalizedHead.slot - horizon)
 
-template bsqueue(
+template tbsqueue(
     overseer: SyncOverseerRef2,
     direction: SyncQueueKind
 ): untyped =
@@ -436,7 +436,7 @@ template bsqueue(
   of SyncQueueKind.Backward:
     overseer.bqueue
 
-template ssqueue(
+template tssqueue(
     overseer: SyncOverseerRef2,
     direction: SyncQueueKind
 ): untyped =
@@ -446,7 +446,7 @@ template ssqueue(
   of SyncQueueKind.Backward:
     overseer.bsqueue
 
-template sbuffer(
+template tsbuffer(
     overseer: SyncOverseerRef2,
     direction: SyncQueueKind
 ): untyped =
@@ -498,21 +498,19 @@ proc createQueues(
             maybeFinalized = maybeFinalized))
         elif consensusFork < ConsensusFork.Fulu:
           if overseer.shouldGetBlobs(forkyBlck.message.slot):
-            # We add all the blocks to BlockBuffer, just to avoid BlockProcessor
-            # `MissingParent` errors which could be generated, because some of
-            # the blocks was added to BlockBuffer and some of the blocks
-            # transferred to BlockProcessor.
-            debug "Block buffered",
-              fork = consensusFork,
-              block_root = forkyBlck.root,
-              blck = shortLog(forkyBlck),
-              verifier = "block"
-
             # TODO (cheatfate): templates does not support `var` arguments.
-            when direction == SyncQueueKind.Forward:
-              overseer.fblockBuffer.add(signedBlock)
-            elif direction == SyncQueueKind.Backward:
-              overseer.bblockBuffer.add(signedBlock)
+            let res =
+              when direction == SyncQueueKind.Forward:
+                overseer.fblockBuffer.add(signedBlock)
+              elif direction == SyncQueueKind.Backward:
+                overseer.bblockBuffer.add(signedBlock)
+            if res.isOk():
+              debug "Block buffered",
+                fork = consensusFork,
+                block_root = forkyBlck.root,
+                blck = shortLog(forkyBlck),
+                verifier = "block"
+            res
           else:
             let commitmentsLen =
               len(forkyBlck.message.body.blob_kzg_commitments)
@@ -525,24 +523,21 @@ proc createQueues(
               (await overseer.blockProcessor.addBlock(
                 MsgSource.sync, forkyBlck, Opt.some(default(BlobSidecars)),
                 maybeFinalized = maybeFinalized))
-
         elif consensusFork == ConsensusFork.Fulu:
           if overseer.shouldGetColumns(forkyBlck.message.slot):
-            # We add all the blocks to BlockBuffer, just to avoid BlockProcessor
-            # `MissingParent` errors which could be generated, because some of
-            # the blocks was added to BlockBuffer and some of the blocks
-            # transferred to BlockProcessor.
-            debug "Block buffered",
-              fork = consensusFork,
-              block_root = forkyBlck.root,
-              blck = shortLog(forkyBlck),
-              verifier = "block"
-
             # TODO (cheatfate): templates does not support `var` arguments.
-            when direction == SyncQueueKind.Forward:
-              overseer.fblockBuffer.add(signedBlock)
-            elif direction == SyncQueueKind.Backward:
-              overseer.bblockBuffer.add(signedBlock)
+            let res =
+              when direction == SyncQueueKind.Forward:
+                overseer.fblockBuffer.add(signedBlock)
+              elif direction == SyncQueueKind.Backward:
+                overseer.bblockBuffer.add(signedBlock)
+            if res.isOk():
+              debug "Block buffered",
+                fork = consensusFork,
+                block_root = forkyBlck.root,
+                blck = shortLog(forkyBlck),
+                verifier = "block"
+            res
           else:
             let commitmentsLen =
               len(forkyBlck.message.body.blob_kzg_commitments)
@@ -1686,15 +1681,15 @@ proc doRangeSyncStep(
     checkpoint = peer.getFinalizedCheckpoint()
 
   let request =
-    overseer.bsqueue(direction).pop(checkpoint.epoch.start_slot(), peer)
+    overseer.tbsqueue(direction).pop(checkpoint.epoch.start_slot(), peer)
 
   logScope:
     peer = peer
     request = request
     head = shortLog(dag.head)
-    block_buffer = shortLog(overseer.sbuffer(direction))
-    blocks_queue = shortLog(overseer.bsqueue(direction))
-    sidecars_queue = shortLog(overseer.ssqueue(direction))
+    block_buffer = shortLog(overseer.tsbuffer(direction))
+    blocks_queue = shortLog(overseer.tbsqueue(direction))
+    sidecars_queue = shortLog(overseer.tssqueue(direction))
     peer_checkpoint = shortLog(checkpoint)
     peer_head = shortLog(peer.getHeadBlockId())
     peer_ea_slot = getEaSlotLog(peer)
@@ -1717,7 +1712,7 @@ proc doRangeSyncStep(
         (await beaconBlocksByRange_v2(
           peer, request.data.slot, request.data.count, 1'u64)).valueOr:
             debug "Failed to get block range from peer", reason = error
-            overseer.bsqueue(direction).push(request)
+            overseer.tbsqueue(direction).push(request)
             return false
 
     debug "Received blocks range on request",
@@ -1729,7 +1724,7 @@ proc doRangeSyncStep(
         blocks_count = len(blocks),
         blocks_map = getShortMap(request, blocks.toSeq()), reason = $error
       peer.updateScore(PeerScoreBadResponse)
-      overseer.bsqueue(direction).push(request)
+      overseer.tbsqueue(direction).push(request)
       return false
 
     debug "Sending blocks range to processor",
@@ -1737,16 +1732,16 @@ proc doRangeSyncStep(
       blocks_map = getShortMap(request, blocks.asSeq())
 
     let resp =
-      await overseer.bsqueue(direction).push(
+      await overseer.tbsqueue(direction).push(
         request, blocks.asSeq(), maybeFinalized = true)
 
     debug "Blocks queue response",
       code = resp.code, count = resp.count, blck = shortLog(resp.blck),
       blocks_count = len(blocks),
       blocks_map = getShortMap(request, blocks.asSeq()),
-      block_buffer = shortLog(overseer.sbuffer(direction)),
-      blocks_queue = shortLog(overseer.bsqueue(direction)),
-      sidecars_queue = shortLog(overseer.bsqueue(direction))
+      block_buffer = shortLog(overseer.tsbuffer(direction)),
+      blocks_queue = shortLog(overseer.tbsqueue(direction)),
+      sidecars_queue = shortLog(overseer.tbsqueue(direction))
 
     if resp.count > 0:
       peer.updateScore(PeerScoreGoodValues)
@@ -1754,7 +1749,7 @@ proc doRangeSyncStep(
     elif resp.count == 0:
       true
     else:
-      let rewindPoint = overseer.bsqueue(direction).inpSlot
+      let rewindPoint = overseer.tbsqueue(direction).inpSlot
 
       logScope:
         code = resp.code
@@ -1762,7 +1757,7 @@ proc doRangeSyncStep(
         rewind_point = rewindPoint
         blck = shortLog(resp.blck)
 
-      let before = shortLog(overseer.sbuffer(direction))
+      let before = shortLog(overseer.tsbuffer(direction))
       # TODO (cheatfate): templates does not support `var` arguments.
       case direction
       of SyncQueueKind.Forward:
@@ -1774,7 +1769,7 @@ proc doRangeSyncStep(
       false
 
   except CancelledError as exc:
-    overseer.bsqueue(direction).push(request)
+    overseer.tbsqueue(direction).push(request)
     raise exc
 
 proc doRangeSidecarsStep(
@@ -1788,7 +1783,7 @@ proc doRangeSidecarsStep(
 
   block:
     let
-      blockSlot = overseer.bsqueue(direction).inpSlot
+      blockSlot = overseer.tbsqueue(direction).inpSlot
       blockRange =
         SyncRange.init(blockSlot, uint64(overseer.blocksChunkSize))
 
@@ -1797,9 +1792,9 @@ proc doRangeSidecarsStep(
       block_slot = blockSlot
       block_range = $blockRange
       head = shortLog(dag.head)
-      block_buffer = shortLog(overseer.sbuffer(direction))
-      blocks_queue = shortLog(overseer.bsqueue(direction))
-      sidecars_queue = shortLog(overseer.ssqueue(direction))
+      block_buffer = shortLog(overseer.tsbuffer(direction))
+      blocks_queue = shortLog(overseer.tbsqueue(direction))
+      sidecars_queue = shortLog(overseer.tssqueue(direction))
       peer_checkpoint = shortLog(checkpoint)
       peer_head = shortLog(peer.getHeadBlockId())
       direction = direction
@@ -1807,23 +1802,23 @@ proc doRangeSidecarsStep(
     let notInRange =
       case direction
       of SyncQueueKind.Forward:
-        blockRange.last_slot < overseer.ssqueue(direction).startSlot
+        blockRange.last_slot < overseer.tssqueue(direction).startSlot
       of SyncQueueKind.Backward:
-        blockRange.last_slot < overseer.ssqueue(direction).finalSlot
+        blockRange.last_slot < overseer.tssqueue(direction).finalSlot
     if notInRange:
       debug "Sidecars queue is not in range, skipping step"
       return true
 
   let request =
-    overseer.ssqueue(direction).pop(checkpoint.epoch.start_slot(), peer)
+    overseer.tssqueue(direction).pop(checkpoint.epoch.start_slot(), peer)
 
   logScope:
     peer = peer
     request = request
     head = shortLog(dag.head)
-    block_buffer = shortLog(overseer.sbuffer(direction))
-    blocks_queue = shortLog(overseer.bsqueue(direction))
-    sidecars_queue = shortLog(overseer.ssqueue(direction))
+    block_buffer = shortLog(overseer.tsbuffer(direction))
+    blocks_queue = shortLog(overseer.tbsqueue(direction))
+    sidecars_queue = shortLog(overseer.tssqueue(direction))
     blob_quarantine = shortLog(overseer.blobQuarantine[])
     column_quarantine = shortLog(overseer.columnQuarantine[])
     peer_checkpoint = shortLog(checkpoint)
@@ -1845,7 +1840,7 @@ proc doRangeSidecarsStep(
     debug "Request cannot be satisfied by the peer",
       peer_ea_slot = peer.getEarliestAvailableSlot().get()
     peer.updateScore(PeerScoreNoValues)
-    overseer.ssqueue(direction).push(request)
+    overseer.tssqueue(direction).push(request)
     return true
 
   let consensusFork = dag.cfg.consensusForkAtEpoch(
@@ -1867,7 +1862,7 @@ proc doRangeSidecarsStep(
               peer.updateScore(PeerScoreNoValues)
               debug "Failed to receive blob sidecars range on request",
                 reason = $error
-              overseer.ssqueue(direction).push(request)
+              overseer.tssqueue(direction).push(request)
               return false
 
         debug "Received blob sidecars range from peer",
@@ -1879,9 +1874,9 @@ proc doRangeSidecarsStep(
             debug "Received invalid blob sidecars range",
               reason = $error, blobs_count = len(data),
               blobs = slimLog(data.asSeq())
-            overseer.ssqueue(direction).push(request)
+            overseer.tssqueue(direction).push(request)
             return false
-          blocks = overseer.sbuffer(direction).peekRange(request.data)
+          blocks = overseer.tsbuffer(direction).peekRange(request.data)
 
         defer:
           # Preemptively cleanup blocks range sidecar records list on exit
@@ -1899,14 +1894,14 @@ proc doRangeSidecarsStep(
               block_blobs_map = getBlockBlobsMap(request, blocks),
               blobs = slimLog(data.asSeq()),
               blocks = slimLog(blocks)
-            overseer.ssqueue(direction).push(request)
+            overseer.tssqueue(direction).push(request)
             return false
 
         if (len(blocks) == 0) and (len(grouped) > 0):
           # Case when we have no blocks, but a lot of blobs.
           debug "Received blobs range that, do not have corresponding blocks " &
                 "range"
-          overseer.ssqueue(direction).push(request)
+          overseer.tssqueue(direction).push(request)
           return false
 
         if sindex != len(grouped):
@@ -1929,7 +1924,7 @@ proc doRangeSidecarsStep(
           blocks_map = getShortMap(request, blocks),
           blobs = slimLog(data.asSeq())
 
-        let res = await overseer.ssqueue(direction).push(
+        let res = await overseer.tssqueue(direction).push(
           request, blocks, maybeFinalized = true)
 
         debug "Sidecars queue response",
@@ -1949,13 +1944,13 @@ proc doRangeSidecarsStep(
         res
 
       except CancelledError as exc:
-        overseer.ssqueue(direction).push(request)
+        overseer.tssqueue(direction).push(request)
         raise exc
 
     of ConsensusFork.Fulu:
       try:
         var
-          blocks = overseer.sbuffer(direction).peekRange(request.data)
+          blocks = overseer.tsbuffer(direction).peekRange(request.data)
 
         let
           custodyMap = overseer.validatorCustody.getMap()
@@ -1972,7 +1967,7 @@ proc doRangeSidecarsStep(
           debug "Peer does not have compatible columns",
             custody_map = shortLog(custodyMap),
             peer_map = shortLog(peerMap)
-          overseer.ssqueue(direction).push(request)
+          overseer.tssqueue(direction).push(request)
           return true
 
         let (columnsNeeded, columnsHave) =
@@ -2026,7 +2021,7 @@ proc doRangeSidecarsStep(
             intersect_map = shortLog(intersectMap),
             missing_count = missingCount,
             missing_log = missingLog
-          overseer.ssqueue(direction).push(request)
+          overseer.tssqueue(direction).push(request)
           return true
 
         if (len(blocks) == 0) or (columnsNeeded and columnsHave):
@@ -2040,7 +2035,7 @@ proc doRangeSidecarsStep(
                     peer.updateScore(PeerScoreNoValues)
                     debug "Failed to receive data column sidecars range " &
                           "on request", reason = $error
-                    overseer.ssqueue(direction).push(request)
+                    overseer.tssqueue(direction).push(request)
                     return false
 
           debug "Received data columns sidecars range from peer",
@@ -2058,7 +2053,7 @@ proc doRangeSidecarsStep(
                 debug "Received invalid data column sidecars range",
                   reason = $error, columns_count = len(data),
                   columns = slimLog(data.asSeq())
-                overseer.ssqueue(direction).push(request)
+                overseer.tssqueue(direction).push(request)
                 return false
 
           defer:
@@ -2073,7 +2068,7 @@ proc doRangeSidecarsStep(
                 debug "Received non-complete data column sidecars range",
                   reason = $error, columns_count = len(data),
                   columns = shortLog(grouped)
-                overseer.ssqueue(direction).push(request)
+                overseer.tssqueue(direction).push(request)
                 return false
 
           if (sindex == 0) and (bcount > 0):
@@ -2081,7 +2076,7 @@ proc doRangeSidecarsStep(
             # exists in the range.
             debug "Received empty columns range"
             peer.updateScore(PeerScoreMissingValues)
-            overseer.ssqueue(direction).push(request)
+            overseer.tssqueue(direction).push(request)
             return false
 
           for record in grouped:
@@ -2091,7 +2086,7 @@ proc doRangeSidecarsStep(
             # Case when we have no blocks, but a lot of blobs.
             debug "Received columns range which do not have corresponding " &
                   "blocks range"
-            overseer.ssqueue(direction).push(request)
+            overseer.tssqueue(direction).push(request)
             return false
 
         else:
@@ -2108,7 +2103,7 @@ proc doRangeSidecarsStep(
           blocks_count = len(blocks),
           blocks_map = getShortMap(request, blocks)
 
-        let res = await overseer.ssqueue(direction).push(
+        let res = await overseer.tssqueue(direction).push(
           request, blocks, maybeFinalized = true)
 
         debug "Sidecars queue response",
@@ -2137,7 +2132,7 @@ proc doRangeSidecarsStep(
         res
 
       except CancelledError as exc:
-        overseer.ssqueue(direction).push(request)
+        overseer.tssqueue(direction).push(request)
         raise exc
 
     of ConsensusFork.Gloas:
@@ -2152,15 +2147,15 @@ proc doRangeSidecarsStep(
     case direction
     of SyncQueueKind.Forward:
       let advanceSlot =
-        min(overseer.bsqueue(direction).inpSlot,
-          overseer.ssqueue(direction).inpSlot)
+        min(overseer.tbsqueue(direction).inpSlot,
+          overseer.tssqueue(direction).inpSlot)
       debug "Pruning sync data structures",
         advance_slot = advanceSlot, prune_epoch = advanceSlot.epoch()
       overseer.fblockBuffer.advance(advanceSlot)
     of SyncQueueKind.Backward:
       let advanceSlot =
-        max(overseer.bsqueue(direction).inpSlot,
-          overseer.ssqueue(direction).inpSlot)
+        max(overseer.tbsqueue(direction).inpSlot,
+          overseer.tssqueue(direction).inpSlot)
       debug "Pruning sync data structures",
         advance_slot = advanceSlot, prune_epoch = advanceSlot.epoch()
       overseer.bblockBuffer.advance(advanceSlot)
@@ -2168,7 +2163,7 @@ proc doRangeSidecarsStep(
   elif resp.count == 0:
     true
   else:
-    let rewindPoint = overseer.ssqueue(direction).inpSlot
+    let rewindPoint = overseer.tssqueue(direction).inpSlot
 
     logScope:
       code = resp.code
@@ -2176,7 +2171,7 @@ proc doRangeSidecarsStep(
       rewind_point = rewindPoint
       blck = shortLog(resp.blck)
 
-    let before = shortLog(overseer.sbuffer(direction))
+    let before = shortLog(overseer.tsbuffer(direction))
     # TODO (cheatfate): templates does not support `var` arguments.
     case direction
     of SyncQueueKind.Forward:
@@ -2188,29 +2183,29 @@ proc doRangeSidecarsStep(
 
     case direction
     of SyncQueueKind.Forward:
-      if rewindPoint < overseer.bsqueue(direction).startSlot:
+      if rewindPoint < overseer.tbsqueue(direction).startSlot:
         debug "Sidecars queue is not in range yet, no syncing needed"
         return false
 
-      if rewindPoint >= overseer.bsqueue(direction).inpSlot:
+      if rewindPoint >= overseer.tbsqueue(direction).inpSlot:
         debug "Blocks queue is far behind, no syncing needed"
         return false
 
       debug "Sidecars queue got rewind, syncing blocks queue"
-      await overseer.bsqueue(direction).resetWait(rewindPoint)
+      await overseer.tbsqueue(direction).resetWait(rewindPoint)
       debug "Sync queues are in sync"
 
     of SyncQueueKind.Backward:
-      if rewindPoint > overseer.bsqueue(direction).startSlot:
+      if rewindPoint > overseer.tbsqueue(direction).startSlot:
         debug "Sidecars queue is not in range yet, no syncing needed"
         return false
 
-      if rewindPoint <= overseer.bsqueue(direction).inpSlot:
+      if rewindPoint <= overseer.tbsqueue(direction).inpSlot:
         debug "Blocks queue is far behind, no syncing needed"
         return false
 
       debug "Sidecars queue got rewind, syncing blocks queue"
-      await overseer.bsqueue(direction).resetWait(rewindPoint)
+      await overseer.tbsqueue(direction).resetWait(rewindPoint)
       debug "Sync queues are in sync"
 
     false

@@ -11,7 +11,7 @@
 import std/sequtils
 import unittest2
 import chronos, stew/base10, chronos/unittest2/asynctests, libp2p/peerid
-import ../beacon_chain/networking/peer_scores
+import ../beacon_chain/networking/[peer_scores, eth2_agents]
 import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/[sync_queue, response_utils],
        ../beacon_chain/spec/[forks, column_map]
@@ -48,6 +48,9 @@ template shortLog(peer: SomeTPeer): string =
 
 func updateScore(peer: SomeTPeer, score: int) =
   peer[].score += score
+
+func getRemoteAgent(peer: SomeTPeer): Eth2Agent =
+  Eth2Agent.Nimbus
 
 func updateStats(peer: SomeTPeer, index: SyncResponseKind, score: uint64) =
   discard
