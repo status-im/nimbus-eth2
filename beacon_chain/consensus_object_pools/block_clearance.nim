@@ -535,10 +535,10 @@ proc addHeadExecutionPayload*(
     fatal "Invalid builder in processing envelope", head = shortLog(dag.head)
     quit 1
   if not verify_execution_payload_envelope_signature(
-      dag.forkAtEpoch(envelope.slot.epoch),
+      dag.forkAtEpoch(signedEnvelope.slot.epoch),
       dag.genesis_validators_root,
-      envelope.slot.epoch,
-      envelope,
+      signedEnvelope.slot.epoch,
+      signedEnvelope.message,
       builderKey,
       signedEnvelope.signature):
     return err(VerifierError.Invalid)
