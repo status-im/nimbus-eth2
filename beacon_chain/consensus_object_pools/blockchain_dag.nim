@@ -2747,17 +2747,6 @@ proc updateHeadExecutionPayload*(
     trace "Updating execution payload in incorrect fork"
     return
 
-  var cache: StateCache
-  if not updateState(
-      dag, dag.headState, head.bid.atSlot(), false, cache,
-      dag.updateFlags):
-    # Advancing the head state should never fail, given that the tail is
-    # implicitly finalised, the head is an ancestor of the tail and we always
-    # store the tail state in the database, as well as every epoch slot state in
-    # between
-    fatal "Unable to load head state during head update, database corrupt?"
-    quit 1
-
   debugGloasComment("update finalized head here?")
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
