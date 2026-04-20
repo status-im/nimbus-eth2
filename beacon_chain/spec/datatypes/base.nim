@@ -1045,6 +1045,8 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
+func checkConfigConsistency*(cfg: RuntimeConfig) =
+  cfg.checkForkConsistency()
   doAssert cfg.NUMBER_OF_CUSTODY_GROUPS <= NUMBER_OF_COLUMNS
 
 func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
