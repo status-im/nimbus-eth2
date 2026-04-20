@@ -149,8 +149,8 @@ func asConsensusType*(
         payload.blobsBundle.blobs.mapIt(it.data))),
     executionRequests: payload.executionRequests)
 
-func asConsensusTypeGloas*(
-    payload: GetPayloadV5Response): gloas.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payload: GetPayloadV6Response): gloas.ExecutionPayloadForSigning =
   gloas.ExecutionPayloadForSigning(
     executionPayload: payload.executionPayload.asConsensusType,
     blockValue: payload.blockValue,
