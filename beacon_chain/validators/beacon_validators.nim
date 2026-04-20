@@ -633,7 +633,7 @@ proc proposeBlockAux(
         signature: signatureRes.get()
       )
 
-      discard await node.router.routeExecutionPayloadEnvelope(
+      await node.router.routeExecutionPayloadEnvelope(
         signedEnvelope, checkValidator = false)
 
       notice "Payload Envelope proposed",
@@ -940,7 +940,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
     signature: signature
   )
 
-  discard await node.router.routePayloadAttestationMessage(
+  await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
@@ -971,6 +971,44 @@ proc sendPayloadAttestations(
         asyncSpawn createAndSendPayloadAttestation(
           node, fork, genesis_validators_root, validator, vidx, slot,
           target.blck.root)
+
+proc sendProposerPreferences(
+    node: BeaconNode, head: BlockRef,
+    slot: Slot) {.async: (raises: [CancelledError]).} =
+
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
+    return
+
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      for validator in node.attachedValidators[].items:
+        let validator_index =
+          validator.index.valueOr:
+            continue
+
+        for proposal_slot in get_upcoming_proposal_slots(
+            forkyState.data, validator_index.uint64):
+          let
+            data = ProposerPreferences(
+              validator_index: validator_index.uint64,
+              proposal_slot: proposal_slot)
+            signatureRes = await validator.getProposerPreferencesSignature(
+              fork, genesis_validators_root, data)
+
+          if signatureRes.isErr:
+            warn "Unable to sign proposer preferences",
+              validator = shortLog(validator),
+              error_msg = signatureRes.error
+            continue
+
+          let signed = SignedProposerPreferences(
+            message: data, signature: signatureRes.get)
+          
+          await node.router.routeProposerPreferences(signed)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -1405,6 +1443,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
+
+  asyncSpawn sendProposerPreferences(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
