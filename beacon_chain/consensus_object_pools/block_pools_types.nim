@@ -534,7 +534,6 @@ func init*(
     builder_index: v.message.builder_index,
     block_hash: v.message.payload.block_hash,
     block_root: v.message.beacon_block_root,
-    state_root: v.message.state_root,
     execution_optimistic: optimistic,
   )
 
@@ -547,7 +546,6 @@ func init*(
     builder_index: v.message.builder_index,
     block_hash: v.message.payload.block_hash,
     block_root: v.message.beacon_block_root,
-    state_root: v.message.state_root,
   )
 
 func init*(

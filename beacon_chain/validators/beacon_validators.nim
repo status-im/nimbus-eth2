@@ -610,12 +610,11 @@ proc proposeBlockAux(
   beacon_blocks_proposed.inc()
 
   when consensusFork >= ConsensusFork.Gloas:
+    debugGloasComment("check if slot/slot_number is set properly in eps")
     let envelope = makeExecutionPayloadEnvelope(
-      eps = engineBid[].eps,
-      execution_requests = engineBid[].execution_requests,
-      beacon_block_root = blockRoot,
-      slot = slot,
-      state_root = signedBlock.message.state_root)
+      engineBid[].eps,
+      engineBid[].execution_requests,
+      blockRoot)
 
     let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
       node.dag.forkAtEpoch(slot.epoch),

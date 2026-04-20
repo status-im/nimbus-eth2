@@ -189,21 +189,17 @@ func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
-    slot: Slot,
-    state_root: Eth2Digest,
 ): gloas.ExecutionPayloadEnvelope =
   gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
-    slot: slot,
-    state_root: state_root,
   )
 
 func makeSignedExecutionPayloadBid(
     T: type gloas.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
+    executionPayload: gloas.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -229,7 +225,7 @@ func makeSignedExecutionPayloadBid(
 
 func makeSignedExecutionPayloadBid(
     T: type heze.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
+    executionPayload: gloas.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,

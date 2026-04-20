@@ -304,6 +304,7 @@ RestJson.useDefaultSerializationFor(
   gloas.DataColumnSidecar,
   gloas.ExecutionPayloadBid,
   gloas.SignedExecutionPayloadBid,
+  gloas.ExecutionPayload,
   heze.BeaconBlock,
   heze.BeaconBlockBody,
   heze.BeaconState,
