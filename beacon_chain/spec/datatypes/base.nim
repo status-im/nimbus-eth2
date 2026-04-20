@@ -1016,7 +1016,7 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
   cache.participating.reset()
 
-func checkForkConsistency*(cfg: RuntimeConfig) =
+func checkForkConsistency(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
