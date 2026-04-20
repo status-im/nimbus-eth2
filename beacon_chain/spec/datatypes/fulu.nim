@@ -52,14 +52,6 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#custody-setting
   CUSTODY_REQUIREMENT* = 4
 
-  # Minimum number of custody groups an honest node with
-  # validators attached custodies and serves samples from
-  VALIDATOR_CUSTODY_REQUIREMENT* = 8
-
-  # Balance increment corresponding to one additional group to custody
-  # 2**5 * 10**9 (= 32,000,000,000) Gwei
-  BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
-
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/polynomial-commitments-sampling.md#custom-types
   BLSFieldElement* = KzgBytes32

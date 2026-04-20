@@ -170,6 +170,7 @@ iterator assigned_slots*(
       if i == o:
         break
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_ancestor_roots
 type SlotInfo* = object
   blck*: BlockRef
   support*: Gwei
@@ -307,6 +308,7 @@ func get_ancestor_support_by_slot*(
     result[i].total_support += result[i].support + result[i - 1].total_support
     result[i].total_adversarial += result[i - 1].total_adversarial
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_block_support_between_slots
 func get_block_support_between_slots(
     chain: seq[SlotInfo], slots: Slice[Slot], current_slot: Slot): Gwei =
   ## Return support of the block within ``slots``.
@@ -316,6 +318,7 @@ func get_block_support_between_slots(
   for i in b .. a:
     result += chain[i].support
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#is_full_validator_set_covered
 func is_full_validator_set_covered(slots: Slice[Slot]): bool =
   ## Return ``true`` if the range within ``slots`` includes an entire epoch.
   let
@@ -324,6 +327,7 @@ func is_full_validator_set_covered(slots: Slice[Slot]): bool =
 
   start_full_epoch < end_full_epoch
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#adjust_committee_weight_estimate_to_ensure_safety
 func adjust_committee_weight_estimate_to_ensure_safety(estimate: Gwei): Gwei =
   ## Return adjusted ``estimate`` of the weight of a committee for a sequence
   ## of slots spanning an epoch boundary that does not cover any full epoch.
@@ -377,6 +381,7 @@ func estimate_committee_weight_between_slots(
     adjust_committee_weight_estimate_to_ensure_safety(
       start_epoch_weight_pro_rated + end_epoch_weight)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_equivocation_score
 func get_equivocation_score(
     chain: seq[SlotInfo], slots: Slice[Slot], current_slot: Slot): Gwei =
   ## Return total weight of equivocating participants of all committees
@@ -387,6 +392,7 @@ func get_equivocation_score(
   for i in b .. a:
     result += chain[i].adversarial
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#compute_adversarial_weight
 func compute_adversarial_weight(
     equivocation_score: Gwei, slots: Slice[Slot],
     total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
@@ -403,6 +409,7 @@ func compute_adversarial_weight(
   else:
     0.Gwei
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#compute_adversarial_weight
 func compute_adversarial_weight(
     chain: seq[SlotInfo], slots: Slice[Slot], current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
@@ -412,6 +419,7 @@ func compute_adversarial_weight(
   equivocation_score.compute_adversarial_weight(
     slots, total_active_balance, byzantine_threshold)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#compute_adversarial_weight
 func compute_adversarial_weight(
     chain: seq[SlotInfo], start_slot, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
@@ -423,6 +431,7 @@ func compute_adversarial_weight(
   equivocation_score.compute_adversarial_weight(
     start_slot ..< current_slot, total_active_balance, byzantine_threshold)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_adversarial_weight
 func get_adversarial_weight(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
@@ -436,6 +445,7 @@ func get_adversarial_weight(
   chain.compute_adversarial_weight(
     start_slot, current_slot, total_active_balance, byzantine_threshold)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#compute_empty_slot_support_discount
 func compute_empty_slot_support_discount(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
@@ -461,6 +471,7 @@ func compute_empty_slot_support_discount(
   else:
     0.Gwei
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_support_discount
 func get_support_discount(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
@@ -471,10 +482,11 @@ func get_support_discount(
   chain.compute_empty_slot_support_discount(
     i, current_slot, total_active_balance, byzantine_threshold)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#compute_safety_threshold
 func compute_safety_threshold(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): Gwei =
-  ## Compute the LMD_GHOST safety threshold for ``chain[i].blck.root``.
+  ## Compute the LMD-GHOST safety threshold for ``chain[i].blck.root``.
   let
     parent_blck = chain[i + 1].blck
 
@@ -494,6 +506,7 @@ func compute_safety_threshold(
   else:
     0.Gwei
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#is_one_confirmed
 func is_one_confirmed(
     chain: seq[SlotInfo], i: int, current_slot: Slot,
     total_active_balance: Gwei, byzantine_threshold: uint64): bool =
@@ -526,6 +539,7 @@ func `$`*(diag: FcrDiagnostics): string =
 
 chronicles.formatIt FcrDiagnostics: $it
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#is_confirmed_chain_safe
 func is_confirmed_chain_safe(
     self: ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
     current_slot: Slot, diag: var FcrDiagnostics): FcResult[bool] =
@@ -583,6 +597,7 @@ func is_confirmed_chain_safe(
       return ok false
   ok true
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_latest_confirmed
 proc should_revert_confirmed_on_new_epoch*(
     self: var ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
     current_slot: Slot, diag: var FcrDiagnostics): FcResult[bool] =
@@ -599,6 +614,7 @@ proc should_revert_confirmed_on_new_epoch*(
 
   ok not ? self.is_confirmed_chain_safe(dag, confirmed, current_slot, diag)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_latest_confirmed
 func should_revert_confirmed_on_new_head*(
     self: ForkChoiceBackend, blck: BlockRef,
     confirmed: BlockId, current_slot: Slot): FcResult[bool] =
@@ -614,6 +630,7 @@ func should_revert_confirmed_on_new_head*(
     blck = blck.parent
   ok(blck == nil or blck.root != confirmed.root)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_latest_confirmed
 func should_restart_confirmation_chain*(
     self: ForkChoiceBackend,
     confirmed: BlockId, current_slot: Slot): FcResult[bool] =
@@ -653,6 +670,7 @@ func should_restart_confirmation_chain*(
   let is_confirmed_block_stale = confirmed.slot < observed_justified_block_slot
   ok is_confirmed_block_stale
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_current_target
 func get_current_target(blck: BlockRef, current_slot: Slot): Checkpoint =
   ## Return current epoch target.
   let current_epoch = current_slot.epoch
@@ -660,6 +678,7 @@ func get_current_target(blck: BlockRef, current_slot: Slot): Checkpoint =
     epoch: current_epoch,
     root: blck.atSlot(current_epoch.start_slot).blck.root)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#get_current_target_score
 type CurrentTargetInfo* = object
   total_active_balance*: Gwei
   total_support*: Gwei
@@ -743,6 +762,7 @@ proc get_current_target_info*(
     result.ok self.get_current_target_info(
       roots, epochRef.shufflingRef, epochRef.fork_choice_balances, current_slot)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#compute_honest_ffg_support_for_current_target
 func compute_honest_ffg_support_for_current_target(
     info: CurrentTargetInfo, current_slot: Slot,
     byzantine_threshold: uint64): Gwei =
@@ -772,6 +792,7 @@ func compute_honest_ffg_support_for_current_target(
 
   min_honest_ffg_support + remaining_honest_ffg_weight
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#will_no_conflicting_checkpoint_be_justified
 func will_no_conflicting_checkpoint_be_justified(
     info: CurrentTargetInfo, blck: BlockRef, unrealized: Checkpoint,
     current_slot: Slot, byzantine_threshold: uint64): bool =
@@ -787,6 +808,7 @@ func will_no_conflicting_checkpoint_be_justified(
     current_slot, byzantine_threshold)
   3 * honest_ffg_support > 1 * info.total_active_balance
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#will_current_target_be_justified
 func will_current_target_be_justified(
     info: CurrentTargetInfo,
     current_slot: Slot, byzantine_threshold: uint64): bool =
@@ -796,6 +818,7 @@ func will_current_target_be_justified(
     current_slot, byzantine_threshold)
   3 * honest_ffg_support >= 2 * info.total_active_balance
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#find_latest_confirmed_descendant
 proc find_latest_confirmed_descendant*(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
     blck: BlockRef, unrealized: Checkpoint,
@@ -876,7 +899,7 @@ proc find_latest_confirmed_descendant*(
       j = max(j, chain.index(prev_epoch_end, current_slot))
 
       # Starting with the child of the latest_confirmed_root
-      # move towards the head in attempt to advance confirmed block
+      # move towards the head in attempt to advance the confirmed block
       # and stop when the first unconfirmed descendant is encountered
       for i in countdown(confirmed_i - 1, j):
         if chain[i].blck == chain[i + 1].blck:

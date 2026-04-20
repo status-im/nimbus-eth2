@@ -21,7 +21,7 @@ import
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
-from std/sequtils import repeat, toSeq
+from std/sequtils import mapIt, repeat, toSeq
 from stew/staticfor import staticFor
 
 type
@@ -387,43 +387,36 @@ proc assemble_data_column_sidecars*(
   sidecars
 
 proc assemble_partial_data_column_sidecars*(
-    signed_beacon_block: fulu.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[Opt[KzgProof]]): seq[fulu.PartialDataColumnSidecar] =
   ## Returns a seq where element i corresponds to column index i.
   var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
 
-  when signed_beacon_block is gloas.SignedBeaconBlock:
-    debugGloasComment "kzg_commitments removed from beaconblock in gloas"
+  if blobs.len == 0 or blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
     return sidecars
-  else:
-    if blobs.len == 0 or blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
-      return sidecars
-    if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
-      return sidecars
+  if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return sidecars
 
-    var cells = newSeq[CellBytes](blobs.len)
-    for i in 0 ..< blobs.len:
-      cells[i] = computeCells(blobs[i]).get
+  let cells = blobs.mapIt(computeCells(it).get)
 
-    for columnIndex in 0..<CELLS_PER_EXT_BLOB:
-      var
-        bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-        partialColumn = newSeqOfCap[KzgCell](blobs.len)
-        partialProofs = newSeqOfCap[KzgProof](blobs.len)
+  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
+    var
+      bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+      partialColumn = newSeqOfCap[KzgCell](blobs.len)
+      partialProofs = newSeqOfCap[KzgProof](blobs.len)
 
-      for rowIndex in 0..<blobs.len:
-        let proofOpt = cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]
-        if proofOpt.isSome:
-          bitmap[Natural(rowIndex)] = true
-          partialColumn.add(cells[rowIndex][columnIndex])
-          partialProofs.add(proofOpt.get)
+    for rowIndex in 0..<blobs.len:
+      let proofOpt = cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]
+      if proofOpt.isSome:
+        bitmap[Natural(rowIndex)] = true
+        partialColumn.add(cells[rowIndex][columnIndex])
+        partialProofs.add(proofOpt.get)
 
-      sidecars.add fulu.PartialDataColumnSidecar(
-        cells_present_bitmap: bitmap,
-        partial_columns: DataColumn.init(partialColumn),
-        kzg_proofs: deneb.KzgProofs.init(partialProofs))
+    sidecars.add fulu.PartialDataColumnSidecar(
+      cells_present_bitmap: bitmap,
+      partial_columns: DataColumn.init(partialColumn),
+      kzg_proofs: deneb.KzgProofs.init(partialProofs))
 
-    sidecars
+  sidecars
 
 proc verify_partial_data_column_sidecar_kzg_proofs*(
     sidecar: fulu.PartialDataColumnSidecar,

@@ -1781,10 +1781,11 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when consensusFork < ConsensusFork.Fulu: continue
         else:
-          for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            if node.db.delDataColumnSidecar(
-                consensusFork, blocks[int(i)].root, ColumnIndex(j)):
-              count = count + 1
+          # Iterate the full column space rather than just the local custody
+          # set so late-arriving or reconstructed columns outside of this
+          # node's custody groups are also cleaned up.
+          count += node.db.delDataColumnSidecars(
+            consensusFork, blocks[int(i)].root)
     debug "pruned data columns", count, dataColumnPruneEpoch
 
 proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
