@@ -1262,30 +1262,6 @@ proc apply_parent_execution_payload(
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-process_parent_execution_payload
-proc process_parent_execution_payload*(
-    cfg: RuntimeConfig,
-    state: var gloas.BeaconState,
-    blck: SomeGloasBeaconBlock,
-    cache: var StateCache): Result[void, cstring] =
-  template bid(): auto = blck.body.signed_execution_payload_bid.message
-  template parent_bid(): auto = state.latest_execution_payload_bid
-  template requests(): auto = blck.body.parent_execution_requests
-
-  # True if this block built on the parent's full payload
-  let is_parent_block_full = bid.parent_block_hash == parent_bid.block_hash
-
-  if not is_parent_block_full:
-    # Parent was EMPTY -- no execution requests expected
-    if not (requests == default(ExecutionRequests)):
-      return err("process_parent_execution_payload: execution requests not empty")
-    return ok()
-
-  # Parent was FULL -- verify the bid commitment and apply the payload
-  if not (hash_tree_root(requests) == parent_bid.execution_requests_root):
-    return err("process_parent_execution_payload: execution requests root mismatch")
-  apply_parent_execution_payload(cfg, state, parent_bid, requests, cache)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
@@ -1357,17 +1333,19 @@ type SomeHezeBeaconBlock =
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-process_parent_execution_payload
 proc process_parent_execution_payload*(
     cfg: RuntimeConfig,
-    state: var heze.BeaconState,
-    blck: SomeHezeBeaconBlock,
+    state: var (gloas.BeaconState | heze.BeaconState),
+    blck: SomeGloasBeaconBlock | SomeHezeBeaconBlock,
     cache: var StateCache): Result[void, cstring] =
   template bid(): auto = blck.body.signed_execution_payload_bid.message
   template parent_bid(): auto = state.latest_execution_payload_bid
   template requests(): auto = blck.body.parent_execution_requests
 
   # True if this block built on the parent's full payload
-  let is_parent_block_full = bid.parent_block_hash == parent_bid.block_hash
+  let
+    is_gensis_block = parent_bid.block_hash.isZero()
+    is_parent_block_empty = bid.parent_block_hash != parent_bid.block_hash
 
-  if not is_parent_block_full:
+  if is_gensis_block or is_parent_block_empty:
     # Parent was EMPTY -- no execution requests expected
     if not (requests == default(ExecutionRequests)):
       return err("process_parent_execution_payload: execution requests not empty")
@@ -1590,7 +1568,11 @@ func update_next_withdrawal_builder_index(
 func process_withdrawals*(state: var (gloas.BeaconState | heze.BeaconState)):
     Result[void, cstring] =
   # return early if the parent block was empty
-  if not is_parent_block_full(state):
+  let
+    is_gensis_block = state.latest_block_hash.isZero()
+    is_parent_block_empty = state.latest_block_hash !=
+      state.latest_execution_payload_bid.block_hash
+  if is_gensis_block or is_parent_block_empty:
     return ok()
 
   let expected = get_expected_withdrawals(state)

@@ -254,9 +254,9 @@ func initiate_builder_exit*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     builder_index: BuilderIndex) =
   ## Initiate the exit of the builder with index ``index``.
-  let builder = addr state.builders.mitem(builder_index)
-  if builder.withdrawable_epoch != FAR_FUTURE_EPOCH:
-    return
+
+  # Set builder exit epoch
+  var builder = state.builders.mitem(builder_index)
   builder.withdrawable_epoch =
     get_current_epoch(state) + cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY
 
@@ -2965,7 +2965,8 @@ func upgrade_to_next*(
 
     # [Modified in Gloas:EIP7732]
     latest_execution_payload_bid: gloas.ExecutionPayloadBid(
-      block_hash: pre.latest_execution_payload_header.block_hash
+      block_hash: pre.latest_execution_payload_header.block_hash,
+      execution_requests_root: hash_tree_root(default(ExecutionRequests)),
     ),
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
