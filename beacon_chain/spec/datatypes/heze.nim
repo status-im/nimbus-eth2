@@ -436,11 +436,11 @@ template asTrusted*(
 
 # Helpers to frequently used values
 template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
-  template bid(): auto = v.body.signed_execution_payload_bid
-  if bid.message.builder_index == BUILDER_INDEX_SELF_BUILD:
+  if v.body.signed_execution_payload_bid.message.builder_index ==
+      BUILDER_INDEX_SELF_BUILD:
     v.proposer_index
   else:
-    bid.message.builder_index
+    v.body.signed_execution_payload_bid.message.builder_index
 template builder_index*(
     v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
   v.message.builder_index
