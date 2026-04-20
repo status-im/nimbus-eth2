@@ -330,11 +330,7 @@ proc prepareNextSlot*(
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
   withState(dag.clearanceState):
-    when consensusFork == ConsensusFork.Heze:
-      debugHezeComment "well, likely can't keep reusing V3 much longer"
-    elif consensusFork == ConsensusFork.Gloas:
-      debugGloasComment "well, likely can't keep reusing V3 much longer"
-    elif consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
+    when consensusFork >= ConsensusFork.Electra:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       let
         timestamp = dag.timeParams
@@ -359,13 +355,20 @@ proc prepareNextSlot*(
           headBlockHash, beaconHead.safeExecutionBlockHash,
           beaconHead.finalizedExecutionBlockHash,
         )
-        attributes = PayloadAttributesV3.init(
-          timestamp,
-          prevRandao,
-          feeRecipient,
-          get_expected_withdrawals(forkyState.data),
-          beaconHead.blck.bid.root,
-        )
+        withdrawals =
+          when consensusFork >= ConsensusFork.Gloas:
+            get_expected_withdrawals(forkyState.data).withdrawals
+          else:
+            get_expected_withdrawals(forkyState.data)
+        attributes =
+          when consensusFork >= ConsensusFork.Gloas:
+            PayloadAttributesV4.init(
+              timestamp, prevRandao, feeRecipient, withdrawals,
+              beaconHead.blck.bid.root, proposalSlot.uint64)
+          else:
+            PayloadAttributesV3.init(
+              timestamp, prevRandao, feeRecipient, withdrawals,
+              beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
           state, Opt.some(attributes), deadline, false
