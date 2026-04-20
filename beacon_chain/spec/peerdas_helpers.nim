@@ -554,13 +554,14 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
   verify_data_column_sidecar_kzg_proofs(sidecar, sidecar.kzg_commitments)
 
 proc verify_data_column_sidecar_kzg_proofs*[
-    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar |
+       ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar](
     sidecars: openArray[T],
     kzg_commitments: KzgCommitments): Result[void, cstring] =
   ## Batch verify KZG proofs across multiple DataColumnSidecars.
   ## All cells/commitments/proofs from every sidecar are flattened into a
   ## single `verifyCellKzgProofBatch` call, which is more efficient than
-  ## verifying each sidecar individually.
+  ## verifying each sidecar individually. Accepts either values or refs.
   if sidecars.len == 0:
     return ok()
 
@@ -597,6 +598,13 @@ proc verify_data_column_sidecar_kzg_proofs*[
 proc verify_data_column_sidecar_kzg_proofs*(
     sidecars: openArray[fulu.DataColumnSidecar]): Result[void, cstring] =
   ## Batch verify KZG proofs across multiple fulu DataColumnSidecars.
+  if sidecars.len == 0:
+    return ok()
+  verify_data_column_sidecar_kzg_proofs(sidecars, sidecars[0].kzg_commitments)
+
+proc verify_data_column_sidecar_kzg_proofs*(
+    sidecars: openArray[ref fulu.DataColumnSidecar]): Result[void, cstring] =
+  ## Batch verify KZG proofs across multiple fulu DataColumnSidecars (ref variant).
   if sidecars.len == 0:
     return ok()
   verify_data_column_sidecar_kzg_proofs(sidecars, sidecars[0].kzg_commitments)
