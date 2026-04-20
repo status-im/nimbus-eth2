@@ -1670,6 +1670,17 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
         res = entry.EPOCH
     res
 
+func nextForkDigestAtEpoch*(
+    cfg: RuntimeConfig, forkDigests: ForkDigests, epoch: Epoch): ForkDigest =
+  ## Compute the next fork digest for ENR `nfd` field.
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/fulu/p2p-interface.md#next-fork-digest
+  let nextForkEpoch = cfg.nextForkEpochAtEpoch(epoch)
+  # If no next fork is scheduled, `nfd` should be zeros by default.
+  if nextForkEpoch == FAR_FUTURE_EPOCH:
+    default(ForkDigest)
+  else:
+    forkDigests.atEpoch(nextForkEpoch, cfg)
+
 func lcDataForkAtConsensusFork*(
     consensusFork: ConsensusFork): LightClientDataFork =
   static: doAssert LightClientDataFork.high == LightClientDataFork.Electra

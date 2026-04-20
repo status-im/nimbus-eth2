@@ -2377,12 +2377,7 @@ proc createEth2Node*(
     wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
     discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
-    nextForkEpoch = cfg.nextForkEpochAtEpoch(wallEpoch)
-    initialNextForkDigest =
-      if nextForkEpoch == FAR_FUTURE_EPOCH:
-        default(ForkDigest)
-      else:
-        forkDigests[].atEpoch(nextForkEpoch, cfg)
+    initialNextForkDigest = cfg.nextForkDigestAtEpoch(forkDigests[], wallEpoch)
     listenAddress =
       if config.listenAddress.isSome():
         config.listenAddress.get()
@@ -2757,7 +2752,7 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
 proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/fulu/p2p-interface.md#next-fork-digest
   if node.nextForkDigest == next_fork_digest:
     return
 
