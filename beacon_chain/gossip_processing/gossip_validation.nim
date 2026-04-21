@@ -636,7 +636,8 @@ proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine,
     data_column_sidecar: fulu.DataColumnSidecar,
-    wallTime: BeaconTime, subnet_id: uint64):
+    wallTime: BeaconTime, subnet_id: uint64,
+    checkKzgProofs = true):
     Result[void, ValidationError] =
 
   # If the header is invalid, so is the block that shares its block_root ->
@@ -744,7 +745,9 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`
-  block:
+  # Skipped when the caller intends to perform a batched KZG verification
+  # across many sidecars.
+  if checkKzgProofs:
     let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
     if r.isErr:
       return dag.checkedReject(r.error)
@@ -768,7 +771,8 @@ proc validateDataColumnSidecar*(
     gloasColumnQuarantine: ref GloasColumnQuarantine,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     data_column_sidecar: gloas.DataColumnSidecar,
-    wallTime: BeaconTime, subnet_id: uint64):
+    wallTime: BeaconTime, subnet_id: uint64,
+    checkKzgProofs = true):
     Result[void, ValidationError] =
 
   template blockRoot(): auto = data_column_sidecar.beacon_block_root
@@ -819,7 +823,9 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's column data is valid as verified by
   # `verify_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments)`.
-  block:
+  # Skipped when the caller intends to perform a batched KZG verification
+  # across many sidecars.
+  if checkKzgProofs:
     let v = verify_data_column_sidecar_kzg_proofs(
       data_column_sidecar, bid.blob_kzg_commitments)
     if v.isErr:
