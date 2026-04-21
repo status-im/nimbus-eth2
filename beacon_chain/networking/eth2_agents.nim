@@ -12,6 +12,7 @@ import std/tables
 
 type
   Eth2Agent* {.pure.} = enum
+    Pending,
     Unknown,
     Nimbus,
     Lighthouse,
@@ -22,8 +23,10 @@ type
 
 func `$`*(a: Eth2Agent): string =
   case a
+  of Eth2Agent.Pending:
+    "pending"
   of Eth2Agent.Unknown:
-    "pending/unknown"
+    "unrecognized"
   of Eth2Agent.Nimbus:
     "nimbus"
   of Eth2Agent.Lighthouse:
@@ -125,7 +128,7 @@ func disconnectReasonName*(agent: Eth2Agent, code: uint64): string =
       defaultMessage = "Disconnected"
 
     case agent
-    of Eth2Agent.Unknown:
+    of Eth2Agent.Pending, Eth2Agent.Unknown:
       UnknownErrors.getOrDefault(code, defaultMessage) & scode
     of Eth2Agent.Nimbus:
       NimbusErrors.getOrDefault(code, defaultMessage) & scode

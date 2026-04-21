@@ -358,10 +358,9 @@ func shortProtocolId(protocolId: string): string =
       protocolId.high
   protocolId[start..ends]
 
-func updateAgent*(peer: Peer) =
+proc updateAgent*(peer: Peer) =
   let
     agent = toLowerAscii(peer.network.switch.peerStore[AgentBook][peer.peerId])
-    # proto = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId]
 
   if "nimbus" in agent:
     peer.remoteAgent = Eth2Agent.Nimbus
@@ -376,10 +375,14 @@ func updateAgent*(peer: Peer) =
   elif "grandine" in agent:
     peer.remoteAgent = Eth2Agent.Grandine
   else:
+    debug "New unknown agent string discovered",
+      peer = shortLog(peer),
+      protocol = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId],
+      agent = agent
     peer.remoteAgent = Eth2Agent.Unknown
 
-func getRemoteAgent*(peer: Peer): Eth2Agent =
-  if peer.remoteAgent == Eth2Agent.Unknown:
+proc getRemoteAgent*(peer: Peer): Eth2Agent =
+  if peer.remoteAgent == Eth2Agent.Pending:
     peer.updateAgent()
   peer.remoteAgent
 

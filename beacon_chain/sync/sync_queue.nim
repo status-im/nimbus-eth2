@@ -421,7 +421,7 @@ proc drainCompleteness[M, N](
 ) =
   inc(criteria.count)
 
-func fillCompleteness[M](
+proc fillCompleteness[M](
     sq: SyncQueue[M, BlockCompleteness],
     srange: SyncRange,
     peer: M,
@@ -435,7 +435,7 @@ func fillCompleteness[M](
 func countIt(item: var ColumnItem, value: int) =
   item.count = item.count + value
 
-func fillCompleteness[M](
+proc fillCompleteness[M](
     sq: SyncQueue[M, ColumnCompleteness],
     srange: SyncRange,
     peer: M,
