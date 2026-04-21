@@ -66,7 +66,6 @@ type
     validatorCustody*: ref ValidatorCustody
     fblockBuffer*: BlocksRangeBuffer
     bblockBuffer*: BlocksRangeBuffer
-    rblockBuffer*: BlocksRootBuffer
     blockQuarantine*: ref Quarantine
     blobQuarantine*: ref BlobQuarantine
     columnQuarantine*: ref ColumnQuarantine

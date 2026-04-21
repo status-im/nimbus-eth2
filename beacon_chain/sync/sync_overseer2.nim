@@ -104,12 +104,15 @@ func slimLog(columns: openArray[ref fulu.DataColumnSidecar]): string =
   res.add(']')
   res
 
-func slimLog(blck: ref ForkedSignedBeaconBlock): string =
-  "(" & $blck.kind & ",slot:" & $blck[].slot() &
-    ",root:" & shortLog(blck[].root()) &
-    ",parent_root:" & shortLog(blck[].parent_root()) & ")"
+func slimLog(blck: ForkedSignedBeaconBlock): string =
+  "(" & $blck.kind & ",slot:" & $blck.slot() &
+    ",root:" & shortLog(blck.root()) &
+    ",parent_root:" & shortLog(blck.parent_root()) & ")"
 
 func slimLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
+  "[" & blocks.mapIt(slimLog(it[])).join(",") & "]"
+
+func slimLog(blocks: openArray[ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it)).join(",") & "]"
 
 proc getEaSlotLog(peer: Peer): string =
@@ -978,7 +981,7 @@ proc verifyBlock(
             overseer.blobQuarantine[].put(forkyBlck.root, bres.get())
           res
         else:
-          overseer.rblockBuffer.add(signedBlock)
+          overseer.blockQuarantine[].addSidecarless(forkyBlck)
           Result[void, VerifierError].err(VerifierError.MissingSidecars)
       else:
         await overseer.blockProcessor.addBlock(
@@ -1002,7 +1005,7 @@ proc verifyBlock(
             overseer.columnQuarantine[].put(forkyBlck.root, cres.get())
           res
         else:
-          overseer.rblockBuffer.add(signedBlock)
+          overseer.blockQuarantine[].addSidecarless(forkyBlck)
           Result[void, VerifierError].err(VerifierError.MissingSidecars)
       else:
         await overseer.blockProcessor.addBlock(
@@ -1388,8 +1391,8 @@ proc doPeerUpdateRootsSidecars(
     bids = headEntry.getMissingSidecarsRoots()
 
   var
-    emptyBlobBlocks: seq[ref ForkedSignedBeaconBlock]
-    emptyColumnBlocks: seq[ref ForkedSignedBeaconBlock]
+    emptyBlobBlocks: seq[ForkedSignedBeaconBlock]
+    emptyColumnBlocks: seq[ForkedSignedBeaconBlock]
     blobRoots: seq[BlobIdentifier]
     columnRoots: seq[DataColumnsByRootIdentifier]
     columnsCount = 0
@@ -1411,17 +1414,10 @@ proc doPeerUpdateRootsSidecars(
 
   for bid in bids:
     let signedBlock =
-      block:
-        var res: ref ForkedSignedBeaconBlock
-        res = overseer.rblockBuffer.getOrDefault(bid.root)
-        if isNil(res):
-          let qres = overseer.blockQuarantine[].peekSidecarless(bid.root)
-          if qres.isNone():
-            continue
-          res = newClone qres.get()
-        res
+      overseer.blockQuarantine[].peekSidecarless(bid.root).valueOr:
+        continue
 
-    withBlck(signedBlock[]):
+    withBlck(signedBlock):
       when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
         let requests =
           overseer.blobQuarantine[].fetchMissingSidecars(
@@ -1466,7 +1462,7 @@ proc doPeerUpdateRootsSidecars(
 
     defer:
       # Preemptively cleanup blocks range on exit
-      cleanupList(emptyBlobBlocks)
+      emptyBlobBlocks.reset()
 
     let
       blobSidecars =
@@ -1513,7 +1509,7 @@ proc doPeerUpdateRootsSidecars(
 
     for signedBlock in emptyBlobBlocks:
       debug "Processing block by root", blck = slimLog(signedBlock)
-      withBlck(signedBlock[]):
+      withBlck(signedBlock):
         when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
           if not(isNil(entry)) and (DagEntryFlag.MissingSidecars in entry.flags):
@@ -1525,26 +1521,27 @@ proc doPeerUpdateRootsSidecars(
               of VerifierError.Invalid:
                 peer.updateScore(PeerScoreBadResponse)
                 entry.flags.excl(DagEntryFlag.MissingSidecars)
-                overseer.rblockBuffer.remove(forkyBlck.root)
+                overseer.blockQuarantine[].remove(forkyBlck)
                 return false
               of VerifierError.UnviableFork:
                 peer.updateScore(PeerScoreUnviableFork)
                 entry.flags.incl(DagEntryFlag.Unviable)
                 entry.flags.excl(DagEntryFlag.MissingSidecars)
-                overseer.rblockBuffer.remove(forkyBlck.root)
+                discard overseer.blockQuarantine[].addUnviable(
+                  forkyBlck.root, UnviableKind.UnviableFork)
                 return false
               of VerifierError.MissingParent, VerifierError.Duplicate:
                 # This flags means that we have sidecars.
                 entry.flags.excl(DagEntryFlag.MissingSidecars)
                 peer.updateScore(PeerScoreGoodValues)
-                overseer.rblockBuffer.remove(forkyBlck.root)
+                overseer.blockQuarantine[].remove(forkyBlck)
               of VerifierError.MissingSidecars:
                 # We still missing sidecars.
                 discard
             else:
               debug "Block processor response", reason = "ok",
                 blck = slimLog(signedBlock)
-              overseer.rblockBuffer.remove(forkyBlck.root)
+              overseer.blockQuarantine[].remove(forkyBlck)
               peer.updateScore(PeerScoreGoodValues)
               entry.flags.excl(DagEntryFlag.MissingSidecars)
         else:
@@ -1568,7 +1565,7 @@ proc doPeerUpdateRootsSidecars(
 
   defer:
     # Preemptively cleanup blocks range on exit
-    cleanupList(emptyColumnBlocks)
+    emptyColumnBlocks.reset()
 
   let
     consensusFork = ConsensusFork.Fulu
@@ -1625,7 +1622,7 @@ proc doPeerUpdateRootsSidecars(
   for signedBlock in emptyColumnBlocks:
     debug "Processing single block and sidecars by root",
       blck = slimLog(signedBlock)
-    withBlck(signedBlock[]):
+    withBlck(signedBlock):
       when consensusFork == ConsensusFork.Fulu:
         let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
         if not(isNil(entry)):
@@ -1641,7 +1638,7 @@ proc doPeerUpdateRootsSidecars(
               entry.flags.incl(
                 {DagEntryFlag.Pending, DagEntryFlag.MissingSidecars})
               entry.parent = nil
-              overseer.rblockBuffer.remove(forkyBlck.root)
+              overseer.blockQuarantine[].remove(forkyBlck)
               overseer.columnQuarantine[].remove(forkyBlck.root)
               # We add this block's root into global missing root table, so
               # all other peers will try to re-download it again.
@@ -1651,7 +1648,8 @@ proc doPeerUpdateRootsSidecars(
               # TODO (cheatfate): Think about this part!
               entry.flags.excl(DagEntryFlag.MissingSidecars)
               entry.flags.incl(DagEntryFlag.Unviable)
-              overseer.rblockBuffer.remove(forkyBlck.root)
+              discard overseer.blockQuarantine[].addUnviable(
+                forkyBlck.root, UnviableKind.UnviableFork)
               return false
             of VerifierError.MissingParent, VerifierError.Duplicate:
               # This flags means that we have sidecars.
@@ -1662,7 +1660,7 @@ proc doPeerUpdateRootsSidecars(
           else:
             debug "Block and sidecars by root processor response",
               reason = "ok", blck = slimLog(signedBlock)
-            overseer.rblockBuffer.remove(forkyBlck.root)
+            overseer.blockQuarantine[].remove(forkyBlck)
             entry.flags.excl(DagEntryFlag.MissingSidecars)
       else:
         raiseAssert "Should not be happen!"
@@ -2117,7 +2115,7 @@ proc doRangeSidecarsStep(
             blck = getBlock(blocks, res.blck.get().root, res.blck.get().slot)
           doAssert(not(isNil(blck)), "Should not be nil")
           debug "Sidecars range still missing items",
-            blck = slimLog(blck),
+            blck = slimLog(blck[]),
             peer_map = shortLog(peerMap),
             missing_sidecars = overseer.getMissingIndicesLog(blck)
 
@@ -2512,7 +2510,7 @@ proc timeMonitoringLoop(
         forward_sidecars_queue = shortLog(overseer.fsqueue),
         backfill_blocks_queue = shortLog(overseer.bqueue),
         backfill_sidecars_queue = shortLog(overseer.bsqueue),
-        root_block_buffer_length = len(overseer.rblockBuffer),
+        sidecarless_quarantine = len(overseer.blockQuarantine.sidecarless),
         blob_quarantine = shortLog(overseer.blobQuarantine[]),
         column_quarantine = shortLog(overseer.columnQuarantine[]),
         useful_peers = distribution[2],
@@ -2707,8 +2705,8 @@ proc finalMonitoringLoop(
 
       # Pruning SyncDag.
       overseer.sdag.prune(event.epoch)
-      # Pruning BlocksRootBuffer.
-      overseer.rblockBuffer.prune(event.epoch)
+      overseer.blockQuarantine[].pruneAfterFinalization(
+        event.epoch, dag.needsBackfill)
 
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
@@ -2733,59 +2731,6 @@ iterator popBlocks(
     for blck in quarantine[].popSidecarlessBlocks(root):
       yield blck
 
-proc checkBuffer(
-    overseer: SyncOverseerRef2,
-    head: BlockId
-): Future[bool] {.async: (raises: [CancelledError]).} =
-  logScope:
-    source = "Buffer"
-    local_head = shortLog(head)
-
-  var recovery: seq[ref ForkedSignedBeaconBlock]
-  defer:
-    for blck in recovery:
-      overseer.rblockBuffer.add(blck)
-
-  for blck in overseer.rblockBuffer.popBlocks(head.root):
-    let blockId = BlockId(slot: blck[].slot, root: blck[].root)
-    logScope:
-      bid = shortLog(blockId)
-
-    debug "Processing late block"
-    let res = await overseer.verifyBlock(blck[], maybeFinalized = false)
-    if res.isErr():
-      debug "Late block processor response", reason = res.error
-      # In case of error we should recover block in data structure.
-      recovery.add(blck)
-
-      if res.error == VerifierError.MissingSidecars:
-        recovery.add(blck)
-        let entry = overseer.sdag.roots.getOrDefault(blockId.root)
-        if not(isNil(entry)):
-          debug "Late block is already known, updating flags",
-            reason = res.error,
-            missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags)
-          entry.flags.incl(DagEntryFlag.MissingSidecars)
-          continue
-
-        debug "Late block is not known, adding new entry"
-
-        discard
-          overseer.sdag.roots.mgetOrPut(
-            blockId.root, SyncDagEntryRef.init(blockId))
-        overseer.updatePeer(
-          overseer.localPeerId, peerMustPresent = false,
-          blockId.slot, blockId.root,
-          blck[].parent_root,
-          sidecarsMissed = true)
-    else:
-      debug "Late block processor response", reason = "ok"
-      # If block was added succesfully block processor will continue
-      # process of adding blocks from quarantine.
-      return true
-
-  false
-
 proc checkData(
     overseer: SyncOverseerRef2,
     head: BlockId,
@@ -2793,7 +2738,7 @@ proc checkData(
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
-    quarantine = overseer.consensusManager.quarantine
+    quarantine = overseer.blockQuarantine
 
   logScope:
     source = $src
@@ -2880,16 +2825,13 @@ proc lateBlockMonitoringLoop*(
       debug "Check for late blocks", synced_slot = syncedSlot,
         head = shortLog(head), distance = syncedSlot - dag.head.slot
 
-      if not(await overseer.checkBuffer(head)):
-        debug "No ancestor blocks from buffer found for current head"
+      if not(await overseer.checkData(
+        head, BlocksSource.OrphansQuarantine)):
+        debug "No ancestor orphan blocks found for current head"
         if not(await overseer.checkData(
-          head, BlocksSource.OrphansQuarantine)):
-          debug "No ancestor orphan blocks found for current head"
-          if not(await overseer.checkData(
-            head, BlocksSource.SidecarlessQuarantine)):
-            debug "No ancestor sidecarless blocks found for current head"
-
-      await sleepAsync(5.seconds)
+          head, BlocksSource.SidecarlessQuarantine)):
+          debug "No ancestor sidecarless blocks found for current head"
+          await sleepAsync(5.seconds)
 
   except CancelledError:
     discard
@@ -3012,8 +2954,6 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
 
     let root = entry.blockId.root
 
-    if root in overseer.rblockBuffer:
-      res.add("\"buffer\"")
     if overseer.blockQuarantine[].checkOrphan(root):
       res.add("\"orphan\"")
     if root in overseer.blockQuarantine[].sidecarless:

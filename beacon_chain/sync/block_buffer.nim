@@ -23,9 +23,6 @@ type
     roots: Table[Eth2Digest, ref ForkedSignedBeaconBlock]
     maxBufferSize: int
 
-  BlocksRootBuffer* = object
-    roots: Table[Eth2Digest, ref ForkedSignedBeaconBlock]
-
 func startSlot*(buffer: BlocksRangeBuffer): Slot =
   buffer.blocks[0][].slot
 
@@ -355,75 +352,6 @@ proc invalidate*(
     return
 
   buffer.resetBuffer(startIndex + 1)
-
-proc add*(
-    buffer: var BlocksRootBuffer,
-    blck: ref ForkedSignedBeaconBlock
-) =
-  buffer.roots[blck[].root] = blck
-
-proc add*(
-    buffer: var BlocksRootBuffer,
-    blcks: openArray[ref ForkedSignedBeaconBlock]
-) =
-  for blck in blcks:
-    buffer.roots[blck[].root] = blck
-
-func popRoot*(
-    buffer: var BlocksRootBuffer,
-    root: Eth2Digest
-): ref ForkedSignedBeaconBlock =
-  var res: ref ForkedSignedBeaconBlock
-  discard buffer.roots.pop(root, res)
-  res
-
-func remove*(
-    buffer: var BlocksRootBuffer,
-    root: Eth2Digest
-) =
-  buffer.roots.del(root)
-
-func prune*(
-    buffer: var BlocksRootBuffer,
-    epoch: Epoch
-) =
-  var entriesToDelete: seq[Eth2Digest]
-
-  let startSlot = epoch.start_slot()
-  for key, blck in buffer.roots.pairs():
-    let slot = blck[].slot()
-    if slot < startSlot:
-      entriesToDelete.add(key)
-
-  for key in entriesToDelete:
-    buffer.roots.del(key)
-
-func getOrDefault*(
-    buffer: BlocksRootBuffer,
-    root: Eth2Digest
-): ref ForkedSignedBeaconBlock =
-  buffer.roots.getOrDefault(root)
-
-func len*(buffer: BlocksRootBuffer): int =
-  len(buffer.roots)
-
-func contains*(buffer: BlocksRootBuffer, root: Eth2Digest): bool =
-  contains(buffer.roots, root)
-
-iterator popBlocks*(
-    buffer: var BlocksRootBuffer,
-    root: Eth2Digest
-): ref ForkedSignedBeaconBlock =
-  # Pop blocks from buffer, whose parent is the block identified by `root`
-  var toRemove: seq[Eth2Digest]
-  defer: # Run even if iterator is not carried to termination
-    for k in toRemove:
-      buffer.roots.del k
-
-  for k, v in buffer.roots.mpairs():
-    if v[].parent_root == root:
-      toRemove.add(k)
-      yield v
 
 func len*(buffer: BlocksRangeBuffer): int =
   len(buffer.blocks)
