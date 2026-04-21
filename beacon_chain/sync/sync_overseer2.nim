@@ -65,6 +65,9 @@ template cleanupRecordsList(a: untyped) =
 func shortLog(digests: openArray[Eth2Digest]): string =
   "[" & digests.mapIt(shortLog(it)).join(",") & "]"
 
+func shortLog(data: array[2, int]): string =
+  $data[0] & "/" & $data[1]
+
 func shortLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(
     "(slot:" & $it[].slot() & ",root: " & shortLog(it[].root) & ")").
@@ -186,13 +189,13 @@ func decreaseBlocksCount(blocksCount: var int) =
 
 proc getColumnsDistribution(
     overseer: SyncOverseerRef2
-): (string, string, int, int, int) =
+): (string, string, array[2, int], array[2, int], array[2, int]) =
   var
     res: seq[string]
     indices: array[NUMBER_OF_COLUMNS, int]
-    useful = 0
-    useless = 0
-    supernodes = 0
+    useful: array[2, int]
+    useless: array[2, int]
+    supernodes: array[2, int]
 
   let custodyMap = overseer.validatorCustody.getMap()
 
@@ -202,12 +205,12 @@ proc getColumnsDistribution(
       intersection = (custodyMap and peerMap)
 
     if len(intersection) == 0:
-      inc(useless)
+      inc(useless[int(entry.peer.direction)])
     else:
-      inc(useful)
+      inc(useful[int(entry.peer.direction)])
 
     if len(peerMap) == NUMBER_OF_COLUMNS:
-      inc(supernodes)
+      inc(supernodes[int(entry.peer.direction)])
 
     for index in intersection.items():
       indices[int(index)] += 1
@@ -1241,21 +1244,28 @@ proc doPeerUpdateRoots(
   var
     roots =
       block:
+        # Creating list of roots without duplicates.
         var
+          dupcheck: HashSet[Eth2Digest]
           res: seq[Eth2Digest]
           counter = 0
         # Add peer missing roots
         while counter < peerEntry.maxBlocksPerRequest:
           if len(peerEntry.pendingRoots) > 0:
-            res.add(peerEntry.pendingRoots.popFirst())
-            inc(counter)
+            let blockRoot = peerEntry.pendingRoots.popFirst()
+            if blockRoot notin dupcheck:
+              dupcheck.incl(blockRoot)
+              res.add(blockRoot)
+              inc(counter)
           else:
             break
         # Add global missing roots.
         for item in overseer.missingRoots:
           if counter < peerEntry.maxBlocksPerRequest:
-            res.add(item)
-            inc(counter)
+            if item notin dupcheck:
+              dupcheck.incl(item)
+              res.add(item)
+              inc(counter)
           else:
             break
         res
@@ -1557,6 +1567,7 @@ proc doPeerUpdateRootsSidecars(
 
   logScope:
     head = shortLog(dag.head)
+    peer_map = shortLog(peer.getColumnMapOrDefault())
     roots = shortLog(columnRoots)
     roots_count = columnsCount
     data_type = "columns"
@@ -2513,9 +2524,9 @@ proc timeMonitoringLoop(
         sidecarless_quarantine = len(overseer.blockQuarantine.sidecarless),
         blob_quarantine = shortLog(overseer.blobQuarantine[]),
         column_quarantine = shortLog(overseer.columnQuarantine[]),
-        useful_peers = distribution[2],
-        useless_peers = distribution[3],
-        supernodes_peers = distribution[4],
+        useful_peers = shortLog(distribution[2]),
+        useless_peers = shortLog(distribution[3]),
+        supernodes_peers = shortLog(distribution[4]),
         columns_count = len(overseer.validatorCustody.getMap()),
         columns_fill_rate = distribution[1],
         last_seen_syncdag_path = lastSeenSyncDagPath
