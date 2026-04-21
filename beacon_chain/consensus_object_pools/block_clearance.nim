@@ -492,10 +492,6 @@ proc addHeadExecutionPayload*(
   ## First check that the block and envelope are matched with the DAG block.
   ## Then verify that it passes the state transition function.
 
-  # reference
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
-  debugGloasComment("review with verify_execution_payload_envelope")
-
   # Check if there is any valid envelope so that we can save some resources.
   if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
     return err(VerifierError.Duplicate)
@@ -530,18 +526,39 @@ proc addHeadExecutionPayload*(
       return err(VerifierError.UnviableFork)
     return err(VerifierError.MissingParent)
 
-  # Verify signature.
-  let builderKey = dag.validatorKey(signedBlock.builder_index).valueOr:
-    fatal "Invalid builder in processing envelope", head = shortLog(dag.head)
-    quit 1
-  if not verify_execution_payload_envelope_signature(
-      dag.forkAtEpoch(signedEnvelope.slot.epoch),
-      dag.genesis_validators_root,
-      signedEnvelope.slot.epoch,
-      signedEnvelope.message,
-      builderKey,
-      signedEnvelope.signature):
+  # Load state cache for updateState() and state transition.
+  var cache: StateCache
+  loadStateCache(dag, cache, blck.bid, blck.slot().epoch())
+
+  # We need to move state back to the exact block time in order to validate the
+  # envelope with state, as the block could be older than the head.
+  let blckBsi = BlockSlotId.init(blck.bid, envelopeSlot)
+  if not updateState(
+      dag, dag.clearanceState, blckBsi, false, cache,
+      dag.updateFlags + {skipLastEnvelope}):
+    # If updateState() fails, it means there may be some missing blocks and
+    # envelopes of its parents, or the database is corrupted.
+    error "Unable to load clearance state for envelope, database corrupt?",
+      clearanceBlock = shortLog(blckBsi)
+    return err(VerifierError.MissingParent)
+
+  # Validate the envelope with state. Slot and latest block root in state should
+  # match with the envelope.
+  if not (
+      dag.clearanceState.slot() == envelopeSlot and
+      dag.clearanceState.latest_block_root() == envelopeBlockRoot
+  ):
+    debug "Envelope is not for the current head"
     return err(VerifierError.Invalid)
+  # With skipLastEnvelope flag and containsExecutionPayloadEnvelope() check
+  # above, the envelope should have not been applied but double check.
+  elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
+       signedEnvelope.message.payload.block_hash:
+    debug "Envelope has been applied to the state"
+    return err(VerifierError.Duplicate)
+
+  # Verify with state transition function.
+  debugGloasComment("verify sig")
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
