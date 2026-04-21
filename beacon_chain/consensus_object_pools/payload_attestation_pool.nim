@@ -82,9 +82,7 @@ func addPayloadAttestation*(
 
 func aggregateMessages(
     pool: PayloadAttestationPool, slot: Slot,
-    entry: var PayloadAttestationEntry, cache: var StateCache
-): Opt[PayloadAttestation] =
-
+    entry: var PayloadAttestationEntry): Opt[PayloadAttestation] =
   if entry.messages.len == 0:
     return Opt.none(PayloadAttestation)
 
@@ -120,21 +118,20 @@ func aggregateMessages(
 
 func getAggregatedPayloadAttestation*(
     pool: var PayloadAttestationPool, slot: Slot,
-    key: (Eth2Digest, bool, bool), cache: var StateCache
-): Opt[PayloadAttestation] =
+    key: (Eth2Digest, bool, bool)): Opt[PayloadAttestation] =
   ## Get aggregated payload attestation for a specific attestation data
 
   pool.attestations.withValue(slot, slotEntries):
     slotEntries[].withValue(key, entry):
       if entry[].aggregated.isNone():
-        entry[].aggregated = pool.aggregateMessages(slot, entry[], cache)
+        entry[].aggregated = pool.aggregateMessages(slot, entry[])
       return entry[].aggregated
 
   Opt.none(PayloadAttestation)
 
 proc getPayloadAttestationsForBlock*(
-    pool: var PayloadAttestationPool, target_slot: Slot,
-    cache: var StateCache): seq[PayloadAttestation] =
+    pool: var PayloadAttestationPool, target_slot: Slot
+): seq[PayloadAttestation] =
   ## Get payload attestations to include in a block for a target slot
   let startPackingTick = Moment.now()
 
@@ -154,8 +151,7 @@ proc getPayloadAttestationsForBlock*(
     for key, entry in slotEntries[]:
       totalCandidates += 1
       let aggregated =
-        pool.getAggregatedPayloadAttestation(
-          attestation_slot, key, cache)
+        pool.getAggregatedPayloadAttestation(attestation_slot, key)
       if aggregated.isSome():
         payload_attestations.add(aggregated.get())
         if payload_attestations.len >= MAX_PAYLOAD_ATTESTATIONS.int:

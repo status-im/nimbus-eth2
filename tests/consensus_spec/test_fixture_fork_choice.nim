@@ -267,7 +267,8 @@ proc stepOnBlock(
   # this wouldn't be part of this check, presumably, their FC test vector step
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
-  when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Bellatrix and
+       consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
     debugGloasComment "skip execution payload for Gloas?"
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
@@ -277,8 +278,7 @@ proc stepOnBlock(
       # before the block itself, while Nimbus fork choice treats invalidating
       # a non-existent block root as a no-op and does not remember it for the
       # future.
-      let lvh = invalidatedHashes.getOrDefault(
-        executionBlockHash, static(default(Eth2Digest)))
+      let lvh = invalidatedHashes.getOrDefault(executionBlockHash, ZERO_HASH)
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
         signedBlock.message.parent_root, lvh, executionBlockHash))
 
@@ -354,7 +354,8 @@ proc stepChecks(
       raiseAssert "Unsupported check '" & $check & "'"
 
 proc doRunTest(
-    path: string, fork: ConsensusFork) {.raises: [KeyError, ValueError].} =
+    path: string, fork: ConsensusFork,
+    verifier: var BatchVerifier) {.raises: [KeyError, ValueError].} =
   let db = withConsensusFork(fork):
     BeaconChainDB.new(
       "", consensusFork.genesisTestRuntimeConfig, inMemory = true)
@@ -365,18 +366,7 @@ proc doRunTest(
     stores = withConsensusFork(fork):
       initialLoad(
         path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
-
-    rng = HmacDrbgContext.new()
-    taskpool =
-      try:
-        Taskpool.new()
-      except Exception as exc:
-        fatal "Failed to initialize Taskpool", exc = exc.msg
-        fail()
-        return
-  var verifier = BatchVerifier.init(rng, taskpool)
-
-  let steps = loadOps(path, fork)
+    steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
   var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
 
@@ -430,7 +420,9 @@ proc doRunTest(
     else:
       raiseAssert "Unsupported"
 
-proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
+proc runTest(
+    suiteName: static[string], path: string, fork: ConsensusFork,
+    rng: ref HmacDrbgContext, taskpool: Taskpool) =
   const SKIP = [
     # protoArray can handle blocks in the future gracefully
     # spec: https://github.com/ethereum/consensus-specs/blame/v1.1.3/specs/phase0/fork-choice.md#L349
@@ -459,10 +451,18 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
       if os_ops.splitPath(path).tail in SKIP:
         skip()
       else:
-        doRunTest(path, fork)
+        var verifier = BatchVerifier.init(rng, taskpool)
+        doRunTest(path, fork, verifier)
 
 template fcSuite(suiteName: static[string], testPathElem: static[string]) =
   suite "EF - " & suiteName & preset():
+    let
+      rng = HmacDrbgContext.new()
+      taskpool =
+        try:
+          Taskpool.new()
+        except Exception as exc:
+          raiseAssert "Failed to initialize Taskpool: " & exc.msg
     const presetPath = SszTestsDir/const_preset
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/testPathElem
@@ -484,7 +484,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
               path.contains("justified_update_not_realized_finality") or
               path.contains("justified_update_always_if_better"):
             continue
-          runTest(suiteName, basePath/path, fork)
+          runTest(suiteName, basePath/path, fork, rng, taskpool)
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")

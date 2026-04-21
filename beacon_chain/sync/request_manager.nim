@@ -10,11 +10,11 @@
 import std/[sets, sequtils], chronos, chronicles
 import ssz_serialization/types
 import
-  ../spec/[forks, network, peerdas_helpers],
+  ../spec/[forks, network, peerdas_helpers, column_map],
   ../networking/eth2_network,
   ../consensus_object_pools/[
     blob_quarantine, block_quarantine, envelope_quarantine],
-  "."/sync_protocol, "."/sync_manager,
+  "."/sync_protocol, "."/sync_manager, "."/validator_custody,
   ../gossip_processing/block_processor
 
 from std/algorithm import binarySearch, sort
@@ -84,8 +84,7 @@ type
 
   RequestManager* = object
     network*: Eth2Node
-    supernode*: bool
-    custody_columns_set*: HashSet[ColumnIndex]
+    vcus*: ValidatorCustodyRef
     getBeaconTime: GetBeaconTimeFn
     inhibit: InhibitFn
     quarantine: ref Quarantine
@@ -110,8 +109,7 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 func init*(T: type RequestManager, network: Eth2Node,
-              supernode: bool,
-              custody_columns_set: HashSet[ColumnIndex],
+              vcus: ValidatorCustodyRef,
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
               inhibit: InhibitFn,
@@ -127,8 +125,7 @@ func init*(T: type RequestManager, network: Eth2Node,
               dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
   RequestManager(
     network: network,
-    supernode: supernode,
-    custody_columns_set: custody_columns_set,
+    vcus: vcus,
     getBeaconTime: getBeaconTime,
     inhibit: inhibit,
     quarantine: quarantine,
@@ -405,7 +402,7 @@ proc checkPeerCustody(rman: RequestManager,
     peer.updateScore(PeerScoreNoValues)
     return intersection
 
-  if rman.supernode:
+  if rman.vcus.isSupernode():
     if remoteCustodyGroupCount == rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
       for col in 0 ..< rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
         discard intersection.add(ColumnIndex col)
@@ -434,7 +431,7 @@ proc checkPeerCustody(rman: RequestManager,
             max(rman.network.cfg.SAMPLES_PER_SLOT,
                 remoteCustodyGroupCount))
 
-      for local_column in rman.custody_columns_set:
+      for local_column in rman.vcus.getSet():
         if local_column in remoteCustodyColumns:
           discard intersection.add(local_column)
       # Apply scoring logic + logs
@@ -443,18 +440,18 @@ proc checkPeerCustody(rman: RequestManager,
         debug "Peer has no custody overlap",
           peer = peer, score = peer.getScore(),
           remote_custody = remoteCustodyGroupCount
-      elif intersection.len < (rman.custody_columns_set.len div 2):
+      elif intersection.len < (len(rman.vcus.getMap()) div 2):
         peer.updateScore(PeerScoreScantyColumnIntersection)
         debug "Peer has scanty custody overlap",
           peer = peer, score = peer.getScore(),
           remote_custody = remoteCustodyGroupCount,
-          overlap = intersection.len, local = rman.custody_columns_set.len
+          overlap = intersection.len, local = len(rman.vcus.getMap())
       else:
         peer.updateScore(PeerScoreDecentColumnIntersection)
         debug "Peer has decent custody overlap",
           peer = peer, score = peer.getScore(),
           remote_custody = remoteCustodyGroupCount,
-          overlap = intersection.len, local = rman.custody_columns_set.len
+          overlap = intersection.len, local = len(rman.vcus.getMap())
 
   intersection
 
@@ -469,8 +466,8 @@ func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
         rman.network.cfg.resolve_columns_from_custody_groups(
           remoteNodeId,
           max(rman.network.cfg.SAMPLES_PER_SLOT, remoteCustodyGroupCount))
-      overlap = rman.custody_columns_set.countIt(it in remoteCustodyColumns)
-    overlap > (rman.custody_columns_set.len div 2)
+      overlap = rman.vcus.getMap().countIt(it in remoteCustodyColumns)
+    overlap > (len(rman.vcus.getMap()) div 2)
 
 proc fetchDataColumnsFromNetwork(rman: RequestManager,
                                  colIdList: seq[DataColumnsByRootIdentifier])
@@ -486,7 +483,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       peer = peer,
       peer_score = peer.getScore(),
       overlap = intersection.len,
-      local = rman.custody_columns_set.len
+      local = len(rman.vcus.getMap())
     if intersection.len == 0:
       debug "Peer has no usable custody overlap",
         peer = peer
@@ -867,7 +864,7 @@ proc requestManagerDataColumnLoop(
       debug "Requesting detected missing data columns", columns = shortLog(columnIds)
       let start = SyncMoment.now(0)
       let workerCount =
-        if rman.custody_columns_set.lenu64 >=
+        if lenu64(rman.vcus.getMap()) >=
             rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
           PARALLEL_DATA_COLUMNS_SUPER
         else:

@@ -164,6 +164,7 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
+    seenProposerPreferences*: array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]]
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -372,6 +373,9 @@ proc processExecutionPayloadEnvelope*(
     debug "Dropping envelope", err = error
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
+
+  if not isNil(self.dag.onEnvelopeGossipAdded):
+    self.dag.onEnvelopeGossipAdded(signedEnvelope)
 
   trace "Envelope validated"
   self.envelopeQuarantine[].addOrphan(signedEnvelope)
@@ -1079,7 +1083,7 @@ proc processLightClientOptimisticUpdate*(
   v
 
 proc processExecutionPayloadBid*(
-    self: var Eth2Processor, signedBid: SignedExecutionPayloadBid
+    self: var Eth2Processor, signedBid: gloas.SignedExecutionPayloadBid
 ): ValidationRes =
   let wallTime = self.getCurrentBeaconTime()
 
@@ -1120,3 +1124,20 @@ proc processPayloadAttestationMessage*(
 
   trace "Payload attestation validated"
   return ok()
+
+proc processProposerPreferences*(
+    self: ref Eth2Processor, src: MsgSource,
+    signed_preferences: SignedProposerPreferences
+): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    currentSlot = wallTime.slotOrZero(self.dag.timeParams)
+  
+  let v = validateProposerPreferences(
+    self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
+  if v.isErr():
+    debug "Dropping proposer preferences", reason = $v.error
+    return err(v.error())
+  
+  trace "Proposer preferences validated"
+  ok()

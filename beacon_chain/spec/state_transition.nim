@@ -347,7 +347,8 @@ proc makeBeaconBlockWithRewards*(
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
-    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    signed_execution_payload_bid:
+        gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation]
 ): Result[
     tuple[
@@ -408,6 +409,8 @@ proc makeBeaconBlockWithRewards*(
   when consensusFork >= ConsensusFork.Gloas:
     blck.body.signed_execution_payload_bid =
       signed_execution_payload_bid
+
+  when consensusFork >= ConsensusFork.Gloas:
     blck.body.payload_attestations =
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS].init(
         payload_attestations)
@@ -437,7 +440,8 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
     execution_requests: ExecutionRequests,
-    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    signed_execution_payload_bid:
+        gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
@@ -465,7 +469,8 @@ proc makeBeaconBlock*(
     eps: ForkyExecutionPayloadForSigning,
     verificationFlags: UpdateFlags,
     execution_requests: ExecutionRequests = default(ExecutionRequests),
-    signed_execution_payload_bid: SignedExecutionPayloadBid,
+    signed_execution_payload_bid:
+        gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation]
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(

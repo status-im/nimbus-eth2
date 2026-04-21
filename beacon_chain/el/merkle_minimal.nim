@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
 
@@ -35,7 +35,7 @@ func attachMerkleProofs*(deposits: var openArray[Deposit]): Eth2Digest =
   let proofs = merkleizer.addChunksAndGenMerkleProofs(depositsRoots)
   for i in 0 ..< depositsRoots.len:
     deposits[i].proof[0 ..< DEPOSIT_CONTRACT_TREE_DEPTH] = getProof(proofs, i)
-    deposits[i].proof[DEPOSIT_CONTRACT_TREE_DEPTH] = default(Eth2Digest)
+    deposits[i].proof[DEPOSIT_CONTRACT_TREE_DEPTH] = ZERO_HASH
     deposits[i].proof[DEPOSIT_CONTRACT_TREE_DEPTH].data[0..7] =
       toBytesLE deposits.lenu64
 

@@ -28,7 +28,7 @@ import
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
   ../validators/keystore_management,
   "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
        libp2p_json_serialization, peer_pool, peer_scores,
@@ -104,6 +104,7 @@ type
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
     getBeaconTime*: GetBeaconTimeFn
+    custodyMap: ColumnMap
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
 
@@ -865,7 +866,8 @@ template gossipMaxSize(T: untyped): uint32 =
          T is fulu.PartialDataColumnSidecar or
          T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
          T is gloas.SignedExecutionPayloadEnvelope or
-         T is gloas.SignedExecutionPayloadBid:
+         T is gloas.SignedExecutionPayloadBid or
+         T is heze.SignedBeaconBlock:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -1549,8 +1551,7 @@ proc trimConnections(node: Eth2Node, count: int) =
     inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
-proc getLowSubnets(node: Eth2Node, epoch: Epoch):
-                  (AttnetBits, SyncnetBits, CgcBits) =
+proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subnet with < `dLow` peers from topic subscription
@@ -1615,11 +1616,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
     if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
-      default(SyncnetBits),
-    if epoch >= node.cfg.FULU_FORK_EPOCH:
-      findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT).int)
-    else:
-      default(CgcBits)
+      default(SyncnetBits)
   )
 
 proc getWallEpoch(node: Eth2Node): Epoch =
@@ -1630,29 +1627,27 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
   while true:
     let
-      (wantedAttnets, wantedSyncnets, wantedCgcnets) =
-        node.getLowSubnets(node.getWallEpoch)
+      (wantedAttnets, wantedSyncnets) = node.getLowSubnets(node.getWallEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-      wantedCgcnetsCount = wantedCgcnets.countOnes()
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
-    if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-        wantedCgcnetsCount > 0 or outgoingPeers < targetOutgoingPeers:
+    if (wantedAttnetsCount > 0) or (wantedSyncnetsCount > 0) or
+       (outgoingPeers < targetOutgoingPeers):
 
       let
-        minScore =
-          if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-              wantedCgcnetsCount > 0:
-            1
-          else:
-            0
+        minScore = [
+          (if wantedAttnetsCount > 0: 1 else: 0),
+          (if wantedSyncnetsCount > 0: 10 else: 0),
+          100
+        ]
         discoveredNodes = await node.discovery.queryRandom(
+          node.cfg,
           node.discoveryForkId,
           wantedAttnets,
           wantedSyncnets,
-          wantedCgcnets,
+          node.custodyMap,
           minScore)
 
       let newPeers = block:
@@ -1854,6 +1849,7 @@ proc new(T: type Eth2Node,
          config: BeaconNodeConf | LightClientConf, runtimeCfg: RuntimeConfig,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
+         initialNextForkDigest: ForkDigest,
          switch: Switch, pubsub: GossipSub,
          ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
@@ -1893,7 +1889,8 @@ proc new(T: type Eth2Node,
       config, ip, tcpPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
-        enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
+        enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)                                                   
       },
     rng),
     discoveryEnabled: discovery,
@@ -1902,7 +1899,8 @@ proc new(T: type Eth2Node,
     seenThreshold: seenThreshold,
     directPeers: directPeers,
     announcedAddresses: @announcedAddresses,
-    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
+    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime),
+    nextForkDigest: initialNextForkDigest
   )
 
   proc peerHook(
@@ -2381,7 +2379,7 @@ proc createEth2Node*(
     wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
     discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
-
+    initialNextForkDigest = cfg.nextForkDigestAtEpoch(forkDigests[], wallEpoch)
     listenAddress =
       if config.listenAddress.isSome():
         config.listenAddress.get()
@@ -2523,7 +2521,7 @@ proc createEth2Node*(
     return err("Cannot mount pubsub: " & exc.msg)
 
   let node = Eth2Node.new(
-    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
+    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, initialNextForkDigest, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
@@ -2542,14 +2540,15 @@ func announcedENR*(node: Eth2Node): enr.Record =
   node.discovery.localNode.record
 
 proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
-  # Fetches the custody column count from a remote peer.
-  # If the peer advertises their custody column count via the `cgc` ENR field,
+  # Fetches the custody group count from a remote peer.
+  # If the peer advertises their custody group count via the `cgc` ENR field,
   # that value is returned. Otherwise, the default value `CUSTODY_REQUIREMENT`
   # is assumed.
 
+  let numberOfCustodyGroups = peer.network.cfg.NUMBER_OF_CUSTODY_GROUPS
   let metadata = peer.metadata
   if metadata.isOk:
-    let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
+    let cgc = if metadata.get.custody_group_count <= numberOfCustodyGroups:
                 metadata.get.custody_group_count
               else:
                 return err(PeerCgcStatus.OutOfRange)
@@ -2571,11 +2570,11 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
   let enrOpt = peer.enr
   if not enrOpt.isNone:
     let enr = enrOpt.get
-    let enrFieldOpt = enr.get(enrCustodySubnetCountField, seq[byte])
+    let enrFieldOpt = enr.get(enrCustodyGroupCountField, seq[byte])
     if enrFieldOpt.isOk:
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
-        if cgc > NUMBER_OF_COLUMNS:
+        if cgc > numberOfCustodyGroups:
           return err(PeerCgcStatus.OutOfRange)
 
         if peer.metadata.isOk:
@@ -2585,7 +2584,7 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
       except SszError, SerializationError:
         return err(PeerCgcStatus.Unavailable)
 
-  # Return default value if no valid custody subnet count is found.
+  # Return default value if no valid custody group count is found.
   ok(CUSTODY_REQUIREMENT)
 
 func shortForm*(id: NetKeyPair): string =
@@ -2788,14 +2787,18 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
 
-proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
+proc loadCgcnetMetadataAndEnr*(
+    node: Eth2Node,
+    cgcnets: CgcCount,
+    map: ColumnMap
+) =
   node.metadata.seq_number += 1
   node.metadata.custody_group_count = cgcnets.uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
   let res =
     node.discovery.updateRecord({
-      enrCustodySubnetCountField: SSZ.encode(cgcnets)
+      enrCustodyGroupCountField: SSZ.encode(cgcnets)
     })
 
   if res.isErr:
@@ -2803,6 +2806,7 @@ proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
     # be the correct one and the ENR will not increase in size
     warn "Failed to update the ENR cgc field", error = res.error
   else:
+    node.custodyMap = map
     debug "Updated ENR cgc", cgcnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
@@ -2824,7 +2828,7 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
 proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/fulu/p2p-interface.md#next-fork-digest
   if node.nextForkDigest == next_fork_digest:
     return
 
@@ -3071,3 +3075,12 @@ proc broadcastExecutionPayloadEnvelope*(
     topic = getExecutionPayloadTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, envelope)
+
+proc broadcastProposerPreferences*(
+    node: Eth2Node, msg: SignedProposerPreferences):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = msg.message.proposal_slot.epoch
+    topic = getProposerPreferencesTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, msg)

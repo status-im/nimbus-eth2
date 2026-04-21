@@ -122,7 +122,7 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef,
-    epoch: Epoch, blck: BlockRef, current_slot: Slot) =
+    epoch: Epoch, blck: BlockRef) =
   let epochRef = dag.getEpochRef(blck, epoch, preFinalized = false).valueOr:
     # Shouldn't happen for justified data unless out of sync with ChainDAG
     warn "Skipping justified checkpoint update, no EpochRef - report bug",
@@ -149,10 +149,10 @@ proc update_justified(
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justified.root)
-  self.checkpoints.update_justified(dag, justified.epoch, blck, current_slot)
+  self.checkpoints.update_justified(dag, justified.epoch, blck)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#update_checkpoints
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var ForkChoice, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints, current_slot: Slot): FcResult[void] =
@@ -200,6 +200,11 @@ proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
     checkpoint.epoch.start_slot
   result.root = checkpoint.root
 
+func observed_justified_block_id(self: ForkChoiceBackend): BlockId =
+  BlockId(
+    slot: self.current_epoch_observed_justified.info.block_slot,
+    root: self.current_epoch_observed_justified.checkpoint.root)
+
 proc update_unrealized_justified(self: var ForkChoice, dag: ChainDAGRef) =
   let unrealized = self.backend.previous_epoch_greatest_unrealized_checkpoint
   if unrealized == self.backend.current_epoch_observed_justified.checkpoint:
@@ -243,11 +248,11 @@ proc reconfirm_fcr(
   fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
-    confirmed = fcr.to_block_id(current_epoch_justified)
+    confirmed = fcr.observed_justified_block_id
     incSafeRestarts()
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_tick_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   ## Must be called at least once per slot.
@@ -330,7 +335,7 @@ proc update_time*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
     self: var ForkChoice,
     dag: ChainDAGRef,
@@ -356,7 +361,7 @@ proc on_attestation*(
       slot: attestation_slot)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/fork-choice.md#on_attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
     self: var ForkChoice, validator_index: ValidatorIndex) =
   self.backend.votes.extend(validator_index.int + 1)
@@ -369,7 +374,7 @@ func process_equivocation*(
 
     trace "Integrating equivocation in fork choice", validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#on_block
 func process_block*(
     self: var ForkChoiceBackend,
     bid: BlockId,
@@ -378,7 +383,7 @@ func process_block*(
     unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
@@ -492,7 +497,7 @@ func find_head(
     fork_choice_head = shortLog(new_head)
   ok(new_head)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -517,7 +522,7 @@ proc advance_fcr(
 
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/h"
-    confirmed = fcr.to_block_id(current_epoch_justified)
+    confirmed = fcr.observed_justified_block_id
     incSafeRestarts()
 
   # Attempt to further advance the latest confirmed block.
@@ -551,12 +556,12 @@ proc will_select_head*(
   self.backend.update_confirmed(dag, confirmed, reason)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/fork_choice/safe-block.md#get_safe_beacon_block_root
-func get_safe_beacon_block_id*(self: ForkChoice): lent BlockId =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/fork_choice/safe-block.md#get_safe_execution_block_hash
+func retrieve_fast_confirmed_bid*(self: ForkChoice): lent BlockId =
   self.backend.confirmed
 
-func get_safe_beacon_block_root*(self: ForkChoice): lent Eth2Digest =
-  self.get_safe_beacon_block_id.root
+func retrieve_fast_confirmed_root*(self: ForkChoice): lent Eth2Digest =
+  self.retrieve_fast_confirmed_bid.root
 
 proc prune(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
@@ -604,7 +609,7 @@ func compute_deltas(
   ## Error:
   ## - If a value in indices is greater than `indices.len`
   ## - If a `Eth2Digest` in `votes` does not exist in `indices`
-  ##   except for the `default(Eth2Digest)` (i.e. zero hash)
+  ##   except for the `ZERO_HASH`
 
   for val_index, vote in votes.mpairs():
     # No need to create a score change if the validator has never voted
@@ -723,7 +728,7 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
-        current_root: default(Eth2Digest),
+        current_root: ZERO_HASH,
         next_root: fakeHash(0), # Get a non-zero hash
         slot: Slot(0))
       old_balances.add Balance
@@ -763,7 +768,7 @@ when isMainModule:
     for i in 0 ..< validator_count:
       indices[fakeHash(i)] = i
       votes.add VoteTracker(
-        current_root: default(Eth2Digest),
+        current_root: ZERO_HASH,
         next_root: fakeHash(i), # Each vote for a different root
         slot: Slot(0))
       old_balances.add Balance
@@ -846,7 +851,7 @@ when isMainModule:
     # One validator moves their vote from the block to the zero hash
     votes.add VoteTracker(
       current_root: fakeHash(1),
-      next_root: default(Eth2Digest),
+      next_root: ZERO_HASH,
       slot: Slot(0))
 
     # One validator moves their vote from the block to

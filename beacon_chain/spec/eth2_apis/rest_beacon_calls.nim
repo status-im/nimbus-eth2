@@ -216,6 +216,8 @@ proc publishBlockV2*(
       ConsensusFork.Fulu.toString()
     elif blck is GloasSignedBlockContents:
       ConsensusFork.Gloas.toString()
+    elif blck is HezeSignedBlockContents:
+      ConsensusFork.Heze.toString()
     else:
       typeof(blck).kind.toString()
   client.publishBlockV2(

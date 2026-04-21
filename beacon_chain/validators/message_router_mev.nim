@@ -7,44 +7,16 @@
 
 {.push raises: [], gcsafe.}
 
-import std/macros
-import metrics
-import stew/assign2
 import ../beacon_node
 
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
 from ../spec/mev/rest_mev_calls import submitBlindedBlock
 
-const
-  BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
-
-declareCounter beacon_block_builder_proposed,
-  "Number of beacon chain blocks produced using an external block builder"
-
-func getFieldNames*(x: typedesc[auto]): seq[string] {.compileTime.} =
-  var res: seq[string]
-  for name, _ in fieldPairs(default(x)):
-    res.add name
-  res
-
-macro copyFields*(
-    dst: untyped, src: untyped, fieldNames: static[seq[string]]): untyped =
-  result = newStmtList()
-  for name in fieldNames:
-    if name notin [
-        # These fields are the ones which vary between the blinded and
-        # unblinded objects, and can't simply be copied.
-        "transactions_root", "execution_payload",
-        "execution_payload_header", "body", "withdrawals_root",
-        "deposit_requests_root", "withdrawal_requests_root",
-        "consolidation_requests_root"]:
-      # TODO use stew/assign2
-      result.add newAssignment(
-        newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))
+const BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 5.seconds
 
 proc unblindAndRouteBlockMEV*(
     node: BeaconNode, payloadBuilderRestClient: RestClientRef,
-    blindedBlock: ForkySignedBlindedBeaconBlock):
+    blindedBlock: fulu_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async: (raises: [CancelledError]).} =
   info "Proposing blinded Builder API block",
     blindedBlock = shortLog(blindedBlock)
@@ -69,89 +41,14 @@ proc unblindAndRouteBlockMEV*(
       return err(
         "REST unable to communicate with remote host, reason " & exc.msg)
 
-  when blindedBlock is electra_mev.SignedBlindedBeaconBlock:
-    if response.status != 200:
-      # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/validator.md#proposer-slashing
-      # This means if a validator publishes a signature for a
-      # `BlindedBeaconBlock` (via a dissemination of a
-      # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
-      # local build process as a fallback, even in the event of some failure
-      # with the external builder network.
-      return err("submitBlindedBlock failed with HTTP error code " &
-        $response.status & ": " & $shortLog(blindedBlock))
-
-    let
-      res = decodeBytesJsonOrSsz(
-        SubmitBlindedBlockResponseElectra, response.data, response.contentType,
-        response.headers.getString("eth-consensus-version"))
-      bundle = res.valueOr:
-        return err("Could not decode Electra blinded block: " & $res.error &
-          " with HTTP status " & $response.status & ", Content-Type " &
-          $response.contentType & " and content " & $response.data)
-
-    template execution_payload: untyped = bundle.data.execution_payload
-
-    if hash_tree_root(blindedBlock.message.body.execution_payload_header) !=
-        hash_tree_root(execution_payload):
-      return err("unblinded payload doesn't match blinded payload header: " &
-        $blindedBlock.message.body.execution_payload_header)
-
-    # Signature provided is consistent with unblinded execution payload,
-    # so construct full beacon block
-    # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/validator.md#block-proposal
-    var signedBlock = electra.SignedBeaconBlock(
-      signature: blindedBlock.signature)
-    copyFields(
-      signedBlock.message, blindedBlock.message,
-      getFieldNames(typeof(signedBlock.message)))
-    copyFields(
-      signedBlock.message.body, blindedBlock.message.body,
-      getFieldNames(typeof(signedBlock.message.body)))
-    assign(signedBlock.message.body.execution_payload, execution_payload)
-    signedBlock.root = hash_tree_root(signedBlock.message)
-    doAssert signedBlock.root == hash_tree_root(blindedBlock.message)
-
-    let blobsOpt = block:
-      template blobs_bundle: untyped = bundle.data.blobs_bundle
-      if blindedBlock.message.body.blob_kzg_commitments !=
-          bundle.data.blobs_bundle.commitments:
-        return err("unblinded blobs bundle has unexpected commitments")
-      let ok = verifyBlobKzgProofBatch(
-          blobs_bundle.blobs.mapIt(KzgBlob(bytes: it)),
-          asSeq blobs_bundle.commitments,
-          asSeq blobs_bundle.proofs).valueOr:
-        return err("unblinded blobs bundle fails verification")
-      if not ok:
-        return err("unblinded blobs bundle is invalid")
-      signedBlock.create_blob_sidecars(blobs_bundle.proofs, blobs_bundle.blobs)
-
-    debug "unblindAndRouteBlockMEV: proposing unblinded block",
-      blck = shortLog(signedBlock)
-
-    let newBlockRef =
-      (await node.router.routeSignedBeaconBlock(
-        signedBlock, blobsOpt, checkValidator = false)).valueOr:
-        # submitBlindedBlock has run, so don't allow fallback to run
-        return err("routeSignedBeaconBlock error") # Errors logged in router
-
-    if newBlockRef.isSome:
-      beacon_block_builder_proposed.inc()
-      notice "Block proposed (MEV)",
-        blockRoot = shortLog(signedBlock.root), blck = shortLog(signedBlock),
-        signature = shortLog(signedBlock.signature)
-
-    ok newBlockRef
-  elif blindedBlock is fulu_mev.SignedBlindedBeaconBlock:
-    if response.status == 202:
-      ok(Opt.none(BlockRef))
-    else:
-      # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/validator.md#proposer-slashing
-      # This means if a validator publishes a signature for a
-      # `BlindedBeaconBlock` (via a dissemination of a
-      # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
-      # local build process as a fallback, even in the event of some failure
-      # with the external builder network.
-      err("submitBlindedBlock failed with HTTP error code " &
-        $response.status & ": " & $shortLog(blindedBlock))
+  if response.status == 202:
+    ok(Opt.none(BlockRef))
   else:
-    static: doAssert false
+    # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/validator.md#proposer-slashing
+    # This means if a validator publishes a signature for a
+    # `BlindedBeaconBlock` (via a dissemination of a
+    # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
+    # local build process as a fallback, even in the event of some failure
+    # with the external builder network.
+    err("submitBlindedBlock failed with HTTP error code " &
+      $response.status & ": " & $shortLog(blindedBlock))

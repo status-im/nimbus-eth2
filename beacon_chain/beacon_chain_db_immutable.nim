@@ -20,6 +20,7 @@ from ./spec/datatypes/electra import
 from ./spec/datatypes/gloas import
   Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
   BUILDER_PENDING_WITHDRAWALS_LIMIT
+from ./spec/datatypes/heze import ExecutionPayloadBid
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -675,7 +676,7 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+    latest_execution_payload_bid*: heze.ExecutionPayloadBid
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex

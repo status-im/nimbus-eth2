@@ -407,12 +407,17 @@ proc proposeBlockAux(
     validator_index = validator.index.expect("index set for proposer")
 
     engineBid =
-      when consensusFork == ConsensusFork.Gloas:
+      when consensusFork == ConsensusFork.Heze:
+        debugHezeComment "stub: heze block proposals"
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey
+        )
+      elif consensusFork == ConsensusFork.Gloas:
         # Fetch only engine payload for now
         await node.getExecutionPayload(
           consensusFork, head, state, validator_index, validator.pubkey
         )
-      elif consensusFork in ConsensusFork.Electra..ConsensusFork.Fulu:
+      elif consensusFork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
         let
@@ -503,15 +508,8 @@ proc proposeBlockAux(
                 return head
 
             if unblindedBlockRef.isNone:
-              when consensusFork >= ConsensusFork.Fulu:
-                # This corresponds to 202 in Fulu MEV.
-                return head
-              else:
-                warn "Failed to unblind or route builder payload",
-                  validator = shortLog(validator),
-                  blck = shortLog(blindedBlock.message),
-                  err = "Unblinded block not returned to proposer"
-                return head
+              # This corresponds to 202 in Fulu MEV.
+              return head
 
             beacon_blocks_proposed.inc()
             return unblindedBlockRef.get
@@ -533,6 +531,9 @@ proc proposeBlockAux(
             return head
 
         bids.engineBid
+      elif consensusFork == ConsensusFork.Electra:
+        await node.getExecutionPayload(
+          consensusFork, head, state, validator_index, validator.pubkey)
       else:
         static: raiseAssert "Unsupported fork " & $consensusFork
 
@@ -568,12 +569,13 @@ proc proposeBlockAux(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork == ConsensusFork.Gloas:
-    let sidecarsOpt =
-      Opt.some(signedBlock.assemble_data_column_sidecars(
-        engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-        @(engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
-      ))
+  when consensusFork == ConsensusFork.Heze:
+    debugHezeComment "stub: heze sidecar assembly"
+    let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
+  elif consensusFork == ConsensusFork.Gloas:
+    let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
+      engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
   elif consensusFork == ConsensusFork.Fulu:
     let
       blobs = engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it))
@@ -625,11 +627,13 @@ proc proposeBlockAux(
         ).valueOr:
           beacon_block_production_errors.inc()
           return head
+    let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
+      engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
   elif consensusFork == ConsensusFork.Electra:
-    let sidecarsOpt =
-      signedBlock.create_blob_sidecars(
-        engineBlock.blobsBundle.proofs,
-        engineBlock.blobsBundle.blobs)
+    let sidecarsOpt = signedBlock.create_blob_sidecars(
+      engineBlock.blobsBundle.proofs,
+      engineBlock.blobsBundle.blobs)
   else:
     static: raiseAssert "Unsupported fork " & $consensusFork
 
@@ -680,7 +684,7 @@ proc proposeBlockAux(
         signature: signatureRes.get()
       )
 
-      discard await node.router.routeExecutionPayloadEnvelope(
+      await node.router.routeExecutionPayloadEnvelope(
         signedEnvelope, checkValidator = false)
 
       notice "Payload Envelope proposed",
@@ -762,7 +766,20 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
-    data = makeAttestationData(epochRef, attestationHead, CommitteeIndex(0))
+    payloadIndex =
+      if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas or
+          attestationHead.blck.slot >= slot:
+        0'u64
+      else:
+        withState(node.dag.headState):
+          when consensusFork >= ConsensusFork.Gloas:
+            if forkyState.data.execution_payload_availability[
+                attestationHead.blck.slot mod SLOTS_PER_HISTORICAL_ROOT]:
+              1'u64
+            else: 0'u64
+          else: 0'u64
+    data = makeAttestationData(
+      epochRef, attestationHead, CommitteeIndex(payloadIndex))
     # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
     signingRoot =
       compute_attestation_signing_root(fork, genesis_validators_root, data)
@@ -974,7 +991,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
     signature: signature
   )
 
-  discard await node.router.routePayloadAttestationMessage(
+  await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
@@ -998,7 +1015,6 @@ proc sendPayloadAttestations(
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      var cache: StateCache
       for vidx in get_ptc(forkyState.data, slot):
         let validator = node.getValidatorForDuties(vidx, slot).valueOr:
           continue
@@ -1006,6 +1022,44 @@ proc sendPayloadAttestations(
         asyncSpawn createAndSendPayloadAttestation(
           node, fork, genesis_validators_root, validator, vidx, slot,
           target.blck.root)
+
+proc sendProposerPreferences(
+    node: BeaconNode, head: BlockRef,
+    slot: Slot) {.async: (raises: [CancelledError]).} =
+
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
+    return
+
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      for validator in node.attachedValidators[].items:
+        let validator_index =
+          validator.index.valueOr:
+            continue
+
+        for proposal_slot in get_upcoming_proposal_slots(
+            forkyState.data, validator_index.uint64):
+          let
+            data = ProposerPreferences(
+              validator_index: validator_index.uint64,
+              proposal_slot: proposal_slot)
+            signatureRes = await validator.getProposerPreferencesSignature(
+              fork, genesis_validators_root, data)
+
+          if signatureRes.isErr:
+            warn "Unable to sign proposer preferences",
+              validator = shortLog(validator),
+              error_msg = signatureRes.error
+            continue
+
+          let signed = SignedProposerPreferences(
+            message: data, signature: signatureRes.get)
+          
+          await node.router.routeProposerPreferences(signed)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -1440,6 +1494,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
+
+  asyncSpawn sendProposerPreferences(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 

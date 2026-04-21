@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[typetraits, tables],
@@ -538,12 +538,13 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("capella_blocks").expectDb(),
       kvStore db.openKvStore("deneb_blocks").expectDb(),
       kvStore db.openKvStore("electra_blocks").expectDb(),
-      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("fulu_blocks").expectDb()
-      else:
-        nil,
+      kvStore db.openKvStore("fulu_blocks").expectDb(),
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("gloas_blocks").expectDb()
+      else:
+        nil,
+      if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("321cd149fc98434fa315ce9afd563ad1").expectDb()
       else:
         nil
     ]
@@ -557,12 +558,13 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
       kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb(),
       kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb(),
-      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb()
-      else:
-        nil,
+      kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb(),
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("gloas_state_no_validator_pubkeys").expectDb()
+      else:
+        nil,
+      if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("92859b2e460944169bcca68d8a620069").expectDb()
       else:
         nil
     ]
@@ -609,12 +611,11 @@ proc new*(T: type BeaconChainDB,
     nil, # Capella
     nil, # Deneb
     nil, # Electra
-    if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-      kvStore db.openKvStore("fulu_columns").expectDb()
-    else: nil,
+    kvStore db.openKvStore("fulu_columns").expectDb(),
     if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
       kvStore db.openKvStore("gloas_columns").expectDb()
-    else: nil
+    else: nil,
+    nil  # Heze
   ]
 
   var envelopes: KvStoreRef
@@ -893,6 +894,42 @@ proc delDataColumnSidecar*(
     return false
   db.columns[consensusFork].del(columnkey(root, index)).expectDb()
 
+proc delDataColumnSidecars*(
+    db: BeaconChainDB, consensusFork: ConsensusFork,
+    root: Eth2Digest): int =
+  ## Delete every data column sidecar stored for `root` in a single ranged
+  ## SQL `DELETE`. Column keys are laid out as `[root (32B)][index_BE (8B)]`,
+  ## so all sidecars for a block form one contiguous primary-key range that
+  ## SQLite sweeps in one statement. Returns the number of rows removed.
+  if db.columns[consensusFork] == nil:
+    return 0
+
+  let tableName =
+    case consensusFork
+    of ConsensusFork.Fulu: "fulu_columns"
+    of ConsensusFork.Gloas: "gloas_columns"
+    else: return 0
+
+  var bounds: (array[40, byte], array[40, byte])
+  bounds[0][0..<32] = root.data
+  bounds[1][0..<32] = root.data
+  for i in 32..<40:
+    bounds[1][i] = 0xFF'u8
+
+  let stmt = expectDb db.db.prepareStmt(
+    "DELETE FROM '" & tableName &
+      "' WHERE key BETWEEN ? AND ? RETURNING 1;",
+    (array[40, byte], array[40, byte]), int64, managed = false)
+  defer: stmt.dispose()
+
+  var
+    deleted = 0
+    row: int64
+  for rowRes in exec(stmt, bounds, row):
+    expectDb rowRes
+    inc deleted
+  deleted
+
 proc putExecutionPayloadEnvelope*(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
   template key: untyped = value.message.beacon_block_root
@@ -916,7 +953,9 @@ proc updateImmutableValidators*(
     db.immutableValidators.add immutableValidator
 
 template BeaconStateNoImmutableValidators(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Gloas:
+  when kind == ConsensusFork.Heze:
+    typedesc[HezeBeaconStateNoImmutableValidators]
+  elif kind == ConsensusFork.Gloas:
     typedesc[GloasBeaconStateNoImmutableValidators]
   elif kind == ConsensusFork.Fulu:
     typedesc[FuluBeaconStateNoImmutableValidators]
@@ -1503,11 +1542,13 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   while true:
     var found = false
     withAll(ConsensusFork):
-      if not found:
-        let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
-        if blck.isSome:
-          res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
-          found = true
+      debugHezeComment "enable Heze block retrieval for backwards compat"
+      when consensusFork != ConsensusFork.Heze:
+        if not found:
+          let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
+          if blck.isSome:
+            res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
+            found = true
     found = found or db.v0.backend.getSnappySSZ(
       subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found
     if not found:

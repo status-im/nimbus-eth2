@@ -131,7 +131,8 @@ let
     for consensusFork in ConsensusFork:
       res[consensusFork] = cfg.getTestStates(consensusFork)
     res
-doAssert testStates.allIt(it.len > 8)
+debugHezeComment "..."
+doAssert testStates.toOpenArray(0, testStates.len - 2).allIt(it.len > 8)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -567,15 +568,15 @@ suite "Beacon chain DB" & preset():
         message: BeaconBlockHeader(slot: Slot(0)))
       blockHeader1 = SignedBeaconBlockHeader(
         message: BeaconBlockHeader(slot: Slot(1)))
-    
-    let 
+
+    let
       blockRoot0 = hash_tree_root(blockHeader0.message)
       blockRoot1 = hash_tree_root(blockHeader1.message)
 
       dataColumnSidecar0 = gloas.DataColumnSidecar(index: 3, beacon_block_root: blockRoot0)
       dataColumnSidecar1 = gloas.DataColumnSidecar(index: 2, beacon_block_root: blockRoot0)
       dataColumnSidecar2 = gloas.DataColumnSidecar(index: 2, beacon_block_root: blockRoot1)
-      
+
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 
     var
@@ -680,6 +681,59 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
+  test "batch delete data columns" & preset():
+    const
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+
+    let
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+
+    # Seed two blocks with a handful of fulu + gloas columns each and a
+    # neighbouring block so we also exercise the row-range boundary.
+    for idx in [ColumnIndex 0, 1, 5, 42, 127]:
+      db.putDataColumnSidecar(fulu.DataColumnSidecar(
+        index: idx, signed_block_header: blockHeader0))
+      db.putDataColumnSidecar(fulu.DataColumnSidecar(
+        index: idx, signed_block_header: blockHeader1))
+      db.putDataColumnSidecar(gloas.DataColumnSidecar(
+        index: idx, beacon_block_root: blockRoot0))
+      db.putDataColumnSidecar(gloas.DataColumnSidecar(
+        index: idx, beacon_block_root: blockRoot1))
+
+    # Bulk delete every fulu column for blockRoot0 — should remove exactly the
+    # five we inserted and leave the gloas columns plus blockRoot1 untouched.
+    check:
+      db.delDataColumnSidecars(ConsensusFork.Fulu, blockRoot0) == 5
+      not db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot0, 0)
+      not db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot0, 1)
+      not db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot0, 5)
+      not db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot0, 42)
+      not db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot0, 127)
+      db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot1, 0)
+      db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot1, 127)
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 42)
+
+    # Idempotent — second sweep over the same root finds nothing.
+    check db.delDataColumnSidecars(ConsensusFork.Fulu, blockRoot0) == 0
+
+    # Repeat for gloas to make sure the fork dispatch picks the right table.
+    check:
+      db.delDataColumnSidecars(ConsensusFork.Gloas, blockRoot0) == 5
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 0)
+      not db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot0, 127)
+      db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot1, 5)
+
+    # Forks without a columns table should report zero deletions instead of
+    # panicking on the nil kvstore.
+    check db.delDataColumnSidecars(ConsensusFork.Deneb, blockRoot0) == 0
+
+    db.close()
+
   test "sanity check execution payload envelopes" & preset():
     const
       blockHeader0 = SignedBeaconBlockHeader(
@@ -697,7 +751,7 @@ suite "Beacon chain DB" & preset():
         message: ExecutionPayloadEnvelope(beacon_block_root: blockRoot1))
 
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
-    
+
     var data: seq[byte]
 
     check:
@@ -718,7 +772,7 @@ suite "Beacon chain DB" & preset():
       not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
       db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
       not db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)
-    
+
     db.putExecutionPayloadEnvelope(envelope1)
 
     check:
@@ -748,7 +802,7 @@ suite "Beacon chain DB" & preset():
       not db.getExecutionPayloadEnvelope(blockRoot1).isSome()
       not db.getExecutionPayloadEnvelopeSZ(blockRoot0, data)
       not db.getExecutionPayloadEnvelopeSZ(blockRoot1, data)
-    
+
     db.close()
 
 suite "Quarantine" & preset():

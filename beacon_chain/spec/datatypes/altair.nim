@@ -27,12 +27,6 @@ export base, sets
 from ssz_serialization/proofs import GeneralizedIndex, get_generalized_index
 export proofs.GeneralizedIndex
 
-type
-  TimelyFlag* {.pure.} = enum
-    TIMELY_SOURCE_FLAG_INDEX
-    TIMELY_TARGET_FLAG_INDEX
-    TIMELY_HEAD_FLAG_INDEX
-
 static:
   # Verify that ordinals follow spec values (the spec uses these as shifts for bit flags)
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#participation-flag-indices
@@ -192,11 +186,6 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  UnslashedParticipatingBalances* = object
-    previous_epoch*: array[TimelyFlag, Gwei]
-    current_epoch_TIMELY_TARGET*: Gwei
-    current_epoch*: Gwei # aka total_active_balance
-
   ParticipationFlag* {.pure.} = enum
     timelySourceAttester
     timelyTargetAttester
@@ -210,7 +199,7 @@ type
   EpochInfo* = object
     ## Information about the outcome of epoch processing
     validators*: seq[ParticipationInfo]
-    balances*: UnslashedParticipatingBalances
+    balances*: ParticipatingBalances
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -494,6 +483,33 @@ chronicles.formatIt SyncCommitteeContribution: shortLog(it)
 chronicles.formatIt ContributionAndProof: shortLog(it)
 chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
+func clear*(info: var EpochInfo) =
+  info.validators.setLen(0)
+  info.balances.reset()
+
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: SyncAggregate): TrustedSyncAggregate =
+  isomorphicCast[TrustedSyncAggregate](x)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#constants
 const
   FINALIZED_ROOT_GINDEX* = get_generalized_index(
@@ -647,37 +663,10 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot,
+    signature_slot: v.signature_slot
   )
 
 chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
-
-func clear*(info: var EpochInfo) =
-  info.validators.setLen(0)
-  info.balances = UnslashedParticipatingBalances()
-
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
-
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)
-
-template asTrusted*(
-    x: SyncAggregate): TrustedSyncAggregate =
-  isomorphicCast[TrustedSyncAggregate](x)

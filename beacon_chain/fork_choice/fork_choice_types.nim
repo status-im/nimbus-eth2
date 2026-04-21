@@ -124,6 +124,7 @@ type
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
+    block_slot*: Slot
     total_active_balance*: Gwei
     balances*: seq[ForkChoiceBalance]
 
@@ -192,6 +193,7 @@ template to_balance_checkpoint*(
     epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
   BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    block_slot: blck.slot,
     total_active_balance: epochRef.total_active_balance,
     balances: epochRef.fork_choice_balances)
 

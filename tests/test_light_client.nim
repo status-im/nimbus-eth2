@@ -25,7 +25,9 @@ suite "Light client" & preset():
     headPeriod = 4.SyncCommitteePeriod
   let
     cfg = block:  # Fork schedule that covers each `LightClientDataFork`
-      static: doAssert ConsensusFork.high == ConsensusFork.Gloas
+      debugGloasComment "..."
+      debugHezeComment "..."
+      static: doAssert ConsensusFork.high == ConsensusFork.Heze
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch
       res.BELLATRIX_FORK_EPOCH = 2.Epoch
