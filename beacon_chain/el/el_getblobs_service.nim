@@ -15,6 +15,7 @@ import
   chronicles,
   chronos,
   kzg4844/kzg,
+  metrics,
   ssz_serialization/[proofs, types],
 
   # Internals
@@ -24,11 +25,26 @@ import
   ../spec/[forks, helpers, peerdas_helpers],
   ./el_manager
 
+declareCounter beacon_engine_getblobs_requests_total,
+  "Total engine_getBlobs invocations issued by the sidecarless retrieval service"
+
+declareCounter beacon_engine_getblobs_hits_total,
+  "engine_getBlobs invocations that returned every blob referenced by the block"
+
+declareGauge beacon_engine_getblobs_slot_hit_rate,
+  "engine_getBlobs hit rate (0..1) for the most recently completed slot with at least one request"
+
 type
   GetBlobsService* = object
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
+    # Per-slot engine_getBlobs accounting. `slotInFlight` is the slot whose
+    # counts are currently accumulating; when a request lands for a different
+    # slot we flush the previous slot's ratio to the gauge and reset.
+    slotInFlight: Slot
+    slotRequests: uint64
+    slotHits: uint64
 
   GetBlobsServiceRef* = ref GetBlobsService
 
@@ -41,62 +57,102 @@ proc new*(
   GetBlobsServiceRef(
     blockGossipBus: blockGossipBus,
     blockProcessor: blockProcessor,
-    dataColumnQuarantine: dataColumnQuarantine)
+    dataColumnQuarantine: dataColumnQuarantine,
+    slotInFlight: FAR_FUTURE_SLOT)
+
+proc recordEngineGetBlobs(
+    self: GetBlobsServiceRef, slot: Slot, hit: bool) =
+  ## Record a single engine_getBlobs request + outcome against per-slot
+  ## accounting. On slot transition, flushes the previous slot's hit rate to
+  ## the gauge before counting the new request.
+  if slot != self.slotInFlight:
+    if self.slotRequests > 0:
+      beacon_engine_getblobs_slot_hit_rate.set(
+        self.slotHits.float / self.slotRequests.float)
+    self.slotInFlight = slot
+    self.slotRequests = 0
+    self.slotHits = 0
+  inc self.slotRequests
+  beacon_engine_getblobs_requests_total.inc()
+  if hit:
+    inc self.slotHits
+    beacon_engine_getblobs_hits_total.inc()
 
 proc attemptGetBlobs*(
     self: GetBlobsServiceRef,
-    root: Eth2Digest) {.async: (raises: [CancelledError]).}=
+    root: Eth2Digest) {.async: (raises: [CancelledError]).} =
   let
     elManager = self.blockProcessor[].consensusManager.elManager
     quarantine = self.blockProcessor[].consensusManager.quarantine
 
-  if (let o = quarantine[].popSidecarless(root); o.isSome):
-    let columnlessBlock = o.get()
-    withBlck(columnlessBlock):
-      debugGloasComment ""
-      when consensusFork == ConsensusFork.Fulu:
-        let blobsFromElOpt =
-          await elManager.getBlobsV2(forkyBlck)
-        if blobsFromElOpt.isSome():
-          let blobsEl = blobsFromElOpt.get()
-          # check lengths of blobs with KZG commitments of the signed block
-          if blobsEl.len == forkyBlck.message.body.blob_kzg_commitments.len:
-            # we have received all columns from the EL
-            # hence we can safely remove the columnless block from quarantine
-            var flat_proof = newSeqOfCap[kzg.KzgProof](blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
-            for item in blobsEl:
-              for proof in item.proofs:
-                flat_proof.add kzg.KzgProof(bytes: proof.data)
-            let recovered_columns = assemble_data_column_sidecars(
-              forkyBlck,
-              blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-              flat_proof)
-            # Send notification to event stream
-            # and add these columns to column quarantine
-            const MaxColsPerPut = (NUMBER_OF_COLUMNS div 2) + 1
-            var batch =
-              newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
+  # Peek the sidecarless block instead of popping: we must not hold the block
+  # outside the quarantine across an async yield, or sidecars arriving via
+  # gossip during the EL roundtrip will fail to find a sidecarless entry to
+  # enqueue against. The block is only claimed (popped) once we are
+  # committed to enqueueing it below.
+  let columnlessBlock = quarantine[].getColumnless(root).valueOr:
+    return
 
-            for col in recovered_columns:
-              if col.index notin self.dataColumnQuarantine[].custodyColumns:
-                continue
-              batch.add newClone(col)
-              if batch.len == MaxColsPerPut:
-                break
+  withBlck(columnlessBlock):
+    when consensusFork == ConsensusFork.Fulu:
+      let blobsFromElOpt = await elManager.getBlobsV2(forkyBlck)
+      if blobsFromElOpt.isNone():
+        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+        return
+      let blobsEl = blobsFromElOpt.get()
+      # check lengths of blobs with KZG commitments of the signed block
+      if blobsEl.len != forkyBlck.message.body.blob_kzg_commitments.len:
+        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+        return
+      self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
 
-            if batch.len > 0:
-              debug "Added data columns from EL blobpool to quarantine",
-                root = forkyBlck.root
-              self.dataColumnQuarantine[].put(forkyBlck.root, batch)
+      var flat_proof = newSeqOfCap[kzg.KzgProof](
+        blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
+      for item in blobsEl:
+        for proof in item.proofs:
+          flat_proof.add kzg.KzgProof(bytes: proof.data)
+      let recovered_columns = assemble_data_column_sidecars(
+        forkyBlck,
+        blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+        flat_proof)
 
-              let sidecarsOpt =
-                self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+      # Add these columns to column quarantine.
+      const MaxColsPerPut = (NUMBER_OF_COLUMNS div 2) + 1
+      var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
 
-              self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
-            else:
-              # Something went wrong while assembling columns, push the columnless block
-              # back into quarantine
-              quarantine[].addSidecarless(forkyBlck)
+      for col in recovered_columns:
+        if col.index notin self.dataColumnQuarantine[].custodyColumns:
+          continue
+        batch.add newClone(col)
+        if batch.len == MaxColsPerPut:
+          break
+
+      if batch.len == 0:
+        # No custody columns to contribute; leave the block in sidecarless so
+        # that gossip or other mechanisms can still make use of it.
+        return
+
+      # Claim the block now that we are committed to enqueueing it. If it
+      # was already removed in the meantime (e.g. gossip delivered sidecars
+      # during our await), another path owns it — abandon silently.
+      if quarantine[].popSidecarless(root).isNone():
+        return
+
+      debug "Added data columns from EL blobpool to quarantine",
+        root = forkyBlck.root
+      self.dataColumnQuarantine[].put(forkyBlck.root, batch)
+
+      let sidecarsOpt =
+        self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+
+      self.blockProcessor.enqueueBlock(
+        MsgSource.gossip, forkyBlck, sidecarsOpt)
+    elif consensusFork == ConsensusFork.Gloas:
+      debugGloasComment "EL engine_getBlobs dispatch not yet wired for Gloas"
+    elif consensusFork == ConsensusFork.Heze:
+      debugHezeComment "EL engine_getBlobs dispatch not yet wired for Heze"
+    else:
+      discard
 
 proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
   let ticket = self.blockGossipBus.register()
@@ -106,8 +162,7 @@ proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
       let events = await self.blockGossipBus.waitEvents(ticket)
       for event in events:
         withBlck(event.blck):
-          debugGloasComment ""
-          when consensusFork == ConsensusFork.Fulu:
+          when consensusFork >= ConsensusFork.Fulu:
             await self.attemptGetBlobs(forkyBlck.root)
           else:
             discard
