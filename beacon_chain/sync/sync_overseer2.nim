@@ -2978,8 +2978,8 @@ proc syncStatusMessage*(
     optimistic = not(dag.head.executionValid)
     optSuffix = if optimistic: " [opt]" else: ""
     lcSuffix =
-      if overseer.consensusManager[].shouldSyncOptimistically(wallSlot):
-        " - lc: " & $shortLog(overseer.consensusManager[].optimisticHead)
+      if overseer.consensusManager[].shouldSyncViaLightClient(wallSlot):
+        " - lc: " & $shortLog(overseer.consensusManager[].lightClientHead)
       else:
         ""
   if overseer.lastSeenCheckpoint.isNone():
