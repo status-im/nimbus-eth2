@@ -569,8 +569,8 @@ proc syncStatusMessage*(
       else:
         ""
     lcSuffix =
-      if overseer.consensusManager[].shouldSyncOptimistically(wallSlot):
-        " - lc: " & $shortLog(overseer.consensusManager[].optimisticHead)
+      if overseer.consensusManager[].shouldSyncViaLightClient(wallSlot):
+        " - lc: " & $shortLog(overseer.consensusManager[].lightClientHead)
       else:
         ""
     res =

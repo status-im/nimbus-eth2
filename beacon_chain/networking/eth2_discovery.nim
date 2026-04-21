@@ -12,7 +12,7 @@ import
   chronos, chronicles,
   eth/p2p/discoveryv5/[protocol, node, random2],
   ../spec/datatypes/[altair, fulu],
-  ../spec/eth2_ssz_serialization,
+  ../spec/[eth2_ssz_serialization, peerdas_helpers, column_map],
   ".."/[conf, conf_light_client]
 
 from std/os import splitFile
@@ -23,6 +23,12 @@ export protocol, node
 type
   Eth2DiscoveryProtocol* = protocol.Protocol
   Eth2DiscoveryId* = NodeId
+  QueryScore* = array[3, int]
+
+const
+  AttesttationNetScore* = 0
+  SyncNetScore* = 1
+  ColumnNetScore* = 2
 
 func parseBootstrapAddress*(address: string):
     Result[enr.Record, string] =
@@ -124,11 +130,13 @@ func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): boo
 
 proc queryRandom*(
     d: Eth2DiscoveryProtocol,
+    cfg: RuntimeConfig,
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
     wantedSyncnets: SyncnetBits,
-    wantedCgcnets: CgcBits,
-    minScore: int): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
+    localMap: ColumnMap,
+    minScore: QueryScore
+): Future[seq[Node]] {.async: (raises: [CancelledError]).} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
@@ -136,7 +144,7 @@ proc queryRandom*(
 
   var filtered: seq[(int, Node)]
   for n in nodes:
-    var score: int = 0
+    var score: QueryScore
 
     let
       eth2FieldBytes = n.record.get(enrForkIdField, seq[byte]).valueOr:
@@ -162,8 +170,11 @@ proc queryRandom*(
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      if wantedCgcnets.countOnes().uint8 == cgcCountNode:
-        score += 1
+      let peerMap =
+        cfg.resolve_column_map_from_custody_groups(
+          n.id, CustodyIndex(cgcCountNode))
+
+      score[ColumnNetScore] = 100 * len(peerMap and localMap)
 
     let attnetsBytes = n.record.get(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isOk():
@@ -177,7 +188,7 @@ proc queryRandom*(
 
       for i in 0..<ATTESTATION_SUBNET_COUNT:
         if wantedAttnets[i] and attnetsNode[i]:
-          score += 1
+          score[AttesttationNetScore] += 1
 
     let syncnetsBytes = n.record.get(enrSyncSubnetsField, seq[byte])
     if syncnetsBytes.isOk():
@@ -191,10 +202,11 @@ proc queryRandom*(
 
       for i in SyncSubcommitteeIndex:
         if wantedSyncnets[i] and syncnetsNode[i]:
-          score += 10 # connecting to the right syncnet is urgent
+          score[SyncNetScore] += 10 # connecting to the right syncnet is urgent
 
-    if score >= minScore:
-      filtered.add((score, n))
+    if (score[0] >= minScore[0]) and (score[1] >= minScore[1]) and
+       (score[2] >= minScore[2]):
+      filtered.add((score[0] + score[1] + score[2], n))
 
   d.rng[].shuffle(filtered)
   return filtered.sortedByIt(-it[0]).mapIt(it[1])

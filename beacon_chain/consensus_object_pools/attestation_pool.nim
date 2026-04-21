@@ -882,8 +882,10 @@ proc getBeaconHead*(
         .get(ZERO_HASH)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/fork_choice/safe-block.md#get_safe_execution_block_hash
-    safeBlockRoot = pool.forkChoice.retrieve_fast_confirmed_root()
-    safeBlock = pool.dag.getBlockRef(safeBlockRoot)
+    # Use the justified checkpoint root as the safe block reported to the
+    # execution client via `engine_forkchoiceUpdated`.
+    safeBlock = pool.dag.getBlockRef(
+      pool.forkChoice.checkpoints.justified.checkpoint.root)
     safeExecutionBlockHash =
       if safeBlock.isErr:
         # If finality already advanced beyond the current safe block,

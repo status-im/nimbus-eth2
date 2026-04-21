@@ -143,7 +143,7 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
@@ -180,7 +180,7 @@ proc publishSidecars(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: fulu.SignedBeaconBlock,
+    _: fulu.SignedBeaconBlock,
     cols: seq[fulu.DataColumnSidecar]
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   var workers = newSeq[Future[SendResult]](len(cols))
@@ -674,8 +674,8 @@ proc routeBlsToExecutionChange*(
 proc routePayloadAttestationMessage*(
     router: ref MessageRouter,
     message: PayloadAttestationMessage,
-    checkSignature = true, checkValidator = true):
-    Future[SendResult] {.async: (raises: [CancelledError]).} =
+    checkSignature = true, checkValidator = true
+) {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processPayloadAttestationMessage(
       message, checkSignature = checkSignature,
@@ -684,7 +684,7 @@ proc routePayloadAttestationMessage*(
     if not res.isGoodForSending:
       warn "Payload attestation failed validation",
         message = shortLog(message), error = res.error()
-      return err(res.error()[1])
+      return
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
@@ -700,13 +700,11 @@ proc routePayloadAttestationMessage*(
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
 
-  return ok()
-
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     checkValidator: bool
-): Future[SendResult] {.async: (raises: [CancelledError]).} =
+) {.async: (raises: [CancelledError]).} =
   block:
     let res = router[].processor[].processExecutionPayloadEnvelope(
       MsgSource.api, signedEnvelope)
@@ -715,7 +713,7 @@ proc routeExecutionPayloadEnvelope*(
       warn "Execution payload envelope failed validation",
         envelope = shortLog(signedEnvelope.message),
         error = res.error()
-      return err(res.error()[1])
+      return
 
   let res =
     await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
@@ -728,4 +726,27 @@ proc routeExecutionPayloadEnvelope*(
       envelope = shortLog(signedEnvelope.message),
       error = res.error()
 
-  return ok()
+proc routeProposerPreferences*(
+    router: ref MessageRouter,
+    signed_preferences: SignedProposerPreferences
+) {.async: (raises: [CancelledError]).} =
+  block:
+    let res = router.processor.processProposerPreferences(
+      MsgSource.api, signed_preferences)
+
+    if not res.isGoodForSending:
+      warn "Proposer preferences failed validation",
+        message = shortLog(signed_preferences), error = res.error()
+      return
+
+  let res =
+    await router[].network.broadcastProposerPreferences(signed_preferences)
+
+  if res.isOk():
+    info "Proposer preferences sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
+      validator_index = signed_preferences.message.validator_index
+  else:
+    notice "Proposer preferences not sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
+      error = res.error()

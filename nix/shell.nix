@@ -36,7 +36,6 @@ in pkgs.mkShell {
     # will erase `-march=native` because this introduces impurity in the build.
     # For the purposes of compiling Nimbus, this behavior is not desired:
     export NIX_ENFORCE_NO_NATIVE=0
-    export USE_SYSTEM_GETOPT=1
     export MAKEFLAGS="-j$NIX_BUILD_CORES"
 
     figlet "Welcome to Nimbus-eth2"

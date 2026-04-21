@@ -411,7 +411,7 @@ template validateBeaconBlockGloas(
   debugHezeComment "this effectively disables gossip validation for Heze blocks currently"
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockGloas(
     dag: ChainDAGRef,
     signed_beacon_block: gloas.SignedBeaconBlock): untyped =
@@ -423,22 +423,14 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  let
-    parentRef = dag.getBlockRef(bid.parent_block_root)
-    parentBlock =
-      if parentRef.isSome():
-        dag.getForkedBlock(parentRef.get().bid)
-      else:
-        Opt.none(ForkedTrustedSignedBeaconBlock)
-  if parentBlock.isSome():
-    withBlck(parentBlock.get()):
-      if forkyBlck.message.is_execution_block:
-        let parentHash = dag.loadExecutionBlockHash(parentRef.get()).valueOr:
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
-        if not (bid.parent_block_hash == parentHash):
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
+  let parent = dag.getBlockRef(bid.parent_block_root).valueOr:
+    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
+  debugGloasComment("request missing envelope if not found in db")
+  if not (
+      isParentBlockFull(dag, signed_beacon_block, parent) or
+      isParentBlockFull(dag, signed_beacon_block, parent.parent)
+  ):
+    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
@@ -1125,13 +1117,6 @@ proc validateExecutionPayload*(
       return dag.checkedReject("ExecutionPayload: invalid builder signature")
   else:
     return dag.checkedReject("ExecutionPayload: invalid fork")
-
-  let onExecutionPayloadCallback =
-    envelopeQuarantine[].onExecutionPayloadCallback()
-  if not isNil(onExecutionPayloadCallback):
-    onExecutionPayloadCallback ExecutionPayloadInfoObject(
-      slot: envelope.slot,
-      block_root: envelope.beacon_block_root)
 
   ok()
 
@@ -2187,4 +2172,65 @@ proc validatePayloadAttestationMessage*(
     of BatchResult.Valid:
       discard
 
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#proposer_preferences
+proc validateProposerPreferences*(
+    dag: ChainDAGRef,
+    seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
+    signed_preferences: SignedProposerPreferences,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template preferences: untyped = signed_preferences.message
+
+  let
+    currentSlot = wallTime.slotOrZero(dag.timeParams)
+    currentEpoch = currentSlot.epoch
+    proposalEpoch = preferences.proposal_slot.epoch
+  
+  # [IGNORE] preferences.proposal_slot is in the current or next epoch
+  # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
+  # [get_current_epoch(state), get_current_epoch(state) + 1].
+  if proposalEpoch != currentEpoch and proposalEpoch != currentEpoch + 1:
+    return errIgnore("ProposerPreferences: proposal_slot in current/next epoch")
+
+  # [IGNORE] preferences.proposal_slot has not already passed
+  # -- i.e. preferences.proposal_slot > state.slot
+  if preferences.proposal_slot <= currentSlot:
+    return errIgnore("ProposerPreferences: proposal_slot not in future")
+
+  # [IGNORE] The signed_proposer_preferences is the first valid message
+  # received from the validator with index preferences.validator_index
+  # and the given slot preferences.proposal_slot
+  let
+    bucket = proposalEpoch.uint64 mod 2
+    slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
+  if seen[bucket][slotInEpoch].isSome:
+    return errIgnore("ProposerPreferences: already seen")
+
+  # [REJECT] preferences.validator_index is present at the correct slot
+  # in the current or next epoch's portion of state.proposer_lookahead
+  # i.e. is_valid_proposal_slot(state, preferences) returns True.
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      if not is_valid_proposal_slot(
+          forkyState.data, preferences.proposal_slot,
+          preferences.validator_index):
+        return dag.checkedReject(
+          "ProposerPreferences: not the proposer for proposal_slot")
+    else:
+      return dag.checkedReject(
+        "ProposerPreferences: only valid for Gloas fork or later")
+
+  # [REJECT] signed_proposer_preferences.signature is valid with
+  # respect to the validator's public key.
+  let
+    pubkey = dag.validatorKey(preferences.validator_index).valueOr:
+      return dag.checkedReject("ProposerPreferences: invalid validator index")
+    fork = dag.forkAtEpoch(preferences.proposal_slot.epoch)
+  if not verify_proposer_preferences_signature(
+      fork, dag.genesis_validators_root, preferences,
+      pubkey, signed_preferences.signature):
+    return dag.checkedReject("ProposerPreferences: invalid signature")
+
+  seen[bucket][slotInEpoch] = Opt.some(preferences)
   ok()

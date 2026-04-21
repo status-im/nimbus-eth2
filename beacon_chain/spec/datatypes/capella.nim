@@ -747,9 +747,7 @@ func upgrade_lc_optimistic_update_to_capella*(
 func shortLog*(v: LightClientHeader): auto =
   (
     beacon: shortLog(v.beacon),
-    execution: (
-      block_hash: v.execution.block_hash,
-      block_number: v.execution.block_number)
+    execution_block_hash: v.execution.block_hash
   )
 
 func shortLog*(v: LightClientBootstrap): auto =
@@ -779,7 +777,7 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot,
+    signature_slot: v.signature_slot
   )
 
 chronicles.formatIt LightClientBootstrap: shortLog(it)
@@ -803,4 +801,3 @@ func upgrade_lc_store_to_capella*(
     optimistic_header: upgrade_lc_header_to_capella(pre.optimistic_header),
     previous_max_active_participants: pre.previous_max_active_participants,
     current_max_active_participants: pre.current_max_active_participants)
-
