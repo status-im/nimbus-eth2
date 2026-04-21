@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/typetraits,
@@ -34,8 +34,7 @@ func is_valid_versioned_hashes*(
       blck.body.execution_payload.transactions
   template commitments: untyped =
     when consensusFork >= ConsensusFork.Gloas:
-      template bid(): auto = blck.body.signed_execution_payload_bid
-      bid.message.blob_kzg_commitments
+      blck.body.signed_execution_payload_bid.message.blob_kzg_commitments
     else:
       blck.body.blob_kzg_commitments
 

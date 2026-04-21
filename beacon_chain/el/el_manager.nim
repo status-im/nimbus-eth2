@@ -57,7 +57,7 @@ const
   GETBLOBS_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold = 15
-    ## How many unsuccesful/successful requests we must see
+    ## How many unsuccessful/successful requests we must see
     ## before declaring the connection as degraded/restored
 
 type
@@ -104,7 +104,7 @@ type
 
     web3: Opt[Web3]
       ## This will be `none` before connecting and while we are
-      ## reconnecting after a lost connetion. You can wait on
+      ## reconnecting after a lost connection. You can wait on
       ## the future below for the moment the connection is active.
 
     connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
@@ -127,7 +127,7 @@ declareCounter engine_api_responses,
   labels = ["url", "request", "status"]
 
 declareHistogram engine_api_request_duration_seconds,
-  "Time(s) used to generate signature usign remote signer",
+  "Time(s) used to generate signature using remote signer",
    buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
    labels = ["url", "request"]
 
@@ -162,7 +162,7 @@ func increaseCounterTowardsStateChange(connection: ELConnection): bool =
 
 func decreaseCounterTowardsStateChange(connection: ELConnection) =
   if connection.hysteresisCounter > 0:
-    # While we increase the counter by 1, we decreate it by 20% in order
+    # While we increase the counter by 1, we decrease it by 20% in order
     # to require a steady and affirmative change instead of allowing
     # the counter to drift very slowly in one direction when the ratio
     # between success and failure is roughly 50:50%

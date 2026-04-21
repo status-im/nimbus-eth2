@@ -18,7 +18,7 @@
   ],
 }:
 
-# The 'or' is to handle src fallback to ../. which lack submodules attribue.
+# The 'or' is to handle src fallback to ../. which lack submodules attribute.
 assert pkgs.lib.assertMsg ((src.submodules or true) == true)
   "Unable to build without submodules. Append '?submodules=1#' to the URI.";
 
@@ -41,7 +41,7 @@ in stdenv.mkDerivation rec {
   enableParallelBuilding = true;
 
   env = {
-    # Disable CPU optmizations that make binary not portable.
+    # Disable CPU optimizations that make binary not portable.
     NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
     # Avoid errors about missing user home.
     NIMBLE_DIR = "/tmp";
