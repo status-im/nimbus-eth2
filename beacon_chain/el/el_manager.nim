@@ -499,7 +499,8 @@ proc getPayload*(
     m: ELManager,
     PayloadType: type ForkyExecutionPayloadForSigning,
     state: ForkchoiceStateV1,
-    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 | PayloadAttributesV3,
+    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 |
+                       PayloadAttributesV3 | PayloadAttributesV4,
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     notice "No engine configured, using empty payload"

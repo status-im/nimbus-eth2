@@ -84,7 +84,25 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     if state.shouldFailNewPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: execution failed")
+        (ref ApplicationError)(code: -32603, msg: "Internal error: newPayload v4 failed")
+
+    return PayloadStatusV1(
+      status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
+    )
+
+  server.rpc("engine_newPayloadV5") do(
+    payload: ExecutionPayloadV4,
+    expectedBlobVersionedHashes: Opt[seq[Hash32]],
+    parentBeaconBlockRoot: Opt[Hash32],
+    executionRequests: Opt[seq[seq[byte]]]
+  ) -> PayloadStatusV1:
+    inc state.newPayloadCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailNewPayload:
+      raise
+        (ref ApplicationError)(code: -32603, msg: "Internal error: newPayload v5 failed")
 
     return PayloadStatusV1(
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
@@ -99,7 +117,31 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     if state.shouldFailForkchoice:
       raise (ref ApplicationError)(
-        code: -32603, msg: "Internal error: forkchoice update failed"
+        code: -32603, msg: "Internal error: forkchoiceUpdated v3 failed"
+      )
+
+    return ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(
+        status: PayloadExecutionStatus.valid,
+        latestValidHash: Opt.some(fcState.headBlockHash),
+      ),
+      payloadId:
+        if payloadAttributes.isSome:
+          Opt.some(Bytes8([1'u8, 2, 3, 4, 5, 6, 7, 8]))
+        else:
+          Opt.none(Bytes8),
+    )
+
+  server.rpc("engine_forkchoiceUpdatedV4") do(
+    fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV4]
+  ) -> ForkchoiceUpdatedResponse:
+    inc state.forkchoiceCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailForkchoice:
+      raise (ref ApplicationError)(
+        code: -32603, msg: "Internal error: forkchoiceUpdated v4 failed"
       )
 
     return ForkchoiceUpdatedResponse(
