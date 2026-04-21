@@ -133,7 +133,7 @@ suite "Eth2 specific discovery tests":
       node1 = generateNode(rng, Port(5000))
       node2 = generateNode(rng, Port(5001), {
         enrForkIdField: SSZ.encode(enrForkId),
-        enrCustodySubnetCountField: SSZ.encode(cgcCountNode)
+        enrCustodyGroupCountField: SSZ.encode(cgcCountNode)
       })
 
     node1.open()
@@ -186,7 +186,7 @@ suite "Eth2 specific discovery tests":
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(attnets),
         enrSyncSubnetsField: SSZ.encode(syncnets),
-        enrCustodySubnetCountField: SSZ.encode(cgcCountNode)
+        enrCustodyGroupCountField: SSZ.encode(cgcCountNode)
       })
 
     node1.open()
