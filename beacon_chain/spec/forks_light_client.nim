@@ -741,7 +741,8 @@ func matches*[A, B: SomeForkedLightClientUpdate](a: A, b: B): bool =
 
 func migrateToDataFork*(
     x: var ForkedLightClientHeader,
-    newKind: static LightClientDataFork) =
+    newKind: static LightClientDataFork,
+    cfg: RuntimeConfig) =
   if newKind == x.kind:
     # Already at correct kind
     discard
@@ -784,7 +785,8 @@ func migrateToDataFork*(
 
 func migrateToDataFork*(
     x: var ForkedLightClientBootstrap,
-    newKind: static LightClientDataFork) =
+    newKind: static LightClientDataFork,
+    cfg: RuntimeConfig) =
   if newKind == x.kind:
     # Already at correct kind
     discard
@@ -827,7 +829,8 @@ func migrateToDataFork*(
 
 func migrateToDataFork*(
     x: var ForkedLightClientUpdate,
-    newKind: static LightClientDataFork) =
+    newKind: static LightClientDataFork,
+    cfg: RuntimeConfig) =
   if newKind == x.kind:
     # Already at correct kind
     discard
@@ -870,7 +873,8 @@ func migrateToDataFork*(
 
 func migrateToDataFork*(
     x: var ForkedLightClientFinalityUpdate,
-    newKind: static LightClientDataFork) =
+    newKind: static LightClientDataFork,
+    cfg: RuntimeConfig) =
   if newKind == x.kind:
     # Already at correct kind
     discard
@@ -913,7 +917,8 @@ func migrateToDataFork*(
 
 func migrateToDataFork*(
     x: var ForkedLightClientOptimisticUpdate,
-    newKind: static LightClientDataFork) =
+    newKind: static LightClientDataFork,
+    cfg: RuntimeConfig) =
   if newKind == x.kind:
     # Already at correct kind
     discard
@@ -956,7 +961,8 @@ func migrateToDataFork*(
 
 func migrateToDataFork*(
     x: var ForkedLightClientStore,
-    newKind: static LightClientDataFork) =
+    newKind: static LightClientDataFork,
+    cfg: RuntimeConfig) =
   if newKind == x.kind:
     # Already at correct kind
     discard
@@ -1002,9 +1008,9 @@ func migratingToDataFork*[
       ForkedLightClientHeader |
       SomeForkedLightClientObject |
       ForkedLightClientStore](
-    x: T, newKind: static LightClientDataFork): T =
+    x: T, newKind: static LightClientDataFork, cfg: RuntimeConfig): T =
   var upgradedObject = x
-  upgradedObject.migrateToDataFork(newKind)
+  upgradedObject.migrateToDataFork(newKind, cfg)
   upgradedObject
 
 # Convenience-based location for toExecutionPayloadHeader because this is the

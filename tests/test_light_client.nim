@@ -181,14 +181,14 @@ suite "Light client" & preset():
       if update.kind > store.kind:
         withForkyUpdate(update):
           when lcDataFork > LightClientDataFork.None:
-            store.migrateToDataFork(lcDataFork)
+            store.migrateToDataFork(lcDataFork, cfg)
       withForkyStore(store):
         when lcDataFork > LightClientDataFork.None:
           # Reduce stack size by making this a `proc`
           proc syncToPeriod() =
-            bootstrap.migrateToDataFork(lcDataFork)
+            bootstrap.migrateToDataFork(lcDataFork, cfg)
             template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
-            let upgradedUpdate = update.migratingToDataFork(lcDataFork)
+            let upgradedUpdate = update.migratingToDataFork(lcDataFork, cfg)
             template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
             let res = process_light_client_update(
               forkyStore, forkyUpdate, currentSlot, cfg,
@@ -212,10 +212,10 @@ suite "Light client" & preset():
     if finalityUpdate.kind > store.kind:
       withForkyFinalityUpdate(finalityUpdate):
         when lcDataFork > LightClientDataFork.None:
-          store.migrateToDataFork(lcDataFork)
+          store.migrateToDataFork(lcDataFork, cfg)
     withForkyStore(store):
       when lcDataFork > LightClientDataFork.None:
-        let upgradedUpdate = finalityUpdate.migratingToDataFork(lcDataFork)
+        let upgradedUpdate = finalityUpdate.migratingToDataFork(lcDataFork, cfg)
         template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
         let res = process_light_client_update(
           forkyStore, forkyUpdate, currentSlot, cfg, genesis_validators_root)

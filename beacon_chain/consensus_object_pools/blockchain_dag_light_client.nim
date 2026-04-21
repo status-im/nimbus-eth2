@@ -578,7 +578,7 @@ proc assignLightClientData(
     let att_header = dag.getExistingLightClientHeader(attested_bid)
     withForkyHeader(att_header):
       when lcDataFork > LightClientDataFork.None:
-        obj.migrateToDataFork(lcDataFork)
+        obj.migrateToDataFork(lcDataFork, dag.cfg)
         obj.forky(lcDataFork).attested_header = forkyHeader
       else:
         dag.handleUnexpectedLightClientError(attested_bid.slot)
@@ -627,7 +627,7 @@ proc assignLightClientData(
                 forkyObject.finalized_header.reset()
                 forkyObject.finality_branch.reset()
               else:
-                fin_header.migrateToDataFork(lcDataFork)
+                fin_header.migrateToDataFork(lcDataFork, dag.cfg)
                 forkyObject.finalized_header = fin_header.forky(lcDataFork)
                 forkyObject.finality_branch = attested_data.finality_branch
   withForkyObject(obj):

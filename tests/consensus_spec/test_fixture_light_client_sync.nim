@@ -195,7 +195,7 @@ proc runTest(suiteName, path: string) =
       var store: ForkedLightClientStore
       withLcDataFork(lcDataForkAtConsensusFork(store_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
-          bootstrap[].migrateToDataFork(lcDataFork)
+          bootstrap[].migrateToDataFork(lcDataFork, cfg)
           store = ForkedLightClientStore.init(initialize_light_client_store(
             meta.trusted_block_root, bootstrap[].forky(lcDataFork), cfg).get)
         else: raiseAssert "Unreachable store fork " & $meta.store_fork_digest
@@ -215,7 +215,7 @@ proc runTest(suiteName, path: string) =
           of TestStepKind.ProcessUpdate:
             check step.update.kind <= lcDataFork
             let
-              upgradedUpdate = step.update.migratingToDataFork(lcDataFork)
+              upgradedUpdate = step.update.migratingToDataFork(lcDataFork, cfg)
               res = process_light_client_update(
                 forkyStore, upgradedUpdate.forky(lcDataFork), step.current_slot,
                 cfg, meta.genesis_validators_root)
@@ -224,7 +224,7 @@ proc runTest(suiteName, path: string) =
             check step.store_data_fork >= lcDataFork
             withLcDataFork(step.store_data_fork):
               when lcDataFork > LightClientDataFork.None:
-                store.migrateToDataFork(lcDataFork)
+                store.migrateToDataFork(lcDataFork, cfg)
         else: raiseAssert "Unreachable"
 
       withForkyStore(store):
