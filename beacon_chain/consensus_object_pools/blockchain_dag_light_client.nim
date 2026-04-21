@@ -93,72 +93,6 @@ proc existingCurrentSyncCommitteeForPeriod(
     doAssert strictVerification notin dag.updateFlags
   syncCommittee
 
-func pruneToCapacity[A, B](t: var OrderedTable[A, B], capacity: int) =
-  while t.len > capacity:
-    var key {.noinit.}: A
-    for k in t.keys:
-      key = k
-      break
-    t.del(key)
-
-func cacheRecentLightClientHeader(
-    dag: ChainDAGRef, bid: BlockId, header: ForkedLightClientHeader) =
-  dag.lcDataStore.cache.recentHeaders[bid] = header
-  dag.lcDataStore.cache.recentHeaders.pruneToCapacity(10)
-
-func cacheRecentSyncAggregate(
-    dag: ChainDAGRef, bid: BlockId, syncAggregate: SyncAggregate) =
-  dag.lcDataStore.cache.recentSyncAggregates[bid] = syncAggregate
-  dag.lcDataStore.cache.recentSyncAggregates.pruneToCapacity(5)
-
-func lightClientHeader(
-    blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
-  when kind(typeof(blck)) == ConsensusFork.Heze:
-    debugHezeComment "..."
-    default(ForkedLightClientHeader)
-  elif kind(typeof(blck)) == ConsensusFork.Gloas:
-    debugGloasComment "..."
-    default(ForkedLightClientHeader)
-  else:
-    const lcDataFork = max(
-      lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
-    ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
-
-func sync_aggregate(
-    blck: ForkyTrustedSignedBeaconBlock): SyncAggregate =
-  blck.asSigned().message.body.sync_aggregate
-
-proc getExistingLightClientHeader(
-    dag: ChainDAGRef, bid: BlockId): ForkedLightClientHeader =
-  var res = dag.lcDataStore.cache.recentHeaders.getOrDefault(bid)
-  if res.kind > LightClientDataFork.None:
-    return res
-
-  let bdata = dag.getExistingForkedBlock(bid)
-  if bdata.isNone:
-    return res
-
-  res = withBlck(bdata.get): forkyBlck.lightClientHeader()
-  dag.cacheRecentLightClientHeader(bid, res)
-  res
-
-proc getExistingSyncAggregate(
-    dag: ChainDAGRef, bid: BlockId): Opt[SyncAggregate] =
-  if bid in dag.lcDataStore.cache.recentSyncAggregates:
-    return Opt.some dag.lcDataStore.cache.recentSyncAggregates.getOrDefault(bid)
-
-  let bdata = dag.getExistingForkedBlock(bid)
-  if bdata.isNone:
-    return Opt.none(SyncAggregate)
-
-  let res = withBlck(bdata.get):
-    when consensusFork >= ConsensusFork.Altair:
-      Opt.some forkyBlck.sync_aggregate()
-    else:
-      return Opt.none(SyncAggregate)
-  dag.cacheRecentSyncAggregate(bid, res.get)
-  res
-
 proc initLightClientDataStore*(
     config: LightClientDataConfig,
     cfg: RuntimeConfig,
@@ -547,6 +481,72 @@ func deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
     return
 
   dag.lcDataStore.cache.data.del bid
+
+func pruneToCapacity[A, B](t: var OrderedTable[A, B], capacity: int) =
+  while t.len > capacity:
+    var key {.noinit.}: A
+    for k in t.keys:
+      key = k
+      break
+    t.del(key)
+
+func cacheRecentLightClientHeader(
+    dag: ChainDAGRef, bid: BlockId, header: ForkedLightClientHeader) =
+  dag.lcDataStore.cache.recentHeaders[bid] = header
+  dag.lcDataStore.cache.recentHeaders.pruneToCapacity(10)
+
+func cacheRecentSyncAggregate(
+    dag: ChainDAGRef, bid: BlockId, syncAggregate: SyncAggregate) =
+  dag.lcDataStore.cache.recentSyncAggregates[bid] = syncAggregate
+  dag.lcDataStore.cache.recentSyncAggregates.pruneToCapacity(5)
+
+func lightClientHeader(
+    blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
+  when kind(typeof(blck)) == ConsensusFork.Heze:
+    debugHezeComment "..."
+    default(ForkedLightClientHeader)
+  elif kind(typeof(blck)) == ConsensusFork.Gloas:
+    debugGloasComment "..."
+    default(ForkedLightClientHeader)
+  else:
+    const lcDataFork = max(
+      lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
+    ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
+
+proc getExistingLightClientHeader(
+    dag: ChainDAGRef, bid: BlockId): ForkedLightClientHeader =
+  var res = dag.lcDataStore.cache.recentHeaders.getOrDefault(bid)
+  if res.kind > LightClientDataFork.None:
+    return res
+
+  let bdata = dag.getExistingForkedBlock(bid)
+  if bdata.isNone:
+    return res
+
+  res = withBlck(bdata.get): forkyBlck.lightClientHeader()
+  dag.cacheRecentLightClientHeader(bid, res)
+  res
+
+func sync_aggregate(
+    blck: ForkyTrustedSignedBeaconBlock): SyncAggregate =
+  blck.asSigned().message.body.sync_aggregate
+
+proc getExistingSyncAggregate(
+    dag: ChainDAGRef, bid: BlockId): Opt[SyncAggregate] =
+  if bid in dag.lcDataStore.cache.recentSyncAggregates:
+    return Opt.some dag.lcDataStore.cache.recentSyncAggregates.getOrDefault(bid)
+
+  let bdata = dag.getExistingForkedBlock(bid)
+  if bdata.isNone:
+    return Opt.none(SyncAggregate)
+
+  let res = withBlck(bdata.get):
+    when consensusFork >= ConsensusFork.Altair:
+      Opt.some forkyBlck.sync_aggregate()
+    else:
+      return Opt.none(SyncAggregate)
+  dag.cacheRecentSyncAggregate(bid, res.get)
+  res
 
 proc assignLightClientData(
     obj: var SomeForkedLightClientUpdateWithFinality,
