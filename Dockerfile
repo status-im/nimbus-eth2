@@ -7,12 +7,12 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-FROM debian:testing-slim AS build
+FROM debian:trixie-slim AS build
 
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get clean && apt update \
- && apt -y install build-essential git-lfs
+ && apt -y install build-essential git-lfs ca-certificates
 
 RUN ldd --version ldd
 
@@ -26,7 +26,7 @@ RUN cd /root/nimbus-eth2 \
 # --------------------------------- #
 # Starting new image to reduce size #
 # --------------------------------- #
-FROM debian:testing-slim as deploy
+FROM debian:trixie-slim as deploy
 
 SHELL ["/bin/bash", "-c"]
 RUN apt-get clean && apt update \
