@@ -586,7 +586,7 @@ proc proposeBlockAux(
       if node.config.partialColumns:
         # Also assemble partial data column sidecars for broadcast
         let optProofs = proofs.mapIt(Opt.some(it))
-        let partialSidecars = signedBlock.assemble_partial_data_column_sidecars(
+        let partialSidecars = assemble_partial_data_column_sidecars(
           blobs, optProofs)
 
         # Attach headers to partial sidecars (proposer eager push includes header)

@@ -433,7 +433,7 @@ suite "Block processor" & preset():
         # Wrap cell proofs as Opt.some (proposer has all proofs)
         let optProofs = cellsAndProofs.proofs.mapIt(Opt.some(kzg.KzgProof(it)))
         let partialSidecars = assemble_partial_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob], optProofs)
+          @[kzgBlob], optProofs)
 
         check:
           # One partial sidecar per column (CELLS_PER_EXT_BLOB columns)
@@ -481,7 +481,7 @@ suite "Block processor" & preset():
         # Assemble partial data column sidecars
         let optProofs = cellsAndProofs.proofs.mapIt(Opt.some(kzg.KzgProof(it)))
         let partialSidecars = assemble_partial_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob], optProofs)
+          @[kzgBlob], optProofs)
 
         # Build header from block
         let
@@ -626,7 +626,7 @@ suite "Block processor" & preset():
         # Assemble partial sidecars
         let optProofs = cellsAndProofs.proofs.mapIt(Opt.some(kzg.KzgProof(it)))
         let partialSidecars = assemble_partial_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob], optProofs)
+          @[kzgBlob], optProofs)
 
         # Build header
         let
