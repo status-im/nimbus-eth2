@@ -1035,7 +1035,7 @@ type ExecutionPayloadHeader =
 
 func ETHLightClientHeaderGetExecution(
     header: ptr lcDataFork.LightClientHeader
-): ptr ExecutionPayloadHeader {.exported.} =
+): ptr ExecutionPayloadHeader {.deprecated, exported.} =
   ## Obtains the execution payload header of a given light client header.
   ##
   ## * The returned value is allocated in the given light client header.
@@ -1053,7 +1053,8 @@ func ETHLightClientHeaderGetExecution(
   addr header[].execution
 
 func ETHExecutionPayloadHeaderGetParentHash(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.deprecated, exported.} =
   ## Obtains the parent execution block hash of a given
   ## execution payload header.
   ##
@@ -1069,7 +1070,8 @@ func ETHExecutionPayloadHeaderGetParentHash(
   addr execution[].parent_hash
 
 func ETHExecutionPayloadHeaderGetFeeRecipient(
-    execution: ptr ExecutionPayloadHeader): ptr ExecutionAddress {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr ExecutionAddress {.deprecated, exported.} =
   ## Obtains the fee recipient address of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1084,7 +1086,8 @@ func ETHExecutionPayloadHeaderGetFeeRecipient(
   addr execution[].fee_recipient
 
 func ETHExecutionPayloadHeaderGetStateRoot(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.deprecated, exported.} =
   ## Obtains the state MPT root of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1099,7 +1102,8 @@ func ETHExecutionPayloadHeaderGetStateRoot(
   addr execution[].state_root
 
 func ETHExecutionPayloadHeaderGetReceiptsRoot(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.deprecated, exported.} =
   ## Obtains the receipts MPT root of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1114,7 +1118,8 @@ func ETHExecutionPayloadHeaderGetReceiptsRoot(
   addr execution[].receipts_root
 
 func ETHExecutionPayloadHeaderGetLogsBloom(
-    execution: ptr ExecutionPayloadHeader): ptr BloomLogs {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr BloomLogs {.deprecated, exported.} =
   ## Obtains the logs Bloom of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1129,7 +1134,8 @@ func ETHExecutionPayloadHeaderGetLogsBloom(
   addr execution[].logs_bloom
 
 func ETHExecutionPayloadHeaderGetPrevRandao(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr Eth2Digest {.deprecated, exported.} =
   ## Obtains the previous randao mix of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1144,7 +1150,8 @@ func ETHExecutionPayloadHeaderGetPrevRandao(
   addr execution[].prev_randao
 
 func ETHExecutionPayloadHeaderGetBlockNumber(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.deprecated, exported.} =
   ## Obtains the execution block number of a given execution payload header.
   ##
   ## Parameters:
@@ -1155,7 +1162,8 @@ func ETHExecutionPayloadHeaderGetBlockNumber(
   execution[].block_number.cint
 
 func ETHExecutionPayloadHeaderGetGasLimit(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.deprecated, exported.} =
   ## Obtains the gas limit of a given execution payload header.
   ##
   ## Parameters:
@@ -1166,7 +1174,8 @@ func ETHExecutionPayloadHeaderGetGasLimit(
   execution[].gas_limit.cint
 
 func ETHExecutionPayloadHeaderGetGasUsed(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.deprecated, exported.} =
   ## Obtains the gas used of a given execution payload header.
   ##
   ## Parameters:
@@ -1177,7 +1186,8 @@ func ETHExecutionPayloadHeaderGetGasUsed(
   execution[].gas_used.cint
 
 func ETHExecutionPayloadHeaderGetTimestamp(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.deprecated, exported.} =
   ## Obtains the timestamp of a given execution payload header.
   ##
   ## Parameters:
@@ -1189,7 +1199,8 @@ func ETHExecutionPayloadHeaderGetTimestamp(
 
 func ETHExecutionPayloadHeaderGetExtraDataBytes(
     execution: ptr ExecutionPayloadHeader,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
+    numBytes #[out]#: ptr cint
+): ptr UncheckedArray[byte] {.deprecated, exported.} =
   ## Obtains the extra data buffer of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1210,7 +1221,8 @@ func ETHExecutionPayloadHeaderGetExtraDataBytes(
   cast[ptr UncheckedArray[byte]](addr execution[].extra_data[0])
 
 func ETHExecutionPayloadHeaderGetBaseFeePerGas(
-    execution: ptr ExecutionPayloadHeader): ptr UInt256 {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): ptr UInt256 {.deprecated, exported.} =
   ## Obtains the base fee per gas of a given execution payload header.
   ##
   ## * The returned value is allocated in the given execution payload header.
@@ -1225,7 +1237,8 @@ func ETHExecutionPayloadHeaderGetBaseFeePerGas(
   addr execution[].base_fee_per_gas
 
 func ETHExecutionPayloadHeaderGetBlobGasUsed(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.deprecated, exported.} =
   ## Obtains the blob gas used of a given execution payload header.
   ##
   ## Parameters:
@@ -1236,7 +1249,8 @@ func ETHExecutionPayloadHeaderGetBlobGasUsed(
   execution[].blob_gas_used.cint
 
 func ETHExecutionPayloadHeaderGetExcessBlobGas(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
+    execution: ptr ExecutionPayloadHeader
+): cint {.deprecated, exported.} =
   ## Obtains the excess blob gas of a given execution payload header.
   ##
   ## Parameters:

@@ -662,6 +662,7 @@ AllTests-mainnet
 ```diff
 + forkchoiceUpdated basic call                                                               OK
 + forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
 ```
@@ -671,6 +672,7 @@ AllTests-mainnet
 ```
 ## EL Manager - newPayload
 ```diff
++ newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
 ```
 ## Engine API conversions
@@ -689,9 +691,12 @@ AllTests-mainnet
 ```
 ## Eth2 specific discovery tests
 ```diff
++ Attestation subnet query                                                                   OK
++ Columns subcustody query                                                                   OK
++ Combination subnet query                                                                   OK
 + Invalid attnets field                                                                      OK
-+ Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
++ Sync subnet query                                                                          OK
 ```
 ## Execution Payload Bid Pool
 ```diff

@@ -663,7 +663,7 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
-    signature_slot: v.signature_slot,
+    signature_slot: v.signature_slot
   )
 
 chronicles.formatIt LightClientBootstrap: shortLog(it)

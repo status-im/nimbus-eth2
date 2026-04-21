@@ -25,6 +25,12 @@ extern "C" {
 #define __has_feature(x) 0
 #endif
 
+#if __has_attribute(deprecated)
+#define ETH_DEPRECATED __attribute__((deprecated))
+#else
+#define ETH_DEPRECATED
+#endif
+
 #if __has_attribute(warn_unused_result)
 #define ETH_RESULT_USE_CHECK __attribute__((warn_unused_result))
 #else
@@ -848,6 +854,7 @@ typedef struct ETHExecutionPayloadHeader ETHExecutionPayloadHeader;
  *
  * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHExecutionPayloadHeader *ETHLightClientHeaderGetExecution(
     const ETHLightClientHeader *header);
@@ -864,6 +871,7 @@ const ETHExecutionPayloadHeader *ETHLightClientHeaderGetExecution(
  *
  * @return Parent execution block hash.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHRoot *ETHExecutionPayloadHeaderGetParentHash(
     const ETHExecutionPayloadHeader *execution);
@@ -886,6 +894,7 @@ typedef struct {
  *
  * @return Fee recipient execution address.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHExecutionAddress *ETHExecutionPayloadHeaderGetFeeRecipient(
     const ETHExecutionPayloadHeader *execution);
@@ -901,6 +910,7 @@ const ETHExecutionAddress *ETHExecutionPayloadHeaderGetFeeRecipient(
  *
  * @return Execution state root.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHRoot *ETHExecutionPayloadHeaderGetStateRoot(
     const ETHExecutionPayloadHeader *execution);
@@ -916,6 +926,7 @@ const ETHRoot *ETHExecutionPayloadHeaderGetStateRoot(
  *
  * @return Execution receipts root.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHRoot *ETHExecutionPayloadHeaderGetReceiptsRoot(
     const ETHExecutionPayloadHeader *execution);
@@ -938,6 +949,7 @@ typedef struct {
  *
  * @return Execution logs Bloom.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHLogsBloom *ETHExecutionPayloadHeaderGetLogsBloom(
     const ETHExecutionPayloadHeader *execution);
@@ -953,6 +965,7 @@ const ETHLogsBloom *ETHExecutionPayloadHeaderGetLogsBloom(
  *
  * @return Previous randao mix.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHRoot *ETHExecutionPayloadHeaderGetPrevRandao(
     const ETHExecutionPayloadHeader *execution);
@@ -964,6 +977,7 @@ const ETHRoot *ETHExecutionPayloadHeaderGetPrevRandao(
  *
  * @return Execution block number.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetBlockNumber(
     const ETHExecutionPayloadHeader *execution);
@@ -975,6 +989,7 @@ int ETHExecutionPayloadHeaderGetBlockNumber(
  *
  * @return Gas limit.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetGasLimit(
     const ETHExecutionPayloadHeader *execution);
@@ -986,6 +1001,7 @@ int ETHExecutionPayloadHeaderGetGasLimit(
  *
  * @return Gas used.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetGasUsed(
     const ETHExecutionPayloadHeader *execution);
@@ -997,6 +1013,7 @@ int ETHExecutionPayloadHeaderGetGasUsed(
  *
  * @return Execution block timestamp.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetTimestamp(
     const ETHExecutionPayloadHeader *execution);
@@ -1013,6 +1030,7 @@ int ETHExecutionPayloadHeaderGetTimestamp(
  *
  * @return Buffer with execution block extra data.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const void *ETHExecutionPayloadHeaderGetExtraDataBytes(
     const ETHExecutionPayloadHeader *execution,
@@ -1036,6 +1054,7 @@ typedef struct {
  *
  * @return Base fee per gas.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 const ETHUInt256 *ETHExecutionPayloadHeaderGetBaseFeePerGas(
     const ETHExecutionPayloadHeader *execution);
@@ -1047,6 +1066,7 @@ const ETHUInt256 *ETHExecutionPayloadHeaderGetBaseFeePerGas(
  *
  * @return Blob gas used.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetBlobGasUsed(
     const ETHExecutionPayloadHeader *execution);
@@ -1058,6 +1078,7 @@ int ETHExecutionPayloadHeaderGetBlobGasUsed(
  *
  * @return Excess blob gas.
  */
+ETH_DEPRECATED
 ETH_RESULT_USE_CHECK
 int ETHExecutionPayloadHeaderGetExcessBlobGas(
     const ETHExecutionPayloadHeader *execution);

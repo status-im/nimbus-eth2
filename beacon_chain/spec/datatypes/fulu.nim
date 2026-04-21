@@ -32,8 +32,8 @@ from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
 from ./capella import
-  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
-  SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
+  HistoricalSummary, SignedBLSToExecutionChange,
+  SignedBLSToExecutionChangeList, Withdrawal
 from ./deneb import
   Blobs, ExecutionPayload, ExecutionPayloadHeader, KzgCommitments, KzgProofs
 
