@@ -481,7 +481,7 @@ iterator compute_balance_weighted_selection*(
     count = 0'u64
     random_bytes: array[32, byte]
     hash_buf {.noinit.}: array[40, byte]
-    rv_buf {.noinit.}: array[8, byte]
+    rv_buf: array[8, byte]
   hash_buf[0..31] = seed.data
   while count < size:
     let offset = (i mod 16) * 2
