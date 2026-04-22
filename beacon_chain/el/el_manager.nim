@@ -68,19 +68,12 @@ type
     GetPayloadV5Response |
     GetPayloadV6Response
 
-  PayloadAttributesVersion = enum
-    V3
-    V4
-
   PayloadParams = object
     ## Parameters given to the latest payload-preparing forkChoiceParameters
     ## call - if all parameters match, we can use the payload id given in
     ## response, else we have to make a new call
     state: ForkchoiceStateV1
-    case attributesVersion: PayloadAttributesVersion
-    of PayloadAttributesVersion.V4: attributesV4: PayloadAttributesV4
-      # V4 should only be used starting from Gamsterdam
-    of PayloadAttributesVersion.V3: attributesV3: PayloadAttributesV3
+    attributes: PayloadAttributesV4
       # V3 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
@@ -339,16 +332,6 @@ proc getPayload(
     payloadId: Bytes8
 
   retryUntilCancelled:
-    template attributesMatch(): bool =
-      if payloadReq.params.attributesVersion == params.attributesVersion:
-        case params.attributesVersion
-        of PayloadAttributesVersion.V4:
-          payloadReq.params.attributesV4 == params.attributesV4
-        of PayloadAttributesVersion.V3:
-          payloadReq.params.attributesV3 == params.attributesV3
-      else:
-        false
-
     let
       rpcClient = await connection.connectedRpcClient()
       # Use prepared payload if it was given or still pending; otherwise make a
@@ -359,7 +342,7 @@ proc getPayload(
       useLastPayload =
         payloadReq.resp != nil and
         payloadReq.params.state.headBlockHash == params.state.headBlockHash and
-        attributesMatch() and
+        payloadReq.params.attributes == params.attributes and
         (not payloadReq.resp.completed or payloadReq.resp.value().payloadId.isSome())
 
       forkchoiceUpdated = await(
@@ -372,11 +355,7 @@ proc getPayload(
           notice "Payload not prepared, sending last-minute payload request",
             url = connection.engineUrl.url
 
-          case params.attributesVersion
-          of PayloadAttributesVersion.V4:
-            rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributesV4)
-          of PayloadAttributesVersion.V3:
-            rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributesV3)
+          rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributes)
       )
 
     payloadId = forkchoiceUpdated.payloadId.valueOr:
@@ -414,21 +393,14 @@ proc getPayload(
       template maybeEmpty(v: auto): untyped =
         v
 
-    template payloadWithdrawals(): auto =
-      case params.attributesVersion
-      of PayloadAttributesVersion.V4:
-        params.attributesV4.withdrawals
-      of PayloadAttributesVersion.V3:
-        params.attributesV3.withdrawals
-
-    if payloadWithdrawals != payload.executionPayload.withdrawals.maybeEmpty:
+    if params.attributes.withdrawals != payload.executionPayload.withdrawals.maybeEmpty:
       warn "Execution client returned unexpected payload withdrawals",
         url = connection.engineUrl.url,
         payloadId,
-        withdrawals_from_cl_len = payloadWithdrawals.len,
+        withdrawals_from_cl_len = params.attributes.withdrawals.len,
         withdrawals_from_el_len = payload.executionPayload.withdrawals.maybeEmpty.len,
         withdrawals_from_cl =
-          mapIt(payloadWithdrawals, it.asConsensusWithdrawal),
+          mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
         withdrawals_from_el = mapIt(
           payload.executionPayload.withdrawals.maybeEmpty, it.asConsensusWithdrawal
         )
@@ -480,8 +452,7 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributesVersion: PayloadAttributesVersion.V3,
-    attributesV3: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -495,8 +466,7 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributesVersion: PayloadAttributesVersion.V3,
-    attributesV3: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -508,20 +478,22 @@ func init(
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
 ): T =
-  T(
+  debugGloasComment("check if all attributes are mapped")
+  PayloadParams(
     state: state,
-    attributesVersion: PayloadAttributesVersion.V3,
-    attributesV3: attributes,
+    attributes: PayloadAttributesV4(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: attributes.withdrawals,
+      parentBeaconBlockRoot: default(Hash32),
+    ),
   )
 
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV4
 ): T =
-  T(
-    state: state,
-    attributesVersion: PayloadAttributesVersion.V4,
-    attributesV4: attributes,
-  )
+  PayloadParams(state: state, attributes: attributes)
 
 proc getPayload*(
     m: ELManager,
@@ -838,6 +810,7 @@ proc newPayload*(
       executionPayload = shortLog(executionPayload)
     return Opt.none(PayloadExecutionStatus)
 
+  debugHezeComment("payload")
   let
     startTime = Moment.now()
     payload = executionPayload.asEngineExecutionPayload()
