@@ -564,7 +564,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return err("enr is not available")
       let
         enr = peer.enr.get()
-        field = enr.get(enrCustodySubnetCountField, seq[byte]).valueOr:
+        field = enr.get(enrCustodyGroupCountField, seq[byte]).valueOr:
           return err("enr cgc field is not available")
         cgc =
           try:
