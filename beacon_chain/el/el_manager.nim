@@ -798,11 +798,7 @@ proc newPayload*(
 
   let
     startTime = Moment.now()
-    payload =
-      when consensusFork >= ConsensusFork.Gloas:
-        executionPayload.asEngineExecutionPayloadV4()
-      else:
-        executionPayload.asEngineExecutionPayload()
+    payload = executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
