@@ -271,7 +271,6 @@ iterator custodyGroups*(vcus: ValidatorCustodyRef): CustodyIndex =
   ## Returns current dynamic state of custody groups.
   if vcus.isLightSupernode():
     let groups = vcus.lightSupernodeGroupsCount()
-    var res = newSeqOfCap[CustodyIndex](distinctBase(groups))
     for i in CgcCount(0) ..< groups:
       yield CustodyIndex(i)
   else:

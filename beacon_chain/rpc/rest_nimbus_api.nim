@@ -592,7 +592,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     for peer in node.network.peers.values():
       if peer.connectionState == Connected:
         let
-          nodeId = peer.fetchNodeIdFromPeerId()
+          nodeId = peer.fetchNodeIdFromPeerId().get()
           enrcgc = peer.getEnrCgc()
           metcgc = peer.getMetadataCgc()
           cgc =
@@ -608,7 +608,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           columnMap =
             node.network.cfg.resolve_column_map_from_custody_groups(
-              nodeId, cgc)
+              nodeId, CustodyIndex(cgc))
           intersectMap = localMap and columnMap
 
         for index in columnMap.items():
