@@ -1027,7 +1027,7 @@ proc ETHLightClientHeaderCopyExecutionHash(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
   discard cfg  # Future-proof against SSZ execution block header, EIP-6404ff.
   let root = Eth2Digest.new()
-  root[] = header[].execution.block_hash
+  root[] = header[].execution_block_hash
   root.toUnmanagedPtr()
 
 type ExecutionPayloadHeader =

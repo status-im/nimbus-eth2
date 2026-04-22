@@ -82,7 +82,7 @@ proc initLightClient*(
           when lcDataFork >= LightClientDataFork.Capella:
             let
               consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-              blockHash = forkyHeader.execution.block_hash
+              blockHash = forkyHeader.execution_block_hash
 
             # Retain light client head for other `forkchoiceUpdated` callers.
             # May temporarily block `forkchoiceUpdated` calls, e.g., Geth:
