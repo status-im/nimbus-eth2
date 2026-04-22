@@ -68,19 +68,12 @@ type
     GetPayloadV5Response |
     GetPayloadV6Response
 
-  PayloadAttributesVersion = enum
-    V3
-    V4
-
   PayloadParams = object
     ## Parameters given to the latest payload-preparing forkChoiceParameters
     ## call - if all parameters match, we can use the payload id given in
     ## response, else we have to make a new call
     state: ForkchoiceStateV1
-    case attributesVersion: PayloadAttributesVersion
-    of PayloadAttributesVersion.V4: attributesV4: PayloadAttributesV4
-      # V4 should only be used starting from Gamsterdam
-    of PayloadAttributesVersion.V3: attributesV3: PayloadAttributesV3
+    attributes: PayloadAttributesV3
       # V3 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
@@ -339,16 +332,6 @@ proc getPayload(
     payloadId: Bytes8
 
   retryUntilCancelled:
-    template attributesMatch(): bool =
-      if payloadReq.params.attributesVersion == params.attributesVersion:
-        case params.attributesVersion
-        of PayloadAttributesVersion.V4:
-          payloadReq.params.attributesV4 == params.attributesV4
-        of PayloadAttributesVersion.V3:
-          payloadReq.params.attributesV3 == params.attributesV3
-      else:
-        false
-
     let
       rpcClient = await connection.connectedRpcClient()
       # Use prepared payload if it was given or still pending; otherwise make a
@@ -359,7 +342,7 @@ proc getPayload(
       useLastPayload =
         payloadReq.resp != nil and
         payloadReq.params.state.headBlockHash == params.state.headBlockHash and
-        attributesMatch() and
+        payloadReq.params.attributes == params.attributes and
         (not payloadReq.resp.completed or payloadReq.resp.value().payloadId.isSome())
 
       forkchoiceUpdated = await(
@@ -372,11 +355,7 @@ proc getPayload(
           notice "Payload not prepared, sending last-minute payload request",
             url = connection.engineUrl.url
 
-          case params.attributesVersion
-          of PayloadAttributesVersion.V4:
-            rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributesV4)
-          of PayloadAttributesVersion.V3:
-            rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributesV3)
+          rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributes)
       )
 
     payloadId = forkchoiceUpdated.payloadId.valueOr:
@@ -414,21 +393,14 @@ proc getPayload(
       template maybeEmpty(v: auto): untyped =
         v
 
-    template payloadWithdrawals(): auto =
-      case params.attributesVersion
-      of PayloadAttributesVersion.V4:
-        params.attributesV4.withdrawals
-      of PayloadAttributesVersion.V3:
-        params.attributesV3.withdrawals
-
-    if payloadWithdrawals != payload.executionPayload.withdrawals.maybeEmpty:
+    if params.attributes.withdrawals != payload.executionPayload.withdrawals.maybeEmpty:
       warn "Execution client returned unexpected payload withdrawals",
         url = connection.engineUrl.url,
         payloadId,
-        withdrawals_from_cl_len = payloadWithdrawals.len,
+        withdrawals_from_cl_len = params.attributes.withdrawals.len,
         withdrawals_from_el_len = payload.executionPayload.withdrawals.maybeEmpty.len,
         withdrawals_from_cl =
-          mapIt(payloadWithdrawals, it.asConsensusWithdrawal),
+          mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
         withdrawals_from_el = mapIt(
           payload.executionPayload.withdrawals.maybeEmpty, it.asConsensusWithdrawal
         )
@@ -445,7 +417,7 @@ template EngineApiResponseType(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
 template EngineApiResponseType(T: type gloas.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV6Response
+  engine_api.GetPayloadV5Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -475,31 +447,12 @@ func init*(
     parentBeaconBlockRoot: consensusHead.to(Hash32),
   )
 
-func init*(
-    T: type PayloadAttributesV4,
-    timestamp: uint64,
-    prevRandao: Eth2Digest,
-    suggestedFeeRecipient: Eth1Address,
-    withdrawals: sink seq[capella.Withdrawal],
-    consensusHead: Eth2Digest,
-    slot: Slot,
-): T =
-  T(
-    timestamp: Quantity timestamp,
-    prevRandao: Bytes32 prevRandao.to(Hash32),
-    suggestedFeeRecipient: suggestedFeeRecipient,
-    withdrawals: withdrawals.toEngineWithdrawals(),
-    parentBeaconBlockRoot: consensusHead.to(Hash32),
-    slotNumber: Quantity(slot),
-  )
-
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV1
 ): T =
   PayloadParams(
     state: state,
-    attributesVersion: PayloadAttributesVersion.V3,
-    attributesV3: PayloadAttributesV3(
+    attributes: PayloadAttributesV3(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -513,8 +466,7 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributesVersion: PayloadAttributesVersion.V3,
-    attributesV3: PayloadAttributesV3(
+    attributes: PayloadAttributesV3(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
@@ -522,31 +474,16 @@ func init(
       parentBeaconBlockRoot: default(Hash32),
     ),
   )
-
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
 ): T =
-  T(
-    state: state,
-    attributesVersion: PayloadAttributesVersion.V3,
-    attributesV3: attributes,
-  )
-
-func init(
-    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV4
-): T =
-  T(
-    state: state,
-    attributesVersion: PayloadAttributesVersion.V4,
-    attributesV4: attributes,
-  )
+  PayloadParams(state: state, attributes: attributes)
 
 proc getPayload*(
     m: ELManager,
     PayloadType: type ForkyExecutionPayloadForSigning,
     state: ForkchoiceStateV1,
-    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 |
-                       PayloadAttributesV3 | PayloadAttributesV4,
+    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 | PayloadAttributesV3,
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     notice "No engine configured, using empty payload"
@@ -586,8 +523,11 @@ proc getPayload*(
         url = m.elConnections[idx].engineUrl.url
 
   if bestPayloadIdx.isSome():
-    debugHezeComment("")
-    ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+    debugGloasComment "Temp workaround for Gloas using GetPayloadV5Response"
+    when PayloadType.kind == ConsensusFork.Gloas:
+      ok(requests[bestPayloadIdx.get()].value().asConsensusTypeGloas)
+    else:
+      ok(requests[bestPayloadIdx.get()].value().asConsensusType)
   else:
     Opt.none(PayloadType)
 
@@ -943,8 +883,7 @@ proc forkchoiceUpdated(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
-                       Opt[PayloadAttributesV4],
+                       Opt[PayloadAttributesV3],
     retry: bool,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
@@ -966,8 +905,7 @@ proc forkchoiceUpdated*(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
-                       Opt[PayloadAttributesV4],
+                       Opt[PayloadAttributesV3],
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
@@ -1037,8 +975,7 @@ proc forkchoiceUpdated*(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
-                       Opt[PayloadAttributesV4]
+                       Opt[PayloadAttributesV3]
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
