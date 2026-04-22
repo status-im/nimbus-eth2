@@ -252,7 +252,7 @@ rm -rf "${TEST_DIR}/db" "${TEST_DIR}/validators/slashing_protection.sqlite3"
 ${NIMBUS_BEACON_NODE_BIN} \
   --tcp-port=${BASE_PORT} \
   --udp-port=${BASE_PORT} \
-  --tcp=true \
+  --debug-tcp=true \
   --debug-quic=false \
   --debug-quic-port=$((BASE_PORT + 2000)) \
   --log-level=${LOG_LEVEL:-DEBUG} \
