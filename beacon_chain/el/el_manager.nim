@@ -475,6 +475,24 @@ func init*(
     parentBeaconBlockRoot: consensusHead.to(Hash32),
   )
 
+func init*(
+    T: type PayloadAttributesV4,
+    timestamp: uint64,
+    prevRandao: Eth2Digest,
+    suggestedFeeRecipient: Eth1Address,
+    withdrawals: sink seq[capella.Withdrawal],
+    consensusHead: Eth2Digest,
+    slot: Slot,
+): T =
+  T(
+    timestamp: Quantity timestamp,
+    prevRandao: Bytes32 prevRandao.to(Hash32),
+    suggestedFeeRecipient: suggestedFeeRecipient,
+    withdrawals: withdrawals.toEngineWithdrawals(),
+    parentBeaconBlockRoot: consensusHead.to(Hash32),
+    slotNumber: Quantity(slot),
+  )
+
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV1
 ): T =
