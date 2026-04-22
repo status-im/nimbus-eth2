@@ -160,7 +160,7 @@ proc queryRandom*(
     if not forkId.isCompatibleForkId(peerForkId):
       continue
 
-    let cgcCountBytes = n.record.get(enrCustodySubnetCountField, seq[byte])
+    let cgcCountBytes = n.record.get(enrCustodyGroupCountField, seq[byte])
     if cgcCountBytes.isOk():
       let cgcCountNode =
         try:

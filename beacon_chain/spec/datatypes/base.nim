@@ -1016,7 +1016,7 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
   cache.participating.reset()
 
-func checkForkConsistency*(cfg: RuntimeConfig) =
+func checkForkConsistency(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
@@ -1044,6 +1044,10 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.FULU_FORK_EPOCH, cfg.GLOAS_FORK_EPOCH)
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
+
+func checkConfigConsistency*(cfg: RuntimeConfig) =
+  cfg.checkForkConsistency()
+  doAssert cfg.NUMBER_OF_CUSTODY_GROUPS <= NUMBER_OF_COLUMNS
 
 func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:

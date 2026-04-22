@@ -248,12 +248,12 @@ proc doProcessObject(
         if lcDataFork > self.store[].kind:
           info "Upgrading light client",
             oldFork = self.store[].kind, newFork = lcDataFork
-          self.store[].migrateToDataFork(lcDataFork)
+          self.store[].migrateToDataFork(lcDataFork, self.cfg)
     withForkyStore(self.store[]):
       when lcDataFork > LightClientDataFork.None:
         let
           wallSlot = wallTime.slotOrZero(self.cfg.timeParams)
-          upgradedUpdate = update.migratingToDataFork(lcDataFork)
+          upgradedUpdate = update.migratingToDataFork(lcDataFork, self.cfg)
         process_light_client_update(
           forkyStore, upgradedUpdate.forky(lcDataFork), wallSlot,
           self.cfg, self.genesis_validators_root)
@@ -285,8 +285,8 @@ proc processObject(
               of LightClientVerifierError.Duplicate:
                 if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
                   if self.numDupsSinceProgress < minForceUpdateDuplicates:
-                    let upgradedObj = obj.migratingToDataFork(lcDataFork)
-                    if upgradedObj.forky(lcDataFork).matches(
+                    let upgraded = obj.migratingToDataFork(lcDataFork, self.cfg)
+                    if upgraded.forky(lcDataFork).matches(
                         forkyStore.best_valid_update.get):
                       self.lastDuplicateTick = wallTime
                       inc self.numDupsSinceProgress
@@ -347,7 +347,7 @@ template withReportedProgress(
     withForkyStore(self.store[]):
       when lcDataFork > LightClientDataFork.None:
         if oldOptimistic.kind <= lcDataFork:
-          oldOptimistic.migrateToDataFork(lcDataFork)
+          oldOptimistic.migrateToDataFork(lcDataFork, self.cfg)
           if forkyStore.optimistic_header != oldOptimistic.forky(lcDataFork):
             didProgress = true
             when obj isnot SomeForkedLightClientUpdateWithFinality:
@@ -356,7 +356,7 @@ template withReportedProgress(
               self.onOptimisticHeader()
 
         if oldFinalized.kind <= lcDataFork:
-          oldFinalized.migrateToDataFork(lcDataFork)
+          oldFinalized.migrateToDataFork(lcDataFork, self.cfg)
           if forkyStore.finalized_header != oldFinalized.forky(lcDataFork):
             didProgress = true
             didSignificantProgress = true

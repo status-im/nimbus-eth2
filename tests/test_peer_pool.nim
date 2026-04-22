@@ -1310,7 +1310,7 @@ suite "lookupCgcFromPeer testing suite":
     let pk = keys.PrivateKey.random(rng[])
     Record.init(
       1, pk,
-      extraFields = [toFieldPair(enrCustodySubnetCountField,
+      extraFields = [toFieldPair(enrCustodyGroupCountField,
                                  SSZ.encode(cgcValue))]).expect(
       "Valid ENR")
 
@@ -1318,12 +1318,15 @@ suite "lookupCgcFromPeer testing suite":
     let pk = keys.PrivateKey.random(rng[])
     Record.init(1, pk).expect("Valid ENR")
 
+  let testNetwork = Eth2Node(cfg: defaultRuntimeConfig)
+
   proc createMinimalPeer(
       metadata: Opt[fulu.MetaData] = Opt.none(fulu.MetaData),
       enrRecord: Opt[enr.Record] = Opt.none(enr.Record)): Peer =
     # Create a minimal Peer for testing lookupCgcFromPeer.
-    # Only metadata and enr fields are accessed by the function.
+    # Only network.cfg, metadata and enr fields are accessed by the function.
     Peer(
+      network: testNetwork,
       metadata: metadata,
       enr: enrRecord,
     )
@@ -1354,19 +1357,19 @@ suite "lookupCgcFromPeer testing suite":
       res.isOk
       res.get == CUSTODY_REQUIREMENT
 
-  test "Valid metadata with cgc == NUMBER_OF_COLUMNS (supernode)":
+  test "Valid metadata with cgc == NUMBER_OF_CUSTODY_GROUPS (supernode)":
     let metadata = fulu.MetaData(
-      custody_group_count: NUMBER_OF_COLUMNS)
+      custody_group_count: defaultRuntimeConfig.NUMBER_OF_CUSTODY_GROUPS)
     let peer = createMinimalPeer(
       metadata = Opt.some(metadata))
     let res = peer.lookupCgcFromPeer()
     check:
       res.isOk
-      res.get == NUMBER_OF_COLUMNS
+      res.get == defaultRuntimeConfig.NUMBER_OF_CUSTODY_GROUPS
 
-  test "Metadata cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange":
+  test "Metadata cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange":
     let metadata = fulu.MetaData(
-      custody_group_count: NUMBER_OF_COLUMNS + 1)
+      custody_group_count: defaultRuntimeConfig.NUMBER_OF_CUSTODY_GROUPS + 1)
     let peer = createMinimalPeer(
       metadata = Opt.some(metadata))
     let res = peer.lookupCgcFromPeer()
@@ -1412,10 +1415,11 @@ suite "lookupCgcFromPeer testing suite":
       res.isOk
       res.get == 10
 
-  test "No metadata, ENR cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange":
+  test "No metadata, ENR cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange":
     let
       rng = HmacDrbgContext.new()
-      enrRecord = createEnrWithCgc(rng, (NUMBER_OF_COLUMNS + 1).uint8)
+      enrRecord = createEnrWithCgc(
+        rng, (defaultRuntimeConfig.NUMBER_OF_CUSTODY_GROUPS + 1).uint8)
       peer = createMinimalPeer(
         enrRecord = Opt.some(enrRecord))
     let res = peer.lookupCgcFromPeer()

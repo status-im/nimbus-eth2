@@ -344,7 +344,7 @@ proc ETHLightClientStoreCreateFromBootstrap(
     except RestError:
       return nil
   doAssert bootstrap.kind > LightClientDataFork.None
-  bootstrap.migrateToDataFork(lcDataFork)
+  bootstrap.migrateToDataFork(lcDataFork, cfg[])
 
   let store = lcDataFork.LightClientStore.new()
   store[] = initialize_light_client_store(
@@ -531,7 +531,7 @@ proc ETHLightClientStoreProcessUpdatesByRange(
   var didProgress = false
   for i in 0 ..< updates.len:
     doAssert updates[i].kind > LightClientDataFork.None
-    updates[i].migrateToDataFork(lcDataFork)
+    updates[i].migrateToDataFork(lcDataFork, cfg[])
     let res = process_light_client_update(
       store[], updates[i].forky(lcDataFork),
       currentSlot, cfg[], genesisValRoot[])
@@ -617,7 +617,7 @@ proc ETHLightClientStoreProcessFinalityUpdate(
     except RestError:
       return 1
   doAssert finalityUpdate.kind > LightClientDataFork.None
-  finalityUpdate.migrateToDataFork(lcDataFork)
+  finalityUpdate.migrateToDataFork(lcDataFork, cfg[])
   let res = process_light_client_update(
     store[], finalityUpdate.forky(lcDataFork),
     currentSlot, cfg[], genesisValRoot[])
@@ -701,7 +701,7 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
     except RestError:
       return 1
   doAssert optimisticUpdate.kind > LightClientDataFork.None
-  optimisticUpdate.migrateToDataFork(lcDataFork)
+  optimisticUpdate.migrateToDataFork(lcDataFork, cfg[])
   let res = process_light_client_update(
     store[], optimisticUpdate.forky(lcDataFork),
     currentSlot, cfg[], genesisValRoot[])

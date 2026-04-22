@@ -2511,14 +2511,15 @@ func announcedENR*(node: Eth2Node): enr.Record =
   node.discovery.localNode.record
 
 proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
-  # Fetches the custody column count from a remote peer.
-  # If the peer advertises their custody column count via the `cgc` ENR field,
+  # Fetches the custody group count from a remote peer.
+  # If the peer advertises their custody group count via the `cgc` ENR field,
   # that value is returned. Otherwise, the default value `CUSTODY_REQUIREMENT`
   # is assumed.
 
+  let numberOfCustodyGroups = peer.network.cfg.NUMBER_OF_CUSTODY_GROUPS
   let metadata = peer.metadata
   if metadata.isOk:
-    let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
+    let cgc = if metadata.get.custody_group_count <= numberOfCustodyGroups:
                 metadata.get.custody_group_count
               else:
                 return err(PeerCgcStatus.OutOfRange)
@@ -2540,11 +2541,11 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
   let enrOpt = peer.enr
   if not enrOpt.isNone:
     let enr = enrOpt.get
-    let enrFieldOpt = enr.get(enrCustodySubnetCountField, seq[byte])
+    let enrFieldOpt = enr.get(enrCustodyGroupCountField, seq[byte])
     if enrFieldOpt.isOk:
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
-        if cgc > NUMBER_OF_COLUMNS:
+        if cgc > numberOfCustodyGroups:
           return err(PeerCgcStatus.OutOfRange)
 
         if peer.metadata.isOk:
@@ -2554,7 +2555,7 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
       except SszError, SerializationError:
         return err(PeerCgcStatus.Unavailable)
 
-  # Return default value if no valid custody subnet count is found.
+  # Return default value if no valid custody group count is found.
   ok(CUSTODY_REQUIREMENT)
 
 func shortForm*(id: NetKeyPair): string =
@@ -2721,7 +2722,7 @@ proc loadCgcnetMetadataAndEnr*(
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
   let res =
     node.discovery.updateRecord({
-      enrCustodySubnetCountField: SSZ.encode(cgcnets)
+      enrCustodyGroupCountField: SSZ.encode(cgcnets)
     })
 
   if res.isErr:
