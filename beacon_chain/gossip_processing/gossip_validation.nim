@@ -1999,6 +1999,8 @@ proc validateLightClientOptimisticUpdate*(
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
+    seenProposerPreferences:
+      var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
@@ -2077,11 +2079,23 @@ proc validateExecutionPayloadBid*(
 
       # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
       # proposer's `SignedProposerPreferences` associated with `bid.slot`.
-      debugGloasComment("SignedProposerPreferences")
+      let seenPref = block:
+        let
+          seenBucket = uint64(bid.slot.epoch()) mod 2
+          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+        try:
+          seenProposerPreferences[seenBucket][seenKey].valueOr:
+            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+        except KeyError:
+          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+
+      if not (bid.fee_recipient == seenPref.fee_recipient):
+        return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
 
       # [REJECT] `bid.gas_limit` matches the `gas_limit` from the proposer's
       # `SignedProposerPreferences` associated with `bid.slot`.
-      debugGloasComment("SignedProposerPreferences")
+      if not (bid.gas_limit == seenPref.gas_limit):
+        return dag.checkedReject("ExecutionPayloadBid: gas limit mismatch")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index

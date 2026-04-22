@@ -939,7 +939,8 @@ proc processExecutionPayloadBid*(
     blockRoot = signedBid.message.parent_block_root
 
   let v = validateExecutionPayloadBid(
-    self.dag, self.executionPayloadBidPool, signedBid, wallTime)
+    self.dag, self.executionPayloadBidPool, self.seenProposerPreferences,
+    signedBid, wallTime)
   if v.isOk():
     debug "Execution payload bid validated"
     self.executionPayloadBidPool[].addBid(signedBid, wallTime)
