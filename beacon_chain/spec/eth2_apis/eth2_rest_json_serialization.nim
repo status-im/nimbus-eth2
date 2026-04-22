@@ -172,6 +172,7 @@ RestJson.useDefaultSerializationFor(
   RestNode,
   RestNodeExtraData,
   RestNodePeer,
+  RestSyncPeer,
   RestNodeVersion,
   RestPeerCount,
   RestProposerDuty,
