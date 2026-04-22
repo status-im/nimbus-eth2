@@ -529,6 +529,25 @@ func kzg_commitment_inclusion_proof_gindex*(
 
   BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
 
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)
+
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -805,22 +824,3 @@ func upgrade_lc_store_to_deneb*(
     optimistic_header: upgrade_lc_header_to_deneb(pre.optimistic_header),
     previous_max_active_participants: pre.previous_max_active_participants,
     current_max_active_participants: pre.current_max_active_participants)
-
-template asSigned*(
-    x: SigVerifiedSignedBeaconBlock |
-       TrustedSignedBeaconBlock): SignedBeaconBlock =
-  isomorphicCast[SignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: SignedBeaconBlock |
-       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
-  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
-
-template asSigVerified*(
-    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
-  isomorphicCast[SigVerifiedBeaconBlock](x)
-
-template asTrusted*(
-    x: SignedBeaconBlock |
-       SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
-  isomorphicCast[TrustedSignedBeaconBlock](x)

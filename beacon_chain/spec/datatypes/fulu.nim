@@ -46,21 +46,11 @@ const
   BYTES_PER_CELL* = kzg_abi.FIELD_ELEMENTS_PER_CELL * kzg_abi.BYTES_PER_FIELD_ELEMENT
   # The number of cells in an extended blob |
 
-  KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX* = 27
-
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#custody-setting
   CUSTODY_REQUIREMENT* = 4
-
-  # Minimum number of custody groups an honest node with
-  # validators attached custodies and serves samples from
-  VALIDATOR_CUSTODY_REQUIREMENT* = 8
-
-  # Balance increment corresponding to one additional group to custody
-  # 2**5 * 10**9 (= 32,000,000,000) Gwei
-  BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/polynomial-commitments-sampling.md#custom-types
@@ -162,104 +152,6 @@ type
     blockValue*: Wei
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
-  LightClientHeader* = object
-    beacon*: BeaconBlockHeader
-      ## Beacon block header
-
-    execution*: deneb.ExecutionPayloadHeader
-      ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
-    execution_branch*: capella.ExecutionBranch
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
-  LightClientBootstrap* = object
-    header*: LightClientHeader
-      ## Header matching the requested beacon block root
-
-    current_sync_committee*: SyncCommittee
-      ## Current sync committee corresponding to `header.beacon.state_root`
-    current_sync_committee_branch*: electra.CurrentSyncCommitteeBranch
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/altair/light-client/sync-protocol.md#lightclientupdate
-  LightClientUpdate* = object
-    attested_header*: LightClientHeader
-      ## Header attested to by the sync committee
-
-    next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to
-      ## `attested_header.beacon.state_root`
-    next_sync_committee_branch*: electra.NextSyncCommitteeBranch
-
-    # Finalized header corresponding to `attested_header.beacon.state_root`
-    finalized_header*: LightClientHeader
-    finality_branch*: electra.FinalityBranch
-
-    sync_aggregate*: SyncAggregate
-      ## Sync committee aggregate signature
-    signature_slot*: Slot
-      ## Slot at which the aggregate signature was created (untrusted)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
-  LightClientFinalityUpdate* = object
-    # Header attested to by the sync committee
-    attested_header*: LightClientHeader
-
-    # Finalized header corresponding to `attested_header.beacon.state_root`
-    finalized_header*: LightClientHeader
-    finality_branch*: electra.FinalityBranch
-
-    # Sync committee aggregate signature
-    sync_aggregate*: SyncAggregate
-    # Slot at which the aggregate signature was created (untrusted)
-    signature_slot*: Slot
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
-  LightClientOptimisticUpdate* = object
-    # Header attested to by the sync committee
-    attested_header*: LightClientHeader
-
-    # Sync committee aggregate signature
-    sync_aggregate*: SyncAggregate
-    # Slot at which the aggregate signature was created (untrusted)
-    signature_slot*: Slot
-
-  SomeLightClientUpdateWithSyncCommittee* =
-    LightClientUpdate
-
-  SomeLightClientUpdateWithFinality* =
-    LightClientUpdate |
-    LightClientFinalityUpdate
-
-  SomeLightClientUpdate* =
-    LightClientUpdate |
-    LightClientFinalityUpdate |
-    LightClientOptimisticUpdate
-
-  SomeLightClientObject* =
-    LightClientBootstrap |
-    SomeLightClientUpdate
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#lightclientstore
-  LightClientStore* = object
-    finalized_header*: LightClientHeader
-      ## Header that is finalized
-
-    current_sync_committee*: SyncCommittee
-      ## Sync committees corresponding to the finalized header
-    next_sync_committee*: SyncCommittee
-
-    best_valid_update*: Opt[LightClientUpdate]
-      ## Best available header to switch finalized head to
-      ## if we see nothing else
-
-    optimistic_header*: LightClientHeader
-      ## Most recent available reasonably-safe header
-
-    previous_max_active_participants*: uint64
-      ## Max number of active participants in a sync committee
-      ## (used to compute safety threshold)
-    current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/82133085a1295e93394ebdf71df8f2f6e0962588/specs/electra/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -634,3 +526,9 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+const
+  KZG_COMMITMENTS_GINDEX* = get_generalized_index(
+    BeaconBlockBody, "blob_kzg_commitments")
+static:
+  doAssert KZG_COMMITMENTS_GINDEX == 27.GeneralizedIndex

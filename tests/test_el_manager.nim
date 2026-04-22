@@ -90,6 +90,24 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
     )
 
+  server.rpc("engine_newPayloadV5") do(
+    payload: ExecutionPayloadV4,
+    expectedBlobVersionedHashes: Opt[seq[Hash32]],
+    parentBeaconBlockRoot: Opt[Hash32],
+    executionRequests: Opt[seq[seq[byte]]]
+  ) -> PayloadStatusV1:
+    inc state.newPayloadCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailNewPayload:
+      raise
+        (ref ApplicationError)(code: -32603, msg: "Internal error: execution failed")
+
+    return PayloadStatusV1(
+      status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
+    )
+
   server.rpc("engine_forkchoiceUpdatedV3") do(
     fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV3]
   ) -> ForkchoiceUpdatedResponse:
@@ -309,6 +327,34 @@ suite "EL Manager - forkchoiceUpdated":
         status3 == PayloadExecutionStatus.valid
         setup.state.forkchoiceCallCount == i
 
+  test "forkchoiceUpdated times out without selected response":
+    setup.state.shouldFailForkchoice = true
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    const
+      deadline = 2.seconds
+      overhead = 2.seconds
+      testTimeout = 30.seconds
+    static: doAssert deadline + overhead < testTimeout
+    let
+      state = ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH)
+      startTime = Moment.now()
+      fut = manager.forkchoiceUpdated(
+        state, Opt.none(PayloadAttributesV3), sleepAsync(deadline), true)
+      completed = waitFor fut.withTimeout(testTimeout)
+      elapsed = Moment.now() - startTime
+
+    if not completed:
+      waitFor fut.cancelAndWait()
+    check completed
+
+    let (status, _) = fut.read()
+    check:
+      setup.state.forkchoiceCallCount > 1
+      elapsed < deadline + overhead
+      status == PayloadExecutionStatus.syncing
+
 suite "EL Manager - getPayload":
   setup:
     var setup = mockSetup()
@@ -319,17 +365,10 @@ suite "EL Manager - getPayload":
   test "success without retry":
     let
       manager = createELManager(@[setup.url])
-      state = ForkchoiceStateV1.init(
-        default(Eth2Digest), default(Eth2Digest), default(Eth2Digest)
-      )
+      state = ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH)
       attrs = PayloadAttributesV3.init(
-        default(uint64),
-        default(Eth2Digest),
-        default(Eth1Address),
-        default(seq[capella.Withdrawal]),
-        default(Eth2Digest),
-      )
-
+        0'u64, ZERO_HASH, default(Eth1Address),
+        default(seq[capella.Withdrawal]), ZERO_HASH)
       resp =
         waitFor manager.getPayload(electra.ExecutionPayloadForSigning, state, attrs)
 
@@ -355,6 +394,33 @@ suite "EL Manager - newPayload":
     check:
       setup.state.newPayloadCallCount == 1
       resp.isOk()
+
+  test "newPayload times out without selected response":
+    setup.state.shouldFailNewPayload = true
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    const
+      deadline = 2.seconds
+      overhead = 2.seconds
+      testTimeout = 30.seconds
+    static: doAssert deadline + overhead < testTimeout
+    let
+      startTime = Moment.now()
+      fut = manager.newPayload(
+        fulu.BeaconBlock(), noEnvelope, sleepAsync(deadline), true)
+      completed = waitFor fut.withTimeout(testTimeout)
+      elapsed = Moment.now() - startTime
+
+    if not completed:
+      waitFor fut.cancelAndWait()
+    check completed
+
+    let resp = fut.read()
+    check:
+      setup.state.newPayloadCallCount > 1
+      elapsed < deadline + overhead
+      resp.isNone
 
 suite "EL Manager - Payload Request Caching":
   setup:

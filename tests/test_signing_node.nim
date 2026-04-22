@@ -1037,5 +1037,94 @@ block:
       finally:
         await client.closeWait()
 
+    asyncTest "Signing BeaconBlock (getBlockSignature(fulu))":
+      let
+        fork = ConsensusFork.Fulu
+        forked1 = getBlock(fork)
+        blockRoot1 = withBlck(forked1): hash_tree_root(forkyBlck)
+        forked2 = getBlock(fork, SigningOtherFeeRecipient)
+        blockRoot2 = withBlck(forked2): hash_tree_root(forkyBlck)
+        request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+          Web3SignerForkedBeaconBlock.init(forked1))
+        request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+          Web3SignerForkedBeaconBlock.init(forked1), @[])
+        remoteUrl = "http://" & SigningNodeAddress & ":" &
+                    $getNodePort(basePort, RemoteSignerType.VerifyingWeb3Signer)
+        prestoFlags = {RestClientFlag.CommaSeparatedArray}
+        rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+        publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
+        publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
+        publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
+
+      check rclient.isOk()
+
+      let
+        client = rclient.get()
+        sres1 =
+          await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot1, forked1)
+        sres2 =
+          await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot1, forked1)
+        sres3 =
+          await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot1, forked1)
+        rres1 =
+          await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot1, forked1)
+        rres2 =
+          await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot1, forked1)
+        rres3 =
+          await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot1, forked1)
+        bres1 =
+          await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot2, forked2)
+        bres2 =
+          await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot2, forked2)
+        bres3 =
+          await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+            blockRoot2, forked2)
+
+      check:
+        # Local requests
+        sres1.isOk()
+        sres2.isOk()
+        sres3.isOk()
+        # Remote requests with proper Merkle proof of proper FeeRecipent field
+        rres1.isOk()
+        rres2.isOk()
+        rres3.isOk()
+        # Signature comparison
+        sres1.get() == rres1.get()
+        sres2.get() == rres2.get()
+        sres3.get() == rres3.get()
+        # Remote requests with changed FeeRecipient field
+        bres1.isErr()
+        bres2.isErr()
+        bres3.isErr()
+
+      try:
+        let
+          # `proofs` array is not present.
+          response1 = await client.signDataPlain(publicKey1, request1)
+          response2 = await client.signDataPlain(publicKey2, request1)
+          response3 = await client.signDataPlain(publicKey3, request1)
+          # `proofs` array is empty.
+          response4 = await client.signDataPlain(publicKey1, request2)
+          response5 = await client.signDataPlain(publicKey2, request2)
+          response6 = await client.signDataPlain(publicKey3, request2)
+        check:
+          response1.status == 400
+          response2.status == 400
+          response3.status == 400
+          response4.status == 400
+          response5.status == 400
+          response6.status == 400
+      finally:
+        await client.closeWait()
+
   waitFor(shutdownSigningNodeProcess(process))
   removeTestDir(RemoteSignerType.VerifyingWeb3Signer)

@@ -30,13 +30,7 @@ PIDS_TO_WAIT=""
 # argument parsing #
 ####################
 
-USE_SYSTEM_GETOPT="${USE_SYSTEM_GETOPT:-0}"
-GETOPT_BINARY="getopt"
-if [[ "${OS}" == "macos" && "$USE_SYSTEM_GETOPT" != "1" ]]; then
-  # Without the head -n1 constraint, it gets confused by multiple matches
-  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null | head -n1 || true)
-  [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
-fi
+GETOPT_BINARY="${SCRIPTS_DIR}/getopt-wrapper.sh"
 
 ! ${GETOPT_BINARY} --test > /dev/null
 if [[ ${PIPESTATUS[0]} != 4 ]]; then

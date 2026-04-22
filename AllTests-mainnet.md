@@ -36,6 +36,7 @@ AllTests-mainnet
 ```
 ## Beacon chain DB [Preset: mainnet]
 ```diff
++ batch delete data columns [Preset: mainnet]                                                OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
@@ -617,7 +618,11 @@ AllTests-mainnet
 ```
 ## EIP-7594 Unit Tests
 ```diff
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)                                 OK
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)                                OK
 + EIP-7594: Compute Matrix                                                                   OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
 + EIP:7594: Recover Matrix                                                                   OK
 ```
 ## EL Configuration
@@ -657,6 +662,7 @@ AllTests-mainnet
 ```diff
 + forkchoiceUpdated basic call                                                               OK
 + forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
 ```
@@ -666,6 +672,7 @@ AllTests-mainnet
 ```
 ## EL Manager - newPayload
 ```diff
++ newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
 ```
 ## Engine API conversions
@@ -902,15 +909,15 @@ AllTests-mainnet
 ```
 ## MEV calls serialization/deserialization and behavior test suite
 ```diff
-+ /eth/v1/builder/blinded_blocks [json/json] test                                            OK
-+ /eth/v1/builder/blinded_blocks [json/ssz] test                                             OK
-+ /eth/v1/builder/blinded_blocks [ssz/json] test                                             OK
-+ /eth/v1/builder/blinded_blocks [ssz/ssz] test                                              OK
 + /eth/v1/builder/header [json] test                                                         OK
 + /eth/v1/builder/header [ssz] test                                                          OK
 + /eth/v1/builder/status test                                                                OK
 + /eth/v1/builder/validators [json] test                                                     OK
 + /eth/v1/builder/validators [ssz] test                                                      OK
++ /eth/v2/builder/blinded_blocks [json/json] test                                            OK
++ /eth/v2/builder/blinded_blocks [json/ssz] test                                             OK
++ /eth/v2/builder/blinded_blocks [ssz/json] test                                             OK
++ /eth/v2/builder/blinded_blocks [ssz/ssz] test                                              OK
 ```
 ## Message signatures
 ```diff
@@ -937,6 +944,7 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -986,6 +994,15 @@ AllTests-mainnet
 + addPeer() test                                                                             OK
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
+```
+## Proposer preferences validation  [Preset: mainnet]
+```diff
++ validateProposerPreferences - duplicate ignored                                            OK
++ validateProposerPreferences - happy case                                                   OK
++ validateProposerPreferences - invalid signature rejected                                   OK
++ validateProposerPreferences - proposal_slot already passed                                 OK
++ validateProposerPreferences - proposal_slot outside current/next epoch                     OK
++ validateProposerPreferences - wrong proposer rejected                                      OK
 ```
 ## Pruning
 ```diff
