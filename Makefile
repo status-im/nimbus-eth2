@@ -486,7 +486,7 @@ nimbus_beacon_node: force_build_alone_tools
 
 GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
-	--tcp=true \
+	--debug-tcp=true \
 	--debug-quic=true \
 	--debug-quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \

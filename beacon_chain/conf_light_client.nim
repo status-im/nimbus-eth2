@@ -61,7 +61,7 @@ type LightClientConf* = object
     hidden
     desc: "Enable TCP transport"
     defaultValue: true
-    name: "tcp" .}: bool
+    name: "debug-tcp" .}: bool
 
   tcpPort* {.
     desc: "Listening TCP port for Ethereum LibP2P traffic"

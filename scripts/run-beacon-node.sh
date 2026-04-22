@@ -70,7 +70,7 @@ exec ${WINPTY} build/${NBC_BINARY} \
   --data-dir="${DATA_DIR}" \
   --tcp-port=${TCP_PORT} \
   --udp-port=${UDP_PORT} \
-  --tcp=true \
+  --debug-tcp=true \
   --debug-quic=false \
   --debug-quic-port=${QUIC_PORT} \
   --rest \
