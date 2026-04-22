@@ -939,7 +939,8 @@ proc processExecutionPayloadBid*(
     blockRoot = signedBid.message.parent_block_root
 
   let v = validateExecutionPayloadBid(
-    self.dag, self.executionPayloadBidPool, signedBid, wallTime)
+    self.dag, self.executionPayloadBidPool, self.seenProposerPreferences,
+    signedBid, wallTime)
   if v.isOk():
     debug "Execution payload bid validated"
     self.executionPayloadBidPool[].addBid(signedBid, wallTime)
@@ -978,12 +979,12 @@ proc processProposerPreferences*(
   let
     wallTime = self.getCurrentBeaconTime()
     currentSlot = wallTime.slotOrZero(self.dag.timeParams)
-  
+
   let v = validateProposerPreferences(
     self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
   if v.isErr():
     debug "Dropping proposer preferences", reason = $v.error
     return err(v.error())
-  
+
   trace "Proposer preferences validated"
   ok()

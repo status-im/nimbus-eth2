@@ -1168,21 +1168,6 @@ proc applyBlock(
 
   ok()
 
-proc applyExecutionPayloadEnvelope(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
-    cache: var StateCache): Result[void, cstring] =
-  withConsensusFork(dag.cfg.consensusForkAtEpoch(bid.slot.epoch)):
-    when consensusFork >= ConsensusFork.Gloas:
-      let data = dag.db.getExecutionPayloadEnvelope(bid.root).valueOr:
-        return err("Envelope load failed")
-      ? process_execution_payload(
-        dag.cfg, state.forky(consensusFork), data,
-        func(_: deneb.ExecutionPayload): bool = true,
-        cache,
-      )
-
-  ok()
-
 proc genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
   dag.headState.genesis_validators_root
 
@@ -1327,22 +1312,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       dag.applyBlock(
         dag.headState, headBlocks[i].bid, cache,
         info, dag.updateFlags).expect("head blocks should apply")
-
-      let wantsPayload = block:
-        template blckFork(): auto =
-          dag.cfg.consensusForkAtEpoch(headBlocks[i].slot().epoch())
-        if blckFork <= ConsensusFork.Fulu:
-          false
-        elif i > 0:
-          let child = headBlocks[i - 1]
-          isParentBlockFull(dag, child)
-        else:
-          dag.db.containsExecutionPayloadEnvelope(headBlocks[i].root())
-
-      if wantsPayload:
-        dag.applyExecutionPayloadEnvelope(
-          dag.headState, headBlocks[i].bid,
-          cache).expect("head envelopes should apply")
 
     dag.head = headRef
     dag.heads = @[headRef]
@@ -1923,18 +1892,7 @@ proc updateState*(
   template exactMatch(state: ForkedHashedBeaconState, bsi: BlockSlotId): bool =
     # The block is the same and we're at an early enough slot - the state can
     # be used to arrive at the desired blockslot
-    let executionMatch =
-      block:
-        if state.kind == dag.cfg.consensusForkAtEpoch(bsi.slot.epoch()):
-          withState(state):
-            when consensusFork >= ConsensusFork.Gloas:
-              is_parent_block_full(forkyState.data) ==
-                (skipLastEnvelope notin dag.updateFlags)
-            else:
-              true
-        else:
-          true
-    state.matches_block_slot(bsi.bid.root, bsi.slot) and executionMatch
+    state.matches_block_slot(bsi.bid.root, bsi.slot)
 
   template canAdvance(state: ForkedHashedBeaconState, bsi: BlockSlotId): bool =
     # The block is the same and we're at an early enough slot - the state can
@@ -2072,21 +2030,6 @@ proc updateState*(
         error = res.error()
 
       return false
-
-    # Since a full beacon block consists of the beacon block itself together
-    # with the corresponding execution payload envelope, the state transition
-    # should require both components in every slot. The last slot may apply the
-    # envelope, which is controlled by updateFlags, for allowing state
-    # transitioning with a single beacon block.
-    if i > 0 or (i == 0 and (skipLastEnvelope notin updateFlags)):
-      dag.applyExecutionPayloadEnvelope(state, ancestors[i], cache).isOkOr:
-        warn "Failed to apply envelope from database",
-          blck = shortLog(ancestors[i]),
-          state_bid = shortLog(state.latest_block_id),
-          skipLastEnvelope = skipLastEnvelope in updateFlags,
-          i, error = error
-
-        return false
 
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bsi.slot, save, cache, info, updateFlags)

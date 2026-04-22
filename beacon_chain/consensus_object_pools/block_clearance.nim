@@ -557,21 +557,8 @@ proc addHeadExecutionPayload*(
     debug "Envelope has been applied to the state"
     return err(VerifierError.Duplicate)
 
-  debug "Envelope transitioning"
-
   # Verify with state transition function.
-  process_execution_payload(
-    dag.cfg,
-    dag.clearanceState.forky(consensusFork),
-    signedEnvelope,
-    func(_: deneb.ExecutionPayload): bool = true,
-    cache,
-  ).isOkOr:
-    assign(dag.clearanceState, dag.headState)
-    info "Envelope transition failed", msg = error
-    return err(VerifierError.Invalid)
-
-  debug "Envelope transitioned"
+  debugGloasComment("verify sig")
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
@@ -611,7 +598,7 @@ proc addBackfillExecutionPayload*(
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
     return err(VerifierError.Duplicate)
 
-  let (proposerIdx, builderIdx) = block:
+  let (builderIdx, bidBuilderIdx) = block:
     let forkedBlck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
       # corrupted.
@@ -621,21 +608,16 @@ proc addBackfillExecutionPayload*(
       when consensusFork >= ConsensusFork.Gloas:
         template bid(): auto =
           forkyBlck.message.body.signed_execution_payload_bid
-        (forkyBlck.message.proposer_index, bid.message.builder_index)
+        (forkyBlck.builder_index, bid.message.builder_index)
       else:
         return err(VerifierError.UnviableFork)
 
   # Check builder index is matched with the block
-  if builderIdx != envelope.builder_index:
+  if bidBuilderIdx != envelope.builder_index:
     return err(VerifierError.Invalid)
 
   # Verify signature
-  template vIdx(): auto =
-    if envelope.builder_index == BUILDER_INDEX_SELF_BUILD:
-      proposerIdx
-    else:
-      envelope.builder_index
-  let builderKey = dag.validatorKey(vIdx).valueOr:
+  let builderKey = dag.validatorKey(builderIdx).valueOr:
     fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
       head = shortLog(dag.head), tail = shortLog(dag.tail)
     quit 1

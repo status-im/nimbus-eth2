@@ -1023,7 +1023,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -1031,9 +1031,9 @@ proc validateExecutionPayload*(
     Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
 
-  # [IGNORE] The envelope's block root envelope.block_root has been seen (via
-  # gossip or non-gossip sources) (a client MAY queue payload for processing
-  # once the block is retrieved).
+  # [IGNORE] The envelope's block root `envelope.beacon_block_root` has been
+  # seen (via gossip or non-gossip sources) (a client MAY queue payload for
+  # processing once the block is retrieved).
   let blockSeen =
     block:
       var seen =
@@ -1082,8 +1082,8 @@ proc validateExecutionPayload*(
         else:
           return dag.checkedReject("ExecutionPayload: invalid fork")
 
-  # [REJECT] block.slot equals envelope.slot.
-  if not (blck.slot == envelope.slot):
+  # [REJECT] `block.slot` equals `envelope.payload.slot_number`.
+  if not (blck.slot == envelope.payload.slot_number):
     return dag.checkedReject("ExecutionPayload: slot mismatch")
 
   template bid: untyped = blck.body.signed_execution_payload_bid.message
@@ -1096,17 +1096,17 @@ proc validateExecutionPayload*(
   if not (envelope.payload.block_hash == bid.block_hash):
     return dag.checkedReject("ExecutionPayload: block hash mismatch")
 
+  # [REJECT] `hash_tree_root(envelope.execution_requests) ==
+  # bid.execution_requests_root`
+  if not (hash_tree_root(envelope.execution_requests) ==
+      bid.execution_requests_root):
+    return dag.checkedReject("ExecutionPayload: requests mismatch")
+
   # [REJECT] signed_execution_payload_envelope.signature is valid with respect
   # to the builder's public key.
   if dag.headState.kind >= ConsensusFork.Gloas:
-    let builderKey =
-      if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
-        dag.validatorKey(blck.proposer_index).valueOr:
-          return dag.checkedReject("ExecutionPayload: unknown proposer")
-      else:
-        dag.validatorKey(bid.builder_index).valueOr:
-          return dag.checkedReject("ExecutionPayload: unknown builder index")
-
+    let builderKey = dag.validatorKey(blck.builder_index).valueOr:
+      return dag.checkedReject("ExecutionPayload: unknown builder")
     if not verify_execution_payload_envelope_signature(
         dag.forkAtEpoch(envelope.slot.epoch),
         dag.genesis_validators_root,
@@ -1401,6 +1401,7 @@ proc validateAggregate*(
     # the execution payload for block has been seen
     if aggregate.data.index == 1:
       template block_root: untyped = aggregate.data.beacon_block_root
+      debugGloasComment("unviable envelope")
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
           block_root notin envelopeQuarantine[].orphans:
         return errIgnore(
@@ -1994,10 +1995,12 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
+    seenProposerPreferences:
+      var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
@@ -2065,6 +2068,34 @@ proc validateExecutionPayloadBid*(
       if bid.slot != currentSlot and bid.slot != currentSlot + 1:
         return errIgnore(
           "ExecutionPayloadBid: slot not current or next slot")
+
+      # [REJECT] The length of KZG commitments is less than or equal to the
+      # limitation defined in the consensus layer -- i.e. validate that
+      # `len(bid.blob_kzg_commitments) <=
+      # get_blob_parameters(compute_epoch_at_slot(bid.slot)).max_blobs_per_block`.
+      if not (bid.blob_kzg_commitments.lenu64() <=
+          dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
+        return dag.checkedReject("ExecutionPayloadBid: invalid kzg commitments")
+
+      # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
+      # proposer's `SignedProposerPreferences` associated with `bid.slot`.
+      let seenPref = block:
+        let
+          seenBucket = uint64(bid.slot.epoch()) mod 2
+          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+        try:
+          seenProposerPreferences[seenBucket][seenKey].valueOr:
+            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+        except KeyError:
+          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+
+      if not (bid.fee_recipient == seenPref.fee_recipient):
+        return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
+
+      # [REJECT] `bid.gas_limit` matches the `gas_limit` from the proposer's
+      # `SignedProposerPreferences` associated with `bid.slot`.
+      if not (bid.gas_limit == seenPref.gas_limit):
+        return dag.checkedReject("ExecutionPayloadBid: gas limit mismatch")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
@@ -2186,7 +2217,7 @@ proc validateProposerPreferences*(
     currentSlot = wallTime.slotOrZero(dag.timeParams)
     currentEpoch = currentSlot.epoch
     proposalEpoch = preferences.proposal_slot.epoch
-  
+
   # [IGNORE] preferences.proposal_slot is in the current or next epoch
   # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
   # [get_current_epoch(state), get_current_epoch(state) + 1].

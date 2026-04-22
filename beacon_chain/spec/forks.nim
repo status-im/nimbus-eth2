@@ -96,7 +96,8 @@ type
   ForkyExecutionPayload* =
     bellatrix.ExecutionPayload |
     capella.ExecutionPayload |
-    deneb.ExecutionPayload
+    deneb.ExecutionPayload |
+    gloas.ExecutionPayload
 
   ForkyExecutionPayloadHeader* =
     bellatrix.ExecutionPayloadHeader |

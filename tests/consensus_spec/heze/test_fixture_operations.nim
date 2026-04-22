@@ -21,7 +21,6 @@ import
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
-from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
   get_total_active_balance, latest_block_root, process_attestation
@@ -36,7 +35,7 @@ const
   OpDepositRequestDir         = OpDir/"deposit_request"
   OpDepositsDir               = OpDir/"deposit"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
-  OpExecutionPayloadDir       = OpDir/"execution_payload"
+  OpParentExecutionPayloadDir = OpDir/"parent_execution_payload"
   OpExecutionPayloadBidDir    = OpDir/"execution_payload_bid"
   OpPayloadAttestationDir     = OpDir/"payload_attestation"
   OpProposerSlashingDir       = OpDir/"proposer_slashing"
@@ -49,7 +48,7 @@ const
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
-  OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
+  OpDepositsDir, OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
   OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
 ])
@@ -203,32 +202,18 @@ suite baseDescription & "Deposit Request " & preset():
 from ../../../beacon_chain/spec/datatypes/gloas import
   SignedExecutionPayloadEnvelope, PayloadAttestation
 
-suite baseDescription & "Execution Payload " & preset():
-  proc makeApplyExecutionPayloadCb(path: string): auto =
-    return proc(
-        preState: var heze.BeaconState,
-        signed_envelope: SignedExecutionPayloadEnvelope):
-        Result[void, cstring] =
-      let payloadValid = os_ops.readFile(
-          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
-        ).contains("execution_valid: true")
-      var
-        cache: StateCache
-      let hashedState = (ref heze.HashedBeaconState)(
-        data: preState, root: hash_tree_root(preState))
+suite baseDescription & "Parent Execution Payload " & preset():
+  proc applyParentExecutionPayload(
+      preState: var heze.BeaconState,
+      blck: heze.BeaconBlock): Result[void, cstring] =
+    var cache: StateCache
+    process_parent_execution_payload(
+      defaultRuntimeConfig, preState, blck, cache)
 
-      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      let res = process_execution_payload(
-        defaultRuntimeConfig, hashedState[],
-        signed_envelope, executePayload, cache)
-      preState = hashedState.data
-      res
-
-  for path in walkTests(OpExecutionPayloadDir):
-    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
-    runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, suiteName, "Execution Payload", "signed_envelope",
-      applyExecutionPayload, path)
+  for path in walkTests(OpParentExecutionPayloadDir):
+    runTest[heze.BeaconBlock, typeof applyParentExecutionPayload](
+      OpParentExecutionPayloadDir, suiteName, "Parent Execution Payload",
+      "block", applyParentExecutionPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(

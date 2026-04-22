@@ -32,7 +32,7 @@ from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import
-  Blobs, ExecutionPayload, ExecutionPayloadHeader, KzgCommitments, KzgProofs
+  Blobs, KzgCommitments, KzgProofs
 
 export json_serialization, base
 
@@ -69,13 +69,37 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayload
+  ExecutionPayload* = object
+    parent_hash*: Eth2Digest
+    fee_recipient*: ExecutionAddress
+    state_root*: Eth2Digest
+    receipts_root*: Eth2Digest
+    logs_bloom*: BloomLogs
+    prev_randao*: Eth2Digest
+    block_number*: uint64
+    gas_limit*: uint64
+    gas_used*: uint64
+    timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas*: UInt256
+    block_hash*: Eth2Digest
+    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
+    blob_gas_used*: uint64
+    excess_blob_gas*: uint64
+    # [New in Gloas:EIP7928]
+    block_access_list*: List[byte, MAX_BYTES_PER_TRANSACTION]
+    # [New in Gloas:EIP7843]
+    slot_number*: Slot
+
   ExecutionPayloadForSigning* = object
-    executionPayload*: deneb.ExecutionPayload
+    executionPayload*: ExecutionPayload
     blockValue*: Wei
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadbid
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
     parent_block_hash*: Eth2Digest
     parent_block_root*: Eth2Digest
@@ -88,28 +112,25 @@ type
     value*: Gwei
     execution_payment*: Gwei
     blob_kzg_commitments*: KzgCommitments
+    execution_requests_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#signedexecutionpayloadbid
   SignedExecutionPayloadBid* = object
     message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#executionpayloadenvelope
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayloadenvelope
   ExecutionPayloadEnvelope* = object
-    payload*: deneb.ExecutionPayload
+    payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
-    slot*: Slot
-    state_root*: Eth2Digest
 
   TrustedExecutionPayloadEnvelope* = object
-    payload*: deneb.ExecutionPayload
+    payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
-    slot*: Slot
-    state_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
   SignedExecutionPayloadEnvelope* = object
@@ -177,7 +198,7 @@ type
     message*: ProposerPreferences
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -232,8 +253,8 @@ type
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
 
-    # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+    # [New in Gloas:EIP7732]
+    latest_block_hash*: Eth2Digest
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -274,8 +295,11 @@ type
     # [New in Gloas:EIP7732]
     builder_pending_withdrawals*:
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
-    # [New in Gloas:EIP7732]
-    latest_block_hash*: Eth2Digest
+
+    # Execution
+    # [Modified in Gloas:EIP7732]
+    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+
     # [New in Gloas:EIP7732]
     payload_expected_withdrawals*:
       HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
@@ -352,7 +376,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -381,6 +405,8 @@ type
     # [New in Gloas:EIP7732]
     payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    # [New in Gloas:EIP7732]
+    parent_execution_requests*: ExecutionRequests
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -424,6 +450,8 @@ type
     # [New in Gloas:EIP7732]
     payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    # [New in Gloas:EIP7732]
+    parent_execution_requests*: ExecutionRequests
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -455,6 +483,8 @@ type
     # [New in Gloas:EIP7732]
     payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    # [New in Gloas:EIP7732]
+    parent_execution_requests*: ExecutionRequests
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -568,9 +598,28 @@ func shortLog*(v: ExecutionPayloadBid): auto =
 func shortLog*(v: ExecutionPayloadEnvelope): auto =
   (
     beacon_block_root: shortLog(v.beacon_block_root),
-    slot: v.slot,
     builder_index: v.builder_index,
-    state_root: shortLog(v.state_root)
+  )
+
+func shortLog*(v: ExecutionPayload): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data: toPrettyString(distinctBase v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    num_transactions: len(v.transactions),
+    num_withdrawals: len(v.withdrawals),
+    blob_gas_used: $(v.blob_gas_used),
+    excess_blob_gas: $(v.excess_blob_gas),
+    slot_number: v.slot_number,
   )
 
 func shortLog*(v: PayloadAttestationData): auto =
@@ -624,3 +673,17 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+# Helpers to frequently used values
+template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
+template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
+
+template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
+  if v.body.signed_execution_payload_bid.message.builder_index ==
+      BUILDER_INDEX_SELF_BUILD:
+    v.proposer_index
+  else:
+    v.body.signed_execution_payload_bid.message.builder_index
+template builder_index*(
+    v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
+  v.message.builder_index
