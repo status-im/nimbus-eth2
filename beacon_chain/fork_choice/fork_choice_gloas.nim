@@ -219,16 +219,6 @@ func get_payload_status_tiebreaker*(
 type ChildrenIndex* =
   Table[Eth2Digest, seq[(Eth2Digest, fork_choice_types.Index)]]
 
-func buildChildrenIndex*(self: var ForkChoice): ChildrenIndex =
-  ## Build a parent --> children lookup from proto_array.
-  for root, idx in self.backend.proto_array.indices:
-    let child = self.getPhysicalNode(idx)
-    if child == nil or child.parent.isNone:
-      continue
-    let parent = self.getPhysicalNode(child.parent.get())
-    if parent == nil:
-      continue
-    result.mgetOrPut(parent.bid.root, @[]).add((root, idx))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/fork-choice.md#modified-get_head
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree
@@ -263,23 +253,20 @@ func filter_block_tree*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-get_node_children
 func get_node_children*(
     self: var ForkChoice, node: ForkChoiceNode,
-    dag: ChainDAGRef,
-    childrenIdx: ChildrenIndex,
+    dag: ChainDAGRef, childrenIdx: ChildrenIndex,
     filtered: HashSet[Eth2Digest]): seq[ForkChoiceNode] =
-  var children: seq[ForkChoiceNode]
-
   if not dag.isGloasEnabled(dag.head.slot):
     for (root, idx) in childrenIdx.getOrDefault(node.root):
-      children.add(ForkChoiceNode(
+      result.add(ForkChoiceNode(
         root: root, payloadStatus: PAYLOAD_STATUS_PENDING))
-    return children
+    return
 
   if node.payloadStatus == PAYLOAD_STATUS_PENDING:
-    children.add(ForkChoiceNode(
+    result.add(ForkChoiceNode(
       root: node.root, payloadStatus: PAYLOAD_STATUS_EMPTY))
 
     if node.root in self.backend.execution_payload_states:
-      children.add(ForkChoiceNode(
+      result.add(ForkChoiceNode(
         root: node.root, payloadStatus: PAYLOAD_STATUS_FULL))
 
       trace "PENDING expanded to EMPTY + FULL",
@@ -299,12 +286,10 @@ func get_node_children*(
       if child.parentPayloadStatus != node.payloadStatus:
         continue
 
-      children.add(ForkChoiceNode(
+      result.add(ForkChoiceNode(
         root: root, payloadStatus: PAYLOAD_STATUS_PENDING))
     trace "EMPTY/FULL expanded to child blocks",
-      children = children.len
-
-  children
+      children = result.len
 
 func get_ancestor_at_slot(
     self: var ForkChoice, root: Eth2Digest,
@@ -326,8 +311,7 @@ func get_ancestor_at_slot(
       return none((Eth2Digest, PayloadStatus))
 
     if node.bid.slot == target_slot:
-      # We already know `child_rooot` is the child of the `current_root`
-      # but we also know the payload status of `child_root`
+      # We already know `child_root` is the child of `current_root`
       let child_idx =
         self.backend.proto_array.indices.getOrDefault(child_root, -1)
       if child_idx < 0: return none((Eth2Digest, PayloadStatus))
@@ -443,7 +427,8 @@ func is_head_weak(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost(
-    self: var ForkChoice, dag: ChainDAGRef): bool =
+    self: var ForkChoice, dag: ChainDAGRef,
+    childrenIdx: ChildrenIndex): bool =
   let proposer_root = self.checkpoints.proposer_boost_root
   if proposer_root.isZero:
     return false
@@ -459,23 +444,24 @@ proc should_apply_proposer_boost(
 
   let slot = block_node.bid.slot
 
-  # Apply proposer boost if `parent` is not from the previous slot
   if parent_node.bid.slot + 1 < slot:
     return true
 
-  # Apply proposer boost if `parent`is not weak
   if not self.is_head_weak(parent_node.bid.root, dag):
     return true
 
-  # If `parent` is weak and from the previous slot, apply
+  # If parent is weak and from the previous slot, apply
   # proposer boost if there are no early equivocations
-  for root, child_idx in self.backend.proto_array.indices:
+  if parent_node.parent.isNone: return true
+  let grandparent = self.getPhysicalNode(parent_node.parent.get())
+  if grandparent == nil: return true
+
+  for (root, child_idx) in childrenIdx.getOrDefault(grandparent.bid.root):
+    if root == parent_node.bid.root: continue
     let child = self.getPhysicalNode(child_idx)
     if child == nil: continue
     if child.bid.slot + 1 != slot: continue
-    if child.proposerIndex != parent_node.proposerIndex:
-      continue
-    if root == parent_node.bid.root: continue
+    if child.proposerIndex != parent_node.proposerIndex: continue
     let timeliness = self.backend.block_timeliness.getOrDefault(
       root, [false, false])
     if not timeliness[PTC_TIMELINESS_INDEX]: continue
@@ -486,16 +472,12 @@ proc should_apply_proposer_boost(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork-choice.md#modified-get_weight
 func get_weight*(
     self: var ForkChoice, node: ForkChoiceNode,
-    current_slot: Slot, dag: ChainDAGRef): Gwei =
-  let node_idx = self.backend.proto_array.indices.getOrDefault(node.root, -1)
-  if node_idx < 0:
-    return 0.Gwei
-
+    current_slot: Slot, dag: ChainDAGRef,
+    childrenIdx: ChildrenIndex): Gwei =
   let proto_node = self.getNode(node.root)
   if proto_node == nil:
     return 0.Gwei
 
-  # Pre Gloas, we use proto_array weight
   if proto_node[].bid.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return proto_node[].weight.Gwei
 
@@ -507,7 +489,7 @@ func get_weight*(
     attestation_score = self.sumSupportingWeight(node, dag)
     proposer_score = 0.Gwei
 
-  if self.should_apply_proposer_boost(dag):
+  if self.should_apply_proposer_boost(dag, childrenIdx):
     let boost_vote = VoteTracker(
       next_root: self.checkpoints.proposer_boost_root,
       next_slot: current_slot,

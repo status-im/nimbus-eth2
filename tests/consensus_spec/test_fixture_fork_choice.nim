@@ -539,7 +539,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
-          runTest(suiteName, basePath/path, fork)
+          runTest(suiteName, basePath/path, fork, rng, taskpool)
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")

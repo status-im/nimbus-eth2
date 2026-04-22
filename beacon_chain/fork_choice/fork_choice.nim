@@ -557,6 +557,17 @@ func find_head(
     fork_choice_head = shortLog(new_head)
   ok(new_head)
 
+func buildChildrenIndex(self: var ForkChoice): ChildrenIndex =
+  # Build a parent --> children lookup table from proto_array.
+  for root, idx in self.backend.proto_array.indices:
+    let child = self.getPhysicalNode(idx)
+    if child == nil or child.parent.isNone:
+      continue
+    let parent = self.getPhysicalNode(child.parent.get())
+    if parent == nil:
+      continue
+    result.mgetOrPut(parent.bid.root, @[]).add((root, idx))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
@@ -598,14 +609,14 @@ proc get_head*(
 
     var
       best = children[0]
-      best_weight = self.get_weight(best, current_slot, dag)
+      best_weight = self.get_weight(best, current_slot, dag, childrenIdx)
       best_tiebreaker =
         self.get_payload_status_tiebreaker(best, current_slot, dag)
 
     for i in 1..<children.len:
       let
         child = children[i]
-        child_weight = self.get_weight(child, current_slot, dag)
+        child_weight = self.get_weight(child, current_slot, dag, childrenIdx)
         child_tiebreaker =
           self.get_payload_status_tiebreaker(child, current_slot, dag)
 
@@ -622,7 +633,7 @@ proc get_head*(
           elif child.root.data[j] < best.root.data[j]:
             root_cmp = -1
             break
-        
+
         if root_cmp > 0 or
             (root_cmp == 0 and child_tiebreaker > best_tiebreaker):
           best = child
