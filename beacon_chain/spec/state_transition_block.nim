@@ -1342,10 +1342,10 @@ proc process_parent_execution_payload*(
 
   # True if this block built on the parent's full payload
   let
-    is_gensis_block = parent_bid.block_hash.isZero()
+    is_genesis_block = parent_bid.block_hash.isZero()
     is_parent_block_empty = bid.parent_block_hash != parent_bid.block_hash
 
-  if is_gensis_block or is_parent_block_empty:
+  if is_genesis_block or is_parent_block_empty:
     # Parent was EMPTY -- no execution requests expected
     if not (requests == default(ExecutionRequests)):
       return err("process_parent_execution_payload: execution requests not empty")
@@ -1564,15 +1564,15 @@ func update_next_withdrawal_builder_index(
       next_builder_index = BuilderIndex(next_index mod state.builders.lenu64)
     state.next_withdrawal_builder_index = next_builder_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#modified-process_withdrawals
 func process_withdrawals*(state: var (gloas.BeaconState | heze.BeaconState)):
     Result[void, cstring] =
   # return early if the parent block was empty
   let
-    is_gensis_block = state.latest_block_hash.isZero()
+    is_genesis_block = state.latest_block_hash.isZero()
     is_parent_block_empty = state.latest_block_hash !=
       state.latest_execution_payload_bid.block_hash
-  if is_gensis_block or is_parent_block_empty:
+  if is_genesis_block or is_parent_block_empty:
     return ok()
 
   let expected = get_expected_withdrawals(state)

@@ -485,7 +485,7 @@ iterator compute_balance_weighted_selection*(
     let offset = (i mod 16) * 2
     if offset == 0:
       random_bytes = block:
-        var buf: array[40, byte]
+        var buf {.noinit.}: array[40, byte]
         buf[0..31] = seed.data
         buf[32..39] = uint_to_bytes(i div 16)
         eth2digest(buf).data
@@ -496,7 +496,7 @@ iterator compute_balance_weighted_selection*(
     let
       weight = effective_balances(next_index) * MAX_RANDOM_VALUE
       random_value = block:
-        var buf: array[8, byte]
+        var buf {.noinit.}: array[8, byte]
         buf[0..1] = random_bytes.toOpenArray(offset, offset + 1)
         bytes_to_uint64(buf)
       threshold = MAX_EFFECTIVE_BALANCE_ELECTRA * random_value

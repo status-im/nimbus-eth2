@@ -572,11 +572,6 @@ func compute_execution_block_hash*(
     Opt.some envelope.execution_requests.computeRequestsHash(),
   )
 
-debugGloasComment("removed in v1.7.0-alpha.5 but we may still need it")
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-is_parent_block_full
-func is_parent_block_full*(state: gloas.BeaconState | heze.BeaconState): bool =
-  state.latest_execution_payload_bid.block_hash == state.latest_block_hash
-
 func attestation_deadline*(
     s: Slot, timeParams: TimeParams,
     consensusFork: ConsensusFork): BeaconTime =
