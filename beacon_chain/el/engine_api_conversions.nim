@@ -273,11 +273,11 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
 func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
-    ExecutionPayloadV4 =
+    ExecutionPayloadV3 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  engine_api.ExecutionPayloadV4(
+  engine_api.ExecutionPayloadV3(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
@@ -295,9 +295,7 @@ func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
-    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
-    blockAccessList: executionPayload.block_access_list.asSeq,
-    slotNumber: Quantity(executionPayload.slot_number))
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: KzgCommitments
