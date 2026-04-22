@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm],
+  std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm, locks],
   results,
   stew/[base10, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
@@ -45,6 +45,10 @@ const
   EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
+
+declareGauge validator_client_node_status_counts,
+  "Counts of connected beacon nodes and their statuses",
+  labels = ["url", "status"]
 
 static: doAssert(high(ConsensusFork) == ConsensusFork.Heze,
           "Update OptionalForks constant!")
@@ -145,6 +149,7 @@ type
     logIdent*: string
     index*: int
     timeOffset*: Opt[TimeOffset]
+    statusGaugeLock*: Lock
 
   EpochSelectionProof* = object
     signatures*: array[SLOTS_PER_EPOCH.int, Opt[ValidatorSig]]
@@ -704,6 +709,11 @@ proc updateStatus*(node: BeaconNodeServerRef,
   logScope:
     node = node
 
+  # Reset other to indicate only current state, lock to avoid race conditions.
+  withLock(node.statusGaugeLock):
+    validator_client_node_status_counts.set(0, [$node.uri, $node.status], doUpdateSystemMetrics = false)
+    validator_client_node_status_counts.set(1, [$node.uri, $status])
+
   case status
   of RestBeaconNodeStatus.Invalid:
     if node.status != status:
@@ -922,6 +932,8 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
             client: nil, endpoint: $remoteUri, index: index,
             roles: roles, logIdent: $remoteUri, uri: remoteUri,
             status: RestBeaconNodeStatus.Noname)
+
+  server.statusGaugeLock.initLock()
   ok(server)
 
 proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
