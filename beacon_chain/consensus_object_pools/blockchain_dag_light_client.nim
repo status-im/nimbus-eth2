@@ -1113,9 +1113,6 @@ proc getLightClientBootstrap(
 proc getLightClientBootstrap*(
     dag: ChainDAGRef,
     blockRoot: Eth2Digest): ForkedLightClientBootstrap =
-  if not dag.lcDataStore.serve:
-    return default(ForkedLightClientBootstrap)
-
   # Try to load from cache
   withAll(LightClientDataFork):
     when lcDataFork > LightClientDataFork.None:
@@ -1146,9 +1143,6 @@ proc getLightClientBootstrap*(
 proc getLightClientUpdateForPeriod*(
     dag: ChainDAGRef,
     period: SyncCommitteePeriod): ForkedLightClientUpdate =
-  if not dag.lcDataStore.serve:
-    return default(ForkedLightClientUpdate)
-
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand and
       period < dag.finalizedHead.blck.slot.sync_committee_period:
     if dag.initLightClientUpdateForPeriod(period).isErr:
@@ -1166,9 +1160,6 @@ proc getLightClientUpdateForPeriod*(
 
 func getLightClientFinalityUpdate*(
     dag: ChainDAGRef): ForkedLightClientFinalityUpdate =
-  if not dag.lcDataStore.serve:
-    return default(ForkedLightClientFinalityUpdate)
-
   let
     finalityUpdate = dag.lcDataStore.cache.latest
     numParticipants = withForkyFinalityUpdate(finalityUpdate):
@@ -1182,9 +1173,6 @@ func getLightClientFinalityUpdate*(
 
 func getLightClientOptimisticUpdate*(
     dag: ChainDAGRef): ForkedLightClientOptimisticUpdate =
-  if not dag.lcDataStore.serve:
-    return default(ForkedLightClientOptimisticUpdate)
-
   let
     optimisticUpdate = dag.lcDataStore.cache.latest.toOptimistic
     numParticipants = withForkyOptimisticUpdate(optimisticUpdate):
