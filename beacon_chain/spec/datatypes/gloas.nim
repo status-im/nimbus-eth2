@@ -22,15 +22,16 @@ import
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
-  ../digest,
+  ../[digest, ssz_codec],
   kzg4844/[kzg, kzg_abi]
 
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
 from ./capella import
-  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
-  SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
+  BeaconBlockBody, ExecutionBranch, HistoricalSummary,
+  SignedBLSToExecutionChange, SignedBLSToExecutionChangeList,
+  Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import
   Blobs, KzgCommitments, KzgProofs
 
@@ -687,3 +688,15 @@ template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
 template builder_index*(
     v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
   v.message.builder_index
+
+const
+  LATEST_BLOCK_HASH_GINDEX* = get_generalized_index(
+    capella.BeaconBlockBody, "execution_payload", "block_hash")
+  LATEST_BLOCK_HASH_GINDEX_DENEB* = get_generalized_index(
+    deneb.BeaconBlockBody, "execution_payload", "block_hash")
+  LATEST_BLOCK_HASH_GINDEX_GLOAS* = get_generalized_index(
+    BeaconState, "latest_block_hash")
+static:
+  doAssert LATEST_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
+  doAssert LATEST_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
+  doAssert LATEST_BLOCK_HASH_GINDEX_GLOAS == 88.GeneralizedIndex
