@@ -708,6 +708,12 @@ proc updateStatus*(node: BeaconNodeServerRef,
                    failure: ApiNodeFailure) =
   logScope:
     node = node
+  notice "updateStatus():START",
+    node_status = $node.status,
+    status = $status,
+    node = $node,
+    failure = $failure,
+    chroniclesThreadIds = true
 
   # Reset other to indicate only current state, lock to avoid race conditions.
   withLock(node.statusGaugeLock):
@@ -794,6 +800,13 @@ proc updateStatus*(node: BeaconNodeServerRef,
     if node.status != status:
       warn "Beacon node's clock is out of order, (beacon node is unusable)"
       node.status = status
+
+  notice "updateStatus():END",
+    status = $status,
+    node_status = $node.status,
+    node = $node,
+    failure = $failure,
+    chroniclesThreadIds = true
 
 proc stop*(csr: ClientServiceRef) {.async: (raises: []).} =
   debug "Stopping service", service = csr.name
