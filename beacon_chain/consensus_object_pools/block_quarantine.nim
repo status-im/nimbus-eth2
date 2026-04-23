@@ -398,7 +398,17 @@ func popSidecarless*(
 ): Opt[ForkedSignedBeaconBlock] =
   quarantine.sidecarless.pop(root)
 
-func getColumnless*(
+func removeSidecarless*(
+    quarantine: var Quarantine, root: Eth2Digest
+): bool =
+  ## Remove the sidecarless entry for ``root`` if present.
+  ## Returns true if an entry existed and was removed.
+  if not quarantine.sidecarless.contains(root):
+    return false
+  quarantine.sidecarless.del(root)
+  true
+
+func getSidecarless*(
     quarantine: var Quarantine, root: Eth2Digest
 ): Opt[ForkedSignedBeaconBlock] =
   quarantine.sidecarless.peek(root)

@@ -22,7 +22,8 @@ import
   ../consensus_object_pools/[blob_quarantine,
      block_pools_types, block_quarantine],
   ../gossip_processing/block_processor,
-  ../spec/[forks, helpers, peerdas_helpers],
+  ../spec/[column_map, forks, helpers, peerdas_helpers],
+  ../sync/validator_custody,
   ./el_manager
 
 declareCounter beacon_engine_getblobs_requests_total,
@@ -39,6 +40,7 @@ type
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
+    validatorCustody*: ValidatorCustodyRef
     # Per-slot engine_getBlobs accounting. `slotInFlight` is the slot whose
     # counts are currently accumulating; when a request lands for a different
     # slot we flush the previous slot's ratio to the gauge and reset.
@@ -52,12 +54,14 @@ proc new*(
     t: typedesc[GetBlobsServiceRef],
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     blockProcessor: ref BlockProcessor,
-    dataColumnQuarantine: ref ColumnQuarantine
+    dataColumnQuarantine: ref ColumnQuarantine,
+    validatorCustody: ValidatorCustodyRef
 ): GetBlobsServiceRef =
   GetBlobsServiceRef(
     blockGossipBus: blockGossipBus,
     blockProcessor: blockProcessor,
     dataColumnQuarantine: dataColumnQuarantine,
+    validatorCustody: validatorCustody,
     slotInFlight: FAR_FUTURE_SLOT)
 
 proc recordEngineGetBlobs(
@@ -90,16 +94,14 @@ proc attemptGetBlobs*(
   # gossip during the EL roundtrip will fail to find a sidecarless entry to
   # enqueue against. The block is only claimed (popped) once we are
   # committed to enqueueing it below.
-  let columnlessBlock = quarantine[].getColumnless(root).valueOr:
+  let sidecarlessBlock = quarantine[].getSidecarless(root).valueOr:
     return
 
-  withBlck(columnlessBlock):
+  withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
-      let blobsFromElOpt = await elManager.getBlobsV2(forkyBlck)
-      if blobsFromElOpt.isNone():
+      let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
         self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
         return
-      let blobsEl = blobsFromElOpt.get()
       # check lengths of blobs with KZG commitments of the signed block
       if blobsEl.len != forkyBlck.message.body.blob_kzg_commitments.len:
         self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
@@ -116,37 +118,31 @@ proc attemptGetBlobs*(
         blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
         flat_proof)
 
-      # Add these columns to column quarantine.
-      const MaxColsPerPut = (NUMBER_OF_COLUMNS div 2) + 1
-      var batch = newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
-
+      # Keep only the recovered columns we custody; leave the block in
+      # sidecarless if none match so gossip or other mechanisms can still
+      # make use of it.
+      let custodyMap = self.validatorCustody.getMap()
+      var batch = newSeqOfCap[ref fulu.DataColumnSidecar](len(custodyMap))
       for col in recovered_columns:
-        if col.index notin self.dataColumnQuarantine[].custodyColumns:
-          continue
-        batch.add newClone(col)
-        if batch.len == MaxColsPerPut:
-          break
+        if col.index in custodyMap:
+          batch.add newClone(col)
 
       if batch.len == 0:
-        # No custody columns to contribute; leave the block in sidecarless so
-        # that gossip or other mechanisms can still make use of it.
         return
 
       # Claim the block now that we are committed to enqueueing it. If it
       # was already removed in the meantime (e.g. gossip delivered sidecars
       # during our await), another path owns it — abandon silently.
-      if quarantine[].popSidecarless(root).isNone():
+      if not quarantine[].removeSidecarless(root):
         return
 
       debug "Added data columns from EL blobpool to quarantine",
         root = forkyBlck.root
       self.dataColumnQuarantine[].put(forkyBlck.root, batch)
 
-      let sidecarsOpt =
-        self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+      let sidecarsOpt = self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
 
-      self.blockProcessor.enqueueBlock(
-        MsgSource.gossip, forkyBlck, sidecarsOpt)
+      self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
     elif consensusFork == ConsensusFork.Gloas:
       debugGloasComment "EL engine_getBlobs dispatch not yet wired for Gloas"
     elif consensusFork == ConsensusFork.Heze:

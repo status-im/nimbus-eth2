@@ -896,7 +896,8 @@ proc initFullNode(
                                           untrustedManager)
   node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
                                                 node.blockProcessor,
-                                                node.dataColumnQuarantine)
+                                                node.dataColumnQuarantine,
+                                                node.validatorCustody)
   node.router = router
 
   await node.addValidators()
