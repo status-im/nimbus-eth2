@@ -165,7 +165,7 @@ proc main() {.noinline, raises: [CatchableError].} =
           let
             bid = forkyHeader.beacon.toBlockId()
             consensusFork = cfg.consensusForkAtEpoch(bid.slot.epoch)
-            blockHash = forkyHeader.execution.block_hash
+            blockHash = forkyHeader.execution_block_hash
 
           info "New LC optimistic header"
           if elManager == nil or blockHash.isZero or
@@ -177,7 +177,7 @@ proc main() {.noinline, raises: [CatchableError].} =
               let finalizedHeader = lightClient.finalizedHeader
               withForkyHeader(finalizedHeader):
                 when lcDataFork >= LightClientDataFork.Capella:
-                  forkyHeader.execution.block_hash
+                  forkyHeader.execution_block_hash
                 else:
                   ZERO_HASH
             else:

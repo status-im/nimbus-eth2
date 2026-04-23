@@ -82,12 +82,39 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV2):
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
 func asConsensusType*(
-    rpcExecutionPayload: ExecutionPayloadV3 | ExecutionPayloadV4):
+    rpcExecutionPayload: ExecutionPayloadV3):
     deneb.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
   deneb.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient: rpcExecutionPayload.feeRecipient,
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+
+func asConsensusTypeGloas*(
+    rpcExecutionPayload: ExecutionPayloadV3):
+    gloas.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  gloas.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
     feeRecipient: rpcExecutionPayload.feeRecipient,
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
@@ -152,7 +179,7 @@ func asConsensusType*(
 func asConsensusTypeGloas*(
     payload: GetPayloadV5Response): gloas.ExecutionPayloadForSigning =
   gloas.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asConsensusType,
+    executionPayload: payload.executionPayload.asConsensusTypeGloas(),
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
@@ -245,12 +272,12 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
-func asEngineExecutionPayloadV4*(executionPayload: deneb.ExecutionPayload):
-    ExecutionPayloadV4 =
+func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
+    ExecutionPayloadV3 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  engine_api.ExecutionPayloadV4(
+  engine_api.ExecutionPayloadV3(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
@@ -268,9 +295,7 @@ func asEngineExecutionPayloadV4*(executionPayload: deneb.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
-    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
-    blockAccessList: @[],  # TODO: stub
-    slotNumber: Quantity(0)) # TODO: stub
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: KzgCommitments

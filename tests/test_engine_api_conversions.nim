@@ -14,8 +14,6 @@ import
   ../beacon_chain/spec/datatypes/base,
   ./testutil
 
-from std/sequtils import mapIt
-
 from eth/common/base import FixedBytes
 from ssz_serialization/types import Limit, List, init, `==`
 from stew/byteutils import hexToByteArray
@@ -28,6 +26,7 @@ from ../beacon_chain/spec/datatypes/capella import ExecutionPayload
 from ../beacon_chain/spec/datatypes/deneb import ExecutionPayload
 from ../beacon_chain/spec/datatypes/electra import
   ConsolidationRequest, DepositRequest, WithdrawalRequest
+from ../beacon_chain/spec/datatypes/gloas import ExecutionPayload
 from ../beacon_chain/spec/digest import Eth2Digest
 from ../beacon_chain/spec/presets import
   MAX_BYTES_PER_TRANSACTION, MAX_EXTRA_DATA_BYTES, MAX_TRANSACTIONS_PER_PAYLOAD
@@ -1622,7 +1621,7 @@ suite "Engine API conversions":
     # high withdrawal indexes or validator indexes), but should be supported in
     # this layer regardless, so sample across entire domain.
     const executionPayloads = [
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x760d4d1fced29500a422c401a646ee5bb5d65a07efa1492856a72cff9948a434"),
         fee_recipient:    ExecutionAddress.fromHex("0x315f583fa44fc6684553d3c88c3d26e9ed7123d8"),
         state_root:       Eth2Digest.fromHex("0xa6975bac699618cc22c05b1ba8f47cbd162475669474316d7a79ea84bce3c690"),
@@ -1646,7 +1645,7 @@ suite "Engine API conversions":
         blob_gas_used:    4401258332680664954'u64,
         excess_blob_gas:  12834012644793671460'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x2cb54ddf357864102f4ab6bce57317a75cee972f303449bf7047f4e0e5809127"),
         fee_recipient:    ExecutionAddress.fromHex("0x92af67d9604b945fd2cbaccd29598e2b47ef5d2d"),
         state_root:       Eth2Digest.fromHex("0xc64221514816a2f87a29c2c474abf99547820b2a12e6e5956f160dd54579e521"),
@@ -1670,7 +1669,7 @@ suite "Engine API conversions":
         blob_gas_used:    4810756443599845432'u64,
         excess_blob_gas:  1435200597189175983'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xac5a7347865f503e1578d1b47271c8e60027b5ba24b0da8e7c3733bcdbeda220"),
         fee_recipient:    ExecutionAddress.fromHex("0x8b7fa656e67f6af2074ec3f16930ad742a69f189"),
         state_root:       Eth2Digest.fromHex("0xeb50f351f6945df8983cf4037ee264dcb2ceef3313ae452248571811d8a3a8cf"),
@@ -1691,7 +1690,7 @@ suite "Engine API conversions":
         blob_gas_used:    723464856451065691'u64,
         excess_blob_gas:  11231138371511965912'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xd3be9b45bfe67229afb47461ca2970505586cab8eb8e00f280ceb07a9d47866f"),
         fee_recipient:    ExecutionAddress.fromHex("0xde645d4a77f0a386a45c52357948e1d7eac5e780"),
         state_root:       Eth2Digest.fromHex("0x69b70e0188e7b88e38df90853b2dfd2e4c7181e83d82d77ab81c57d161216b92"),
@@ -1710,7 +1709,7 @@ suite "Engine API conversions":
         blob_gas_used:    1936360613980595982'u64,
         excess_blob_gas:  525438497879148955'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x06504beb0dc3bae44ef75678d29ec5138d87da68d307ca7d43e259cede60fda6"),
         fee_recipient:    ExecutionAddress.fromHex("0x527ce602a0be18c0944dc27b2864c711a91f89a6"),
         state_root:       Eth2Digest.fromHex("0xad3bbef5d22bdc2429da09eb85137c881f85fe6e6b3ea207e5eaeb399c755055"),
@@ -1731,7 +1730,7 @@ suite "Engine API conversions":
         blob_gas_used:    0,
         excess_blob_gas:  11830672376638423068'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xb5d4a5eae3a1ea004ed573b0b8f8a22c847616758c0faf1e7e9589f16e55415c"),
         fee_recipient:    ExecutionAddress.fromHex("0xf7ac0877fd8bcadde1e050f6c7ddad13688ec071"),
         state_root:       Eth2Digest.fromHex("0x7472f824376a723894f8d539743c7f93b69839772f28cf6a83e2102fde99c3c9"),
@@ -1752,7 +1751,7 @@ suite "Engine API conversions":
         blob_gas_used:    17909098553568904023'u64,
         excess_blob_gas:  2561776469828429184'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x2629683cfc70198038837270bde3c60176c2a4aeeced0d4a4f14dc99a380c377"),
         fee_recipient:    ExecutionAddress.fromHex("0xd234af1937861b66ca84c334824763fb54347677"),
         state_root:       Eth2Digest.fromHex("0xf79f02d52d7f2a4be99eebba3dfb3bce74136ea739da515703d095a66ce203d5"),
@@ -1775,7 +1774,7 @@ suite "Engine API conversions":
         blob_gas_used:    819823383278806839'u64,
         excess_blob_gas:  5121347703897393436'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x190544155dd98bf86d3ed5ee94d01afd3a8e67b8476f94d90604706da0a7d340"),
         fee_recipient:    ExecutionAddress.fromHex("0x799d176d73d5d6d54d66941ad6cef8208677371c"),
         state_root:       Eth2Digest.fromHex("0x07e626b9c44b0ff14586d17acf79cb136ccc5d37fd7135da33cec516af168f43"),
@@ -1799,7 +1798,7 @@ suite "Engine API conversions":
         blob_gas_used:    14543409578714974146'u64,
         excess_blob_gas:  0
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x86d7b430f69b215ab5ae863998ce41f01a5016376c8bec7f5b7a6e16a2326d92"),
         fee_recipient:    ExecutionAddress.fromHex("0x73068946d757f5d145a38fe9de817b8b1e9d6c43"),
         state_root:       Eth2Digest.fromHex("0x312b4af4d3ca5960dda2f99531819f5c32624753cc0756c05d242f65dd605d92"),
@@ -1823,7 +1822,7 @@ suite "Engine API conversions":
         blob_gas_used:    9156166815001018661'u64,
         excess_blob_gas:  13354810927429053716'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xc51bf481df9be981c6656081e3854ffcf27551e2b4fdaed4ab12b355f247f4e1"),
         fee_recipient:    ExecutionAddress.fromHex("0xd79098c25eed05c9f6d55e95f5f6f58c1472fb28"),
         state_root:       Eth2Digest.fromHex("0x1a6b1eb78e5ac155d4be247a3b48d8d8d8574a16fa846681553037629b97ffd0"),
@@ -1847,7 +1846,7 @@ suite "Engine API conversions":
         blob_gas_used:    0,
         excess_blob_gas:  1597862542620394734'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x8b3e7e8d447527b9d00693389928260e7ea9da6855efd99369182bd9c213988a"),
         fee_recipient:    ExecutionAddress.fromHex("0xb45716c9aeddeb030c0b94202fcb97bd75a039b6"),
         state_root:       Eth2Digest.fromHex("0x8114b285e5f3277c04a66e660fef3b86295d6ca859dfa216df3309c0a7242f2d"),
@@ -1866,7 +1865,7 @@ suite "Engine API conversions":
         blob_gas_used:    1,
         excess_blob_gas:  1
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xa4854e346d2e9a921cc6b3c4ce9fc739c99795cf10002924089f9886f8624d59"),
         fee_recipient:    ExecutionAddress.fromHex("0xa88781cf69a1eed63bcc3a32b6f9aba35d4f5b5e"),
         state_root:       Eth2Digest.fromHex("0xdc06d9210fd2738b0fa9df6d68e4ffbfef0dd7d7d8093fdbcd97ff845318cf6b"),
@@ -1890,7 +1889,7 @@ suite "Engine API conversions":
         blob_gas_used:    2533380168586417970'u64,
         excess_blob_gas:  307516487526704997'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x5e7b12465e0461e5dfa59a3254282378c55961b0e411023ce89d968bbdc33e9c"),
         fee_recipient:    ExecutionAddress.fromHex("0xbd1a1396ab49631cc933770944996b294da97d43"),
         state_root:       Eth2Digest.fromHex("0x74e6ccfb15da8afb94eebf28cb3ba3f9ce63e3354097f2f2527fe1cf978e76bf"),
@@ -1912,7 +1911,7 @@ suite "Engine API conversions":
         blob_gas_used:    3541847679255581458'u64,
         excess_blob_gas:  1
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xa8f90a617f1f230506d200c6026bd60e38f599930ed04f90cdc320a6d45bb022"),
         fee_recipient:    ExecutionAddress.fromHex("0x3531157eaf2c185bd8720f3edfaf76829632f07d"),
         state_root:       Eth2Digest.fromHex("0xa16f8936e945ecd45a4ae107e46acd8530e438fa1bc8eb85aef62afaca1656da"),
@@ -1933,7 +1932,7 @@ suite "Engine API conversions":
         blob_gas_used:    3410596457491766161'u64,
         excess_blob_gas:  0
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xc914f63464f3f1588a32d3751900d415bbf1fe002c42068650f5c7c588b1935c"),
         fee_recipient:    ExecutionAddress.fromHex("0x61523b6add59cc65d3c5b75c6f749fa601e157de"),
         state_root:       Eth2Digest.fromHex("0xe84ecb995f6c7e753355c8d2e24694441c528b65ef9b1d8c6f4e9d98d409342b"),
@@ -1956,7 +1955,7 @@ suite "Engine API conversions":
         blob_gas_used:    15366131400223670470'u64,
         excess_blob_gas:  13352270791962864689'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x086322b79160568c7d096747ef351338ddc93f252dab1df3ef65aaf24723d2c3"),
         fee_recipient:    ExecutionAddress.fromHex("0x03c6998b5a3ff1c98538c2333d279f2b1cc59f7f"),
         state_root:       Eth2Digest.fromHex("0x446d99a7e9fd2c327fbd445dbfb3b3e3a895cdfa6f208496dd09c0f84f7ac0fd"),
@@ -1979,7 +1978,7 @@ suite "Engine API conversions":
         blob_gas_used:    0,
         excess_blob_gas:  1233408100755176706'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xcfba7f4aa4ff01d3d9de84dbe1761c79627a10c3188fb0a7c8adfa0d489e6441"),
         fee_recipient:    ExecutionAddress.fromHex("0x106b3bcaae4ff58dd837768be35c29c48571e4a4"),
         state_root:       Eth2Digest.fromHex("0xe6242399020361e70cb6b89701001fa8326251e6bae3b4ca1978eded8831d9a7"),
@@ -2000,7 +1999,7 @@ suite "Engine API conversions":
         blob_gas_used:    11215270247452431947'u64,
         excess_blob_gas:  0
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x063bc56b731eeeff8bf1c33d88523a04a14fa0c745eb3c750139842d88244982"),
         fee_recipient:    ExecutionAddress.fromHex("0x415b1cd5b42709a3724ab2f6f50a6dab7399d7ca"),
         state_root:       Eth2Digest.fromHex("0xf261abf37066b8dc5c868946346c98aae445adbb48e6dd05969fbb49267a276e"),
@@ -2022,7 +2021,7 @@ suite "Engine API conversions":
         blob_gas_used:    69111814634726666'u64,
         excess_blob_gas:  10785611890433610477'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xb31c41d39ef7e9a9b905cc93d82264415024d7daef48d886f1b3bc0fd6545edb"),
         fee_recipient:    ExecutionAddress.fromHex("0x5ad4b6c0d6b986e775f3a9ae2be73a330ba9f87c"),
         state_root:       Eth2Digest.fromHex("0x01dbc857a3d8994cf10cd1be3b2018be0e26ba54a5456e10a6e5729328a0b5f5"),
@@ -2044,7 +2043,7 @@ suite "Engine API conversions":
         blob_gas_used:    1,
         excess_blob_gas:  10155937412879977460'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0xf6cba3ced37c08da230babbf9d1e360661e5a21ac235fefa75cbe756f15809de"),
         fee_recipient:    ExecutionAddress.fromHex("0x0c080349793b7f43fb3ee9101889e7d32e02c01d"),
         state_root:       Eth2Digest.fromHex("0x6a33580fc482e9783d66bee9276f42b74a2cbc2b7434fc408a6ba9df77db0ceb"),
@@ -2068,7 +2067,7 @@ suite "Engine API conversions":
         blob_gas_used:    7080212387270627767'u64,
         excess_blob_gas:  17322910515629142083'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x62ce6a6d68578309c4730f96f98a809d4b4225fc3d37a285daf26288b10f9590"),
         fee_recipient:    ExecutionAddress.fromHex("0x8c892b06f1e9c877c310b6eccefb20fcf5e00227"),
         state_root:       Eth2Digest.fromHex("0x578f93b83206e3239c69f51cc8e59cd89087260cda9f0efc892aa2ffb2bf386e"),
@@ -2089,7 +2088,7 @@ suite "Engine API conversions":
         blob_gas_used:    0,
         excess_blob_gas:  9638659159857567769'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x4f8251c361a23171de8648d1e96c91fea2cc5a691dcd884e3a957dc8f6a8802a"),
         fee_recipient:    ExecutionAddress.fromHex("0x7da9175abaf6e4e400e0ee516fd3ab07dd659f2a"),
         state_root:       Eth2Digest.fromHex("0x1bd3a5da4c266dd396b8209288e68be066176ebe64cd4c17c4c6cdccaf03577e"),
@@ -2108,7 +2107,7 @@ suite "Engine API conversions":
         blob_gas_used:    4954178403284176013'u64,
         excess_blob_gas:  1
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x0c67b44b492590ffb9e6d2a63c84714821be7526ce1c337c06276e33a62b7b93"),
         fee_recipient:    ExecutionAddress.fromHex("0x1d16dbe66ead2ba8afb8594acaf8d536be08dac3"),
         state_root:       Eth2Digest.fromHex("0xeeb40e334aff8512435b5908a8dd3c06993cadca8bc44e9a6c28c6003162c6a9"),
@@ -2129,7 +2128,7 @@ suite "Engine API conversions":
         blob_gas_used:    0,
         excess_blob_gas:  4396492484488695305'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x7a9d6ab34c0314959d5bdceb0bd80f142e59e5e2addedcd178612303897e7a8a"),
         fee_recipient:    ExecutionAddress.fromHex("0x3425bc529b4791f5fdb7dd365501199b2f81e578"),
         state_root:       Eth2Digest.fromHex("0x4eb1a9a3c4b9392325a14f3f8efbc0b3cc3bfc2d7e9992377abd84af6c556db5"),
@@ -2151,7 +2150,7 @@ suite "Engine API conversions":
         blob_gas_used:    11199168226748373856'u64,
         excess_blob_gas:  13194543368024635634'u64
       ),
-      deneb.ExecutionPayload(
+      gloas.ExecutionPayload(
         parent_hash:      Eth2Digest.fromHex("0x806a868f0f31e8f519fa6339ad18c414dba17feb03aaf6ca3775b152bac64f3b"),
         fee_recipient:    ExecutionAddress.fromHex("0xa2bcc8b793c4a5d4e0f68251d2f22e1ff4366d2c"),
         state_root:       Eth2Digest.fromHex("0x6979ac9545f31eaf7ed8bd227cd7cbd1017492b892bcc118f7417ea87d50d412"),
@@ -2178,5 +2177,5 @@ suite "Engine API conversions":
 
     for execution_payload in executionPayloads:
       check:
-        execution_payload == asConsensusType(
-          asEngineExecutionPayloadV4(execution_payload))
+        execution_payload == asConsensusTypeGloas(
+          asEngineExecutionPayload(execution_payload))

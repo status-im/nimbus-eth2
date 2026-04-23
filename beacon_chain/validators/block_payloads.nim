@@ -187,42 +187,20 @@ func decodePayloadRequests(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
 proc makeExecutionPayloadEnvelope*(
-    cfg: RuntimeConfig,
-    state: var (gloas.HashedBeaconState | heze.HashedBeaconState),
-    cache: var StateCache,
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
-    slot: Slot,
 ): gloas.ExecutionPayloadEnvelope =
-  var envelope = gloas.ExecutionPayloadEnvelope(
+  gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
-    slot: slot,
-    state_root: ZERO_HASH,
   )
-
-  process_execution_payload(
-    cfg,
-    state,
-    gloas.SignedExecutionPayloadEnvelope(message: envelope),
-    func(_: deneb.ExecutionPayload): bool = true,
-    cache,
-    verify = false,
-  ).isOkOr:
-    # Return the assigned envelope here due to some incorrect data. One
-    # should verify the state_root with zero value to confirm the envelope is
-    # successfully created.
-    return envelope
-
-  envelope.state_root = hash_tree_root(state.data)
-  envelope
 
 func makeSignedExecutionPayloadBid(
     T: type gloas.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
+    executionPayload: gloas.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -248,7 +226,7 @@ func makeSignedExecutionPayloadBid(
 
 func makeSignedExecutionPayloadBid(
     T: type heze.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
+    executionPayload: gloas.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -306,7 +284,7 @@ proc makeEngineBlock*(
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
       else:
         default(seq[PayloadAttestation])
 
@@ -534,7 +512,7 @@ proc makeBuilderBlock*(
     signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
       else:
         newSeq[PayloadAttestation]()
 

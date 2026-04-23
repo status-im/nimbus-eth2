@@ -610,25 +610,11 @@ proc proposeBlockAux(
   beacon_blocks_proposed.inc()
 
   when consensusFork >= ConsensusFork.Gloas:
-    debugHezeComment("heze envelope proposal")
-    # State here is for computing the state_root, so can be discarded afterward.
-    # It requires the proposed block applied in order to get the correct
-    # state_root.
+    debugGloasComment("check if slot/slot_number is set properly in eps")
     let envelope = makeExecutionPayloadEnvelope(
-      node.dag.cfg,
-      node.dag.clearanceState.forky(consensusFork),
-      cache[],
-      eps = engineBid[].eps,
-      execution_requests = engineBid[].execution_requests,
-      beacon_block_root = blockRoot,
-      slot = slot)
-
-    # Rollback clearanceState as it is modified.
-    assign(node.dag.clearanceState, node.dag.headState)
-
-    if envelope.state_root.isZero():
-      debug "Proposed envelope failed to verify with transition"
-      return newBlockRef.get()
+      engineBid[].eps,
+      engineBid[].execution_requests,
+      blockRoot)
 
     let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
       node.dag.forkAtEpoch(slot.epoch),
@@ -957,7 +943,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
     signature: signature
   )
 
-  discard await node.router.routePayloadAttestationMessage(
+  await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
@@ -988,6 +974,44 @@ proc sendPayloadAttestations(
         asyncSpawn createAndSendPayloadAttestation(
           node, fork, genesis_validators_root, validator, vidx, slot,
           target.blck.root)
+
+proc sendProposerPreferences(
+    node: BeaconNode, head: BlockRef,
+    slot: Slot) {.async: (raises: [CancelledError]).} =
+
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
+    return
+
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+
+  withState(node.dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      for validator in node.attachedValidators[].items:
+        let validator_index =
+          validator.index.valueOr:
+            continue
+
+        for proposal_slot in get_upcoming_proposal_slots(
+            forkyState.data, validator_index.uint64):
+          let
+            data = ProposerPreferences(
+              validator_index: validator_index.uint64,
+              proposal_slot: proposal_slot)
+            signatureRes = await validator.getProposerPreferencesSignature(
+              fork, genesis_validators_root, data)
+
+          if signatureRes.isErr:
+            warn "Unable to sign proposer preferences",
+              validator = shortLog(validator),
+              error_msg = signatureRes.error
+            continue
+
+          let signed = SignedProposerPreferences(
+            message: data, signature: signatureRes.get)
+          
+          await node.router.routeProposerPreferences(signed)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -1422,6 +1446,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
+
+  asyncSpawn sendProposerPreferences(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 

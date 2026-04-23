@@ -454,8 +454,10 @@ suite "Block processor" & preset():
         var envelope = gloas.SignedExecutionPayloadEnvelope(
           message: gloas.ExecutionPayloadEnvelope(
             beacon_block_root: engineBlock.blck.root,
-            slot: engineBlock.blck.message.slot,
             builder_index: BUILDER_INDEX_SELF_BUILD,
+            payload: gloas.ExecutionPayload(
+              slot_number: engineBlock.blck.message.slot,
+            )
           )
         )
         envelopeQuarantine[].addOrphan(envelope)
@@ -466,8 +468,8 @@ suite "Block processor" & preset():
         check:
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
-          # Envelope was popped, not marked as missing
-          engineBlock.blck.root notin envelopeQuarantine[].getMissing()
+          # Envelope was popped, not marked as orphan
+          engineBlock.blck.root notin envelopeQuarantine[].orphans
 
   asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
     # Multiple blocks stored optimistically, each marks its envelope as missing.

@@ -257,6 +257,19 @@ type
     agent*: string # This is not part of specification
     proto*: string # This is not part of specification
 
+  RestSyncPeer* = object
+    peer_id*: string
+    node_id*: string
+    direction*: string
+    enr_cgc*: string
+    meta_cgc*: string
+    cgc*: int
+    columns*: seq[int]
+    intersection*: seq[int]
+    agent*: string
+    agent_full*: string
+    proto_full*: string
+
   RestNodeVersion* = object
     version*: string
 

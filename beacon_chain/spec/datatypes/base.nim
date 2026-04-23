@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-alpha.4"
+const SPEC_VERSION* = "1.7.0-alpha.5"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -1016,7 +1016,7 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
   cache.participating.reset()
 
-func checkForkConsistency*(cfg: RuntimeConfig) =
+func checkForkConsistency(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
@@ -1045,11 +1045,15 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
+func checkConfigConsistency*(cfg: RuntimeConfig) =
+  cfg.checkForkConsistency()
+  doAssert cfg.NUMBER_OF_CUSTODY_GROUPS <= NUMBER_OF_COLUMNS
+
 func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
   if n < N:
     distinctBase(result).setLen(n)
   else:
     raise newException(SszSizeMismatchError)
 
-template debugGloasComment*(s: string) = discard
-template debugHezeComment*(s: string) = discard
+template debugGloasComment*(_: string) = discard
+template debugHezeComment*(_: string) = discard

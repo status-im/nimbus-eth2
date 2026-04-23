@@ -1781,10 +1781,11 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
       withBlck(blck):
         when consensusFork < ConsensusFork.Fulu: continue
         else:
-          for j in 0..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            if node.db.delDataColumnSidecar(
-                consensusFork, blocks[int(i)].root, ColumnIndex(j)):
-              count = count + 1
+          # Iterate the full column space rather than just the local custody
+          # set so late-arriving or reconstructed columns outside of this
+          # node's custody groups are also cleaned up.
+          count += node.db.delDataColumnSidecars(
+            consensusFork, blocks[int(i)].root)
     debug "pruned data columns", count, dataColumnPruneEpoch
 
 proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
@@ -2085,16 +2086,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     slot, node.attachedValidatorBalanceTotal)
 
   # Update nfd field for BPOs
-  let
-    nextForkEpoch = node.dag.cfg.nextForkEpochAtEpoch(epoch)
-    nextForkDigest = if nextForkEpoch == FAR_FUTURE_EPOCH:
-      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
-      # "If no next fork is scheduled, the nfd entry contains the default value
-      # for the type (i.e., the SSZ representation of a zero-filled array)."
-      default(ForkDigest)
-    else:
-      node.dag.forkDigests[].atEpoch(nextForkEpoch, node.dag.cfg)
-  node.network.updateNextForkDigest(nextForkDigest)
+  node.network.updateNextForkDigest(
+    node.dag.cfg.nextForkDigestAtEpoch(node.dag.forkDigests[], epoch))
 
   await node.updateGossipStatus(slot + 1)
 

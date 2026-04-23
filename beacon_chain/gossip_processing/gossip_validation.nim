@@ -411,7 +411,7 @@ template validateBeaconBlockGloas(
   debugHezeComment "this effectively disables gossip validation for Heze blocks currently"
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockGloas(
     dag: ChainDAGRef,
     signed_beacon_block: gloas.SignedBeaconBlock): untyped =
@@ -423,22 +423,14 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  let
-    parentRef = dag.getBlockRef(bid.parent_block_root)
-    parentBlock =
-      if parentRef.isSome():
-        dag.getForkedBlock(parentRef.get().bid)
-      else:
-        Opt.none(ForkedTrustedSignedBeaconBlock)
-  if parentBlock.isSome():
-    withBlck(parentBlock.get()):
-      if forkyBlck.message.is_execution_block:
-        let parentHash = dag.loadExecutionBlockHash(parentRef.get()).valueOr:
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
-        if not (bid.parent_block_hash == parentHash):
-          return dag.checkedReject(
-            "validateBeaconBlockGloas: invalid execution parent")
+  let parent = dag.getBlockRef(bid.parent_block_root).valueOr:
+    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
+  debugGloasComment("request missing envelope if not found in db")
+  if not (
+      isParentBlockFull(dag, signed_beacon_block, parent) or
+      isParentBlockFull(dag, signed_beacon_block, parent.parent)
+  ):
+    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
@@ -1031,7 +1023,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -1039,9 +1031,9 @@ proc validateExecutionPayload*(
     Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
 
-  # [IGNORE] The envelope's block root envelope.block_root has been seen (via
-  # gossip or non-gossip sources) (a client MAY queue payload for processing
-  # once the block is retrieved).
+  # [IGNORE] The envelope's block root `envelope.beacon_block_root` has been
+  # seen (via gossip or non-gossip sources) (a client MAY queue payload for
+  # processing once the block is retrieved).
   let blockSeen =
     block:
       var seen =
@@ -1090,8 +1082,8 @@ proc validateExecutionPayload*(
         else:
           return dag.checkedReject("ExecutionPayload: invalid fork")
 
-  # [REJECT] block.slot equals envelope.slot.
-  if not (blck.slot == envelope.slot):
+  # [REJECT] `block.slot` equals `envelope.payload.slot_number`.
+  if not (blck.slot == envelope.payload.slot_number):
     return dag.checkedReject("ExecutionPayload: slot mismatch")
 
   template bid: untyped = blck.body.signed_execution_payload_bid.message
@@ -1104,17 +1096,17 @@ proc validateExecutionPayload*(
   if not (envelope.payload.block_hash == bid.block_hash):
     return dag.checkedReject("ExecutionPayload: block hash mismatch")
 
+  # [REJECT] `hash_tree_root(envelope.execution_requests) ==
+  # bid.execution_requests_root`
+  if not (hash_tree_root(envelope.execution_requests) ==
+      bid.execution_requests_root):
+    return dag.checkedReject("ExecutionPayload: requests mismatch")
+
   # [REJECT] signed_execution_payload_envelope.signature is valid with respect
   # to the builder's public key.
   if dag.headState.kind >= ConsensusFork.Gloas:
-    let builderKey =
-      if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
-        dag.validatorKey(blck.proposer_index).valueOr:
-          return dag.checkedReject("ExecutionPayload: unknown proposer")
-      else:
-        dag.validatorKey(bid.builder_index).valueOr:
-          return dag.checkedReject("ExecutionPayload: unknown builder index")
-
+    let builderKey = dag.validatorKey(blck.builder_index).valueOr:
+      return dag.checkedReject("ExecutionPayload: unknown builder")
     if not verify_execution_payload_envelope_signature(
         dag.forkAtEpoch(envelope.slot.epoch),
         dag.genesis_validators_root,
@@ -1409,6 +1401,7 @@ proc validateAggregate*(
     # the execution payload for block has been seen
     if aggregate.data.index == 1:
       template block_root: untyped = aggregate.data.beacon_block_root
+      debugGloasComment("unviable envelope")
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
           block_root notin envelopeQuarantine[].orphans:
         return errIgnore(
@@ -2002,10 +1995,12 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
+    seenProposerPreferences:
+      var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
@@ -2073,6 +2068,34 @@ proc validateExecutionPayloadBid*(
       if bid.slot != currentSlot and bid.slot != currentSlot + 1:
         return errIgnore(
           "ExecutionPayloadBid: slot not current or next slot")
+
+      # [REJECT] The length of KZG commitments is less than or equal to the
+      # limitation defined in the consensus layer -- i.e. validate that
+      # `len(bid.blob_kzg_commitments) <=
+      # get_blob_parameters(compute_epoch_at_slot(bid.slot)).max_blobs_per_block`.
+      if not (bid.blob_kzg_commitments.lenu64() <=
+          dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
+        return dag.checkedReject("ExecutionPayloadBid: invalid kzg commitments")
+
+      # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
+      # proposer's `SignedProposerPreferences` associated with `bid.slot`.
+      let seenPref = block:
+        let
+          seenBucket = uint64(bid.slot.epoch()) mod 2
+          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+        try:
+          seenProposerPreferences[seenBucket][seenKey].valueOr:
+            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+        except KeyError:
+          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+
+      if not (bid.fee_recipient == seenPref.fee_recipient):
+        return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
+
+      # [REJECT] `bid.gas_limit` matches the `gas_limit` from the proposer's
+      # `SignedProposerPreferences` associated with `bid.slot`.
+      if not (bid.gas_limit == seenPref.gas_limit):
+        return dag.checkedReject("ExecutionPayloadBid: gas limit mismatch")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
@@ -2182,10 +2205,10 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
-    seen: var array[2, BitArray[int SLOTS_PER_EPOCH]],
+    seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
     signed_preferences: SignedProposerPreferences,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template preferences: untyped = signed_preferences.message
@@ -2194,7 +2217,7 @@ proc validateProposerPreferences*(
     currentSlot = wallTime.slotOrZero(dag.timeParams)
     currentEpoch = currentSlot.epoch
     proposalEpoch = preferences.proposal_slot.epoch
-  
+
   # [IGNORE] preferences.proposal_slot is in the current or next epoch
   # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
   # [get_current_epoch(state), get_current_epoch(state) + 1].
@@ -2211,8 +2234,8 @@ proc validateProposerPreferences*(
   # and the given slot preferences.proposal_slot
   let
     bucket = proposalEpoch.uint64 mod 2
-    slotInEpoch = int(preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH)
-  if (seen[bucket][slotInEpoch]):
+    slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
+  if seen[bucket][slotInEpoch].isSome:
     return errIgnore("ProposerPreferences: already seen")
 
   # [REJECT] preferences.validator_index is present at the correct slot
@@ -2240,5 +2263,5 @@ proc validateProposerPreferences*(
       pubkey, signed_preferences.signature):
     return dag.checkedReject("ProposerPreferences: invalid signature")
 
-  seen[bucket].setBit(slotInEpoch)
+  seen[bucket][slotInEpoch] = Opt.some(preferences)
   ok()

@@ -112,7 +112,7 @@ proc fetchCheckpointState(
       if bootstrap.kind == LightClientDataFork.None:
         error "LC bootstrap unavailable on server"
         return nil
-      bootstrap.migrateToDataFork(lcDataFork)
+      bootstrap.migrateToDataFork(lcDataFork, cfg)
 
       var store = initialize_light_client_store(
         trustedBlockRoot, bootstrap.forky(lcDataFork), cfg
@@ -161,7 +161,7 @@ proc fetchCheckpointState(
 
         for i in 0 ..< updates.len:
           doAssert updates[i].kind > LightClientDataFork.None
-          updates[i].migrateToDataFork(lcDataFork)
+          updates[i].migrateToDataFork(lcDataFork, cfg)
           store.process_light_client_update(
             updates[i].forky(lcDataFork),
             beaconClock.currentSlot,
@@ -176,8 +176,8 @@ proc fetchCheckpointState(
         try:
           info "Downloading LC finality update"
           awaitWithTimeout(
-            client.getLightClientFinalityUpdate(cfg, forkDigests), smallRequestsTimeout
-          ):
+              client.getLightClientFinalityUpdate(cfg, forkDigests),
+              smallRequestsTimeout):
             error "Attempt to download LC finality update timed out"
             return nil
         except CatchableError as exc:
@@ -187,7 +187,7 @@ proc fetchCheckpointState(
         error "LC finality update unavailable on server"
         return nil
 
-      finalityUpdate.migrateToDataFork(lcDataFork)
+      finalityUpdate.migrateToDataFork(lcDataFork, cfg)
 
       store.process_light_client_update(
         finalityUpdate.forky(lcDataFork),

@@ -36,6 +36,7 @@ AllTests-mainnet
 ```
 ## Beacon chain DB [Preset: mainnet]
 ```diff
++ batch delete data columns [Preset: mainnet]                                                OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
@@ -617,7 +618,11 @@ AllTests-mainnet
 ```
 ## EIP-7594 Unit Tests
 ```diff
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)                                 OK
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)                                OK
 + EIP-7594: Compute Matrix                                                                   OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
 + EIP:7594: Recover Matrix                                                                   OK
 ```
 ## EL Configuration
@@ -657,6 +662,7 @@ AllTests-mainnet
 ```diff
 + forkchoiceUpdated basic call                                                               OK
 + forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
 ```
@@ -666,6 +672,7 @@ AllTests-mainnet
 ```
 ## EL Manager - newPayload
 ```diff
++ newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
 ```
 ## Engine API conversions
@@ -684,9 +691,12 @@ AllTests-mainnet
 ```
 ## Eth2 specific discovery tests
 ```diff
++ Attestation subnet query                                                                   OK
++ Columns subcustody query                                                                   OK
++ Combination subnet query                                                                   OK
 + Invalid attnets field                                                                      OK
-+ Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
++ Sync subnet query                                                                          OK
 ```
 ## Execution Payload Bid Pool
 ```diff
@@ -937,6 +947,7 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -1328,13 +1339,13 @@ AllTests-mainnet
 ```diff
 + Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc                                      OK
 + Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc updates metadata                     OK
-+ Metadata cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                                OK
-+ No metadata, ENR cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                        OK
++ Metadata cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange                         OK
++ No metadata, ENR cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange                 OK
 + No metadata, ENR without cgc field - returns default                                       OK
 + No metadata, no ENR - returns default CUSTODY_REQUIREMENT                                  OK
 + No metadata, valid ENR cgc                                                                 OK
 + Valid metadata with cgc == CUSTODY_REQUIREMENT (boundary)                                  OK
-+ Valid metadata with cgc == NUMBER_OF_COLUMNS (supernode)                                   OK
++ Valid metadata with cgc == NUMBER_OF_CUSTODY_GROUPS (supernode)                            OK
 + Valid metadata with cgc >= CUSTODY_REQUIREMENT                                             OK
 ```
 ## removeValidatorFiles()

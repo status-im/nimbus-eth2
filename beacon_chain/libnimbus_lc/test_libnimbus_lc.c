@@ -188,73 +188,10 @@ static void visualizeHeader(const ETHLightClientHeader *header, const ETHConsens
     printf("\n");
 
     ETHRoot *executionHash = ETHLightClientHeaderCopyExecutionHash(header, cfg);
-    printf("  - execution: ");
+    printf("  - execution_block_hash: ");
     printHexString(executionHash, sizeof *executionHash);
     printf("\n");
     ETHRootDestroy(executionHash);
-
-    const ETHExecutionPayloadHeader *execution = ETHLightClientHeaderGetExecution(header);
-
-    const ETHRoot *executionParentHash = ETHExecutionPayloadHeaderGetParentHash(execution);
-    printf("    - parent_hash: ");
-    printHexString(executionParentHash, sizeof *executionParentHash);
-    printf("\n");
-
-    const ETHExecutionAddress *executionFeeRecipient =
-        ETHExecutionPayloadHeaderGetFeeRecipient(execution);
-    printf("    - fee_recipient: ");
-    printHexString(executionFeeRecipient, sizeof *executionFeeRecipient);
-    printf("\n");
-
-    const ETHRoot *executionStateRoot = ETHExecutionPayloadHeaderGetStateRoot(execution);
-    printf("    - state_root: ");
-    printHexString(executionStateRoot, sizeof *executionStateRoot);
-    printf("\n");
-
-    const ETHRoot *executionReceiptsRoot = ETHExecutionPayloadHeaderGetReceiptsRoot(execution);
-    printf("    - receipts_root: ");
-    printHexString(executionReceiptsRoot, sizeof *executionReceiptsRoot);
-    printf("\n");
-
-    const ETHLogsBloom *executionLogsBloom = ETHExecutionPayloadHeaderGetLogsBloom(execution);
-    printf("    - logs_bloom: ");
-    printHexString(executionLogsBloom, sizeof *executionLogsBloom);
-    printf("\n");
-
-    const ETHRoot *executionPrevRandao = ETHExecutionPayloadHeaderGetPrevRandao(execution);
-    printf("    - prev_randao: ");
-    printHexString(executionPrevRandao, sizeof *executionPrevRandao);
-    printf("\n");
-
-    int executionBlockNumber = ETHExecutionPayloadHeaderGetBlockNumber(execution);
-    printf("    - block_number: %d\n", executionBlockNumber);
-
-    int executionGasLimit = ETHExecutionPayloadHeaderGetGasLimit(execution);
-    printf("    - gas_limit: %d\n", executionGasLimit);
-
-    int executionGasUsed = ETHExecutionPayloadHeaderGetGasUsed(execution);
-    printf("    - gas_used: %d\n", executionGasUsed);
-
-    int executionTimestamp = ETHExecutionPayloadHeaderGetTimestamp(execution);
-    printf("    - timestamp: %d\n", executionTimestamp);
-
-    int numExecutionExtraDataBytes;
-    const void *executionExtraDataBytes =
-        ETHExecutionPayloadHeaderGetExtraDataBytes(execution, &numExecutionExtraDataBytes);
-    printf("    - extra_data: ");
-    printHexString(executionExtraDataBytes, numExecutionExtraDataBytes);
-    printf("\n");
-
-    const ETHUInt256 *executionBaseFeePerGas = ETHExecutionPayloadHeaderGetBaseFeePerGas(execution);
-    printf("    - base_fee_per_gas: ");
-    printGweiString(executionBaseFeePerGas);
-    printf(" Gwei\n");
-
-    int executionBlobGasUsed = ETHExecutionPayloadHeaderGetBlobGasUsed(execution);
-    printf("    - blob_gas_used: %d\n", executionBlobGasUsed);
-
-    int executionExcessBlobGas = ETHExecutionPayloadHeaderGetExcessBlobGas(execution);
-    printf("    - excess_blob_gas: %d\n", executionExcessBlobGas);
 }
 
 ETH_RESULT_USE_CHECK

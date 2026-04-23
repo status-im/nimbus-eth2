@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import chronicles
 import ssz_serialization/[proofs, types]
@@ -81,7 +81,6 @@ func lightSupernodeColumnsCount*(): int =
 func getGroupsCount(
   state: ValidatorCustodyState,
   config: BeaconNodeConf,
-  network: Eth2Node,
   dag: ChainDAGRef,
   nodeBalance: Gwei
 ): CgcCount =
@@ -128,7 +127,7 @@ func getGroupsCount(
     vcus: ValidatorCustodyRef,
     nodeBalance: Gwei
 ): CgcCount =
-  getGroupsCount(vcus.state, vcus.config, vcus.network, vcus.dag, nodeBalance)
+  getGroupsCount(vcus.state, vcus.config, vcus.dag, nodeBalance)
 
 func getColumnMap(
     vcus: ValidatorCustodyRef,
@@ -184,10 +183,10 @@ proc init*(
 ): ValidatorCustodyRef =
   let
     localGroupsCount = getGroupsCount(
-      ValidatorCustodyState.Init, config, network, dag, totalNodeBalance)
+      ValidatorCustodyState.Init, config, dag, totalNodeBalance)
     columnMap = getColumnMap(config, network, dag, localGroupsCount)
 
-  network.loadCgcnetMetadataAndEnr(localGroupsCount.uint8)
+  network.loadCgcnetMetadataAndEnr(localGroupsCount.uint8, columnMap)
 
   ValidatorCustodyRef(
     network: network,
@@ -214,7 +213,7 @@ proc setValidatorCustody*(
       vcus.fuluColumnQuarantine[].update(vcus.dag.cfg, newMap)
     if not(isNil(vcus.gloasColumnQuarantine)):
       vcus.gloasColumnQuarantine[].update(vcus.dag.cfg, newMap)
-    vcus.network.loadCgcnetMetadataAndEnr(newGroupsCount)
+    vcus.network.loadCgcnetMetadataAndEnr(newGroupsCount, newMap)
     vcus.curColumnMap = newMap
     vcus.curGroupsCount = newGroupsCount
 
@@ -272,7 +271,6 @@ iterator custodyGroups*(vcus: ValidatorCustodyRef): CustodyIndex =
   ## Returns current dynamic state of custody groups.
   if vcus.isLightSupernode():
     let groups = vcus.lightSupernodeGroupsCount()
-    var res = newSeqOfCap[CustodyIndex](distinctBase(groups))
     for i in CgcCount(0) ..< groups:
       yield CustodyIndex(i)
   else:

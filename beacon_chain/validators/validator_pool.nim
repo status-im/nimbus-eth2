@@ -818,7 +818,7 @@ proc getPayloadAttestationSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, data,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    return SignatureResult.err("Remote signer lacks payload attestation support")
+    return SignatureResult.err("PayloadAttestation: remote signing not yet supported")
 
 proc getExecutionPayloadEnvelopeSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -833,4 +833,18 @@ proc getExecutionPayloadEnvelopeSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, slot.epoch, envelope,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
-    return SignatureResult.err("Remote signer lacks envelope support")
+    return SignatureResult.err("PayloadEnvelope: remote signing not yet supported")
+
+proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              data: ProposerPreferences,
+                             ): Future[SignatureResult]
+                             {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    SignatureResult.ok(
+      get_proposer_preferences_signature(
+        fork, genesis_validators_root, data,
+        v.data.privateKey).toValidatorSig())
+  of ValidatorKind.Remote:
+    return SignatureResult.err("ProposerPreferences: remote signing not yet supported")

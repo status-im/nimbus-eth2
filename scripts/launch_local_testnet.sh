@@ -30,13 +30,7 @@ PIDS_TO_WAIT=""
 # argument parsing #
 ####################
 
-USE_SYSTEM_GETOPT="${USE_SYSTEM_GETOPT:-0}"
-GETOPT_BINARY="getopt"
-if [[ "${OS}" == "macos" && "$USE_SYSTEM_GETOPT" != "1" ]]; then
-  # Without the head -n1 constraint, it gets confused by multiple matches
-  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null | head -n1 || true)
-  [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
-fi
+GETOPT_BINARY="${SCRIPTS_DIR}/getopt-wrapper.sh"
 
 ! ${GETOPT_BINARY} --test > /dev/null
 if [[ ${PIPESTATUS[0]} != 4 ]]; then
@@ -674,7 +668,7 @@ cleanup() {
 
   echo "Cleaning up"
 
-  # Avoid the trap enterring an infinite loop
+  # Avoid the trap entering an infinite loop
   trap - SIGINT SIGTERM EXIT
 
   PIDS_TO_KILL=$(find "${DATA_DIR}/pids" -type f -exec cat {} \+ 2>/dev/null)
@@ -1042,7 +1036,7 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     # removed by switching to a fully-connected topology.
     BOOTSTRAP_ARG="--netkey-file=${CONTAINER_BOOTSTRAP_NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets --direct-peer=$DIRECTPEER_ENR"
   elif [[ ${NUM_NODE} == "${DIRECTPEER_NODE}" ]]; then
-    # Start a node using the Direct Peer functionality instead of regular bootstraping
+    # Start a node using the Direct Peer functionality instead of regular bootstrapping
     BOOTSTRAP_ARG="--netkey-file=${DIRECTPEER_NETWORK_KEYFILE} --direct-peer=$(cat $CONTAINER_BOOTSTRAP_ENR) --insecure-netkey-password=true"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${CONTAINER_BOOTSTRAP_ENR}"
