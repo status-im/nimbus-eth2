@@ -106,6 +106,6 @@ func `$`*(a: ColumnMap): string =
   "[" & a.items().toSeq().mapIt($it).join(", ") & "]"
 
 func shortLog*(a: ColumnMap): string =
-  if len(a) > NUMBER_OF_COLUMNS div 2:
+  if len(a) == NUMBER_OF_COLUMNS:
     return "[supernode]"
   $a

@@ -73,16 +73,13 @@ proc attemptGetBlobs*(
               flat_proof)
             # Send notification to event stream
             # and add these columns to column quarantine
-            const MaxColsPerPut = (NUMBER_OF_COLUMNS div 2) + 1
             var batch =
-              newSeqOfCap[ref fulu.DataColumnSidecar](MaxColsPerPut)
+              newSeqOfCap[ref fulu.DataColumnSidecar](NUMBER_OF_COLUMNS)
 
             for col in recovered_columns:
               if col.index notin self.dataColumnQuarantine[].custodyColumns:
                 continue
               batch.add newClone(col)
-              if batch.len == MaxColsPerPut:
-                break
 
             if batch.len > 0:
               debug "Added data columns from EL blobpool to quarantine",
