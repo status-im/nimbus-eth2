@@ -665,15 +665,18 @@ AllTests-mainnet
 + forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
++ forkchoiceUpdatedV4 basic call                                                             OK
 ```
 ## EL Manager - getPayload
 ```diff
 + success without retry                                                                      OK
++ success without retry using getPayloadV6                                                   OK
 ```
 ## EL Manager - newPayload
 ```diff
 + newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
++ success without retry using newPayloadV5                                                   OK
 ```
 ## Engine API conversions
 ```diff
