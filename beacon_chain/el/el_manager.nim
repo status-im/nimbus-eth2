@@ -449,6 +449,36 @@ func init*(
   )
 
 func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV1
+): T =
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV4(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: @[],
+      parentBeaconBlockRoot: static(default(Hash32)),
+      slotNumber: FAR_FUTURE_SLOT.Quantity
+    ),
+  )
+
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV2
+): T =
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV4(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: attributes.withdrawals,
+      parentBeaconBlockRoot: static(default(Hash32)),
+      slotNumber: FAR_FUTURE_SLOT.Quantity
+    ),
+  )
+
+func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
 ): T =
   PayloadParams(
