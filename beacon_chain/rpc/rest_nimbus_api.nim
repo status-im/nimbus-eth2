@@ -586,6 +586,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       outgoingPeers = 0
       indices: array[NUMBER_OF_COLUMNS, int]
       distribution: array[NUMBER_OF_COLUMNS, int]
+      counts: seq[int]
       res: seq[RestSyncPeer]
       columns = 0
 
@@ -652,6 +653,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let count = indices[int(index)]
       if count != 0:
         inc(columns)
+      counts.add(count)
 
     let fillRate = (float(columns) * 100.0) / float(len(localMap))
 
@@ -666,7 +668,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         outgoing_peers_count: RestNumeric(outgoingPeers),
         custody_map: localMap.mapIt(int(it)).toSeq(),
         columns_count: RestNumeric(len(localMap)),
+        counts: counts,
         fill_rate: fillRate,
-        indices: indices,
         distribution: distribution
       ))
