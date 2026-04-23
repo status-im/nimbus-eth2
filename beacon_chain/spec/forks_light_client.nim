@@ -214,6 +214,13 @@ template kind*(
       electra.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Electra
 
+template execution_block_hash*(
+    forkyHeader:
+      capella.LightClientHeader |
+      deneb.LightClientHeader |
+      electra.LightClientHeader): Eth2Digest =
+  forkyHeader.execution.block_hash
+
 template finalized_root_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Electra:

@@ -480,25 +480,22 @@ iterator compute_balance_weighted_selection*(
     i = 0'u64
     count = 0'u64
     random_bytes: array[32, byte]
-
+    hash_buf {.noinit.}: array[40, byte]
+    rv_buf: array[8, byte]
+  hash_buf[0..31] = seed.data
   while count < size:
     let offset = (i mod 16) * 2
     if offset == 0:
-      random_bytes = block:
-        var buf {.noinit.}: array[40, byte]
-        buf[0..31] = seed.data
-        buf[32..39] = uint_to_bytes(i div 16)
-        eth2digest(buf).data
+      hash_buf[32..39] = uint_to_bytes(i div 16)
+      random_bytes = eth2digest(hash_buf).data
     var next_index = i mod total
     if shuffle_indices:
       next_index = compute_shuffled_index(next_index, total, seed)
 
+    rv_buf[0..1] = random_bytes.toOpenArray(offset, offset + 1)
     let
       weight = effective_balances(next_index) * MAX_RANDOM_VALUE
-      random_value = block:
-        var buf {.noinit.}: array[8, byte]
-        buf[0..1] = random_bytes.toOpenArray(offset, offset + 1)
-        bytes_to_uint64(buf)
+      random_value = bytes_to_uint64(rv_buf)
       threshold = MAX_EFFECTIVE_BALANCE_ELECTRA * random_value
 
     if weight >= threshold:
