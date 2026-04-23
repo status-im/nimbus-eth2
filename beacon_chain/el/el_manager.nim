@@ -844,19 +844,7 @@ proc newPayload(
 
 proc newPayload(
     m: ELManager,
-    payload: engine_api.ExecutionPayloadV3,
-    blob_versioned_hashes: seq[engine_api.VersionedHash],
-    parent_root: Hash32,
-    execution_requests: seq[seq[byte]],
-    deadline: DeadlineFuture,
-    retry: bool,
-): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-  sendNewPayload(
-    payload, blob_versioned_hashes, parent_root, execution_requests, retry)
-
-proc newPayload(
-    m: ELManager,
-    payload: engine_api.ExecutionPayloadV4,
+    payload: engine_api.ExecutionPayloadV3 | engine_api.ExecutionPayloadV4,
     blob_versioned_hashes: seq[engine_api.VersionedHash],
     parent_root: Hash32,
     execution_requests: seq[seq[byte]],
