@@ -508,8 +508,7 @@ func get_weight*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-on_execution_payload
 proc on_execution_payload*(
     self: var ForkChoice, dag: ChainDAGRef,
-    beacon_block_root: Eth2Digest,
-    execution_payload_state_root: Eth2Digest): FcResult[void] =
+    beacon_block_root: Eth2Digest): FcResult[void] =
   ## Run ``on_execution_payload`` upon receiving a new execution payload.
 
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
@@ -520,6 +519,5 @@ proc on_execution_payload*(
   if beacon_block_root notin self.backend.proto_array.indices:
     return ok()
 
-  self.backend.execution_payload_states[beacon_block_root] =
-    execution_payload_state_root
+  self.backend.execution_payload_states.incl(beacon_block_root)
   ok()

@@ -106,6 +106,16 @@ proc initialLoad(
 
   ChainDAGRef.preInit(db, forkedState[])
 
+  if forkedState[].slot == GENESIS_SLOT:
+    let anchorBlockPath = path/"anchor_block.ssz_snappy"
+    if os_ops.fileExists(anchorBlockPath):
+      var blck = loadBlock(anchorBlockPath, StateType.kind)
+      let trusted = blck.asTrusted()
+      db.putBlock(trusted)
+      db.putGenesisBlock(trusted.root)
+      db.putHeadBlock(trusted.root)
+      db.putTailBlock(trusted.root)
+
   let
     cfg = forkedState[].kind.genesisTestRuntimeConfig
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
@@ -121,7 +131,7 @@ proc initialLoad(
     dag.updateFlags.incl skipLastEnvelope
 
     let anchorRoot = dag.finalizedHead.blck.root
-    fkChoice.backend.execution_payload_states[anchorRoot] = default(Eth2Digest)
+    fkChoice.backend.execution_payload_states.incl(anchorRoot)
 
     # Set anchor block's bidBlockHash so child blocks can compute
     # parentPayloadStatus correctly via get_parent_payload_status
@@ -474,8 +484,7 @@ proc doRunTest(
     of opOnExecutionPayload:
       let status = stores.fkChoice[].on_execution_payload(
         stores.dag,
-        step.executionPayload.message.beacon_block_root,
-        step.executionPayload.message.state_root)
+        step.executionPayload.message.beacon_block_root)
       doAssert status.isOk == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status
   results,
   chronicles,
@@ -170,7 +170,7 @@ type
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
     # Additional state tracking for Gloas
-    execution_payload_states*: Table[Eth2Digest, Eth2Digest] # root -> state_root
+    execution_payload_states*: HashSet[Eth2Digest]
     ptc_vote*: Table[Eth2Digest, PtcVotes]
     ptc_data_availability_vote*: Table[Eth2Digest, PtcVotes]
     block_timeliness*: Table[Eth2Digest, array[2, bool]]

@@ -992,7 +992,7 @@ proc storePayload(
 
   # Notify fork choice that the execution payload is available for the block
   discard self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
-    dag, signedBlock.root, signedEnvelope.message.state_root)
+    dag, signedBlock.root)
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
