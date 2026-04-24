@@ -69,7 +69,17 @@ in stdenv.mkDerivation rec {
 
   doInstallCheck = true;
   installCheckPhase = ''
-    for BINARY in $out/bin/*; do $BINARY --version; done
+    for BINARY in $out/bin/*; do
+      case "$(basename "$BINARY")" in
+        ncli|ncli_db)
+          # These don't support --version, just verify they execute.
+          $BINARY --help > /dev/null 2>&1
+          ;;
+        *)
+          $BINARY --version
+          ;;
+      esac
+    done
   '';
 
   meta = with lib; {
