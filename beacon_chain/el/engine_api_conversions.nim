@@ -108,8 +108,8 @@ func asConsensusType*(
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
 
-func asConsensusTypeGloas*(
-    rpcExecutionPayload: ExecutionPayloadV3):
+func asConsensusType*(
+    rpcExecutionPayload: ExecutionPayloadV4):
     gloas.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -133,7 +133,10 @@ func asConsensusTypeGloas*(
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
-    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+    block_access_list: List[byte, MAX_BYTES_PER_TRANSACTION].init(
+      rpcExecutionPayload.blockAccessList),
+    slot_number: Slot(rpcExecutionPayload.slotNumber))
 
 func asConsensusType*(
     payload: engine_api.GetPayloadV4Response):
@@ -176,10 +179,10 @@ func asConsensusType*(
         payload.blobsBundle.blobs.mapIt(it.data))),
     executionRequests: payload.executionRequests)
 
-func asConsensusTypeGloas*(
-    payload: GetPayloadV5Response): gloas.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payload: GetPayloadV6Response): gloas.ExecutionPayloadForSigning =
   gloas.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asConsensusTypeGloas(),
+    executionPayload: payload.executionPayload.asConsensusType(),
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
@@ -273,11 +276,11 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
 func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
-    ExecutionPayloadV3 =
+    ExecutionPayloadV4 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
-  engine_api.ExecutionPayloadV3(
+  engine_api.ExecutionPayloadV4(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: executionPayload.fee_recipient,
     stateRoot: executionPayload.state_root.asBlockHash,
@@ -295,7 +298,9 @@ func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
-    excessBlobGas: Quantity(executionPayload.excess_blob_gas))
+    excessBlobGas: Quantity(executionPayload.excess_blob_gas),
+    blockAccessList: executionPayload.block_access_list.asSeq,
+    slotNumber: Quantity(executionPayload.slot_number))
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: KzgCommitments

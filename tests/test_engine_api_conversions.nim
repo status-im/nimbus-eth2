@@ -2177,5 +2177,5 @@ suite "Engine API conversions":
 
     for execution_payload in executionPayloads:
       check:
-        execution_payload == asConsensusTypeGloas(
+        execution_payload == asConsensusType(
           asEngineExecutionPayload(execution_payload))

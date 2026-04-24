@@ -828,7 +828,9 @@ template BlindedBlockContents*(
 template PayloadAttributes*(
     kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
-  when kind >= ConsensusFork.Deneb:
+  when kind >= ConsensusFork.Gloas:
+    PayloadAttributesV4
+  elif kind >= ConsensusFork.Deneb:
     PayloadAttributesV3
   elif kind >= ConsensusFork.Capella:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
