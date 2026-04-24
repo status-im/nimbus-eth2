@@ -186,7 +186,7 @@ proc init*(
       ValidatorCustodyState.Init, config, dag, totalNodeBalance)
     columnMap = getColumnMap(config, network, dag, localGroupsCount)
 
-  network.loadCgcnetMetadataAndEnr(localGroupsCount.uint8)
+  network.loadCgcnetMetadataAndEnr(localGroupsCount.uint8, columnMap)
 
   ValidatorCustodyRef(
     network: network,
@@ -213,7 +213,7 @@ proc setValidatorCustody*(
       vcus.fuluColumnQuarantine[].update(vcus.dag.cfg, newMap)
     if not(isNil(vcus.gloasColumnQuarantine)):
       vcus.gloasColumnQuarantine[].update(vcus.dag.cfg, newMap)
-    vcus.network.loadCgcnetMetadataAndEnr(newGroupsCount)
+    vcus.network.loadCgcnetMetadataAndEnr(newGroupsCount, newMap)
     vcus.curColumnMap = newMap
     vcus.curGroupsCount = newGroupsCount
 
@@ -271,7 +271,6 @@ iterator custodyGroups*(vcus: ValidatorCustodyRef): CustodyIndex =
   ## Returns current dynamic state of custody groups.
   if vcus.isLightSupernode():
     let groups = vcus.lightSupernodeGroupsCount()
-    var res = newSeqOfCap[CustodyIndex](distinctBase(groups))
     for i in CgcCount(0) ..< groups:
       yield CustodyIndex(i)
   else:

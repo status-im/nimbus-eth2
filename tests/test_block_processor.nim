@@ -454,8 +454,10 @@ suite "Block processor" & preset():
         var envelope = gloas.SignedExecutionPayloadEnvelope(
           message: gloas.ExecutionPayloadEnvelope(
             beacon_block_root: engineBlock.blck.root,
-            slot: engineBlock.blck.message.slot,
             builder_index: BUILDER_INDEX_SELF_BUILD,
+            payload: gloas.ExecutionPayload(
+              slot_number: engineBlock.blck.message.slot,
+            )
           )
         )
         envelopeQuarantine[].addOrphan(envelope)

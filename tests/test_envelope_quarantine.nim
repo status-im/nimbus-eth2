@@ -77,13 +77,25 @@ suite "Envelope Quarantine":
         .toOpenArray(0, 63)))
 
     quarantine.addOrphan(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(beacon_block_root: root1, slot: 3.Slot)))
+      message: ExecutionPayloadEnvelope(
+        beacon_block_root: root1,
+        payload: gloas.ExecutionPayload(slot_number: Slot(3))
+      )
+    ))
     quarantine.addOrphan(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(beacon_block_root: root2, slot: 5.Slot)))
+      message: ExecutionPayloadEnvelope(
+        beacon_block_root: root2,
+        payload: gloas.ExecutionPayload(slot_number: Slot(5))
+      )
+    ))
     quarantine.addOrphan(SignedExecutionPayloadEnvelope(
-      message: ExecutionPayloadEnvelope(beacon_block_root: root3, slot: 7.Slot)))
+      message: ExecutionPayloadEnvelope(
+        beacon_block_root: root3,
+        payload: gloas.ExecutionPayload(slot_number: Slot(7))
+      )
+    ))
 
-    quarantine.cleanupOrphans(3.Slot)
+    quarantine.cleanupOrphans(Slot(3))
     check quarantine.orphans.len == 2
-    quarantine.cleanupOrphans(8.Slot)
+    quarantine.cleanupOrphans(Slot(8))
     check quarantine.orphans.len == 0

@@ -189,21 +189,17 @@ func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
-    slot: Slot,
-    state_root: Eth2Digest,
 ): gloas.ExecutionPayloadEnvelope =
   gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
-    slot: slot,
-    state_root: state_root,
   )
 
 func makeSignedExecutionPayloadBid(
     T: type gloas.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
+    executionPayload: gloas.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -229,7 +225,7 @@ func makeSignedExecutionPayloadBid(
 
 func makeSignedExecutionPayloadBid(
     T: type heze.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
+    executionPayload: gloas.ExecutionPayload,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -378,9 +374,17 @@ proc getExecutionPayload*(
   type PayloadType = consensusFork.ExecutionPayloadForSigning
   let
     state = ForkchoiceStateV1.init(executionHead, latestSafe, latestFinalized)
-    attributes = PayloadAttributesV3.init(
-      timestamp, prevRandao, feeRecipient, withdrawals, beaconHead.blck.bid.root
-    )
+    attributes =
+      when consensusFork >= ConsensusFork.Gloas:
+        PayloadAttributesV4.init(
+          timestamp, prevRandao, feeRecipient, withdrawals,
+          beaconHead.blck.bid.root, beaconHead.blck.bid.slot,
+        )
+      else:
+        PayloadAttributesV3.init(
+          timestamp, prevRandao, feeRecipient, withdrawals,
+          beaconHead.blck.bid.root
+        )
     eps = await(node.elManager.getPayload(PayloadType, state, attributes)).valueOr:
       if not proposalState[].is_merge_transition_complete():
         # Pre-merge, an all-zeroes execution payload is used and there are no

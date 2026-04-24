@@ -41,8 +41,11 @@ type
     shouldFailGetPayload*: bool
     shouldFailChainId*: bool
     newPayloadCallCount*: int
+    newPayloadV5CallCount*: int
     forkchoiceCallCount*: int
+    forkchoiceV4CallCount*: int
     getPayloadCallCount*: int
+    getPayloadV6CallCount*: int
     chainIdCallCount*: int
     responseDelay*: Duration
     blockNumber*: uint64
@@ -63,8 +66,11 @@ proc createMockEngineState*(
     shouldFailGetPayload: false,
     shouldFailChainId: false,
     newPayloadCallCount: 0,
+    newPayloadV5CallCount: 0,
     getPayloadCallCount: 0,
+    getPayloadV6CallCount: 0,
     forkchoiceCallCount: 0,
+    forkchoiceV4CallCount: 0,
     chainIdCallCount: 0,
     responseDelay: 0.milliseconds,
     blockNumber: initialBlockNumber,
@@ -84,7 +90,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     if state.shouldFailNewPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: execution failed")
+        (ref ApplicationError)(code: -32603, msg: "Internal error: newPayloadV4 failed")
 
     return PayloadStatusV1(
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
@@ -96,13 +102,13 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
     parentBeaconBlockRoot: Opt[Hash32],
     executionRequests: Opt[seq[seq[byte]]]
   ) -> PayloadStatusV1:
-    inc state.newPayloadCallCount
+    inc state.newPayloadV5CallCount
     if state.responseDelay > 0.milliseconds:
       await sleepAsync(state.responseDelay)
 
     if state.shouldFailNewPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: execution failed")
+        (ref ApplicationError)(code: -32603, msg: "Internal error: newPayloadV5 failed")
 
     return PayloadStatusV1(
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
@@ -117,7 +123,31 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     if state.shouldFailForkchoice:
       raise (ref ApplicationError)(
-        code: -32603, msg: "Internal error: forkchoice update failed"
+        code: -32603, msg: "Internal error: forkchoiceUpdatedV3 failed"
+      )
+
+    return ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(
+        status: PayloadExecutionStatus.valid,
+        latestValidHash: Opt.some(fcState.headBlockHash),
+      ),
+      payloadId:
+        if payloadAttributes.isSome:
+          Opt.some(Bytes8([1'u8, 2, 3, 4, 5, 6, 7, 8]))
+        else:
+          Opt.none(Bytes8),
+    )
+
+  server.rpc("engine_forkchoiceUpdatedV4") do(
+    fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV4]
+  ) -> ForkchoiceUpdatedResponse:
+    inc state.forkchoiceV4CallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailForkchoice:
+      raise (ref ApplicationError)(
+        code: -32603, msg: "Internal error: forkchoiceUpdatedV4 failed"
       )
 
     return ForkchoiceUpdatedResponse(
@@ -139,9 +169,20 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     if state.shouldFailGetPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: getPayload failed")
+        (ref ApplicationError)(code: -32603, msg: "Internal error: getPayloadV4 failed")
 
     return GetPayloadV4Response()
+
+  server.rpc("engine_getPayloadV6") do(payloadId: Bytes8) -> GetPayloadV6Response:
+    inc state.getPayloadV6CallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailGetPayload:
+      raise
+        (ref ApplicationError)(code: -32603, msg: "Internal error: getPayloadV6 failed")
+
+    return GetPayloadV6Response()
 
   server.rpc("eth_chainId") do() -> UInt256:
     inc state.chainIdCallCount
@@ -266,6 +307,23 @@ suite "EL Manager - forkchoiceUpdated":
       setup.state.forkchoiceCallCount == 1
       status == PayloadExecutionStatus.valid
 
+  test "forkchoiceUpdatedV4 basic call":
+    let manager = createELManager(@[setup.url])
+    manager.start()
+
+    check setup.state.forkchoiceCallCount == 0
+
+    let state =
+      ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
+    let (status, payload) = waitFor manager.forkchoiceUpdated(
+      state, Opt.none(PayloadAttributesV4), sleepAsync(5.seconds), false
+    )
+
+    # Verify the call was made
+    check:
+      setup.state.forkchoiceV4CallCount == 1
+      status == PayloadExecutionStatus.valid
+
   test "forkchoiceUpdated with payload attributes":
     let manager = createELManager(@[setup.url])
     manager.start()
@@ -376,6 +434,20 @@ suite "EL Manager - getPayload":
       setup.state.getPayloadCallCount == 1
       resp.isOk()
 
+  test "success without retry using getPayloadV6":
+    let
+      manager = createELManager(@[setup.url])
+      state = ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH)
+      attrs = PayloadAttributesV4.init(
+        0'u64, ZERO_HASH, default(Eth1Address),
+        default(seq[capella.Withdrawal]), ZERO_HASH, Slot(1))
+      resp =
+        waitFor manager.getPayload(gloas.ExecutionPayloadForSigning, state, attrs)
+
+    check:
+      setup.state.getPayloadV6CallCount == 1
+      resp.isOk()
+
 suite "EL Manager - newPayload":
   setup:
     var setup = mockSetup()
@@ -393,6 +465,19 @@ suite "EL Manager - newPayload":
 
     check:
       setup.state.newPayloadCallCount == 1
+      resp.isOk()
+
+  test "success without retry using newPayloadV5":
+    let
+      manager = createELManager(@[setup.url])
+
+      resp = waitFor manager.newPayload(
+        default(gloas.BeaconBlock), default(ExecutionPayloadEnvelope),
+        sleepAsync(10.seconds), false
+      )
+
+    check:
+      setup.state.newPayloadV5CallCount == 1
       resp.isOk()
 
   test "newPayload times out without selected response":

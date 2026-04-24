@@ -461,32 +461,7 @@ func compute_proposer_indices*(
 
   proposerIndices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-compute_balance_weighted_acceptance
-func compute_balance_weighted_acceptance(
-    effective_balance: Gwei, seed: Eth2Digest, i: uint64
-): bool =
-  ## Return whether to accept the selection of a validator with the given ``effective_balance``,
-  ## with probability proportional to its balance, and randomness given by ``seed`` and ``i``.
-  const MAX_RANDOM_VALUE = (2^16 - 1).uint64
-
-  var buffer {.noinit.}: array[40, byte]
-  buffer[0..31] = seed.data
-  buffer[32..39] = uint_to_bytes(i div 16)
-
-  let
-    random_bytes = eth2digest(buffer)
-    offset = (i mod 16) * 2
-
-  var random_bytes_8: array[8, byte]
-  random_bytes_8[0..1] = random_bytes.data.toOpenArray(offset, offset + 1)
-
-  let
-    random_value = bytes_to_uint64(random_bytes_8)
-
-  effective_balance.uint64 * MAX_RANDOM_VALUE >=
-    MAX_EFFECTIVE_BALANCE_ELECTRA * random_value
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
 iterator compute_balance_weighted_selection*(
     state: gloas.BeaconState | heze.BeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest, size: uint64,
@@ -495,20 +470,35 @@ iterator compute_balance_weighted_selection*(
   ## as candidates. If ``shuffle_indices`` is ``True``, candidate indices
   ## are themselves sampled from ``indices`` by shuffling it, otherwise
   ## ``indices`` is traversed in order.
+  const MAX_RANDOM_VALUE = (2^16 - 1).uint64
   let total = indices.lenu64
   doAssert total > 0
+  template effective_balances(idx: uint64): uint64 =
+    uint64(state.validators[indices[idx]].effective_balance)
 
   var
     i = 0'u64
     count = 0'u64
-
+    random_bytes: array[32, byte]
+    hash_buf {.noinit.}: array[40, byte]
+    rv_buf: array[8, byte]
+  hash_buf[0..31] = seed.data
   while count < size:
+    let offset = (i mod 16) * 2
+    if offset == 0:
+      hash_buf[32..39] = uint_to_bytes(i div 16)
+      random_bytes = eth2digest(hash_buf).data
     var next_index = i mod total
     if shuffle_indices:
       next_index = compute_shuffled_index(next_index, total, seed)
 
-    if compute_balance_weighted_acceptance(
-        state.validators[indices[next_index]].effective_balance, seed, i):
+    rv_buf[0..1] = random_bytes.toOpenArray(offset, offset + 1)
+    let
+      weight = effective_balances(next_index) * MAX_RANDOM_VALUE
+      random_value = bytes_to_uint64(rv_buf)
+      threshold = MAX_EFFECTIVE_BALANCE_ELECTRA * random_value
+
+    if weight >= threshold:
       yield indices[next_index]
       inc count
     inc i

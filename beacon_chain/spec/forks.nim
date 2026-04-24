@@ -96,7 +96,8 @@ type
   ForkyExecutionPayload* =
     bellatrix.ExecutionPayload |
     capella.ExecutionPayload |
-    deneb.ExecutionPayload
+    deneb.ExecutionPayload |
+    gloas.ExecutionPayload
 
   ForkyExecutionPayloadHeader* =
     bellatrix.ExecutionPayloadHeader |
@@ -827,7 +828,9 @@ template BlindedBlockContents*(
 template PayloadAttributes*(
     kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
-  when kind >= ConsensusFork.Deneb:
+  when kind >= ConsensusFork.Gloas:
+    PayloadAttributesV4
+  elif kind >= ConsensusFork.Deneb:
     PayloadAttributesV3
   elif kind >= ConsensusFork.Capella:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
@@ -1710,11 +1713,22 @@ static:
         check lcDataFork.next_sync_committee_gindex,
           BeaconState, "next_sync_committee"
 
-        when lcDataFork >= LightClientDataFork.Capella and
-            consensusFork < ConsensusFork.Gloas:
-          debugGloasComment "[PH] LC specs"
-          check EXECUTION_PAYLOAD_GINDEX,
-            BeaconBlockBody, "execution_payload"
+        when lcDataFork >= LightClientDataFork.Capella:
+          when consensusFork >= ConsensusFork.Gloas:
+            check LATEST_BLOCK_HASH_GINDEX_GLOAS,
+              BeaconState, "latest_block_hash"
+          else:
+            check EXECUTION_PAYLOAD_GINDEX,
+              BeaconBlockBody, "execution_payload"
+            const latest_block_hash_gindex =
+              when consensusFork >= ConsensusFork.Deneb:
+                LATEST_BLOCK_HASH_GINDEX_DENEB
+              else:
+                LATEST_BLOCK_HASH_GINDEX
+            check latest_block_hash_gindex,
+              BeaconBlockBody, "execution_payload", "block_hash"
+        else:
+          discard  # Light client data does not track execution data
 
 func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

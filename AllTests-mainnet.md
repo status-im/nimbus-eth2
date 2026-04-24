@@ -665,15 +665,18 @@ AllTests-mainnet
 + forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
++ forkchoiceUpdatedV4 basic call                                                             OK
 ```
 ## EL Manager - getPayload
 ```diff
 + success without retry                                                                      OK
++ success without retry using getPayloadV6                                                   OK
 ```
 ## EL Manager - newPayload
 ```diff
 + newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
++ success without retry using newPayloadV5                                                   OK
 ```
 ## Engine API conversions
 ```diff
@@ -691,9 +694,12 @@ AllTests-mainnet
 ```
 ## Eth2 specific discovery tests
 ```diff
++ Attestation subnet query                                                                   OK
++ Columns subcustody query                                                                   OK
++ Combination subnet query                                                                   OK
 + Invalid attnets field                                                                      OK
-+ Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
++ Sync subnet query                                                                          OK
 ```
 ## Execution Payload Bid Pool
 ```diff
@@ -1336,13 +1342,13 @@ AllTests-mainnet
 ```diff
 + Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc                                      OK
 + Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc updates metadata                     OK
-+ Metadata cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                                OK
-+ No metadata, ENR cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                        OK
++ Metadata cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange                         OK
++ No metadata, ENR cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange                 OK
 + No metadata, ENR without cgc field - returns default                                       OK
 + No metadata, no ENR - returns default CUSTODY_REQUIREMENT                                  OK
 + No metadata, valid ENR cgc                                                                 OK
 + Valid metadata with cgc == CUSTODY_REQUIREMENT (boundary)                                  OK
-+ Valid metadata with cgc == NUMBER_OF_COLUMNS (supernode)                                   OK
++ Valid metadata with cgc == NUMBER_OF_CUSTODY_GROUPS (supernode)                            OK
 + Valid metadata with cgc >= CUSTODY_REQUIREMENT                                             OK
 ```
 ## removeValidatorFiles()

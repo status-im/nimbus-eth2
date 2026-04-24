@@ -668,7 +668,7 @@ cleanup() {
 
   echo "Cleaning up"
 
-  # Avoid the trap enterring an infinite loop
+  # Avoid the trap entering an infinite loop
   trap - SIGINT SIGTERM EXIT
 
   PIDS_TO_KILL=$(find "${DATA_DIR}/pids" -type f -exec cat {} \+ 2>/dev/null)
@@ -1036,7 +1036,7 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     # removed by switching to a fully-connected topology.
     BOOTSTRAP_ARG="--netkey-file=${CONTAINER_BOOTSTRAP_NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets --direct-peer=$DIRECTPEER_ENR"
   elif [[ ${NUM_NODE} == "${DIRECTPEER_NODE}" ]]; then
-    # Start a node using the Direct Peer functionality instead of regular bootstraping
+    # Start a node using the Direct Peer functionality instead of regular bootstrapping
     BOOTSTRAP_ARG="--netkey-file=${DIRECTPEER_NETWORK_KEYFILE} --direct-peer=$(cat $CONTAINER_BOOTSTRAP_ENR) --insecure-netkey-password=true"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${CONTAINER_BOOTSTRAP_ENR}"

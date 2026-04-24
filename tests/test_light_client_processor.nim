@@ -128,9 +128,9 @@ suite "Light client processor" & preset():
         check update.kind <= store[].kind
         withForkyStore(store[]):
           when lcDataFork > LightClientDataFork.None:
-            bootstrap.migrateToDataFork(lcDataFork)
+            bootstrap.migrateToDataFork(lcDataFork, cfg)
             template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
-            let upgraded = update.migratingToDataFork(lcDataFork)
+            let upgraded = update.migratingToDataFork(lcDataFork, cfg)
             template forkyUpdate: untyped = upgraded.forky(lcDataFork)
             check:
               res.isOk
@@ -160,7 +160,7 @@ suite "Light client processor" & preset():
                 withForkyStore(store[]):
                   when lcDataFork > LightClientDataFork.None:
                     let upgraded = newClone(
-                      update[].migratingToDataFork(lcDataFork))
+                      update[].migratingToDataFork(lcDataFork, cfg))
                     template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                     check:
                       res.isOk
@@ -170,7 +170,7 @@ suite "Light client processor" & preset():
                 withForkyStore(store[]):
                   when lcDataFork > LightClientDataFork.None:
                     let upgraded = newClone(
-                      update[].migratingToDataFork(lcDataFork))
+                      update[].migratingToDataFork(lcDataFork, cfg))
                     template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                     check:
                       res.isErr
@@ -181,7 +181,7 @@ suite "Light client processor" & preset():
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
                   let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork))
+                    update[].migratingToDataFork(lcDataFork, cfg))
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -201,7 +201,7 @@ suite "Light client processor" & preset():
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
                   let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork))
+                    update[].migratingToDataFork(lcDataFork, cfg))
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -212,7 +212,7 @@ suite "Light client processor" & preset():
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
                   let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork))
+                    update[].migratingToDataFork(lcDataFork, cfg))
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -234,7 +234,7 @@ suite "Light client processor" & preset():
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
                 let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork))
+                  update[].migratingToDataFork(lcDataFork, cfg))
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -248,7 +248,7 @@ suite "Light client processor" & preset():
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
                 let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork))
+                  update[].migratingToDataFork(lcDataFork, cfg))
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -259,7 +259,7 @@ suite "Light client processor" & preset():
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
                 let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork))
+                  update[].migratingToDataFork(lcDataFork, cfg))
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -280,14 +280,14 @@ suite "Light client processor" & preset():
           withForkyStore(store[]):
             when lcDataFork > LightClientDataFork.None:
               let upgraded = newClone(
-                update[].migratingToDataFork(lcDataFork))
+                update[].migratingToDataFork(lcDataFork, cfg))
               template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header == forkyUpdate.attested_header
         else:
           withForkyStore(store[]):
             when lcDataFork > LightClientDataFork.None:
               let upgraded = newClone(
-                update[].migratingToDataFork(lcDataFork))
+                update[].migratingToDataFork(lcDataFork, cfg))
               template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header != forkyUpdate.attested_header
 
@@ -308,9 +308,9 @@ suite "Light client processor" & preset():
       if res.isOk:
         withForkyStore(store[]):
           when lcDataFork > LightClientDataFork.None:
-            oldFinalized.migrateToDataFork(lcDataFork)
+            oldFinalized.migrateToDataFork(lcDataFork, cfg)
             template forkyOldFinalized: untyped = oldFinalized.forky(lcDataFork)
-            let upgraded = finalityUpdate.migratingToDataFork(lcDataFork)
+            let upgraded = finalityUpdate.migratingToDataFork(lcDataFork, cfg)
             template forkyUpdate: untyped = upgraded.forky(lcDataFork)
             check:
               finalizationMode == LightClientFinalizationMode.Optimistic

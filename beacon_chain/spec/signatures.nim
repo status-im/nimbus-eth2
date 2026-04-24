@@ -453,7 +453,7 @@ proc verify_execution_payload_bid_signature*(
     fork, genesis_validators_root, epoch, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope_signature
 func compute_execution_payload_envelope_signing_root(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     msg: ExecutionPayloadEnvelope | TrustedExecutionPayloadEnvelope): Eth2Digest =

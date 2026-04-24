@@ -57,7 +57,7 @@ const
   GETBLOBS_TIMEOUT = 1.seconds
 
   connectionStateChangeHysteresisThreshold = 15
-    ## How many unsuccesful/successful requests we must see
+    ## How many unsuccessful/successful requests we must see
     ## before declaring the connection as degraded/restored
 
 type
@@ -73,8 +73,8 @@ type
     ## call - if all parameters match, we can use the payload id given in
     ## response, else we have to make a new call
     state: ForkchoiceStateV1
-    attributes: PayloadAttributesV3
-      # V3 is a superset of the earlier versions so we can use it for cache
+    attributes: PayloadAttributesV4
+      # V4 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
   PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponse]]
@@ -104,7 +104,7 @@ type
 
     web3: Opt[Web3]
       ## This will be `none` before connecting and while we are
-      ## reconnecting after a lost connetion. You can wait on
+      ## reconnecting after a lost connection. You can wait on
       ## the future below for the moment the connection is active.
 
     connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
@@ -127,7 +127,7 @@ declareCounter engine_api_responses,
   labels = ["url", "request", "status"]
 
 declareHistogram engine_api_request_duration_seconds,
-  "Time(s) used to generate signature usign remote signer",
+  "Time(s) used to generate signature using remote signer",
    buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
    labels = ["url", "request"]
 
@@ -162,7 +162,7 @@ func increaseCounterTowardsStateChange(connection: ELConnection): bool =
 
 func decreaseCounterTowardsStateChange(connection: ELConnection) =
   if connection.hysteresisCounter > 0:
-    # While we increase the counter by 1, we decreate it by 20% in order
+    # While we increase the counter by 1, we decrease it by 20% in order
     # to require a steady and affirmative change instead of allowing
     # the counter to drift very slowly in one direction when the ratio
     # between success and failure is roughly 50:50%
@@ -322,6 +322,7 @@ proc getPayload(
     connection: ELConnection,
     GetPayloadResponseType: type,
     params: PayloadParams,
+    payloadAttributes: PayloadAttributesV3 | PayloadAttributesV4,
     retry: bool,
 ): Future[GetPayloadResponseType] {.async: (raises: [CatchableError]).} =
   template payloadReq(): auto =
@@ -355,7 +356,7 @@ proc getPayload(
           notice "Payload not prepared, sending last-minute payload request",
             url = connection.engineUrl.url
 
-          rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributes)
+          rpcClient.forkchoiceUpdated(params.state, Opt.some payloadAttributes)
       )
 
     payloadId = forkchoiceUpdated.payloadId.valueOr:
@@ -417,7 +418,7 @@ template EngineApiResponseType(T: type fulu.ExecutionPayloadForSigning): type =
   engine_api.GetPayloadV5Response
 
 template EngineApiResponseType(T: type gloas.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV5Response
+  engine_api.GetPayloadV6Response
 
 template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[WithdrawalV1] =
   mapIt(withdrawals, toEngineWithdrawal(it))
@@ -447,17 +448,36 @@ func init*(
     parentBeaconBlockRoot: consensusHead.to(Hash32),
   )
 
+func init*(
+    T: type PayloadAttributesV4,
+    timestamp: uint64,
+    prevRandao: Eth2Digest,
+    suggestedFeeRecipient: Eth1Address,
+    withdrawals: sink seq[capella.Withdrawal],
+    consensusHead: Eth2Digest,
+    slot: Slot,
+): T =
+  T(
+    timestamp: Quantity timestamp,
+    prevRandao: Bytes32 prevRandao.to(Hash32),
+    suggestedFeeRecipient: suggestedFeeRecipient,
+    withdrawals: withdrawals.toEngineWithdrawals(),
+    parentBeaconBlockRoot: consensusHead.to(Hash32),
+    slotNumber: Quantity(slot),
+  )
+
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV1
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
       withdrawals: @[],
-      parentBeaconBlockRoot: default(Hash32),
+      parentBeaconBlockRoot: static(default(Hash32)),
+      slotNumber: FAR_FUTURE_SLOT.Quantity
     ),
   )
 
@@ -466,16 +486,33 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
       withdrawals: attributes.withdrawals,
-      parentBeaconBlockRoot: default(Hash32),
+      parentBeaconBlockRoot: static(default(Hash32)),
+      slotNumber: FAR_FUTURE_SLOT.Quantity
     ),
   )
+
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
+): T =
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV4(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: attributes.withdrawals,
+      parentBeaconBlockRoot: attributes.parentBeaconBlockRoot,
+      slotNumber: FAR_FUTURE_SLOT.Quantity
+    ),
+  )
+
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV4
 ): T =
   PayloadParams(state: state, attributes: attributes)
 
@@ -483,7 +520,7 @@ proc getPayload*(
     m: ELManager,
     PayloadType: type ForkyExecutionPayloadForSigning,
     state: ForkchoiceStateV1,
-    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 | PayloadAttributesV3,
+    payloadAttributes: PayloadAttributesV3 | PayloadAttributesV4,
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     notice "No engine configured, using empty payload"
@@ -496,7 +533,7 @@ proc getPayload*(
   let deadline = sleepAsync(GETPAYLOAD_TIMEOUT + extraProcessingOverhead)
 
   let requests = m.elConnections.mapIt(
-    it.getPayload(EngineApiResponseType(PayloadType), params, true)
+    it.getPayload(EngineApiResponseType(PayloadType), params, payloadAttributes, true)
   )
   defer:
     # In case any request didn't complete on time
@@ -523,11 +560,8 @@ proc getPayload*(
         url = m.elConnections[idx].engineUrl.url
 
   if bestPayloadIdx.isSome():
-    debugGloasComment "Temp workaround for Gloas using GetPayloadV5Response"
-    when PayloadType.kind == ConsensusFork.Gloas:
-      ok(requests[bestPayloadIdx.get()].value().asConsensusTypeGloas)
-    else:
-      ok(requests[bestPayloadIdx.get()].value().asConsensusType)
+    debugHezeComment("")
+    ok(requests[bestPayloadIdx.get()].value().asConsensusType)
   else:
     Opt.none(PayloadType)
 
@@ -798,11 +832,7 @@ proc newPayload*(
 
   let
     startTime = Moment.now()
-    payload =
-      when consensusFork >= ConsensusFork.Gloas:
-        executionPayload.asEngineExecutionPayloadV4()
-      else:
-        executionPayload.asEngineExecutionPayload()
+    payload = executionPayload.asEngineExecutionPayload()
 
   when consensusFork >= ConsensusFork.Deneb:
     let
@@ -887,7 +917,8 @@ proc forkchoiceUpdated(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3],
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4],
     retry: bool,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
@@ -909,7 +940,8 @@ proc forkchoiceUpdated*(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3],
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4],
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
@@ -979,7 +1011,8 @@ proc forkchoiceUpdated*(
     state: ForkchoiceStateV1,
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3]
+                       Opt[PayloadAttributesV3] |
+                       Opt[PayloadAttributesV4]
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(

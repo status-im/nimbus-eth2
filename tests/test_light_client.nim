@@ -77,11 +77,11 @@ suite "Light client" & preset():
         dag.updateHead(added[], quarantine, [])
 
   setup:
-    const num_validators = SLOTS_PER_EPOCH
+    const numValidators = SLOTS_PER_EPOCH
     let
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
-        cfg, cfg.makeTestDB(num_validators), validatorMonitor, {},
+        cfg, cfg.makeTestDB(numValidators), validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
           serve: true,
           importMode: LightClientDataImportMode.OnlyNew))
@@ -181,14 +181,14 @@ suite "Light client" & preset():
       if update.kind > store.kind:
         withForkyUpdate(update):
           when lcDataFork > LightClientDataFork.None:
-            store.migrateToDataFork(lcDataFork)
+            store.migrateToDataFork(lcDataFork, cfg)
       withForkyStore(store):
         when lcDataFork > LightClientDataFork.None:
           # Reduce stack size by making this a `proc`
           proc syncToPeriod() =
-            bootstrap.migrateToDataFork(lcDataFork)
+            bootstrap.migrateToDataFork(lcDataFork, cfg)
             template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
-            let upgradedUpdate = update.migratingToDataFork(lcDataFork)
+            let upgradedUpdate = update.migratingToDataFork(lcDataFork, cfg)
             template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
             let res = process_light_client_update(
               forkyStore, forkyUpdate, currentSlot, cfg,
@@ -212,10 +212,10 @@ suite "Light client" & preset():
     if finalityUpdate.kind > store.kind:
       withForkyFinalityUpdate(finalityUpdate):
         when lcDataFork > LightClientDataFork.None:
-          store.migrateToDataFork(lcDataFork)
+          store.migrateToDataFork(lcDataFork, cfg)
     withForkyStore(store):
       when lcDataFork > LightClientDataFork.None:
-        let upgradedUpdate = finalityUpdate.migratingToDataFork(lcDataFork)
+        let upgradedUpdate = finalityUpdate.migratingToDataFork(lcDataFork, cfg)
         template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
         let res = process_light_client_update(
           forkyStore, forkyUpdate, currentSlot, cfg, genesis_validators_root)
@@ -226,27 +226,36 @@ suite "Light client" & preset():
           forkyStore.optimistic_header == forkyUpdate.attested_header
 
   test "Init from checkpoint":
-    # Fetch genesis state
     let genesisState = assignClone dag.headState
 
-    # Advance to target slot for checkpoint
-    let finalizedSlot =
-      ((altairStartSlot.sync_committee_period + 1).start_epoch + 2).start_slot
-    dag.advanceToSlot(finalizedSlot, verifier, quarantine[])
+    for epoch in [
+        cfg.ALTAIR_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH,
+        cfg.ELECTRA_FORK_EPOCH]:
+      let consensusFork = cfg.consensusForkAtEpoch(epoch)
+      for importMode in [
+          LightClientDataImportMode.OnlyNew,
+          LightClientDataImportMode.Full]:
+        let finalizedSlot = (epoch + 2).start_slot
+        dag.advanceToSlot(finalizedSlot, verifier, quarantine[])
 
-    # Initialize new DAG from checkpoint
-    let cpDb = BeaconChainDB.new("", cfg, inMemory = true)
-    ChainDAGRef.preInit(cpDb, genesisState[])
-    ChainDAGRef.preInit(cpDb, dag.headState) # dag.getForkedBlock(dag.head.bid).get)
-    let cpDag = ChainDAGRef.init(
-      cfg, cpDb, validatorMonitor, {},
-      lcDataConfig = LightClientDataConfig(
-        serve: true,
-        importMode: LightClientDataImportMode.Full))
+        let cpDb = BeaconChainDB.new("", cfg, inMemory = true)
+        ChainDAGRef.preInit(cpDb, genesisState[])
+        ChainDAGRef.preInit(cpDb, dag.headState)
+        let cpDag = ChainDAGRef.init(
+          cfg, cpDb, validatorMonitor, {},
+          lcDataConfig = LightClientDataConfig(
+            serve: true, importMode: importMode))
 
-    # Advance by a couple epochs
-    for i in 1'u64 .. 10:
-      let headSlot = (finalizedSlot.epoch + i).start_slot
-      cpDag.advanceToSlot(headSlot, verifier, quarantine[])
+        for i in 1'u64 .. 10:
+          let headSlot = (finalizedSlot.epoch + i).start_slot
+          cpDag.advanceToSlot(headSlot, verifier, quarantine[])
 
-    check true
+        let finalityUpdate = cpDag.getLightClientFinalityUpdate
+        check finalityUpdate.kind >= lcDataForkAtConsensusFork(consensusFork)
+        withForkyFinalityUpdate(finalityUpdate):
+          when lcDataFork > LightClientDataFork.None:
+            check:
+              is_valid_light_client_header(
+                forkyFinalityUpdate.attested_header, cfg)
+              is_valid_light_client_header(
+                forkyFinalityUpdate.finalized_header, cfg)

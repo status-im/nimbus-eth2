@@ -153,7 +153,7 @@ proc loadEth2NetworkMetadata*(
         readBootEnr(bootstrapNodesPath) &
         readBootEnr(bootEnrPath))
 
-    runtimeConfig.checkForkConsistency()
+    runtimeConfig.checkConfigConsistency()
 
     ok Eth2NetworkMetadata(
       eth1Network: eth1Network,
@@ -242,7 +242,7 @@ when IsGnosisSupported:
 
   static:
     for network in [gnosisMetadata, chiadoMetadata]:
-      checkForkConsistency(network.cfg)
+      checkConfigConsistency(network.cfg)
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert ConsensusFork.high == ConsensusFork.Heze
@@ -320,7 +320,7 @@ elif IsMainnetSupported:
   static:
     doAssert ConsensusFork.high == ConsensusFork.Heze
     for network in [mainnetMetadata, sepoliaMetadata, hoodiMetadata]:
-      checkForkConsistency(network.cfg)
+      checkConfigConsistency(network.cfg)
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.BLOB_SCHEDULE.len == 2

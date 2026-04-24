@@ -146,7 +146,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionPayload":
-            checkSSZ(deneb.ExecutionPayload, path, hash)
+            checkSSZ(gloas.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
             checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionPayloadEnvelope":
