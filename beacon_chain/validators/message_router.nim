@@ -710,7 +710,19 @@ proc routeExecutionPayloadEnvelope*(
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
-): Future[Result[void, string]] {.async: (raises: [CancelledError]).} =
+): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  # Validate with gossip
+  let vRes = validateExecutionPayload(
+    router[].dag, router[].quarantine,
+    router.processor.envelopeQuarantine, signedEnvelope)
+  if not isGoodForSending(vRes):
+    warn "Envelope failed validation",
+      envelope = shortLog(signedEnvelope.message),
+      payload = shortLog(signedEnvelope.message.payload),
+      signature = shortLog(signedEnvelope.signature),
+      error = vRes.error()
+    return err(vRes.error()[1])
+
   # Publish envelope
   let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
   if res.isErr():
