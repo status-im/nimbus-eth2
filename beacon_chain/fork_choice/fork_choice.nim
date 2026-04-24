@@ -443,7 +443,7 @@ proc process_block*(
     block_root = shortLog(blckRef)
 
   # Record block timeliness
-  self.record_block_timeliness(dag, blck.slot, blckRef.root)
+  self.record_block_timeliness(dag, blck.slot, blckRef.root, typeof(blck).kind)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)

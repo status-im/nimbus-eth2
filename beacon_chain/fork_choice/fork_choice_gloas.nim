@@ -94,14 +94,15 @@ proc on_payload_attestation_message*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-record_block_timeliness
 proc record_block_timeliness*(
     self: var ForkChoice, dag: ChainDAGRef,
-    blck_slot: Slot, root: Eth2Digest) =
+    blck_slot: Slot, root: Eth2Digest,
+    consensusFork: ConsensusFork) =
   let
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
     is_current_slot = current_slot == blck_slot
 
   self.backend.block_timeliness[root] = [
     is_current_slot and self.checkpoints.time <
-      current_slot.attestation_deadline_legacy(dag.timeParams),
+      current_slot.attestation_deadline(dag.timeParams, consensusFork),
     is_current_slot and self.checkpoints.time <
       current_slot.payload_attestation_deadline(dag.timeParams)]
 
@@ -505,19 +506,36 @@ func get_weight*(
 
   attestation_score + proposer_score
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-on_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
 proc on_execution_payload*(
     self: var ForkChoice, dag: ChainDAGRef,
-    beacon_block_root: Eth2Digest): FcResult[void] =
-  ## Run ``on_execution_payload`` upon receiving a new execution payload.
+    signedEnvelope: SignedExecutionPayloadEnvelope): FcResult[void] =
+  template envelope: auto = signedEnvelope.message
+  let
+    beacon_block_root = envelope.beacon_block_root
+    current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
 
-  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   if not dag.isGloasEnabled(current_slot):
     return ok()
 
-  # The corresponding beacon block root needs to be known
   if beacon_block_root notin self.backend.proto_array.indices:
-    return ok()
+    return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
+                                blockRoot: beacon_block_root)
+
+  # Verify the execution payload envelope
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      let verifyResult = dag.timeParams.verify_execution_payload_envelope(
+          dag.forkAtEpoch(envelope.payload.slot_number.epoch),
+          forkyState.data, signedEnvelope,
+          dag.genesis_validators_root)
+      if verifyResult.isErr:
+        debug "Execution payload envelope verification failed",
+          error = verifyResult.error,
+          beacon_block_root = shortLog(beacon_block_root),
+          headSlot = forkyState.data.slot
+        return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
+                                    blockRoot: beacon_block_root)
 
   self.backend.execution_payload_states.incl(beacon_block_root)
   ok()

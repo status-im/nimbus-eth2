@@ -109,8 +109,12 @@ proc initialLoad(
   if forkedState[].slot == GENESIS_SLOT:
     let anchorBlockPath = path/"anchor_block.ssz_snappy"
     if os_ops.fileExists(anchorBlockPath):
-      var blck = loadBlock(anchorBlockPath, StateType.kind)
-      let trusted = blck.asTrusted()
+      let blck = parseTest(
+        anchorBlockPath, SSZ, StateType.kind.BeaconBlock)
+      var signed: StateType.kind.SignedBeaconBlock
+      signed.message = blck
+      signed.root = hash_tree_root(blck)
+      let trusted = signed.asTrusted()
       db.putBlock(trusted)
       db.putGenesisBlock(trusted.root)
       db.putHeadBlock(trusted.root)
@@ -131,7 +135,14 @@ proc initialLoad(
     dag.updateFlags.incl skipLastEnvelope
 
     let anchorRoot = dag.finalizedHead.blck.root
-    fkChoice.backend.execution_payload_states.incl(anchorRoot)
+
+    # Spec initializes PTC votes for anchor as all-True
+    var allTrue: PtcVotes
+    for i in 0 ..< int(PTC_SIZE):
+      allTrue.setBit(i)
+    fkChoice.backend.ptc_vote[anchorRoot] = allTrue
+    fkChoice.backend.ptc_data_availability_vote[anchorRoot] = allTrue
+    fkChoice.backend.block_timeliness[anchorRoot] = [true, true]
 
     # Set anchor block's bidBlockHash so child blocks can compute
     # parentPayloadStatus correctly via get_parent_payload_status
@@ -322,7 +333,6 @@ proc stepOnBlock(
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix and
       consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
-    debugGloasComment "skip execution payload for Gloas?"
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
     if executionBlockHash in invalidatedHashes:
@@ -484,7 +494,7 @@ proc doRunTest(
     of opOnExecutionPayload:
       let status = stores.fkChoice[].on_execution_payload(
         stores.dag,
-        step.executionPayload.message.beacon_block_root)
+        step.executionPayload)
       doAssert status.isOk == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
@@ -548,6 +558,9 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
+          debugGloasComment "fixture bug, should be fixed by alpha.6"
+          if path.contains("on_execution_payload_envelope__wrong_withdrawals"):
+            continue
           runTest(suiteName, basePath/path, fork, rng, taskpool)
 
 fcSuite("ForkChoice", "fork_choice")
