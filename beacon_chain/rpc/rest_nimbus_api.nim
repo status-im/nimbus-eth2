@@ -567,7 +567,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     for peer in node.network.peers.values():
       if peer.connectionState == Connected:
         let
-          nodeId = peer.fetchNodeIdFromPeerId().get()
+          nodeId = peer.fetchNodeIdFromPeerId()
           enrcgc = peer.getEnrCgc()
           metcgc = peer.getMetadataCgc()
           cgc =
