@@ -1021,7 +1021,7 @@ func checkForkConsistency(cfg: RuntimeConfig) =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
      cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
-     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION]
+     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION, cfg.HEZE_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
@@ -1042,18 +1042,13 @@ func checkForkConsistency(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
   assertForkEpochOrder(cfg.ELECTRA_FORK_EPOCH, cfg.FULU_FORK_EPOCH)
   assertForkEpochOrder(cfg.FULU_FORK_EPOCH, cfg.GLOAS_FORK_EPOCH)
+  assertForkEpochOrder(cfg.GLOAS_FORK_EPOCH, cfg.HEZE_FORK_EPOCH)
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
 func checkConfigConsistency*(cfg: RuntimeConfig) =
   cfg.checkForkConsistency()
   doAssert cfg.NUMBER_OF_CUSTODY_GROUPS <= NUMBER_OF_COLUMNS
-
-func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
-  if n < N:
-    distinctBase(result).setLen(n)
-  else:
-    raise newException(SszSizeMismatchError)
 
 template debugGloasComment*(_: string) = discard
 template debugHezeComment*(_: string) = discard

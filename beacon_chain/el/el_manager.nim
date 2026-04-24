@@ -73,8 +73,8 @@ type
     ## call - if all parameters match, we can use the payload id given in
     ## response, else we have to make a new call
     state: ForkchoiceStateV1
-    attributes: PayloadAttributesV3
-      # V3 is a superset of the earlier versions so we can use it for cache
+    attributes: PayloadAttributesV4
+      # V4 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
   PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponse]]
@@ -322,6 +322,7 @@ proc getPayload(
     connection: ELConnection,
     GetPayloadResponseType: type,
     params: PayloadParams,
+    payloadAttributes: PayloadAttributesV3 | PayloadAttributesV4,
     retry: bool,
 ): Future[GetPayloadResponseType] {.async: (raises: [CatchableError]).} =
   template payloadReq(): auto =
@@ -355,7 +356,7 @@ proc getPayload(
           notice "Payload not prepared, sending last-minute payload request",
             url = connection.engineUrl.url
 
-          rpcClient.forkchoiceUpdated(params.state, Opt.some params.attributes)
+          rpcClient.forkchoiceUpdated(params.state, Opt.some payloadAttributes)
       )
 
     payloadId = forkchoiceUpdated.payloadId.valueOr:
@@ -452,12 +453,13 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
       withdrawals: @[],
-      parentBeaconBlockRoot: default(Hash32),
+      parentBeaconBlockRoot: static(default(Hash32)),
+      slotNumber: FAR_FUTURE_SLOT.Quantity
     ),
   )
 
@@ -466,16 +468,33 @@ func init(
 ): T =
   PayloadParams(
     state: state,
-    attributes: PayloadAttributesV3(
+    attributes: PayloadAttributesV4(
       timestamp: attributes.timestamp,
       prevRandao: attributes.prevRandao,
       suggestedFeeRecipient: attributes.suggestedFeeRecipient,
       withdrawals: attributes.withdrawals,
-      parentBeaconBlockRoot: default(Hash32),
+      parentBeaconBlockRoot: static(default(Hash32)),
+      slotNumber: FAR_FUTURE_SLOT.Quantity
     ),
   )
+
 func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
+): T =
+  PayloadParams(
+    state: state,
+    attributes: PayloadAttributesV4(
+      timestamp: attributes.timestamp,
+      prevRandao: attributes.prevRandao,
+      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
+      withdrawals: attributes.withdrawals,
+      parentBeaconBlockRoot: attributes.parentBeaconBlockRoot,
+      slotNumber: FAR_FUTURE_SLOT.Quantity
+    ),
+  )
+
+func init(
+    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV4
 ): T =
   PayloadParams(state: state, attributes: attributes)
 
@@ -483,7 +502,7 @@ proc getPayload*(
     m: ELManager,
     PayloadType: type ForkyExecutionPayloadForSigning,
     state: ForkchoiceStateV1,
-    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 | PayloadAttributesV3,
+    payloadAttributes: PayloadAttributesV3 | PayloadAttributesV4,
 ): Future[Opt[PayloadType]] {.async: (raises: [CancelledError]).} =
   if m.elConnections.len == 0:
     notice "No engine configured, using empty payload"
@@ -496,7 +515,7 @@ proc getPayload*(
   let deadline = sleepAsync(GETPAYLOAD_TIMEOUT + extraProcessingOverhead)
 
   let requests = m.elConnections.mapIt(
-    it.getPayload(EngineApiResponseType(PayloadType), params, true)
+    it.getPayload(EngineApiResponseType(PayloadType), params, payloadAttributes, true)
   )
   defer:
     # In case any request didn't complete on time
