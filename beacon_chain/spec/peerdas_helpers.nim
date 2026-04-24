@@ -573,11 +573,11 @@ template verifyKzgBatchBody(
 
   for sidecar {.inject.} in sidecarsArg:
     let idx = CellIndex(sidecar.index)
-    for i {.inject.} in 0 ..< sidecar.column.len:
+    for blobIdx {.inject.} in 0 ..< sidecar.column.len:
       commitments.add(commitmentAt)
       cellIndices.add(idx)
-      cells.add(sidecar.column[i])
-      proofs.add(sidecar.kzg_proofs[i])
+      cells.add(sidecar.column[blobIdx])
+      proofs.add(sidecar.kzg_proofs[blobIdx])
 
   let res = verifyCellKzgProofBatch(
       commitments, cellIndices, cells, proofs).valueOr:
@@ -586,7 +586,7 @@ template verifyKzgBatchBody(
   if not res:
     return err("DataColumnSidecar: validation failed")
 
-  return ok()
+  ok()
 
 proc verify_data_column_sidecar_kzg_proofs*[
     T: fulu.DataColumnSidecar | gloas.DataColumnSidecar |
@@ -596,7 +596,7 @@ proc verify_data_column_sidecar_kzg_proofs*[
   ## Batch verify KZG proofs across multiple DataColumnSidecars against a
   ## single shared `kzg_commitments` array (e.g. gloas, where commitments
   ## come from the bid). Accepts either values or refs.
-  verifyKzgBatchBody(sidecars, kzg_commitments.len, kzg_commitments[i])
+  verifyKzgBatchBody(sidecars, kzg_commitments.len, kzg_commitments[blobIdx])
 
 proc verify_data_column_sidecar_kzg_proofs*[
     T: fulu.DataColumnSidecar | ref fulu.DataColumnSidecar](
@@ -606,7 +606,7 @@ proc verify_data_column_sidecar_kzg_proofs*[
   ## sidecar individually: a sidecar carrying commitments that don't match
   ## its cells/proofs is rejected regardless of its position in the batch.
   verifyKzgBatchBody(
-    sidecars, sidecar.kzg_commitments.len, sidecar.kzg_commitments[i])
+    sidecars, sidecar.kzg_commitments.len, sidecar.kzg_commitments[blobIdx])
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#validator-custody
 func get_validators_custody_requirement*(cfg: RuntimeConfig,
