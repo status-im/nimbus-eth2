@@ -6505,13 +6505,24 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/genesis                       OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - mainnet/gloas/fork_choice/get_parent_payload_status/pyspec_tests/get_parent_p OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
   ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost                OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
-+ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload/pyspec_tests/on_execution_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
 ```
 ## Sync
 ```diff

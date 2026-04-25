@@ -465,7 +465,7 @@ proc doRunTest(
         stores.dag, step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
         toSeq(stores.dag.get_attesting_indices(step.electraAtt)),
-        get_committee_index_one(step.electraAtt.committee_bits).expect("valid"),
+        get_committee_index_one(step.electraAtt.committee_bits).valueOr(CommitteeIndex(0)),
         time)
       doAssert status.isOk == step.valid
     of opOnBlock:
