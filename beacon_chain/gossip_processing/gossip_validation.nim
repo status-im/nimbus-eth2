@@ -426,8 +426,10 @@ template validateBeaconBlockGloas(
   let parent = dag.getBlockRef(bid.parent_block_root).valueOr:
     return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
   debugGloasComment("request missing envelope if not found in db")
+  debugGloasComment("revisit the naive parent.parent.isNil guard")
   if not (
       isParentBlockFull(dag, signed_beacon_block, parent) or
+      parent.parent.isNil or
       isParentBlockFull(dag, signed_beacon_block, parent.parent)
   ):
     return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
