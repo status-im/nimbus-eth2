@@ -200,6 +200,7 @@ func makeExecutionPayloadEnvelope*(
 func makeSignedExecutionPayloadBid(
     T: type gloas.SignedExecutionPayloadBid,
     executionPayload: gloas.ExecutionPayload,
+    execution_requests: ExecutionRequests,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -217,6 +218,7 @@ func makeSignedExecutionPayloadBid(
     value: 0.Gwei,
     execution_payment: 0.Gwei,
     blob_kzg_commitments: blob_kzg_commitments,
+    execution_requests_root: hash_tree_root(execution_requests),
   )
   gloas.SignedExecutionPayloadBid(
     message: bid,
@@ -226,6 +228,7 @@ func makeSignedExecutionPayloadBid(
 func makeSignedExecutionPayloadBid(
     T: type heze.SignedExecutionPayloadBid,
     executionPayload: gloas.ExecutionPayload,
+    execution_requests: ExecutionRequests,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -243,6 +246,7 @@ func makeSignedExecutionPayloadBid(
     value: 0.Gwei,
     execution_payment: 0.Gwei,
     blob_kzg_commitments: blob_kzg_commitments,
+    execution_requests_root: hash_tree_root(execution_requests),
     inclusion_list_bits: inclusion_list_bits)
   heze.SignedExecutionPayloadBid(
     message: bid,
@@ -272,13 +276,15 @@ proc makeEngineBlock*(
         debugHezeComment "set inclusion_list_bits with FOCIL information"
         makeSignedExecutionPayloadBid(
           heze.SignedExecutionPayloadBid,
-          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
-          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
+          eps.executionPayload, execution_requests, eps.kzg_commitments,
+          state.latest_block_root, slot,
+          static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       elif consensusFork == ConsensusFork.Gloas:
         makeSignedExecutionPayloadBid(
           gloas.SignedExecutionPayloadBid,
-          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
-          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
+          eps.executionPayload, execution_requests, eps.kzg_commitments,
+          state.latest_block_root, slot,
+          static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       else:
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
@@ -378,7 +384,7 @@ proc getExecutionPayload*(
       when consensusFork >= ConsensusFork.Gloas:
         PayloadAttributesV4.init(
           timestamp, prevRandao, feeRecipient, withdrawals,
-          beaconHead.blck.bid.root, beaconHead.blck.bid.slot,
+          beaconHead.blck.bid.root, slot,
         )
       else:
         PayloadAttributesV3.init(
