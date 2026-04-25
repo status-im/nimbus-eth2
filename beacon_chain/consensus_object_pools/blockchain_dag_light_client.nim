@@ -477,6 +477,7 @@ proc createLightClientBootstrap(
         forkyBlck.toLightClientHeader(lcDataFork))
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
         bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
+    elif consensusFork == ConsensusFork.Phase0: raiseAssert "Unreachable"
     else: debugGloasComment "Gloas/Heze light-client bootstrap unimplemented"
   ok()
 
