@@ -423,14 +423,7 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  let parent = dag.getBlockRef(bid.parent_block_root).valueOr:
-    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
-  debugGloasComment("request missing envelope if not found in db")
-  if not (
-      isParentBlockFull(dag, signed_beacon_block, parent) or
-      isParentBlockFull(dag, signed_beacon_block, parent.parent)
-  ):
-    return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
+  debugGloasComment("")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
