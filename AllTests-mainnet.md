@@ -37,6 +37,7 @@ AllTests-mainnet
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + batch delete data columns [Preset: mainnet]                                                OK
++ batch put data columns [Preset: mainnet]                                                   OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK

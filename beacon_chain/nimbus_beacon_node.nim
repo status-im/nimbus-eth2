@@ -1845,6 +1845,7 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
 
       let recoveredTime = Moment.now()
 
+      var reconstructed: seq[ref fulu.DataColumnSidecar]
       for i in 0 ..< NUMBER_OF_COLUMNS.uint64:
         if i in indices:
           continue
@@ -1854,16 +1855,16 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         for j in 0 ..< rowCount:
           cells[j] = recovered[j].cells[i]
           proofs[j] = recovered[j].proofs[i]
-        let dataColumn = fulu.DataColumnSidecar(
+        reconstructed.add newClone(fulu.DataColumnSidecar(
           index: ColumnIndex(i),
           column: DataColumn.init(cells),
           kzg_commitments: columns[0].kzg_commitments,
           kzg_proofs: deneb.KzgProofs.init(proofs),
           signed_block_header: forkyBlck.asSigned().toSignedBeaconBlockHeader(),
           kzg_commitments_inclusion_proof:
-            columns[0].kzg_commitments_inclusion_proof)
-        node.dag.db.putDataColumnSidecar(dataColumn)  # TODO might already have
+            columns[0].kzg_commitments_inclusion_proof))  # TODO might already have
         inc reconCounter
+      node.dag.db.putDataColumnSidecars(reconstructed)
 
       let reconstructedTime = Moment.now()
 

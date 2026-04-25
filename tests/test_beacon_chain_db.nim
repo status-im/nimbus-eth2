@@ -734,6 +734,93 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
+  test "batch put data columns" & preset():
+    const
+      blockHeader0 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(0)))
+      blockHeader1 = SignedBeaconBlockHeader(
+        message: BeaconBlockHeader(slot: Slot(1)))
+
+    let
+      blockRoot0 = hash_tree_root(blockHeader0.message)
+      blockRoot1 = hash_tree_root(blockHeader1.message)
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+
+    # Empty batch is a no-op for both forks (no SQL executed, no panic).
+    db.putDataColumnSidecars(newSeq[ref fulu.DataColumnSidecar]())
+    db.putDataColumnSidecars(newSeq[ref gloas.DataColumnSidecar]())
+
+    # Build a Fulu batch spanning two blocks so we exercise the
+    # `hash_tree_root` memoization path (multiple sidecars per block) and
+    # the cache-invalidation path (header changes mid-batch).
+    var fuluBatch: seq[ref fulu.DataColumnSidecar]
+    for idx in [ColumnIndex 0, 1, 5, 42, 127]:
+      fuluBatch.add newClone(fulu.DataColumnSidecar(
+        index: idx, signed_block_header: blockHeader0))
+    for idx in [ColumnIndex 0, 7, 99]:
+      fuluBatch.add newClone(fulu.DataColumnSidecar(
+        index: idx, signed_block_header: blockHeader1))
+
+    db.putDataColumnSidecars(fuluBatch)
+
+    var dataColumnSidecar: fulu.DataColumnSidecar
+    check:
+      # Every sidecar from the batch is retrievable under the right key…
+      db.getDataColumnSidecar(blockRoot0, 0, dataColumnSidecar)
+      dataColumnSidecar == fuluBatch[0][]
+      db.getDataColumnSidecar(blockRoot0, 1, dataColumnSidecar)
+      dataColumnSidecar == fuluBatch[1][]
+      db.getDataColumnSidecar(blockRoot0, 5, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot0, 42, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot0, 127, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot1, 0, dataColumnSidecar)
+      dataColumnSidecar == fuluBatch[5][]
+      db.getDataColumnSidecar(blockRoot1, 7, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot1, 99, dataColumnSidecar)
+      # …and untouched (idx, root) pairs stay absent.
+      not db.getDataColumnSidecar(blockRoot0, 2, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 1, dataColumnSidecar)
+      not db.getDataColumnSidecar(blockRoot1, 42, dataColumnSidecar)
+
+    # Re-inserting the same batch is idempotent (INSERT OR REPLACE).
+    db.putDataColumnSidecars(fuluBatch)
+    check:
+      db.getDataColumnSidecar(blockRoot0, 0, dataColumnSidecar)
+      dataColumnSidecar == fuluBatch[0][]
+
+    # Same exercise for Gloas; key derivation uses `beacon_block_root`
+    # directly so the memoization path doesn't apply, but the multi-row
+    # INSERT path is the same and must still round-trip correctly.
+    var gloasBatch: seq[ref gloas.DataColumnSidecar]
+    for idx in [ColumnIndex 0, 1, 5, 42, 127]:
+      gloasBatch.add newClone(gloas.DataColumnSidecar(
+        index: idx, beacon_block_root: blockRoot0))
+    for idx in [ColumnIndex 0, 7]:
+      gloasBatch.add newClone(gloas.DataColumnSidecar(
+        index: idx, beacon_block_root: blockRoot1))
+
+    db.putDataColumnSidecars(gloasBatch)
+
+    var gloasSidecar: gloas.DataColumnSidecar
+    check:
+      db.getDataColumnSidecar(blockRoot0, 0, gloasSidecar)
+      gloasSidecar == gloasBatch[0][]
+      db.getDataColumnSidecar(blockRoot0, 127, gloasSidecar)
+      gloasSidecar == gloasBatch[4][]
+      db.getDataColumnSidecar(blockRoot1, 7, gloasSidecar)
+      gloasSidecar == gloasBatch[6][]
+      not db.getDataColumnSidecar(blockRoot1, 1, gloasSidecar)
+
+    # Bulk delete then re-batch-put: confirms a fresh batch after a sweep
+    # behaves like the first insert (no stale prepared-statement state).
+    check db.delDataColumnSidecars(ConsensusFork.Fulu, blockRoot0) == 5
+    db.putDataColumnSidecars(fuluBatch)
+    check:
+      db.getDataColumnSidecar(blockRoot0, 0, dataColumnSidecar)
+      db.getDataColumnSidecar(blockRoot0, 127, dataColumnSidecar)
+
+    db.close()
+
   test "sanity check execution payload envelopes" & preset():
     const
       blockHeader0 = SignedBeaconBlockHeader(
