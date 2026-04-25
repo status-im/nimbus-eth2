@@ -1851,7 +1851,7 @@ proc verify_execution_payload_envelope*(
   template payload: auto = envelope.payload
   template bid: auto = state.latest_execution_payload_bid
 
-  # Verify signature
+  # Resolve builder public key
   let builderIndex = envelope.builder_index
   let pubkey =
     if builderIndex == BUILDER_INDEX_SELF_BUILD:
@@ -1864,17 +1864,12 @@ proc verify_execution_payload_envelope*(
         return err("verify_execution_payload_envelope: invalid builder index")
       state.builders.item(builderIndex).pubkey
 
+  # Verify signature
   if not verify_execution_payload_envelope_signature(
       fork, genesis_validators_root,
       payload.slot_number.epoch,
       envelope, pubkey, signed_envelope.signature):
     return err("verify_execution_payload_envelope: invalid signature")
-
-  # Verify consistency with the beacon block
-  var header = state.latest_block_header
-  header.state_root = hash_tree_root(state)
-  if envelope.beacon_block_root != hash_tree_root(header):
-    return err("verify_execution_payload_envelope: beacon_block_root mismatch")
 
   # Verify consistency with the committed bid
   if envelope.builder_index != bid.builder_index:
