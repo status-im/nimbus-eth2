@@ -2304,8 +2304,14 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      for digest in @[forkDigests[].atConsensusFork(consensusFork)] &
-          forkDigests[].bpos.filterIt(it[1] == consensusFork).mapIt(it[2]):
+      # Post-Electra forks live entirely in `bpos`; pre-Fulu forks live in the
+      # named ForkDigests fields.
+      let digests =
+        when consensusFork < ConsensusFork.Fulu:
+          @[forkDigests[].atConsensusFork(consensusFork)]
+        else:
+          forkDigests[].bpos.filterIt(it[1] == consensusFork).mapIt(it[2])
+      for digest in digests:
         let digest = digest # lent
         # beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
