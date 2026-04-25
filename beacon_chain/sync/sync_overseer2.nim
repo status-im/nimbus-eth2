@@ -1425,6 +1425,9 @@ proc doPeerUpdateRootsSidecars(
   for bid in bids:
     let signedBlock =
       overseer.blockQuarantine[].peekSidecarless(bid.root).valueOr:
+        debug "Block without sidecars disappeared from quarantine",
+          bid = shortLog(bid)
+        overseer.missingRoots.incl(bid.root)
         continue
 
     withBlck(signedBlock):
@@ -1544,7 +1547,6 @@ proc doPeerUpdateRootsSidecars(
                 # This flags means that we have sidecars.
                 entry.flags.excl(DagEntryFlag.MissingSidecars)
                 peer.updateScore(PeerScoreGoodValues)
-                overseer.blockQuarantine[].remove(forkyBlck)
               of VerifierError.MissingSidecars:
                 # We still missing sidecars.
                 discard
@@ -2716,8 +2718,6 @@ proc finalMonitoringLoop(
 
       # Pruning SyncDag.
       overseer.sdag.prune(event.epoch)
-      overseer.blockQuarantine[].pruneAfterFinalization(
-        event.epoch, dag.needsBackfill)
 
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
