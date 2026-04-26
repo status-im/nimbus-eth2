@@ -950,8 +950,12 @@ proc sendPayloadAttestations(
   if consensusFork < ConsensusFork.Gloas:
     return
 
-  # Get the beacon block root for the slot we are attesting to
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#constructing-the-payloadattestationmessage
+  # - If the validator has not seen any beacon block for the assigned slot, do
+  #   not submit a payload attestation; it will be ignored anyway.
   let target = head.atSlot(slot)
+  if target.blck.slot != slot:
+    return
   if head != target.blck:
     notice "Payload attestation to a state in the past",
       attestationTarget = shortLog(target),

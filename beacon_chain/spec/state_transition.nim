@@ -349,7 +349,8 @@ proc makeBeaconBlockWithRewards*(
     execution_requests: ExecutionRequests,
     signed_execution_payload_bid:
         gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
-    payload_attestations: seq[PayloadAttestation]
+    payload_attestations: seq[PayloadAttestation],
+    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
 ): Result[
     tuple[
       blck: consensusFork.BeaconBlock(typeof(execution_payload)), rewards: BlockRewards
@@ -415,6 +416,10 @@ proc makeBeaconBlockWithRewards*(
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS].init(
         payload_attestations)
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
+  when consensusFork >= ConsensusFork.Gloas:
+    blck.body.parent_execution_requests = parent_execution_requests
+
   let rewards =
     ?process_block(cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
 
@@ -442,14 +447,16 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     execution_requests: ExecutionRequests,
     signed_execution_payload_bid:
         gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
-    payload_attestations: seq[PayloadAttestation]
+    payload_attestations: seq[PayloadAttestation],
+    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
     ?makeBeaconBlockWithRewards(
       cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
       graffiti, attestations, deposits, validator_changes, sync_aggregate,
       execution_payload, verificationFlags, kzg_commitments,
-      execution_requests, signed_execution_payload_bid, payload_attestations
+      execution_requests, signed_execution_payload_bid, payload_attestations,
+      parent_execution_requests
     )
   ).blck
 
@@ -471,11 +478,13 @@ proc makeBeaconBlock*(
     execution_requests: ExecutionRequests = default(ExecutionRequests),
     signed_execution_payload_bid:
         gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
-    payload_attestations: seq[PayloadAttestation]
+    payload_attestations: seq[PayloadAttestation],
+    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
     graffiti, attestations, deposits, validator_changes, sync_aggregate,
     eps.executionPayload, verificationFlags, eps.kzg_commitments,
-    execution_requests, signed_execution_payload_bid, payload_attestations
+    execution_requests, signed_execution_payload_bid, payload_attestations,
+    parent_execution_requests
   )

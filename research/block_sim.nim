@@ -330,7 +330,8 @@ cli do(
 
       payload_attestations =
         when consensusFork >= ConsensusFork.Gloas:
-          payloadAttestationPool.getPayloadAttestationsForBlock(slot)
+          payloadAttestationPool.getPayloadAttestationsForBlock(
+            slot, state.latest_block_root)
         else:
           newSeq[PayloadAttestation]()
 
