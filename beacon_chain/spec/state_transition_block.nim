@@ -1840,7 +1840,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-verify_execution_payload_envelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
 proc verify_execution_payload_envelope*(
     timeParams: TimeParams,
     fork: Fork,
