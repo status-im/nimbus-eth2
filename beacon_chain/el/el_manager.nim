@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/json,
+  std/[json, macros],
   # Nimble packages:
   chronos, metrics, chronicles/timings,
   json_rpc/[client, errors],
@@ -809,6 +809,85 @@ proc getBlobsV3*(
       )
       .firstOrCancel(deadline)
 
+template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
+  if m.elConnections.len == 0:
+    info "No execution client configured; cannot process block payloads"
+    Opt.none(PayloadExecutionStatus)
+  else:
+    let startTime = Moment.now()
+    var
+      res = Opt.none PayloadExecutionStatus
+      responseProcessor = ELConsensusViolationDetector.init()
+      requests = m.elConnections.mapIt:
+        let req = unpackVarargs(it.newPayload, payload, args)
+        it.engineApiRequest(req, "newPayload", startTime)
+      pending = requests
+      earlyDeadline = sleepAsync(multiTimeout)
+
+    defer:
+      await cancelAndWait(pending)
+
+    while pending.len > 0:
+      try:
+        if responseProcessor.selectedResponse.isSome():
+          discard await race(race(pending), earlyDeadline)
+        else:
+          discard await race(race(pending), deadline)
+      except ValueError:
+        raiseAssert "race error cannot happen"
+
+      if pending.anyIt responseProcessor.hasDisagreement(
+          PayloadStatusV1, m.elConnections, requests, it):
+        res.ok PayloadExecutionStatus.invalid
+        break
+
+      pending = pending.filterIt(not it.finished)
+
+      if earlyDeadline.finished and responseProcessor.selectedResponse.isSome():
+        # At the early deadline, select the best response we've received so far
+        if pending.len > 0:
+          # Let the other requests run their course so they receive the update
+          asyncSpawn lazyWait(pending, deadline)
+          reset pending
+        break
+
+      if deadline.finished:
+        break
+
+    if res.isNone and responseProcessor.selectedResponse.isSome():
+      res.ok requests[responseProcessor.selectedResponse.get].value().status
+    res
+
+proc newPayload(
+    m: ELManager,
+    payload: engine_api.ExecutionPayloadV1 | engine_api.ExecutionPayloadV2,
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  sendNewPayload(payload, retry)
+
+proc newPayload(
+    m: ELManager,
+    payload: engine_api.ExecutionPayloadV3,
+    blob_versioned_hashes: seq[engine_api.VersionedHash],
+    parent_root: Hash32,
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  sendNewPayload(payload, blob_versioned_hashes, parent_root, retry)
+
+proc newPayload(
+    m: ELManager,
+    payload: engine_api.ExecutionPayloadV3 | engine_api.ExecutionPayloadV4,
+    blob_versioned_hashes: seq[engine_api.VersionedHash],
+    parent_root: Hash32,
+    execution_requests: seq[seq[byte]],
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  sendNewPayload(
+    payload, blob_versioned_hashes, parent_root, execution_requests, retry)
+
 proc newPayload*(
     m: ELManager,
     blck: SomeForkyBeaconBlock,
@@ -816,7 +895,6 @@ proc newPayload*(
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
-  mixin newPayload
   const consensusFork = typeof(blck).kind
 
   template executionPayload(): auto =
@@ -825,92 +903,33 @@ proc newPayload*(
     else:
       blck.body.execution_payload
 
-  if m.elConnections.len == 0:
-    info "No execution client configured; cannot process block payloads",
-      executionPayload = shortLog(executionPayload)
-    return Opt.none(PayloadExecutionStatus)
+  let payload = executionPayload.asEngineExecutionPayload()
 
-  let
-    startTime = Moment.now()
-    payload = executionPayload.asEngineExecutionPayload()
-
-  when consensusFork >= ConsensusFork.Deneb:
-    let
-      versioned_hashes =
-        block:
-          let kzgCommitments =
-            when consensusFork >= ConsensusFork.Gloas:
-              template bid(): auto = blck.body.signed_execution_payload_bid
-              bid.message.blob_kzg_commitments
-            elif consensusFork >= ConsensusFork.Deneb:
-              blck.body.blob_kzg_commitments
-          kzgCommitments.asEngineVersionedHashes()
-      parent_root = blck.parent_root.to(Hash32)
-
-  when consensusFork >= ConsensusFork.Electra:
-    let execution_requests =
-      block:
-        let executionRequests =
-          when consensusFork >= ConsensusFork.Gloas:
-            envelope.execution_requests
-          else:
-            blck.body.execution_requests
-        executionRequests.asEngineExecutionRequests()
-
-  var
-    responseProcessor = ELConsensusViolationDetector.init()
-    requests = m.elConnections.mapIt:
-      let req =
-        when consensusFork >= ConsensusFork.Electra:
-          it.newPayload(
-            payload, versioned_hashes, parent_root, execution_requests, retry
-          )
-        elif consensusFork >= ConsensusFork.Deneb:
-          it.newPayload(payload, versioned_hashes, parent_root, retry)
-        elif consensusFork >= ConsensusFork.Bellatrix:
-          it.newPayload(payload, retry)
-        else:
-          {.error: "Unsupported fork " & $consensusFork.}
-
-      it.engineApiRequest(req, "newPayload", startTime)
-
-    pending = requests
-    earlyDeadline = sleepAsync(multiTimeout)
-
-  defer:
-    await cancelAndWait(pending)
-
-  while pending.len > 0:
-    try:
-      if responseProcessor.selectedResponse.isSome():
-        discard await race(race(pending), earlyDeadline)
-      else:
-        discard await race(race(pending), deadline)
-    except ValueError:
-      raiseAssert "race error cannot happen"
-
-    if pending.anyIt(
-      responseProcessor.hasDisagreement(PayloadStatusV1, m.elConnections, requests, it)
-    ):
-      return Opt.some PayloadExecutionStatus.invalid
-
-    pending = pending.filterIt(not it.finished)
-
-    if earlyDeadline.finished and responseProcessor.selectedResponse.isSome():
-      # At the early deadline, we select the best response we've received so far
-      if pending.len > 0:
-        # Let the other requests run their course so they receive the update
-        asyncSpawn lazyWait(pending, deadline)
-        reset pending
-      break
-
-    if deadline.finished:
-      break
-
-  if responseProcessor.selectedResponse.isSome():
-    Opt.some requests[responseProcessor.selectedResponse.get].value().status
+  when consensusFork >= ConsensusFork.Gloas:
+    await m.newPayload(
+      payload,
+      blck.body.signed_execution_payload_bid
+        .message.blob_kzg_commitments.asEngineVersionedHashes(),
+      blck.parent_root.to(Hash32),
+      envelope.execution_requests.asEngineExecutionRequests(),
+      deadline, retry)
+  elif consensusFork >= ConsensusFork.Electra:
+    await m.newPayload(
+      payload,
+      blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
+      blck.parent_root.to(Hash32),
+      blck.body.execution_requests.asEngineExecutionRequests(),
+      deadline, retry)
+  elif consensusFork >= ConsensusFork.Deneb:
+    await m.newPayload(
+      payload,
+      blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
+      blck.parent_root.to(Hash32),
+      deadline, retry)
+  elif consensusFork >= ConsensusFork.Bellatrix:
+    await m.newPayload(payload, deadline, retry)
   else:
-    Opt.none PayloadExecutionStatus
+    {.error: "newPayload unsupported in " & $consensusFork.}
 
 proc forkchoiceUpdated(
     connection: ELConnection,
