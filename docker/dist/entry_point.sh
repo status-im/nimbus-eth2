@@ -176,6 +176,7 @@ else
   echo
 
   make \
+    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \
