@@ -106,7 +106,9 @@ proc validateRouteBlock(
     return err("Block was not sent from validator that is also managed by the beacon node")
 
   # gossip validation
-  let res = validateBeaconBlock(router[].dag, router[].quarantine, blck, wallTime, {})
+  let res = validateBeaconBlock(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, blck, wallTime, {})
   if not res.isGoodForSending():
     warn "Block failed validation",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
