@@ -563,12 +563,8 @@ proc addHeadExecutionPayload*(
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.1/apis/eventstream/index.yaml
-  # `execution_payload_available`: "The node has verified that the execution
-  # payload and blobs for a block are available and ready for payload
-  # attestation"; emit after envelope in database and REST-queryable.
-  if not isNil(dag.onEnvelopeAvailable):
-    dag.onEnvelopeAvailable(signedEnvelope)
+  if not isNil(dag.onEnvelopeAdded):
+    dag.onEnvelopeAdded(signedEnvelope)
 
   ok(blck)
 
