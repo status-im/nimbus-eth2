@@ -470,7 +470,6 @@ proc createLightClientBootstrap(
           tmpState[], period)
       dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
   withBlck(bdata):
-    debugGloasComment ""
     when consensusFork >= ConsensusFork.Altair and
          consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
@@ -478,7 +477,8 @@ proc createLightClientBootstrap(
         forkyBlck.toLightClientHeader(lcDataFork))
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
         bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
-    else: raiseAssert "Unreachable"
+    elif consensusFork == ConsensusFork.Phase0: raiseAssert "Unreachable"
+    else: debugGloasComment "Gloas/Heze light-client bootstrap unimplemented"
   ok()
 
 proc initLightClientBootstrapForPeriod(

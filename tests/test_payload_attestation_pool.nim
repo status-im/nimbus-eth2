@@ -225,7 +225,7 @@ suite "Payload attestation pool" & preset():
           added_count += 1
 
         let attestations =
-          pool[].getPayloadAttestationsForBlock(target_slot)
+          pool[].getPayloadAttestationsForBlock(target_slot, beacon_block_root)
         check attestations.len > 0
         check attestations[0].data.slot == slot
 
@@ -258,7 +258,7 @@ suite "Payload attestation pool" & preset():
 
         # Old attestation should no longer be retrievable
         let attestations =
-          pool[].getPayloadAttestationsForBlock(slot + 6)
+          pool[].getPayloadAttestationsForBlock(slot + 6, beacon_block_root)
         check attestations.len == 0
 
   test "Different 'blob data available' and 'payload presence' values" & preset():

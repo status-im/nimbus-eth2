@@ -21,7 +21,7 @@ import
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
 from std/algorithm import sort
-from std/sequtils import mapIt
+from std/sequtils import deduplicate, filterIt, mapIt
 from stew/staticfor import staticFor
 
 export
@@ -1871,7 +1871,9 @@ func init*(T: type ForkDigests,
            (cfg.GLOAS_FORK_EPOCH, ConsensusFork.Gloas, compute_fork_digest_fulu(
             cfg, genesis_validators_root, cfg.GLOAS_FORK_EPOCH)),
            (cfg.HEZE_FORK_EPOCH, ConsensusFork.Heze, compute_fork_digest_fulu(
-            cfg, genesis_validators_root, cfg.HEZE_FORK_EPOCH))] &
+            cfg, genesis_validators_root, cfg.HEZE_FORK_EPOCH))]
+            .filterIt(it[0] != FAR_FUTURE_EPOCH and
+                      consensusForkAtEpoch(cfg, it[0]) == it[1]) &
           mapIt(cfg.BLOB_SCHEDULE, (
             it.EPOCH,
             consensusForkAtEpoch(cfg, it.EPOCH),
@@ -1879,7 +1881,9 @@ func init*(T: type ForkDigests,
 
         # BPOs need to be reverse-epoch sorted
         bpos.sort(cmp = proc(x, y: auto): int = system.cmp(y[0], x[0]))
-        bpos
+        # A fork-list entry at the same epoch as a BLOB_SCHEDULE entry
+        # produces an identical tuple.
+        bpos.deduplicate
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =

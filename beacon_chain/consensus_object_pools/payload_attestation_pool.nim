@@ -130,7 +130,8 @@ func getAggregatedPayloadAttestation*(
   Opt.none(PayloadAttestation)
 
 proc getPayloadAttestationsForBlock*(
-    pool: var PayloadAttestationPool, target_slot: Slot
+    pool: var PayloadAttestationPool, target_slot: Slot,
+    parent_block_root: Eth2Digest
 ): seq[PayloadAttestation] =
   ## Get payload attestations to include in a block for a target slot
   let startPackingTick = Moment.now()
@@ -149,6 +150,13 @@ proc getPayloadAttestationsForBlock*(
 
   pool.attestations.withValue(attestation_slot, slotEntries):
     for key, entry in slotEntries[]:
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-process_payload_attestation
+      # process_payload_attestation requires
+      # `data.beacon_block_root == state.latest_block_header.parent_root`,
+      # so attestations referencing any other block at the same slot would
+      # invalidate the block.
+      if key[0] != parent_block_root:
+        continue
       totalCandidates += 1
       let aggregated =
         pool.getAggregatedPayloadAttestation(attestation_slot, key)

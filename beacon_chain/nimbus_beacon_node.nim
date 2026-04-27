@@ -498,12 +498,6 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
-  proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
-    let optimistic = node.dag.is_optimistic(BlockId(
-      root: data.message.beacon_block_root,
-      slot: data.message.slot))
-    node.eventBus.execPayloadAddedQueue.emit(
-      EventExecutionPayloadObject.init(data, optimistic))
   proc onEnvelopeGossipAdded(data: SignedExecutionPayloadEnvelope) =
     node.eventBus.execPayloadGossipAddedQueue.emit(
       EventExecutionPayloadGossipObject.init(data))
@@ -858,7 +852,6 @@ proc initFullNode(
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
-  dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
 
@@ -2304,8 +2297,14 @@ proc installMessageValidators(node: BeaconNode) =
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
-      for digest in @[forkDigests[].atConsensusFork(consensusFork)] &
-          forkDigests[].bpos.filterIt(it[1] == consensusFork).mapIt(it[2]):
+      # Post-Electra forks live entirely in `bpos`; pre-Fulu forks live in the
+      # named ForkDigests fields.
+      let digests =
+        when consensusFork < ConsensusFork.Fulu:
+          @[forkDigests[].atConsensusFork(consensusFork)]
+        else:
+          forkDigests[].bpos.filterIt(it[1] == consensusFork).mapIt(it[2])
+      for digest in digests:
         let digest = digest # lent
         # beacon_block
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
