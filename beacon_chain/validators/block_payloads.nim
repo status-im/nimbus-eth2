@@ -362,14 +362,7 @@ proc getExecutionPayload*(
     beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead =
       when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment "this empirically matches a current testnet gloas provider behavior"
-        # `latest_execution_payload_bid` is empty until the first Gloas block's
-        # processed; for a Gloas genesis chain, a genesis state generator seeds
-        # `latest_block_hash` with the EL genesis block hash.
-        if forkyState.data.latest_execution_payload_bid.block_hash.isZero():
-          forkyState.data.latest_block_hash
-        else:
-          forkyState.data.latest_execution_payload_bid.block_hash
+        proposalExecutionHead(forkyState.data)
       elif consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
       else:

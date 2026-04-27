@@ -252,8 +252,6 @@ type
       ## On beacon chain reorganization
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
-    onEnvelopeAdded*: OnExecutionPayloadCallback
-      ## On envelope added callback
     onEnvelopeGossipAdded*: OnExecutionPayloadCallback
       ## On envelope gossip added callback
     onEnvelopeAvailable*: OnExecutionPayloadCallback
@@ -353,14 +351,6 @@ type
     blck*: ForkedSignedBeaconBlock
     src*: PeerId
 
-  EventExecutionPayloadObject* = object
-    slot*: Slot
-    builder_index*: uint64
-    block_hash*: Eth2Digest
-    block_root*: Eth2Digest
-    state_root*: Eth2Digest
-    execution_optimistic*: bool
-
   EventExecutionPayloadGossipObject* = object
     slot*: Slot
     builder_index*: uint64
@@ -426,9 +416,6 @@ template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
 
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
-
-template setEnvelopeCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
-  dag.onEnvelopeAdded = cb
 
 template setEnvelopeGossipCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeGossipAdded = cb
@@ -522,19 +509,6 @@ func init*(
   EventBeaconBlockGossipPeerObject(
     blck: ForkedSignedBeaconBlock.init(v),
     src: s
-  )
-
-func init*(
-    T: typedesc[EventExecutionPayloadObject],
-    v: SignedExecutionPayloadEnvelope,
-    optimistic: bool,
-): EventExecutionPayloadObject =
-  EventExecutionPayloadObject(
-    slot: v.message.slot,
-    builder_index: v.message.builder_index,
-    block_hash: v.message.payload.block_hash,
-    block_root: v.message.beacon_block_root,
-    execution_optimistic: optimistic,
   )
 
 func init*(

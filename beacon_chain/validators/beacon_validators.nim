@@ -611,6 +611,10 @@ proc proposeBlockAux(
 
   when consensusFork >= ConsensusFork.Gloas:
     debugGloasComment("check if slot/slot_number is set properly in eps")
+    # The envelope is published immediately after the block. Peers may receive
+    # this envelope before they have validated the block. Per the p2p-interface
+    # spec the block_root-not-seen case is `[IGNORE]` and client MAY queue, but
+    # is not required to.
     let envelope = makeExecutionPayloadEnvelope(
       engineBid[].eps,
       engineBid[].execution_requests,
@@ -1010,7 +1014,7 @@ proc sendProposerPreferences(
 
           let signed = SignedProposerPreferences(
             message: data, signature: signatureRes.get)
-          
+
           await node.router.routeProposerPreferences(signed)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
