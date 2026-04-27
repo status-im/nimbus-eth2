@@ -14,7 +14,7 @@ import
   kzg4844/kzg,
   ssz_serialization/types,
   ../el/el_manager,
-  ../spec/[helpers, forks],
+  ../spec/[column_map, helpers, forks],
   ../consensus_object_pools/[
     attestation_pool, blob_quarantine, block_clearance, block_quarantine,
     blockchain_dag, envelope_quarantine, execution_payload_pool,
@@ -500,9 +500,10 @@ proc processDataColumnSidecar*(
     return v
 
   debug "Data column validated"
-  self.gloasColumnQuarantine[].put(
-    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
-  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
+  if dataColumnSidecar.index in self.gloasColumnQuarantine[].custodyMap:
+    self.gloasColumnQuarantine[].put(
+      dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
+    self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
 
   data_column_sidecars_received.inc()
   v
