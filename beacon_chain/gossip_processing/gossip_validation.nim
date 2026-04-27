@@ -441,7 +441,7 @@ template validateBeaconBlockGloas(
             return errIgnore("validateBeaconBlockGloas: cannot load block hash")
           (parent.parent.bid, gpBhash)
         else:
-          # Grandparent should be either finalized or not existed.
+          # Grandparent should be either finalized or nonexistent.
           let
             gpBid = dag.parent(parent.bid).valueOr:
               # We have checked genesis so we must have a grandparent here.
