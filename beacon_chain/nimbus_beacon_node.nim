@@ -1836,8 +1836,8 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) {.async: (raises: []).
       let startTime = Moment.now()
 
       # Reconstruct columns
-      let recovered = await recover_cells_and_proofs_parallel(
-        node.batchVerifier[].taskpool, columns).valueOr:
+      let recovered = await(recover_cells_and_proofs_parallel(
+        node.batchVerifier[].taskpool, columns)).valueOr:
           error "Data column reconstruction incomplete"
           return
       let rowCount = recovered.len
