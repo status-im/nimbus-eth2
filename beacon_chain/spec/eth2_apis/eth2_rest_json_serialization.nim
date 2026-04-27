@@ -89,7 +89,6 @@ RestJson.useDefaultSerializationFor(
   EventBeaconBlockGossipObject,
   EventBeaconBlockGossipPeerObject,
   ExecutionPayloadEnvelope,
-  EventExecutionPayloadObject,
   EventExecutionPayloadGossipObject,
   EventExecutionPayloadAvailableObject,
   ExecutionRequests,

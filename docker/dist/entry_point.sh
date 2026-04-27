@@ -160,6 +160,7 @@ elif [[ "${PLATFORM}" == "Linux_amd64_opt" ]]; then
   echo
 
   make \
+    -j$(nproc) \
     LOG_LEVEL="TRACE" \
     CC="${CC}" \
     CXX="${CXX}" \

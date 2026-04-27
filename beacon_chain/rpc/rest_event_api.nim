@@ -179,10 +179,6 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.optUpdateQueue,
                                               "light_client_optimistic_update")
           res.add(handler)
-        if EventTopic.ExecutionPayloadAdded in eventTopics:
-          let handler = response.eventHandler(node.eventBus.execPayloadAddedQueue,
-                                              "execution_payload")
-          res.add(handler)
         if EventTopic.ExecutionPayloadGossipAdded in eventTopics:
           let handler = response.eventHandler(node.eventBus.execPayloadGossipAddedQueue,
                                               "execution_payload_gossip")

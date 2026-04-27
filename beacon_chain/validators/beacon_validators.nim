@@ -611,6 +611,10 @@ proc proposeBlockAux(
 
   when consensusFork >= ConsensusFork.Gloas:
     debugGloasComment("check if slot/slot_number is set properly in eps")
+    # The envelope is published immediately after the block. Peers may receive
+    # this envelope before they have validated the block. Per the p2p-interface
+    # spec the block_root-not-seen case is `[IGNORE]` and client MAY queue, but
+    # is not required to.
     let envelope = makeExecutionPayloadEnvelope(
       engineBid[].eps,
       engineBid[].execution_requests,
@@ -950,8 +954,12 @@ proc sendPayloadAttestations(
   if consensusFork < ConsensusFork.Gloas:
     return
 
-  # Get the beacon block root for the slot we are attesting to
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#constructing-the-payloadattestationmessage
+  # - If the validator has not seen any beacon block for the assigned slot, do
+  #   not submit a payload attestation; it will be ignored anyway.
   let target = head.atSlot(slot)
+  if target.blck.slot != slot:
+    return
   if head != target.blck:
     notice "Payload attestation to a state in the past",
       attestationTarget = shortLog(target),
@@ -1006,7 +1014,7 @@ proc sendProposerPreferences(
 
           let signed = SignedProposerPreferences(
             message: data, signature: signatureRes.get)
-          
+
           await node.router.routeProposerPreferences(signed)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
