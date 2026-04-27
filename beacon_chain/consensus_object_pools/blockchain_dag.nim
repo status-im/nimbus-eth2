@@ -1068,7 +1068,7 @@ proc advanceSlots*(
           dag.validatorMonitor[].registerEpochInfo(
             forkyState.data, proposers, info)
 
-proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
+proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, bid: BlockId):
     tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
   let blockData = dag.getForkedBlock(bid).valueOr:
     # Besides database inconsistency issues, this is hit with checkpoint sync.
@@ -1091,7 +1091,7 @@ proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
     else:
       (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
 
-proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
+proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, blck: BlockRef):
     tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
   if blck.executionBlockHash.isNone() or blck.executionParentHash.isNone():
     let (blockHash, parentHash) = dag.loadExecutionAndParentBlockHash(blck.bid)

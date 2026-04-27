@@ -1840,6 +1840,62 @@ proc process_block*(
 
   ok(operations_rewards)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
+proc verify_execution_payload_envelope*(
+    timeParams: TimeParams,
+    fork: Fork,
+    state: gloas.BeaconState | heze.BeaconState,
+    signed_envelope: SignedExecutionPayloadEnvelope,
+    genesis_validators_root: Eth2Digest): Result[void, cstring] =
+  template envelope: auto = signed_envelope.message
+  template payload: auto = envelope.payload
+  template bid: auto = state.latest_execution_payload_bid
+
+  # Resolve builder public key
+  let builderIndex = envelope.builder_index
+  let pubkey =
+    if builderIndex == BUILDER_INDEX_SELF_BUILD:
+      let proposerIndex = state.latest_block_header.proposer_index
+      if proposerIndex >= state.validators.lenu64:
+        return err("verify_execution_payload_envelope: invalid proposer index")
+      state.validators.item(proposerIndex).pubkey
+    else:
+      if builderIndex >= state.builders.lenu64:
+        return err("verify_execution_payload_envelope: invalid builder index")
+      state.builders.item(builderIndex).pubkey
+
+  # Verify signature
+  if not verify_execution_payload_envelope_signature(
+      fork, genesis_validators_root,
+      payload.slot_number.epoch,
+      envelope, pubkey, signed_envelope.signature):
+    return err("verify_execution_payload_envelope: invalid signature")
+
+  # Verify consistency with the committed bid
+  if envelope.builder_index != bid.builder_index:
+    return err("verify_execution_payload_envelope: builder_index mismatch")
+  if payload.prev_randao != bid.prev_randao:
+    return err("verify_execution_payload_envelope: prev_randao mismatch")
+  if payload.gas_limit != bid.gas_limit:
+    return err("verify_execution_payload_envelope: gas_limit mismatch")
+  if payload.block_hash != bid.block_hash:
+    return err("verify_execution_payload_envelope: block_hash mismatch")
+  if hash_tree_root(envelope.execution_requests) != bid.execution_requests_root:
+    return err("verify_execution_payload_envelope: execution_requests_root mismatch")
+
+  # Verify the execution payload is valid
+  if payload.slot_number != state.slot:
+    return err("verify_execution_payload_envelope: slot mismatch")
+  if payload.parent_hash != state.latest_block_hash:
+    return err("verify_execution_payload_envelope: parent_hash mismatch")
+  if payload.timestamp != timeParams.compute_timestamp_at_slot(state, state.slot):
+    return err("verify_execution_payload_envelope: timestamp mismatch")
+  if hash_tree_root(payload.withdrawals) !=
+      hash_tree_root(state.payload_expected_withdrawals):
+    return err("verify_execution_payload_envelope: withdrawals mismatch")
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#block-processing
 debugGloasComment "readd gloas_mev block and, well the rest too"
 type SomeGloasBlock =
