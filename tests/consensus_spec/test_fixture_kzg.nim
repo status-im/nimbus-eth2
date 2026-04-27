@@ -9,6 +9,7 @@
 {.used.}
 
 import
+  chronos,
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
@@ -383,7 +384,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       # check recovered cells and proofs
       # assuming columns are sorted
       var tp = Taskpool.new()
-      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isOk
       let val = v.get
       for i in 0..<val.len:
@@ -453,7 +454,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
 
       # check error
       var tp = Taskpool.new()
-      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isErr
 
 var suiteName = "EF - KZG"
