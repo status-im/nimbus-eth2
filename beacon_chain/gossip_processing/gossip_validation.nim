@@ -444,7 +444,6 @@ template validateBeaconBlockGloas(
           # Grandparent should be either finalized or nonexistent.
           let
             gpBid = dag.parent(parent.bid).valueOr:
-              # We have checked genesis so we must have a grandparent here.
               return errIgnore("validateBeaconBlockGloas: invalid execution parent")
             gpBhash = dag.loadExecutionBlockHash(gpBid).valueOr:
               return errIgnore("validateBeaconBlockGloas: cannot load block hash")
