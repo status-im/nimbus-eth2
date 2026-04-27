@@ -20,13 +20,13 @@ from ../spec/beaconstate import get_ptc
 
 logScope: topics = "payattpool"
 
-declareGauge payload_attestation_pool_block_packing_time,
-  "Time it took to create list of payload attestations for block"
+declareCounter payload_attestation_pool_block_packing_secs,
+  "Total amount of time pent packing payload attestations"
 
 type
   PayloadAttestationEntry* = object
     data*: PayloadAttestationData
-    messages*: Table[ValidatorIndex, PayloadAttestationMessage]
+    messages*: Table[uint64, PayloadAttestationMessage]
     aggregated*: Opt[PayloadAttestation]
 
   PayloadAttestationPool* = object
@@ -70,11 +70,8 @@ func addPayloadAttestation*(
       key, PayloadAttestationEntry(data: message.data))
 
   # Check for duplicate
-  let vidx = ValidatorIndex(validator_index)
-  if vidx in entry[].messages:
+  if entry[].messages.hasKeyOrPut(validator_index, message):
     return false
-
-  entry[].messages[vidx] = message
 
   entry[].aggregated = Opt.none(PayloadAttestation)
 
@@ -94,7 +91,7 @@ func aggregateMessages(
         ptc_index = 0
 
       for ptc_validator_index in get_ptc(forkyState.data, slot):
-        entry.messages.withValue(ptc_validator_index, message):
+        entry.messages.withValue(uint64 ptc_validator_index, message):
           let cookedSig = message[].signature.load().valueOr:
             continue
           aggregation_bits[ptc_index] = true
@@ -134,8 +131,6 @@ proc getPayloadAttestationsForBlock*(
     parent_block_root: Eth2Digest
 ): seq[PayloadAttestation] =
   ## Get payload attestations to include in a block for a target slot
-  let startPackingTick = Moment.now()
-
   if target_slot == 0:
     return @[]
 
@@ -143,6 +138,8 @@ proc getPayloadAttestationsForBlock*(
 
   if attestation_slot notin pool.attestations:
     return @[]
+
+  let startPackingTick = Moment.now()
 
   var
     payload_attestations: seq[PayloadAttestation]
@@ -172,6 +169,6 @@ proc getPayloadAttestationsForBlock*(
     packingDur = packingDur, totalCandidates = totalCandidates,
     payload_attestations = payload_attestations.len()
 
-  payload_attestation_pool_block_packing_time.set(packingDur.toFloatSeconds())
+  payload_attestation_pool_block_packing_secs.inc(packingDur.toFloatSeconds())
 
   payload_attestations
