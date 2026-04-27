@@ -1068,6 +1068,91 @@ proc advanceSlots*(
           dag.validatorMonitor[].registerEpochInfo(
             forkyState.data, proposers, info)
 
+proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, bid: BlockId):
+    tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
+  let blockData = dag.getForkedBlock(bid).valueOr:
+    # Besides database inconsistency issues, this is hit with checkpoint sync.
+    # The initial `BlockRef` is created before the checkpoint block is loaded.
+    # It is backfilled later, so return `none` and keep retrying.
+    return (Opt.none(Eth2Digest), Opt.none(Eth2Digest))
+
+  withBlck(blockData):
+    when consensusFork >= ConsensusFork.Gloas:
+      template bid(): auto = forkyBlck.message.body.signed_execution_payload_bid
+      (
+        Opt.some bid.message.block_hash,
+        Opt.some bid.message.parent_block_hash
+      )
+    elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+      (
+        Opt.some forkyBlck.message.body.execution_payload.block_hash,
+        Opt.some ZERO_HASH
+      )
+    else:
+      (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
+
+proc loadExecutionAndParentBlockHash(dag: ChainDAGRef, blck: BlockRef):
+    tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
+  if blck.executionBlockHash.isNone() or blck.executionParentHash.isNone():
+    let (blockHash, parentHash) = dag.loadExecutionAndParentBlockHash(blck.bid)
+    blck.executionBlockHash = blockHash
+    blck.executionParentHash = parentHash
+
+    if blck.executionBlockHash == static(Opt.some(ZERO_HASH)):
+      # The block belongs to Bellatrix+ but the merge has not yet happened
+      # meaning that its ancestors are also pre-merge
+      blck.markExecutionValid(true)
+
+      var cur = blck.parent
+      while cur != nil and cur.executionBlockHash.isNone:
+        cur.executionBlockHash = blck.executionBlockHash
+        cur = cur.parent
+
+  (blck.executionBlockHash, blck.executionParentHash)
+
+proc isParentBlockFull(dag: ChainDAGRef, blck: BlockRef): bool =
+  ## Since Gloas, we want to skip applying envelope if the envelope of its
+  ## parent is orphaned. This is particularly useful for updateState() as
+  ## orphaned envelopes, even if they are valid, should not be applied to state
+  ## in order to transition to the correct position.
+  ##
+  ## There is a helper but it uses state which is not helpful for updateState().
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_parent_block_full
+  ##
+  ## It is more likely a port to the fork choice helper
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_parent_node_full
+  ##
+  ## Validating the consensus fork by slot (blck and blck.parent), and
+  ## blck.parent is not nil is responsibility of the call site as they cannot be
+  ## flagged by boolean and required different handling.
+
+  let
+    (_, blckParentHash) = dag.loadExecutionAndParentBlockHash(blck)
+    (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(blck.parent)
+
+  if blckParentHash.isNone() or parentBlockHash.isNone() or
+      blckParentHash.get().isZero():
+    false
+  else:
+    blckParentHash.get() == parentBlockHash.get()
+
+proc isParentBlockFull*(
+    dag: ChainDAGRef,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    parent: BlockRef): bool =
+  ## A helper to check the parent payload status of a not validated Gloas block
+  ## when receiving block from gossip or api.
+
+  let (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(parent)
+
+  template bid(): auto = blck.message.body.signed_execution_payload_bid
+
+  if parentBlockHash.isNone() or
+      bid.message.parent_block_hash.isZero():
+    false
+  else:
+    bid.message.parent_block_hash == parentBlockHash.get()
+
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
     cache: var StateCache, info: var ForkedEpochInfo,
@@ -1163,12 +1248,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         BlockRef.init(
           blck.root,
           Opt.none Eth2Digest,
+          Opt.none Eth2Digest,
           OptimisticStatus.notValidated,
           blck.summary.slot,
         )
       else:
         BlockRef.init(
-          blck.root, Opt.some ZERO_HASH, OptimisticStatus.valid, blck.summary.slot
+          blck.root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
+          OptimisticStatus.valid, blck.summary.slot
         )
 
     if headRef == nil:
@@ -2357,36 +2444,10 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
             break
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
-  let blockData = dag.getForkedBlock(bid).valueOr:
-    # Besides database inconsistency issues, this is hit with checkpoint sync.
-    # The initial `BlockRef` is created before the checkpoint block is loaded.
-    # It is backfilled later, so return `none` and keep retrying.
-    return Opt.none(Eth2Digest)
-
-  withBlck(blockData):
-    when consensusFork >= ConsensusFork.Gloas:
-      Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
-    elif consensusFork >= ConsensusFork.Bellatrix:
-      Opt.some forkyBlck.message.body.execution_payload.block_hash
-    else:
-      Opt.some ZERO_HASH
+  dag.loadExecutionAndParentBlockHash(bid)[0]
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
-  if blck.executionBlockHash.isNone:
-    # Execution block hashes are loaded lazily during startup
-    blck.executionBlockHash = dag.loadExecutionBlockHash(blck.bid)
-
-    if blck.executionBlockHash == static(Opt.some(ZERO_HASH)):
-      # The block belongs to Bellatrix+ but the merge has not yet happened
-      # meaning that its ancestors are also pre-merge
-      blck.markExecutionValid(true)
-
-      var cur = blck.parent
-      while cur != nil and cur.executionBlockHash.isNone:
-        cur.executionBlockHash = blck.executionBlockHash
-        cur = cur.parent
-
-  blck.executionBlockHash
+  dag.loadExecutionAndParentBlockHash(blck)[0]
 
 from std/packedsets import PackedSet, incl, items
 
