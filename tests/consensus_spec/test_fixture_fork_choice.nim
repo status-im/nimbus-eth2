@@ -61,6 +61,7 @@ type
     opOnElectraAttesterSlashing
     opInvalidateHash
     opOnExecutionPayload
+    opOnPayloadAttestation
     opChecks
 
   BlobData = object
@@ -92,6 +93,8 @@ type
       latestValidHash: Eth2Digest
     of opOnExecutionPayload:
       executionPayload: SignedExecutionPayloadEnvelope
+    of opOnPayloadAttestation:
+      payloadAttestation: PayloadAttestationMessage
     of opChecks:
       checks: JsonNode
 
@@ -249,6 +252,12 @@ proc loadOps(
         executionPayload: parseTest(
           path/filename & ".ssz_snappy", SSZ,
           gloas.SignedExecutionPayloadEnvelope))
+    elif step.hasKey"payload_attestation":
+      let filename = step["payload_attestation"].getStr()
+      result.add Operation(kind: opOnPayloadAttestation,
+        payloadAttestation: parseTest(
+          path/filename & ".ssz_snappy", SSZ,
+          gloas.PayloadAttestationMessage))
     elif step.hasKey"checks":
       result.add Operation(kind: opChecks,
         checks: step["checks"])
@@ -496,6 +505,16 @@ proc doRunTest(
         stores.dag,
         step.executionPayload)
       doAssert status.isOk == step.valid
+    of opOnPayloadAttestation:
+      let msg = step.payloadAttestation
+      let status = stores.fkChoice[].on_payload_attestation_message(
+        stores.dag,
+        ValidatorIndex(msg.validator_index),
+        msg.data.beacon_block_root,
+        msg.data.slot,
+        msg.data.payload_present,
+        msg.data.blob_data_available)
+      doAssert status.isOk == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
@@ -564,5 +583,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
           runTest(suiteName, basePath/path, fork, rng, taskpool)
 
 fcSuite("ForkChoice", "fork_choice")
+fcSuite("ForkChoiceCompliance", "fork_choice_compliance")
 fcSuite("Sync", "sync")
 fcSuite("Fast Confirmation", "fast_confirmation")
