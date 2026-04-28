@@ -812,36 +812,32 @@ func get_lc_execution_root*(
   if epoch >= cfg.GLOAS_FORK_EPOCH:
     return header.execution_block_hash
 
-  const inner_len =
-    header.execution_branch.len - log2trunc(EXECUTION_PAYLOAD_GINDEX)
+  template inner: openArray[Eth2Digest] =
+    header.execution_branch.toOpenArray(
+      header.execution_branch.len - log2trunc(EXECUTION_PAYLOAD_GINDEX),
+      header.execution_branch.high)
 
   # [Modified in Gloas:EIP7732]
   if epoch >= cfg.DENEB_FORK_EPOCH:
     if header.beacon.slot == GENESIS_SLOT:
       return hash_tree_root(default(deneb.ExecutionPayloadHeader))
-    const
-      BLOCK_HASH_GINDEX = get_generalized_index(
-        deneb.ExecutionPayloadHeader, "block_hash")
-      block_hash_depth = log2trunc(BLOCK_HASH_GINDEX)
+    const BLOCK_HASH_GINDEX = get_generalized_index(
+      deneb.ExecutionPayloadHeader, "block_hash")
     return merkle_branch_root(
       header.execution_block_hash,
-      header.execution_branch.toOpenArray(
-        inner_len - block_hash_depth, inner_len - 1),
-      block_hash_depth, get_subtree_index(BLOCK_HASH_GINDEX))
+      inner.toOpenArray(inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high),
+      log2trunc(BLOCK_HASH_GINDEX), get_subtree_index(BLOCK_HASH_GINDEX))
 
   # [Modified in Gloas:EIP7732]
   if epoch >= cfg.CAPELLA_FORK_EPOCH:
     if header.beacon.slot == GENESIS_SLOT:
       return hash_tree_root(default(capella.ExecutionPayloadHeader))
-    const
-      BLOCK_HASH_GINDEX = get_generalized_index(
-        capella.ExecutionPayloadHeader, "block_hash")
-      block_hash_depth = log2trunc(BLOCK_HASH_GINDEX)
+    const BLOCK_HASH_GINDEX = get_generalized_index(
+      capella.ExecutionPayloadHeader, "block_hash")
     return merkle_branch_root(
       header.execution_block_hash,
-      header.execution_branch.toOpenArray(
-        inner_len - block_hash_depth, inner_len - 1),
-      block_hash_depth, get_subtree_index(BLOCK_HASH_GINDEX))
+      inner.toOpenArray(inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high),
+      log2trunc(BLOCK_HASH_GINDEX), get_subtree_index(BLOCK_HASH_GINDEX))
 
   ZERO_HASH
 
