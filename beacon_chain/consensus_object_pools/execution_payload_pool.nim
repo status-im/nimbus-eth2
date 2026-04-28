@@ -51,11 +51,9 @@ proc addBid*(
 
   let slotData = addr pool.slotBids.mgetOrPut(bid.slot, default(SlotBids))
 
-  if bid.builder_index in slotData.seenBuilders:
+  if slotData.seenBuilders.containsOrIncl(bid.builder_index):
     debug "Duplicate bid from builder, ignoring"
     return
-
-  slotData.seenBuilders.incl(bid.builder_index)
 
   let currentBid = slotData.highestBids.getOrDefault(bid.parent_block_hash)
   if currentBid != static(default(gloas.SignedExecutionPayloadBid)):

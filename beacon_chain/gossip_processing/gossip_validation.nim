@@ -2146,14 +2146,8 @@ proc validatePayloadAttestationMessage*(
 
   # [IGNORE] The `payload_attestaion_message`is the first valid message
   # received from the validator with index `paylod_attestation_message.validator_index`.
-  let entry = payloadAttestationPool[].attestations
-                .getOrDefault(data.slot)
-                .getOrDefault((data.beacon_block_root,
-                  data.payload_present, data.blob_data_available))
-
-  if ValidatorIndex(payload_attestation_message.validator_index) in
-      entry.messages:
-    return errIgnore("PayloadAttestaionMessage: duplicate message from validator")
+  if payloadAttestationPool[].isSeen(payload_attestation_message):
+    return errIgnore("PayloadAttestationMessage: duplicate message from validator")
 
   # [IGNORE] The message's block `data.beacon_block_root` has been seen (via
   # gossip or non-gossip sources)
