@@ -889,7 +889,16 @@ proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
 proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
-      # check that our custody columns are available
+      let forkedBlock = node.dag.getForkedBlock(blck.bid).valueOr:
+        return false
+      let hasBlobs = withBlck(forkedBlock):
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyBlck.message.body.signed_execution_payload_bid.message
+            .blob_kzg_commitments.len() > 0
+        else:
+          false
+      if not hasBlobs:
+        return true
       for columnIdx in node.dataColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
             consensusFork, blck.root, columnIdx):
