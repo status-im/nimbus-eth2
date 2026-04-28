@@ -878,20 +878,22 @@ func upgrade_lc_header_to_gloas*(
 
   let epoch = pre.beacon.slot.epoch
 
+  var header = LightClientHeader(
+    beacon: pre.beacon,
+    execution_block_hash: pre.execution.block_hash,
+    execution_branch: normalize_merkle_branch(
+      pre.execution_branch, EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
+  template inner: openArray[Eth2Digest] =
+    header.execution_branch.toOpenArray(
+      0, header.execution_branch.high - log2trunc(EXECUTION_PAYLOAD_GINDEX))
+
   if epoch >= cfg.DENEB_FORK_EPOCH:
     const BLOCK_HASH_GINDEX = get_generalized_index(
       deneb.ExecutionPayloadHeader, "block_hash")
-    let inner = pre.execution.build_proof(BLOCK_HASH_GINDEX).get
-    var combined: array[inner.len + pre.execution_branch.len, Eth2Digest]
-    combined[0 ..< inner.len] = inner
-    combined[inner.len ..< combined.len] = pre.execution_branch
-    return LightClientHeader(
-      beacon: pre.beacon,
-      execution_block_hash: pre.execution.block_hash,
-      execution_branch: normalize_merkle_branch(
-        combined, EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
+    pre.execution.build_proof(BLOCK_HASH_GINDEX, inner.toOpenArray(
+      inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high)).expect("OK")
 
-  if epoch >= cfg.CAPELLA_FORK_EPOCH:
+  elif epoch >= cfg.CAPELLA_FORK_EPOCH:
     let execution_header = capella.ExecutionPayloadHeader(
       parent_hash: pre.execution.parent_hash,
       fee_recipient: pre.execution.fee_recipient,
@@ -910,17 +912,10 @@ func upgrade_lc_header_to_gloas*(
       withdrawals_root: pre.execution.withdrawals_root)
     const BLOCK_HASH_GINDEX = get_generalized_index(
       capella.ExecutionPayloadHeader, "block_hash")
-    let inner = execution_header.build_proof(BLOCK_HASH_GINDEX).get
-    var combined: array[inner.len + pre.execution_branch.len, Eth2Digest]
-    combined[0 ..< inner.len] = inner
-    combined[inner.len ..< combined.len] = pre.execution_branch
-    return LightClientHeader(
-      beacon: pre.beacon,
-      execution_block_hash: pre.execution.block_hash,
-      execution_branch: normalize_merkle_branch(
-        combined, EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
+    pre.execution.build_proof(BLOCK_HASH_GINDEX, inner.toOpenArray(
+      inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high)).expect("OK")
 
-  LightClientHeader(beacon: pre.beacon)
+  header
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_gloas*(
