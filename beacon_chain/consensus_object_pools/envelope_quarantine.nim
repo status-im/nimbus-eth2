@@ -9,10 +9,17 @@
 
 import
   std/tables,
+  minilru,
   ../spec/[digest, forks]
 from std/sequtils import addUnique, keepItIf
 
+const
+  MaxUnviables = 16 * 1024
+    ## Set to same as max unviable blocks.
+
 type
+  UnviableLru = LruCache[Eth2Digest, ()]
+
   EnvelopeQuarantine* = object
     orphans*: Table[Eth2Digest, Table[uint64, SignedExecutionPayloadEnvelope]]
       ## Envelopes that we have received but did not have a block yet. In the
@@ -24,8 +31,13 @@ type
       ## have not got yet. Missing envelopes should usually be found when we
       ## received a block, blob or data column.
 
+    unviable*: UnviableLru
+      ## List of block roots that their envelopes are unviable.
+
 func init*(T: typedesc[EnvelopeQuarantine]): T =
-  T()
+  T(
+    unviable: UnviableLru.init(MaxUnviables),
+  )
 
 template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
   v.message.beacon_block_root
@@ -69,6 +81,10 @@ func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
 func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.orphans.del(root)
   self.missing.keepItIf(it != root)
+
+func addUnviable*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+  self.remove(root)
+  self.unviable.put(root, ())
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
