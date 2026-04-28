@@ -419,10 +419,6 @@ template validateBeaconBlockGloas(
   template blck: untyped = signed_beacon_block.message
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
-  # - [IGNORE] The block's parent execution payload (defined by
-  #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
-  #   (a client MAY queue blocks for processing once the parent payload is
-  #   retrieved).
   let executionParent = block:
     let
       parent = dag.getBlockRef(bid.parent_block_root).valueOr:
@@ -453,18 +449,22 @@ template validateBeaconBlockGloas(
       else:
         return errIgnore("validateBeaconBlockGloas: invalid execution parent")
 
-  if not (
-      dag.db.containsExecutionPayloadEnvelope(executionParent.root) or
-      executionParent.root in envelopeQuarantine.orphans
-  ):
-    return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
-
   # If execution_payload verification of block's execution payload parent by an
   # execution node is complete:
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  debugGloasComment("execution valid")
+  if executionParent.root in envelopeQuarantine.unviable:
+    return dag.checkedReject("validateBeaconBlockGloas: invalid parent payload")
+
+  # - [IGNORE] The block's parent execution payload (defined by
+  #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
+  #   (a client MAY queue blocks for processing once the parent payload is
+  #   retrieved).
+  elif not (
+      dag.db.containsExecutionPayloadEnvelope(executionParent.root) or
+      executionParent.root in envelopeQuarantine.orphans):
+    return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
@@ -868,7 +868,7 @@ proc validateDataColumnSidecar*(
 
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
-      block_root: block_root,
+      block_root: blockRoot,
       index: data_column_sidecar.index,
       slot: data_column_sidecar.slot,
       kzg_commitments: bid.blob_kzg_commitments)
