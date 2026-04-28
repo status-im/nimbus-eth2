@@ -137,7 +137,9 @@ proc attemptGetBlobs*(
         return
 
       debug "Added data columns from EL blobpool to quarantine",
-        root = forkyBlck.root
+        root = forkyBlck.root,
+        slot = forkyBlck.message.slot,
+        batch_len = batch.len
       self.dataColumnQuarantine[].put(forkyBlck.root, batch)
 
       let sidecarsOpt = self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
