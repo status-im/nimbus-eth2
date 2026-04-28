@@ -50,6 +50,20 @@ func pruneOldEntries(pool: var PayloadAttestationPool, wallTime: BeaconTime) =
   for slot in slotsToRemove:
     pool.attestations.del(slot)
 
+func isSeen*(
+    pool: var PayloadAttestationPool, message: PayloadAttestationMessage
+): bool =
+  pool.attestations.withValue(message.data.slot, slotEntries):
+    let key = (
+      message.data.beacon_block_root, message.data.payload_present,
+      message.data.blob_data_available,
+    )
+
+    slotEntries[].withValue(key, entry):
+      return message.validator_index in entry[].messages
+
+  false
+
 func addPayloadAttestation*(
     pool: var PayloadAttestationPool, message: PayloadAttestationMessage,
     wallTime: BeaconTime): bool =
