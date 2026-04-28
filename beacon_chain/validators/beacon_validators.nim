@@ -880,28 +880,19 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
-proc checkPayloadPresent(
-    node: BeaconNode, beacon_block_root: Eth2Digest): bool =
-  let blokData = node.dag.getForkedBlock(beacon_block_root).valueOr:
-    return false
+proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
+  if node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch) >= ConsensusFork.Gloas:
+    node.dag.db.containsExecutionPayloadEnvelope(blck.root)
+  else:
+    true
 
-  withBlck(blokData):
-    when consensusFork >= ConsensusFork.Gloas:
-      node.dag.db.containsExecutionPayloadEnvelope(beacon_block_root)
-    else:
-      true
-
-proc checkBlobDataAvailable(
-    node: BeaconNode, beacon_block_root: Eth2Digest): bool =
-  let blckData = node.dag.getForkedBlock(beacon_block_root).valueOr:
-    return false
-
-  withBlck(blckData):
+proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
+  withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
       # check that our custody columns are available
       for columnIdx in node.dataColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
-            consensusFork, beacon_block_root, columnIdx):
+            consensusFork, blck.root, columnIdx):
           return false
       true
     else:
@@ -913,35 +904,29 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
                                      validator: AttachedValidator,
                                      validator_index: ValidatorIndex,
                                      slot: Slot,
-                                     beacon_block_root: Eth2Digest)
+                                     blck: BlockRef)
                                      {.async: (raises: [CancelledError]).} =
   let
-    payload_present = node.checkPayloadPresent(beacon_block_root)
-    blob_data_available = node.checkBlobDataAvailable(beacon_block_root)
+    payload_present = node.checkPayloadPresent(blck)
+    blob_data_available = node.checkBlobDataAvailable(blck)
 
-  let data = PayloadAttestationData(
-    beacon_block_root: beacon_block_root,
-    slot: slot,
-    payload_present: payload_present,
-    blob_data_available: blob_data_available
-  )
+    data = PayloadAttestationData(
+      beacon_block_root: blck.root,
+      slot: slot,
+      payload_present: payload_present,
+      blob_data_available: blob_data_available,
+    )
 
-  let signature = block:
-    let res = await validator.getPayloadAttestationSignature(
-      fork, genesis_validators_root, data)
-    if res.isErr():
+    signature = await(
+      validator.getPayloadAttestationSignature(fork, genesis_validators_root, data)
+    ).valueOr:
       warn "Unble to sign payload attestation",
-        validator = shortLog(validator),
-        data = shortLog(data),
-        error_msg = res.error()
+        validator = shortLog(validator), data = shortLog(data), error_msg = error
       return
-    res.get()
 
-  let message = PayloadAttestationMessage(
-    validator_index: validator_index.uint64,
-    data: data,
-    signature: signature
-  )
+    message = PayloadAttestationMessage(
+      validator_index: validator_index.uint64, data: data, signature: signature
+    )
 
   await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
@@ -976,8 +961,7 @@ proc sendPayloadAttestations(
           continue
 
         asyncSpawn createAndSendPayloadAttestation(
-          node, fork, genesis_validators_root, validator, vidx, slot,
-          target.blck.root)
+          node, fork, genesis_validators_root, validator, vidx, slot, head)
 
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
@@ -998,22 +982,22 @@ proc sendProposerPreferences(
             continue
 
         for proposal_slot in get_upcoming_proposal_slots(
-            forkyState.data, validator_index.uint64):
+          forkyState.data, validator_index.uint64
+        ):
           let
             data = ProposerPreferences(
-              validator_index: validator_index.uint64,
-              proposal_slot: proposal_slot)
-            signatureRes = await validator.getProposerPreferencesSignature(
-              fork, genesis_validators_root, data)
+              validator_index: validator_index.uint64, proposal_slot: proposal_slot
+            )
+            signature = await(
+              validator.getProposerPreferencesSignature(
+                fork, genesis_validators_root, data
+              )
+            ).valueOr:
+              warn "Unable to sign proposer preferences",
+                validator = shortLog(validator), error_msg = error
+              continue
 
-          if signatureRes.isErr:
-            warn "Unable to sign proposer preferences",
-              validator = shortLog(validator),
-              error_msg = signatureRes.error
-            continue
-
-          let signed = SignedProposerPreferences(
-            message: data, signature: signatureRes.get)
+          let signed = SignedProposerPreferences(message: data, signature: signature)
 
           await node.router.routeProposerPreferences(signed)
 
