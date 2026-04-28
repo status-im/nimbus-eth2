@@ -1715,16 +1715,16 @@ static:
 
         when lcDataFork >= LightClientDataFork.Capella:
           when consensusFork >= ConsensusFork.Gloas:
-            check LATEST_BLOCK_HASH_GINDEX_GLOAS,
-              BeaconState, "latest_block_hash"
+            check EXECUTION_BLOCK_HASH_GINDEX_GLOAS, BeaconBlockBody,
+              "signed_execution_payload_bid", "message", "parent_block_hash"
           else:
             check EXECUTION_PAYLOAD_GINDEX,
               BeaconBlockBody, "execution_payload"
             const latest_block_hash_gindex =
               when consensusFork >= ConsensusFork.Deneb:
-                LATEST_BLOCK_HASH_GINDEX_DENEB
+                EXECUTION_BLOCK_HASH_GINDEX_DENEB
               else:
-                LATEST_BLOCK_HASH_GINDEX
+                EXECUTION_BLOCK_HASH_GINDEX
             check latest_block_hash_gindex,
               BeaconBlockBody, "execution_payload", "block_hash"
         else:

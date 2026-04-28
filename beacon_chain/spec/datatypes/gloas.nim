@@ -690,13 +690,13 @@ template builder_index*(
   v.message.builder_index
 
 const
-  LATEST_BLOCK_HASH_GINDEX* = get_generalized_index(
+  EXECUTION_BLOCK_HASH_GINDEX* = get_generalized_index(
     capella.BeaconBlockBody, "execution_payload", "block_hash")
-  LATEST_BLOCK_HASH_GINDEX_DENEB* = get_generalized_index(
+  EXECUTION_BLOCK_HASH_GINDEX_DENEB* = get_generalized_index(
     deneb.BeaconBlockBody, "execution_payload", "block_hash")
-  LATEST_BLOCK_HASH_GINDEX_GLOAS* = get_generalized_index(
-    BeaconState, "latest_block_hash")
+  EXECUTION_BLOCK_HASH_GINDEX_GLOAS* = get_generalized_index(BeaconBlockBody,
+    "signed_execution_payload_bid", "message", "parent_block_hash")
 static:
-  doAssert LATEST_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
-  doAssert LATEST_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
-  doAssert LATEST_BLOCK_HASH_GINDEX_GLOAS == 88.GeneralizedIndex
+  doAssert EXECUTION_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
+  doAssert EXECUTION_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
+  doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 832.GeneralizedIndex
