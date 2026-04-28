@@ -690,6 +690,7 @@ template builder_index*(
     v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
   v.message.builder_index
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/electra/light-client/sync-protocol.md#new-constants
 const
   EXECUTION_BLOCK_HASH_GINDEX* = get_generalized_index(
     capella.BeaconBlockBody, "execution_payload", "block_hash")
@@ -706,6 +707,7 @@ type
   ExecutionBranch* =
     array[log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS), Eth2Digest]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
     # [Modified in Gloas]
@@ -804,6 +806,7 @@ type
       ## (used to calculate safety threshold)
     current_max_active_participants*: uint64
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -814,8 +817,7 @@ func get_lc_execution_root*(
 
   template inner: openArray[Eth2Digest] =
     header.execution_branch.toOpenArray(
-      header.execution_branch.len - log2trunc(EXECUTION_PAYLOAD_GINDEX),
-      header.execution_branch.high)
+      0, header.execution_branch.high - log2trunc(EXECUTION_PAYLOAD_GINDEX))
 
   # [Modified in Gloas:EIP7732]
   if epoch >= cfg.DENEB_FORK_EPOCH:
@@ -841,6 +843,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -867,6 +870,7 @@ func is_valid_light_client_header*(
   header.execution_block_hash == ZERO_HASH and
     header.execution_branch == default(ExecutionBranch)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_gloas*(
     pre: electra.LightClientHeader, cfg: RuntimeConfig): LightClientHeader =
   if pre == default(electra.LightClientHeader):
@@ -918,6 +922,7 @@ func upgrade_lc_header_to_gloas*(
 
   LightClientHeader(beacon: pre.beacon)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_gloas*(
     pre: electra.LightClientBootstrap,
     cfg: RuntimeConfig): LightClientBootstrap =
@@ -926,6 +931,7 @@ func upgrade_lc_bootstrap_to_gloas*(
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: pre.current_sync_committee_branch)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_gloas*(
     pre: electra.LightClientUpdate,
     cfg: RuntimeConfig): LightClientUpdate =
@@ -938,6 +944,7 @@ func upgrade_lc_update_to_gloas*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_gloas*(
     pre: electra.LightClientFinalityUpdate,
     cfg: RuntimeConfig): LightClientFinalityUpdate =
@@ -948,6 +955,7 @@ func upgrade_lc_finality_update_to_gloas*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_optimistic_update_to_gloas*(
     pre: electra.LightClientOptimisticUpdate,
     cfg: RuntimeConfig): LightClientOptimisticUpdate =
@@ -997,6 +1005,7 @@ chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_gloas*(
     pre: electra.LightClientStore,
     cfg: RuntimeConfig): LightClientStore =
