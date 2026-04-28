@@ -825,7 +825,7 @@ func get_lc_execution_root*(
       return hash_tree_root(default(deneb.ExecutionPayloadHeader))
     const BLOCK_HASH_GINDEX = get_generalized_index(
       deneb.ExecutionPayloadHeader, "block_hash")
-    return merkle_branch_root(
+    return compute_merkle_branch_root(
       header.execution_block_hash,
       inner.toOpenArray(inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high),
       log2trunc(BLOCK_HASH_GINDEX), get_subtree_index(BLOCK_HASH_GINDEX))
@@ -836,7 +836,7 @@ func get_lc_execution_root*(
       return hash_tree_root(default(capella.ExecutionPayloadHeader))
     const BLOCK_HASH_GINDEX = get_generalized_index(
       capella.ExecutionPayloadHeader, "block_hash")
-    return merkle_branch_root(
+    return compute_merkle_branch_root(
       header.execution_block_hash,
       inner.toOpenArray(inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high),
       log2trunc(BLOCK_HASH_GINDEX), get_subtree_index(BLOCK_HASH_GINDEX))
