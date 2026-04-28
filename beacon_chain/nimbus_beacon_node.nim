@@ -1775,6 +1775,9 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     let startIndex = node.dag.getBlockRange(
       dataColumnPruneEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
     for i in startIndex..<SLOTS_PER_EPOCH:
+      # Iterate the full column space rather than just the local custody
+      # set so late-arriving or reconstructed columns outside of this
+      # node's custody groups are also cleaned up.
       count += node.db.delDataColumnSidecars(
         consensusFork, blocks[int(i)].root)
     debug "pruned data columns", count, dataColumnPruneEpoch
