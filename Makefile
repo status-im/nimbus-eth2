@@ -311,6 +311,25 @@ consensus_spec_tests_minimal: | build deps
 			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
+# Fork-choice compliance tests from ethereum/consensus-specs
+# (compliance_runners/fork_choice). Downloads the small.tar.gz artifact and
+# extracts it into vendor/nim-eth2-scenarios so the existing
+# consensus_spec_tests_minimal binary discovers and runs the
+# ForkChoiceCompliance suite.
+# Pass FC_COMPLIANCE_FLAGS to forward args (e.g. --run-id, --tarball, --url).
+fork_choice_compliance_tests: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/consensus_spec/fork_choice_compliance_tests.nim" \
+			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+fork_choice_compliance: | build deps
+	scripts/setup_fork_choice_compliance.sh $(FC_COMPLIANCE_FLAGS)
+	$(MAKE) fork_choice_compliance_tests
+	build/fork_choice_compliance_tests
+
 # Tests we only run for the default preset
 proto_array: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
