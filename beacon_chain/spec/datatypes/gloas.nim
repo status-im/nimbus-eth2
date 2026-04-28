@@ -912,7 +912,7 @@ func upgrade_lc_header_to_gloas*(
       withdrawals_root: pre.execution.withdrawals_root)
     const BLOCK_HASH_GINDEX = get_generalized_index(
       capella.ExecutionPayloadHeader, "block_hash")
-    pre.execution.build_proof(BLOCK_HASH_GINDEX, inner.toOpenArray(
+    execution_header.build_proof(BLOCK_HASH_GINDEX, inner.toOpenArray(
       inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high)).expect("OK")
 
   header
