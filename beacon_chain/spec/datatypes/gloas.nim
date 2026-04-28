@@ -873,8 +873,8 @@ func is_valid_light_client_header*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_gloas*(
     pre: electra.LightClientHeader, cfg: RuntimeConfig): LightClientHeader =
-  if pre == default(electra.LightClientHeader):
-    return default(LightClientHeader)
+  if pre == static(default(electra.LightClientHeader)):
+    return static(default(LightClientHeader))
 
   let epoch = pre.beacon.slot.epoch
 
