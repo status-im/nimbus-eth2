@@ -2680,6 +2680,9 @@ proc getColumnMapOrDefault*(
           nodeId, custodyGroupCount))
   peer.columnMap.get()
 
+proc resetColumnMap*(peer: Peer) =
+  peer.columnMap = Opt.none(ColumnMap)
+
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
 

@@ -44,7 +44,16 @@ const
 type
   BlocksSource {.pure.} = enum
     OrphansQuarantine,
-    SidecarlessQuarantine,
+    SidecarlessQuarantine
+
+  ColumnsDistribution* = object
+    counts*: string
+    fillRate*: string
+    inboundPeers*: int
+    outboundPeers*: int
+    supernodePeers*: int
+    usefulPeers*: int
+    uselessPeers*: int
 
 func shortLog(optblkid: Opt[BlockId]): string =
   if optblkid.isNone():
@@ -187,15 +196,15 @@ func decreaseBlocksCount(blocksCount: var int) =
     return
   blocksCount = blocksCount div 2
 
-proc getColumnsDistribution(
-    overseer: SyncOverseerRef2
-): (string, string, array[2, int], array[2, int], array[2, int]) =
+proc getColumnsDistribution(overseer: SyncOverseerRef2): ColumnsDistribution =
   var
     res: seq[string]
     indices: array[NUMBER_OF_COLUMNS, int]
-    useful: array[2, int]
-    useless: array[2, int]
-    supernodes: array[2, int]
+    useful: int
+    useless: int
+    supernodes: int
+    inbound: int
+    outbound: int
 
   let custodyMap = overseer.validatorCustody.getMap()
 
@@ -204,13 +213,18 @@ proc getColumnsDistribution(
       peerMap = entry.peer.getColumnMapOrDefault()
       intersection = (custodyMap and peerMap)
 
-    if len(intersection) == 0:
-      inc(useless[int(entry.peer.direction)])
+    if entry.peer.direction == PeerType.Outgoing:
+      inc(outbound)
     else:
-      inc(useful[int(entry.peer.direction)])
+      inc(inbound)
+
+    if len(intersection) == 0:
+      inc(useless)
+    else:
+      inc(useful)
 
     if len(peerMap) == NUMBER_OF_COLUMNS:
-      inc(supernodes[int(entry.peer.direction)])
+      inc(supernodes)
 
     for index in intersection.items():
       indices[int(index)] += 1
@@ -220,12 +234,18 @@ proc getColumnsDistribution(
     let count = indices[int(index)]
     if count != 0:
       inc(columns)
-    res.add($uint64(index) & ":" & $count)
+    res.add($count)
   let fillRate = (float(columns) * 100.0) / float(len(custodyMap))
 
-  ("[" & res.join(",") & "]",
-    fillRate.formatBiggestFloat(ffDecimal, 2) & "%",
-    useful, useless, supernodes)
+  ColumnsDistribution(
+    counts: "[" & res.join(",") & "]",
+    fillRate: fillRate.formatBiggestFloat(ffDecimal, 2) & "%",
+    inboundPeers: inbound,
+    outboundPeers: outbound,
+    supernodePeers: supernodes,
+    usefulPeers: useful,
+    uselessPeers: useless
+  )
 
 func getMissingColumnsLog(
     overseer: SyncOverseerRef2,
@@ -1026,7 +1046,7 @@ proc verifyBlock(
   async: (raw: true, raises: [CancelledError]).} =
   verifyBlock(overseer, newClone signedBlock, maybeFinalized)
 
-proc getStatusPeriod*(
+proc getStatusPeriod(
     overseer: SyncOverseerRef2,
     peer: Peer
 ): chronos.Duration =
@@ -1062,6 +1082,19 @@ proc getStatusPeriod*(
 
   # Node is almost synced, but still behind peer's head.
   chronos.seconds(secondsPerSlot div 2)
+
+proc getMetadataPeriod(
+    overseer: SyncOverseerRef2,
+    peer: Peer
+): chronos.Duration =
+  let
+    dag = overseer.consensusManager.dag
+    currentEpoch = overseer.beaconClock.currentSlot().epoch()
+
+  if currentEpoch < dag.cfg.FULU_FORK_EPOCH:
+    1.hours
+  else:
+    5.minutes
 
 func getMissingSidecarsRoots(entry: SyncDagEntryRef): seq[BlockId] =
   var res: seq[BlockId]
@@ -1228,6 +1261,50 @@ proc doPeerUpdateStatus(
       peer_finalized_head = shortLog(peer.getFinalizedCheckpoint()),
       status_age = Moment.now() - peer.getStatusLastTime(),
       status_period = overseer.getStatusPeriod(peer)
+
+  true
+
+proc doPeerUpdateMetadata(
+    overseer: SyncOverseerRef2,
+    peer: Peer
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    peerMetadataAge = Moment.now() - peer.getMetadataLastTime()
+    metadataPeriod = overseer.getMetadataPeriod(peer)
+
+  if peerMetadataAge < metadataPeriod:
+    # Peer's metadata information is still relevant
+    return true
+
+  logScope:
+    peer = peer
+
+  let
+    map = peer.getColumnMapOrDefault()
+    cgc = peer.lookupCgcFromPeer().valueOr:
+      CUSTODY_REQUIREMENT
+
+  debug "Requesting fresh metadata information from peer",
+    metadata_age = peerMetadataAge,
+    metadata_period = metadataPeriod,
+    cgc = cgc,
+    column_map = map
+
+  if not(await peer.updateMetadata()):
+    debug "Failed to obtain fresh metadata information from peer"
+    peer.updateScore(PeerScoreNoStatus)
+    return false
+
+  peer.resetColumnMap()
+
+  let
+    newMap = peer.getColumnMapOrDefault()
+    newCgc = peer.lookupCgcFromPeer().valueOr:
+      CUSTODY_REQUIREMENT
+
+  debug "Peer metadata information updated",
+    old_cgc = cgc, old_map = map,
+    new_cgc = newCgc, new_map = newMap
 
   true
 
@@ -2259,6 +2336,11 @@ proc startPeer(
       if not(overseer.pool.checkPeerScore(peer)):
         return
 
+      if not(await overseer.doPeerUpdateMetadata(peer)):
+        return
+      if not(overseer.pool.checkPeerScore(peer)):
+        return
+
       let peerEntry = overseer.sdag.peers.getOrDefault(peer.getKey())
       if isNil(peerEntry):
         return
@@ -2477,7 +2559,7 @@ proc timeMonitoringLoop(
             "[none]"
           else:
             overseer.sdag.getShortRootMap(overseer.lastSeenHead.get().root)
-        distribution = overseer.getColumnsDistribution()
+        dist = overseer.getColumnsDistribution()
 
       overseer.statusMessages[0] =
         if overseer.finalizedDistance.isNone():
@@ -2526,11 +2608,14 @@ proc timeMonitoringLoop(
         sidecarless_quarantine = len(overseer.blockQuarantine.sidecarless),
         blob_quarantine = shortLog(overseer.blobQuarantine[]),
         column_quarantine = shortLog(overseer.columnQuarantine[]),
-        useful_peers = shortLog(distribution[2]),
-        useless_peers = shortLog(distribution[3]),
-        supernodes_peers = shortLog(distribution[4]),
+        useful_peers = dist.usefulPeers,
+        useless_peers = dist.uselessPeers,
+        supernodes_peers = dist.supernodePeers,
+        inbound_peers = dist.inboundPeers,
+        outbound_peers = dist.outboundPeers,
         columns_count = len(overseer.validatorCustody.getMap()),
-        columns_fill_rate = distribution[1],
+        counts = dist.counts,
+        columns_fill_rate = dist.fillRate,
         last_seen_syncdag_path = lastSeenSyncDagPath
 
   except CancelledError:
