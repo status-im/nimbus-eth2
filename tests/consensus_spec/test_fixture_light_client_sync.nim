@@ -56,16 +56,15 @@ type
 func consensusForkForVersion(
     cfg: RuntimeConfig, version: Version): Opt[ConsensusFork] =
   static: doAssert ConsensusFork.high == ConsensusFork.Heze
-  case version
-  of cfg.HEZE_FORK_VERSION:      ok(ConsensusFork.Heze)
-  of cfg.GLOAS_FORK_VERSION:     ok(ConsensusFork.Gloas)
-  of cfg.FULU_FORK_VERSION:      ok(ConsensusFork.Fulu)
-  of cfg.ELECTRA_FORK_VERSION:   ok(ConsensusFork.Electra)
-  of cfg.DENEB_FORK_VERSION:     ok(ConsensusFork.Deneb)
-  of cfg.CAPELLA_FORK_VERSION:   ok(ConsensusFork.Capella)
-  of cfg.BELLATRIX_FORK_VERSION: ok(ConsensusFork.Bellatrix)
-  of cfg.ALTAIR_FORK_VERSION:    ok(ConsensusFork.Altair)
-  of cfg.GENESIS_FORK_VERSION:   ok(ConsensusFork.Phase0)
+  if   version == cfg.HEZE_FORK_VERSION:      ok(ConsensusFork.Heze)
+  elif version == cfg.GLOAS_FORK_VERSION:     ok(ConsensusFork.Gloas)
+  elif version == cfg.FULU_FORK_VERSION:      ok(ConsensusFork.Fulu)
+  elif version == cfg.ELECTRA_FORK_VERSION:   ok(ConsensusFork.Electra)
+  elif version == cfg.DENEB_FORK_VERSION:     ok(ConsensusFork.Deneb)
+  elif version == cfg.CAPELLA_FORK_VERSION:   ok(ConsensusFork.Capella)
+  elif version == cfg.BELLATRIX_FORK_VERSION: ok(ConsensusFork.Bellatrix)
+  elif version == cfg.ALTAIR_FORK_VERSION:    ok(ConsensusFork.Altair)
+  elif version == cfg.GENESIS_FORK_VERSION:   ok(ConsensusFork.Phase0)
   else: err()
 
 func getStoreConsensusFork(
