@@ -1767,9 +1767,6 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
                               node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and dataColumnPruneEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(dataColumnPruneEpoch)
-    if consensusFork < ConsensusFork.Fulu:
-      return
-
     var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
     var count = 0
     let startIndex = node.dag.getBlockRange(
