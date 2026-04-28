@@ -32,7 +32,8 @@ from ../consensus_object_pools/blob_quarantine import
   BlobQuarantine, ColumnQuarantine, GloasColumnQuarantine, popSidecars, put,
   slot
 from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan, remove
+  EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
+  delOrphan, popOrphan, remove
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -1035,8 +1036,7 @@ proc addPayload*(
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
       # gossip or skip processing the same one.
-      self.envelopeQuarantine[].remove(signedBlock.root)
-      debugGloasComment("mark as unviable")
+      self.envelopeQuarantine[].addUnviable(signedBlock.root)
     of VerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
 
