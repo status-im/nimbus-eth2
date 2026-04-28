@@ -261,6 +261,7 @@ AllTests-mainnet
 + Fulu fork digest resolved via bpos list                                                    OK
 + Fusaka devnet-2                                                                            OK
 + Glamsterdam bal-devnet-2                                                                   OK
++ Non-scheduled post-Electra fork has no bpos entries                                        OK
 + nextForkEpochAtEpoch includes Gloas from Fulu                                              OK
 + nextForkEpochAtEpoch with BPO before Gloas                                                 OK
 ```

@@ -3317,3 +3317,14 @@ func can_builder_cover_bid*(
   if builder_balance < min_balance:
     return false
   builder_balance - min_balance >= bid_amount
+
+func proposalExecutionHead*(
+    state: gloas.BeaconState | heze.BeaconState): Eth2Digest =
+  debugGloasComment "this empirically matches a current testnet gloas provider behavior"
+  # `latest_execution_payload_bid` is empty until the first Gloas block's
+  # processed; for a Gloas genesis chain, a genesis state generator seeds
+  # `latest_block_hash` with the EL genesis block hash.
+  if state.latest_execution_payload_bid.block_hash.isZero():
+    state.latest_block_hash
+  else:
+    state.latest_execution_payload_bid.block_hash

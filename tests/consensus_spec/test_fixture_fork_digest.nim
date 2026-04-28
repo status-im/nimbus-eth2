@@ -15,6 +15,8 @@ import
   ../../beacon_chain/spec/forks,
   ../../beacon_chain/spec/network
 
+from std/sequtils import toSeq
+
 var cfg = defaultRuntimeConfig
 cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
 cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
@@ -183,17 +185,14 @@ suite "EF - BPO forkdigests":
     cfg.BLOB_SCHEDULE = @[
       BlobParameters(EPOCH: 1.Epoch, MAX_BLOBS_PER_BLOCK: 20),
       BlobParameters(EPOCH: 0.Epoch, MAX_BLOBS_PER_BLOCK: 15)]
-    let gvr = Eth2Digest.fromHex("0x8488a6ea91e921a17cc3af3a9d79682ef38eb7c39da786e849b31feedd2aba6f")
-    let forkDigests = ForkDigests.init(cfg, gvr)
-
     let
+      gvr = Eth2Digest.fromHex("0x8488a6ea91e921a17cc3af3a9d79682ef38eb7c39da786e849b31feedd2aba6f")
+      forkDigests = ForkDigests.init(cfg, gvr)
       fuluDigest = forkDigests.atConsensusFork(ConsensusFork.Fulu)
       gloasDigest = forkDigests.atConsensusFork(ConsensusFork.Gloas)
 
     check:
-      # Fulu and Gloas resolve to different digests
       fuluDigest != gloasDigest
-      # Round-trip: digest -> fork -> digest
       consensusForkForDigest(forkDigests, fuluDigest) ==
         Opt[ConsensusFork].ok(ConsensusFork.Fulu)
       consensusForkForDigest(forkDigests, gloasDigest) ==
@@ -203,3 +202,26 @@ suite "EF - BPO forkdigests":
       forkDigests.atEpoch(1.Epoch, cfg) != fuluDigest
       forkDigests.atEpoch(1.Epoch, cfg) != gloasDigest
       forkDigests.atEpoch(2.Epoch, cfg) == gloasDigest
+
+  test "Non-scheduled post-Electra fork has no bpos entries":
+    var cfg = cfg
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.DENEB_FORK_EPOCH = GENESIS_EPOCH
+    cfg.ELECTRA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_EPOCH = GENESIS_EPOCH
+    cfg.FULU_FORK_VERSION = Version([0x70'u8, 0, 0, 0x38])
+    cfg.GLOAS_FORK_EPOCH = GENESIS_EPOCH
+    cfg.GLOAS_FORK_VERSION = Version([0x80'u8, 0, 0, 0x38])
+    cfg.BLOB_SCHEDULE = @[
+      BlobParameters(EPOCH: 0.Epoch, MAX_BLOBS_PER_BLOCK: 15)]
+    let
+      gvr = Eth2Digest.fromHex(
+        "0x8488a6ea91e921a17cc3af3a9d79682ef38eb7c39da786e849b31feedd2aba6f")
+      forkDigests = ForkDigests.init(cfg, gvr)
+
+    check:
+      toSeq(forkDigests(ConsensusFork.Fulu, forkDigests)).len == 0
+      toSeq(forkDigests(ConsensusFork.Gloas, forkDigests)).len == 1
+      toSeq(forkDigests(ConsensusFork.Heze, forkDigests)).len == 0

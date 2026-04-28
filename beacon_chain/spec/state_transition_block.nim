@@ -1890,6 +1890,9 @@ proc verify_execution_payload_envelope*(
     return err("verify_execution_payload_envelope: parent_hash mismatch")
   if payload.timestamp != timeParams.compute_timestamp_at_slot(state, state.slot):
     return err("verify_execution_payload_envelope: timestamp mismatch")
+  if hash_tree_root(payload.withdrawals) !=
+      hash_tree_root(state.payload_expected_withdrawals):
+    return err("verify_execution_payload_envelope: withdrawals mismatch")
 
   ok()
 

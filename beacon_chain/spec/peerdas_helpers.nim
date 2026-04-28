@@ -553,20 +553,14 @@ proc verify_data_column_sidecar_kzg_proofs*(sidecar: fulu.DataColumnSidecar):
   ## Verify if the KZG proofs are correct.
   verify_data_column_sidecar_kzg_proofs(sidecar, sidecar.kzg_commitments)
 
-proc verify_data_column_sidecar_kzg_proofs*[
-    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
-    sidecars: openArray[T],
-    kzg_commitments: KzgCommitments): Result[void, cstring] =
-  ## Batch verify KZG proofs across multiple DataColumnSidecars.
-  ## All cells/commitments/proofs from every sidecar are flattened into a
-  ## single `verifyCellKzgProofBatch` call, which is more efficient than
-  ## verifying each sidecar individually.
-  if sidecars.len == 0:
+template verifyKzgBatchBody(
+    sidecarsArg, expectedLen, commitmentAt: untyped) =
+  if sidecarsArg.len == 0:
     return ok()
 
   var totalCells = 0
-  for sidecar in sidecars:
-    if sidecar.column.len != kzg_commitments.len or
+  for sidecar {.inject.} in sidecarsArg:
+    if sidecar.column.len != expectedLen or
         sidecar.column.len != sidecar.kzg_proofs.len:
       return err("DataColumnSidecar: length mismatch")
     totalCells += sidecar.column.len
@@ -577,13 +571,13 @@ proc verify_data_column_sidecar_kzg_proofs*[
     cells = newSeqOfCap[KzgCell](totalCells)
     proofs = newSeqOfCap[KzgProof](totalCells)
 
-  for sidecar in sidecars:
+  for sidecar {.inject.} in sidecarsArg:
     let idx = CellIndex(sidecar.index)
-    for i in 0 ..< sidecar.column.len:
-      commitments.add(kzg_commitments[i])
+    for blobIdx {.inject.} in 0 ..< sidecar.column.len:
+      commitments.add(commitmentAt)
       cellIndices.add(idx)
-      cells.add(sidecar.column[i])
-      proofs.add(sidecar.kzg_proofs[i])
+      cells.add(sidecar.column[blobIdx])
+      proofs.add(sidecar.kzg_proofs[blobIdx])
 
   let res = verifyCellKzgProofBatch(
       commitments, cellIndices, cells, proofs).valueOr:
@@ -594,12 +588,25 @@ proc verify_data_column_sidecar_kzg_proofs*[
 
   ok()
 
-proc verify_data_column_sidecar_kzg_proofs*(
-    sidecars: openArray[fulu.DataColumnSidecar]): Result[void, cstring] =
-  ## Batch verify KZG proofs across multiple fulu DataColumnSidecars.
-  if sidecars.len == 0:
-    return ok()
-  verify_data_column_sidecar_kzg_proofs(sidecars, sidecars[0].kzg_commitments)
+proc verify_data_column_sidecar_kzg_proofs*[
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar |
+       ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar](
+    sidecars: openArray[T],
+    kzg_commitments: KzgCommitments): Result[void, cstring] =
+  ## Batch verify KZG proofs across multiple DataColumnSidecars against a
+  ## single shared `kzg_commitments` array (e.g. gloas, where commitments
+  ## come from the bid). Accepts either values or refs.
+  verifyKzgBatchBody(sidecars, kzg_commitments.len, kzg_commitments[blobIdx])
+
+proc verify_data_column_sidecar_kzg_proofs*[
+    T: fulu.DataColumnSidecar | ref fulu.DataColumnSidecar](
+    sidecars: openArray[T]): Result[void, cstring] =
+  ## Batch verify KZG proofs across multiple fulu DataColumnSidecars using
+  ## each sidecar's own `kzg_commitments`. Equivalent to verifying each
+  ## sidecar individually: a sidecar carrying commitments that don't match
+  ## its cells/proofs is rejected regardless of its position in the batch.
+  verifyKzgBatchBody(
+    sidecars, sidecar.kzg_commitments.len, sidecar.kzg_commitments[blobIdx])
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.4/specs/fulu/validator.md#validator-custody
 func get_validators_custody_requirement*(cfg: RuntimeConfig,

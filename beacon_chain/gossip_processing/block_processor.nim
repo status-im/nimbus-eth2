@@ -203,17 +203,15 @@ proc verifySidecars(
     template kzgCommits(): auto =
       bid.message.blob_kzg_commitments.asSeq
     if columns.len > 0 and kzgCommits.len > 0:
-      for i in 0 ..< columns.len:
-        let r = verify_data_column_sidecar_kzg_proofs(
-          columns[i][], bid.message.blob_kzg_commitments)
-        if r.isErr():
-          debug "data column validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            column_sidecar = shortLog(columns[i][]),
-            blck = shortLog(signedBlock.message),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-          return err(VerifierError.Invalid)
+      let r = verify_data_column_sidecar_kzg_proofs(
+        columns, bid.message.blob_kzg_commitments)
+      if r.isErr():
+        debug "data column validation failed",
+          blockRoot = shortLog(signedBlock.root),
+          blck = shortLog(signedBlock.message),
+          signature = shortLog(signedBlock.signature),
+          msg = r.error()
+        return err(VerifierError.Invalid)
   ok()
 
 proc verifySidecars(
@@ -225,16 +223,14 @@ proc verifySidecars(
     let columns = sidecarsOpt.get()
     let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
     if columns.len > 0 and kzgCommits.len > 0:
-      for i in 0 ..< columns.len:
-        let r = verify_data_column_sidecar_kzg_proofs(columns[i][])
-        if r.isErr():
-          debug "data column validation failed",
-            blockRoot = shortLog(signedBlock.root),
-            column_sidecar = shortLog(columns[i][]),
-            blck = shortLog(signedBlock.message),
-            signature = shortLog(signedBlock.signature),
-            msg = r.error()
-          return err(VerifierError.Invalid)
+      let r = verify_data_column_sidecar_kzg_proofs(columns)
+      if r.isErr():
+        debug "data column validation failed",
+          blockRoot = shortLog(signedBlock.root),
+          blck = shortLog(signedBlock.message),
+          signature = shortLog(signedBlock.signature),
+          msg = r.error()
+        return err(VerifierError.Invalid)
   ok()
 
 proc verifySidecars(
@@ -964,9 +960,6 @@ proc storePayload(
         else:
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
-
-  if not isNil(dag.onEnvelopeAvailable):
-    dag.onEnvelopeAvailable(signedEnvelope)
 
   let
     optimisticStatusRes =

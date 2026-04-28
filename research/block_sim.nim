@@ -39,7 +39,7 @@ from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   produceContribution, produceSyncAggregate, pruneData
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index, get_committee_count_per_slot,
-  get_committee_indices, get_ptc
+  get_committee_indices, get_ptc, latest_block_root
 from ../tests/testbcutil import addHeadBlock, willSelectNewHead
 from ../tests/testblockutil import makeAttestationData, MockPrivKeys, `[]`
 
@@ -330,7 +330,8 @@ cli do(
 
       payload_attestations =
         when consensusFork >= ConsensusFork.Gloas:
-          payloadAttestationPool.getPayloadAttestationsForBlock(slot)
+          payloadAttestationPool.getPayloadAttestationsForBlock(
+            slot, state.latest_block_root)
         else:
           newSeq[PayloadAttestation]()
 

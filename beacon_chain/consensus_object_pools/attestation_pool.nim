@@ -876,10 +876,19 @@ type BeaconHead* = object
 
 proc getBeaconHead*(
     pool: AttestationPool, headBlock: BlockRef): BeaconHead =
+  # In Gloas a bid's `block_hash` is only on the EL's canonical chain when fork
+  # choice marked the slot's block full; the bid's `parent_block` must be on it.
   let
+    isGloas =
+      pool.dag.cfg.consensusForkAtEpoch(
+        pool.dag.finalizedHead.slot.epoch) >= ConsensusFork.Gloas
     finalizedExecutionBlockHash =
-      pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
-        .get(ZERO_HASH)
+      if isGloas:
+        pool.dag.loadExecutionAndParentBlockHash(pool.dag.finalizedHead.blck)
+          .parentHash.get(ZERO_HASH)
+      else:
+        pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
+          .get(ZERO_HASH)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/fork_choice/safe-block.md#get_safe_execution_block_hash
     # Use the justified checkpoint root as the safe block reported to the
@@ -893,6 +902,9 @@ proc getBeaconHead*(
         # Because a different fork already finalized a later point,
         # report the finalized execution payload hash instead.
         finalizedExecutionBlockHash
+      elif isGloas:
+        pool.dag.loadExecutionAndParentBlockHash(safeBlock.get)
+          .parentHash.get(finalizedExecutionBlockHash)
       else:
         pool.dag.loadExecutionBlockHash(safeBlock.get)
           .get(finalizedExecutionBlockHash)
