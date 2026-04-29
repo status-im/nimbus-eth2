@@ -373,7 +373,14 @@ proc getExecutionPayload*(
     prevRandao = get_randao_mix(forkyState.data, slot.epoch)
     withdrawals =
       when consensusFork >= ConsensusFork.Gloas:
-        get_expected_withdrawals(forkyState.data).withdrawals
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/validator.md#executionpayload
+        # - If `should_extend_payload(store, parent_root)`:
+        #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
+        # - else `withdrawals = state.payload_expected_withdrawals`.
+        if forkyState.data.latest_execution_payload_bid.block_hash.isZero():
+          forkyState.data.payload_expected_withdrawals.asSeq()
+        else:
+          get_expected_withdrawals(forkyState.data).withdrawals
       elif consensusFork >= ConsensusFork.Capella:
         get_expected_withdrawals(forkyState.data)
       else:
