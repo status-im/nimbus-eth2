@@ -1435,7 +1435,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendPayloadAttestations(node, head, slot)
 
-  asyncSpawn sendProposerPreferences(node, head, slot)
+  # sendProposerPreferences disabled: blocks event loop and causes peer losses
+  # asyncSpawn sendProposerPreferences(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
