@@ -15,7 +15,7 @@ const
   MaxRetriesPerMissingItem = 7
     ## Exponential backoff, double interval between each attempt
   MaxMissingItems* = 1024
-    ## Revisit the setting and same as block quarantine for noe
+    ## Revisit the setting and same as block quarantine for now
 
 type
   MissingEnvelope* = object
