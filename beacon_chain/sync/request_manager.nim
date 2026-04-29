@@ -27,9 +27,12 @@ logScope:
   topics = "requman"
 
 const
-  SYNC_MAX_REQUESTED_BLOCKS = 32 # Spec allows up to MAX_REQUEST_BLOCKS.
+  SYNC_MAX_REQUESTED_BLOCKS = 32 # Spec allows up to MAX_REQUEST_BLOCKS_DENEB.
     ## Maximum number of blocks which will be requested in each
     ## `beaconBlocksByRoot` invocation.
+  SYNC_MAX_REQUESTED_PAYLOADS = 32 # Spec allows up to MAX_REQUEST_PAYLOADS.
+    ## Maximum number of payloads which will be requested in each
+    ## `executionPayloadEnvelopesByRoot` invocation.
   PARALLEL_REQUESTS = 2
     ## Number of peers we're using to resolve our request.
 
@@ -292,7 +295,7 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
 
   try:
     let envelopes = await executionPayloadEnvelopesByRoot(
-      peer, BlockRootsList roots)
+      peer, BlockRootsList roots, maxResponseItems = roots.len)
 
     if envelopes.isOk:
       let uenvelopes = envelopes.get().asSeq()
@@ -613,13 +616,18 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
 
     var blockRoots: seq[Eth2Digest]
     if self.envelopeLoader == nil:
-      assign(blockRoots, missingBlockRoots)
+      assign(
+        blockRoots,
+        missingBlockRoots[0 ..< min(missingBlockRoots.len, SYNC_MAX_REQUESTED_PAYLOADS)],
+      )
     else:
       var verifiers:
         seq[Future[Result[void, VerifierError]].Raising([CancelledError])]
       for blockRoot in missingBlockRoots:
         let envelope = self.envelopeLoader(blockRoot).valueOr:
           blockRoots.add blockRoot
+          if blockRoots.len >= SYNC_MAX_REQUESTED_PAYLOADS:
+            break
           continue
         debug "Loaded orphaned envelope from storage", blockRoot
         verifiers.add self.envelopeVerifier(envelope.asSigned())
