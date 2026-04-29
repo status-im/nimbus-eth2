@@ -1686,8 +1686,10 @@ func nextForkDigestAtEpoch*(
 
 func lcDataForkAtConsensusFork*(
     consensusFork: ConsensusFork): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
-  if consensusFork >= ConsensusFork.Electra:
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
+  if consensusFork >= ConsensusFork.Gloas:
+    LightClientDataFork.Gloas
+  elif consensusFork >= ConsensusFork.Electra:
     LightClientDataFork.Electra
   elif consensusFork >= ConsensusFork.Deneb:
     LightClientDataFork.Deneb

@@ -3244,6 +3244,13 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
 + EF - Gloas - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
 ```
+## EF - Gloas - Unittests - Light client - Sync protocol [Preset: minimal]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_at_period_boundary                                        OK
++ test_process_light_client_update_not_timeout                                               OK
+```
 ## EF - Heze - Fork  [Preset: minimal]
 ```diff
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: minimal]   OK
