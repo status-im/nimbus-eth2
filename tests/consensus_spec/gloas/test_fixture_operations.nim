@@ -41,6 +41,7 @@ const
   OpProposerSlashingDir       = OpDir/"proposer_slashing"
   OpSyncAggregateDir          = OpDir/"sync_aggregate"
   OpVoluntaryExitDir          = OpDir/"voluntary_exit"
+  OpVoluntaryExitChurnDir     = OpDir/"voluntary_exit_churn"
   OpWithdrawalsDir            = OpDir/"withdrawals"
 
   baseDescription = "EF - Gloas - Operations - "
@@ -50,7 +51,8 @@ const testDirs = toHashSet([
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
   OpDepositsDir, OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
-  OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
+  OpSyncAggregateDir, OpVoluntaryExitDir, OpVoluntaryExitChurnDir,
+  OpWithdrawalsDir
 ])
 
 doAssert toHashSet(
@@ -297,6 +299,23 @@ suite baseDescription & "Voluntary Exit " & preset():
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
       OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
       applyVoluntaryExit, path)
+
+suite baseDescription & "Voluntary Exit Churn " & preset():
+  proc applyVoluntaryExitChurn(
+      preState: var gloas.BeaconState, voluntaryExit: SignedVoluntaryExit):
+      Result[void, cstring] =
+    var cache: StateCache
+    if process_voluntary_exit(
+        defaultRuntimeConfig, preState, voluntaryExit, {},
+        get_state_exit_queue_info(preState), cache).isOk:
+      ok()
+    else:
+      err("")
+
+  for path in walkTests(OpVoluntaryExitChurnDir):
+    runTest[SignedVoluntaryExit, typeof applyVoluntaryExitChurn](
+      OpVoluntaryExitChurnDir, suiteName, "Voluntary Exit Churn",
+      "voluntary_exit", applyVoluntaryExitChurn, path)
 
 suite baseDescription & "Withdrawals " & preset():
   for path in walkTests(OpWithdrawalsDir):

@@ -189,12 +189,14 @@ func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
+    parent_beacon_block_root: Eth2Digest,
 ): gloas.ExecutionPayloadEnvelope =
   gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
+    parent_beacon_block_root: parent_beacon_block_root,
   )
 
 func makeSignedExecutionPayloadBid(

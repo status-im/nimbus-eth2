@@ -223,16 +223,9 @@ func cacheRecentSyncAggregate(
 
 func lightClientHeader(
     blck: ForkyTrustedSignedBeaconBlock): ForkedLightClientHeader =
-  when kind(typeof(blck)) == ConsensusFork.Heze:
-    debugHezeComment "..."
-    default(ForkedLightClientHeader)
-  elif kind(typeof(blck)) == ConsensusFork.Gloas:
-    debugGloasComment "..."
-    default(ForkedLightClientHeader)
-  else:
-    const lcDataFork = max(
-      lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
-    ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
+  const lcDataFork = max(
+    lcDataForkAtConsensusFork(typeof(blck).kind), LightClientDataFork.Altair)
+  ForkedLightClientHeader.init(blck.toLightClientHeader(lcDataFork))
 
 proc getExistingLightClientHeader(
     dag: ChainDAGRef, bid: BlockId): ForkedLightClientHeader =
@@ -416,7 +409,7 @@ proc createLightClientUpdate(
         Opt.none(BlockSlotId)
     has_finality =
       finalized_bsi.isSome and
-      finalized_bsi.get.bid.slot >= max(dag.tail.slot, dag.backfill.slot)
+      finalized_bsi.get.bid.slot >= dag.lcDataStore.cache.tailSlot
     meta = LightClientUpdateMetadata(
       attested_slot: attested_slot,
       finalized_slot: finalized_slot,
@@ -470,15 +463,13 @@ proc createLightClientBootstrap(
           tmpState[], period)
       dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
   withBlck(bdata):
-    when consensusFork >= ConsensusFork.Altair and
-         consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
+    when consensusFork >= ConsensusFork.Altair:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       dag.lcDataStore.db.putHeader(
         forkyBlck.toLightClientHeader(lcDataFork))
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
         bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
-    elif consensusFork == ConsensusFork.Phase0: raiseAssert "Unreachable"
-    else: debugGloasComment "Gloas/Heze light-client bootstrap unimplemented"
+    else: raiseAssert "Unreachable"
   ok()
 
 proc initLightClientBootstrapForPeriod(
@@ -534,11 +525,7 @@ proc initLightClientBootstrapForPeriod(
         res.err()
         continue
       withStateAndBlck(tmpState[], bdata):
-        when consensusFork == ConsensusFork.Gloas:
-          debugGloasComment "..."
-        elif consensusFork == ConsensusFork.Heze:
-          debugHezeComment "..."
-        elif consensusFork >= ConsensusFork.Altair:
+        when consensusFork >= ConsensusFork.Altair:
           const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           if not dag.lcDataStore.db.hasSyncCommittee(period):
             dag.lcDataStore.db.putSyncCommittee(
@@ -689,9 +676,7 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(bid.slot)
       return err()
     withStateAndBlck(updatedState, bdata):
-      when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
-      elif consensusFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         update = ForkedLightClientUpdate.init lcDataFork.LightClientUpdate(
           attested_header: forkyBlck.toLightClientHeader(lcDataFork),
@@ -720,14 +705,12 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(finalizedBid.slot)
       return err()
     withBlck(bdata):
-      debugGloasComment ""
-      when consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
-        withForkyUpdate(update):
-          when lcDataFork > LightClientDataFork.None:
-            when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
-              forkyUpdate.finalized_header =
-                forkyBlck.toLightClientHeader(lcDataFork)
-            else: raiseAssert "Unreachable"
+      withForkyUpdate(update):
+        when lcDataFork > LightClientDataFork.None:
+          when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
+            forkyUpdate.finalized_header =
+              forkyBlck.toLightClientHeader(lcDataFork)
+          else: raiseAssert "Unreachable"
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
@@ -1126,9 +1109,7 @@ proc getLightClientBootstrap*(
     debug "LC bootstrap unavailable: Block not found", blockRoot
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
-    debugGloasComment ""
-    when consensusFork >= ConsensusFork.Altair and
-         consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
+    when consensusFork >= ConsensusFork.Altair:
       const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       let
         header = forkyBlck.toLightClientHeader(lcDataFork)

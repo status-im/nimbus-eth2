@@ -1209,6 +1209,7 @@ func apply_pending_deposit(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_pending_deposits
 func process_pending_deposits*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -1217,7 +1218,10 @@ func process_pending_deposits*(
   let
     next_epoch = get_current_epoch(state) + 1
     available_for_processing = state.deposit_balance_to_consume +
-      get_activation_exit_churn_limit(cfg, state, cache)
+      (when state is gloas.BeaconState | heze.BeaconState:
+        get_activation_churn_limit(cfg, state, cache)
+       else:
+        get_activation_exit_churn_limit(cfg, state, cache))
   var
     processed_amount = 0.Gwei
     next_deposit_index = 0
@@ -1667,8 +1671,8 @@ proc process_epoch*(
   process_slashings(state, info.balances.current_epoch)
   process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)
-  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   ? process_pending_consolidations(cfg, state)
+  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   process_effective_balance_updates(state)
   process_slashings_reset(state)
   process_randao_mixes_reset(state)

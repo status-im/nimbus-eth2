@@ -115,6 +115,7 @@ type
     attachedValidatorBalanceTotal*: Gwei
     gossipState*: GossipState
     blocksGossipState*: GossipState
+    envelopeGossipState*: GossipState
     beaconClock*: BeaconClock
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor

@@ -297,6 +297,8 @@ cli do(
               parent_block_hash: state.data.latest_block_hash,
               parent_block_root: hash_tree_root(state.data.latest_block_header),
               block_hash: ZERO_HASH,
+              execution_requests_root:
+                hash_tree_root(default(ExecutionRequests)),
               prev_randao:
                 get_randao_mix(state.data, get_current_epoch(state.data)),
               fee_recipient: static(default(ExecutionAddress)),
@@ -314,6 +316,8 @@ cli do(
               parent_block_hash: state.data.latest_block_hash,
               parent_block_root: hash_tree_root(state.data.latest_block_header),
               block_hash: ZERO_HASH,
+              execution_requests_root:
+                hash_tree_root(default(ExecutionRequests)),
               prev_randao:
                 get_randao_mix(state.data, get_current_epoch(state.data)),
               fee_recipient: static(default(ExecutionAddress)),

@@ -8,12 +8,12 @@
 {.push raises: [], gcsafe.}
 
 # Minimal preset - Gloas
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/presets/minimal/gloas.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/presets/minimal/gloas.yaml
 const
   # Misc
   # ---------------------------------------------------------------
-  # [customized] 2**1 (= 2) validators
-  PTC_SIZE* = 2
+  # [customized] 2**4 (= 16) validators
+  PTC_SIZE* = 16
 
   # Max operations per block
   # ---------------------------------------------------------------

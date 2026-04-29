@@ -618,7 +618,8 @@ proc proposeBlockAux(
     let envelope = makeExecutionPayloadEnvelope(
       engineBid[].eps,
       engineBid[].execution_requests,
-      blockRoot)
+      blockRoot,
+      signedBlock.message.parent_root)
 
     let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
       node.dag.forkAtEpoch(slot.epoch),

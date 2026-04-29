@@ -1826,6 +1826,7 @@ func compute_fork_digest*(current_version: Version,
       current_version, genesis_validators_root).data.toOpenArray(0, 3)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#modified-compute_fork_digest
+# https://github.com/ethereum/consensus-specs/pull/5182
 func compute_fork_digest_fulu*(
     cfg: RuntimeConfig, genesis_validators_root: Eth2Digest, epoch: Epoch):
     ForkDigest =
@@ -1838,7 +1839,11 @@ func compute_fork_digest_fulu*(
   let
     fork_version = forkVersionAtEpoch(cfg, epoch)
     base_digest = compute_fork_data_root(fork_version, genesis_validators_root)
-    blob_parameters = get_blob_parameters(cfg, epoch)
+  if epoch < cfg.FULU_FORK_EPOCH:
+    var res: array[4, byte]
+    res[0 .. 3] = base_digest.data.toOpenArray(0, 3)
+    return ForkDigest(res)
+  let blob_parameters = get_blob_parameters(cfg, epoch)
 
   var bpo_buf: array[16, byte]
   bpo_buf[0 .. 7] = toBytesLE(distinctBase(blob_parameters.EPOCH))
