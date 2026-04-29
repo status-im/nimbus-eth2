@@ -15,10 +15,14 @@ type
   DagEntryFlag* {.pure.} = enum
     Local, Unviable, Finalized, Pending, MissingSidecars
 
+  DagBlockSourceType* {.pure.} = enum
+    Orphan, Sidecarless, Dag, Unviable
+
   SyncDagEntryRef* = ref object
     blockId*: BlockId
     parent*: SyncDagEntryRef
     flags*: set[DagEntryFlag]
+    source*: set[DagBlockSourceType]
 
   PeerEntryRef*[A] = ref object
     peer*: A
@@ -194,7 +198,8 @@ proc updateRoot*[A, B](
     root: Eth2Digest,
     slot: Slot,
     parent_root: Eth2Digest,
-    sidecarsMissed: bool
+    sidecarsMissed: bool,
+    src: DagBlockSourceType
 ): Opt[Eth2Digest] =
   let entry = sdag.roots.getOrDefault(root)
   if isNil(entry):
@@ -215,12 +220,12 @@ proc updateRoot*[A, B](
       entry.flags.incl(DagEntryFlag.MissingSidecars)
     entry.blockId.slot = slot
     entry.parent = parentEntry
+    entry.source.incl(src)
     sdag.updateSlot(slot, root)
 
   if DagEntryFlag.Finalized in entry.flags:
     # If we downloaded finalized checkpoint's root block - update `epochs`
     # table.
-    entry.parent = nil
     return Opt.none(Eth2Digest)
 
   if (DagEntryFlag.Pending notin parentEntry.flags) and
