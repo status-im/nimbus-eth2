@@ -870,6 +870,7 @@ proc initFullNode(
                                           syncManager, backfiller,
                                           untrustedManager)
   node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
+                                                node.eventBus.columnSidecarQueue,
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
                                                 node.validatorCustody)

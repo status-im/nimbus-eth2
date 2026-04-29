@@ -37,6 +37,7 @@ declareGauge beacon_engine_getblobs_slot_hit_rate,
 type
   GetBlobsService* = object
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
+    columnSidecarBus*: AsyncEventQueue[DataColumnSidecarInfoObject]
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
     validatorCustody*: ValidatorCustodyRef
@@ -52,12 +53,14 @@ type
 proc new*(
     t: typedesc[GetBlobsServiceRef],
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
+    columnSidecarBus: AsyncEventQueue[DataColumnSidecarInfoObject],
     blockProcessor: ref BlockProcessor,
     dataColumnQuarantine: ref ColumnQuarantine,
     validatorCustody: ValidatorCustodyRef
 ): GetBlobsServiceRef =
   GetBlobsServiceRef(
     blockGossipBus: blockGossipBus,
+    columnSidecarBus: columnSidecarBus,
     blockProcessor: blockProcessor,
     dataColumnQuarantine: dataColumnQuarantine,
     validatorCustody: validatorCustody,
@@ -151,9 +154,9 @@ proc attemptGetBlobs*(
     else:
       discard
 
-proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
+proc consumeBlockGossip(
+    self: GetBlobsServiceRef) {.async: (raises: []).} =
   let ticket = self.blockGossipBus.register()
-  debug "Engine GetBlobs service started"
   try:
     while true:
       let events = await self.blockGossipBus.waitEvents(ticket)
@@ -165,6 +168,32 @@ proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
             discard
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
+  except CancelledError:
+    discard
+  finally:
+    self.blockGossipBus.unregister(ticket)
+
+proc consumeColumnSidecars(
+    self: GetBlobsServiceRef) {.async: (raises: []).} =
+  let ticket = self.columnSidecarBus.register()
+  try:
+    while true:
+      let events = await self.columnSidecarBus.waitEvents(ticket)
+      for event in events:
+        await self.attemptGetBlobs(event.block_root)
+  except AsyncEventQueueFullError:
+    raiseAssert "Unlimited AsyncEventQueue should not raise exception"
+  except CancelledError:
+    discard
+  finally:
+    self.columnSidecarBus.unregister(ticket)
+
+proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
+  debug "Engine GetBlobs service started"
+  try:
+    await allFutures(
+      self.consumeBlockGossip(),
+      self.consumeColumnSidecars())
   except CancelledError:
     discard
   debug "Engine GetBlobs service stopped"
