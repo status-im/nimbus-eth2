@@ -20,7 +20,6 @@ import
      block_buffer, validator_custody]
 
 from ../consensus_object_pools/spec_cache import get_attesting_indices
-from nimcrypto/utils import isFullZero
 
 export sync_types
 
@@ -851,7 +850,8 @@ proc updatePeer(
     block_slot: Slot,
     block_root: Eth2Digest,
     block_parent_root: Eth2Digest,
-    sidecarsMissed: bool
+    sidecarsMissed: bool,
+    src: DagBlockSourceType
 ) =
   let peerEntry = overseer.sdag.peers.getOrDefault(peerId)
   if isNil(peerEntry) and peerMustPresent:
@@ -860,7 +860,7 @@ proc updatePeer(
   let
     missingParentRoot =
       overseer.sdag.updateRoot(block_root, block_slot, block_parent_root,
-        sidecarsMissed)
+        sidecarsMissed, src)
 
   if missingParentRoot.isSome() and
      (missingParentRoot.get() != GenesisCheckpoint.root):
@@ -880,26 +880,28 @@ proc updatePeer(
     peerId: PeerId,
     peerMustPresent: bool,
     blck: ref ForkedSignedBeaconBlock,
-    missingSidecars: bool
+    missingSidecars: bool,
+    src: DagBlockSourceType
 ) =
   let (slot, root, parentRoot) =
     withBlck(blck[]):
       (forkyBlck.message.slot, forkyBlck.root, forkyBlck.message.parent_root)
   overseer.updatePeer(
-    peerId, peerMustPresent, slot, root, parentRoot, missingSidecars)
+    peerId, peerMustPresent, slot, root, parentRoot, missingSidecars, src)
 
 proc updatePeer(
     overseer: SyncOverseerRef2,
     peerId: PeerId,
     peerMustPresent: bool,
     blck: ForkedSignedBeaconBlock,
-    missingSidecars: bool
+    missingSidecars: bool,
+    src: DagBlockSourceType
 ) =
   let (slot, root, parentRoot) =
     withBlck(blck):
       (forkyBlck.message.slot, forkyBlck.root, forkyBlck.message.parent_root)
   overseer.updatePeer(
-    peerId, peerMustPresent, slot, root,  parentRoot, missingSidecars)
+    peerId, peerMustPresent, slot, root,  parentRoot, missingSidecars, src)
 
 func finalizedDistance*(
     overseer: SyncOverseerRef2
@@ -1431,29 +1433,52 @@ proc doPeerUpdateRoots(
       restoreRoots()
       peer.updateScore(PeerScoreBadResponse)
       return false
-    let missingSidecars =
-      if res.isErr() and (res.error == VerifierError.MissingSidecars):
-        true
-      else:
-        false
-    if res.isErr():
-      if missingSidecars:
-        debug "Block missing sidecars",
-          fork = signedBlock[].kind,
-          missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
-          reason = $res.error
-      else:
-        debug "Block verification passed",
-          fork = signedBlock[].kind,
-          block_root = shortLog(signedBlock[].root),
-          reason = $res.error
-    else:
-      debug "Block verification passed",
-        fork = signedBlock[].kind,
-        block_root = shortLog(signedBlock[].root),
-        reason = "ok"
+    let
+      missingSidecars =
+        if res.isErr() and (res.error == VerifierError.MissingSidecars):
+          true
+        else:
+          false
+      source =
+        if res.isErr():
+          case res.error
+          of VerifierError.Invalid:
+            debug "Block verification NOT passed",
+              fork = signedBlock[].kind,
+              block_root = shortLog(signedBlock[].root),
+              reason = $res.error
+            restoreRoots()
+            peer.updateScore(PeerScoreBadResponse)
+            return false
+          of VerifierError.MissingParent:
+            debug "Block verification passed",
+              fork = signedBlock[].kind,
+              block_root = shortLog(signedBlock[].root),
+              reason = $res.error
+            DagBlockSourceType.Orphan
+          of VerifierError.Duplicate:
+            DagBlockSourceType.Dag
+          of VerifierError.UnviableFork:
+            debug "Block is unviable",
+              fork = signedBlock[].kind,
+              missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
+              reason = $res.error
+            DagBlockSourceType.Unviable
+          of VerifierError.MissingSidecars:
+            debug "Block missing sidecars",
+              fork = signedBlock[].kind,
+              missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
+              reason = $res.error
+            DagBlockSourceType.Sidecarless
+        else:
+          debug "Block verification passed",
+            fork = signedBlock[].kind,
+            block_root = shortLog(signedBlock[].root),
+            reason = "ok"
+          DagBlockSourceType.Dag
     # Update SyncDAG with block
-    overseer.updatePeer(peer.getKey(), true, signedBlock, missingSidecars)
+    overseer.updatePeer(
+      peer.getKey(), true, signedBlock, missingSidecars,source)
     removeRoot(signedBlock[].root)
 
   true
@@ -2667,20 +2692,19 @@ proc gossipMonitoringLoop(
             else:
               raiseAssert "Unsupported fork"
 
-      let peerLog =
-        if isFullZero(event.src):
-          # `libp2p` return an empty 'src' when this field is not filled.
-          "[anonymous]"
+      let src =
+        if missingSidecars:
+          DagBlockSourceType.Sidecarless
         else:
-          shortLog(event.src)
+          DagBlockSourceType.Dag
 
       debug "Got block from gossip event", bid = shortLog(blockId),
-        peer = peerLog, fork = consensusFork, missing_sidecars = missingSidecars
+        fork = consensusFork, missing_sidecars = missingSidecars, source = src
 
       discard overseer.sdag.roots.mgetOrPut(
         blockId.root, SyncDagEntryRef.init(blockId))
 
-      overseer.updatePeer(event.src, false, event.blck, missingSidecars)
+      overseer.updatePeer(event.src, false, event.blck, missingSidecars, src)
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
   except CancelledError:
@@ -2740,7 +2764,8 @@ proc blockMonitoringLoop(
             blockId.root, SyncDagEntryRef.init(blockId))
 
       overseer.updatePeer(
-        overseer.localPeerId, false, slot, blockRoot, parentRoot, false)
+        overseer.localPeerId, false, slot, blockRoot, parentRoot, false,
+        DagBlockSourceType.Dag)
 
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
@@ -2799,7 +2824,8 @@ proc finalMonitoringLoop(
         # sidecarsMissing == false in this case because this block was recently
         # selected as finalized head, so it is sure has sidecars already.
         overseer.updatePeer(
-          overseer.localPeerId, false, slot, blockRoot, parentRoot, false)
+          overseer.localPeerId, false, slot, blockRoot, parentRoot, false,
+          DagBlockSourceType.Dag)
 
       # Pruning SyncDag.
       overseer.sdag.prune(event.epoch)
@@ -2886,7 +2912,8 @@ proc checkData(
           overseer.localPeerId, peerMustPresent = false,
           blockId.slot, blockId.root,
           blck.parent_root,
-          sidecarsMissed = true)
+          sidecarsMissed = true,
+          DagBlockSourceType.Dag)
     else:
       debug "Late block processor response", reason = "ok"
       # If block was added succesfully block processor will continue
@@ -3043,6 +3070,18 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
     (entry.blockId.slot == localHead.slot) and
       (entry.blockId.root == localHead.root)
 
+  func getSource(entry: SyncDagEntryRef): string =
+    var res: seq[string]
+    if DagBlockSourceType.Dag in entry.source:
+      res.add("dag")
+    if DagBlockSourceType.Orphan in entry.source:
+      res.add("orphan")
+    if DagBlockSourceType.Sidecarless in entry.source:
+      res.add("sidecarless")
+    if DagBlockSourceType.Unviable in entry.source:
+      res.add("unviable")
+    "[" & res.join(",") & "]"
+
   func getLocation(entry: SyncDagEntryRef): string =
     var res: seq[string]
     if currentHead(entry):
@@ -3090,6 +3129,7 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
   func getItem(entry: SyncDagEntryRef): string =
     "\"" & getBid(entry) & "\":{" &
       "\"flags\":" & getFlags(entry) & "," &
+      "\"source\":" & getSource(entry) & "," &
       "\"missing_map\":" & getMissingMap(entry) & "," &
       "\"locations\":" & getLocation(entry) & "," &
       "\"parent_root\":\"" & getParent(entry) & "\"" &
