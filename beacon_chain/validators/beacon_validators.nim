@@ -1435,8 +1435,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendPayloadAttestations(node, head, slot)
 
-  asyncSpawn sendProposerPreferences(node, head, slot)
-
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
