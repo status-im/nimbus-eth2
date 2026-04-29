@@ -610,16 +610,14 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
     if self.inhibit():
       continue
 
-    let missingBlockRoots = self.envelopeQuarantine[].getMissing()
+    let missingBlockRoots = self.envelopeQuarantine[]
+      .checkMissing(SYNC_MAX_REQUESTED_PAYLOADS)
     if missingBlockRoots.len() == 0:
       continue
 
     var blockRoots: seq[Eth2Digest]
     if self.envelopeLoader == nil:
-      assign(
-        blockRoots,
-        missingBlockRoots[0 ..< min(missingBlockRoots.len, SYNC_MAX_REQUESTED_PAYLOADS)],
-      )
+      assign(blockRoots, missingBlockRoots)
     else:
       var verifiers:
         seq[Future[Result[void, VerifierError]].Raising([CancelledError])]
