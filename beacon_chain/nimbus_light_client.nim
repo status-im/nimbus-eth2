@@ -281,12 +281,11 @@ proc main() {.noinline, raises: [CatchableError].} =
 
     for gossipEpoch in oldGossipEpochs:
       let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
-      node.network.unsubscribe(getTopic(forkDigest))
+      network.unsubscribe(getTopic(forkDigest))
 
     for gossipEpoch in newGossipEpochs:
       let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
-      node.network.subscribe(
-        getTopic(forkDigest), topicParams, enableTopicMetrics)
+      network.subscribe(getTopic(forkDigest), topicParams, enableTopicMetrics)
 
     currentGossipState = targetGossipState
 
