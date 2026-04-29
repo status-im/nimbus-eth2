@@ -772,6 +772,21 @@ func normalize_merkle_branch*[N](
     res[0 ..< depth] = branch[num_extra ..< branch.len]
   res
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
+func is_valid_normalized_merkle_branch*[N](
+    leaf: Eth2Digest,
+    branch: array[N, Eth2Digest],
+    gindex: static GeneralizedIndex,
+    root: Eth2Digest): bool =
+  const
+    depth = log2trunc(gindex)
+    index = get_subtree_index(gindex)
+    num_extra = branch.len - depth
+  for i in 0 ..< num_extra:
+    if not branch[i].isZero:
+      return false
+  is_valid_merkle_branch(leaf, branch[num_extra .. ^1], depth, index, root)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_electra*(
     pre: deneb.LightClientHeader): LightClientHeader =

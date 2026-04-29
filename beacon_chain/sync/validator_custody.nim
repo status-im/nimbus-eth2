@@ -192,6 +192,7 @@ proc init*(
     network: network,
     config: config,
     dag: dag,
+    curGroupsCount: localGroupsCount,
     curColumnMap: columnMap,
     state: ValidatorCustodyState.Init
   )
@@ -209,6 +210,7 @@ proc setValidatorCustody*(
   newMap: ColumnMap
 ) =
   if len(newMap) != len(vcus.curColumnMap):
+    let oldMapLen = len(vcus.curColumnMap)
     if not(isNil(vcus.fuluColumnQuarantine)):
       vcus.fuluColumnQuarantine[].update(vcus.dag.cfg, newMap)
     if not(isNil(vcus.gloasColumnQuarantine)):
@@ -219,7 +221,7 @@ proc setValidatorCustody*(
 
     # We only update the `ea_slot` when the new validator custody set is larger
     # than the old one.
-    if len(newMap) > len(vcus.curColumnMap):
+    if len(newMap) > oldMapLen:
       vcus.dag.eaSlot = currentSlot
 
     info "New validator custody set", custody_columns = len(newMap)

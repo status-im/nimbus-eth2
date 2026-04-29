@@ -25,12 +25,6 @@ extern "C" {
 #define __has_feature(x) 0
 #endif
 
-#if __has_attribute(deprecated)
-#define ETH_DEPRECATED __attribute__((deprecated))
-#else
-#define ETH_DEPRECATED
-#endif
-
 #if __has_attribute(warn_unused_result)
 #define ETH_RESULT_USE_CHECK __attribute__((warn_unused_result))
 #else
@@ -837,253 +831,6 @@ ETHRoot *ETHLightClientHeaderCopyExecutionHash(
     const ETHConsensusConfig *cfg);
 
 /**
- * Execution payload header.
- */
-typedef struct ETHExecutionPayloadHeader ETHExecutionPayloadHeader;
-
-/**
- * Obtains the execution payload header of a given light client header.
- *
- * - The returned value is allocated in the given light client header.
- *   It must neither be released nor written to, and the light client header
- *   must not be released while the returned value is in use.
- *
- * @param      header               Light client header.
- *
- * @return Execution payload header.
- *
- * @see https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHExecutionPayloadHeader *ETHLightClientHeaderGetExecution(
-    const ETHLightClientHeader *header);
-
-/**
- * Obtains the parent execution block hash of a given
- * execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- *
- * @return Parent execution block hash.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHRoot *ETHExecutionPayloadHeaderGetParentHash(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Execution address.
- */
-typedef struct {
-    uint8_t bytes[20];
-} ETHExecutionAddress;
-
-/**
- * Obtains the fee recipient address of a given execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- *
- * @return Fee recipient execution address.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHExecutionAddress *ETHExecutionPayloadHeaderGetFeeRecipient(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the state MPT root of a given execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- *
- * @return Execution state root.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHRoot *ETHExecutionPayloadHeaderGetStateRoot(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the receipts MPT root of a given execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- *
- * @return Execution receipts root.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHRoot *ETHExecutionPayloadHeaderGetReceiptsRoot(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Execution logs Bloom.
- */
-typedef struct {
-    uint8_t bytes[256];
-} ETHLogsBloom;
-
-/**
- * Obtains the logs Bloom of a given execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- *
- * @return Execution logs Bloom.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHLogsBloom *ETHExecutionPayloadHeaderGetLogsBloom(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the previous randao mix of a given execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- *
- * @return Previous randao mix.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHRoot *ETHExecutionPayloadHeaderGetPrevRandao(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the execution block number of a given execution payload header.
- *
- * @param      execution            Execution payload header.
- *
- * @return Execution block number.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetBlockNumber(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the gas limit of a given execution payload header.
- *
- * @param      execution            Execution payload header.
- *
- * @return Gas limit.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetGasLimit(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the gas used of a given execution payload header.
- *
- * @param      execution            Execution payload header.
- *
- * @return Gas used.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetGasUsed(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the timestamp of a given execution payload header.
- *
- * @param      execution            Execution payload header.
- *
- * @return Execution block timestamp.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetTimestamp(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the extra data buffer of a given execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- * @param[out] numBytes             Length of buffer.
- *
- * @return Buffer with execution block extra data.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const void *ETHExecutionPayloadHeaderGetExtraDataBytes(
-    const ETHExecutionPayloadHeader *execution,
-    int *numBytes);
-
-/**
- * UInt256 (little-endian)
- */
-typedef struct {
-    uint8_t bytes[32];
-} ETHUInt256;
-
-/**
- * Obtains the base fee per gas of a given execution payload header.
- *
- * - The returned value is allocated in the given execution payload header.
- *   It must neither be released nor written to, and the execution payload
- *   header must not be released while the returned value is in use.
- *
- * @param      execution            Execution payload header.
- *
- * @return Base fee per gas.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-const ETHUInt256 *ETHExecutionPayloadHeaderGetBaseFeePerGas(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the blob gas used of a given execution payload header.
- *
- * @param      execution            Execution payload header.
- *
- * @return Blob gas used.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetBlobGasUsed(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
- * Obtains the excess blob gas of a given execution payload header.
- *
- * @param      execution            Execution payload header.
- *
- * @return Excess blob gas.
- */
-ETH_DEPRECATED
-ETH_RESULT_USE_CHECK
-int ETHExecutionPayloadHeaderGetExcessBlobGas(
-    const ETHExecutionPayloadHeader *execution);
-
-/**
  * Execution block header.
  */
 typedef struct ETHExecutionBlockHeader ETHExecutionBlockHeader;
@@ -1139,6 +886,13 @@ const ETHRoot *ETHExecutionBlockHeaderGetParentHash(
     const ETHExecutionBlockHeader *executionBlockHeader);
 
 /**
+ * Execution address.
+ */
+typedef struct {
+    uint8_t bytes[20];
+} ETHExecutionAddress;
+
+/**
  * Obtains the fee recipient address of a given execution block header.
  *
  * - The returned value is allocated in the given execution block header.
@@ -1182,6 +936,13 @@ const ETHRoot *ETHExecutionBlockHeaderGetStateRoot(
 ETH_RESULT_USE_CHECK
 const ETHRoot *ETHExecutionBlockHeaderGetReceiptsRoot(
     const ETHExecutionBlockHeader *executionBlockHeader);
+
+/**
+ * Execution logs Bloom.
+ */
+typedef struct {
+    uint8_t bytes[256];
+} ETHLogsBloom;
 
 /**
  * Obtains the logs Bloom of a given execution block header.
@@ -1273,6 +1034,13 @@ ETH_RESULT_USE_CHECK
 const void *ETHExecutionBlockHeaderGetExtraDataBytes(
     const ETHExecutionBlockHeader *executionBlockHeader,
     int *numBytes);
+
+/**
+ * UInt256 (little-endian)
+ */
+typedef struct {
+    uint8_t bytes[32];
+} ETHUInt256;
 
 /**
  * Obtains the base fee per gas of a given execution block header.

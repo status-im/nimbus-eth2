@@ -675,6 +675,7 @@ type LightClientDataDBNames* = object
   capellaHeaders*: string
   denebHeaders*: string
   electraHeaders*: string
+  gloasHeaders*: string
   altairCurrentBranches*: string
   electraCurrentBranches*: string
   altairSyncCommittees*: string
@@ -685,7 +686,7 @@ type LightClientDataDBNames* = object
 proc initLightClientDataDB*(
     backend: SqStoreRef,
     names: LightClientDataDBNames): KvResult[LightClientDataDB] =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
   let
     headers = [
       # LightClientDataFork.None
@@ -702,6 +703,9 @@ proc initLightClientDataDB*(
       # LightClientDataFork.Electra
       ? backend.initHeadersStore(
         names.electraHeaders, "electra.LightClientHeader"),
+      # LightClientDataFork.Gloas
+      ? backend.initHeadersStore(
+        names.gloasHeaders, "gloas.LightClientHeader"),
     ]
     currentBranches = [
       # BranchFork.None

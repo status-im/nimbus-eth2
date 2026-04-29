@@ -27,7 +27,7 @@ type
     trusted_block_root: Eth2Digest
     fork_digests: ForkDigests
     bootstrap_fork_digest: ForkDigest
-    store_fork_digest: ForkDigest
+    store_consensus_fork: ConsensusFork
 
   TestChecks = object
     finalized_slot: Slot
@@ -53,8 +53,39 @@ type
     current_slot: Slot
     checks: TestChecks
 
+func consensusForkForVersion(
+    cfg: RuntimeConfig, version: Version): Opt[ConsensusFork] =
+  static: doAssert ConsensusFork.high == ConsensusFork.Heze
+  if   version == cfg.HEZE_FORK_VERSION:      ok(ConsensusFork.Heze)
+  elif version == cfg.GLOAS_FORK_VERSION:     ok(ConsensusFork.Gloas)
+  elif version == cfg.FULU_FORK_VERSION:      ok(ConsensusFork.Fulu)
+  elif version == cfg.ELECTRA_FORK_VERSION:   ok(ConsensusFork.Electra)
+  elif version == cfg.DENEB_FORK_VERSION:     ok(ConsensusFork.Deneb)
+  elif version == cfg.CAPELLA_FORK_VERSION:   ok(ConsensusFork.Capella)
+  elif version == cfg.BELLATRIX_FORK_VERSION: ok(ConsensusFork.Bellatrix)
+  elif version == cfg.ALTAIR_FORK_VERSION:    ok(ConsensusFork.Altair)
+  elif version == cfg.GENESIS_FORK_VERSION:   ok(ConsensusFork.Phase0)
+  else: err()
+
+func getStoreConsensusFork(
+    store_fork_version: Option[string], store_fork_digest: Option[string],
+    cfg: RuntimeConfig, fork_digests: ForkDigests
+): ConsensusFork {.raises: [ValueError].} =
+  if store_fork_version.isSome:
+    let version = Version(distinctBase(Version).fromHex(store_fork_version.get))
+    cfg.consensusForkForVersion(version)
+      .expect("Unknown store fork version " & $version)
+  elif store_fork_digest.isSome:
+    let digest =
+      ForkDigest(distinctBase(ForkDigest).fromHex(store_fork_digest.get))
+    fork_digests.consensusForkForDigest(digest)
+      .expect("Unknown store fork " & $digest)
+  else:
+    ConsensusFork.Altair
+
 proc loadSteps(
     path: string,
+    cfg: RuntimeConfig,
     fork_digests: ForkDigests
 ): seq[TestStep] {.raises: [KeyError, ValueError].} =
   let stepsYAML = os_ops.readFile(path/"steps.yaml")
@@ -111,12 +142,18 @@ proc loadSteps(
     elif step.hasKey"upgrade_store":
       let
         s = step["upgrade_store"]
-        store_fork_digest =
-          distinctBase(ForkDigest).fromHex(
-            s["store_fork_digest"].getStr()).ForkDigest
-        store_consensus_fork =
-          fork_digests.consensusForkForDigest(store_fork_digest)
-            .expect("Unknown store fork " & $store_fork_digest)
+        store_consensus_fork = getStoreConsensusFork(
+          store_fork_version =
+            if s.hasKey"store_fork_version":
+              some(s["store_fork_version"].getStr())
+            else:
+              none(string),
+          store_fork_digest =
+            if s.hasKey"store_fork_digest":
+              some(s["store_fork_digest"].getStr())
+            else:
+              none(string),
+          cfg, fork_digests)
 
       result.add TestStep(
         kind: TestStepKind.UpgradeStore,
@@ -140,6 +177,7 @@ proc runTest(suiteName, path: string) =
         trusted_block_root: string
         bootstrap_fork_digest: Option[string]
         store_fork_digest: Option[string]
+        store_fork_version: Option[string]
       let
         meta = block:
           var s = openFileStream(path/"meta.yaml")
@@ -156,20 +194,20 @@ proc runTest(suiteName, path: string) =
         bootstrap_fork_digest =
           distinctBase(ForkDigest).fromHex(meta.bootstrap_fork_digest.get(
             distinctBase(fork_digests.altair).toHex())).ForkDigest
-        store_fork_digest =
-          distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
-            distinctBase(fork_digests.altair).toHex())).ForkDigest
+        store_consensus_fork = getStoreConsensusFork(
+          meta.store_fork_version, meta.store_fork_digest,
+          cfg, fork_digests)
 
       (cfg, TestMeta(
         genesis_validators_root: genesis_validators_root,
         trusted_block_root: trusted_block_root,
         fork_digests: fork_digests,
         bootstrap_fork_digest: bootstrap_fork_digest,
-        store_fork_digest: store_fork_digest))
+        store_consensus_fork: store_consensus_fork))
 
     let
       (cfg, meta) = loadTestMeta()
-      steps = loadSteps(path, meta.fork_digests)
+      steps = loadSteps(path, cfg, meta.fork_digests)
 
     # Reduce stack size by making this a `proc`
     proc loadBootstrap(): ForkedLightClientBootstrap =
@@ -189,16 +227,14 @@ proc runTest(suiteName, path: string) =
     # Reduce stack size by making this a `proc`
     proc initializeStore(
         bootstrap: ref ForkedLightClientBootstrap): ForkedLightClientStore =
-      let store_consensus_fork =
-        meta.fork_digests.consensusForkForDigest(meta.store_fork_digest)
-          .expect("Unknown store fork " & $meta.store_fork_digest)
       var store: ForkedLightClientStore
-      withLcDataFork(lcDataForkAtConsensusFork(store_consensus_fork)):
+      withLcDataFork(lcDataForkAtConsensusFork(meta.store_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           bootstrap[].migrateToDataFork(lcDataFork, cfg)
           store = ForkedLightClientStore.init(initialize_light_client_store(
             meta.trusted_block_root, bootstrap[].forky(lcDataFork), cfg).get)
-        else: raiseAssert "Unreachable store fork " & $meta.store_fork_digest
+        else:
+          raiseAssert "Unreachable store fork " & $meta.store_consensus_fork
       store
 
     let bootstrap = newClone(loadBootstrap())
