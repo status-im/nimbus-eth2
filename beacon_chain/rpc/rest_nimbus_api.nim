@@ -673,3 +673,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     ) -> RestApiResponse:
     let res = "{\"data\":" & node.syncOverseer.debugRootSyncJsonDump() & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/custody") do (
+    ) -> RestApiResponse:
+    let
+      slot = node.currentSlot()
+      res =
+        "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
