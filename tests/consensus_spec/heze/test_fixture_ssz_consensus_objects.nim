@@ -167,15 +167,15 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "IndexedPayloadAttestation":
             checkSSZ(IndexedPayloadAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(electra.LightClientBootstrap, path, hash)
+            checkSSZ(gloas.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            checkSSZ(electra.LightClientHeader, path, hash)
+            checkSSZ(gloas.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            checkSSZ(electra.LightClientUpdate, path, hash)
+            checkSSZ(gloas.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(electra.LightClientFinalityUpdate, path, hash)
+            checkSSZ(gloas.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(electra.LightClientOptimisticUpdate, path, hash)
+            checkSSZ(gloas.LightClientOptimisticUpdate, path, hash)
           of "MatrixEntry":
             checkSSZ(MatrixEntry, path, hash)
           of "PayloadAttestation":
@@ -224,7 +224,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
-          of "PartialDataColumnHeader", "PartialDataColumnPartsMetadata",
+          of "PartialDataColumnGroupID", "PartialDataColumnPartsMetadata",
              "PartialDataColumnSidecar":
             debugHezeComment "Skipping PartialDataColumn tests for now"
           else:

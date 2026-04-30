@@ -498,12 +498,6 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
-  proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
-    let optimistic = node.dag.is_optimistic(BlockId(
-      root: data.message.beacon_block_root,
-      slot: data.message.slot))
-    node.eventBus.execPayloadAddedQueue.emit(
-      EventExecutionPayloadObject.init(data, optimistic))
   proc onEnvelopeGossipAdded(data: SignedExecutionPayloadEnvelope) =
     node.eventBus.execPayloadGossipAddedQueue.emit(
       EventExecutionPayloadGossipObject.init(data))
@@ -858,7 +852,6 @@ proc initFullNode(
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
-  dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
 
@@ -1365,8 +1358,12 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     node.network.subscribe(topic, basicParams())
     custody.add(i)
 
-  # Due to dynamic column changes, we need to maintain the set of columns we
-  # subscribe to, as the column set may change.
+  # Unsubscribe from custody groups we no longer have custody of.
+  for i in node.lastColumnCustodyIndices:
+    if i notin custody:
+      let topic = getDataColumnSidecarTopic(forkDigest, i)
+      node.network.unsubscribe(topic)
+
   node.lastColumnCustodyIndices = custody
 
 proc addAltairMessageHandlers(
@@ -1736,11 +1733,9 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.gossipState = targetGossipState
 
   # Validator custody can change in the middle of a fork/BPO interval; need to
-  # subscribe to potentially new column topics. Do this after node.gossipState
-  # is updated to avoid adding immediately unsubscribed subscriptions. Custody
-  # can only grow in a node's lifetime, so only address additive case. It can,
-  # therefore, overlap existing subscriptions, rather than separately tracking
-  # them.
+  # subscribe to potentially new column topics and unsubscribe from stale ones.
+  # Do this after node.gossipState is updated to avoid adding immediately
+  # unsubscribed subscriptions.
   for gossipEpoch in node.gossipState:
     if node.dag.cfg.consensusForkAtEpoch(gossipEpoch) >= ConsensusFork.Fulu:
       node.updateDataColumnSidecarHandlers(gossipEpoch)

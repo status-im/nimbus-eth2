@@ -289,9 +289,20 @@ proc makeEngineBlock*(
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, state.latest_block_root)
       else:
         default(seq[PayloadAttestation])
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
+    parent_execution_requests =
+      when consensusFork >= ConsensusFork.Gloas:
+        block:
+          let envelope = node.dag.db.getExecutionPayloadEnvelope(
+              state.latest_block_root).valueOr:
+            default(TrustedSignedExecutionPayloadEnvelope)
+          envelope.message.execution_requests
+      else:
+        default(ExecutionRequests)
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -312,6 +323,7 @@ proc makeEngineBlock*(
       execution_requests,
       signed_execution_payload_bid,
       payload_attestations,
+      parent_execution_requests,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -350,7 +362,7 @@ proc getExecutionPayload*(
     beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead =
       when consensusFork >= ConsensusFork.Gloas:
-        forkyState.data.latest_execution_payload_bid.block_hash
+        proposalExecutionHead(forkyState.data)
       elif consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
       else:
@@ -361,7 +373,14 @@ proc getExecutionPayload*(
     prevRandao = get_randao_mix(forkyState.data, slot.epoch)
     withdrawals =
       when consensusFork >= ConsensusFork.Gloas:
-        get_expected_withdrawals(forkyState.data).withdrawals
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/validator.md#executionpayload
+        # - If `should_extend_payload(store, parent_root)`:
+        #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
+        # - else `withdrawals = state.payload_expected_withdrawals`.
+        if forkyState.data.latest_execution_payload_bid.block_hash.isZero():
+          forkyState.data.payload_expected_withdrawals.asSeq()
+        else:
+          get_expected_withdrawals(forkyState.data).withdrawals
       elif consensusFork >= ConsensusFork.Capella:
         get_expected_withdrawals(forkyState.data)
       else:
@@ -525,7 +544,8 @@ proc makeBuilderBlock*(
     signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, state.latest_block_root)
       else:
         newSeq[PayloadAttestation]()
 
