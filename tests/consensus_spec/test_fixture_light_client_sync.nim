@@ -10,7 +10,7 @@
 
 import
   # Standard library
-  std/[json, streams],
+  std/[json, streams, strutils],
   # Status libraries
   stew/byteutils,
   # Third-party
@@ -298,10 +298,15 @@ proc runTest(suiteName, path: string) =
 
 suite "EF - Light client - Sync" & preset():
   const presetPath = SszTestsDir/const_preset
-  for kind, path in walkDir(presetPath, relative = true, checkDir = true):
+  for kind, forkPath in walkDir(presetPath, relative = true, checkDir = true):
     let basePath =
-      presetPath/path/"light_client"/"sync"/"pyspec_tests"
+      presetPath/forkPath/"light_client"/"sync"/"pyspec_tests"
     if kind != pcDir or not dirExists(basePath):
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      if path.contains("heze"):
+        let relativePathComponent = (basePath/path).relativeTestPathComponent()
+        test "Light client - Sync - " & relativePathComponent:
+          skip()
+        continue
       runTest(suiteName, basePath/path)

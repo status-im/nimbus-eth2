@@ -280,8 +280,7 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_balance_churn_limit
 func get_balance_churn_limit(
     cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState,
     cache: var StateCache): Gwei =
   ## Return the churn limit for the current epoch.
   let churn = max(
@@ -293,8 +292,7 @@ func get_balance_churn_limit(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
 func get_activation_exit_churn_limit*(
     cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState,
     cache: var StateCache):
     Gwei =
   ## Return the churn limit for the current epoch dedicated to activations and
@@ -303,17 +301,55 @@ func get_activation_exit_churn_limit*(
     cfg.MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT.Gwei,
     get_balance_churn_limit(cfg, state, cache))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#new-get_activation_churn_limit
+func get_activation_churn_limit*(
+    cfg: RuntimeConfig,
+    state: gloas.BeaconState | heze.BeaconState,
+    cache: var StateCache): Gwei =
+  ## Per-epoch churn limit for activations, rounded to
+  ## ``EFFECTIVE_BALANCE_INCREMENT``.
+  var churn = max(
+    cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA.Gwei,
+    get_total_active_balance(state, cache) div cfg.CHURN_LIMIT_QUOTIENT_GLOAS
+  )
+  churn = churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
+  min(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS.Gwei, churn)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#new-get_exit_churn_limit
+func get_exit_churn_limit*(
+    cfg: RuntimeConfig,
+    state: gloas.BeaconState | heze.BeaconState,
+    cache: var StateCache): Gwei =
+  ## Per-epoch churn limit for exits, rounded to
+  ## ``EFFECTIVE_BALANCE_INCREMENT``.
+  let churn = max(
+    cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA.Gwei,
+    get_total_active_balance(state, cache) div cfg.CHURN_LIMIT_QUOTIENT_GLOAS
+  )
+  churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit
 func get_consolidation_churn_limit*(
     cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState,
     cache: var StateCache):
     Gwei =
   get_balance_churn_limit(cfg, state, cache) -
     get_activation_exit_churn_limit(cfg, state, cache)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-get_consolidation_churn_limit
+func get_consolidation_churn_limit*(
+    cfg: RuntimeConfig,
+    state: gloas.BeaconState | heze.BeaconState,
+    cache: var StateCache): Gwei =
+  ## Per-epoch churn limit reserved for consolidations (EIP-7521).
+  let churn =
+    get_total_active_balance(state, cache) div
+    cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT
+  churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-compute_exit_epoch_and_update_churn
 func compute_exit_epoch_and_update_churn*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -322,7 +358,11 @@ func compute_exit_epoch_and_update_churn*(
     cache: var StateCache): Epoch =
   var earliest_exit_epoch = max(state.earliest_exit_epoch,
     compute_activation_exit_epoch(get_current_epoch(state)))
-  let per_epoch_churn = get_activation_exit_churn_limit(cfg, state, cache)
+  let per_epoch_churn =
+    when typeof(state).kind >= ConsensusFork.Gloas:
+      get_exit_churn_limit(cfg, state, cache)
+    else:
+      get_activation_exit_churn_limit(cfg, state, cache)
 
   # New epoch for exits.
   var exit_balance_to_consume =
