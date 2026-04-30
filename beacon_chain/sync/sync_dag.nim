@@ -278,6 +278,29 @@ proc prune*[A, B](
       entry = nil
   rootsToDelete.clear()
 
+iterator ancestors*[A, B](
+    sdag: SyncDag[A, B],
+    entry: SyncDagEntryRef
+): SyncDagEntryRef =
+  doAssert(not(isNil(entry)))
+  var slot = entry[].blockId.slot + 1'u64
+  while slot <= sdag.lastSlot:
+    for blockRoot in sdag.slots.getOrDefault(slot):
+      let mentry = sdag.roots.getOrDefault(blockRoot)
+      if not(isNil(mentry)):
+        if mentry.parent == entry:
+          yield mentry
+    inc(slot)
+
+iterator ancestors*[A, B](
+    sdag: SyncDag[A, B],
+    blockRoot: Eth2Digest
+): SyncDagEntryRef =
+  let entry = sdag.roots.getOrDefault(blockRoot)
+  if not(isNil(entry)):
+    for item in sdag.ancestors(entry):
+      yield item
+
 proc init*(
     t: typedesc[SyncDag],
     A: typedesc,
