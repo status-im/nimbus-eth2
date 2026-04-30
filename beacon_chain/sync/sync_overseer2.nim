@@ -2837,6 +2837,30 @@ proc finalMonitoringLoop(
 
   debug "Finalization monitoring stopped"
 
+proc missingMonitoringLoop(
+    overseer: SyncOverseerRef2
+): Future[void] {.async: (raises: []).} =
+
+  debug "Block quarantine monitoring established"
+
+  try:
+    while true:
+        await overseer.blockQuarantine[].missingEvent.wait()
+
+        let missingRoots = overseer.blockQuarantine[].checkMissing(high(int))
+        for record in missingRoots:
+          let entry = overseer.sdag.roots.getOrDefault(record.root)
+          if not(isNil(entry)):
+            entry.flags.incl(DagEntryFlag.Pending)
+          else:
+            overseer.missingRoots.incl(record.root)
+        overseer.blockQuarantine[].missingEvent.clear()
+
+  except CancelledError:
+    discard
+
+  debug "Block quarantine monitoring stopped"
+
 iterator popBlocks(
     overseer: SyncOverseerRef2,
     src: BlocksSource,
@@ -2922,6 +2946,21 @@ proc checkData(
 
   false
 
+proc recoverBlocks(
+    overseer: SyncOverseerRef2,
+    head: BlockId,
+) =
+
+  logScope:
+    source = "syncdag"
+    local_head = shortLog(head)
+
+  for entry in overseer.sdag.ancestors(head.root):
+    if DagEntryFlag.Pending notin entry[].flags:
+      debug "Recover late block", bid = shortLog(entry[].blockId)
+      # Mark entry as missing block.
+      entry[].flags.incl(DagEntryFlag.Pending)
+
 proc lateBlockMonitoringLoop*(
     overseer: SyncOverseerRef2
 ): Future[void] {.async: (raises: []).} =
@@ -2954,6 +2993,8 @@ proc lateBlockMonitoringLoop*(
         if not(await overseer.checkData(
           head, BlocksSource.SidecarlessQuarantine)):
           debug "No ancestor sidecarless blocks found for current head"
+          # Recover missing blocks from the network.
+          overseer.recoverBlocks(head)
           await sleepAsync(5.seconds)
 
   except CancelledError:
@@ -2987,6 +3028,7 @@ proc mainLoop*(
     finalMonitoringLoopFut = overseer.finalMonitoringLoop()
     timeMonitoringLoopFut = overseer.timeMonitoringLoop()
     lateBlockMonitoringLoopFut = overseer.lateBlockMonitoringLoop()
+    missingMonitoringLoopFut = overseer.missingMonitoringLoop()
 
   while true:
     let peer =
@@ -2998,7 +3040,7 @@ proc mainLoop*(
         await cancelAndWait(
           gossipMonitoringLoopFut, blockMonitoringLoopFut,
           finalMonitoringLoopFut, timeMonitoringLoopFut,
-          lateBlockMonitoringLoopFut)
+          lateBlockMonitoringLoopFut, missingMonitoringLoopFut)
         return
     let entry = overseer.initPeer(peer)
     overseer.updatePeerStatus(peer)

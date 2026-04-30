@@ -9,6 +9,7 @@
 
 import
   chronicles,
+  chronos,
   minilru,
   std/tables,
   ./quarantine_types,
@@ -89,6 +90,14 @@ type
       ## so as to skip expensive cryptographic verification if the same block root
       ## and signature combination arrives multiple times over gossip
 
+    missingEvent*: AsyncEvent
+      ## This asynchronous event is triggered when a new orphaned block is added
+      ## to the quarantine.
+
+    sidecarlessEvent*: AsyncEvent
+      ## This asynchronous event is triggered when a new block without sidecars
+      ## is added to the quarantine.
+
     cfg*: RuntimeConfig
 
 func init*(T: type Quarantine, cfg: RuntimeConfig): T =
@@ -99,6 +108,8 @@ func init*(T: type Quarantine, cfg: RuntimeConfig): T =
     unviable: UnviableLru.init(MaxUnviables),
     latest_sidecar_signatures: RecentSidecarSignatureLru.init(MaxRecentSidecarSignatures),
     missing: MissingTable.init(),
+    missingEvent: newAsyncEvent(),
+    sidecarlessEvent: newAsyncEvent()
   )
 
 func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
@@ -144,6 +155,7 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
     # Add if it's not there, but don't update missing counter
     if not found:
       quarantine.missing.add(r)
+      quarantine.missingEvent.fire()
       break
 
   ok()
@@ -380,6 +392,7 @@ proc addSidecarless(
     signedBlock.root, ForkedSignedBeaconBlock.init(signedBlock)
   )
   quarantine.missing.del(signedBlock.root)
+  quarantine.sidecarlessEvent.fire()
   true
 
 proc addSidecarless*(
