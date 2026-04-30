@@ -13,20 +13,18 @@ import
   ../beacon_chain/consensus_object_pools/envelope_quarantine,
   ../beacon_chain/spec/forks
 
-from stew/byteutils import hexToByteArray
-
 suite "Envelope Quarantine":
   setup:
     var quarantine = EnvelopeQuarantine.init()
     # Block root for testing
-    let root1 = Eth2Digest(data:hexToByteArray[32](
-      "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0001"
-      .toOpenArray(0, 63)))
+    let root1 = Eth2Digest.fromHex(
+      "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0001")
 
   test "Add missing":
     check root1 notin quarantine.missing
     quarantine.addMissing(root1)
     check root1 in quarantine.missing
+    check root1 in quarantine.checkMissing(32)
 
   test "Add orphan":
     check root1 notin quarantine.orphans
@@ -69,12 +67,10 @@ suite "Envelope Quarantine":
 
   test "Clean up orphans":
     let
-      root2 = Eth2Digest(data:hexToByteArray[32](
-        "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0002"
-        .toOpenArray(0, 63)))
-      root3 = Eth2Digest(data:hexToByteArray[32](
-        "6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0003"
-        .toOpenArray(0, 63)))
+      root2 = Eth2Digest.fromHex(
+        "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0002")
+      root3 = Eth2Digest.fromHex(
+        "0x6aaaaaaaaa5aaaaaaaaa4aaaaaaaaa3aaaaaaaaa2aaaaaaaaa1aaaaaaaaa0003")
 
     quarantine.addOrphan(SignedExecutionPayloadEnvelope(
       message: ExecutionPayloadEnvelope(

@@ -226,7 +226,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBeaconBlock                                                             OK
@@ -546,7 +545,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -929,7 +927,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -937,7 +934,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1343,7 +1339,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -1351,7 +1346,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1863,7 +1857,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -1871,7 +1864,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -2396,7 +2388,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -2408,7 +2399,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    PartialDataColumnHeader                                                       OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -2729,6 +2719,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -2738,6 +2729,10 @@ ConsensusSpecPreset-mainnet
 ## EF - Gloas - Operations - Parent Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -2857,6 +2852,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - min_balance_exits_up_to_churn         OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__min_churn         OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit   OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit Churn - exit_churn__less_than_activatio OK
 ```
 ## EF - Gloas - Operations - Withdrawal Request  [Preset: mainnet]
 ```diff
@@ -2992,12 +2988,10 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionPayload                                                              OK
 +   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
-+   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    IndexedPayloadAttestation                                                     OK
@@ -3007,13 +3001,12 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
-+   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -3313,6 +3306,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
++ [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_s OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_w OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_w OK
@@ -3327,6 +3321,10 @@ ConsensusSpecPreset-mainnet
 ## EF - Heze - Operations - Parent Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
@@ -3446,6 +3444,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Voluntary Exit - min_balance_exits_up_to_churn          OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit    OK
++ [Valid]   EF - Heze - Operations - Voluntary Exit Churn - exit_churn__less_than_activation OK
 ```
 ## EF - Heze - Operations - Withdrawal Request  [Preset: mainnet]
 ```diff
@@ -3581,12 +3580,10 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionPayload                                                              OK
 +   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
-+   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    InclusionList                                                                 OK
 +   Testing    IndexedAttestation                                                            OK
@@ -3597,13 +3594,12 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
-+   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -3704,6 +3700,11 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconS OK
 + Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconS OK
 + Light client - Single merkle proof - mainnet/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - mainnet/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/heze/light_client/single_merkle_proof/BeaconB OK
 ```
 ## EF - Merkle proof [Preset: mainnet]
 ```diff
@@ -5523,7 +5524,6 @@ ConsensusSpecPreset-mainnet
 + Builder pending payments - process_builder_pending_payments_below_quorum [Preset: mainnet] OK
 + Builder pending payments - process_builder_pending_payments_empty_queue [Preset: mainnet]  OK
 + Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
 + Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: mainnet OK
 + Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
 + Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: mainne OK
@@ -5657,6 +5657,10 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: mai OK
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
+```
+## EF - gloas - Epoch Processing - Pending deposits churn [Preset: mainnet]
+```diff
++ Pending deposits churn - activation_churn__less_than_cap [Preset: mainnet]                 OK
 ```
 ## EF - gloas - Epoch Processing - Proposer lookahead [Preset: mainnet]
 ```diff
@@ -5800,6 +5804,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
 + [Invalid] EF - gloas - Sanity - Blocks - process_parent_execution_payload__wrong_execution OK
 + [Invalid] EF - gloas - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]       OK
++ [Invalid] EF - gloas - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdra OK
 + [Valid]   EF - gloas - Sanity - Blocks - attestation [Preset: mainnet]                     OK
 + [Valid]   EF - gloas - Sanity - Blocks - attester_slashing [Preset: mainnet]               OK
 + [Valid]   EF - gloas - Sanity - Blocks - balance_driven_status_transitions [Preset: mainne OK
@@ -5850,7 +5855,6 @@ ConsensusSpecPreset-mainnet
 + Builder pending payments - process_builder_pending_payments_below_quorum [Preset: mainnet] OK
 + Builder pending payments - process_builder_pending_payments_empty_queue [Preset: mainnet]  OK
 + Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: mainnet] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
 + Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: mainnet OK
 + Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
 + Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: mainne OK
@@ -5981,6 +5985,10 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: mainnet]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: ma OK
 ```
+## EF - heze - Epoch Processing - Pending deposits churn [Preset: mainnet]
+```diff
++ Pending deposits churn - activation_churn__less_than_cap [Preset: mainnet]                 OK
+```
 ## EF - heze - Epoch Processing - Proposer lookahead [Preset: mainnet]
 ```diff
 + Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
@@ -6104,6 +6112,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
 + [Invalid] EF - heze - Sanity - Blocks - process_parent_execution_payload__wrong_execution_ OK
 + [Invalid] EF - heze - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]        OK
++ [Invalid] EF - heze - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdraw OK
 + [Valid]   EF - heze - Sanity - Blocks - attestation [Preset: mainnet]                      OK
 + [Valid]   EF - heze - Sanity - Blocks - attester_slashing [Preset: mainnet]                OK
 + [Valid]   EF - heze - Sanity - Blocks - balance_driven_status_transitions [Preset: mainnet OK

@@ -429,7 +429,7 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Block stored but envelope not available, should be in missing list
-          engineBlock.blck.root in envelopeQuarantine[].getMissing()
+          engineBlock.blck.root in envelopeQuarantine[].checkMissing(32)
 
   asyncTest "Gloas block pops pre-arrived envelope from quarantine" & preset():
     # Envelope arrives before its block (orphan envelope).
@@ -500,7 +500,7 @@ suite "Block processor" & preset():
     check res2.isOk
 
     # Both envelopes should be missing
-    let missing = envelopeQuarantine[].getMissing()
+    let missing = envelopeQuarantine[].checkMissing(32)
     check:
       b1.root in missing
       b2.root in missing

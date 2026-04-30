@@ -889,7 +889,13 @@ proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
 proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
-      # check that our custody columns are available
+      let forkyBlck =
+        getBlock(node.dag, blck.bid,
+                 consensusFork.TrustedSignedBeaconBlock).valueOr:
+          return false
+      if forkyBlck.message.body.signed_execution_payload_bid.message
+          .blob_kzg_commitments.len() == 0:
+        return true
       for columnIdx in node.dataColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
             consensusFork, blck.root, columnIdx):
@@ -1434,8 +1440,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
-
-  asyncSpawn sendProposerPreferences(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
