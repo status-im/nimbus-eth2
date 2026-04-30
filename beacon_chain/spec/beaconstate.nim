@@ -632,9 +632,10 @@ func get_initial_beacon_block*(state: gloas.HashedBeaconState):
   # The genesis block is implicitly trusted
   let message = gloas.TrustedBeaconBlock(
     slot: state.data.slot,
-    state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
+    state_root: state.root,
+    body: gloas.TrustedBeaconBlockBody(
+      signed_execution_payload_bid: gloas.SignedExecutionPayloadBid(
+        message: state.data.latest_execution_payload_bid)))
   gloas.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -643,9 +644,10 @@ func get_initial_beacon_block*(state: heze.HashedBeaconState):
   # The genesis block is implicitly trusted
   let message = heze.TrustedBeaconBlock(
     slot: state.data.slot,
-    state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
+    state_root: state.root,
+    body: heze.TrustedBeaconBlockBody(
+      signed_execution_payload_bid: heze.SignedExecutionPayloadBid(
+        message: state.data.latest_execution_payload_bid)))
   heze.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
