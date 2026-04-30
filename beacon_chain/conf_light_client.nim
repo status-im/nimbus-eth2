@@ -113,6 +113,7 @@ type LightClientConf* = object
 
   syncLightClientFinality* {.
     desc: "Whether the light client should including finality information when syncing execution layers"
+    defaultValue: true
     name: "sync-light-client-finality" .}: bool
 
   # Execution layer
