@@ -43,7 +43,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,fulu-fork-epoch:,gloas-fork-epoch:,p2p-transport:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,fulu-fork-epoch:,gloas-fork-epoch:,debug-tcp:,debug-quic:"
 
 # default values
 BINARIES=""
@@ -55,7 +55,8 @@ USE_PAYLOAD_BUILDER="false"
 : ${PAYLOAD_BUILDER_HOST:=127.0.0.1}
 : ${PAYLOAD_BUILDER_PORT:=4888}
 LOG_LEVEL="DEBUG; TRACE:networking"
-P2P_TRANSPORT="both"
+P2P_TCP_ENABLED="true"
+P2P_QUIC_ENABLED="false"
 BASE_PORT="9000"
 BASE_REMOTE_SIGNER_PORT="6000"
 BASE_REMOTE_SIGNER_METRICS_PORT="6100"
@@ -139,8 +140,8 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               and validator clients, with all beacon nodes being paired up
                               with a corresponding validator client)
   --log-level                 set the log level (default: "${LOG_LEVEL}")
-  --p2p-transport             P2P transport to use: mplex, quic, or both
-                              (default: "${P2P_TRANSPORT}")
+  --debug-tcp                 enable TCP transport: true or false (default: ${P2P_TCP_ENABLED})
+  --debug-quic                enable QUIC transport: true or false (default: ${P2P_QUIC_ENABLED})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --reuse-binaries            don't (re)build the binaries we need and don't delete them at the end (speeds up testing)
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
@@ -236,8 +237,12 @@ while true; do
       LOG_LEVEL="$2"
       shift 2
       ;;
-    --p2p-transport)
-      P2P_TRANSPORT="$2"
+    --debug-tcp)
+      P2P_TCP_ENABLED="$2"
+      shift 2
+      ;;
+    --debug-quic)
+      P2P_QUIC_ENABLED="$2"
       shift 2
       ;;
     --base-port)
@@ -362,21 +367,18 @@ if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
   fi
 fi
 
-case "${P2P_TRANSPORT}" in
-  mplex)
-    P2P_TCP_ENABLED="true"
-    P2P_QUIC_ENABLED="false"
-    ;;
-  quic)
-    P2P_TCP_ENABLED="false"
-    P2P_QUIC_ENABLED="true"
-    ;;
-  both)
-    P2P_TCP_ENABLED="true"
-    P2P_QUIC_ENABLED="true"
-    ;;
+case "${P2P_TCP_ENABLED}" in
+  true|false) ;;
   *)
-    echo "Invalid --p2p-transport value: ${P2P_TRANSPORT}. Expected one of: mplex, quic, both."
+    echo "Invalid --debug-tcp value: ${P2P_TCP_ENABLED}. Expected true or false."
+    exit 1
+    ;;
+esac
+
+case "${P2P_QUIC_ENABLED}" in
+  true|false) ;;
+  *)
+    echo "Invalid --debug-quic value: ${P2P_QUIC_ENABLED}. Expected true or false."
     exit 1
     ;;
 esac

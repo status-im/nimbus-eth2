@@ -1343,10 +1343,10 @@ template udpEndPoint(address, port): auto =
   MultiAddress.init(address, udpProtocol, port)
 
 template quicEndPoint(address, port): auto =
-  try:
-    MultiAddress.init(address, udpProtocol, port) & MultiAddress.init("/quic-v1").tryGet()
-  except LPError:
-    raiseAssert "invalid quic address"
+  concat(
+    MultiAddress.init(address, udpProtocol, port),
+    MultiAddress.init("/quic-v1").expect("valid address")).expect(
+      "valid quic address")
 
 func toPeerAddr*(r: enr.TypedRecord,
                  peerAddrProto: openArray[PeerAddrProto]): Result[PeerAddr, cstring] =
@@ -1487,7 +1487,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
 
 func toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let nodeRecord = TypedRecord.fromRecord(node.record)
-  let peerAddr = ? nodeRecord.toPeerAddr(@[PeerAddrProto.TCP, PeerAddrProto.QUIC])
+  let peerAddr = ? nodeRecord.toPeerAddr([PeerAddrProto.TCP, PeerAddrProto.QUIC])
   ok(peerAddr)
 
 proc trimConnections(node: Eth2Node, count: int) =
@@ -2000,7 +2000,7 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
-      let pa = TypedRecord.fromRecord(enr).toPeerAddr(@[PeerAddrProto.TCP, PeerAddrProto.QUIC])
+      let pa = TypedRecord.fromRecord(enr).toPeerAddr([PeerAddrProto.TCP, PeerAddrProto.QUIC])
       if pa.isOk():
         await node.connQueue.addLast(pa.get())
   node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
@@ -2451,7 +2451,7 @@ proc createEth2Node*(
                 warn "Failed to parse direct peer address, skipping", enr=s, err = error
                 return err("Invalid direct peer")
               typedEnr = TypedRecord.fromRecord(enr)
-              peerAddress = toPeerAddr(typedEnr, @[PeerAddrProto.TCP, PeerAddrProto.QUIC]).get()
+              peerAddress = toPeerAddr(typedEnr, [PeerAddrProto.TCP, PeerAddrProto.QUIC]).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
             parseFullAddress(s).valueOr:

@@ -228,7 +228,8 @@ local-testnet-minimal:
 		--fulu-fork-epoch 10000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--p2p-transport quic \
+		--debug-tcp false \
+		--debug-quic true \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -256,7 +257,8 @@ local-testnet-mainnet:
 		--fulu-fork-epoch 1 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--p2p-transport mplex \
+		--debug-tcp true \
+		--debug-quic false \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
