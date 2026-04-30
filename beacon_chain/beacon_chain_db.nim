@@ -871,22 +871,6 @@ proc delBlobSidecar*(
     root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
 
-proc putDataColumnSidecar*(
-    db: BeaconChainDB,
-    value: fulu.DataColumnSidecar) =
-  const consensusFork = ConsensusFork.Fulu
-  doAssert db.columns[consensusFork] != nil
-  let block_root = hash_tree_root(value.signed_block_header.message)
-  db.columns[consensusFork].putSZSSZ(columnkey(block_root, value.index), value)
-
-proc putDataColumnSidecar*(
-    db: BeaconChainDB,
-    value: gloas.DataColumnSidecar) =
-  const consensusFork = ConsensusFork.Gloas
-  doAssert db.columns[consensusFork] != nil
-  db.columns[consensusFork].putSZSSZ(columnkey(
-    value.beacon_block_root, value.index), value)
-
 proc putDataColumnSidecars*(
     db: BeaconChainDB,
     values: openArray[ref fulu.DataColumnSidecar]) =
