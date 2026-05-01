@@ -41,6 +41,7 @@ const
   OpProposerSlashingDir       = OpDir/"proposer_slashing"
   OpSyncAggregateDir          = OpDir/"sync_aggregate"
   OpVoluntaryExitDir          = OpDir/"voluntary_exit"
+  OpVoluntaryExitChurnDir     = OpDir/"voluntary_exit_churn"
   OpWithdrawalsDir            = OpDir/"withdrawals"
 
   baseDescription = "EF - Gloas - Operations - "
@@ -50,7 +51,8 @@ const testDirs = toHashSet([
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
   OpDepositsDir, OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
-  OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
+  OpSyncAggregateDir, OpVoluntaryExitDir, OpVoluntaryExitChurnDir,
+  OpWithdrawalsDir
 ])
 
 doAssert toHashSet(
@@ -297,6 +299,11 @@ suite baseDescription & "Voluntary Exit " & preset():
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
       OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
       applyVoluntaryExit, path)
+
+  for path in walkTests(OpVoluntaryExitChurnDir):
+    runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
+      OpVoluntaryExitChurnDir, suiteName, "Voluntary Exit Churn",
+      "voluntary_exit", applyVoluntaryExit, path)
 
 suite baseDescription & "Withdrawals " & preset():
   for path in walkTests(OpWithdrawalsDir):

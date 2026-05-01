@@ -185,16 +185,19 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
 func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
+    parent_block_root: Eth2Digest
 ): gloas.ExecutionPayloadEnvelope =
   gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
+    parent_beacon_block_root: parent_block_root,
   )
 
 func makeSignedExecutionPayloadBid(
@@ -373,7 +376,14 @@ proc getExecutionPayload*(
     prevRandao = get_randao_mix(forkyState.data, slot.epoch)
     withdrawals =
       when consensusFork >= ConsensusFork.Gloas:
-        get_expected_withdrawals(forkyState.data).withdrawals
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/validator.md#executionpayload
+        # - If `should_extend_payload(store, parent_root)`:
+        #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
+        # - else `withdrawals = state.payload_expected_withdrawals`.
+        if forkyState.data.latest_execution_payload_bid.block_hash.isZero():
+          forkyState.data.payload_expected_withdrawals.asSeq()
+        else:
+          get_expected_withdrawals(forkyState.data).withdrawals
       elif consensusFork >= ConsensusFork.Capella:
         get_expected_withdrawals(forkyState.data)
       else:

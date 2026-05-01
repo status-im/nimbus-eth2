@@ -502,6 +502,16 @@ func toExecutionBlockHeader(
         Opt.some(parentRoot.get().to(EthHash32))
       else:
         Opt.none(EthHash32)
+    blockAccessListHash =
+      when compiles(payload.block_access_list):
+        Opt.some keccak256(payload.block_access_list.asSeq)
+      else:
+        Opt.none(EthHash32)
+    slotNumber =
+      when compiles(payload.slot_number):
+        Opt.some payload.slot_number.uint64
+      else:
+        Opt.none(uint64)
 
   EthHeader(
     parentHash            : payload.parent_hash.to(Hash32),
@@ -524,7 +534,9 @@ func toExecutionBlockHeader(
     blobGasUsed           : blobGasUsed,           # EIP-4844
     excessBlobGas         : excessBlobGas,         # EIP-4844
     parentBeaconBlockRoot : parentBeaconBlockRoot, # EIP-4788
-    requestsHash          : requestsHash)          # EIP-7685
+    requestsHash          : requestsHash,          # EIP-7685
+    blockAccessListHash   : blockAccessListHash,   # EIP-7928
+    slotNumber            : slotNumber)            # EIP-7843
 
 func compute_execution_block_hash*(
     consensusFork: static ConsensusFork,

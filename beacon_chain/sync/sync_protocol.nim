@@ -38,7 +38,7 @@ type
     blockRoot: Eth2Digest
     slot: Slot
 
-  BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
+  BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS_DENEB]
   BlobIdentifierList* = List[
     BlobIdentifier, Limit MAX_SUPPORTED_REQUEST_BLOB_SIDECARS]
   DataColumnIdentifierList* = List[
@@ -252,7 +252,7 @@ p2pProtocol BeaconSync(version = 1,
       reqCount: uint64,
       reqStep: uint64,
       response: MultipleChunksResponse[
-        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS])
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB])
       {.async, libp2pProtocol("beacon_blocks_by_range", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -273,7 +273,7 @@ p2pProtocol BeaconSync(version = 1,
     if reqCount == 0:
       raise newException(InvalidInputsError, "Empty range requested")
 
-    var blocks: array[MAX_REQUEST_BLOCKS.int, BlockId]
+    var blocks: array[MAX_REQUEST_BLOCKS_DENEB.int, BlockId]
     let dag = peer.networkState.dag
     if startSlot < dag.backfill.slot:
       # Peers that are unable to reply to block requests within the
@@ -321,10 +321,10 @@ p2pProtocol BeaconSync(version = 1,
   proc beaconBlocksByRoot_v2(
       peer: Peer,
       # Please note that the SSZ list here ensures that the
-      # spec constant MAX_REQUEST_BLOCKS is enforced:
+      # spec constant MAX_REQUEST_BLOCKS_DENEB is enforced:
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[
-        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS])
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB])
       {.async, libp2pProtocol("beacon_blocks_by_root", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -379,13 +379,13 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       response: MultipleChunksResponse[
-        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS])
+        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS_DENEB])
       {.async, libp2pProtocol("execution_payload_envelopes_by_range", 1).} =
 
     if reqCount == 0:
       raise newException(InvalidInputsError, "Empty range requested")
 
-    var blocks: array[MAX_REQUEST_BLOCKS.int, BlockId]
+    var blocks: array[MAX_REQUEST_BLOCKS_DENEB.int, BlockId]
     let dag = peer.networkState.dag
     if startSlot < dag.backfill.slot:
       # Peers that are unable to reply to block requests within the
@@ -435,7 +435,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[
-        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS])
+        ref gloas.SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_PAYLOADS])
       {.async, libp2pProtocol("execution_payload_envelopes_by_root", 1).} =
 
     if blockRoots.len == 0:

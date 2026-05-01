@@ -107,7 +107,9 @@ suite "Payload attestation pool" & preset():
           message = makePayloadAttestationMessage(
             forkyState, beacon_block_root, ptc_member, privkey, cache)
 
+        check not pool[].isSeen(message)
         check pool[].addPayloadAttestation(message, wallTime)
+        check pool[].isSeen(message)
 
         # Should not be able to add the same attestation twice
         check not pool[].addPayloadAttestation(message, wallTime)

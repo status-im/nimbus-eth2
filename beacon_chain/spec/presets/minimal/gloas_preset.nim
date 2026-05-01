@@ -12,8 +12,8 @@
 const
   # Misc
   # ---------------------------------------------------------------
-  # [customized] 2**1 (= 2) validators
-  PTC_SIZE* = 2
+  # [customized] 2**4 (= 16) validators
+  PTC_SIZE* = 16
 
   # Max operations per block
   # ---------------------------------------------------------------
