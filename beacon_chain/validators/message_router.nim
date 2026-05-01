@@ -299,8 +299,7 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  const consensusFork = typeof(blck).kind
-  when consensusFork >= ConsensusFork.Gloas:
+  when typeof(blck).kind >= ConsensusFork.Gloas:
     # Disable column processing at block time.
     const finalSidecars = noSidecars
   else:
