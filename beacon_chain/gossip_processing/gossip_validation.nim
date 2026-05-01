@@ -1031,7 +1031,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -1110,8 +1110,8 @@ proc validateExecutionPayload*(
       bid.execution_requests_root):
     return dag.checkedReject("ExecutionPayload: requests mismatch")
 
-  # [REJECT] signed_execution_payload_envelope.signature is valid with respect
-  # to the builder's public key.
+  # [REJECT] `signed_execution_payload_envelope.signature` is valid as verified
+  # by `verify_execution_payload_envelope_signature`.
   if dag.headState.kind >= ConsensusFork.Gloas:
     let builderKey = dag.validatorKey(blck.builder_index).valueOr:
       return dag.checkedReject("ExecutionPayload: unknown builder")
