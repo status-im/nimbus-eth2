@@ -3324,6 +3324,8 @@ func is_active_builder*(
     state: gloas.BeaconState | heze.BeaconState,
     builder_index: BuilderIndex): bool =
   ## Check if the builder at ``builder_index`` is active for the given ``state``.
+  if builder_index.uint64 >= state.builders.lenu64:
+    return false
   template builder: untyped = state.builders.item(builder_index)
 
   # Placement in builder list is finalized and has not initiated exit
