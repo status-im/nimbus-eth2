@@ -186,7 +186,7 @@ func decodePayloadRequests(
     err("Failed to deserialize execution requests")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
-proc makeExecutionPayloadEnvelope*(
+func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
