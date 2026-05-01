@@ -63,12 +63,10 @@ type
 
   SomeSidecarsToRoute =
     seq[BlobSidecar] |
-    seq[fulu.DataColumnSidecar] |
-    Opt[seq[gloas.DataColumnSidecar]]
+    seq[fulu.DataColumnSidecar]
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
-    Opt[gloas.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -286,9 +284,8 @@ proc addRoutedBlock(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
-    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
-          gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    someSidecarsOpt: SomeSidecarsToRoute,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+    someSidecars: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
 
@@ -299,10 +296,26 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+  let finalSidecars = await publishSidecars(router, blck, someSidecars)
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)
+
+proc routeSignedBeaconBlock*(
+    router: ref MessageRouter,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    checkValidator: bool
+): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+  ## Same as pre-Gloas block but no sidecars publishing.
+
+  # 1. Validate
+  ? router.validateRouteBlock(blck, checkValidator)
+
+  # 2. Publish block
+  await router.publishRouteBlock(blck)
+
+  # 3. Add block to DAG
+  return await router.addRoutedBlock(blck, noSidecars)
 
 proc routeAttestation*(
     router: ref MessageRouter,
@@ -702,29 +715,40 @@ proc routePayloadAttestationMessage*(
 
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    checkValidator: bool
-) {.async: (raises: [CancelledError]).} =
-  block:
-    let res = router[].processor[].processExecutionPayloadEnvelope(
-      MsgSource.api, signedEnvelope)
-
-    if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message),
-        error = res.error()
-      return
-
-  let res =
-    await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
-
-  if res.isOk():
-    info "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
-  else:
-    notice "Execution payload envelope not sent",
+    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
+): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  # Validate with gossip
+  let vRes = validateExecutionPayload(
+    router[].dag, router[].quarantine,
+    router.processor.envelopeQuarantine, signedEnvelope)
+  if not isGoodForSending(vRes):
+    warn "Envelope failed validation",
       envelope = shortLog(signedEnvelope.message),
-      error = res.error()
+      payload = shortLog(signedEnvelope.message.payload),
+      signature = shortLog(signedEnvelope.signature),
+      error = vRes.error()
+    return err(vRes.error()[1])
+
+  # Publish envelope
+  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  if res.isErr():
+    notice "Envelope not sent",
+      envelope = shortLog(signedEnvelope.message), error = res.error()
+  else:
+    notice "Envelope sent",
+      envelope = shortLog(signedEnvelope.message)
+
+  # Publish sidecars
+  let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
+
+  # Add envelope and sidecars to DAG
+  (await router[].blockProcessor.addPayload(
+      signedBlock, signedEnvelope, finalSidecars)).isOkOr:
+    return err("Proposed envelope failed to add to the chain")
+
+  ok()
 
 proc routeProposerPreferences*(
     router: ref MessageRouter,
