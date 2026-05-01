@@ -1643,6 +1643,41 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadBid
+  router.api(MethodPost, "/eth/v1/beacon/execution_payload_bid") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400,
+                                       FailedToObtainConsensusForkError)
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    template decodeBidAndRoute(BidType: untyped) =
+      let dres = decodeBody(BidType, contentBody.get())
+      if dres.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                         InvalidExecutionPayloadBidObjectError,
+                                         $dres.error)
+      let res = await node.router.routeExecutionPayloadBid(dres.get())
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400,
+                                         ExecutionPayloadBidValidationError,
+                                         $res.error)
+      return RestApiResponse.jsonMsgResponse(
+        ExecutionPayloadBidValidationSuccess)
+
+    case consensusVersion.get():
+      of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
+        return RestApiResponse.jsonError(Http400,
+                                         SlotFromTheIncorrectForkError)
+      of ConsensusFork.Gloas .. ConsensusFork.Heze:
+        decodeBidAndRoute(gloas.SignedExecutionPayloadBid)
+
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
   router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:

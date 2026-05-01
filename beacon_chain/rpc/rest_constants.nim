@@ -296,3 +296,9 @@ const
     "Reward value overflow"
   HistoricalSummariesUnavailable* =
     "Historical summaries unavailable"
+  InvalidExecutionPayloadBidObjectError* =
+    "Unable to decode execution payload bid object"
+  ExecutionPayloadBidValidationError* =
+    "Invalid execution payload bid, it won't validate, so it's rejected"
+  ExecutionPayloadBidValidationSuccess* =
+    "The execution payload bid was validated successfully and has been broadcast"
