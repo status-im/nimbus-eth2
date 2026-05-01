@@ -235,7 +235,6 @@ proc setValidatorCustody*(
     vcus.network.loadCgcnetMetadataAndEnr(newGroupsCount, newMap)
     vcus.curColumnMap = newMap
     vcus.curGroupsCount = newGroupsCount
-    vcus.totalNodeBalance = nodeBalance
 
     # We only update the `ea_slot` when the new validator custody set is larger
     # than the old one.
