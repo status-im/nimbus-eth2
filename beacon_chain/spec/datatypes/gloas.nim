@@ -19,6 +19,7 @@ import
   std/typetraits,
   ./[phase0, base, bellatrix, electra, fulu],
   chronicles,
+  stew/bitops2,
   json_serialization,
   ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
@@ -124,18 +125,20 @@ type
     message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayloadenvelope
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#executionpayloadenvelope
   ExecutionPayloadEnvelope* = object
     payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
+    parent_beacon_block_root*: Eth2Digest
 
   TrustedExecutionPayloadEnvelope* = object
     payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
+    parent_beacon_block_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#signedexecutionpayloadenvelope
   SignedExecutionPayloadEnvelope* = object
@@ -191,8 +194,9 @@ type
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#new-proposerpreferences
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/p2p-interface.md#new-proposerpreferences
   ProposerPreferences* = object
+    dependent_root*: Eth2Digest
     proposal_slot*: Slot
     validator_index*: uint64
     fee_recipient*: ExecutionAddress
@@ -693,6 +697,7 @@ template builder_index*(
     v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
   v.message.builder_index
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/electra/light-client/sync-protocol.md#new-constants
 const
   EXECUTION_BLOCK_HASH_GINDEX* = get_generalized_index(
     capella.BeaconBlockBody, "execution_payload", "block_hash")
@@ -704,3 +709,318 @@ static:
   doAssert EXECUTION_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 832.GeneralizedIndex
+
+type
+  ExecutionBranch* =
+    array[log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS), Eth2Digest]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/sync-protocol.md#modified-lightclientheader
+  LightClientHeader* = object
+    beacon*: BeaconBlockHeader
+    # [Modified in Gloas]
+    # Removed `execution`
+    execution_block_hash*: Eth2Digest
+      ## [New in Gloas]
+    execution_branch*: ExecutionBranch
+      ## [Modified in Gloas]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  LightClientBootstrap* = object
+    header*: LightClientHeader
+      ## Header matching the requested beacon block root
+
+    current_sync_committee*: SyncCommittee
+      ## Current sync committee corresponding to `header.beacon.state_root`
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  LightClientUpdate* = object
+    attested_header*: LightClientHeader
+      ## Header attested to by the sync committee
+
+    next_sync_committee*: SyncCommittee
+      ## Next sync committee corresponding to
+      ## `attested_header.beacon.state_root`
+    next_sync_committee_branch*: NextSyncCommitteeBranch
+
+    finalized_header*: LightClientHeader
+      ## Finalized header corresponding to `attested_header.beacon.state_root`
+    finality_branch*: FinalityBranch
+
+    sync_aggregate*: SyncAggregate
+      ## Sync committee aggregate signature
+    signature_slot*: Slot
+      ## Slot at which the aggregate signature was created (untrusted)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  LightClientFinalityUpdate* = object
+    attested_header*: LightClientHeader
+      ## Header attested to by the sync committee
+
+    finalized_header*: LightClientHeader
+      ## Finalized header corresponding to `attested_header.beacon.state_root`
+    finality_branch*: FinalityBranch
+
+    sync_aggregate*: SyncAggregate
+      ## Sync committee aggregate signature
+    signature_slot*: Slot
+      ## Slot at which the aggregate signature was created (untrusted)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
+  LightClientOptimisticUpdate* = object
+    attested_header*: LightClientHeader
+      ## Header attested to by the sync committee
+
+    sync_aggregate*: SyncAggregate
+      ## Sync committee aggregate signature
+    signature_slot*: Slot
+      ## Slot at which the aggregate signature was created (untrusted)
+
+  SomeLightClientUpdateWithSyncCommittee* =
+    LightClientUpdate
+
+  SomeLightClientUpdateWithFinality* =
+    LightClientUpdate |
+    LightClientFinalityUpdate
+
+  SomeLightClientUpdate* =
+    LightClientUpdate |
+    LightClientFinalityUpdate |
+    LightClientOptimisticUpdate
+
+  SomeLightClientObject* =
+    LightClientBootstrap |
+    SomeLightClientUpdate
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#lightclientstore
+  LightClientStore* = object
+    finalized_header*: LightClientHeader
+      ## Header that is finalized
+
+    current_sync_committee*: SyncCommittee
+      ## Sync committees corresponding to the finalized header
+    next_sync_committee*: SyncCommittee
+
+    best_valid_update*: Opt[LightClientUpdate]
+      ## Best available header to switch finalized head to
+      ## if we see nothing else
+
+    optimistic_header*: LightClientHeader
+      ## Most recent available reasonably-safe header
+
+    previous_max_active_participants*: uint64
+      ## Max number of active participants in a sync committee
+      ## (used to calculate safety threshold)
+    current_max_active_participants*: uint64
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/sync-protocol.md#modified-get_lc_execution_root
+func get_lc_execution_root*(
+    header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
+  let epoch = header.beacon.slot.epoch
+
+  # [New in Gloas:EIP7732]
+  if epoch >= cfg.GLOAS_FORK_EPOCH:
+    return header.execution_block_hash
+
+  template inner: openArray[Eth2Digest] =
+    header.execution_branch.toOpenArray(
+      0, header.execution_branch.high - log2trunc(EXECUTION_PAYLOAD_GINDEX))
+
+  # [Modified in Gloas:EIP7732]
+  if epoch >= cfg.DENEB_FORK_EPOCH:
+    if header.beacon.slot == GENESIS_SLOT:
+      return hash_tree_root(default(deneb.ExecutionPayloadHeader))
+    const BLOCK_HASH_GINDEX = get_generalized_index(
+      deneb.ExecutionPayloadHeader, "block_hash")
+    return compute_merkle_branch_root(
+      header.execution_block_hash,
+      inner.toOpenArray(inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high),
+      log2trunc(BLOCK_HASH_GINDEX), get_subtree_index(BLOCK_HASH_GINDEX))
+
+  # [Modified in Gloas:EIP7732]
+  if epoch >= cfg.CAPELLA_FORK_EPOCH:
+    if header.beacon.slot == GENESIS_SLOT:
+      return hash_tree_root(default(capella.ExecutionPayloadHeader))
+    const BLOCK_HASH_GINDEX = get_generalized_index(
+      capella.ExecutionPayloadHeader, "block_hash")
+    return compute_merkle_branch_root(
+      header.execution_block_hash,
+      inner.toOpenArray(inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high),
+      log2trunc(BLOCK_HASH_GINDEX), get_subtree_index(BLOCK_HASH_GINDEX))
+
+  ZERO_HASH
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/sync-protocol.md#modified-is_valid_light_client_header
+func is_valid_light_client_header*(
+    header: LightClientHeader, cfg: RuntimeConfig): bool =
+  let epoch = header.beacon.slot.epoch
+
+  # [New in Gloas:EIP7732]
+  if epoch >= cfg.GLOAS_FORK_EPOCH:
+    return is_valid_normalized_merkle_branch(
+      header.execution_block_hash, header.execution_branch,
+      EXECUTION_BLOCK_HASH_GINDEX_GLOAS, header.beacon.body_root)
+
+  # [Modified in Gloas:EIP7732]
+  if epoch >= cfg.DENEB_FORK_EPOCH:
+    return is_valid_normalized_merkle_branch(
+      header.execution_block_hash, header.execution_branch,
+      EXECUTION_BLOCK_HASH_GINDEX_DENEB, header.beacon.body_root)
+
+  # [Modified in Gloas:EIP7732]
+  if epoch >= cfg.CAPELLA_FORK_EPOCH:
+    return is_valid_normalized_merkle_branch(
+      header.execution_block_hash, header.execution_branch,
+      EXECUTION_BLOCK_HASH_GINDEX, header.beacon.body_root)
+
+  # [Modified in Gloas:EIP7732]
+  header.execution_block_hash.isZero and
+  header.execution_branch == static(default(ExecutionBranch))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_header_to_gloas*(
+    pre: electra.LightClientHeader, cfg: RuntimeConfig): LightClientHeader =
+  if pre == static(default(electra.LightClientHeader)):
+    return static(default(LightClientHeader))
+
+  let epoch = pre.beacon.slot.epoch
+
+  var header = LightClientHeader(
+    beacon: pre.beacon,
+    execution_block_hash: pre.execution.block_hash,
+    execution_branch: normalize_merkle_branch(
+      pre.execution_branch, EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
+  template inner: openArray[Eth2Digest] =
+    header.execution_branch.toOpenArray(
+      0, header.execution_branch.high - log2trunc(EXECUTION_PAYLOAD_GINDEX))
+
+  if epoch >= cfg.DENEB_FORK_EPOCH:
+    const BLOCK_HASH_GINDEX = get_generalized_index(
+      deneb.ExecutionPayloadHeader, "block_hash")
+    pre.execution.build_proof(BLOCK_HASH_GINDEX, inner.toOpenArray(
+      inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high)).expect("OK")
+
+  elif epoch >= cfg.CAPELLA_FORK_EPOCH:
+    let execution_header = capella.ExecutionPayloadHeader(
+      parent_hash: pre.execution.parent_hash,
+      fee_recipient: pre.execution.fee_recipient,
+      state_root: pre.execution.state_root,
+      receipts_root: pre.execution.receipts_root,
+      logs_bloom: pre.execution.logs_bloom,
+      prev_randao: pre.execution.prev_randao,
+      block_number: pre.execution.block_number,
+      gas_limit: pre.execution.gas_limit,
+      gas_used: pre.execution.gas_used,
+      timestamp: pre.execution.timestamp,
+      extra_data: pre.execution.extra_data,
+      base_fee_per_gas: pre.execution.base_fee_per_gas,
+      block_hash: pre.execution.block_hash,
+      transactions_root: pre.execution.transactions_root,
+      withdrawals_root: pre.execution.withdrawals_root)
+    const BLOCK_HASH_GINDEX = get_generalized_index(
+      capella.ExecutionPayloadHeader, "block_hash")
+    execution_header.build_proof(BLOCK_HASH_GINDEX, inner.toOpenArray(
+      inner.len - log2trunc(BLOCK_HASH_GINDEX), inner.high)).expect("OK")
+
+  header
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_bootstrap_to_gloas*(
+    pre: electra.LightClientBootstrap,
+    cfg: RuntimeConfig): LightClientBootstrap =
+  LightClientBootstrap(
+    header: upgrade_lc_header_to_gloas(pre.header, cfg),
+    current_sync_committee: pre.current_sync_committee,
+    current_sync_committee_branch: pre.current_sync_committee_branch)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_update_to_gloas*(
+    pre: electra.LightClientUpdate,
+    cfg: RuntimeConfig): LightClientUpdate =
+  LightClientUpdate(
+    attested_header: upgrade_lc_header_to_gloas(pre.attested_header, cfg),
+    next_sync_committee: pre.next_sync_committee,
+    next_sync_committee_branch: pre.next_sync_committee_branch,
+    finalized_header: upgrade_lc_header_to_gloas(pre.finalized_header, cfg),
+    finality_branch: pre.finality_branch,
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_finality_update_to_gloas*(
+    pre: electra.LightClientFinalityUpdate,
+    cfg: RuntimeConfig): LightClientFinalityUpdate =
+  LightClientFinalityUpdate(
+    attested_header: upgrade_lc_header_to_gloas(pre.attested_header, cfg),
+    finalized_header: upgrade_lc_header_to_gloas(pre.finalized_header, cfg),
+    finality_branch: pre.finality_branch,
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_optimistic_update_to_gloas*(
+    pre: electra.LightClientOptimisticUpdate,
+    cfg: RuntimeConfig): LightClientOptimisticUpdate =
+  LightClientOptimisticUpdate(
+    attested_header: upgrade_lc_header_to_gloas(pre.attested_header, cfg),
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+func shortLog*(v: LightClientHeader): auto =
+  (
+    beacon: shortLog(v.beacon),
+    execution_block_hash: v.execution_block_hash
+  )
+
+func shortLog*(v: LightClientBootstrap): auto =
+  (
+    header: shortLog(v.header)
+  )
+
+func shortLog*(v: LightClientUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    has_next_sync_committee:
+      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot
+  )
+
+func shortLog*(v: LightClientFinalityUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot
+  )
+
+func shortLog*(v: LightClientOptimisticUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot
+  )
+
+chronicles.formatIt LightClientBootstrap: shortLog(it)
+chronicles.formatIt LightClientUpdate: shortLog(it)
+chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
+chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-the-store
+func upgrade_lc_store_to_gloas*(
+    pre: electra.LightClientStore,
+    cfg: RuntimeConfig): LightClientStore =
+  let best_valid_update =
+    if pre.best_valid_update.isNone:
+      Opt.none(LightClientUpdate)
+    else:
+      Opt.some upgrade_lc_update_to_gloas(pre.best_valid_update.get, cfg)
+  LightClientStore(
+    finalized_header: upgrade_lc_header_to_gloas(pre.finalized_header, cfg),
+    current_sync_committee: pre.current_sync_committee,
+    next_sync_committee: pre.next_sync_committee,
+    best_valid_update: best_valid_update,
+    optimistic_header: upgrade_lc_header_to_gloas(pre.optimistic_header, cfg),
+    previous_max_active_participants: pre.previous_max_active_participants,
+    current_max_active_participants: pre.current_max_active_participants)

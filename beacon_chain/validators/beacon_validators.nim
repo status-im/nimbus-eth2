@@ -588,13 +588,18 @@ proc proposeBlockAux(
     static: raiseAssert "Unsupported fork " & $consensusFork
 
   let
-    newBlockRef = await(
-      node.router.routeSignedBeaconBlock(signedBlock, sidecarsOpt,
-        checkValidator = false)
-    ).valueOr:
-      # TODO Is this an error?
-      beacon_block_production_errors.inc()
-      return head # Errors logged in router
+    newBlockRef = block:
+      let res =
+        when consensusFork >= ConsensusFork.Gloas:
+          await node.router.routeSignedBeaconBlock(
+            signedBlock, checkValidator = false)
+        else:
+          await node.router.routeSignedBeaconBlock(
+            signedBlock, sidecarsOpt, checkValidator = false)
+      res.valueOr:
+        # TODO Is this an error?
+        beacon_block_production_errors.inc()
+        return head # Errors logged in router
 
   if newBlockRef.isNone():
     # TODO is this an error?
@@ -618,7 +623,8 @@ proc proposeBlockAux(
     let envelope = makeExecutionPayloadEnvelope(
       engineBid[].eps,
       engineBid[].execution_requests,
-      blockRoot)
+      blockRoot,
+      signedBlock.message.parent_root)
 
     let signatureRes = await validator.getExecutionPayloadEnvelopeSignature(
       node.dag.forkAtEpoch(slot.epoch),
@@ -636,8 +642,11 @@ proc proposeBlockAux(
         signature: signatureRes.get()
       )
 
-      await node.router.routeExecutionPayloadEnvelope(
-        signedEnvelope, checkValidator = false)
+      let res = await node.router.routeExecutionPayloadEnvelope(
+        signedBlock, signedEnvelope, sidecarsOpt)
+      if res.isErr():
+        error "Failed to propose envelope", reason = res.error(), slot = slot
+        return newBlockRef.get()
 
       notice "Payload Envelope proposed",
         blockRoot = shortLog(blockRoot),
@@ -889,7 +898,13 @@ proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
 proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
-      # check that our custody columns are available
+      let forkyBlck =
+        getBlock(node.dag, blck.bid,
+                 consensusFork.TrustedSignedBeaconBlock).valueOr:
+          return false
+      if forkyBlck.message.body.signed_execution_payload_bid.message
+          .blob_kzg_commitments.len() == 0:
+        return true
       for columnIdx in node.dataColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
             consensusFork, blck.root, columnIdx):
@@ -1434,8 +1449,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
-
-  asyncSpawn sendProposerPreferences(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
