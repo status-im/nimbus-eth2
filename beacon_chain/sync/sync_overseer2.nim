@@ -2585,6 +2585,14 @@ proc timeMonitoringLoop(
           else:
             overseer.sdag.getShortRootMap(overseer.lastSeenHead.get().root)
         dist = overseer.getColumnsDistribution()
+        stabilityDistance =
+          block:
+            let res =
+              vcus.getStabilityDistance(overseer.beaconClock.currentSlot())
+            if res.isNone():
+              "not available"
+            else:
+              $res.get()
 
       overseer.statusMessages[0] =
         if overseer.finalizedDistance.isNone():
@@ -2641,6 +2649,9 @@ proc timeMonitoringLoop(
         columns_count = len(overseer.validatorCustody.getMap()),
         counts = dist.counts,
         columns_fill_rate = dist.fillRate,
+        custody_groups_count = overseer.validatorCustody.getGroupsCount(),
+        custody_state = shortLog(overseer.getCurrentState()),
+        custody_stability = stabilityDistance,
         last_seen_syncdag_path = lastSeenSyncDagPath
 
   except CancelledError:
