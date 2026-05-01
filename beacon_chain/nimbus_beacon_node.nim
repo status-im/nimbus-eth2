@@ -1042,7 +1042,7 @@ proc init*(
                        config.restAllowedOrigin,
                        validateBeaconApiQueries,
                        nimbusAgentStr,
-                       config)
+                       config.restApiConf)
   else:
     nil
 
@@ -1098,7 +1098,7 @@ proc init*(
     validatorPool = newClone(ValidatorPool.init(
       slashingProtectionDB, config.doppelgangerDetection))
 
-    keymanagerInitResult = initKeymanagerServer(config, restServer)
+    keymanagerInitResult = initKeymanagerServer(config.keyManagerApiConf, config.restApiConf, restServer)
     keymanagerHost = if keymanagerInitResult.server != nil:
       newClone KeymanagerHost.init(
         validatorPool,
@@ -2832,7 +2832,7 @@ proc doRunBeaconNode(
   # we disable piggy-backing on other metrics here.
   setSystemMetricsAutomaticUpdate(false)
 
-  node.metricsServer = waitFor(config.initMetricsServer()).valueOr:
+  node.metricsServer = waitFor(initMetricsServer(config.metrics)).valueOr:
     return
 
   when not defined(windows):

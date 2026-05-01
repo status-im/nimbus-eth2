@@ -60,13 +60,11 @@ type LightClientConf* = object
   tcpPort* {.
     desc: "Listening TCP port for Ethereum LibP2P traffic"
     defaultValue: defaultEth2TcpPort
-    defaultValueDesc: $defaultEth2TcpPortDesc
     name: "tcp-port" .}: Port
 
   udpPort* {.
     desc: "Listening UDP port for node discovery"
     defaultValue: defaultEth2TcpPort
-    defaultValueDesc: $defaultEth2TcpPortDesc
     name: "udp-port" .}: Port
 
   maxPeers* {.

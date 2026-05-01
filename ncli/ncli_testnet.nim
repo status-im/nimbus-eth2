@@ -105,13 +105,11 @@ type
       bootstrapAddress* {.
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "bootstrap-address" .}: IpAddress
 
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "bootstrap-port" .}: Port
 
       dataDir* {.
@@ -193,13 +191,11 @@ type
       enrAddress* {.
         desc: "The public IP address of that ENR"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "enr-address" .}: IpAddress
 
       enrPort* {.
         desc: "The TCP/UDP port of that ENR"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "enr-port" .}: Port
 
     of StartUpCommand.sendDeposits:

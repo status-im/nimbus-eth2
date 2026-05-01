@@ -45,15 +45,10 @@ export
 declareGauge network_name, "network name", ["name"]
 
 const
-  # TODO: How should we select between IPv4 and IPv6
-  # Maybe there should be a config option for this.
-  defaultAdminListenAddress* = (static parseIpAddress("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
   defaultGasLimit* = 60_000_000
-  defaultAdminListenAddressDesc* = $defaultAdminListenAddress
-  defaultBeaconNodeDesc = $defaultBeaconNode
 
 when defined(windows):
   {.pragma: windowsOnly.}
@@ -305,13 +300,11 @@ type
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "tcp-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "udp-port" .}: Port
 
       maxPeers* {.
@@ -403,21 +396,7 @@ type
         defaultValue: 0
         name: "stop-at-synced-epoch" .}: uint64
 
-      metricsEnabled* {.
-        desc: "Enable the metrics server"
-        defaultValue: false
-        name: "metrics" .}: bool
-
-      metricsAddress* {.
-        desc: "Listening address of the metrics server"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "metrics-address" .}: IpAddress
-
-      metricsPort* {.
-        desc: "Listening HTTP port of the metrics server"
-        defaultValue: 8008
-        name: "metrics-port" .}: Port
+      metrics* {.flatten.}: MetricsConf
 
       statusBarEnabled* {.
         posixOnly
@@ -445,13 +424,11 @@ type
       restPort* {.
         desc: "Port for the REST Beacon API"
         defaultValue: defaultEth2RestPort
-        defaultValueDesc: $defaultEth2RestPortDesc
         name: "rest-port" .}: Port
 
       restAddress* {.
         desc: "Listening address of the REST Beacon API"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "rest-address" .}: IpAddress
 
       restAllowedOrigin* {.
@@ -471,51 +448,9 @@ type
         desc: "The number of seconds to keep recently accessed states in memory"
         name: "rest-statecache-ttl" .}: Natural
 
-      restRequestTimeout* {.
-        defaultValue: 0
-        defaultValueDesc: "infinite"
-        desc: "The number of seconds to wait until complete REST request " &
-              "will be received"
-        name: "rest-request-timeout" .}: Natural
+      restApiConf* {.flatten.}: RestApiConf
 
-      restMaxRequestBodySize* {.
-        defaultValue: 16_384
-        desc: "Maximum size of REST request body (kilobytes)"
-        name: "rest-max-body-size" .}: Natural
-
-      restMaxRequestHeadersSize* {.
-        defaultValue: 128
-        desc: "Maximum size of REST request headers (kilobytes)"
-        name: "rest-max-headers-size" .}: Natural
-        ## NOTE: If you going to adjust this value please check value
-        ## ``ClientMaximumValidatorIds`` and comments in
-        ## `spec/eth2_apis/rest_types.nim`. This values depend on each other.
-
-      keymanagerEnabled* {.
-        desc: "Enable the REST keymanager API"
-        defaultValue: false
-        name: "keymanager" .}: bool
-
-      keymanagerPort* {.
-        desc: "Listening port for the REST keymanager API"
-        defaultValue: defaultEth2RestPort
-        defaultValueDesc: $defaultEth2RestPortDesc
-        name: "keymanager-port" .}: Port
-
-      keymanagerAddress* {.
-        desc: "Listening port for the REST keymanager API"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "keymanager-address" .}: IpAddress
-
-      keymanagerAllowedOrigin* {.
-        desc: "Limit the access to the Keymanager API to a particular hostname " &
-              "(for CORS-enabled clients such as browsers)"
-        name: "keymanager-allow-origin" .}: Option[string]
-
-      keymanagerTokenFile* {.
-        desc: "A file specifying the authorization token required for accessing the keymanager API"
-        name: "keymanager-token-file" .}: Option[InputFile]
+      keyManagerApiConf* {.flatten.}: KeyManagerApiConf
 
       lightClientDataServe* {.
         desc: "Serve data for enabling light clients to stay in sync with the network"
@@ -789,7 +724,6 @@ type
         restUrlForExit* {.
           desc: "URL of the beacon node REST service"
           defaultValue: defaultBeaconNode
-          defaultValueDesc: $defaultBeaconNodeDesc
           name: "rest-url" .}: string
 
         printData* {.
@@ -855,7 +789,6 @@ type
       trustedNodeUrl* {.
         desc: "URL of the REST API to sync from"
         defaultValue: defaultBeaconNode
-        defaultValueDesc: $defaultBeaconNodeDesc
         name: "trusted-node-url"
       .}: string
 
@@ -948,23 +881,6 @@ type
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
 
-    restRequestTimeout* {.
-      defaultValue: 0
-      defaultValueDesc: "infinite"
-      desc: "The number of seconds to wait until complete REST request " &
-            "will be received"
-      name: "rest-request-timeout" .}: Natural
-
-    restMaxRequestBodySize* {.
-      defaultValue: 16_384
-      desc: "Maximum size of REST request body (kilobytes)"
-      name: "rest-max-body-size" .}: Natural
-
-    restMaxRequestHeadersSize* {.
-      defaultValue: 64
-      desc: "Maximum size of REST request headers (kilobytes)"
-      name: "rest-max-headers-size" .}: Natural
-
     # Same option as appears in Lighthouse and Prysm
     # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
     # https://github.com/prysmaticlabs/prysm/pull/10312
@@ -977,47 +893,11 @@ type
       defaultValue: defaultGasLimit
       name: "suggested-gas-limit" .}: uint64
 
-    keymanagerEnabled* {.
-      desc: "Enable the REST keymanager API"
-      defaultValue: false
-      name: "keymanager" .}: bool
+    restApiConf* {.flatten.}: RestApiConf
 
-    keymanagerPort* {.
-      desc: "Listening port for the REST keymanager API"
-      defaultValue: defaultEth2RestPort
-      defaultValueDesc: $defaultEth2RestPortDesc
-      name: "keymanager-port" .}: Port
+    keyManagerApiConf* {.flatten.}: KeyManagerApiConf
 
-    keymanagerAddress* {.
-      desc: "Listening port for the REST keymanager API"
-      defaultValue: defaultAdminListenAddress
-      defaultValueDesc: $defaultAdminListenAddressDesc
-      name: "keymanager-address" .}: IpAddress
-
-    keymanagerAllowedOrigin* {.
-      desc: "Limit the access to the Keymanager API to a particular hostname " &
-            "(for CORS-enabled clients such as browsers)"
-      name: "keymanager-allow-origin" .}: Option[string]
-
-    keymanagerTokenFile* {.
-      desc: "A file specifying the authorizition token required for accessing the keymanager API"
-      name: "keymanager-token-file" .}: Option[InputFile]
-
-    metricsEnabled* {.
-      desc: "Enable the metrics server"
-      defaultValue: false
-      name: "metrics" .}: bool
-
-    metricsAddress* {.
-      desc: "Listening address of the metrics server"
-      defaultValue: defaultAdminListenAddress
-      defaultValueDesc: $defaultAdminListenAddressDesc
-      name: "metrics-address" .}: IpAddress
-
-    metricsPort* {.
-      desc: "Listening HTTP port of the metrics server"
-      defaultValue: 8108
-      name: "metrics-port" .}: Port
+    metrics* {.flatten: (port: 8108).}: MetricsConf
 
     graffiti* {.
       desc: "The graffiti value that will appear in proposed blocks. " &
@@ -1134,13 +1014,11 @@ type
     bindPort* {.
       desc: "Port for the REST HTTP server"
       defaultValue: defaultEth2RestPort
-      defaultValueDesc: $defaultEth2RestPortDesc
       name: "bind-port" .}: Port
 
     bindAddress* {.
       desc: "Listening address of the REST HTTP server"
       defaultValue: defaultAdminListenAddress
-      defaultValueDesc: $defaultAdminListenAddressDesc
       name: "bind-address" .}: IpAddress
 
     tlsEnabled* {.

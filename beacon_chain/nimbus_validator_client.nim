@@ -397,7 +397,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
 
   vc.beaconClock = await vc.initClock()
 
-  vc.metricsServer = (await vc.config.initMetricsServer()).valueOr:
+  vc.metricsServer = (await initMetricsServer(vc.config.metrics)).valueOr:
     raise newException(ValidatorClientError,
                        "Could not initialize metrics server")
 
@@ -419,7 +419,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
                        "Could not initialize local validators")
 
   let
-    keymanagerInitResult = initKeymanagerServer(vc.config, nil)
+    keymanagerInitResult = initKeymanagerServer(vc.config.keyManagerApiConf, vc.config.restApiConf, nil)
 
   func getCapellaForkVersion(): Opt[Version] =
     if vc.forkConfig.isNone():

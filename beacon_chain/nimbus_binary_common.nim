@@ -14,13 +14,13 @@ import
   std/[cpuinfo, exitprocs, os, tables, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils, presto, toml_serialization, metrics,
+  chronos, confutils, confutils/std/net, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2, metrics/chronos_httpserver, taskpools,
 
   # Local modules
-  ./spec/keystore,
-  ./buildinfo
+  ./spec/[keystore, network],
+  ./[buildinfo, version]
 
 from ./spec/datatypes/base import SPEC_VERSION
 
@@ -35,6 +35,11 @@ when defaultChroniclesStream.outputs.type.arity == 2:
 
 export
   confutils, toml_serialization
+
+const
+  # TODO: How should we select between IPv4 and IPv6
+  # Maybe there should be a config option for this.
+  defaultAdminListenAddress* = (static parseIpAddress("127.0.0.1"))
 
 type
   StdoutLogKind* {.pure.} = enum
@@ -286,13 +291,35 @@ proc sleepAsync*(t: TimeDiff): Future[void] {.
   sleepAsync(nanoseconds(
     if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
+type
+  RestApiConf* = object
+    timeout* {.
+      defaultValue: 0
+      defaultValueDesc: "infinite"
+      desc: "The number of seconds to wait until complete REST request " &
+            "will be received"
+      name: "rest-request-timeout" .}: Natural
+
+    maxBodySize* {.
+      defaultValue: 16_384
+      desc: "Maximum size of REST request body (kilobytes)"
+      name: "rest-max-body-size" .}: Natural
+
+    maxHeadersSize* {.
+      defaultValue: 128
+      desc: "Maximum size of REST request headers (kilobytes)"
+      name: "rest-max-headers-size" .}: Natural
+      ## NOTE: If you going to adjust this value please check value
+      ## ``ClientMaximumValidatorIds`` and comments in
+      ## `spec/eth2_apis/rest_types.nim`. This values depend on each other.
+
 proc init*(T: type RestServerRef,
            ip: IpAddress,
            port: Port,
            allowedOrigin: Option[string],
            validateFn: PatternCallback,
            ident: string,
-           config: auto): T =
+           restApiConf: RestApiConf): T =
   let
     address = initTAddress(ip, port)
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
@@ -301,12 +328,12 @@ proc init*(T: type RestServerRef,
   # at least once per slot (12.seconds).
   let
     headersTimeout =
-      if config.restRequestTimeout == 0:
+      if restApiConf.timeout == 0:
         chronos.InfiniteDuration
       else:
-        seconds(int64(config.restRequestTimeout))
-    maxHeadersSize = config.restMaxRequestHeadersSize * 1024
-    maxRequestBodySize = config.restMaxRequestBodySize * 1024
+        seconds(int64(restApiConf.timeout))
+    maxHeadersSize = restApiConf.maxHeadersSize * 1024
+    maxRequestBodySize = restApiConf.maxBodySize * 1024
 
   let res = RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
                               address, serverFlags = serverFlags,
@@ -329,20 +356,51 @@ type
     server*: RestServerRef
     token*: string
 
+  KeyManagerApiConf* = object
+    enabled* {.
+      desc: "Enable the REST keymanager API"
+      defaultValue: false
+      name: "keymanager" .}: bool
+
+    port* {.
+      desc: "Listening port for the REST keymanager API"
+      defaultValue: defaultEth2RestPort
+      name: "keymanager-port" .}: Port
+
+    address* {.
+      desc: "Listening port for the REST keymanager API"
+      defaultValue: defaultAdminListenAddress
+      name: "keymanager-address" .}: IpAddress
+
+    allowedOrigin* {.
+      desc: "Limit the access to the Keymanager API to a particular hostname " &
+            "(for CORS-enabled clients such as browsers)"
+      name: "keymanager-allow-origin" .}: Option[string]
+
+    tokenFile* {.
+      desc: "A file specifying the authorization token required for accessing the keymanager API"
+      name: "keymanager-token-file" .}: Option[InputFile]
+
+# Copied from rest_key_management_api to avoid a circular dependency
+func validateKeymanagerApiQueries(key: string, value: string): int =
+  # There are no queries to validate
+  return 0
+
 proc initKeymanagerServer*(
-    config: auto,
-    existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [].} =
+    keyManagerApiConf: KeyManagerApiConf,
+    restApiConf: RestApiConf,
+    existingRestServer: RestServerRef = nil
+): KeymanagerInitResult {.raises: [].} =
 
   var token: string
-  let keymanagerServer = if config.keymanagerEnabled:
-    if config.keymanagerTokenFile.isNone:
+  let keymanagerServer = if keyManagerApiConf.enabled:
+    if keyManagerApiConf.tokenFile.isNone:
       echo "To enable the Keymanager API, you must also specify " &
            "the --keymanager-token-file option."
       quit 1
 
     let
-      tokenFilePath = config.keymanagerTokenFile.get.string
+      tokenFilePath = keyManagerApiConf.tokenFile.get.string
       tokenFileReadRes = readAllChars(tokenFilePath)
 
     if tokenFileReadRes.isErr:
@@ -355,41 +413,53 @@ proc initKeymanagerServer*(
       fatal "The keymanager token should not be empty", tokenFilePath
       quit 1
 
-    when compiles(config.restPort):
-      if existingRestServer != nil and
-         config.restAddress == config.keymanagerAddress and
-        config.restPort == config.keymanagerPort:
-        existingRestServer
-      else:
-        RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                           config.keymanagerAllowedOrigin,
-                           validateKeymanagerApiQueries,
-                           nimbusAgentStr,
-                           config)
+    if existingRestServer != nil and
+        existingRestServer.server.address == initTAddress(keyManagerApiConf.address, keyManagerApiConf.port):
+      existingRestServer
     else:
-      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                         config.keymanagerAllowedOrigin,
-                         validateKeymanagerApiQueries,
-                         nimbusAgentStr,
-                         config)
+      RestServerRef.init(
+        keyManagerApiConf.address,
+        keyManagerApiConf.port,
+        keyManagerApiConf.allowedOrigin,
+        validateKeymanagerApiQueries,
+        nimbusAgentStr,
+        restApiConf
+      )
   else:
     nil
 
   KeymanagerInitResult(server: keymanagerServer, token: token)
 
+type
+  MetricsConf* = object
+    enabled* {.
+      desc: "Enable the metrics server"
+      defaultValue: false
+      name: "metrics" .}: bool
+
+    address* {.
+      desc: "Listening address of the metrics server"
+      defaultValue: defaultAdminListenAddress
+      name: "metrics-address" .}: IpAddress
+
+    port* {.
+      desc: "Listening HTTP port of the metrics server"
+      defaultValue: 8008
+      name: "metrics-port" .}: Port
+
 proc initMetricsServer*(
-    config: auto
+    metrics: MetricsConf
 ): Future[Result[Opt[MetricsHttpServerRef], string]] {.
   async: (raises: [CancelledError]).} =
-  if config.metricsEnabled:
+  if metrics.enabled:
     let
-      metricsAddress = config.metricsAddress
-      metricsPort = config.metricsPort
-      url = "http://" & $metricsAddress & ":" & $metricsPort & "/metrics"
+      address = metrics.address
+      port = metrics.port
+      url = "http://" & $address & ":" & $port & "/metrics"
 
     info "Starting metrics HTTP server", url = url
 
-    let server = MetricsHttpServerRef.new($metricsAddress, metricsPort).valueOr:
+    let server = MetricsHttpServerRef.new($address, port).valueOr:
       fatal "Could not start metrics HTTP server",
             url = url, reason = error
       return err($error)
