@@ -1050,13 +1050,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           static: doAssert high(ConsensusFork) == ConsensusFork.Heze
           when consensusFork == ConsensusFork.Heze:
             debugHezeComment "stub: heze block routing"
+            debugHezeComment("data columns")
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
-              checkValidator = true)
+              forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Gloas:
+            debugGloasComment("data columns")
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
-              checkValidator = true)
+              forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),

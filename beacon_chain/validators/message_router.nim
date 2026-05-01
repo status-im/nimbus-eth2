@@ -63,12 +63,10 @@ type
 
   SomeSidecarsToRoute =
     seq[BlobSidecar] |
-    seq[fulu.DataColumnSidecar] |
-    Opt[seq[gloas.DataColumnSidecar]]
+    seq[fulu.DataColumnSidecar]
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
-    Opt[gloas.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -286,9 +284,8 @@ proc addRoutedBlock(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
-    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
-          gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    someSidecarsOpt: SomeSidecarsToRoute,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+    someSidecars: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
 
@@ -299,14 +296,26 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  when typeof(blck).kind >= ConsensusFork.Gloas:
-    # Disable column processing at block time.
-    const finalSidecars = noSidecars
-  else:
-    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+  let finalSidecars = await publishSidecars(router, blck, someSidecars)
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)
+
+proc routeSignedBeaconBlock*(
+    router: ref MessageRouter,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    checkValidator: bool
+): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+  ## Same as pre-Gloas block but no sidecars publishing.
+
+  # 1. Validate
+  ? router.validateRouteBlock(blck, checkValidator)
+
+  # 2. Publish block
+  await router.publishRouteBlock(blck)
+
+  # 3. Add block to DAG
+  return await router.addRoutedBlock(blck, noSidecars)
 
 proc routeAttestation*(
     router: ref MessageRouter,
