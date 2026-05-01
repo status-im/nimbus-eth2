@@ -631,7 +631,6 @@ proc proposeBlockAux(
     if signatureRes.isErr:
       error "Failed to sign sign execution payload envelope",
         slot, validator = shortLog(validator), err = signatureRes.error
-      return newBlockRef.get()
     else:
       let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
         message: envelope,
