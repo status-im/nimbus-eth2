@@ -2231,14 +2231,17 @@ proc validateProposerPreferences*(
   if preferences.proposal_slot <= currentSlot:
     return errIgnore("ProposerPreferences: proposal_slot not in future")
 
-  # [IGNORE] The signed_proposer_preferences is the first valid message
-  # received from the validator with index preferences.validator_index
-  # and the given slot preferences.proposal_slot
+  # [IGNORE] The signed_proposer_preferences is the first valid message seen
+  # for the tuple (preferences.dependent_root, preferences.proposal_slot,
+  # preferences.validator_index).
   let
     bucket = proposalEpoch.uint64 mod 2
     slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
   if seen[bucket][slotInEpoch].isSome:
-    return errIgnore("ProposerPreferences: already seen")
+    let existing = seen[bucket][slotInEpoch].get
+    if existing.dependent_root == preferences.dependent_root and
+        existing.validator_index == preferences.validator_index:
+      return errIgnore("ProposerPreferences: already seen")
 
   # [REJECT] preferences.validator_index is present at the correct slot
   # in the current or next epoch's portion of state.proposer_lookahead
