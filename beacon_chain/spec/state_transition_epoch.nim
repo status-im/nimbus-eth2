@@ -1671,8 +1671,8 @@ proc process_epoch*(
   process_slashings(state, info.balances.current_epoch)
   process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)
-  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   ? process_pending_consolidations(cfg, state)
+  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   process_effective_balance_updates(state)
   process_slashings_reset(state)
   process_randao_mixes_reset(state)

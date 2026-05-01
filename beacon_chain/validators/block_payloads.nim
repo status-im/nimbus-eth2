@@ -621,11 +621,11 @@ proc collectBids*(
 
     builderBidFut =
       if usePayloadBuilder:
-        debugGloasComment "handle different get_expected_withdrawals types"
         let
           withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
-            when consensusFork == ConsensusFork.Gloas:
-              get_expected_withdrawals(proposalState[].forky(consensusFork).data)[0]
+            when consensusFork >= ConsensusFork.Gloas:
+              get_expected_withdrawals(
+                proposalState[].forky(consensusFork).data).withdrawals
             else:
               get_expected_withdrawals(proposalState[].forky(consensusFork).data)
           )
