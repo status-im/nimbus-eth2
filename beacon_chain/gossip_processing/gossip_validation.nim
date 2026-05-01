@@ -403,6 +403,7 @@ template validateBeaconBlockDeneb(
 
 template validateBeaconBlockGloas(
     _: ChainDAGRef,
+    _: ref Quarantine,
     _: ref EnvelopeQuarantine,
     _:
       phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
@@ -414,7 +415,9 @@ template validateBeaconBlockGloas(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockGloas(
-    dag: ChainDAGRef, envelopeQuarantine: ref EnvelopeQuarantine,
+    dag: ChainDAGRef,
+    quarantine: ref Quarantine,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     signed_beacon_block: gloas.SignedBeaconBlock): untyped =
   template blck: untyped = signed_beacon_block.message
   template bid: untyped = blck.body.signed_execution_payload_bid.message
@@ -449,6 +452,11 @@ template validateBeaconBlockGloas(
       else:
         return errIgnore("validateBeaconBlockGloas: invalid execution parent")
 
+  # - [IGNORE] The block's parent execution payload (defined by
+  #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
+  #   (a client MAY queue blocks for processing once the parent payload is
+  #   retrieved).
+  #
   # If execution_payload verification of block's execution payload parent by an
   # execution node is complete:
   #
@@ -456,14 +464,12 @@ template validateBeaconBlockGloas(
   #   bid.parent_block_hash) passes all validation.
   if executionParent.root in envelopeQuarantine.unviable:
     return dag.checkedReject("validateBeaconBlockGloas: invalid parent payload")
-
-  # - [IGNORE] The block's parent execution payload (defined by
-  #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
-  #   (a client MAY queue blocks for processing once the parent payload is
-  #   retrieved).
   elif not (
       dag.db.containsExecutionPayloadEnvelope(executionParent.root) or
-      executionParent.root in envelopeQuarantine.orphans):
+      executionParent.root in envelopeQuarantine.orphans
+  ):
+    envelopeQuarantine[].addMissing(executionParent.root)
+    discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
     return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
@@ -1007,7 +1013,8 @@ proc validateBeaconBlock*(
 
   dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
 
-  dag.validateBeaconBlockGloas(envelopeQuarantine, signed_beacon_block)
+  dag.validateBeaconBlockGloas(
+    quarantine, envelopeQuarantine, signed_beacon_block)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
