@@ -2588,7 +2588,8 @@ proc timeMonitoringLoop(
         stabilityDistance =
           block:
             let res =
-              vcus.getStabilityDistance(overseer.beaconClock.currentSlot())
+              overseer.validatorCustody.getStabilityDistance(
+                overseer.beaconClock.currentSlot())
             if res.isNone():
               "not available"
             else:
@@ -2650,7 +2651,7 @@ proc timeMonitoringLoop(
         counts = dist.counts,
         columns_fill_rate = dist.fillRate,
         custody_groups_count = overseer.validatorCustody.getGroupsCount(),
-        custody_state = shortLog(overseer.getCurrentState()),
+        custody_state = shortLog(overseer.validatorCustody.getCurrentState()),
         custody_stability = stabilityDistance,
         last_seen_syncdag_path = lastSeenSyncDagPath
 
