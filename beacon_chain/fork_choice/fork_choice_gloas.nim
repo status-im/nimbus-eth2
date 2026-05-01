@@ -69,19 +69,21 @@ proc on_payload_attestation_message*(
         var votes =
           self.backend.ptc_vote.mgetOrPut(
             beacon_block_root, default(PtcVotes))
+        votes.voted.setBit(ptc_index)
         if payload_present:
-          votes.setBit(ptc_index)
+          votes.value.setBit(ptc_index)
         else:
-          votes.clearBit(ptc_index)
+          votes.value.clearBit(ptc_index)
         self.backend.ptc_vote[beacon_block_root] = votes
 
         var da_votes =
           self.backend.ptc_data_availability_vote.mgetOrPut(
             beacon_block_root, default(PtcVotes))
+        da_votes.voted.setBit(ptc_index)
         if blob_data_available:
-          da_votes.setBit(ptc_index)
+          da_votes.value.setBit(ptc_index)
         else:
-          da_votes.clearBit(ptc_index)
+          da_votes.value.clearBit(ptc_index)
         self.backend.ptc_data_availability_vote[beacon_block_root] = da_votes
 
         trace "Recorded PTC vote",
@@ -136,7 +138,8 @@ func ptcVoteAboveThreshold(
     votes: Table[Eth2Digest, PtcVotes], threshold: uint64): bool =
   # The beacon block root must be known AND payload loacally available
   root in votes and root in self.execution_payload_states and
-    votes.getOrDefault(root, default(PtcVotes)).countOnes().uint64 > threshold
+    votes.getOrDefault(root, default(PtcVotes)).value.countOnes().uint64 >
+      threshold
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_payload_timely
 func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =

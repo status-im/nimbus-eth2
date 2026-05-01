@@ -142,7 +142,8 @@ proc initialLoad(
     # Spec initializes PTC votes for anchor as all-True
     var allTrue: PtcVotes
     for i in 0 ..< int(PTC_SIZE):
-      allTrue.setBit(i)
+      allTrue.voted.setBit(i)
+      allTrue.value.setBit(i)
     fkChoice.backend.ptc_vote[anchorRoot] = allTrue
     fkChoice.backend.ptc_data_availability_vote[anchorRoot] = allTrue
     fkChoice.backend.block_timeliness[anchorRoot] = [true, true]

@@ -149,7 +149,9 @@ type
     next_slot*: Slot
     payload_present*: bool
   
-  PtcVotes* = BitArray[int(PTC_SIZE)]
+  PtcVotes* = object
+    voted*: BitArray[int(PTC_SIZE)]
+    value*: BitArray[int(PTC_SIZE)]
 
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
