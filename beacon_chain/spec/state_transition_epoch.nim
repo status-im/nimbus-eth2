@@ -1209,6 +1209,7 @@ func apply_pending_deposit(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-process_pending_deposits
 func process_pending_deposits*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -1217,7 +1218,10 @@ func process_pending_deposits*(
   let
     next_epoch = get_current_epoch(state) + 1
     available_for_processing = state.deposit_balance_to_consume +
-      get_activation_exit_churn_limit(cfg, state, cache)
+      (when typeof(state).kind >= ConsensusFork.Gloas:
+        get_activation_churn_limit(cfg, state, cache)
+      else:
+        get_activation_exit_churn_limit(cfg, state, cache))
   var
     processed_amount = 0.Gwei
     next_deposit_index = 0

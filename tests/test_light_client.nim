@@ -25,16 +25,16 @@ suite "Light client" & preset():
     headPeriod = 4.SyncCommitteePeriod
   let
     cfg = block:  # Fork schedule that covers each `LightClientDataFork`
-      debugGloasComment "..."
-      debugHezeComment "..."
       static: doAssert ConsensusFork.high == ConsensusFork.Heze
       var res = defaultRuntimeConfig
-      res.ALTAIR_FORK_EPOCH = 1.Epoch
-      res.BELLATRIX_FORK_EPOCH = 2.Epoch
-      res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
-      res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
-      res.ELECTRA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 3).Epoch
-      res.FULU_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 4).Epoch
+      res.ALTAIR_FORK_EPOCH = 0.SyncCommitteePeriod.start_epoch + 1
+      res.BELLATRIX_FORK_EPOCH = 0.SyncCommitteePeriod.start_epoch + 2
+      res.CAPELLA_FORK_EPOCH = 1.SyncCommitteePeriod.start_epoch + 0
+      res.DENEB_FORK_EPOCH = 1.SyncCommitteePeriod.start_epoch + 1
+      res.ELECTRA_FORK_EPOCH = 2.SyncCommitteePeriod.start_epoch + 0
+      res.FULU_FORK_EPOCH = 2.SyncCommitteePeriod.start_epoch + 1
+      res.GLOAS_FORK_EPOCH = 3.SyncCommitteePeriod.start_epoch + 0
+      res.HEZE_FORK_EPOCH = 3.SyncCommitteePeriod.start_epoch + 1
       res
     altairStartSlot = cfg.ALTAIR_FORK_EPOCH.start_slot
 
@@ -230,7 +230,7 @@ suite "Light client" & preset():
 
     for epoch in [
         cfg.ALTAIR_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH,
-        cfg.ELECTRA_FORK_EPOCH]:
+        cfg.ELECTRA_FORK_EPOCH, cfg.GLOAS_FORK_EPOCH]:
       let consensusFork = cfg.consensusForkAtEpoch(epoch)
       for importMode in [
           LightClientDataImportMode.OnlyNew,
@@ -259,3 +259,15 @@ suite "Light client" & preset():
                 forkyFinalityUpdate.attested_header, cfg)
               is_valid_light_client_header(
                 forkyFinalityUpdate.finalized_header, cfg)
+
+        const lcDataFork = LightClientDataFork.high
+        let
+          upgraded = finalityUpdate.migratingToDataFork(lcDataFork, cfg)
+          header = upgraded.forky(lcDataFork).finalized_header
+        check is_valid_light_client_header(header, cfg)
+        withForkyFinalityUpdate(finalityUpdate):
+          when lcDataFork >= LightClientDataFork.Capella:
+            check get_lc_execution_root(header, cfg) ==
+              get_lc_execution_root(forkyFinalityUpdate.finalized_header, cfg)
+          else:
+            check get_lc_execution_root(header, cfg) == ZERO_HASH

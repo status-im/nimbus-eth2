@@ -1358,8 +1358,12 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     node.network.subscribe(topic, basicParams())
     custody.add(i)
 
-  # Due to dynamic column changes, we need to maintain the set of columns we
-  # subscribe to, as the column set may change.
+  # Unsubscribe from custody groups we no longer have custody of.
+  for i in node.lastColumnCustodyIndices:
+    if i notin custody:
+      let topic = getDataColumnSidecarTopic(forkDigest, i)
+      node.network.unsubscribe(topic)
+
   node.lastColumnCustodyIndices = custody
 
 proc addAltairMessageHandlers(
@@ -1729,11 +1733,9 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.gossipState = targetGossipState
 
   # Validator custody can change in the middle of a fork/BPO interval; need to
-  # subscribe to potentially new column topics. Do this after node.gossipState
-  # is updated to avoid adding immediately unsubscribed subscriptions. Custody
-  # can only grow in a node's lifetime, so only address additive case. It can,
-  # therefore, overlap existing subscriptions, rather than separately tracking
-  # them.
+  # subscribe to potentially new column topics and unsubscribe from stale ones.
+  # Do this after node.gossipState is updated to avoid adding immediately
+  # unsubscribed subscriptions.
   for gossipEpoch in node.gossipState:
     if node.dag.cfg.consensusForkAtEpoch(gossipEpoch) >= ConsensusFork.Fulu:
       node.updateDataColumnSidecarHandlers(gossipEpoch)

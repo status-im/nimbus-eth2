@@ -227,7 +227,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBeaconBlock                                                             OK
@@ -552,7 +551,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -940,7 +938,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -948,7 +945,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1360,7 +1356,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -1368,7 +1363,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1923,7 +1917,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -1931,7 +1924,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -2500,7 +2492,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -2512,7 +2503,6 @@ ConsensusSpecPreset-minimal
 +   Testing    PartialDataColumnHeader                                                       OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -2872,6 +2862,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -2881,6 +2872,10 @@ ConsensusSpecPreset-minimal
 ## EF - Gloas - Operations - Parent Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -2996,6 +2991,9 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__min_churn         OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__scaled_churn      OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit   OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit Churn - exit_churn__equal_to_activation OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit Churn - exit_churn__greater_than_activa OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit Churn - exit_churn__less_than_activatio OK
 ```
 ## EF - Gloas - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -3142,12 +3140,10 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayload                                                              OK
 +   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
-+   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    IndexedPayloadAttestation                                                     OK
@@ -3157,13 +3153,12 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
-+   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -3499,6 +3494,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
++ [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_s OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_w OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_w OK
@@ -3513,6 +3509,10 @@ ConsensusSpecPreset-minimal
 ## EF - Heze - Operations - Parent Execution Payload  [Preset: minimal]
 ```diff
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
@@ -3628,6 +3628,9 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - success_exit_queue__scaled_churn       OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit    OK
++ [Valid]   EF - Heze - Operations - Voluntary Exit Churn - exit_churn__equal_to_activation_ OK
++ [Valid]   EF - Heze - Operations - Voluntary Exit Churn - exit_churn__greater_than_activat OK
++ [Valid]   EF - Heze - Operations - Voluntary Exit Churn - exit_churn__less_than_activation OK
 ```
 ## EF - Heze - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -3774,12 +3777,10 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayload                                                              OK
 +   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
-+   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    InclusionList                                                                 OK
 +   Testing    IndexedAttestation                                                            OK
@@ -3790,13 +3791,12 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
-+   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -3878,19 +3878,6 @@ ConsensusSpecPreset-minimal
 + EF - Heze - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal] OK
 + EF - Heze - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minimal OK
 ```
-## EF - Light client - Data collection [Preset: minimal]
-```diff
-+ Light client - Data collection - minimal/altair/light_client/data_collection/pyspec_tests/ OK
-+ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
-+ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
-+ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
-+ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
-+ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
-+ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
-+ Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
-+ Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
-+ Light client - Data collection - minimal/fulu/light_client/data_collection/pyspec_tests/li OK
-```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
@@ -3915,6 +3902,11 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/heze/light_client/single_merkle_proof/BeaconB OK
 ```
 ## EF - Light client - Sync [Preset: minimal]
 ```diff
@@ -3922,6 +3914,7 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/capella_store_with_leg OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/deneb_store_with_legac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/electra_store_with_leg OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/gloas_store_with_legac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync_no_f OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
@@ -3932,31 +3925,43 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_store_with_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/deneb_store_with_le OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/electra_store_with_ OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/gloas_store_with_le OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync_n OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_electra_fork    OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_fork            OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_gloas_fork      OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_store_with_lega OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/electra_store_with_le OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/gloas_store_with_lega OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/advance_finality_withou OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_fork            OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_gloas_fork      OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_store_with_lega OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/gloas_store_with_legacy OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync       OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync_no_fo OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/supply_sync_committee_f OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/gloas_store_with_lega OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/advance_finality_without OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/gloas_fork               OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/gloas_store_with_legacy_ OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync        OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync_no_for OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/supply_sync_committee_fr OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/advance_finality_withou OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/light_client_sync       OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/light_client_sync_no_fo OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/supply_sync_committee_f OK
 ```
 ## EF - Light client - Update ranking [Preset: minimal]
 ```diff
@@ -3966,6 +3971,7 @@ ConsensusSpecPreset-minimal
 + Light client - Update ranking - minimal/deneb/light_client/update_ranking/pyspec_tests/upd OK
 + Light client - Update ranking - minimal/electra/light_client/update_ranking/pyspec_tests/u OK
 + Light client - Update ranking - minimal/fulu/light_client/update_ranking/pyspec_tests/upda OK
++ Light client - Update ranking - minimal/gloas/light_client/update_ranking/pyspec_tests/upd OK
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
@@ -5929,7 +5935,6 @@ ConsensusSpecPreset-minimal
 + Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
 + Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
 + Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
 + Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
 + Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
 + Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
@@ -6066,6 +6071,13 @@ ConsensusSpecPreset-minimal
 + Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - gloas - Epoch Processing - Pending deposits churn [Preset: minimal]
+```diff
++ Pending deposits churn - activation_churn__equal_to_cap [Preset: minimal]                  OK
++ Pending deposits churn - activation_churn__greater_than_cap [Preset: minimal]              OK
++ Pending deposits churn - activation_churn__less_than_cap [Preset: minimal]                 OK
++ Pending deposits churn - deposit_above_activation_churn_not_processed [Preset: minimal]    OK
 ```
 ## EF - gloas - Epoch Processing - Proposer lookahead [Preset: minimal]
 ```diff
@@ -6224,6 +6236,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
 + [Invalid] EF - gloas - Sanity - Blocks - process_parent_execution_payload__wrong_execution OK
 + [Invalid] EF - gloas - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
++ [Invalid] EF - gloas - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdra OK
 + [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
 + [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
 + [Valid]   EF - gloas - Sanity - Blocks - attestation [Preset: minimal]                     OK
@@ -6240,6 +6253,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_empty_parent_gap_1_epoch [Preset:  OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_empty_parent_gap_2_epochs [Preset: OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_empty_parent_gap_5_epochs [Preset: OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_all_requests_gap_5_epo OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_gap_1_epoch [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_gap_2_epochs [Preset:  OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_gap_5_epochs [Preset:  OK
 + [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
 + [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
 + [Valid]   EF - gloas - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
@@ -6264,6 +6284,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
 + [Valid]   EF - gloas - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
 + [Valid]   EF - gloas - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - switch_to_compounding_across_epoch_boundary [Pres OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
@@ -6281,7 +6302,6 @@ ConsensusSpecPreset-minimal
 + Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
 + Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
 + Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
 + Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
 + Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
 + Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
@@ -6414,6 +6434,13 @@ ConsensusSpecPreset-minimal
 + Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - heze - Epoch Processing - Pending deposits churn [Preset: minimal]
+```diff
++ Pending deposits churn - activation_churn__equal_to_cap [Preset: minimal]                  OK
++ Pending deposits churn - activation_churn__greater_than_cap [Preset: minimal]              OK
++ Pending deposits churn - activation_churn__less_than_cap [Preset: minimal]                 OK
++ Pending deposits churn - deposit_above_activation_churn_not_processed [Preset: minimal]    OK
 ```
 ## EF - heze - Epoch Processing - Proposer lookahead [Preset: minimal]
 ```diff
@@ -6553,6 +6580,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
 + [Invalid] EF - heze - Sanity - Blocks - process_parent_execution_payload__wrong_execution_ OK
 + [Invalid] EF - heze - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]        OK
++ [Invalid] EF - heze - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdraw OK
 + [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
 + [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
 + [Valid]   EF - heze - Sanity - Blocks - attestation [Preset: minimal]                      OK
@@ -6569,6 +6597,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition [Preset: minimal]           OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition_large_validator_set [Preset OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: min OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_empty_parent_gap_1_epoch [Preset: m OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_empty_parent_gap_2_epochs [Preset:  OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_empty_parent_gap_5_epochs [Preset:  OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_all_requests_gap_5_epoc OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_gap_1_epoch [Preset: mi OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_gap_2_epochs [Preset: m OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_gap_5_epochs [Preset: m OK
 + [Valid]   EF - heze - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]        OK
 + [Valid]   EF - heze - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]     OK
 + [Valid]   EF - heze - Sanity - Blocks - exit_and_bls_change [Preset: minimal]              OK
@@ -6593,6 +6628,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - proposer_slashing [Preset: minimal]                OK
 + [Valid]   EF - heze - Sanity - Blocks - skipped_slots [Preset: minimal]                    OK
 + [Valid]   EF - heze - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]        OK
++ [Valid]   EF - heze - Sanity - Blocks - switch_to_compounding_across_epoch_boundary [Prese OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal]  OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]   OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]   OK
