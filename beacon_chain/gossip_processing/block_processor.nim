@@ -719,8 +719,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
-    self[].storeSidecars(sidecarsOpt)
+  self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
 
