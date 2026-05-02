@@ -18,7 +18,7 @@ import
   kzg4844/[kzg_abi, kzg],
   stew/objects,
   # Local modules:
-  ../spec/[engine_authentication, forks],
+  ../spec/[engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
   "."/[el_conf, engine_api_conversions]
 
@@ -930,6 +930,23 @@ proc newPayload*(
     await m.newPayload(payload, deadline, retry)
   else:
     {.error: "newPayload unsupported in " & $consensusFork.}
+
+proc newPayload*(
+    m: ELManager,
+    envelope: gloas.ExecutionPayloadEnvelope,
+    deadline: DeadlineFuture,
+    retry: bool,
+): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+  let blob_versioned_hashes =
+    envelope.payload.transactions.asSeq.all_blob_versioned_hashes().valueOr:
+      debug "Envelope has invalid blob transaction", err = error
+      return Opt.none(PayloadExecutionStatus)
+  await m.newPayload(
+    envelope.payload.asEngineExecutionPayload(),
+    blob_versioned_hashes,
+    envelope.parent_beacon_block_root.to(Hash32),
+    envelope.execution_requests.asEngineExecutionRequests(),
+    deadline, retry)
 
 proc forkchoiceUpdated(
     connection: ELConnection,

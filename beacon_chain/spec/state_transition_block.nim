@@ -1829,29 +1829,29 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
 proc verify_execution_payload_envelope*(
     timeParams: TimeParams,
     fork: Fork,
-    state: gloas.BeaconState | heze.BeaconState,
+    state: gloas.HashedBeaconState | heze.HashedBeaconState,
     signed_envelope: SignedExecutionPayloadEnvelope,
     genesis_validators_root: Eth2Digest): Result[void, cstring] =
   template envelope: auto = signed_envelope.message
   template payload: auto = envelope.payload
-  template bid: auto = state.latest_execution_payload_bid
+  template bid: auto = state.data.latest_execution_payload_bid
 
   # Resolve builder public key
   let builderIndex = envelope.builder_index
   let pubkey =
     if builderIndex == BUILDER_INDEX_SELF_BUILD:
-      let proposerIndex = state.latest_block_header.proposer_index
-      if proposerIndex >= state.validators.lenu64:
+      let proposerIndex = state.data.latest_block_header.proposer_index
+      if proposerIndex >= state.data.validators.lenu64:
         return err("verify_execution_payload_envelope: invalid proposer index")
-      state.validators.item(proposerIndex).pubkey
+      state.data.validators.item(proposerIndex).pubkey
     else:
-      if builderIndex >= state.builders.lenu64:
+      if builderIndex >= state.data.builders.lenu64:
         return err("verify_execution_payload_envelope: invalid builder index")
-      state.builders.item(builderIndex).pubkey
+      state.data.builders.item(builderIndex).pubkey
 
   # Verify signature
   if not verify_execution_payload_envelope_signature(
@@ -1859,6 +1859,16 @@ proc verify_execution_payload_envelope*(
       payload.slot_number.epoch,
       envelope, pubkey, signed_envelope.signature):
     return err("verify_execution_payload_envelope: invalid signature")
+
+  # Verify consistency with the beacon block
+  var header = state.data.latest_block_header
+  header.state_root = state.root
+  if envelope.beacon_block_root != hash_tree_root(header):
+    return err("verify_execution_payload_envelope: beacon_block_root mismatch")
+  if envelope.parent_beacon_block_root !=
+      state.data.latest_block_header.parent_root:
+    return err(
+      "verify_execution_payload_envelope: parent_beacon_block_root mismatch")
 
   # Verify consistency with the committed bid
   if envelope.builder_index != bid.builder_index:
@@ -1873,14 +1883,15 @@ proc verify_execution_payload_envelope*(
     return err("verify_execution_payload_envelope: execution_requests_root mismatch")
 
   # Verify the execution payload is valid
-  if payload.slot_number != state.slot:
+  if payload.slot_number != state.data.slot:
     return err("verify_execution_payload_envelope: slot mismatch")
-  if payload.parent_hash != state.latest_block_hash:
+  if payload.parent_hash != state.data.latest_block_hash:
     return err("verify_execution_payload_envelope: parent_hash mismatch")
-  if payload.timestamp != timeParams.compute_timestamp_at_slot(state, state.slot):
+  if payload.timestamp !=
+      timeParams.compute_timestamp_at_slot(state.data, state.data.slot):
     return err("verify_execution_payload_envelope: timestamp mismatch")
   if hash_tree_root(payload.withdrawals) !=
-      hash_tree_root(state.payload_expected_withdrawals):
+      hash_tree_root(state.data.payload_expected_withdrawals):
     return err("verify_execution_payload_envelope: withdrawals mismatch")
 
   ok()
