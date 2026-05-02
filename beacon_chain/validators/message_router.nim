@@ -795,4 +795,4 @@ proc routeExecutionPayloadBid*(
     notice "Execution payload bid not sent",
       bid = shortLog(signedBid.message), error = res.error()
 
-  return ok()
+  ok()

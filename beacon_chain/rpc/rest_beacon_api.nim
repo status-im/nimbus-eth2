@@ -1658,11 +1658,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
     template decodeBidAndRoute(BidType: untyped) =
-      let dres = decodeBody(BidType, contentBody.get())
+      let dres = decodeBodyJsonOrSsz(BidType, contentBody.get())
       if dres.isErr():
-        return RestApiResponse.jsonError(Http400,
-                                         InvalidExecutionPayloadBidObjectError,
-                                         $dres.error)
+        return RestApiResponse.jsonError(dres.error())
       let res = await node.router.routeExecutionPayloadBid(dres.get())
       if res.isErr():
         return RestApiResponse.jsonError(Http400,
@@ -1673,8 +1671,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     case consensusVersion.get():
       of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
-        return RestApiResponse.jsonError(Http400,
-                                         SlotFromTheIncorrectForkError)
+        RestApiResponse.jsonError(Http400,
+                                  SlotFromTheIncorrectForkError)
       of ConsensusFork.Gloas .. ConsensusFork.Heze:
         decodeBidAndRoute(gloas.SignedExecutionPayloadBid)
 
