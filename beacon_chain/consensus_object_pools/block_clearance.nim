@@ -628,10 +628,17 @@ proc addBackfillExecutionPayload*(
     return err(VerifierError.Invalid)
 
   # Verify signature
-  let builderKey = dag.validatorKey(builderIdx).valueOr:
-    fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
-      head = shortLog(dag.head), tail = shortLog(dag.tail)
-    quit 1
+  let builderKey =
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        if bidBuilderIdx == BUILDER_INDEX_SELF_BUILD:
+          forkyState.data.validators.item(builderIdx).pubkey
+        else:
+          if bidBuilderIdx >= forkyState.data.builders.lenu64:
+            return err(VerifierError.Invalid)
+          forkyState.data.builders.item(bidBuilderIdx).pubkey
+      else:
+        return err(VerifierError.UnviableFork)
   if not verify_execution_payload_envelope_signature(
       dag.forkAtEpoch(envelope.slot.epoch),
       dag.genesis_validators_root,
