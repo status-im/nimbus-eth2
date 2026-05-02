@@ -671,6 +671,14 @@ template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
   else:
     {.error: "ExecutionPayloadHeader unsupported in " & $kind.}
 
+template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Heze:
+    heze.SignedExecutionPayloadBid
+  elif kind >= ConsensusFork.Gloas:
+    gloas.SignedExecutionPayloadBid
+  else:
+    {.error: "SignedExecutionPayloadBid unsupported in " & $kind.}
+
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Heze:
     gloas.ExecutionPayloadForSigning
