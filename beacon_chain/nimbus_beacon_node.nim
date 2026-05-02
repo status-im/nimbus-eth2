@@ -1227,30 +1227,31 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     unsubscribeSubnets = subnetLog(unsubscribeSubnets),
     gossipState = node.gossipState
 
-proc updateBlocksGossipStatus*(
-    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+template updateNewPayloadGossipStatus(
+    currentGossipState: var GossipState,
+    name: static string,
+    getTopic: proc (forkDigest: ForkDigest): string {.noSideEffect.},
+    topicParams: TopicParams,
+    enableTopicMetrics = false): untyped =
   template cfg(): auto = node.dag.cfg
 
   let
     isBehind =
       if node.shouldSyncViaLightClient(slot):
-        # When syncing blocks via light client, always subscribe
+        # When syncing via light client, always subscribe
         false
       else:
-        # Use DAG status to determine whether to subscribe for blocks gossip
+        # Use DAG status to determine whether to subscribe to gossip
         dagIsBehind
-
     targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
-
-  template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
     return
 
   if currentGossipState.card == 0 and targetGossipState.card > 0:
-    debug "Enabling blocks topic subscriptions",
+    debug "Enabling " & name & " topic subscriptions",
       wallSlot = slot, targetGossipState
   elif currentGossipState.card > 0 and targetGossipState.card == 0:
-    debug "Disabling blocks topic subscriptions",
+    debug "Disabling " & name & " topic subscriptions",
       wallSlot = slot
   else:
     # Individual forks added / removed
@@ -1262,16 +1263,25 @@ proc updateBlocksGossipStatus*(
 
   for gossipEpoch in oldGossipEpochs:
     let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
-    node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+    node.network.unsubscribe(getTopic(forkDigest))
 
   for gossipEpoch in newGossipEpochs:
     let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest),
-      getBlockTopicParams(node.dag.timeParams),
-      enableTopicMetrics = true)
+      getTopic(forkDigest), topicParams, enableTopicMetrics)
 
-  node.blocksGossipState = targetGossipState
+  currentGossipState = targetGossipState
+
+proc updateBlocksGossipStatus*(
+    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+  node.blocksGossipState.updateNewPayloadGossipStatus(
+    "blocks", getBeaconBlocksTopic,
+    getBlockTopicParams(node.dag.timeParams), enableTopicMetrics = true)
+
+proc updateEnvelopeGossipStatus*(
+    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+  node.envelopeGossipState.updateNewPayloadGossipStatus(
+    "envelope", getExecutionPayloadTopic, basicParams())
 
 proc addPhase0MessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1419,8 +1429,6 @@ proc addGloasMessageHandlers(
   node.network.subscribe(
     getExecutionPayloadBidTopic(forkDigest), basicParams())
   node.network.subscribe(
-    getExecutionPayloadTopic(forkDigest), basicParams())
-  node.network.subscribe(
     getPayloadAttestationMessageTopic(forkDigest), basicParams())
   node.network.subscribe(
     getProposerPreferencesTopic(forkDigest), basicParams())
@@ -1469,7 +1477,6 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeFuluMessageHandlers(forkDigest)
   node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
-  node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
   node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
 
@@ -1743,6 +1750,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
+  node.updateEnvelopeGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
 proc pruneBlobs(node: BeaconNode, slot: Slot) =
@@ -2349,10 +2357,14 @@ proc installMessageValidators(node: BeaconNode) =
               signedEnvelope: SignedExecutionPayloadEnvelope,
               src: PeerId,
             ): ValidationResult =
-              toValidationResult(
-                node.processor[].processExecutionPayloadEnvelope(
-                  MsgSource.gossip, signedEnvelope))
-          )
+              if node.shouldSyncViaLightClient(node.currentSlot):
+                toValidationResult(
+                  node.lightBlockProcessor.processExecutionPayloadEnvelope(
+                    signedEnvelope))
+              else:
+                toValidationResult(
+                  node.processor[].processExecutionPayloadEnvelope(
+                    MsgSource.gossip, signedEnvelope)))
 
         # payload_attestation_message
         # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
@@ -2367,7 +2379,7 @@ proc installMessageValidators(node: BeaconNode) =
                 await node.processor.processPayloadAttestationMessage(
                   payloadAttestationMessage, checkSignature = true,
                   checkValidator = false)))
-        
+
         # proposer_preferences
         # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
         when consensusFork >= ConsensusFork.Gloas:

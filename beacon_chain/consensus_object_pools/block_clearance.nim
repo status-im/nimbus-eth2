@@ -558,7 +558,14 @@ proc addHeadExecutionPayload*(
     return err(VerifierError.Duplicate)
 
   # Verify with state transition function.
-  debugGloasComment("verify sig")
+  verify_execution_payload_envelope(
+      dag.timeParams,
+      dag.forkAtEpoch(envelopeSlot.epoch),
+      dag.clearanceState.forky(consensusFork),
+      signedEnvelope,
+      dag.genesis_validators_root).isOkOr:
+    debug "Envelope verification failed", reason = error
+    return err(VerifierError.Invalid)
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
