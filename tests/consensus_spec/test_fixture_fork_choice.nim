@@ -578,9 +578,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         if kind != pcDir:
           continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
-          debugGloasComment "fixture bug, should be fixed by alpha.6"
-          if path.contains("on_execution_payload_envelope__wrong_withdrawals"):
-            continue
           runTest(suiteName, basePath/path, fork, rng, taskpool)
 
 fcSuite("ForkChoice", "fork_choice")

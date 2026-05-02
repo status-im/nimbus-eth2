@@ -430,9 +430,8 @@ func is_head_weak(
   head_weight < reorg_threshold
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
-proc should_apply_proposer_boost(
-    self: var ForkChoice, dag: ChainDAGRef,
-    childrenIdx: ChildrenIndex): bool =
+proc should_apply_proposer_boost*(
+    self: var ForkChoice, dag: ChainDAGRef): bool =
   let proposer_root = self.checkpoints.proposer_boost_root
   if proposer_root.isZero:
     return false
@@ -456,18 +455,13 @@ proc should_apply_proposer_boost(
 
   # If parent is weak and from the previous slot, apply
   # proposer boost if there are no early equivocations
-  if parent_node.parent.isNone: return true
-  let grandparent = self.getPhysicalNode(parent_node.parent.get())
-  if grandparent == nil: return true
-
-  for (root, child_idx) in childrenIdx.getOrDefault(grandparent.bid.root):
-    if root == parent_node.bid.root: continue
-    let child = self.getPhysicalNode(child_idx)
-    if child == nil: continue
-    if child.bid.slot + 1 != slot: continue
-    if child.proposerIndex != parent_node.proposerIndex: continue
+  for i in 0 ..< self.backend.proto_array.nodes.buf.len:
+    let blk = addr self.backend.proto_array.nodes.buf[i]
+    if blk.bid.root == parent_node.bid.root: continue
+    if blk.bid.slot + 1 != slot: continue
+    if blk.proposerIndex != parent_node.proposerIndex: continue
     let timeliness = self.backend.block_timeliness.getOrDefault(
-      root, [false, false])
+      blk.bid.root, [false, false])
     if not timeliness[PTC_TIMELINESS_INDEX]: continue
     return false
 
@@ -477,7 +471,7 @@ proc should_apply_proposer_boost(
 func get_weight*(
     self: var ForkChoice, node: ForkChoiceNode,
     current_slot: Slot, dag: ChainDAGRef,
-    childrenIdx: ChildrenIndex): Gwei =
+    applyProposerBoost: bool): Gwei =
   let proto_node = self.getNode(node.root)
   if proto_node == nil:
     return 0.Gwei
@@ -493,7 +487,7 @@ func get_weight*(
     attestation_score = self.sumSupportingWeight(node, dag)
     proposer_score = 0.Gwei
 
-  if self.should_apply_proposer_boost(dag, childrenIdx):
+  if applyProposerBoost:
     let boost_vote = VoteTracker(
       next_root: self.checkpoints.proposer_boost_root,
       next_slot: current_slot,
@@ -530,7 +524,7 @@ proc on_execution_payload*(
     when consensusFork >= ConsensusFork.Gloas:
       let verifyResult = dag.timeParams.verify_execution_payload_envelope(
           dag.forkAtEpoch(envelope.payload.slot_number.epoch),
-          forkyState.data, signedEnvelope,
+          forkyState, signedEnvelope,
           dag.genesis_validators_root)
       if verifyResult.isErr:
         debug "Execution payload envelope verification failed",

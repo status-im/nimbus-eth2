@@ -596,6 +596,9 @@ proc get_head*(
     root: self.checkpoints.justified.checkpoint.root,
     payloadStatus: PAYLOAD_STATUS_PENDING)
 
+  let applyProposerBoost =
+    self.should_apply_proposer_boost(dag)
+
   var iterations = 0
 
   while iterations < 1000:
@@ -607,14 +610,14 @@ proc get_head*(
 
     var
       best = children[0]
-      best_weight = self.get_weight(best, current_slot, dag, childrenIdx)
+      best_weight = self.get_weight(best, current_slot, dag, applyProposerBoost)
       best_tiebreaker =
         self.get_payload_status_tiebreaker(best, current_slot, dag)
 
     for i in 1..<children.len:
       let
         child = children[i]
-        child_weight = self.get_weight(child, current_slot, dag, childrenIdx)
+        child_weight = self.get_weight(child, current_slot, dag, applyProposerBoost)
         child_tiebreaker =
           self.get_payload_status_tiebreaker(child, current_slot, dag)
 
