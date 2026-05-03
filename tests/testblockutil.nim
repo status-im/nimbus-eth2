@@ -601,7 +601,7 @@ func makeAttestationData*(
 func makeAttestationSig(
     fork: Fork, genesis_validators_root: Eth2Digest, data: AttestationData,
     committee: openArray[ValidatorIndex],
-    bits: CommitteeValidatorsBits | ElectraCommitteeValidatorsBits): ValidatorSig =
+    bits: CommitteeValidatorsBits | AggregationBits): ValidatorSig =
   let signing_root = compute_attestation_signing_root(
     fork, genesis_validators_root, data)
 
@@ -725,7 +725,7 @@ func makeElectraAttestation(
 
   doAssert index_in_committee != -1, "find_beacon_committee should guarantee this"
 
-  var aggregation_bits = ElectraCommitteeValidatorsBits.init(committee.len)
+  var aggregation_bits = AggregationBits.init(committee.len)
   aggregation_bits.setBit index_in_committee
 
   let sig = if skipBlsValidation in flags:
@@ -773,7 +773,7 @@ func makeFullElectraAttestations*(
 
     doAssert committee.len() >= 1
     var attestation = electra.Attestation(
-      aggregation_bits: ElectraCommitteeValidatorsBits.init(committee.len),
+      aggregation_bits: AggregationBits.init(committee.len),
       committee_bits: committee_bits,
       data: data)
     for i in 0..<committee.len:
@@ -793,7 +793,7 @@ func makeElectraIndexedAttestation*(
   let
     data = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
     committee = validator_indices.mapIt(it.ValidatorIndex)
-  var bits = ElectraCommitteeValidatorsBits.init(committee.len)
+  var bits = AggregationBits.init(committee.len)
   for i in 0 ..< committee.len:
     bits.setBit i
   electra.IndexedAttestation(
