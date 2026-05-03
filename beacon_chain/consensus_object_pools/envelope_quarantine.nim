@@ -17,8 +17,6 @@ const
     ## Exponential backoff, double interval between each attempt
   MaxMissingItems* = 1024
     ## Revisit the setting and same as block quarantine for now
-
-const
   MaxUnviables = 16 * 1024
     ## Set to same as max unviable blocks.
 
