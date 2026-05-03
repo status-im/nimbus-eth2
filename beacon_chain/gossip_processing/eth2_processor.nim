@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[tables],
+  std/tables,
   chronicles, chronos, metrics,
   taskpools,
   kzg4844/kzg,
@@ -16,10 +16,10 @@ import
   ../el/el_manager,
   ../spec/[column_map, helpers, forks],
   ../consensus_object_pools/[
-    attestation_pool, blob_quarantine, block_clearance, block_quarantine,
-    blockchain_dag, envelope_quarantine, execution_payload_pool,
-    payload_attestation_pool, light_client_pool,
-    sync_committee_msg_pool, validator_change_pool],
+    attestation_pool, block_clearance, block_quarantine, blockchain_dag,
+    column_quarantine, envelope_quarantine, execution_payload_pool,
+    payload_attestation_pool, light_client_pool, sync_committee_msg_pool,
+    validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -964,10 +964,8 @@ proc processProposerPreferences*(
 ): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
-    currentSlot = wallTime.slotOrZero(self.dag.timeParams)
-
-  let v = validateProposerPreferences(
-    self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
+    v = validateProposerPreferences(
+      self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
   if v.isErr():
     debug "Dropping proposer preferences", reason = $v.error
     return err(v.error())

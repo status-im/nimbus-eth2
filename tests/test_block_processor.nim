@@ -20,13 +20,15 @@ import
     peerdas_helpers, state_transition],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, envelope_quarantine,
+    blockchain_dag, block_quarantine, block_clearance, column_quarantine,
+    consensus_manager, envelope_quarantine
   ],
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
 
 from chronos/unittest2/asynctests import asyncTest
+from ../beacon_chain/consensus_object_pools/attestation_pool import
+  AttestationPool, init
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker

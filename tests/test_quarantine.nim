@@ -13,7 +13,7 @@ import stew/endians2,
        ./testutil,
        ../beacon_chain/[beacon_chain_db, beacon_chain_db_quarantine],
        ../beacon_chain/spec/[helpers, column_map],
-       ../beacon_chain/consensus_object_pools/blob_quarantine
+       ../beacon_chain/consensus_object_pools/column_quarantine
 
 from std/sequtils import mapIt, toSeq
 

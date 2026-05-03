@@ -9,7 +9,7 @@
 
 import
   system/ansi_c,
-  std/[os, random, strutils, terminal, times],
+  std/[os, random, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -17,7 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list, envelope_quarantine,
+    blockchain_list, column_quarantine, envelope_quarantine,
     execution_payload_pool, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
@@ -33,6 +33,7 @@ import
     nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
 
 from std/sequtils import filterIt, mapIt, toSeq
+#from std/strutils import
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
 from ./spec/datatypes/deneb import SignedBeaconBlock

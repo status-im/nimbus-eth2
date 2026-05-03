@@ -13,7 +13,7 @@ import
   ../spec/[forks, network, peerdas_helpers, column_map],
   ../networking/eth2_network,
   ../consensus_object_pools/[
-    blob_quarantine, block_quarantine, envelope_quarantine],
+    block_quarantine, column_quarantine, envelope_quarantine],
   ./sync_protocol, ./sync_manager, ./validator_custody,
   ../gossip_processing/block_processor
 
