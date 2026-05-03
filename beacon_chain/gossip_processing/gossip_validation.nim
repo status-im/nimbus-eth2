@@ -18,7 +18,7 @@ import
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
-    column_quarantine,envelope_quarantine, execution_payload_pool,
+    column_quarantine, envelope_quarantine, execution_payload_pool,
     light_client_pool, payload_attestation_pool,spec_cache,
     sync_committee_msg_pool, validator_change_pool],
   ../beacon_clock,
