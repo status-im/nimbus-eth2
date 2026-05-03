@@ -187,7 +187,11 @@ proc recover_cells_and_proofs_parallel*(
 
   let tsp = ThreadSignalPtr.new().valueOr:
     return err("Could not allocate signal")
+
+  var wait = tsp.wait() # `wait` before task-ended check to avoid race
+
   defer:
+    await wait.cancelAndWait()
     # If there's an error closing the TSP, there's nothing we can do about it
     # here..
     discard tsp.close()
@@ -263,14 +267,14 @@ proc recover_cells_and_proofs_parallel*(
             break
 
           try:
-            await tsp.wait()
+            await wait
           except AsyncError:
             hadError = true
             break spawning
           except CancelledError as exc:
             hadTimeout = true
             break spawning
-
+          wait = tsp.wait()
         addr tasks[found]
 
       # Set up pointers to actual data
@@ -298,7 +302,7 @@ proc recover_cells_and_proofs_parallel*(
 
     if tasks.anyIt(it.ok.isSpawned):
       try:
-        await tsp.wait()
+        await wait
       except CatchableError:
         # Waiting for a signal should never fail, but if it does anyway we have
         # to make sure that the tasks are all finished to retain memory safety
@@ -306,8 +310,10 @@ proc recover_cells_and_proofs_parallel*(
           if t.ok.isSpawned():
             if not t.ok.sync():
               hadError = true
+      wait = tsp.wait()
     else:
       break
+
   if hadError:
     return err("Data column reconstruction failed")
   elif hadTimeout:
