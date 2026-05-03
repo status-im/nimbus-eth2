@@ -7,17 +7,18 @@
 
 {.push raises: [], gcsafe.}
 
-import std/[sets, sequtils], chronos, chronicles
+import std/sets, chronos, chronicles
 import ssz_serialization/types
 import
   ../spec/[forks, network, peerdas_helpers, column_map],
   ../networking/eth2_network,
   ../consensus_object_pools/[
     blob_quarantine, block_quarantine, envelope_quarantine],
-  "."/sync_protocol, "."/sync_manager, "."/validator_custody,
+  ./sync_protocol, ./sync_manager, ./validator_custody,
   ../gossip_processing/block_processor
 
 from std/algorithm import binarySearch, sort
+from std/sequtils import allIt, countIt, filterIt, mapIt
 from std/strutils import join
 from ../beacon_clock import GetBeaconTimeFn
 from stew/assign2 import assign
@@ -39,9 +40,6 @@ const
   PARALLEL_DATA_COLUMNS = 8
 
   PARALLEL_DATA_COLUMNS_SUPER = 10
-
-  BLOB_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
-    ## How long to wait for blobs to arri ve over gossip before fetching.
 
   DATA_COLUMN_GOSSIP_WAIT_TIME_NS = 2 * 1_000_000_000
     ## How long to wait for data columns to arrive over gossip before fetching.
@@ -68,18 +66,11 @@ type
       blockRoot: Eth2Digest,
   ): Opt[gloas.TrustedSignedExecutionPayloadEnvelope] {.gcsafe, raises: [].}
 
-  BlobLoaderFn = proc(
-      blobId: BlobIdentifier): Opt[ref BlobSidecar] {.gcsafe, raises: [].}
-
   DataColumnLoaderFn = proc(
       columnId: DataColumnIdentifier):
       Opt[ref fulu.DataColumnSidecar] {.gcsafe, raises: [].}
 
   InhibitFn = proc: bool {.gcsafe, raises: [].}
-
-  BlobResponseRecord = object
-    block_root: Eth2Digest
-    sidecar: ref BlobSidecar
 
   DataColumnResponseRecord* = object
     block_root*: Eth2Digest
@@ -92,17 +83,14 @@ type
     inhibit: InhibitFn
     quarantine: ref Quarantine
     envelopeQuarantine: ref EnvelopeQuarantine
-    blobQuarantine: ref BlobQuarantine
     dataColumnQuarantine: ref ColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
     envelopeVerifier: EnvelopeVerifierFn
     envelopeLoader: EnvelopeLoaderFn
-    blobLoader: BlobLoaderFn
     dataColumnLoader: DataColumnLoaderFn
     blockLoopFuture: Future[void].Raising([CancelledError])
     envelopeLoopFuture: Future[void].Raising([CancelledError])
-    blobLoopFuture: Future[void].Raising([CancelledError])
     dataColumnLoopFuture: Future[void].Raising([CancelledError])
 
 func shortLog*(x: seq[Eth2Digest]): string =
@@ -118,13 +106,11 @@ func init*(T: type RequestManager, network: Eth2Node,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
               envelopeQuarantine: ref EnvelopeQuarantine,
-              blobQuarantine: ref BlobQuarantine,
               dataColumnQuarantine: ref ColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
               envelopeVerifier: EnvelopeVerifierFn,
               envelopeLoader: EnvelopeLoaderFn,
-              blobLoader: BlobLoaderFn = nil,
               dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
   RequestManager(
     network: network,
@@ -133,13 +119,11 @@ func init*(T: type RequestManager, network: Eth2Node,
     inhibit: inhibit,
     quarantine: quarantine,
     envelopeQuarantine: envelopeQuarantine,
-    blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
     envelopeVerifier: envelopeVerifier,
     envelopeLoader: envelopeLoader,
-    blobLoader: blobLoader,
     dataColumnLoader: dataColumnLoader)
 
 func checkResponse(roots: openArray[Eth2Digest],
@@ -166,38 +150,9 @@ func checkResponse(
 func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
   cmp(x, y[].index)
 
-func checkResponseSanity(
-    idents: openArray[BlobIdentifier],
-    blobs: openArray[ref BlobSidecar]
-): Opt[seq[BlobResponseRecord]] =
-  # Cannot respond more than what I have asked
-  if len(blobs) > len(idents):
-    return Opt.none(seq[BlobResponseRecord])
-
-  var
-    checks = idents.toHashSet()
-    records: seq[BlobResponseRecord]
-
-  for sidecar in blobs.items():
-    let
-      block_root = hash_tree_root(sidecar[].signed_block_header.message)
-      sidecarIdent =
-        BlobIdentifier(block_root: block_root, index: sidecar[].index)
-
-    if checks.missingOrExcl(sidecarIdent):
-      return Opt.none(seq[BlobResponseRecord])
-
-    # Verify inclusion proof
-    sidecar[].verify_blob_sidecar_inclusion_proof().isOkOr:
-      return Opt.none(seq[BlobResponseRecord])
-
-    records.add(BlobResponseRecord(block_root: block_root, sidecar: sidecar))
-
-  Opt.some(records)
-
-func checkColumnResponse*(idList: seq[DataColumnsByRootIdentifier],
-                          columns: openArray[ref fulu.DataColumnSidecar]):
-                          Opt[seq[DataColumnResponseRecord]] =
+func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
+                         columns: openArray[ref fulu.DataColumnSidecar]):
+                         Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
     let block_root =
@@ -348,51 +303,8 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
-func cmpSidecarIndexes(x, y: ref BlobSidecar | ref fulu.DataColumnSidecar): int =
+func cmpSidecarIndexes(x, y: ref fulu.DataColumnSidecar): int =
   cmp(x[].index, y[].index)
-
-proc fetchBlobsFromNetwork(self: RequestManager,
-                           idList: seq[BlobIdentifier])
-                           {.async: (raises: [CancelledError]).} =
-  var peer: Peer
-
-  try:
-    peer = await self.network.peerPool.acquire()
-    debug "Requesting blobs by root", peer = peer, blobs = shortLog(idList),
-                                             peer_score = peer.getScore()
-
-    let blobs = await blobSidecarsByRoot(
-      peer, BlobIdentifierList idList, maxResponseItems = idList.len)
-
-    if blobs.isOk:
-      var ublobs = blobs.get().asSeq()
-      let records = checkResponseSanity(idList, ublobs).valueOr:
-        debug "Response to blobs by root is incorrect",
-              peer = peer, blobs = shortLog(idList), ublobs = len(ublobs)
-        peer.updateScore(PeerScoreBadResponse)
-        return
-
-      for b in records:
-        self.blobQuarantine[].put(b.block_root, b.sidecar)
-
-      var curRoot: Eth2Digest
-      for record in records:
-        if record.block_root != curRoot:
-          curRoot = record.block_root
-          if (let o = self.quarantine[].popSidecarless(curRoot); o.isSome):
-            let blck = o.unsafeGet()
-            discard await self.blockVerifier(blck, false)
-            # TODO:
-            # If appropriate, return a VerifierError.InvalidBlob from
-            # verification, check for it here, and penalize the peer accordingly
-    else:
-      debug "Blobs by root request failed",
-            peer = peer, blobs = shortLog(idList), err = blobs.error()
-      peer.updateScore(PeerScoreNoValues)
-
-  finally:
-    if not(isNil(peer)):
-      self.network.peerPool.release(peer)
 
 proc checkPeerCustody(rman: RequestManager,
                       peer: Peer): DataColumnIndices =
@@ -656,118 +568,6 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
       envelopes = shortLog(blockRoots),
       sync_speed = speed(start, finish)
 
-proc getMissingBlobs(rman: RequestManager): seq[BlobIdentifier] =
-  let
-    wallTime = rman.getBeaconTime()
-    wallSlot = wallTime.slotOrZero(rman.network.cfg.timeParams)
-    delay = wallTime - wallSlot.start_beacon_time(rman.network.cfg.timeParams)
-    waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
-
-  var
-    idents: seq[BlobIdentifier]
-    ready: seq[Eth2Digest]
-  for blobless in rman.quarantine[].peekSidecarless():
-    withBlck(blobless):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        # give blobs a chance to arrive over gossip
-        if forkyBlck.message.slot == wallSlot and delay < waitDur:
-          debug "Not handling missing blobs early in slot"
-          continue
-
-        let
-          commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
-          missing =
-            rman.blobQuarantine[].fetchMissingSidecars(blobless.root, forkyBlck)
-
-        if len(missing) > 0:
-          for ident in missing:
-            idents.add(ident)
-        else:
-          if commitmentsCount == 0:
-            # this is a programming error should it occur.
-            warn "missing blob handler found blobless block with all blobs",
-                 blk = blobless.root,
-                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
-            ready.add(blobless.root)
-          else:
-            # This should not happen either...
-            warn "quarantine missing blobs, but missing indices is empty",
-                 blk = blobless.root,
-                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
-
-  for root in ready:
-    let blobless = rman.quarantine[].popSidecarless(root).valueOr:
-      continue
-    discard rman.blockVerifier(blobless, false)
-  idents
-
-proc requestManagerBlobLoop(
-    rman: RequestManager) {.async: (raises: [CancelledError]).} =
-  while true:
-    # TODO This polling could be replaced with an AsyncEvent that is fired
-    #      from the quarantine when there's work to do
-    await sleepAsync(POLL_INTERVAL)
-    if rman.inhibit():
-      continue
-
-    let missingBlobIds = rman.getMissingBlobs()
-    if missingBlobIds.len == 0:
-      continue
-
-    # TODO This logic can be removed if the database schema is extended
-    # to store non-canonical heads on top of the canonical head!
-    # If that is done, the database no longer contains extra blocks
-    # that have not yet been assigned a `BlockRef`
-    var blobIds: seq[BlobIdentifier]
-    if rman.blobLoader == nil:
-      blobIds = missingBlobIds
-    else:
-      var
-        blockRoots: seq[Eth2Digest]
-        curRoot: Eth2Digest
-      for blobId in missingBlobIds:
-        if blobId.block_root != curRoot:
-          curRoot = blobId.block_root
-          blockRoots.add curRoot
-        let blob_sidecar = rman.blobLoader(blobId).valueOr:
-          blobIds.add blobId
-          if blockRoots.len > 0 and blockRoots[^1] == curRoot:
-            # A blob is missing, remove from list of fully available blocks
-            discard blockRoots.pop()
-          continue
-        debug "Loaded orphaned blob from storage", blobId
-        rman.blobQuarantine[].put(curRoot, blob_sidecar)
-      var verifiers = newSeqOfCap[
-        Future[Result[void, VerifierError]]
-          .Raising([CancelledError])](blockRoots.len)
-      for blockRoot in blockRoots:
-        let blck = rman.quarantine[].popSidecarless(blockRoot).valueOr:
-          continue
-        verifiers.add rman.blockVerifier(blck, maybeFinalized = false)
-      try:
-        await allFutures(verifiers)
-      except CancelledError as exc:
-        var futs = newSeqOfCap[Future[void].Raising([])](verifiers.len)
-        for verifier in verifiers:
-          futs.add verifier.cancelAndWait()
-        await noCancel allFutures(futs)
-        raise exc
-
-    if blobIds.len > 0:
-      debug "Requesting detected missing blobs", blobs = shortLog(blobIds)
-      let start = SyncMoment.now(0)
-      var workers:
-        array[PARALLEL_REQUESTS, Future[void].Raising([CancelledError])]
-      for i in 0 ..< PARALLEL_REQUESTS:
-        workers[i] = rman.fetchBlobsFromNetwork(blobIds)
-
-      await allFutures(workers)
-      let finish = SyncMoment.now(uint64(len(blobIds)))
-
-      debug "Request manager blob tick",
-            blobs_count = len(blobIds),
-            sync_speed = speed(start, finish)
-
 proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifier] =
   let
     wallTime = rman.getBeaconTime()
@@ -888,9 +688,8 @@ proc requestManagerDataColumnLoop(
             sync_speed = speed(start, finish)
 
 proc start*(rman: var RequestManager) =
-  ## Start Request Manager's loops.
+  ## Start Request Manager's loop.
   rman.blockLoopFuture = rman.requestManagerBlockLoop()
-  rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
 proc upgradeLoops*(rman: var RequestManager) =
   let currentEpoch =
@@ -898,9 +697,6 @@ proc upgradeLoops*(rman: var RequestManager) =
 
   if currentEpoch >= rman.network.cfg.FULU_FORK_EPOCH and
      isNil(rman.dataColumnLoopFuture):
-    if not(isNil(rman.blobLoopFuture)):
-      rman.blobLoopFuture.cancelSoon()
-
     rman.dataColumnLoopFuture =
       rman.requestManagerDataColumnLoop()
 
@@ -914,7 +710,5 @@ proc stop*(rman: RequestManager) =
     rman.blockLoopFuture.cancelSoon()
   if not(isNil(rman.envelopeLoopFuture)):
     rman.envelopeLoopFuture.cancelSoon()
-  if not(isNil(rman.blobLoopFuture)):
-    rman.blobLoopFuture.cancelSoon()
   if not(isNil(rman.dataColumnLoopFuture)):
     rman.dataColumnLoopFuture.cancelSoon()

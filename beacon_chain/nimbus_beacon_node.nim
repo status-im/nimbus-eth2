@@ -463,8 +463,6 @@ proc initFullNode(
     node.eventBus.propSlashQueue.emit(data)
   proc onAttesterSlashingAdded(data: electra.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
-  proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
-    node.eventBus.blobSidecarQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
     node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -575,8 +573,6 @@ proc initFullNode(
       onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
-    blobQuarantine = newClone(BlobQuarantine.init(
-      dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     validatorCustody = ValidatorCustodyRef.init(
       node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 
@@ -601,7 +597,7 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      dataColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
@@ -617,9 +613,7 @@ proc initFullNode(
             const sidecarsOpt = noSidecars
           else:
             let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
-        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-          template sidecarsOpt: untyped = blobs
-        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
           const sidecarsOpt = noSidecars
         else:
           {.error: "Unkown fork: " & $consensusFork.}
@@ -653,18 +647,7 @@ proc initFullNode(
                 err(VerifierError.UnviableFork)
               else:
                 err(VerifierError.MissingParent)
-        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-          let sidecarsOpt =
-            blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if sidecarsOpt.isNone():
-            # We don't have all the sidecars for this block, so we have
-            # to put it to the quarantine.
-            return
-              if not quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck):
-                err(VerifierError.UnviableFork)
-              else:
-                err(VerifierError.MissingParent)
-        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
           const sidecarsOpt = noSidecars
         else:
           {.error: "Unkown fork: " & $consensusFork.}
@@ -732,13 +715,6 @@ proc initFullNode(
     rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
         Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
       dag.db.getExecutionPayloadEnvelope(blockRoot)
-    rmanBlobLoader = proc(
-        blobId: BlobIdentifier): Opt[ref BlobSidecar] =
-      var blob_sidecar = BlobSidecar.new()
-      if dag.db.getBlobSidecar(blobId.block_root, blobId.index, blob_sidecar[]):
-        Opt.some blob_sidecar
-      else:
-        Opt.none(ref BlobSidecar)
     rmanDataColumnLoader = proc(
         columnId: DataColumnIdentifier): Opt[ref fulu.DataColumnSidecar] =
       var data_column_sidecar = fulu.DataColumnSidecar.new()
@@ -752,7 +728,7 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      quarantine, dataColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -808,10 +784,9 @@ proc initFullNode(
       node.network, validatorCustody,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
-      quarantine, envelopeQuarantine, blobQuarantine,
-      dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
-      rmanEnvelopeVerifier, rmanEnvelopeLoader,
-      rmanBlobLoader, rmanDataColumnLoader)
+      quarantine, envelopeQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      rmanBlockLoader, rmanEnvelopeVerifier, rmanEnvelopeLoader,
+      rmanDataColumnLoader)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -858,7 +833,6 @@ proc initFullNode(
   node.dag = dag
   node.dag.eaSlot = eaSlot
   node.list = clist
-  node.blobQuarantine = blobQuarantine
   node.dataColumnQuarantine = dataColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
@@ -1902,8 +1876,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
-    node.processor.blobQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
     node.processor.quarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 

@@ -174,7 +174,6 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
@@ -203,7 +202,6 @@ proc new*(T: type Eth2Processor,
           executionPayloadBidPool: ref ExecutionPayloadBidPool,
           payloadAttestationPool: ref PayloadAttestationPool,
           quarantine: ref Quarantine,
-          blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
@@ -226,7 +224,6 @@ proc new*(T: type Eth2Processor,
     executionPayloadBidPool: executionPayloadBidPool,
     payloadAttestationPool: payloadAttestationPool,
     quarantine: quarantine,
-    blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
@@ -303,12 +300,7 @@ proc processSignedBeaconBlock*(
     if sidecarsOpt.isNone():
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
-  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-    let sidecarsOpt = self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
-    if sidecarsOpt.isNone():
-      self.quarantine[].addSidecarless(signedBlock)
-      return ok()
-  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
     const sidecarsOpt = noSidecars
   else:
     {.error: "Unknown fork " & $consensusFork.}
@@ -386,28 +378,13 @@ proc processBlobSidecar*(
   debug "Blob received", delay
 
   let v =
-    self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,
+    self.dag.validateBlobSidecar(self.quarantine,
                                  blobSidecar, wallTime, subnet_id)
 
   if v.isErr():
     debug "Dropping blob", error = v.error()
     blob_sidecars_dropped.inc(1, [$v.error[0]])
     return v
-
-  let block_root = hash_tree_root(block_header)
-  debug "Blob validated, putting in blob quarantine"
-  self.blobQuarantine[].put(block_root, newClone(blobSidecar))
-
-  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
-    withBlck(o[]):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
-        if bres.isSome():
-          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, bres)
-        else:
-          self.quarantine[].addSidecarless(forkyBlck)
-      else:
-        raiseAssert "Wrong fork for blob: " & $consensusFork
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())

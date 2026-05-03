@@ -86,7 +86,6 @@ type
     dag*: ChainDAGRef
     list*: ChainListRef
     quarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
     attestationPool*: ref AttestationPool

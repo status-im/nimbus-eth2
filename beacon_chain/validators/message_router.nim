@@ -237,12 +237,7 @@ proc publishSidecars(
       notice "Blob sent",
         blob = shortLog(blobs[i])
 
-  # Convert to seq[ref BlobSidecar]
-  var finalBlobs: BlobSidecars
-  for blob in blobs:
-    finalBlobs.add newClone(blob)
-
-  Opt.some(finalBlobs)
+  Opt.some(blobs.mapIt(newClone(it)))
 
 proc addRoutedBlock(
     router: ref MessageRouter,

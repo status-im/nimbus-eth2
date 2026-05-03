@@ -8,14 +8,14 @@
 {.push raises: [], gcsafe.}
 {.used.}
 
-import stew/endians2, std/sequtils,
-       kzg4844/kzg,
+import stew/endians2,
        unittest2,
        ./testutil,
        ../beacon_chain/[beacon_chain_db, beacon_chain_db_quarantine],
-       ../beacon_chain/spec/datatypes/[deneb, electra, fulu],
-       ../beacon_chain/spec/[presets, helpers, column_map],
+       ../beacon_chain/spec/[helpers, column_map],
        ../beacon_chain/consensus_object_pools/blob_quarantine
+
+from std/sequtils import mapIt, toSeq
 
 func genBlockRoot(index: int): Eth2Digest =
   var res: Eth2Digest
@@ -28,20 +28,6 @@ func genKzgCommitment(index: int): KzgCommitment =
   let tmp = uint64(index).toBytesLE()
   copyMem(addr res.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
   res
-
-func genBlobSidecar(
-    index: int,
-    slot: int,
-    kzg_commitment: int,
-    proposer_index: int
-): BlobSidecar =
-  BlobSidecar(
-    index: BlobIndex(index),
-    kzg_commitment: genKzgCommitment(kzg_commitment),
-    signed_block_header: SignedBeaconBlockHeader(
-      message: BeaconBlockHeader(
-        slot: Slot(slot),
-        proposer_index: uint64(proposer_index))))
 
 func genFuluDataColumnSidecar(
     index: int,
@@ -62,30 +48,6 @@ func genGloasDataColumnSidecar(
   gloas.DataColumnSidecar(
     index: ColumnIndex(index),
     slot: Slot(slot))
-
-func genDenebSignedBeaconBlock(
-    blockRoot: Eth2Digest,
-    sidecars: openArray[ref BlobSidecar]
-): deneb.SignedBeaconBlock =
-  var res: seq[KzgCommitment]
-  for sidecar in sidecars:
-    res.add(sidecar[].kzg_commitment)
-  deneb.SignedBeaconBlock(
-    message: deneb.BeaconBlock(
-      body: deneb.BeaconBlockBody(blob_kzg_commitments: KzgCommitments(res))),
-    root: blockRoot)
-
-func genElectraSignedBeaconBlock(
-    blockRoot: Eth2Digest,
-    sidecars: openArray[ref BlobSidecar]
-): electra.SignedBeaconBlock =
-  var res: seq[KzgCommitment]
-  for sidecar in sidecars:
-    res.add(sidecar[].kzg_commitment)
-  electra.SignedBeaconBlock(
-    message: electra.BeaconBlock(
-      body: electra.BeaconBlockBody(blob_kzg_commitments: KzgCommitments(res))),
-    root: blockRoot)
 
 func genFuluSignedBeaconBlock(
     blockRoot: Eth2Digest,
@@ -109,8 +71,7 @@ func genGloasSignedExecutionPayloadEnvelope(
       beacon_block_root: blockRoot))
 
 func compareSidecars(
-    a, b: openArray[ref BlobSidecar | ref fulu.DataColumnSidecar |
-                    ref gloas.DataColumnSidecar]
+    a, b: openArray[ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar]
 ): bool =
   if len(a) != len(b):
     return false
@@ -122,8 +83,7 @@ func compareSidecars(
   true
 
 func compareSidecarsByValue(
-    a, b: openArray[ref BlobSidecar | ref fulu.DataColumnSidecar |
-                    ref gloas.DataColumnSidecar]
+    a, b: openArray[ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar]
 ): bool =
   if len(a) != len(b):
     debugEcho "Length not equal"
@@ -133,20 +93,6 @@ func compareSidecarsByValue(
   for i in 0 ..< len(a):
     if a[i][] != b[i][]:
       debugEcho "data not equal"
-      return false
-  true
-
-func compareSidecars(
-    blockRoot: Eth2Digest,
-    a: openArray[ref BlobSidecar],
-    b: openArray[BlobIdentifier]
-): bool =
-  if len(a) != len(b):
-    return false
-  if len(a) == 0:
-    return true
-  for i in 0 ..< len(a):
-    if (a[i][].index != b[i].index) or (b[i].block_root != blockRoot):
       return false
   true
 
@@ -184,961 +130,6 @@ func supernodeColumns(): seq[ColumnIndex] =
   for i in 0 ..< 128:
     res.add(ColumnIndex(i))
   res
-
-suite "BlobQuarantine data structure test suite " & preset():
-  setup:
-    let
-      cfg {.used.} = defaultRuntimeConfig
-      db {.used.} = BeaconChainDB.new("", cfg, inMemory = true)
-      quarantine {.used.} = db.getQuarantineDB()
-
-  teardown:
-    db.close()
-
-  test "put()/hasSidecar(index, slot, proposer_index)/remove() test":
-    var bq = BlobQuarantine.init(cfg, quarantine, 0, nil)
-    let
-      broot1 = genBlockRoot(1)
-      broot2 = genBlockRoot(2)
-      broot3 = genBlockRoot(3)
-      broot4 = genBlockRoot(4)
-      broot5 = genBlockRoot(5)
-      sidecar1 =
-        newClone(genBlobSidecar(index = 0, slot = 1, 1, proposer_index = 5))
-      sidecar2 =
-        newClone(genBlobSidecar(index = 1, slot = 1, 2, proposer_index = 5))
-      sidecar3 =
-        newClone(genBlobSidecar(index = 2, slot = 1, 3, proposer_index = 5))
-      sidecar4 =
-        newClone(genBlobSidecar(index = 4, slot = 2, 4, proposer_index = 6))
-      sidecar5 =
-        newClone(genBlobSidecar(index = 5, slot = 3, 5, proposer_index = 7))
-      sidecar6 =
-        newClone(genBlobSidecar(index = 6, slot = 3, 6, proposer_index = 8))
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == false
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == false
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(broot2, Slot(2), uint64(5), BlobIndex(4)) == false
-      bq.hasSidecar(broot3, Slot(3), uint64(5), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(5), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.put(broot1, sidecar1)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == false
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.put(broot1, sidecar2)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.put(broot1, sidecar3)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.put(broot2, sidecar4)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.put(broot3, sidecar5)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == true
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.put(broot4, sidecar6)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == true
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == true
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.remove(broot4)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == true
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.remove(broot3)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == true
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.remove(broot2)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == true
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == true
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-
-    bq.remove(broot1)
-
-    check:
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(0)) == false
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(1)) == false
-      bq.hasSidecar(broot1, Slot(1), uint64(5), BlobIndex(2)) == false
-      bq.hasSidecar(broot2, Slot(2), uint64(6), BlobIndex(4)) == false
-      bq.hasSidecar(broot3, Slot(3), uint64(7), BlobIndex(5)) == false
-      bq.hasSidecar(broot4, Slot(3), uint64(8), BlobIndex(6)) == false
-      bq.hasSidecar(broot5, Slot(10), uint64(100), BlobIndex(3)) == false
-      len(bq) == 0
-
-  test "put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test":
-    var bq = BlobQuarantine.init(cfg, quarantine, 0, nil)
-    let
-      broot1 = genBlockRoot(1)
-      broot2 = genBlockRoot(2)
-      sidecars1 =
-        block:
-          var res: seq[ref BlobSidecar]
-          for i in 0 ..< cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
-            res.add(newClone(genBlobSidecar(index = int(i), slot = 1,
-                                            1 + int(i), proposer_index = 5)))
-          res
-      sidecars2 =
-        block:
-          var res: seq[ref BlobSidecar]
-          for i in 0 ..< cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
-            res.add(newClone(genBlobSidecar(index = int(i), slot = 1,
-                                            1 + int(i), proposer_index = 50)))
-          res
-      denebBlock = genDenebSignedBeaconBlock(broot1, sidecars1)
-      electraBlock = genElectraSignedBeaconBlock(broot2, sidecars2)
-
-    check:
-      bq.hasSidecars(denebBlock) == false
-      bq.popSidecars(denebBlock).isNone() == true
-      bq.hasSidecars(electraBlock) == false
-      bq.popSidecars(electraBlock).isNone() == true
-
-    bq.put(broot1, sidecars1)
-
-    check:
-      len(bq) == len(sidecars1)
-
-    var counter = 0
-    for index in 0 ..< len(sidecars2):
-      if index mod 2 != 1:
-        bq.put(broot2, sidecars2[index])
-        inc(counter)
-        check len(bq) == len(sidecars1) + counter
-
-    check:
-      bq.hasSidecars(denebBlock) == true
-      bq.hasSidecars(electraBlock) == false
-      bq.popSidecars(electraBlock).isNone() == true
-    let dres = bq.popSidecars(denebBlock)
-    check:
-      dres.isOk()
-      compareSidecars(dres.get(), sidecars1) == true
-      len(bq) == counter
-
-    bq.put(broot2, sidecars2[1])
-    check:
-      bq.hasSidecars(electraBlock) == false
-      bq.popSidecars(electraBlock).isNone() == true
-      len(bq) == counter + 1
-
-    bq.put(broot2, sidecars2[3])
-    check:
-      bq.hasSidecars(electraBlock) == false
-      bq.popSidecars(electraBlock).isNone() == true
-      len(bq) == counter + 2
-
-    bq.put(broot2, sidecars2[5])
-    check:
-      bq.hasSidecars(electraBlock) == false
-      bq.popSidecars(electraBlock).isNone() == true
-      len(bq) == counter + 3
-
-    bq.put(broot2, sidecars2[7])
-    check:
-      len(bq) == len(sidecars2)
-      bq.hasSidecars(electraBlock) == true
-    let eres = bq.popSidecars(electraBlock)
-    check:
-      eres.isOk()
-      compareSidecars(eres.get(), sidecars2) == true
-      len(bq) == 0
-
-  test "put()/fetchMissingSidecars/remove test":
-    var bq = BlobQuarantine.init(cfg, quarantine, 0, nil)
-    let
-      broot1 = genBlockRoot(1)
-      broot2 = genBlockRoot(2)
-      sidecars1 =
-        block:
-          var res: seq[ref BlobSidecar]
-          for i in 0 ..< cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
-            res.add(newClone(genBlobSidecar(index = int(i), slot = 1,
-                                            1 + int(i), proposer_index = 5)))
-          res
-      sidecars2 =
-        block:
-          var res: seq[ref BlobSidecar]
-          for i in 0 ..< cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
-            res.add(newClone(genBlobSidecar(index = int(i), slot = 1,
-                                            1 + int(i), proposer_index = 50)))
-          res
-      denebBlock = genDenebSignedBeaconBlock(broot1, sidecars1)
-      electraBlock = genElectraSignedBeaconBlock(broot2, sidecars2)
-
-    for i in 0 ..< len(sidecars1) + 1:
-      let
-        missing1 = bq.fetchMissingSidecars(broot1, denebBlock)
-        missing2 = bq.fetchMissingSidecars(broot2, electraBlock)
-
-      check:
-        compareSidecars(
-          broot1,
-          sidecars1.toOpenArray(i, len(sidecars1) - 1), missing1) == true
-        compareSidecars(
-          broot2,
-          sidecars2.toOpenArray(i, len(sidecars2) - 1), missing2) == true
-
-      if i >= len(sidecars1):
-        break
-
-      bq.put(broot1, sidecars1[i])
-      bq.put(broot2, sidecars2[i])
-
-    bq.remove(broot1)
-    bq.remove(broot2)
-    check len(bq) == 0
-
-  test "popSidecars()/hasSidecars() return []/true on block without blobs":
-    var bq = BlobQuarantine.init(cfg, quarantine, 0, nil)
-    let
-      blockRoot1 = genBlockRoot(100)
-      blockRoot2 = genBlockRoot(5337)
-      blockRoot3 = genBlockRoot(191925)
-      blockRoot4 = genBlockRoot(1294967295)
-      denebBlock1 = genDenebSignedBeaconBlock(blockRoot1, [])
-      denebBlock2 = genDenebSignedBeaconBlock(blockRoot2, [])
-      electraBlock1 = genElectraSignedBeaconBlock(blockRoot3, [])
-      electraBlock2 = genElectraSignedBeaconBlock(blockRoot4, [])
-    check:
-      bq.hasSidecars(denebBlock1.root, denebBlock1) == true
-      bq.hasSidecars(denebBlock2.root, denebBlock2) == true
-      bq.hasSidecars(electraBlock1.root, electraBlock1) == true
-      bq.hasSidecars(electraBlock2.root, electraBlock2) == true
-
-    let
-      res1 = bq.popSidecars(denebBlock1.root, denebBlock1)
-      res2 = bq.popSidecars(denebBlock2.root, denebBlock2)
-      res3 = bq.popSidecars(electraBlock1.root, electraBlock1)
-      res4 = bq.popSidecars(electraBlock2.root, electraBlock2)
-
-    check:
-      res1.isOk()
-      len(res1.get()) == 0
-      res2.isOk()
-      len(res2.get()) == 0
-      res3.isOk()
-      len(res3.get()) == 0
-      res4.isOk()
-      len(res4.get()) == 0
-
-  test "overfill protection test":
-    var
-      bq = BlobQuarantine.init(cfg, quarantine, 0, nil)
-      sidecars: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
-
-    let maxSidecars = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA * SLOTS_PER_EPOCH) * 3
-    for i in 0 ..< maxSidecars:
-      let
-        index = i mod int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-        slot = i div int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 100
-        blockRoot = genBlockRoot(slot)
-        sidecar = newClone(genBlobSidecar(index, slot, i, proposer_index = i))
-      sidecars.add((sidecar, blockRoot))
-
-    for item in sidecars:
-      bq.put(item.blockRoot, item.sidecar)
-
-    # put(sidecar) test
-
-    check len(bq) == maxSidecars
-
-    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars[i].sidecar[].index
-        ) == true
-
-    let
-      sidecar = newClone(genBlobSidecar(index = 0, slot = 10000, 100000,
-                                        proposer_index = 1000000))
-      blockRoot = genBlockRoot(10000)
-    check:
-      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
-                    proposer_index = 1000000'u64, index = BlobIndex(0)) == false
-    bq.put(blockRoot, sidecar)
-    check:
-      len(bq) == (len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1)
-      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
-                    proposer_index = 1000000'u64, index = BlobIndex(0)) == true
-
-    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars[i].sidecar[].index
-        ) == false
-
-    # put(openArray[sidecar]) test
-
-    let
-      msidecars =
-        block:
-          var res: seq[ref BlobSidecar]
-          for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-            let sidecar =
-              newClone(genBlobSidecar(index = i, slot = 100_000, 200000,
-                                      proposer_index = 2000000))
-            res.add(sidecar)
-          res
-      mblockRoot = genBlockRoot(20000)
-
-    check:
-      len(bq) == (len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1)
-
-    let beforeLength = len(bq)
-
-    for s in msidecars:
-      check:
-        bq.hasSidecar(mblockRoot,
-                      s.signed_block_header.message.slot,
-                      s.signed_block_header.message.proposer_index,
-                      s.index) == false
-
-    bq.put(mblockRoot, msidecars)
-    check len(bq) == beforeLength
-
-    for s in msidecars:
-      check:
-        bq.hasSidecar(mblockRoot,
-                      s.signed_block_header.message.slot,
-                      s.signed_block_header.message.proposer_index,
-                      s.index) == true
-
-    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      let j = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + i
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars[j].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars[j].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars[j].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars[j].sidecar[].index
-        ) == false
-
-  test "put() duplicate items should not affect counters":
-    var
-      bq = BlobQuarantine.init(cfg, quarantine, 0, nil)
-      sidecars1: seq[ref BlobSidecar]
-      sidecars1d: seq[ref BlobSidecar]
-      sidecars2: seq[ref BlobSidecar]
-      sidecars2d: seq[ref BlobSidecar]
-
-    for index in 0 ..< cfg.MAX_BLOBS_PER_BLOCK_ELECTRA:
-      let
-        sidecar1 = newClone(genBlobSidecar(int(index), 1, int(index), 64))
-        sidecar1d = newClone(genBlobSidecar(int(index), 1, int(index), 64))
-        sidecar2 = newClone(genBlobSidecar(int(index), 2, 50 + int(index), 65))
-        sidecar2d = newClone(genBlobSidecar(int(index), 2, 50 + int(index), 65))
-      sidecars1.add(sidecar1)
-      sidecars1d.add(sidecar1d)
-      sidecars2.add(sidecar2)
-      sidecars2d.add(sidecar2d)
-
-    let
-      broot1 = genBlockRoot(100)
-      broot2 = genBlockRoot(200)
-
-      electraBlock1 = genElectraSignedBeaconBlock(broot1, sidecars1)
-      electraBlock2 = genElectraSignedBeaconBlock(broot2, sidecars2)
-
-    check:
-      len(bq) == 0
-      len(bq.fetchMissingSidecars(broot1, electraBlock1)) ==
-        int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-      len(bq.fetchMissingSidecars(broot2, electraBlock2)) ==
-        int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-
-    for index in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      bq.put(broot1, sidecars1[index])
-      check:
-        len(bq) == (index + 1)
-        len(bq.fetchMissingSidecars(broot1, electraBlock1)) ==
-          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
-      bq.put(broot1, sidecars1d[index])
-      check:
-        len(bq) == (index + 1)
-        len(bq.fetchMissingSidecars(broot1, electraBlock1)) ==
-          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
-
-    for index in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      bq.put(broot2, sidecars2[index])
-      check:
-        len(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + (index + 1)
-        len(bq.fetchMissingSidecars(broot2, electraBlock2)) ==
-          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
-      bq.put(broot2, sidecars2d[index])
-      check:
-        len(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + (index + 1)
-        len(bq.fetchMissingSidecars(broot2, electraBlock2)) ==
-          int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - (index + 1)
-
-    bq.remove(broot2)
-    check len(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-    bq.remove(broot1)
-    check len(bq) == 0
-
-  test "pruneAfterFinalization() test":
-    const TestVectors = [
-      (root: 1, slot: 1, kzg: 1, index: 0, proposer_index: 20),
-      (root: 1, slot: 1, kzg: 2, index: 1, proposer_index: 20),
-      (root: 1, slot: 1, kzg: 3, index: 2, proposer_index: 20),
-      (root: 1, slot: 1, kzg: 4, index: 3, proposer_index: 20),
-      (root: 1, slot: 1, kzg: 5, index: 4, proposer_index: 20),
-      (root: 2, slot: 32, kzg: 6, index: 0, proposer_index: 21),
-      (root: 2, slot: 32, kzg: 7, index: 1, proposer_index: 21),
-      (root: 2, slot: 32, kzg: 8, index: 2, proposer_index: 21),
-      (root: 3, slot: 33, kzg: 9, index: 3, proposer_index: 22),
-      (root: 3, slot: 33, kzg: 10, index: 4, proposer_index: 22),
-      (root: 4, slot: 63, kzg: 11, index: 5, proposer_index: 23),
-      (root: 5, slot: 64, kzg: 12, index: 0, proposer_index: 24),
-      (root: 5, slot: 64, kzg: 13, index: 1, proposer_index: 24),
-      (root: 5, slot: 64, kzg: 14, index: 2, proposer_index: 24),
-      (root: 6, slot: 65, kzg: 15, index: 0, proposer_index: 25),
-      (root: 6, slot: 65, kzg: 16, index: 1, proposer_index: 25),
-      (root: 7, slot: 67, kzg: 17, index: 0, proposer_index: 26),
-      (root: 7, slot: 67, kzg: 18, index: 1, proposer_index: 26),
-      (root: 8, slot: 95, kzg: 19, index: 0, proposer_index: 27),
-      (root: 8, slot: 95, kzg: 20, index: 1, proposer_index: 27),
-      (root: 8, slot: 95, kzg: 21, index: 2, proposer_index: 27),
-      (root: 8, slot: 95, kzg: 22, index: 3, proposer_index: 27),
-      (root: 8, slot: 95, kzg: 23, index: 4, proposer_index: 27),
-      (root: 9, slot: 96, kzg: 24, index: 0, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 25, index: 1, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 26, index: 2, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 27, index: 3, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 28, index: 4, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 29, index: 5, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 30, index: 6, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 31, index: 7, proposer_index: 28),
-      (root: 9, slot: 96, kzg: 32, index: 8, proposer_index: 28),
-      (root: 10, slot: 127, kzg: 33, index: 0, proposer_index: 29),
-      (root: 10, slot: 127, kzg: 34, index: 1, proposer_index: 29),
-      (root: 10, slot: 127, kzg: 35, index: 2, proposer_index: 29)
-    ]
-
-    var bq = BlobQuarantine.init(cfg, quarantine, 0, nil)
-    for item in TestVectors:
-      let sidecar =
-        newClone(
-          genBlobSidecar(index = item.index, slot = item.slot, item.kzg,
-                         proposer_index = item.proposer_index))
-      bq.put(genBlockRoot(item.root), sidecar)
-
-    check:
-      len(bq) == len(TestVectors)
-
-    for item in TestVectors:
-      check:
-        bq.hasSidecar(
-          genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == true
-
-    bq.pruneAfterFinalization(Epoch(0), false)
-    check:
-      len(bq) == len(TestVectors) - 5
-
-    for item in TestVectors:
-      let res =
-        if item.root == 1:
-          false
-        else:
-          true
-      check:
-        bq.hasSidecar(
-          genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == res
-
-    bq.pruneAfterFinalization(Epoch(1), false)
-    check:
-      len(bq) == len(TestVectors) - 5 - 6
-
-    for item in TestVectors:
-      let res =
-        if item.root in [1, 2, 3, 4]:
-          false
-        else:
-          true
-      check:
-        bq.hasSidecar(
-          genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == res
-
-    bq.pruneAfterFinalization(Epoch(2), false)
-    check:
-      len(bq) == len(TestVectors) - 5 - 6 - 12
-
-    for item in TestVectors:
-      let res =
-        if item.root in [1, 2, 3, 4, 5, 6, 7, 8]:
-          false
-        else:
-          true
-      check:
-        bq.hasSidecar(
-          genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == res
-
-    bq.pruneAfterFinalization(Epoch(3), false)
-    check:
-      len(bq) == 0
-
-    for item in TestVectors:
-      check:
-        bq.hasSidecar(
-          genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == false
-
-  test "database unload/load test":
-    var
-      bq = BlobQuarantine.init(cfg, quarantine, 2, nil)
-      sidecars: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
-
-    let maxSidecars = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-    for i in 0 ..< maxSidecars:
-      let
-        index = i mod int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-        slot = i div int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 100
-        blockRoot = genBlockRoot(slot)
-        sidecar = newClone(genBlobSidecar(index, slot, i, proposer_index = i))
-      sidecars.add((sidecar, blockRoot))
-
-    for item in sidecars:
-      bq.put(item.blockRoot, item.sidecar)
-
-    # put(sidecar) test
-
-    check:
-      len(bq) == maxSidecars
-      lenMemory(bq) == maxSidecars
-      lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) == 0
-
-    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars[i].sidecar[].index
-        ) == true
-
-    let
-      sidecar = newClone(genBlobSidecar(index = 0, slot = 10000, 100000,
-                                        proposer_index = 1000000))
-      blockRoot1 = genBlockRoot(10000)
-    check:
-      bq.hasSidecar(blockRoot = blockRoot1, slot = Slot(10000),
-                    proposer_index = 1000000'u64, index = BlobIndex(0)) == false
-
-    bq.put(blockRoot1, sidecar)
-
-    check:
-      len(bq) == len(sidecars) + 1
-      lenDisk(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) ==
-        int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-      lenMemory(bq) == len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1
-      bq.hasSidecar(blockRoot = blockRoot1, slot = Slot(10000),
-                    proposer_index = 1000000'u64, index = BlobIndex(0)) == true
-
-    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars[i].sidecar[].index
-        ) == true
-
-    let
-      blockRoot2 =
-        genBlockRoot(
-          int(sidecars[0].sidecar[].signed_block_header.message.slot))
-      sidecars2 =
-        sidecars.toOpenArray(0, int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - 1).
-          mapIt(it.sidecar)
-      blck = genElectraSignedBeaconBlock(blockRoot2, sidecars2)
-      dres = bq.popSidecars(blockRoot2, blck)
-
-    check:
-      dres.isOk()
-      compareSidecarsByValue(dres.get(), sidecars2) == true
-      len(bq) == len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1
-      lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) == 0
-
-    # put(openArray[sidecar]) test
-
-    let
-      msidecars =
-        block:
-          var res: seq[ref BlobSidecar]
-          for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-            let sidecar =
-              newClone(genBlobSidecar(index = i, slot = 100_000, 200000,
-                                      proposer_index = 2000000))
-            res.add(sidecar)
-          res
-      mblockRoot = genBlockRoot(20000)
-
-    check:
-      len(bq) == (len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1)
-
-    for s in msidecars:
-      check:
-        bq.hasSidecar(mblockRoot,
-                      s.signed_block_header.message.slot,
-                      s.signed_block_header.message.proposer_index,
-                      s.index) == false
-
-    bq.put(mblockRoot, msidecars)
-
-    check:
-      lenDisk(bq) == int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) ==
-        int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-      len(bq) == len(sidecars) + 1
-
-    for s in msidecars:
-      check:
-        bq.hasSidecar(mblockRoot,
-                      s.signed_block_header.message.slot,
-                      s.signed_block_header.message.proposer_index,
-                      s.index) == true
-
-    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      let j = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + i
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars[j].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars[j].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars[j].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars[j].sidecar[].index
-        ) == true
-
-    let
-      i3 = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-      blockRoot3 =
-        genBlockRoot(
-          int(sidecars[i3].sidecar[].signed_block_header.message.slot))
-      sidecars3 =
-        sidecars.toOpenArray(i3, i3 + int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - 1).
-          mapIt(it.sidecar)
-      blck2 = genElectraSignedBeaconBlock(blockRoot3, sidecars3)
-      dres2 = bq.popSidecars(blockRoot3, blck2)
-
-    check:
-      dres2.isOk()
-      compareSidecarsByValue(dres2.get(), sidecars3) == true
-      len(bq) == len(sidecars) - int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1
-      lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) == 0
-
-  test "overfill test [maximum number of blobs]":
-    var
-      bq = BlobQuarantine.init(cfg, quarantine, 2, nil)
-      sidecars: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
-
-    let maximumSidecars = bq.size * 2
-
-    for i in 0 ..< maximumSidecars:
-      let
-        index = i mod int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-        slot = i div int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 100
-        blockRoot = genBlockRoot(slot)
-        sidecar = newClone(genBlobSidecar(index, slot, i, proposer_index = i))
-      sidecars.add((sidecar, blockRoot))
-
-    for item in sidecars:
-      bq.put(item.blockRoot, item.sidecar)
-
-    # At this stage only last sidecars in range
-    # [maxSidecars - quarantine.size, maxSidecars] should be present in
-    # quarantine.
-    let
-      startPosition = maximumSidecars - bq.size()
-
-    for i in startPosition ..< maximumSidecars:
-      let
-        item =
-          sidecars[i]
-        index =
-          item.sidecar[].index
-        slot =
-          item.sidecar[].signed_block_header.message.slot
-        proposerIndex =
-          item.sidecar[].signed_block_header.message.proposer_index
-
-      check:
-        bq.hasSidecar(
-          blockRoot = item.blockRoot, slot = slot,
-          proposer_index = proposerIndex, index = index) == true
-
-    for i in 0 ..< startPosition:
-      let
-        item =
-          sidecars[i]
-        index =
-          item.sidecar[].index
-        slot =
-          item.sidecar[].signed_block_header.message.slot
-        proposerIndex =
-          item.sidecar[].signed_block_header.message.proposer_index
-
-      check:
-        bq.hasSidecar(
-          blockRoot = item.blockRoot, slot = slot,
-          proposer_index = proposerIndex, index = index) == false
-
-  test "database and memory overfill protection and pruning test":
-    var
-      bq = BlobQuarantine.init(cfg, quarantine, 1, nil)
-      sidecars1: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
-      sidecars2: seq[tuple[sidecar: ref BlobSidecar, blockRoot: Eth2Digest]]
-      epochs1: seq[Epoch]
-      epochs2: seq[Epoch]
-
-    let maxSidecars = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA * SLOTS_PER_EPOCH) * 3
-    for i in 0 ..< maxSidecars:
-      let
-        index = i mod int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-        slot1 = i div int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 100
-        slot2 = i div int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1000
-        epoch1 = Slot(slot1).epoch()
-        epoch2 = Slot(slot2).epoch()
-        blockRoot1 = genBlockRoot(slot1)
-        blockRoot2 = genBlockRoot(slot2)
-        sidecar1 = newClone(genBlobSidecar(index, slot1, i, proposer_index = i))
-        sidecar2 = newClone(genBlobSidecar(index, slot2, i + maxSidecars,
-                                           proposer_index = 100 + i))
-      sidecars1.add((sidecar1, blockRoot1))
-      sidecars2.add((sidecar2, blockRoot2))
-      if len(epochs1) == 0 or epochs1[^1] != epoch1:
-        epochs1.add(epoch1)
-      if len(epochs2) == 0 or epochs2[^1] != epoch2:
-        epochs2.add(epoch2)
-
-    for item in sidecars1:
-      bq.put(item.blockRoot, item.sidecar)
-
-    check:
-      len(bq) == len(sidecars1)
-      lenDisk(bq) == 0
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) == 0
-
-    for i in 0 ..< SLOTS_PER_EPOCH * 3:
-      let
-        start = int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) * int(i)
-        finish = start + int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) - 1
-        blockRoot = sidecars2[start].blockRoot
-        sidecars = sidecars2.toOpenArray(start, finish).mapIt(it.sidecar)
-      bq.put(blockRoot, sidecars)
-
-    check:
-      len(bq) == len(sidecars1) + len(sidecars2)
-      lenDisk(bq) == len(sidecars1)
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) == len(sidecars1)
-      lenMemory(bq) == len(sidecars2)
-
-    for i in 0 ..< len(sidecars1):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars1[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars1[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars1[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars1[i].sidecar[].index
-        ) == true
-
-    for i in 0 ..< len(sidecars2):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars2[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars2[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars2[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars2[i].sidecar[].index
-        ) == true
-
-    let
-      sidecar = newClone(genBlobSidecar(index = 0, slot = 100000, 100000,
-                                        proposer_index = 1000000))
-      blockRoot = genBlockRoot(100000)
-
-    check:
-      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(100000),
-                    proposer_index = 1000000'u64,
-                    index = BlobIndex(0)) == false
-
-    bq.put(blockRoot, sidecar)
-
-    check:
-      len(bq) == len(sidecars1) + len(sidecars2) -
-                 int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1
-      lenDisk(bq) == len(sidecars1)
-      quarantine.sidecarsCount(typedesc[BlobSidecar]) == len(sidecars1)
-      lenMemory(bq) == len(sidecars2) -
-                       int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) + 1
-      bq.hasSidecar(blockRoot = blockRoot, slot = Slot(100000),
-                    proposer_index = 1000000'u64, index = BlobIndex(0)) == true
-
-    for i in 0 ..< int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars1[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars1[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars1[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars1[i].sidecar[].index
-        ) == false
-
-    for i in int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA) ..< len(sidecars1):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars1[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars1[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars1[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars1[i].sidecar[].index
-        ) == true
-
-    for i in 0 ..< len(sidecars2):
-      check:
-        bq.hasSidecar(
-          blockRoot =
-            genBlockRoot(
-              int(sidecars2[i].sidecar[].signed_block_header.message.slot)),
-          slot =
-            sidecars2[i].sidecar[].signed_block_header.message.slot,
-          proposer_index =
-            sidecars2[i].sidecar[].signed_block_header.message.proposer_index,
-          index = sidecars2[i].sidecar[].index
-        ) == true
-
-    # Pruning memory and database
-    for epoch in epochs1:
-      bq.pruneAfterFinalization(epoch, false)
-    for epoch in epochs2:
-      bq.pruneAfterFinalization(epoch, false)
-
-    check:
-      len(bq) == 1
-
-    bq.pruneAfterFinalization(Slot(100000).epoch(), false)
-
-    check:
-      len(bq) == 0
 
 suite "ColumnQuarantine data structure test suite " & preset():
   setup:
@@ -1877,7 +868,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == true
+          uint64(item.proposer_index), ColumnIndex(item.index)) == true
 
     bq.pruneAfterFinalization(Epoch(0), false)
     check:
@@ -1892,7 +883,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == res
+          uint64(item.proposer_index), ColumnIndex(item.index)) == res
 
     bq.pruneAfterFinalization(Epoch(1), false)
     check:
@@ -1907,7 +898,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == res
+          uint64(item.proposer_index), ColumnIndex(item.index)) == res
 
     bq.pruneAfterFinalization(Epoch(2), false)
     check:
@@ -1922,7 +913,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == res
+          uint64(item.proposer_index), ColumnIndex(item.index)) == res
 
     bq.pruneAfterFinalization(Epoch(3), false)
     check:
@@ -1932,7 +923,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          uint64(item.proposer_index), BlobIndex(item.index)) == false
+          uint64(item.proposer_index), ColumnIndex(item.index)) == false
 
   test "database unload/load test [node]":
     let
@@ -3571,7 +2562,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          BlobIndex(item.index)) == true
+          ColumnIndex(item.index)) == true
 
     bq.pruneAfterFinalization(Epoch(0), false)
     check:
@@ -3586,7 +2577,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          BlobIndex(item.index)) == res
+          ColumnIndex(item.index)) == res
 
     bq.pruneAfterFinalization(Epoch(1), false)
     check:
@@ -3601,7 +2592,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          BlobIndex(item.index)) == res
+          ColumnIndex(item.index)) == res
 
     bq.pruneAfterFinalization(Epoch(2), false)
     check:
@@ -3616,7 +2607,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          BlobIndex(item.index)) == res
+          ColumnIndex(item.index)) == res
 
     bq.pruneAfterFinalization(Epoch(3), false)
     check:
@@ -3626,7 +2617,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       check:
         bq.hasSidecar(
           genBlockRoot(item.root), Slot(item.slot),
-          BlobIndex(item.index)) == false
+          ColumnIndex(item.index)) == false
 
   test "database unload/load test [node]":
     let

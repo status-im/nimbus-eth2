@@ -118,19 +118,6 @@ AllTests-mainnet
 + electra toSignedBlindedBeaconBlock                                                         OK
 + fulu toSignedBlindedBeaconBlock                                                            OK
 ```
-## BlobQuarantine data structure test suite  [Preset: mainnet]
-```diff
-+ database and memory overfill protection and pruning test                                   OK
-+ database unload/load test                                                                  OK
-+ overfill protection test                                                                   OK
-+ overfill test [maximum number of blobs]                                                    OK
-+ popSidecars()/hasSidecars() return []/true on block without blobs                          OK
-+ pruneAfterFinalization() test                                                              OK
-+ put() duplicate items should not affect counters                                           OK
-+ put()/fetchMissingSidecars/remove test                                                     OK
-+ put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
-+ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test                         OK
-```
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -152,7 +139,6 @@ AllTests-mainnet
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
-+ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
