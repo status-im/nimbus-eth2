@@ -705,40 +705,6 @@ template onFuluDataColumnSidecarAddedCallback*[A: SomeDataColumnSidecar, B: OnDa
 ): OnFuluDataColumnSidecarAddedCallback =
   quarantine.onFuluColumnAddedCallback
 
-proc init*(
-    T: typedesc[ColumnQuarantine],
-    cfg: RuntimeConfig,
-    database: QuarantineDB,
-    maxDiskSizeMultipler: int,
-    onBlobSidecarCallback: OnBlobSidecarCallback
-): ColumnQuarantine =
-  var indexMap = newSeqUninit[int](cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-  for index in 0 ..< len(indexMap):
-    indexMap[index] = index
-
-  let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-
-  blob_quarantine_memory_slots_total.set(int64(size))
-  blob_quarantine_database_slots_total.set(
-    int64(size) * int64(maxDiskSizeMultipler))
-  blob_quarantine_memory_slots_occupied.set(0'i64)
-  blob_quarantine_database_slots_occupied.set(0'i64)
-
-  ColumnQuarantine(
-    minEpochsForSidecarsRequests:
-      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-    maxSidecarsPerBlockCount:
-      int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
-    maxMemSidecarsCount: size,
-    maxDiskSidecarsCount: size * maxDiskSizeMultipler,
-    memSidecarsCount: 0,
-    diskSidecarsCount: 0,
-    indexMap: indexMap,
-    onSidecarCallback: onBlobSidecarCallback,
-    list: initDoublyLinkedList[RootTableRecord[BlobSidecar]](),
-    db: database
-  )
-
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],
     cfg: RuntimeConfig,
