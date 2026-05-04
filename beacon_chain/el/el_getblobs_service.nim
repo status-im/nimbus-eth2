@@ -26,8 +26,6 @@ import
   ../sync/validator_custody,
   ./el_manager
 
-from std/sequtils import mapIt
-
 declareCounter beacon_engine_getblobs_requests_total,
   "Total engine_getBlobs invocations issued by the sidecarless retrieval service"
 
