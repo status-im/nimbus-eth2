@@ -13,7 +13,7 @@ import
   ../spec/[helpers, forks, network, column_map],
   ../networking/[peer_pool, eth2_network],
   ../consensus_object_pools/[consensus_manager, block_pools_types,
-      blockchain_dag, block_quarantine, blob_quarantine],
+      blockchain_dag, block_quarantine, column_quarantine],
   ../gossip_processing/block_processor,
   ../[beacon_clock],
   ./[sync_types, sync_dag, sync_queue, sync_protocol, response_utils,
@@ -95,10 +95,6 @@ func shortLog(cols: Opt[seq[ref fulu.DataColumnSidecar]]): string =
     "<missing columns>"
   else:
     $len(cols.get())
-
-func slimLog(blobs: openArray[ref BlobSidecar]): string =
-  "[" & blobs.mapIt($it[].signed_block_header.message.slot &
-     "/" & $it[].index).join(",") & "]"
 
 func slimLog(columns: openArray[ref fulu.DataColumnSidecar]): string =
   var slot = FAR_FUTURE_SLOT
@@ -311,31 +307,12 @@ func getSidecarsHorizon(
     fork: ConsensusFork
 ): uint64 =
   let dag = overseer.consensusManager.dag
-  if fork < ConsensusFork.Deneb:
+  if fork < ConsensusFork.Fulu:
     raiseAssert "Incorrect fork"
-  elif fork < ConsensusFork.Fulu:
-    dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
   elif fork == ConsensusFork.Fulu:
     dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
   else:
     raiseAssert "Unsupported fork"
-
-proc getBlobsHorizon(overseer: SyncOverseerRef2): Epoch =
-  let
-    dag = overseer.consensusManager.dag
-    currentEpoch = overseer.beaconClock.currentSlot().epoch()
-    horizon = dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
-    tempEpoch =
-      if currentEpoch < horizon:
-        GENESIS_EPOCH
-      else:
-        currentEpoch - horizon
-    tempFork = overseer.consensusForkAtEpoch(tempEpoch)
-
-  if tempFork < ConsensusFork.Deneb:
-    dag.cfg.DENEB_FORK_EPOCH
-  else:
-    tempEpoch
 
 proc getColumnsHorizon(overseer: SyncOverseerRef2): Epoch =
   let
@@ -353,14 +330,6 @@ proc getColumnsHorizon(overseer: SyncOverseerRef2): Epoch =
     dag.cfg.FULU_FORK_EPOCH
   else:
     tempEpoch
-
-proc shouldGetBlobs(overseer: SyncOverseerRef2, slot: Slot): bool =
-  if overseer.config.historyMode == HistoryMode.Archive:
-    let dag = overseer.consensusManager.dag
-    if slot.epoch() >= dag.cfg.DENEB_FORK_EPOCH:
-      return true
-    return false
-  slot.epoch() >= overseer.getBlobsHorizon()
 
 proc shouldGetColumns(overseer: SyncOverseerRef2, slot: Slot): bool =
   if overseer.config.historyMode == HistoryMode.Archive:
@@ -406,10 +375,7 @@ func getMissingIndicesLog(
     when consensusFork < ConsensusFork.Deneb:
       raiseAssert "Invalid fork"
     elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-      let indices =
-        overseer.blobQuarantine[].getMissingSidecarIndices(
-          forkyBlck.root, forkyBlck)
-      indexLog(indices)
+      indexLog(default(seq[ColumnIndex]))
     elif consensusFork == ConsensusFork.Fulu:
       let indices =
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -426,8 +392,8 @@ proc getForwardSidecarStartSlot(overseer: SyncOverseerRef2): Slot =
     currentSlot = overseer.beaconClock.currentSlot()
     consensusFork = consensusForkAtEpoch(dag.cfg, currentSlot.epoch())
 
-  if consensusFork < ConsensusFork.Deneb:
-    return max(dag.finalizedHead.slot, dag.cfg.DENEB_FORK_EPOCH.start_slot())
+  if consensusFork < ConsensusFork.Fulu:
+    return max(dag.finalizedHead.slot, dag.cfg.FULU_FORK_EPOCH.start_slot())
 
   let horizon = overseer.getSidecarsHorizon(consensusFork)
   if currentSlot < horizon:
@@ -442,8 +408,8 @@ proc getBackfillSidecarFinalSlot(overseer: SyncOverseerRef2): Slot =
     currentSlot = overseer.beaconClock.currentSlot()
     consensusFork = consensusForkAtEpoch(dag.cfg, currentSlot.epoch())
 
-  if consensusFork < ConsensusFork.Deneb:
-    return min(backfillSlot, (dag.cfg.DENEB_FORK_EPOCH).start_slot)
+  if consensusFork < ConsensusFork.Fulu:
+    return min(backfillSlot, (dag.cfg.FULU_FORK_EPOCH).start_slot)
 
   let horizon = overseer.getSidecarsHorizon(consensusFork)
   if dag.finalizedHead.slot < horizon:
@@ -517,37 +483,10 @@ proc createQueues(
       async: (raises: [CancelledError]).} =
       doAssert(not(isNil(signedBlock)), "Block reference should not be nil")
       withBlck(signedBlock[]):
-        when consensusFork < ConsensusFork.Deneb:
+        when consensusFork < ConsensusFork.Fulu:
           (await overseer.blockProcessor.addBlock(
             MsgSource.sync, forkyBlck, noSidecars,
             maybeFinalized = maybeFinalized))
-        elif consensusFork < ConsensusFork.Fulu:
-          if overseer.shouldGetBlobs(forkyBlck.message.slot):
-            # TODO (cheatfate): templates does not support `var` arguments.
-            let res =
-              when direction == SyncQueueKind.Forward:
-                overseer.fblockBuffer.add(signedBlock)
-              elif direction == SyncQueueKind.Backward:
-                overseer.bblockBuffer.add(signedBlock)
-            if res.isOk():
-              debug "Block buffered",
-                fork = consensusFork,
-                block_root = forkyBlck.root,
-                blck = shortLog(forkyBlck),
-                verifier = "block"
-            res
-          else:
-            let commitmentsLen =
-              len(forkyBlck.message.body.blob_kzg_commitments)
-
-            if commitmentsLen > 0:
-              (await overseer.blockProcessor.addBlock(
-                MsgSource.sync, forkyBlck, Opt.none(BlobSidecars),
-                maybeFinalized = maybeFinalized))
-            else:
-              (await overseer.blockProcessor.addBlock(
-                MsgSource.sync, forkyBlck, Opt.some(default(BlobSidecars)),
-                maybeFinalized = maybeFinalized))
         elif consensusFork == ConsensusFork.Fulu:
           if overseer.shouldGetColumns(forkyBlck.message.slot):
             # TODO (cheatfate): templates does not support `var` arguments.
@@ -588,31 +527,8 @@ proc createQueues(
   ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
     doAssert(not(isNil(signedBlock)), "Block reference should not be nil")
     withBlck(signedBlock[]):
-      when consensusFork < ConsensusFork.Deneb:
+      when consensusFork < ConsensusFork.Fulu:
         raiseAssert "Incorrect block consensus fork"
-      elif consensusFork < ConsensusFork.Fulu:
-        let
-          commitmentsLen = len(forkyBlck.message.body.blob_kzg_commitments)
-          bres =
-            if commitmentsLen > 0:
-              if overseer.shouldGetBlobs(forkyBlck.message.slot):
-                let res = overseer.blobQuarantine[].popSidecars(forkyBlck)
-                if res.isNone():
-                  debug "Block verification failed, because sidecars missing",
-                    fork = consensusFork,
-                    block_root = signedBlock[].root,
-                    blck = shortLog(forkyBlck),
-                    verifier = "sidecar"
-                  return err(VerifierError.MissingSidecars)
-                res
-              else:
-                Opt.none(seq[ref BlobSidecar])
-            else:
-              Opt.some(default(seq[ref BlobSidecar]))
-
-        (await overseer.blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, bres,
-          maybeFinalized = maybeFinalized))
       elif consensusFork == ConsensusFork.Fulu:
         let
           commitmentsLen = len(forkyBlck.message.body.blob_kzg_commitments)
@@ -989,29 +905,8 @@ proc verifyBlock(
     maybeFinalized: bool
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   withBlck(signedBlock[]):
-    when consensusFork > ConsensusFork.Fulu:
+    when consensusFork < ConsensusFork.Fulu:
       raiseAssert "Unsupported fork"
-    elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-      if overseer.shouldGetBlobs(forkyBlck.message.slot):
-        let bres =
-          overseer.blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-        if bres.isSome():
-          let res =
-            await overseer.blockProcessor.addBlock(
-              MsgSource.sync, forkyBlck, bres,
-              maybeFinalized = maybeFinalized)
-          if res.isErr() and (res.error == VerifierError.MissingParent):
-            # In this case block will be stored in quarantine, so we need to
-            # preserve blobs in blob quarantine.
-            overseer.blobQuarantine[].put(forkyBlck.root, bres.get())
-          res
-        else:
-          overseer.blockQuarantine[].addSidecarless(forkyBlck)
-          Result[void, VerifierError].err(VerifierError.MissingSidecars)
-      else:
-        await overseer.blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, Opt.none(BlobSidecars),
-          maybeFinalized = maybeFinalized)
     elif consensusFork == ConsensusFork.Fulu:
       if overseer.shouldGetColumns(forkyBlck.message.slot):
         let cres =
@@ -1503,9 +1398,7 @@ proc doPeerUpdateRootsSidecars(
     bids = headEntry.getMissingSidecarsRoots()
 
   var
-    emptyBlobBlocks: seq[ForkedSignedBeaconBlock]
     emptyColumnBlocks: seq[ForkedSignedBeaconBlock]
-    blobRoots: seq[BlobIdentifier]
     columnRoots: seq[DataColumnsByRootIdentifier]
     columnsCount = 0
 
@@ -1533,16 +1426,7 @@ proc doPeerUpdateRootsSidecars(
         continue
 
     withBlck(signedBlock):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        let requests =
-          overseer.blobQuarantine[].fetchMissingSidecars(
-            bid.root, forkyBlck)
-        emptyBlobBlocks.add(signedBlock)
-        for request in requests:
-          blobRoots.add(request)
-          if len(blobRoots) >= peerEntry.maxSidecarsPerRequest:
-            break
-      elif consensusFork == ConsensusFork.Fulu:
+      when consensusFork == ConsensusFork.Fulu:
         let
           peerMap = peer.getColumnMapOrDefault()
           request =
@@ -1559,107 +1443,10 @@ proc doPeerUpdateRootsSidecars(
           columnsCount.inc(len(request.indices))
           if columnsCount >= peerEntry.maxSidecarsPerRequest:
             break
-      elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+      elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
         raiseAssert "Should not be happen!"
       else:
         raiseAssert "Unsupported fork"
-
-  ##
-  ## Blob sidecars processing
-  ##
-  if len(blobRoots) > 0:
-    logScope:
-      roots = shortLog(blobRoots)
-      roots_count = len(blobRoots)
-      data_type = "blobs"
-
-    debug "Requesting blob sidecars by root from peer"
-
-    defer:
-      # Preemptively cleanup blocks range on exit
-      emptyBlobBlocks.reset()
-
-    let
-      blobSidecars =
-        (await blobSidecarsByRoot(peer, BlobIdentifierList blobRoots,
-          maxResponseItems = len(blobRoots))).valueOr:
-          debug "Blobs by root request failed", reason = error
-          peer.updateScore(PeerScoreNoValues)
-          return false
-
-    debug "Received blob sidecars by root on request",
-      blobs = slimLog(blobSidecars.asSeq()), blobs_count = len(blobSidecars)
-
-    var
-      records =
-        groupSidecars(blobRoots, blobSidecars.asSeq()).valueOr:
-          debug "Response to blobs by root is incorrect",
-            blobs = slimLog(blobSidecars.asSeq()),
-            blobs_count = len(blobSidecars), reason = error
-          peer.updateScore(PeerScoreBadResponse)
-          return false
-
-    for record in records:
-      overseer.blobQuarantine[].put(record.block_root, record.sidecar)
-
-    defer:
-      # Preemptively cleanup sidecar records list on exit
-      cleanupRecordsList(records)
-
-    if len(records) < len(blobRoots):
-      if len(blobRoots) == 1:
-        debug "Empty response received for single root request",
-          blobs = slimLog(blobSidecars.asSeq()),
-          blobs_count = len(blobSidecars)
-        peer.updateScore(PeerScoreBadResponse)
-        return false
-      # Number of received sidecars is less than number of requested.
-      peerEntry.maxSidecarsPerRequest.decreaseSidecarsCount()
-    else:
-      overseer.increaseSidecarsCount(
-        peerEntry.maxSidecarsPerRequest, ConsensusFork.Electra)
-
-    debug "Processing block and sidecars by root",
-      blocks = slimLog(emptyBlobBlocks)
-
-    for signedBlock in emptyBlobBlocks:
-      debug "Processing block by root", blck = slimLog(signedBlock)
-      withBlck(signedBlock):
-        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-          let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
-          if not(isNil(entry)) and (DagEntryFlag.MissingSidecars in entry.flags):
-            let res = await overseer.verifyBlock(signedBlock, false)
-            if res.isErr():
-              debug "Block processor response", reason = res.error,
-                blck = slimLog(signedBlock)
-              case res.error
-              of VerifierError.Invalid:
-                peer.updateScore(PeerScoreBadResponse)
-                entry.flags.excl(DagEntryFlag.MissingSidecars)
-                overseer.blockQuarantine[].remove(forkyBlck)
-                return false
-              of VerifierError.UnviableFork:
-                peer.updateScore(PeerScoreUnviableFork)
-                entry.flags.incl(DagEntryFlag.Unviable)
-                entry.flags.excl(DagEntryFlag.MissingSidecars)
-                discard overseer.blockQuarantine[].addUnviable(
-                  forkyBlck.root, UnviableKind.UnviableFork)
-                return false
-              of VerifierError.MissingParent, VerifierError.Duplicate:
-                # This flags means that we have sidecars.
-                entry.flags.excl(DagEntryFlag.MissingSidecars)
-                peer.updateScore(PeerScoreGoodValues)
-              of VerifierError.MissingSidecars:
-                # We still missing sidecars.
-                discard
-            else:
-              debug "Block processor response", reason = "ok",
-                blck = slimLog(signedBlock)
-              overseer.blockQuarantine[].remove(forkyBlck)
-              peer.updateScore(PeerScoreGoodValues)
-              entry.flags.excl(DagEntryFlag.MissingSidecars)
-        else:
-          raiseAssert "Should not be happen!"
 
   ##
   ## Data column sidecars processing.
@@ -1932,7 +1719,6 @@ proc doRangeSidecarsStep(
     block_buffer = shortLog(overseer.tsbuffer(direction))
     blocks_queue = shortLog(overseer.tbsqueue(direction))
     sidecars_queue = shortLog(overseer.tssqueue(direction))
-    blob_quarantine = shortLog(overseer.blobQuarantine[])
     column_quarantine = shortLog(overseer.columnQuarantine[])
     peer_checkpoint = shortLog(checkpoint)
     peer_head = shortLog(peer.getHeadBlockId())
@@ -1961,105 +1747,8 @@ proc doRangeSidecarsStep(
 
   let resp =
     case consensusFork
-    of ConsensusFork.Phase0 .. ConsensusFork.Capella:
+    of ConsensusFork.Phase0 .. ConsensusFork.Electra:
       SyncPushResponse()
-    of ConsensusFork.Deneb, ConsensusFork.Electra:
-      try:
-        let
-          data =
-            (await blobSidecarsByRange(peer, request.data.slot,
-              request.data.count, maxResponseItems =
-                (request.data.count *
-                   dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA).Limit)
-            ).valueOr:
-              peer.updateScore(PeerScoreNoValues)
-              debug "Failed to receive blob sidecars range on request",
-                reason = $error
-              overseer.tssqueue(direction).push(request)
-              return false
-
-        debug "Received blob sidecars range from peer",
-          blobs_map = getShortMap(request, data.toSeq())
-
-        var
-          grouped = groupSidecars(request.data, data.asSeq()).valueOr:
-            peer.updateScore(PeerScoreBadResponse)
-            debug "Received invalid blob sidecars range",
-              reason = $error, blobs_count = len(data),
-              blobs = slimLog(data.asSeq())
-            overseer.tssqueue(direction).push(request)
-            return false
-          blocks = overseer.tsbuffer(direction).peekRange(request.data)
-
-        defer:
-          # Preemptively cleanup blocks range sidecar records list on exit
-          cleanupList(blocks)
-          cleanupRecordsList(grouped)
-
-          # Early detection of empty response.
-        let
-          sindex {.used.} = validateBlocks(blocks, grouped).valueOr:
-            peer.updateScore(PeerScoreMissingValues)
-            debug "Received non-complete blob sidecars range",
-              reason = $error, blobs_count = len(data),
-              blobs_map = getShortMap(request, grouped),
-              blocks_map = getShortMap(request, blocks),
-              block_blobs_map = getBlockBlobsMap(request, blocks),
-              blobs = slimLog(data.asSeq()),
-              blocks = slimLog(blocks)
-            overseer.tssqueue(direction).push(request)
-            return false
-
-        if (len(blocks) == 0) and (len(grouped) > 0):
-          # Case when we have no blocks, but a lot of blobs.
-          debug "Received blobs range that, do not have corresponding blocks " &
-                "range"
-          overseer.tssqueue(direction).push(request)
-          return false
-
-        if sindex != len(grouped):
-          let missing =
-            block:
-              var res: seq[Eth2Digest]
-              for item in grouped.toOpenArray(sindex, len(grouped) - 1):
-                if (len(res) == 0) or (res[^1] != item.block_root):
-                  res.add(item.block_root)
-              "[" & res.mapIt(shortLog(it)).join(",") & "]"
-          debug "Received blobs range indicates that some blocks in " &
-                "corresponding range are missing", missing_blocks = missing
-
-        for record in grouped:
-          overseer.blobQuarantine[].put(record.block_root, record.sidecar)
-
-        debug "Sending sidecars range to processor",
-          blobs_map = getShortMap(request, grouped),
-          blocks_count = len(blocks),
-          blocks_map = getShortMap(request, blocks),
-          blobs = slimLog(data.asSeq())
-
-        let res = await overseer.tssqueue(direction).push(
-          request, blocks, maybeFinalized = true)
-
-        debug "Sidecars queue response",
-          code = res.code, count = res.count, blck = shortLog(res.blck),
-          blobs_map = getShortMap(request, grouped),
-          blocks_count = len(blocks),
-          blocks_map = getShortMap(request, blocks),
-          blobs = slimLog(data.asSeq())
-
-        # In case we not advance - we should cleanup blob/column quarantines on
-        # fatal errors.
-        if res.count <= 0:
-          if res.code in [SyncProcessError.Invalid,
-                          SyncProcessError.UnviableFork]:
-            for signed in blocks:
-              overseer.blobQuarantine[].remove(signed[].root)
-        res
-
-      except CancelledError as exc:
-        overseer.tssqueue(direction).push(request)
-        raise exc
-
     of ConsensusFork.Fulu:
       try:
         var
@@ -2626,7 +2315,6 @@ proc timeMonitoringLoop(
         last_seen_finalized = overseer.getLastSeenFinalizedHeadLog(),
         finalized_distance = finalizedDistance,
         backfill_distance = backfillDistance,
-        blob_horizon = overseer.getBlobsHorizon().start_slot(),
         column_horizon = overseer.getColumnsHorizon().start_slot(),
         sdag_peer_entries_count = len(overseer.sdag.peers),
         sdag_roots_count = len(overseer.sdag.roots),
@@ -2640,7 +2328,6 @@ proc timeMonitoringLoop(
         backfill_blocks_queue = shortLog(overseer.bqueue),
         backfill_sidecars_queue = shortLog(overseer.bsqueue),
         sidecarless_quarantine = len(overseer.blockQuarantine.sidecarless),
-        blob_quarantine = shortLog(overseer.blobQuarantine[]),
         column_quarantine = shortLog(overseer.columnQuarantine[]),
         useful_peers = dist.usefulPeers,
         useless_peers = dist.uselessPeers,
@@ -2672,22 +2359,11 @@ proc gossipMonitoringLoop(
         consensusFork = event.blck.kind
         (blockId, missingSidecars) =
           withBlck(event.blck):
-            when consensusFork < ConsensusFork.Deneb:
+            when consensusFork < ConsensusFork.Electra:
               (
                 BlockId(slot: forkyBlck.message.slot, root: forkyBlck.root),
                 true
               )
-            elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-              let res =
-                if forkyBlck.root in overseer.blockQuarantine[].sidecarless:
-                  if overseer.blobQuarantine[].hasSidecars(
-                    forkyBlck.root, forkyBlck):
-                    false
-                  else:
-                    true
-                else:
-                  false
-              (BlockId(slot: forkyBlck.message.slot, root: forkyBlck.root), res)
             elif consensusFork == ConsensusFork.Fulu:
               let res =
                 if forkyBlck.root in overseer.blockQuarantine[].sidecarless:

@@ -11,7 +11,7 @@ import results, chronos,
        ".."/spec/[forks_light_client, signatures_batch],
        ".."/consensus_object_pools/[block_pools_types, blockchain_dag,
                                     attestation_pool, blockchain_list,
-                                    blob_quarantine, block_quarantine,
+                                    column_quarantine, block_quarantine,
                                     consensus_manager],
        ".."/gossip_processing/block_processor,
        ".."/validators/validator_monitor,
@@ -67,7 +67,6 @@ type
     fblockBuffer*: BlocksRangeBuffer
     bblockBuffer*: BlocksRangeBuffer
     blockQuarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
     columnQuarantine*: ref ColumnQuarantine
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     blocksQueueBus*: AsyncEventQueue[EventBeaconBlockObject]
@@ -138,7 +137,6 @@ proc new*(
     blockProcessor: ref BlockProcessor,
     validatorCustody: ref ValidatorCustody,
     blockQuarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine,
     columnQuarantine: ref ColumnQuarantine,
     gossipQueue: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     blocksQueue: AsyncEventQueue[EventBeaconBlockObject],
@@ -155,7 +153,6 @@ proc new*(
     pool: net.peerPool,
     blockProcessor: blockProcessor,
     validatorCustody: validatorCustody,
-    blobQuarantine: blobQuarantine,
     columnQuarantine: columnQuarantine,
     blockQuarantine: blockQuarantine,
     blockGossipBus: gossipQueue,

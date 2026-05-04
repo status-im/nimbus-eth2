@@ -11,7 +11,7 @@ import std/[sequtils, strutils],
        results,
        ../spec/[helpers, forks, peerdas_helpers, column_map],
        ../spec/datatypes/[deneb, electra, fulu],
-       ../consensus_object_pools/blob_quarantine,
+       ../consensus_object_pools/column_quarantine,
        ./sync_queue
 
 export results
