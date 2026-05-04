@@ -38,7 +38,6 @@ from ../beacon_chain_db import
   containsExecutionPayloadEnvelope, getBlobSidecar, getDataColumnSidecar,
   putBlobSidecar, putDataColumnSidecars
 
-
 export sszdump, signatures_batch
 
 logScope: topics = "gossip_blocks"
