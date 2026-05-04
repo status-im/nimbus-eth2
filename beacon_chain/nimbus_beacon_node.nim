@@ -466,6 +466,8 @@ proc initFullNode(
     node.eventBus.attSlashQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
     node.eventBus.columnSidecarQueue.emit(data)
+  proc onFuluColumnSidecarAdded(data: ref fulu.DataColumnSidecar) =
+    node.eventBus.columnSidecarFullQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -586,7 +588,7 @@ proc initFullNode(
   let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
-      onColumnSidecarAdded))
+      onColumnSidecarAdded, onFuluColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
@@ -870,7 +872,7 @@ proc initFullNode(
                                           syncManager, backfiller,
                                           untrustedManager)
   node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
-                                                node.eventBus.columnSidecarQueue,
+                                                node.eventBus.columnSidecarFullQueue,
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
                                                 node.validatorCustody)

@@ -66,9 +66,12 @@ type
     indexMap: seq[int]
     db: QuarantineDB
     onSidecarCallback*: B
+    onFuluColumnAddedCallback*: OnFuluDataColumnSidecarAddedCallback
 
   OnDataColumnSidecarCallback* = proc(
     data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
+  OnFuluDataColumnSidecarAddedCallback* = proc(
+    data: ref fulu.DataColumnSidecar) {.gcsafe, raises: [].}
 
   SomeSidecarRef* = ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar
   SomeSidecarIndex* = fulu.ColumnIndex
@@ -697,19 +700,59 @@ template onDataColumnSidecarCallback*[A: SomeDataColumnSidecar, B: OnDataColumnS
 ): OnDataColumnSidecarCallback =
   quarantine.onSidecarCallback
 
+template onFuluDataColumnSidecarAddedCallback*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
+    quarantine: SidecarQuarantine[A, B]
+): OnFuluDataColumnSidecarAddedCallback =
+  quarantine.onFuluColumnAddedCallback
+
+proc init*(
+    T: typedesc[ColumnQuarantine],
+    cfg: RuntimeConfig,
+    database: QuarantineDB,
+    maxDiskSizeMultipler: int,
+    onBlobSidecarCallback: OnBlobSidecarCallback
+): ColumnQuarantine =
+  var indexMap = newSeqUninit[int](cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+  for index in 0 ..< len(indexMap):
+    indexMap[index] = index
+
+  let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+
+  blob_quarantine_memory_slots_total.set(int64(size))
+  blob_quarantine_database_slots_total.set(
+    int64(size) * int64(maxDiskSizeMultipler))
+  blob_quarantine_memory_slots_occupied.set(0'i64)
+  blob_quarantine_database_slots_occupied.set(0'i64)
+
+  ColumnQuarantine(
+    minEpochsForSidecarsRequests:
+      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
+    maxSidecarsPerBlockCount:
+      int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
+    maxMemSidecarsCount: size,
+    maxDiskSidecarsCount: size * maxDiskSizeMultipler,
+    memSidecarsCount: 0,
+    diskSidecarsCount: 0,
+    indexMap: indexMap,
+    onSidecarCallback: onBlobSidecarCallback,
+    list: initDoublyLinkedList[RootTableRecord[BlobSidecar]](),
+    db: database
+  )
+
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],
     cfg: RuntimeConfig,
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: OnFuluDataColumnSidecarAddedCallback = nil
 ): SidecarQuarantine[A, B] =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   let custodyMap = ColumnMap.init(custodyColumns)
   T.init(
     cfg, custodyMap, database, maxDiskSizeMultipler,
-    onDataColumnSidecarCallback)
+    onDataColumnSidecarCallback, onFuluColumnAddedCallback)
 
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],
@@ -717,7 +760,8 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     custodyMap: ColumnMap,
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: OnFuluDataColumnSidecarAddedCallback = nil
 ): SidecarQuarantine[A, B] =
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyMap) < NUMBER_OF_COLUMNS:
@@ -747,7 +791,8 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     custodyMap: custodyMap,
     list: initDoublyLinkedList[RootTableRecord[A]](),
     db: database,
-    onSidecarCallback: onDataColumnSidecarCallback
+    onSidecarCallback: onDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: onFuluColumnAddedCallback
   )
 
 proc update*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](

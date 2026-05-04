@@ -322,6 +322,54 @@ proc recover_cells_and_proofs_parallel*(
   ok(res)
 
 proc assemble_data_column_sidecars*(
+    signed_block_header: SignedBeaconBlockHeader,
+    kzg_commitments: KzgCommitments,
+    kzg_commitments_inclusion_proof:
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest],
+    blobs: seq[KzgBlob],
+    cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
+  ## Variant used by the column-first sidecar retrieval path: assembles
+  ## column sidecars from the per-block constants carried by an existing
+  ## column sidecar (header, commitments, inclusion proof) plus blobs and
+  ## cell proofs recovered from the EL. The block itself is not required.
+  var sidecars = newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
+
+  if kzg_commitments.len == 0 or blobs.len == 0:
+    return sidecars
+  if blobs.len != kzg_commitments.len:
+    return sidecars
+  if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return sidecars
+
+  var
+    cells = newSeq[CellBytes](blobs.len)
+    proofs = newSeq[ProofBytes](blobs.len)
+
+  for i in 0 ..< blobs.len:
+    cells[i] = computeCells(blobs[i]).get
+    let proofElem = addr proofs[i]
+    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+
+  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+    var
+      column = newSeqOfCap[KzgCell](blobs.len)
+      kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
+    for rowIndex in 0 ..< blobs.len:
+      column.add(cells[rowIndex][columnIndex])
+      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+
+    sidecars.add fulu.DataColumnSidecar(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(column),
+      kzg_commitments: kzg_commitments,
+      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
+      signed_block_header: signed_block_header,
+      kzg_commitments_inclusion_proof: kzg_commitments_inclusion_proof)
+
+  sidecars
+
+proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
   template blck(): auto = signed_beacon_block.message

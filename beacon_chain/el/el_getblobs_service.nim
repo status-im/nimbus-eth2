@@ -8,6 +8,9 @@
 {.push raises: [], gcsafe.}
 
 import
+  # Standard library
+  std/[sequtils, sets],
+
   # Status libraries
   chronicles,
   chronos,
@@ -37,7 +40,7 @@ declareGauge beacon_engine_getblobs_slot_hit_rate,
 type
   GetBlobsService* = object
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
-    columnSidecarBus*: AsyncEventQueue[DataColumnSidecarInfoObject]
+    columnSidecarBus*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
     validatorCustody*: ValidatorCustodyRef
@@ -47,13 +50,17 @@ type
     slotInFlight: Slot
     slotRequests: uint64
     slotHits: uint64
+    # Roots for which the column-first path has already invoked the EL.
+    # Bounds the per-block fan-out: each custody column arriving via gossip
+    # would otherwise trigger a redundant getBlobsV2 roundtrip.
+    columnFirstFetched: HashSet[Eth2Digest]
 
   GetBlobsServiceRef* = ref GetBlobsService
 
 proc new*(
     t: typedesc[GetBlobsServiceRef],
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
-    columnSidecarBus: AsyncEventQueue[DataColumnSidecarInfoObject],
+    columnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar],
     blockProcessor: ref BlockProcessor,
     dataColumnQuarantine: ref ColumnQuarantine,
     validatorCustody: ValidatorCustodyRef
@@ -101,6 +108,22 @@ proc attemptGetBlobs*(
 
   withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
+      # If the column-first path already populated quarantine for this root,
+      # skip the EL fetch and enqueue with the existing columns.
+      if forkyBlck.root in self.columnFirstFetched:
+        let sidecarsOpt =
+          self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+        if sidecarsOpt.isSome():
+          if not quarantine[].removeSidecarless(forkyBlck.root):
+            return
+          debug "Added data columns from EL blobpool to quarantine",
+            root = forkyBlck.root, slot = forkyBlck.message.slot
+          self.columnFirstFetched.excl(forkyBlck.root)
+          self.blockProcessor.enqueueBlock(
+            MsgSource.gossip, forkyBlck, sidecarsOpt)
+          return
+        # Columns vanished (pruned?) — fall through to EL fetch as fallback.
+
       let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
         self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
         return
@@ -154,6 +177,72 @@ proc attemptGetBlobs*(
     else:
       discard
 
+proc attemptGetBlobsFromColumn*(
+    self: GetBlobsServiceRef,
+    sidecar: ref fulu.DataColumnSidecar) {.async: (raises: [CancelledError]).} =
+  ## Column-first variant: invoked when a column sidecar arrives via gossip
+  ## before the block has been seen. Uses the per-column metadata
+  ## (signed_block_header, kzg_commitments, kzg_commitments_inclusion_proof)
+  ## to derive versioned hashes and reconstruct columns from EL blobs, then
+  ## stores the recovered custody columns in the quarantine. Does NOT enqueue
+  ## a block — when the block later arrives via gossip, eth2_processor will
+  ## see the columns already waiting and proceed.
+  let
+    elManager = self.blockProcessor[].consensusManager.elManager
+    quarantine = self.blockProcessor[].consensusManager.quarantine
+    block_root = hash_tree_root(sidecar[].signed_block_header.message)
+    slot = sidecar[].signed_block_header.message.slot
+
+  # Dedup: only fire EL fetch once per block_root. Subsequent column
+  # arrivals for the same block are no-ops on this path.
+  if block_root in self.columnFirstFetched:
+    return
+
+  # If the sidecarless block is already in the block quarantine, the
+  # block-first path (consumeBlockGossip → attemptGetBlobs) owns this
+  # block — leave it alone.
+  if quarantine[].getSidecarless(block_root).isSome():
+    return
+
+  let blobsEl = (await elManager.getBlobsV2(sidecar[].kzg_commitments)).valueOr:
+    self.recordEngineGetBlobs(slot, hit = false)
+    return
+  if blobsEl.len != sidecar[].kzg_commitments.len:
+    self.recordEngineGetBlobs(slot, hit = false)
+    return
+  self.recordEngineGetBlobs(slot, hit = true)
+
+  var flat_proof = newSeqOfCap[kzg.KzgProof](
+    blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
+  for item in blobsEl:
+    for proof in item.proofs:
+      flat_proof.add kzg.KzgProof(bytes: proof.data)
+
+  let recovered_columns = assemble_data_column_sidecars(
+    sidecar[].signed_block_header,
+    sidecar[].kzg_commitments,
+    sidecar[].kzg_commitments_inclusion_proof,
+    blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
+    flat_proof)
+
+  let custodyMap = self.validatorCustody.getMap()
+  var batch = newSeqOfCap[ref fulu.DataColumnSidecar](len(custodyMap))
+  for col in recovered_columns:
+    if col.index in custodyMap:
+      batch.add newClone(col)
+
+  if batch.len == 0:
+    return
+
+  debug "Added data columns from EL blobpool to quarantine (column-first)",
+    root = block_root,
+    slot = slot,
+    batch_len = batch.len
+  self.dataColumnQuarantine[].put(block_root, batch)
+  # Mark only after a successful put so failed attempts can be retried by
+  # subsequent column arrivals for the same root.
+  self.columnFirstFetched.incl(block_root)
+
 proc consumeBlockGossip(
     self: GetBlobsServiceRef) {.async: (raises: []).} =
   let ticket = self.blockGossipBus.register()
@@ -180,7 +269,7 @@ proc consumeColumnSidecars(
     while true:
       let events = await self.columnSidecarBus.waitEvents(ticket)
       for event in events:
-        await self.attemptGetBlobs(event.block_root)
+        await self.attemptGetBlobsFromColumn(event)
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
   except CancelledError:
