@@ -241,8 +241,6 @@ proc reconfirm_fcr(
 
   # Update observed justified checkpoints at the start of an epoch
   self.update_unrealized_justified(dag)
-  template current_epoch_justified: Checkpoint =
-    fcr.current_epoch_observed_justified.checkpoint
 
   # Restart confirmation chain if necessary
   fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
@@ -511,8 +509,6 @@ proc advance_fcr(
     confirmed: var BlockId, current_slot: Slot,
     reason: var string): FcResult[void] =
   template fcr: ForkChoiceBackend = self.backend
-  template current_epoch_justified: Checkpoint =
-    fcr.current_epoch_observed_justified.checkpoint
 
   if ? fcr.should_revert_confirmed_on_new_head(
       blckRef, confirmed, current_slot):

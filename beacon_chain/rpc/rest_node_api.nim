@@ -120,7 +120,7 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
 proc getDiscoveryAddresses(node: BeaconNode): seq[string] =
   let
     typedRec = TypedRecord.fromRecord(node.network.enrRecord())
-    peerAddr = typedRec.toPeerAddr(udpProtocol).valueOr:
+    peerAddr = typedRec.toPeerAddr([PeerAddrProto.UDP]).valueOr:
       return default(seq[string])
     maddress = MultiAddress.init(multiCodec("p2p"), peerAddr.peerId).valueOr:
       return default(seq[string])

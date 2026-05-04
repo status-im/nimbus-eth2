@@ -39,7 +39,7 @@ type
     ## eth2, a single bit is used to keep track of which signatures have been
     ## added to the aggregate meaning that only non-overlapping aggregates may
     ## be further combined.
-    aggregation_bits: ElectraCommitteeValidatorsBits
+    aggregation_bits: AggregationBits
     aggregate_signature: AggregateSignature
 
   AttestationEntry = object
@@ -252,7 +252,7 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 
   pool.startingSlot = newStartingSlot
 
-func oneIndex(bits: ElectraCommitteeValidatorsBits): Opt[int] =
+func oneIndex(bits: AggregationBits): Opt[int] =
   # Find the index of the set bit, iff one bit is set
   var res = Opt.none(int)
   for idx in 0..<bits.len():
@@ -290,7 +290,7 @@ func updateAggregates(entry: var AttestationEntry) =
       if entry.aggregates.len() == 0:
         # Create aggregate on first iteration..
         entry.aggregates.add Validation(
-          aggregation_bits: ElectraCommitteeValidatorsBits.init(entry.committee_len),
+          aggregation_bits: AggregationBits.init(entry.committee_len),
           aggregate_signature: AggregateSignature.init(signature),
         )
       else:
@@ -343,7 +343,7 @@ func updateAggregates(entry: var AttestationEntry) =
     # committee voted successfully
     entry.singles.reset()
 
-func covers(entry: AttestationEntry, bits: ElectraCommitteeValidatorsBits): bool =
+func covers(entry: AttestationEntry, bits: AggregationBits): bool =
   entry.aggregates.anyIt(bits.isSubsetOf(it.aggregation_bits))
 
 proc addAttestation(
@@ -492,7 +492,7 @@ proc addAttestation*(
 func covers*(
     pool: var AttestationPool,
     data: AttestationData,
-    aggregation_bits: ElectraCommitteeValidatorsBits,
+    aggregation_bits: AggregationBits,
     committee_index: CommitteeIndex,
 ): bool =
   ## Return true iff the given attestation already is fully covered by one of
@@ -550,7 +550,7 @@ iterator electraAttestations*(
         committee_bits[int(entry.index)] = true
 
         var attestation = electra.Attestation(
-          aggregation_bits: ElectraCommitteeValidatorsBits.init(entry.committee_len),
+          aggregation_bits: AggregationBits.init(entry.committee_len),
           committee_bits: committee_bits,
           data: AttestationData.init(entry),
         )
@@ -567,7 +567,7 @@ iterator electraAttestations*(
 type
   AttestationCacheKey = (Slot, uint64)
   AttestationCache =
-    Table[AttestationCacheKey, ElectraCommitteeValidatorsBits]
+    Table[AttestationCacheKey, AggregationBits]
       ## Cache for quick lookup during beacon block construction of attestations
       ## which have already been included, and therefore should be skipped.
 
@@ -578,7 +578,7 @@ func getAttestationCacheKey(entry: AttestationEntry): AttestationCacheKey =
 
 func add(
     attCache: var AttestationCache, key: AttestationCacheKey,
-    aggregation_bits: ElectraCommitteeValidatorsBits) =
+    aggregation_bits: AggregationBits) =
   attCache.withValue(key, v) do:
     v[].incl(aggregation_bits)
   do:
@@ -602,7 +602,7 @@ func init(
       for slot in epoch.slots():
         let committee_len =
           get_beacon_committee_len(state.data, slot, committee_index, cache)
-        var validator_bits = ElectraCommitteeValidatorsBits.init(committee_len.int)
+        var validator_bits = AggregationBits.init(committee_len.int)
         for index_in_committee, validator_index in get_beacon_committee(
           state.data, slot, committee_index, cache
         ):
@@ -619,7 +619,7 @@ func init(
 
 func score(
     attCache: var AttestationCache, key: AttestationCacheKey,
-    aggregation_bits: ElectraCommitteeValidatorsBits): int =
+    aggregation_bits: AggregationBits): int =
   # The score of an attestation is loosely based on how many new votes it brings
   # to the state - a more accurate score function would also look at inclusion
   # distance and effective balance.
@@ -876,10 +876,19 @@ type BeaconHead* = object
 
 proc getBeaconHead*(
     pool: AttestationPool, headBlock: BlockRef): BeaconHead =
+  # In Gloas a bid's `block_hash` is only on the EL's canonical chain when fork
+  # choice marked the slot's block full; the bid's `parent_block` must be on it.
   let
+    isGloas =
+      pool.dag.cfg.consensusForkAtEpoch(
+        pool.dag.finalizedHead.slot.epoch) >= ConsensusFork.Gloas
     finalizedExecutionBlockHash =
-      pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
-        .get(ZERO_HASH)
+      if isGloas:
+        pool.dag.loadExecutionAndParentBlockHash(pool.dag.finalizedHead.blck)
+          .parentHash.get(ZERO_HASH)
+      else:
+        pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
+          .get(ZERO_HASH)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/fork_choice/safe-block.md#get_safe_execution_block_hash
     # Use the justified checkpoint root as the safe block reported to the
@@ -893,6 +902,9 @@ proc getBeaconHead*(
         # Because a different fork already finalized a later point,
         # report the finalized execution payload hash instead.
         finalizedExecutionBlockHash
+      elif isGloas:
+        pool.dag.loadExecutionAndParentBlockHash(safeBlock.get)
+          .parentHash.get(finalizedExecutionBlockHash)
       else:
         pool.dag.loadExecutionBlockHash(safeBlock.get)
           .get(finalizedExecutionBlockHash)

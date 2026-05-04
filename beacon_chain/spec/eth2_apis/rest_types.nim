@@ -48,7 +48,7 @@ const
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
   LowestScoreAggregatedElectraAttestation* =
     electra.Attestation(
-      aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1)))
+      aggregation_bits: AggregationBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -60,7 +60,7 @@ type
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar,
     SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate,
-    ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
+    ExecutionPayloadGossipAdded,
     ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage
 
 
@@ -256,6 +256,19 @@ type
     direction*: string
     agent*: string # This is not part of specification
     proto*: string # This is not part of specification
+
+  RestSyncPeer* = object
+    peer_id*: string
+    node_id*: string
+    direction*: string
+    enr_cgc*: string
+    meta_cgc*: string
+    cgc*: int
+    columns*: seq[int]
+    intersection*: seq[int]
+    agent*: string
+    agent_full*: string
+    proto_full*: string
 
   RestNodeVersion* = object
     version*: string

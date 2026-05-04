@@ -420,14 +420,14 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  ElectraCommitteeValidatorsBits* =
+  AggregationBits* =
     BitList[Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]
 
   AttestationCommitteeBits* = BitArray[MAX_COMMITTEES_PER_SLOT.int]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/electra/beacon-chain.md#attestation
   Attestation* = object
-    aggregation_bits*: ElectraCommitteeValidatorsBits
+    aggregation_bits*: AggregationBits
     data*: AttestationData
     signature*: ValidatorSig
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
@@ -436,7 +436,7 @@ type
     # The Trusted version, at the moment, implies that the cryptographic signature was checked.
     # It DOES NOT imply that the state transition was verified.
     # Currently the code MUST verify the state transition as soon as the signature is verified
-    aggregation_bits*: ElectraCommitteeValidatorsBits
+    aggregation_bits*: AggregationBits
     data*: AttestationData
     signature*: TrustedSig
     committee_bits*: AttestationCommitteeBits  # [New in Electra:EIP7549]
@@ -544,7 +544,7 @@ iterator getValidatorIndices*(
       continue
     yield validator_index
 
-func shortLog*(v: ElectraCommitteeValidatorsBits): auto =
+func shortLog*(v: AggregationBits): auto =
   $v.countOnes() & "/" & $v.len()
 
 func shortLog*(v: electra.Attestation | electra.TrustedAttestation): auto =
@@ -573,7 +573,7 @@ func init*(
   var committee_bits: AttestationCommitteeBits
   committee_bits[int(committee_index)] = true
 
-  var bits = ElectraCommitteeValidatorsBits.init(committee_len)
+  var bits = AggregationBits.init(committee_len)
   for index_in_committee in indices_in_committee:
     if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
     bits.setBit index_in_committee
@@ -771,6 +771,21 @@ func normalize_merkle_branch*[N](
       doAssert node.isZero, "Truncation of Merkle branch cannot lose info"
     res[0 ..< depth] = branch[num_extra ..< branch.len]
   res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/sync-protocol.md#is_valid_normalized_merkle_branch
+func is_valid_normalized_merkle_branch*[N](
+    leaf: Eth2Digest,
+    branch: array[N, Eth2Digest],
+    gindex: static GeneralizedIndex,
+    root: Eth2Digest): bool =
+  const
+    depth = log2trunc(gindex)
+    index = get_subtree_index(gindex)
+    num_extra = branch.len - depth
+  for i in 0 ..< num_extra:
+    if not branch[i].isZero:
+      return false
+  is_valid_merkle_branch(leaf, branch[num_extra .. ^1], depth, index, root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_electra*(

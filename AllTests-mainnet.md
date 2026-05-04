@@ -118,19 +118,6 @@ AllTests-mainnet
 + electra toSignedBlindedBeaconBlock                                                         OK
 + fulu toSignedBlindedBeaconBlock                                                            OK
 ```
-## BlobQuarantine data structure test suite  [Preset: mainnet]
-```diff
-+ database and memory overfill protection and pruning test                                   OK
-+ database unload/load test                                                                  OK
-+ overfill protection test                                                                   OK
-+ overfill test [maximum number of blobs]                                                    OK
-+ popSidecars()/hasSidecars() return []/true on block without blobs                          OK
-+ pruneAfterFinalization() test                                                              OK
-+ put() duplicate items should not affect counters                                           OK
-+ put()/fetchMissingSidecars/remove test                                                     OK
-+ put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
-+ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test                         OK
-```
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -264,6 +251,7 @@ AllTests-mainnet
 + Fulu fork digest resolved via bpos list                                                    OK
 + Fusaka devnet-2                                                                            OK
 + Glamsterdam bal-devnet-2                                                                   OK
++ Non-scheduled post-Electra fork has no bpos entries                                        OK
 + nextForkEpochAtEpoch includes Gloas from Fulu                                              OK
 + nextForkEpochAtEpoch with BPO before Gloas                                                 OK
 ```
@@ -668,15 +656,18 @@ AllTests-mainnet
 + forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
++ forkchoiceUpdatedV4 basic call                                                             OK
 ```
 ## EL Manager - getPayload
 ```diff
 + success without retry                                                                      OK
++ success without retry using getPayloadV6                                                   OK
 ```
 ## EL Manager - newPayload
 ```diff
 + newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
++ success without retry using newPayloadV5                                                   OK
 ```
 ## Engine API conversions
 ```diff

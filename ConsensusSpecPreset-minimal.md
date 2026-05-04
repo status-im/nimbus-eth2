@@ -227,7 +227,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBeaconBlock                                                             OK
@@ -552,7 +551,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -940,7 +938,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -948,7 +945,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1360,7 +1356,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -1368,7 +1363,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1923,7 +1917,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -1931,7 +1924,6 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -2500,7 +2492,6 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
@@ -2512,7 +2503,6 @@ ConsensusSpecPreset-minimal
 +   Testing    PartialDataColumnHeader                                                       OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -2832,9 +2822,12 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_firs OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_slot OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__em OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
@@ -2855,49 +2848,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_top_up_still OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_undefined_cr OK
 ```
-## EF - Gloas - Operations - Execution Payload  [Preset: minimal]
-```diff
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_first_paylo OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_everything_regular_pay OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_first_payl OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_parent_hash_regular_pa OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_pre_randao_regular_pay OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_bad_prev_randao_first_payl OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_correct_input__execution_i OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_first_pay OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_future_timestamp_regular_p OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_first_paylo OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - invalid_past_timestamp_regular_pay OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_bid_prev OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_executio OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_invalid_ OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_missing_ OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_be OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bl OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_bu OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ga OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pa OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_pr OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_sl OK
-+ [Invalid] EF - Gloas - Operations - Execution Payload - process_execution_payload_wrong_ti OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_blob_tx_type             OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_block_hash               OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_commitment               OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_commitments_order        OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_1_byt OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_1_ext OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_32_ex OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_length_empty OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - incorrect_transaction_no_blobs_but OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - no_commitments_for_transactions    OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - no_transactions_with_commitments   OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_large_pa OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_self_bui OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_valid    OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_blo OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - process_execution_payload_with_exe OK
-+ [Valid]   EF - Gloas - Operations - Execution Payload - zeroed_commitment                  OK
-```
 ## EF - Gloas - Operations - Execution Payload Bid  [Preset: minimal]
 ```diff
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -2912,11 +2862,23 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
+```
+## EF - Gloas - Operations - Parent Execution Payload  [Preset: minimal]
+```diff
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 ```
 ## EF - Gloas - Operations - Payload Attestation  [Preset: minimal]
 ```diff
@@ -3029,6 +2991,9 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__min_churn         OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - success_exit_queue__scaled_churn      OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit   OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit Churn - exit_churn__equal_to_activation OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit Churn - exit_churn__greater_than_activa OK
++ [Valid]   EF - Gloas - Operations - Voluntary Exit Churn - exit_churn__less_than_activatio OK
 ```
 ## EF - Gloas - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -3079,6 +3044,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Withdrawals - compounding_validator_partial_withdrawal OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - duplicate_builder_index_in_pending_withd OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - early_return_empty_parent_block          OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - empty_parent_preserves_populated_expecte OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_builder_payload_reserves_sweep_slot OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - full_pending_withdrawals_but_first_skipp OK
@@ -3142,6 +3108,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Withdrawals - success_zero_expected_withdrawals        OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_balance         OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balan OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - zero_hash_genesis_skips_withdrawals      OK
 ```
 ## EF - Gloas - SSZ consensus objects  [Preset: minimal]
 ```diff
@@ -3173,12 +3140,10 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayload                                                              OK
 +   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
-+   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    IndexedPayloadAttestation                                                     OK
@@ -3188,13 +3153,12 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
-+   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -3274,6 +3238,13 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Transition - transition_with_random_three_quarters_participation [Preset: min OK
 + EF - Gloas - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
 + EF - Gloas - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
+```
+## EF - Gloas - Unittests - Light client - Sync protocol [Preset: minimal]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_at_period_boundary                                        OK
++ test_process_light_client_update_not_timeout                                               OK
 ```
 ## EF - Heze - Fork  [Preset: minimal]
 ```diff
@@ -3488,9 +3459,12 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__reuses_first OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__reuses_slot_ OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__bui OK
++ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__emp OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__new OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__new OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__new OK
++ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
++ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
@@ -3511,52 +3485,10 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_top_up_still_ OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_undefined_cre OK
 ```
-## EF - Heze - Operations - Execution Payload  [Preset: minimal]
-```diff
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_bad_everything_first_payloa OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_bad_everything_regular_payl OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_bad_parent_hash_first_paylo OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_bad_parent_hash_regular_pay OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_bad_pre_randao_regular_payl OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_bad_prev_randao_first_paylo OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_correct_input__execution_in OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_future_timestamp_first_payl OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_future_timestamp_regular_pa OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_past_timestamp_first_payloa OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - invalid_past_timestamp_regular_payl OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_bid_prev_ OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_execution OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_invalid_s OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_missing_e OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_bea OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_blo OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_bui OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_gas OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_par OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_pre OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_slo OK
-+ [Invalid] EF - Heze - Operations - Execution Payload - process_execution_payload_wrong_tim OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_blob_tx_type              OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_block_hash                OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_commitment                OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_commitments_order         OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_transaction_length_1_byte OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_transaction_length_1_extr OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_transaction_length_32_ext OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_transaction_length_empty  OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - incorrect_transaction_no_blobs_but_ OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - no_commitments_for_transactions     OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - no_transactions_with_commitments    OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - process_execution_payload_large_pay OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - process_execution_payload_self_buil OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - process_execution_payload_valid     OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - process_execution_payload_with_blob OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - process_execution_payload_with_exec OK
-+ [Valid]   EF - Heze - Operations - Execution Payload - zeroed_commitment                   OK
-```
 ## EF - Heze - Operations - Execution Payload Bid  [Preset: minimal]
 ```diff
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_b OK
++ [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
@@ -3573,6 +3505,17 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_s OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
+```
+## EF - Heze - Operations - Parent Execution Payload  [Preset: minimal]
+```diff
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 ```
 ## EF - Heze - Operations - Payload Attestation  [Preset: minimal]
 ```diff
@@ -3685,6 +3628,9 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Voluntary Exit - success_exit_queue__min_churn          OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - success_exit_queue__scaled_churn       OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - voluntary_exit_with_pending_deposit    OK
++ [Valid]   EF - Heze - Operations - Voluntary Exit Churn - exit_churn__equal_to_activation_ OK
++ [Valid]   EF - Heze - Operations - Voluntary Exit Churn - exit_churn__greater_than_activat OK
++ [Valid]   EF - Heze - Operations - Voluntary Exit Churn - exit_churn__less_than_activation OK
 ```
 ## EF - Heze - Operations - Withdrawal Request  [Preset: minimal]
 ```diff
@@ -3735,6 +3681,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Withdrawals - compounding_validator_partial_withdrawal  OK
 + [Valid]   EF - Heze - Operations - Withdrawals - duplicate_builder_index_in_pending_withdr OK
 + [Valid]   EF - Heze - Operations - Withdrawals - early_return_empty_parent_block           OK
++ [Valid]   EF - Heze - Operations - Withdrawals - empty_parent_preserves_populated_expected OK
 + [Valid]   EF - Heze - Operations - Withdrawals - full_builder_payload_reserves_sweep_slot  OK
 + [Valid]   EF - Heze - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
 + [Valid]   EF - Heze - Operations - Withdrawals - full_pending_withdrawals_but_first_skippe OK
@@ -3798,6 +3745,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Withdrawals - success_zero_expected_withdrawals         OK
 + [Valid]   EF - Heze - Operations - Withdrawals - withdrawable_epoch_but_0_balance          OK
 + [Valid]   EF - Heze - Operations - Withdrawals - withdrawable_epoch_but_0_effective_balanc OK
++ [Valid]   EF - Heze - Operations - Withdrawals - zero_hash_genesis_skips_withdrawals       OK
 ```
 ## EF - Heze - SSZ consensus objects  [Preset: minimal]
 ```diff
@@ -3829,12 +3777,10 @@ ConsensusSpecPreset-minimal
 +   Testing    ExecutionPayload                                                              OK
 +   Testing    ExecutionPayloadBid                                                           OK
 +   Testing    ExecutionPayloadEnvelope                                                      OK
-+   Testing    ExecutionPayloadHeader                                                        OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
 +   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
-+   Testing    HistoricalBatch                                                               OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    InclusionList                                                                 OK
 +   Testing    IndexedAttestation                                                            OK
@@ -3845,13 +3791,12 @@ ConsensusSpecPreset-minimal
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
-+   Testing    PartialDataColumnHeader                                                       OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
 +   Testing    PayloadAttestation                                                            OK
 +   Testing    PayloadAttestationData                                                        OK
 +   Testing    PayloadAttestationMessage                                                     OK
-+   Testing    PendingAttestation                                                            OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -3945,6 +3890,7 @@ ConsensusSpecPreset-minimal
 + Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
 + Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
 + Light client - Data collection - minimal/fulu/light_client/data_collection/pyspec_tests/li OK
++ Light client - Data collection - minimal/gloas/light_client/data_collection/pyspec_tests/l OK
 ```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
@@ -3970,6 +3916,11 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
 + Light client - Single merkle proof - minimal/fulu/light_client/single_merkle_proof/BeaconS OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/gloas/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/heze/light_client/single_merkle_proof/BeaconB OK
 ```
 ## EF - Light client - Sync [Preset: minimal]
 ```diff
@@ -3977,6 +3928,7 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/capella_store_with_leg OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/deneb_store_with_legac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/electra_store_with_leg OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/gloas_store_with_legac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync_no_f OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
@@ -3987,31 +3939,43 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_store_with_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/deneb_store_with_le OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/electra_store_with_ OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/gloas_store_with_le OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync_n OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_electra_fork    OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_fork            OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_gloas_fork      OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_store_with_lega OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/electra_store_with_le OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/gloas_store_with_lega OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/advance_finality_withou OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_fork            OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_gloas_fork      OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/electra_store_with_lega OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/gloas_store_with_legacy OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync       OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync_no_fo OK
 + Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/supply_sync_committee_f OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/gloas_store_with_lega OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/light_client_sync_no_ OK
 + Light client - Sync - minimal/electra/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/advance_finality_without OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/gloas_fork               OK
++ Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/gloas_store_with_legacy_ OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync        OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/light_client_sync_no_for OK
 + Light client - Sync - minimal/fulu/light_client/sync/pyspec_tests/supply_sync_committee_fr OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/advance_finality_withou OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/light_client_sync       OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/light_client_sync_no_fo OK
++ Light client - Sync - minimal/gloas/light_client/sync/pyspec_tests/supply_sync_committee_f OK
 ```
 ## EF - Light client - Update ranking [Preset: minimal]
 ```diff
@@ -4021,6 +3985,7 @@ ConsensusSpecPreset-minimal
 + Light client - Update ranking - minimal/deneb/light_client/update_ranking/pyspec_tests/upd OK
 + Light client - Update ranking - minimal/electra/light_client/update_ranking/pyspec_tests/u OK
 + Light client - Update ranking - minimal/fulu/light_client/update_ranking/pyspec_tests/upda OK
++ Light client - Update ranking - minimal/gloas/light_client/update_ranking/pyspec_tests/upd OK
 ```
 ## EF - Merkle proof [Preset: minimal]
 ```diff
@@ -5984,7 +5949,6 @@ ConsensusSpecPreset-minimal
 + Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
 + Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
 + Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
 + Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
 + Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
 + Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
@@ -6121,6 +6085,13 @@ ConsensusSpecPreset-minimal
 + Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - gloas - Epoch Processing - Pending deposits churn [Preset: minimal]
+```diff
++ Pending deposits churn - activation_churn__equal_to_cap [Preset: minimal]                  OK
++ Pending deposits churn - activation_churn__greater_than_cap [Preset: minimal]              OK
++ Pending deposits churn - activation_churn__less_than_cap [Preset: minimal]                 OK
++ Pending deposits churn - deposit_above_activation_churn_not_processed [Preset: minimal]    OK
 ```
 ## EF - gloas - Epoch Processing - Proposer lookahead [Preset: minimal]
 ```diff
@@ -6277,13 +6248,16 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
++ [Invalid] EF - gloas - Sanity - Blocks - process_parent_execution_payload__wrong_execution OK
 + [Invalid] EF - gloas - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]       OK
++ [Invalid] EF - gloas - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdra OK
 + [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
 + [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
 + [Valid]   EF - gloas - Sanity - Blocks - attestation [Preset: minimal]                     OK
 + [Valid]   EF - gloas - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
 + [Valid]   EF - gloas - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
 + [Valid]   EF - gloas - Sanity - Blocks - bls_change [Preset: minimal]                      OK
++ [Valid]   EF - gloas - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: mini OK
 + [Valid]   EF - gloas - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
 + [Valid]   EF - gloas - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
 + [Valid]   EF - gloas - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
@@ -6293,6 +6267,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition [Preset: minimal]          OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_large_validator_set [Prese OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_empty_parent_gap_1_epoch [Preset:  OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_empty_parent_gap_2_epochs [Preset: OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_empty_parent_gap_5_epochs [Preset: OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_all_requests_gap_5_epo OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_gap_1_epoch [Preset: m OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_gap_2_epochs [Preset:  OK
++ [Valid]   EF - gloas - Sanity - Blocks - epoch_boundary_full_parent_gap_5_epochs [Preset:  OK
 + [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
 + [Valid]   EF - gloas - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
 + [Valid]   EF - gloas - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
@@ -6317,6 +6298,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
 + [Valid]   EF - gloas - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
 + [Valid]   EF - gloas - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
++ [Valid]   EF - gloas - Sanity - Blocks - switch_to_compounding_across_epoch_boundary [Pres OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
@@ -6334,7 +6316,6 @@ ConsensusSpecPreset-minimal
 + Builder pending payments - process_builder_pending_payments_below_quorum [Preset: minimal] OK
 + Builder pending payments - process_builder_pending_payments_empty_queue [Preset: minimal]  OK
 + Builder pending payments - process_builder_pending_payments_equal_quorum [Preset: minimal] OK
-+ Builder pending payments - process_builder_pending_payments_large_amount_churn_impact [Pre OK
 + Builder pending payments - process_builder_pending_payments_mixed_weights [Preset: minimal OK
 + Builder pending payments - process_builder_pending_payments_multiple_above_quorum [Preset: OK
 + Builder pending payments - process_builder_pending_payments_queue_rotation [Preset: minima OK
@@ -6467,6 +6448,13 @@ ConsensusSpecPreset-minimal
 + Pending deposits - process_pending_deposits_skipped_deposit_exiting_validator [Preset: min OK
 + Pending deposits - process_pending_deposits_withdrawable_validator [Preset: minimal]       OK
 + Pending deposits - process_pending_deposits_withdrawable_validator_not_churned [Preset: mi OK
+```
+## EF - heze - Epoch Processing - Pending deposits churn [Preset: minimal]
+```diff
++ Pending deposits churn - activation_churn__equal_to_cap [Preset: minimal]                  OK
++ Pending deposits churn - activation_churn__greater_than_cap [Preset: minimal]              OK
++ Pending deposits churn - activation_churn__less_than_cap [Preset: minimal]                 OK
++ Pending deposits churn - deposit_above_activation_churn_not_processed [Preset: minimal]    OK
 ```
 ## EF - heze - Epoch Processing - Proposer lookahead [Preset: minimal]
 ```diff
@@ -6604,13 +6592,16 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
++ [Invalid] EF - heze - Sanity - Blocks - process_parent_execution_payload__wrong_execution_ OK
 + [Invalid] EF - heze - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]        OK
++ [Invalid] EF - heze - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdraw OK
 + [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
 + [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
 + [Valid]   EF - heze - Sanity - Blocks - attestation [Preset: minimal]                      OK
 + [Valid]   EF - heze - Sanity - Blocks - attester_slashing [Preset: minimal]                OK
 + [Valid]   EF - heze - Sanity - Blocks - balance_driven_status_transitions [Preset: minimal OK
 + [Valid]   EF - heze - Sanity - Blocks - bls_change [Preset: minimal]                       OK
++ [Valid]   EF - heze - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: minim OK
 + [Valid]   EF - heze - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]           OK
 + [Valid]   EF - heze - Sanity - Blocks - deposit_in_block [Preset: minimal]                 OK
 + [Valid]   EF - heze - Sanity - Blocks - deposit_top_up [Preset: minimal]                   OK
@@ -6620,6 +6611,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition [Preset: minimal]           OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition_large_validator_set [Preset OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: min OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_empty_parent_gap_1_epoch [Preset: m OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_empty_parent_gap_2_epochs [Preset:  OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_empty_parent_gap_5_epochs [Preset:  OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_all_requests_gap_5_epoc OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_gap_1_epoch [Preset: mi OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_gap_2_epochs [Preset: m OK
++ [Valid]   EF - heze - Sanity - Blocks - epoch_boundary_full_parent_gap_5_epochs [Preset: m OK
 + [Valid]   EF - heze - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]        OK
 + [Valid]   EF - heze - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]     OK
 + [Valid]   EF - heze - Sanity - Blocks - exit_and_bls_change [Preset: minimal]              OK
@@ -6644,6 +6642,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - proposer_slashing [Preset: minimal]                OK
 + [Valid]   EF - heze - Sanity - Blocks - skipped_slots [Preset: minimal]                    OK
 + [Valid]   EF - heze - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]        OK
++ [Valid]   EF - heze - Sanity - Blocks - switch_to_compounding_across_epoch_boundary [Prese OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal]  OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]   OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]   OK
@@ -6867,6 +6866,1023 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - phase0 - Sanity - Blocks - skipped_slots [Preset: minimal]                  OK
 + [Valid]   EF - phase0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]      OK
 + [Valid]   EF - phase0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                 OK
+```
+## Fast Confirmation
+```diff
++ Fast Confirmation - minimal/altair/fast_confirmation/basic/pyspec_tests/fast_confirm_an_ep OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/current_epoch/pyspec_tests/fcr_curren OK
++ Fast Confirmation - minimal/altair/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_sl OK
++ Fast Confirmation - minimal/altair/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_sl OK
++ Fast Confirmation - minimal/altair/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_hea OK
++ Fast Confirmation - minimal/altair/fast_confirmation/ffg/pyspec_tests/will_current_target_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/ffg/pyspec_tests/will_no_conflicting_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_conf OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/previous_epoch/pyspec_tests/fcr_previ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/reconfirmation/pyspec_tests/reconfirm OK
++ Fast Confirmation - minimal/altair/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restar OK
++ Fast Confirmation - minimal/altair/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restar OK
++ Fast Confirmation - minimal/altair/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restar OK
++ Fast Confirmation - minimal/altair/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_ OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/fcr_no_r OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/fcr_no_r OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/fcr_rese OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/fcr_reve OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/fcr_reve OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/fcr_reve OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/fcr_reve OK
++ Fast Confirmation - minimal/altair/fast_confirmation/revert_finality/pyspec_tests/reset_to OK
++ Fast Confirmation - minimal/altair/fast_confirmation/variables/pyspec_tests/fcr_invariants OK
++ Fast Confirmation - minimal/altair/fast_confirmation/variables/pyspec_tests/gu_snapshot_in OK
++ Fast Confirmation - minimal/altair/fast_confirmation/variables/pyspec_tests/observed_justi OK
++ Fast Confirmation - minimal/altair/fast_confirmation/variables/pyspec_tests/observed_justi OK
++ Fast Confirmation - minimal/altair/fast_confirmation/variables/pyspec_tests/observed_justi OK
++ Fast Confirmation - minimal/altair/fast_confirmation/variables/pyspec_tests/observed_justi OK
++ Fast Confirmation - minimal/altair/fast_confirmation/variables/pyspec_tests/slot_head_vari OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/basic/pyspec_tests/fast_confirm_an OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/current_epoch/pyspec_tests/fcr_cur OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/empty_slots/pyspec_tests/fcr_empty OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/empty_slots/pyspec_tests/fcr_empty OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/empty_slots/pyspec_tests/fcr_handl OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/empty_slots/pyspec_tests/fcr_handl OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_ OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/ffg/pyspec_tests/will_current_targ OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/ffg/pyspec_tests/will_no_conflicti OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_c OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/is_one_confirmed/pyspec_tests/is_o OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/previous_epoch/pyspec_tests/fcr_pr OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/reconfirmation/pyspec_tests/reconf OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/restart_gu/pyspec_tests/fcr_no_res OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/restart_gu/pyspec_tests/fcr_no_res OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/restart_gu/pyspec_tests/fcr_no_res OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/restart_gu/pyspec_tests/fcr_restar OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/restart_gu/pyspec_tests/fcr_restar OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/fcr_n OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/fcr_n OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/fcr_r OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/fcr_r OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/fcr_r OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/fcr_r OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/fcr_r OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/revert_finality/pyspec_tests/reset OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/variables/pyspec_tests/fcr_invaria OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/variables/pyspec_tests/gu_snapshot OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/variables/pyspec_tests/observed_ju OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/variables/pyspec_tests/observed_ju OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/variables/pyspec_tests/observed_ju OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/variables/pyspec_tests/observed_ju OK
++ Fast Confirmation - minimal/bellatrix/fast_confirmation/variables/pyspec_tests/slot_head_v OK
++ Fast Confirmation - minimal/capella/fast_confirmation/basic/pyspec_tests/fast_confirm_an_e OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/capella/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_s OK
++ Fast Confirmation - minimal/capella/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_s OK
++ Fast Confirmation - minimal/capella/fast_confirmation/empty_slots/pyspec_tests/fcr_handles OK
++ Fast Confirmation - minimal/capella/fast_confirmation/empty_slots/pyspec_tests/fcr_handles OK
++ Fast Confirmation - minimal/capella/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_he OK
++ Fast Confirmation - minimal/capella/fast_confirmation/ffg/pyspec_tests/will_current_target OK
++ Fast Confirmation - minimal/capella/fast_confirmation/ffg/pyspec_tests/will_no_conflicting OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_con OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/reconfirmation/pyspec_tests/reconfir OK
++ Fast Confirmation - minimal/capella/fast_confirmation/restart_gu/pyspec_tests/fcr_no_resta OK
++ Fast Confirmation - minimal/capella/fast_confirmation/restart_gu/pyspec_tests/fcr_no_resta OK
++ Fast Confirmation - minimal/capella/fast_confirmation/restart_gu/pyspec_tests/fcr_no_resta OK
++ Fast Confirmation - minimal/capella/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts OK
++ Fast Confirmation - minimal/capella/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/fcr_no_ OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/fcr_no_ OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/fcr_res OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/capella/fast_confirmation/revert_finality/pyspec_tests/reset_t OK
++ Fast Confirmation - minimal/capella/fast_confirmation/variables/pyspec_tests/fcr_invariant OK
++ Fast Confirmation - minimal/capella/fast_confirmation/variables/pyspec_tests/gu_snapshot_i OK
++ Fast Confirmation - minimal/capella/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/capella/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/capella/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/capella/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/capella/fast_confirmation/variables/pyspec_tests/slot_head_var OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/basic/pyspec_tests/fast_confirm_an_epo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_m OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_s OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_head OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/ffg/pyspec_tests/will_current_target_b OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/ffg/pyspec_tests/will_no_conflicting_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_confi OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/reconfirmation/pyspec_tests/reconfirma OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_t OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_t OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/fcr_no_re OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/fcr_no_re OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/fcr_reset OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/revert_finality/pyspec_tests/reset_to_ OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/variables/pyspec_tests/fcr_invariants_ OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/variables/pyspec_tests/gu_snapshot_ini OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/deneb/fast_confirmation/variables/pyspec_tests/slot_head_varia OK
++ Fast Confirmation - minimal/electra/fast_confirmation/basic/pyspec_tests/fast_confirm_an_e OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/current_epoch/pyspec_tests/fcr_curre OK
++ Fast Confirmation - minimal/electra/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_s OK
++ Fast Confirmation - minimal/electra/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_s OK
++ Fast Confirmation - minimal/electra/fast_confirmation/empty_slots/pyspec_tests/fcr_handles OK
++ Fast Confirmation - minimal/electra/fast_confirmation/empty_slots/pyspec_tests/fcr_handles OK
++ Fast Confirmation - minimal/electra/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_he OK
++ Fast Confirmation - minimal/electra/fast_confirmation/ffg/pyspec_tests/will_current_target OK
++ Fast Confirmation - minimal/electra/fast_confirmation/ffg/pyspec_tests/will_no_conflicting OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_con OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/reconfirmation/pyspec_tests/reconfir OK
++ Fast Confirmation - minimal/electra/fast_confirmation/restart_gu/pyspec_tests/fcr_no_resta OK
++ Fast Confirmation - minimal/electra/fast_confirmation/restart_gu/pyspec_tests/fcr_no_resta OK
++ Fast Confirmation - minimal/electra/fast_confirmation/restart_gu/pyspec_tests/fcr_no_resta OK
++ Fast Confirmation - minimal/electra/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts OK
++ Fast Confirmation - minimal/electra/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/fcr_no_ OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/fcr_no_ OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/fcr_res OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/fcr_rev OK
++ Fast Confirmation - minimal/electra/fast_confirmation/revert_finality/pyspec_tests/reset_t OK
++ Fast Confirmation - minimal/electra/fast_confirmation/variables/pyspec_tests/fcr_invariant OK
++ Fast Confirmation - minimal/electra/fast_confirmation/variables/pyspec_tests/gu_snapshot_i OK
++ Fast Confirmation - minimal/electra/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/electra/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/electra/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/electra/fast_confirmation/variables/pyspec_tests/observed_just OK
++ Fast Confirmation - minimal/electra/fast_confirmation/variables/pyspec_tests/slot_head_var OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/basic/pyspec_tests/fast_confirm_an_epoc OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/current_epoch/pyspec_tests/fcr_current_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slot OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slot OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_mu OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_si OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_head_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/ffg/pyspec_tests/will_current_target_be OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/ffg/pyspec_tests/will_no_conflicting_ch OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_confir OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/reconfirmation/pyspec_tests/reconfirmat OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart_ OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_to OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_to OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/fcr_no_res OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/fcr_no_res OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/fcr_resets OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/fcr_revert OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/fcr_revert OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/fcr_revert OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/fcr_revert OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/revert_finality/pyspec_tests/reset_to_f OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/fcr_invariants_m OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/gu_snapshot_init OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/observed_justifi OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/observed_justifi OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/observed_justifi OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/observed_justifi OK
++ Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/slot_head_variab OK
 ```
 ## ForkChoice
 ```diff

@@ -566,9 +566,8 @@ type
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
 
-    # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
-      ## [Modified in Gloas:EIP7732]
+    # [New in Gloas:EIP7732]
+    latest_block_hash*: Eth2Digest
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -609,8 +608,11 @@ type
     # [New in Gloas:EIP7732]
     builder_pending_withdrawals*:
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
-    # [New in Gloas:EIP7732]
-    latest_block_hash*: Eth2Digest
+
+    # Execution
+    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+      ## [Modified in Gloas:EIP7732]
+
     # [New in Gloas:EIP7732]
     payload_expected_withdrawals*:
       HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
@@ -675,8 +677,7 @@ type
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
 
-    # Execution
-    latest_execution_payload_bid*: heze.ExecutionPayloadBid
+    latest_block_hash*: Eth2Digest
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -709,7 +710,10 @@ type
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     builder_pending_withdrawals*:
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
-    latest_block_hash*: Eth2Digest
+
+    # Execution
+    latest_execution_payload_bid*: heze.ExecutionPayloadBid
+
     payload_expected_withdrawals*:
       HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
     ptc_window*:

@@ -557,27 +557,25 @@ proc addHeadExecutionPayload*(
     debug "Envelope has been applied to the state"
     return err(VerifierError.Duplicate)
 
-  debug "Envelope transitioning"
-
   # Verify with state transition function.
-  process_execution_payload(
-    dag.cfg,
-    dag.clearanceState.forky(consensusFork),
-    signedEnvelope,
-    func(_: deneb.ExecutionPayload): bool = true,
-    cache,
-  ).isOkOr:
-    assign(dag.clearanceState, dag.headState)
-    info "Envelope transition failed", msg = error
+  verify_execution_payload_envelope(
+      dag.timeParams,
+      dag.forkAtEpoch(envelopeSlot.epoch),
+      dag.clearanceState.forky(consensusFork),
+      signedEnvelope,
+      dag.genesis_validators_root).isOkOr:
+    debug "Envelope verification failed", reason = error
     return err(VerifierError.Invalid)
-
-  debug "Envelope transitioned"
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
 
-  if not isNil(dag.onEnvelopeAdded):
-    dag.onEnvelopeAdded(signedEnvelope)
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.1/apis/eventstream/index.yaml
+  # `execution_payload_available`: "The node has verified that the execution
+  # payload and blobs for a block are available and ready for payload
+  # attestation"; emit after envelope in database and REST-queryable.
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
 
   ok(blck)
 
@@ -611,7 +609,7 @@ proc addBackfillExecutionPayload*(
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
     return err(VerifierError.Duplicate)
 
-  let (proposerIdx, builderIdx) = block:
+  let (builderIdx, bidBuilderIdx) = block:
     let forkedBlck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
       # corrupted.
@@ -621,21 +619,16 @@ proc addBackfillExecutionPayload*(
       when consensusFork >= ConsensusFork.Gloas:
         template bid(): auto =
           forkyBlck.message.body.signed_execution_payload_bid
-        (forkyBlck.message.proposer_index, bid.message.builder_index)
+        (forkyBlck.builder_index, bid.message.builder_index)
       else:
         return err(VerifierError.UnviableFork)
 
   # Check builder index is matched with the block
-  if builderIdx != envelope.builder_index:
+  if bidBuilderIdx != envelope.builder_index:
     return err(VerifierError.Invalid)
 
   # Verify signature
-  template vIdx(): auto =
-    if envelope.builder_index == BUILDER_INDEX_SELF_BUILD:
-      proposerIdx
-    else:
-      envelope.builder_index
-  let builderKey = dag.validatorKey(vIdx).valueOr:
+  let builderKey = dag.validatorKey(builderIdx).valueOr:
     fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
       head = shortLog(dag.head), tail = shortLog(dag.tail)
     quit 1
