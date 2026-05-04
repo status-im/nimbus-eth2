@@ -318,7 +318,6 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
-  SomeAttestation* = Attestation | TrustedAttestation
 
   EpochInfo* = object
     ## Information about the outcome of epoch processing
@@ -383,7 +382,7 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-func shortLog*(v: SomeAttestation): auto =
+func shortLog*(v: Attestation | TrustedAttestation): auto =
   (
     aggregation_bits: v.aggregation_bits,
     data: shortLog(v.data),
