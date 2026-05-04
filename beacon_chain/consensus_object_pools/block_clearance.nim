@@ -558,13 +558,24 @@ proc addHeadExecutionPayload*(
     return err(VerifierError.Duplicate)
 
   # Verify with state transition function.
-  debugGloasComment("verify sig")
+  verify_execution_payload_envelope(
+      dag.timeParams,
+      dag.forkAtEpoch(envelopeSlot.epoch),
+      dag.clearanceState.forky(consensusFork),
+      signedEnvelope,
+      dag.genesis_validators_root).isOkOr:
+    debug "Envelope verification failed", reason = error
+    return err(VerifierError.Invalid)
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
 
-  if not isNil(dag.onEnvelopeAdded):
-    dag.onEnvelopeAdded(signedEnvelope)
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.1/apis/eventstream/index.yaml
+  # `execution_payload_available`: "The node has verified that the execution
+  # payload and blobs for a block are available and ready for payload
+  # attestation"; emit after envelope in database and REST-queryable.
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
 
   ok(blck)
 

@@ -590,6 +590,11 @@ proc new*(T: type BeaconChainDB,
           "lc_electra_headers"
         else:
           "",
+      gloasHeaders:
+        if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_gloas_headers"
+        else:
+          "",
       altairCurrentBranches: "lc_altair_current_branches",
       electraCurrentBranches:
         if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
@@ -600,7 +605,7 @@ proc new*(T: type BeaconChainDB,
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
 
   var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 

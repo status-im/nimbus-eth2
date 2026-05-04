@@ -9,7 +9,7 @@
 
 import
   system/ansi_c,
-  std/[os, random, strutils, terminal, times],
+  std/[os, random, terminal, times],
   chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
@@ -17,7 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blob_quarantine, blockchain_list, envelope_quarantine,
+    blockchain_list, column_quarantine, envelope_quarantine,
     execution_payload_pool, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
@@ -33,6 +33,7 @@ import
     nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
 
 from std/sequtils import filterIt, mapIt, toSeq
+#from std/strutils import
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
 from ./spec/datatypes/deneb import SignedBeaconBlock
@@ -463,8 +464,6 @@ proc initFullNode(
     node.eventBus.propSlashQueue.emit(data)
   proc onAttesterSlashingAdded(data: electra.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
-  proc onBlobSidecarAdded(data: BlobSidecarInfoObject) =
-    node.eventBus.blobSidecarQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
     node.eventBus.columnSidecarQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -498,12 +497,6 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
-  proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
-    let optimistic = node.dag.is_optimistic(BlockId(
-      root: data.message.beacon_block_root,
-      slot: data.message.slot))
-    node.eventBus.execPayloadAddedQueue.emit(
-      EventExecutionPayloadObject.init(data, optimistic))
   proc onEnvelopeGossipAdded(data: SignedExecutionPayloadEnvelope) =
     node.eventBus.execPayloadGossipAddedQueue.emit(
       EventExecutionPayloadGossipObject.init(data))
@@ -581,8 +574,6 @@ proc initFullNode(
       onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
-    blobQuarantine = newClone(BlobQuarantine.init(
-      dag.cfg, dag.db.getQuarantineDB(), 10, onBlobSidecarAdded))
     validatorCustody = ValidatorCustodyRef.init(
       node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 
@@ -607,7 +598,7 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      dataColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
@@ -623,9 +614,7 @@ proc initFullNode(
             const sidecarsOpt = noSidecars
           else:
             let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
-        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-          template sidecarsOpt: untyped = blobs
-        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
           const sidecarsOpt = noSidecars
         else:
           {.error: "Unkown fork: " & $consensusFork.}
@@ -659,18 +648,7 @@ proc initFullNode(
                 err(VerifierError.UnviableFork)
               else:
                 err(VerifierError.MissingParent)
-        elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-          let sidecarsOpt =
-            blobQuarantine[].popSidecars(forkyBlck.root, forkyBlck)
-          if sidecarsOpt.isNone():
-            # We don't have all the sidecars for this block, so we have
-            # to put it to the quarantine.
-            return
-              if not quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck):
-                err(VerifierError.UnviableFork)
-              else:
-                err(VerifierError.MissingParent)
-        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
           const sidecarsOpt = noSidecars
         else:
           {.error: "Unkown fork: " & $consensusFork.}
@@ -738,13 +716,6 @@ proc initFullNode(
     rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
         Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
       dag.db.getExecutionPayloadEnvelope(blockRoot)
-    rmanBlobLoader = proc(
-        blobId: BlobIdentifier): Opt[ref BlobSidecar] =
-      var blob_sidecar = BlobSidecar.new()
-      if dag.db.getBlobSidecar(blobId.block_root, blobId.index, blob_sidecar[]):
-        Opt.some blob_sidecar
-      else:
-        Opt.none(ref BlobSidecar)
     rmanDataColumnLoader = proc(
         columnId: DataColumnIdentifier): Opt[ref fulu.DataColumnSidecar] =
       var data_column_sidecar = fulu.DataColumnSidecar.new()
@@ -758,7 +729,7 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      quarantine, dataColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -814,10 +785,9 @@ proc initFullNode(
       node.network, validatorCustody,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
-      quarantine, envelopeQuarantine, blobQuarantine,
-      dataColumnQuarantine, rmanBlockVerifier, rmanBlockLoader,
-      rmanEnvelopeVerifier, rmanEnvelopeLoader,
-      rmanBlobLoader, rmanDataColumnLoader)
+      quarantine, envelopeQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      rmanBlockLoader, rmanEnvelopeVerifier, rmanEnvelopeLoader,
+      rmanDataColumnLoader)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -858,14 +828,12 @@ proc initFullNode(
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
-  dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
 
   node.dag = dag
   node.dag.eaSlot = eaSlot
   node.list = clist
-  node.blobQuarantine = blobQuarantine
   node.dataColumnQuarantine = dataColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
@@ -1234,30 +1202,31 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     unsubscribeSubnets = subnetLog(unsubscribeSubnets),
     gossipState = node.gossipState
 
-proc updateBlocksGossipStatus*(
-    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+template updateNewPayloadGossipStatus(
+    currentGossipState: var GossipState,
+    name: static string,
+    getTopic: proc (forkDigest: ForkDigest): string {.noSideEffect.},
+    topicParams: TopicParams,
+    enableTopicMetrics = false): untyped =
   template cfg(): auto = node.dag.cfg
 
   let
     isBehind =
       if node.shouldSyncViaLightClient(slot):
-        # When syncing blocks via light client, always subscribe
+        # When syncing via light client, always subscribe
         false
       else:
-        # Use DAG status to determine whether to subscribe for blocks gossip
+        # Use DAG status to determine whether to subscribe to gossip
         dagIsBehind
-
     targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
-
-  template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
     return
 
   if currentGossipState.card == 0 and targetGossipState.card > 0:
-    debug "Enabling blocks topic subscriptions",
+    debug "Enabling " & name & " topic subscriptions",
       wallSlot = slot, targetGossipState
   elif currentGossipState.card > 0 and targetGossipState.card == 0:
-    debug "Disabling blocks topic subscriptions",
+    debug "Disabling " & name & " topic subscriptions",
       wallSlot = slot
   else:
     # Individual forks added / removed
@@ -1269,16 +1238,25 @@ proc updateBlocksGossipStatus*(
 
   for gossipEpoch in oldGossipEpochs:
     let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
-    node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+    node.network.unsubscribe(getTopic(forkDigest))
 
   for gossipEpoch in newGossipEpochs:
     let forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, cfg)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest),
-      getBlockTopicParams(node.dag.timeParams),
-      enableTopicMetrics = true)
+      getTopic(forkDigest), topicParams, enableTopicMetrics)
 
-  node.blocksGossipState = targetGossipState
+  currentGossipState = targetGossipState
+
+proc updateBlocksGossipStatus*(
+    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+  node.blocksGossipState.updateNewPayloadGossipStatus(
+    "blocks", getBeaconBlocksTopic,
+    getBlockTopicParams(node.dag.timeParams), enableTopicMetrics = true)
+
+proc updateEnvelopeGossipStatus*(
+    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+  node.envelopeGossipState.updateNewPayloadGossipStatus(
+    "envelope", getExecutionPayloadTopic, basicParams())
 
 proc addPhase0MessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1365,8 +1343,12 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     node.network.subscribe(topic, basicParams())
     custody.add(i)
 
-  # Due to dynamic column changes, we need to maintain the set of columns we
-  # subscribe to, as the column set may change.
+  # Unsubscribe from custody groups we no longer have custody of.
+  for i in node.lastColumnCustodyIndices:
+    if i notin custody:
+      let topic = getDataColumnSidecarTopic(forkDigest, i)
+      node.network.unsubscribe(topic)
+
   node.lastColumnCustodyIndices = custody
 
 proc addAltairMessageHandlers(
@@ -1422,8 +1404,6 @@ proc addGloasMessageHandlers(
   node.network.subscribe(
     getExecutionPayloadBidTopic(forkDigest), basicParams())
   node.network.subscribe(
-    getExecutionPayloadTopic(forkDigest), basicParams())
-  node.network.subscribe(
     getPayloadAttestationMessageTopic(forkDigest), basicParams())
   node.network.subscribe(
     getProposerPreferencesTopic(forkDigest), basicParams())
@@ -1472,7 +1452,6 @@ proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeFuluMessageHandlers(forkDigest)
   node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
-  node.network.unsubscribe(getExecutionPayloadTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
   node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
 
@@ -1736,11 +1715,9 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.gossipState = targetGossipState
 
   # Validator custody can change in the middle of a fork/BPO interval; need to
-  # subscribe to potentially new column topics. Do this after node.gossipState
-  # is updated to avoid adding immediately unsubscribed subscriptions. Custody
-  # can only grow in a node's lifetime, so only address additive case. It can,
-  # therefore, overlap existing subscriptions, rather than separately tracking
-  # them.
+  # subscribe to potentially new column topics and unsubscribe from stale ones.
+  # Do this after node.gossipState is updated to avoid adding immediately
+  # unsubscribed subscriptions.
   for gossipEpoch in node.gossipState:
     if node.dag.cfg.consensusForkAtEpoch(gossipEpoch) >= ConsensusFork.Fulu:
       node.updateDataColumnSidecarHandlers(gossipEpoch)
@@ -1748,6 +1725,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
+  node.updateEnvelopeGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
 proc pruneBlobs(node: BeaconNode, slot: Slot) =
@@ -1900,8 +1878,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
-    node.processor.blobQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
     node.processor.quarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 
@@ -2355,10 +2331,14 @@ proc installMessageValidators(node: BeaconNode) =
               signedEnvelope: SignedExecutionPayloadEnvelope,
               src: PeerId,
             ): ValidationResult =
-              toValidationResult(
-                node.processor[].processExecutionPayloadEnvelope(
-                  MsgSource.gossip, signedEnvelope))
-          )
+              if node.shouldSyncViaLightClient(node.currentSlot):
+                toValidationResult(
+                  node.lightBlockProcessor.processExecutionPayloadEnvelope(
+                    signedEnvelope))
+              else:
+                toValidationResult(
+                  node.processor[].processExecutionPayloadEnvelope(
+                    MsgSource.gossip, signedEnvelope)))
 
         # payload_attestation_message
         # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
@@ -2373,7 +2353,7 @@ proc installMessageValidators(node: BeaconNode) =
                 await node.processor.processPayloadAttestationMessage(
                   payloadAttestationMessage, checkSignature = true,
                   checkValidator = false)))
-        
+
         # proposer_preferences
         # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
         when consensusFork >= ConsensusFork.Gloas:
@@ -2871,9 +2851,9 @@ proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
       config.seqNumber,
       netKeys.seckey.asEthKey,
       Opt.some(config.ipExt),
-      Opt.some(config.tcpPortExt),
+      if config.tcpExtEnabled: Opt.some(config.tcpPortExt) else: Opt.none(Port),
       Opt.some(config.udpPortExt),
-      Opt.none(Port),
+      if config.quicExtEnabled: Opt.some(config.quicPortExt) else: Opt.none(Port),
       fieldPairs).expect("Record within size limits")
 
     echo record.toURI()

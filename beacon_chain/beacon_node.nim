@@ -23,7 +23,7 @@ import
   ./networking/eth2_network,
   ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
-    blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
+    blockchain_dag, block_quarantine, column_quarantine, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
     sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
@@ -66,7 +66,6 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
-    execPayloadAddedQueue*: AsyncEventQueue[EventExecutionPayloadObject]
     execPayloadGossipAddedQueue*: AsyncEventQueue[EventExecutionPayloadGossipObject]
     execPayloadAvlQueue*: AsyncEventQueue[EventExecutionPayloadAvailableObject]
     execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
@@ -87,7 +86,6 @@ type
     dag*: ChainDAGRef
     list*: ChainListRef
     quarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
     attestationPool*: ref AttestationPool
@@ -116,6 +114,7 @@ type
     attachedValidatorBalanceTotal*: Gwei
     gossipState*: GossipState
     blocksGossipState*: GossipState
+    envelopeGossipState*: GossipState
     beaconClock*: BeaconClock
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
@@ -221,8 +220,6 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue:
       newAsyncEventQueue[ForkedLightClientHeader](),
-    execPayloadAddedQueue:
-      newAsyncEventQueue[EventExecutionPayloadObject](),
     execPayloadGossipAddedQueue:
       newAsyncEventQueue[EventExecutionPayloadGossipObject](),
     execPayloadAvlQueue:

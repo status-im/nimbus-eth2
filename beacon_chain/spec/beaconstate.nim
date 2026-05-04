@@ -280,8 +280,7 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-get_balance_churn_limit
 func get_balance_churn_limit(
     cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState,
     cache: var StateCache): Gwei =
   ## Return the churn limit for the current epoch.
   let churn = max(
@@ -293,8 +292,7 @@ func get_balance_churn_limit(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
 func get_activation_exit_churn_limit*(
     cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState,
     cache: var StateCache):
     Gwei =
   ## Return the churn limit for the current epoch dedicated to activations and
@@ -303,17 +301,55 @@ func get_activation_exit_churn_limit*(
     cfg.MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT.Gwei,
     get_balance_churn_limit(cfg, state, cache))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#new-get_activation_churn_limit
+func get_activation_churn_limit*(
+    cfg: RuntimeConfig,
+    state: gloas.BeaconState | heze.BeaconState,
+    cache: var StateCache): Gwei =
+  ## Per-epoch churn limit for activations, rounded to
+  ## ``EFFECTIVE_BALANCE_INCREMENT``.
+  var churn = max(
+    cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA.Gwei,
+    get_total_active_balance(state, cache) div cfg.CHURN_LIMIT_QUOTIENT_GLOAS
+  )
+  churn = churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
+  min(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS.Gwei, churn)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#new-get_exit_churn_limit
+func get_exit_churn_limit*(
+    cfg: RuntimeConfig,
+    state: gloas.BeaconState | heze.BeaconState,
+    cache: var StateCache): Gwei =
+  ## Per-epoch churn limit for exits, rounded to
+  ## ``EFFECTIVE_BALANCE_INCREMENT``.
+  let churn = max(
+    cfg.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA.Gwei,
+    get_total_active_balance(state, cache) div cfg.CHURN_LIMIT_QUOTIENT_GLOAS
+  )
+  churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit
 func get_consolidation_churn_limit*(
     cfg: RuntimeConfig,
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
-           heze.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState,
     cache: var StateCache):
     Gwei =
   get_balance_churn_limit(cfg, state, cache) -
     get_activation_exit_churn_limit(cfg, state, cache)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-get_consolidation_churn_limit
+func get_consolidation_churn_limit*(
+    cfg: RuntimeConfig,
+    state: gloas.BeaconState | heze.BeaconState,
+    cache: var StateCache): Gwei =
+  ## Per-epoch churn limit reserved for consolidations (EIP-7521).
+  let churn =
+    get_total_active_balance(state, cache) div
+    cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT
+  churn - churn mod EFFECTIVE_BALANCE_INCREMENT.Gwei
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-compute_exit_epoch_and_update_churn
 func compute_exit_epoch_and_update_churn*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -322,7 +358,11 @@ func compute_exit_epoch_and_update_churn*(
     cache: var StateCache): Epoch =
   var earliest_exit_epoch = max(state.earliest_exit_epoch,
     compute_activation_exit_epoch(get_current_epoch(state)))
-  let per_epoch_churn = get_activation_exit_churn_limit(cfg, state, cache)
+  let per_epoch_churn =
+    when typeof(state).kind >= ConsensusFork.Gloas:
+      get_exit_churn_limit(cfg, state, cache)
+    else:
+      get_activation_exit_churn_limit(cfg, state, cache)
 
   # New epoch for exits.
   var exit_balance_to_consume =
@@ -592,9 +632,10 @@ func get_initial_beacon_block*(state: gloas.HashedBeaconState):
   # The genesis block is implicitly trusted
   let message = gloas.TrustedBeaconBlock(
     slot: state.data.slot,
-    state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
+    state_root: state.root,
+    body: gloas.TrustedBeaconBlockBody(
+      signed_execution_payload_bid: gloas.SignedExecutionPayloadBid(
+        message: state.data.latest_execution_payload_bid)))
   gloas.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -603,9 +644,10 @@ func get_initial_beacon_block*(state: heze.HashedBeaconState):
   # The genesis block is implicitly trusted
   let message = heze.TrustedBeaconBlock(
     slot: state.data.slot,
-    state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
+    state_root: state.root,
+    body: heze.TrustedBeaconBlockBody(
+      signed_execution_payload_bid: heze.SignedExecutionPayloadBid(
+        message: state.data.latest_execution_payload_bid)))
   heze.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
@@ -736,7 +778,7 @@ iterator get_attesting_indices*(
     state: ForkyBeaconState,
     slot: Slot,
     committee_bits: AttestationCommitteeBits,
-    aggregation_bits: ElectraCommitteeValidatorsBits,
+    aggregation_bits: AggregationBits,
     cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``aggregation_bits``
   ## and ``committee_bits``.
@@ -3284,6 +3326,8 @@ func is_active_builder*(
     state: gloas.BeaconState | heze.BeaconState,
     builder_index: BuilderIndex): bool =
   ## Check if the builder at ``builder_index`` is active for the given ``state``.
+  if builder_index.uint64 >= state.builders.lenu64:
+    return false
   template builder: untyped = state.builders.item(builder_index)
 
   # Placement in builder list is finalized and has not initiated exit
@@ -3317,3 +3361,14 @@ func can_builder_cover_bid*(
   if builder_balance < min_balance:
     return false
   builder_balance - min_balance >= bid_amount
+
+func proposalExecutionHead*(
+    state: gloas.BeaconState | heze.BeaconState): Eth2Digest =
+  debugGloasComment "this empirically matches a current testnet gloas provider behavior"
+  # `latest_execution_payload_bid` is empty until the first Gloas block's
+  # processed; for a Gloas genesis chain, a genesis state generator seeds
+  # `latest_block_hash` with the EL genesis block hash.
+  if state.latest_execution_payload_bid.block_hash.isZero():
+    state.latest_block_hash
+  else:
+    state.latest_execution_payload_bid.block_hash

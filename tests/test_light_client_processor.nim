@@ -26,17 +26,17 @@ suite "Light client processor" & preset():
     lowPeriod = 0.SyncCommitteePeriod
     lastPeriodWithSupermajority = 4.SyncCommitteePeriod
     highPeriod = 6.SyncCommitteePeriod
-  debugGloasComment "add res.GLOAS_FORK_EPOCH = ..."
-  debugHezeComment "add res.HEZE_FORK_EPOCH = ..."
   let cfg = block:  # Fork schedule that covers each `LightClientDataFork`
     static: doAssert ConsensusFork.high == ConsensusFork.Heze
     var res = defaultRuntimeConfig
-    res.ALTAIR_FORK_EPOCH = 1.Epoch
-    res.BELLATRIX_FORK_EPOCH = 2.Epoch
-    res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
-    res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
-    res.ELECTRA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 3).Epoch
-    res.FULU_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 4).Epoch
+    res.ALTAIR_FORK_EPOCH = 0.SyncCommitteePeriod.start_epoch + 1
+    res.BELLATRIX_FORK_EPOCH = 0.SyncCommitteePeriod.start_epoch + 2
+    res.CAPELLA_FORK_EPOCH = 1.SyncCommitteePeriod.start_epoch + 0
+    res.DENEB_FORK_EPOCH = 1.SyncCommitteePeriod.start_epoch + 1
+    res.ELECTRA_FORK_EPOCH = 2.SyncCommitteePeriod.start_epoch + 0
+    res.FULU_FORK_EPOCH = 2.SyncCommitteePeriod.start_epoch + 1
+    res.GLOAS_FORK_EPOCH = 3.SyncCommitteePeriod.start_epoch + 0
+    res.HEZE_FORK_EPOCH = 3.SyncCommitteePeriod.start_epoch + 1
     res
 
   const numValidators = SLOTS_PER_EPOCH

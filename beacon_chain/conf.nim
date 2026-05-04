@@ -36,7 +36,7 @@ from consensus_object_pools/block_pools_types_light_client
 
 export
   uri, nat, enr,
-  defaultEth2TcpPort, enabledLogLevel,
+  defaultEth2TcpPort, defaultEth2QuicPort, enabledLogLevel,
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network,
   confTomlDefs, confTomlNet, confTomlUri, jsnet,
@@ -302,11 +302,30 @@ type
         defaultValueDesc: "*"
         name: "listen-address" .}: Option[IpAddress]
 
+      tcpEnabled* {.
+        hidden
+        desc: "Enable TCP transport"
+        defaultValue: true
+        name: "debug-tcp" .}: bool
+
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
         defaultValue: defaultEth2TcpPort
         defaultValueDesc: $defaultEth2TcpPortDesc
         name: "tcp-port" .}: Port
+
+      quicEnabled* {.
+        hidden
+        desc: "Enable QUIC transport"
+        defaultValue: false
+        name: "debug-quic" .}: bool
+
+      quicPort* {.
+        hidden
+        desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
+        defaultValue: defaultEth2QuicPort
+        defaultValueDesc: $defaultEth2QuicPortDesc
+        name: "debug-quic-port" .}: Port   
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
@@ -804,13 +823,32 @@ type
           desc: "External IP address"
           name: "ip" .}: IpAddress
 
+        tcpExtEnabled* {.
+          hidden
+          desc: "Enable TCP transport"
+          defaultValue: true
+          name: "debug-tcp" .}: bool
+
         tcpPortExt* {.
           desc: "External TCP port"
+          defaultValue: defaultEth2TcpPort
           name: "tcp-port" .}: Port
 
         udpPortExt* {.
           desc: "External UDP port"
           name: "udp-port" .}: Port
+
+        quicExtEnabled* {.
+          hidden
+          desc: "Enable QUIC transport"
+          defaultValue: false
+          name: "debug-quic" .}: bool
+
+        quicPortExt* {.
+          hidden
+          desc: "External QUIC port"
+          defaultValue: defaultEth2QuicPort
+          name: "debug-quic-port" .}: Port
 
         seqNumber* {.
           desc: "Record sequence number"

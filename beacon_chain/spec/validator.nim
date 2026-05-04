@@ -786,7 +786,7 @@ proc compute_on_chain_aggregate*(
   prev_committee_index.reset()
 
   var
-    aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
+    aggregation_bits = AggregationBits.init(totalLen)
     pos = 0
     filledLen = 0
   for i, a in aggregates:
