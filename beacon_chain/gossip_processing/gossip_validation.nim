@@ -1112,6 +1112,12 @@ proc validateExecutionPayload*(
 
   # [REJECT] `signed_execution_payload_envelope.signature` is valid as verified
   # by `verify_execution_payload_envelope_signature`.
+  # TODO: during extended non-finality with competing forks, builder registries
+  # may diverge (slot reuse after exit). headState reflects our fork, which may
+  # not match the envelope's block fork. Checking the block's parent state would
+  # be correct but requires state replay just to get a pubkey. False rejections
+  # are recovered via req/resp through clearance (which uses block-specific
+  # state).
   let builderKey =
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
