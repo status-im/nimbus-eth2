@@ -2791,11 +2791,11 @@ proc doRunBeaconNode(
   # so it needs to be initalized from the main thread before anything else tries
   # to use it
   if config.trustedSetupFile.isSome:
-    kzg.loadTrustedSetup(config.trustedSetupFile.get(), 0).isOkOr:
+    kzg.loadTrustedSetup(config.trustedSetupFile.get(), 7).isOkOr:
       fatal "Cannot load KZG trusted setup from file", msg = error
       quit(QuitFailure)
   else:
-    kzg.loadTrustedSetupFromString(kzg.trustedSetup, 0).isOkOr:
+    kzg.loadTrustedSetupFromString(kzg.trustedSetup, 7).isOkOr:
       fatal "Cannot load KZG trusted setup using default data", msg = error
       quit(QuitFailure)
 
