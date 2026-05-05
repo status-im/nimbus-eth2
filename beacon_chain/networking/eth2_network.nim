@@ -2542,6 +2542,7 @@ proc createEth2Node*(
           verifySignature = false,
           anonymize = true,
           maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
+          rng = rng,
           parameters = params,
         )
       except InitializationError as exc:
