@@ -266,11 +266,28 @@ proc ensureSidecarsFits[A, B](
 
   ok()
 
+proc moveToFront[A, B](
+    q: var SidecarQuarantine[A, B],
+    node: DoublyLinkedNode[RootTableRecord[A]]
+) =
+  # We should preserve `lastMemoryNode` reference.
+  if q.lastMemoryNode == node:
+    q.lastMemoryNode = node.prev
+
+  q.list.remove(node)
+  if isNil(q.list.head) and isNil(q.list.tail):
+    # In case when list empty, we could not use `prepend` operation.
+    q.list.add(node)
+  else:
+    q.list.prepend(node)
+
 proc put*[A, B](
     q: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
     sidecars: openArray[ref A]
 ) =
+  # Note: Sidecars with indices that are not in the current column custody set
+  # are IGNORED.
   let
     (node, missing) =
       block:
@@ -284,12 +301,17 @@ proc put*[A, B](
         var res = 0
         for sidecar in sidecars:
           let index = q.getIndex(sidecar.index)
-          doAssert(index >= 0,
-            "Incorrect sidecar index " & $sidecar.index & " points to " &
-            $index)
+          # Because custody set could change - it is possible that we could get
+          # sidecars with indices which are not suitable for current set, so
+          # we should not assert, but just continue looking for compatible
+          # sidecars.
+          if index < 0: continue
           if isEmpty(node[].value.sidecars[index]):
             inc(res)
         res
+
+  if newSidecarsCount == 0:
+    return
 
   q.ensureSidecarsFits(newSidecarsCount).isOkOr:
     return
@@ -320,13 +342,7 @@ proc put*[A, B](
     else:
       q.list.prepend(node)
   else:
-    # Move to first
-    q.list.remove(node)
-    if isNil(q.list.head) and isNil(q.list.tail):
-      # In case when list empty, we could not use `prepend` operation.
-      q.list.add(node)
-    else:
-      q.list.prepend(node)
+    q.moveToFront(node)
 
   if isNil(q.lastMemoryNode):
     q.lastMemoryNode = node
@@ -484,6 +500,8 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   var node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return Opt.none(seq[ref A])
+
+  quarantine.moveToFront(node)
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
