@@ -1342,13 +1342,6 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     let topic = getDataColumnSidecarTopic(forkDigest, i)
     node.network.subscribe(topic, basicParams())
     custody.add(i)
-
-  # Unsubscribe from custody groups we no longer have custody of.
-  for i in node.lastColumnCustodyIndices:
-    if i notin custody:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      node.network.unsubscribe(topic)
-
   node.lastColumnCustodyIndices = custody
 
 proc addAltairMessageHandlers(
