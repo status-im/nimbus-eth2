@@ -1263,9 +1263,9 @@ func get_proposer_reward*(
       base_reward = get_base_reward(state, vidx, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.item(vidx), flag_index):
-        asList(epoch_participation)[vidx] =
-          add_flag(epoch_participation.item(vidx), flag_index)
+         not has_flag(epoch_participation[vidx.int], flag_index):
+        epoch_participation[vidx.int] =
+          add_flag(epoch_participation[vidx.int], flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += base_reward * weight.uint64
 
@@ -1389,9 +1389,9 @@ proc process_attestation*(
       var will_set_new_flag = false
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
         if flag_index in participation_flag_indices and
-           not has_flag(epoch_participation.item(vidx), flag_index):
-          asList(epoch_participation)[vidx] =
-            add_flag(epoch_participation.item(vidx), flag_index)
+           not has_flag(epoch_participation[vidx.int], flag_index):
+          epoch_participation[vidx.int] =
+            add_flag(epoch_participation[vidx.int], flag_index)
           proposer_reward_numerator +=
             get_base_reward(
               state, vidx, base_reward_per_increment) * weight.uint64
@@ -2200,7 +2200,7 @@ func translate_participation(
     ):
       for flag_index in participation_flag_indices:
         state.previous_epoch_participation[vidx] =
-          add_flag(state.previous_epoch_participation.item(vidx), flag_index)
+          add_flag(state.previous_epoch_participation[vidx], flag_index)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_index_for_new_builder
 func get_index_for_new_builder(

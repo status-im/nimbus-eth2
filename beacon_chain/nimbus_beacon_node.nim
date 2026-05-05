@@ -1572,10 +1572,9 @@ proc maybeUpdateActionTrackerNextEpoch(
       # with Holesky epoch 2041, 83% of active validators.
       let
         participation_flags =
-          forkyState.data.previous_epoch_participation.item(
-            nextEpochFirstProposer)
-        effective_balance = forkyState.data.validators.item(
-          nextEpochFirstProposer).effective_balance
+          forkyState.data.previous_epoch_participation[nextEpochFirstProposer]
+        effective_balance =
+          forkyState.data.validators[nextEpochFirstProposer].effective_balance
 
       # Maximal potential accuracy primarily useful during the last slot of
       # each epoch to prepare for a possible proposal the first slot of the

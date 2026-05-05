@@ -417,9 +417,6 @@ template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
   let tmp = cast[ptr seq[ParticipationFlags]](addr epochFlags)
   tmp[]
 
-template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
-  asList(epochFlags)[idx]
-
 template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64|int): ParticipationFlags =
   asList(epochFlags)[idx]
 
