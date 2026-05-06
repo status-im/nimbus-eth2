@@ -1064,7 +1064,6 @@ proc validateExecutionPayload*(
     block:
       var seen =
         envelope.beacon_block_root in quarantine.unviable or
-        envelope.beacon_block_root in quarantine.missing or
         dag.getBlockRef(envelope.beacon_block_root).isSome()
       if not seen:
         for k, _ in quarantine.orphans:
