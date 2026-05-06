@@ -1072,6 +1072,10 @@ proc validateExecutionPayload*(
             break
       seen
   if not blockSeen:
+    # TODO: when the envelope arrives before its block, we return IGNORE which
+    # prevents it from being forwarded to peers. The envelope is quarantined and
+    # processed locally once the block arrives, but never re-gossiped to peers
+    # who may also be missing it.
     discard quarantine[].addMissing(envelope.beacon_block_root)
     envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: block not found")
@@ -1129,12 +1133,8 @@ proc validateExecutionPayload*(
 
   # [REJECT] `signed_execution_payload_envelope.signature` is valid as verified
   # by `verify_execution_payload_envelope_signature`.
-  # TODO: during extended non-finality with competing forks, builder registries
-  # may diverge (slot reuse after exit). headState reflects our fork, which may
-  # not match the envelope's block fork. Checking the block's parent state would
-  # be correct but requires state replay just to get a pubkey. False rejections
-  # are recovered via req/resp through clearance (which uses block-specific
-  # state).
+  # TODO: headState may not match the envelope's fork during extended
+  # non-finality.
   let builderKey =
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
