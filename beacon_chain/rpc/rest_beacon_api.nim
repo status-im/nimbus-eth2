@@ -1657,7 +1657,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    if consensusVersion.get() < ConsensusFork.Gloas:
+    debugHezeComment "Heze has a different ExecutionPayloadBid"
+    if consensusVersion.get() != ConsensusFork.Gloas:
       return RestApiResponse.jsonError(Http400,
                                        SlotFromTheIncorrectForkError)
 
