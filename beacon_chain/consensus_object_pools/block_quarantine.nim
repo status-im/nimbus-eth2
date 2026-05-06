@@ -17,10 +17,6 @@ import
 export tables, minilru, forks, quarantine_types
 
 const
-  MaxRetriesPerMissingItem = 7
-    ## Exponential backoff, double interval between each attempt
-  MaxMissingItems* = 1024
-    ## Arbitrary
   MaxOrphans = int(SLOTS_PER_EPOCH * 3)
     ## Enough for finalization in an alternative fork
   MaxSidecarless = int(SLOTS_PER_EPOCH * 128)
