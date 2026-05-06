@@ -231,6 +231,12 @@ type
       desc: "Subscribe to the first half of column subnets"
       name: "light-supernode" .}: bool
 
+    partialColumns* {.
+      hidden
+      defaultValue: false,
+      desc: "Backward compatible partial data column sidecar support",
+      name: "debug-partial-columns" .}: bool
+
     debugEnableReconstruction* {.
       hidden
       defaultValue: false,
@@ -325,7 +331,7 @@ type
         desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
-        name: "debug-quic-port" .}: Port   
+        name: "debug-quic-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
