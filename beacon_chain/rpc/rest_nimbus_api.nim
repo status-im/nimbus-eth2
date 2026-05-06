@@ -680,4 +680,3 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res =
         "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
-
