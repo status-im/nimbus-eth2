@@ -49,9 +49,10 @@ suite "Missing Table":
   test "Check missing with exponential backoff":
     const maxRetries = 8
     var mt = MissingTable.init(maxCapacity = 3, maxRetries = maxRetries)
+
+    # Simple retries
     mt.add(root1)
     mt.add(root2)
-
     var count = 0
     for i in 1'u64 ..< static(1'u64 shl maxRetries):
       if countOnes(i) == 1:
@@ -62,23 +63,22 @@ suite "Missing Table":
     check:
       mt.checkMissing(32).len() == 0
       count == maxRetries
-      mt.items.len() == 0
+      mt.len() == 0
 
+    # Retries with root3 added in the middle
     var
       j = static(1'u64 shl (maxRetries - 3))
       count2 = 0
     reset(count)
     mt.add(root1)
     mt.add(root2)
-    # Exhaust root1 and root2
     for i in 1'u64 ..< j:
       if countOnes(i) == 1:
         check mt.checkMissing(32).mapIt(it.root) == @[root1, root2]
         inc count
       else:
         check mt.checkMissing(32).len() == 0
-    check:
-      count == maxRetries - 3
+    check count == maxRetries - 3
 
     mt.add(root3)
     for i in 1'u64 ..< static(1'u64 shl maxRetries):
@@ -103,4 +103,4 @@ suite "Missing Table":
       mt.checkMissing(32).len() == 0
       count == maxRetries
       count2 == maxRetries
-      mt.items.len() == 0
+      mt.len() == 0
