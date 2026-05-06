@@ -38,10 +38,6 @@ type
     ## When process_slots() is being called as part of a state_transition(),
     ## the hash_tree_root() from the block will fill in the state.root so it
     ## should skip calculating that last state root.
-    skipLastEnvelope ##\
-    ## As a full beacon block consists of a beacon block and envelope since
-    ## Gloas, the last envelope may not be there yet. This is used to toggle the
-    ## strict state transition of the last envelope in updateState().
 
   UpdateFlags* = set[UpdateFlag]
 

@@ -2548,8 +2548,7 @@ proc updateHead*(
   # to use existing in-memory states to make this smooth
   var cache: StateCache
   if not updateState(
-      dag, dag.headState, newHead.bid.atSlot(), false, cache,
-      dag.updateFlags + {skipLastEnvelope}):
+      dag, dag.headState, newHead.bid.atSlot(), false, cache, dag.updateFlags):
     # Advancing the head state should never fail, given that the tail is
     # implicitly finalised, the head is an ancestor of the tail and we always
     # store the tail state in the database, as well as every epoch slot state in

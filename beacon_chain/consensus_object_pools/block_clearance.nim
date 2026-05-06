@@ -525,28 +525,12 @@ proc addHeadExecutionPayload*(
   # envelope with state, as the block could be older than the head.
   let blckBsi = BlockSlotId.init(blck.bid, envelopeSlot)
   if not updateState(
-      dag, dag.clearanceState, blckBsi, false, cache,
-      dag.updateFlags + {skipLastEnvelope}):
+      dag, dag.clearanceState, blckBsi, false, cache, dag.updateFlags):
     # If updateState() fails, it means there may be some missing blocks and
     # envelopes of its parents, or the database is corrupted.
     error "Unable to load clearance state for envelope, database corrupt?",
       clearanceBlock = shortLog(blckBsi)
     return err(VerifierError.MissingParent)
-
-  # Validate the envelope with state. Slot and latest block root in state should
-  # match with the envelope.
-  if not (
-      dag.clearanceState.slot() == envelopeSlot and
-      dag.clearanceState.latest_block_root() == envelopeBlockRoot
-  ):
-    debug "Envelope is not for the current head"
-    return err(VerifierError.Invalid)
-  # With skipLastEnvelope flag and containsExecutionPayloadEnvelope() check
-  # above, the envelope should have not been applied but double check.
-  elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
-       signedEnvelope.message.payload.block_hash:
-    debug "Envelope has been applied to the state"
-    return err(VerifierError.Duplicate)
 
   # Verify with state transition function.
   verify_execution_payload_envelope(
