@@ -304,9 +304,4 @@ suite "EF - Light client - Sync" & preset():
     if kind != pcDir or not dirExists(basePath):
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
-      if path.contains("heze"):
-        let relativePathComponent = (basePath/path).relativeTestPathComponent()
-        test "Light client - Sync - " & relativePathComponent:
-          skip()
-        continue
       runTest(suiteName, basePath/path)

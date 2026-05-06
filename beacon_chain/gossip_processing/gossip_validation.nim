@@ -17,11 +17,11 @@ import
     beaconstate, state_transition_block, forks,
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
-    attestation_pool, blockchain_dag, blob_quarantine, block_clearance,
-    block_quarantine, envelope_quarantine, execution_payload_pool,
+    attestation_pool, blockchain_dag, block_clearance, block_quarantine,
+    column_quarantine, envelope_quarantine, execution_payload_pool,
     light_client_pool, payload_attestation_pool,spec_cache,
     sync_committee_msg_pool, validator_change_pool],
-  ".."/[beacon_clock],
+  ../beacon_clock,
   ./batch_validation
 
 from libp2p/protocols/pubsub/errors import ValidationResult
@@ -448,7 +448,7 @@ template validateBeaconBlockGloas(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    blobQuarantine: ref BlobQuarantine, blob_sidecar: BlobSidecar,
+    blob_sidecar: BlobSidecar,
     wallTime: BeaconTime, subnet_id: BlobId): Result[void, ValidationError] =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
@@ -542,11 +542,6 @@ proc validateBlobSidecar*(
   # I don't see anything obviously corresponding to this in the tests, either,
   # to show this is otherwise addressed.
 
-  if blobQuarantine[].hasSidecar(block_root, block_header.slot,
-                                 block_header.proposer_index,
-                                 blob_sidecar.index):
-    return errIgnore("BlobSidecar: already have valid blob from same proposer")
-
   # [REJECT] The sidecar's inclusion proof is valid as verified by
   # `verify_blob_sidecar_inclusion_proof(blob_sidecar)`.
   block:
@@ -623,17 +618,6 @@ proc validateBlobSidecar*(
       return dag.checkedReject("BlobSidecar: blob verify failed")
     if not ok:
       return dag.checkedReject("BlobSidecar: blob invalid")
-
-  # Send notification about new blob sidecar via callback
-  let onBlobSidecarCallback = blobQuarantine[].onBlobSidecarCallback()
-  if not(isNil(onBlobSidecarCallback)):
-    onBlobSidecarCallback BlobSidecarInfoObject(
-      block_root: block_root,
-      index: blob_sidecar.index,
-      slot: blob_sidecar.signed_block_header.message.slot,
-      kzg_commitment: blob_sidecar.kzg_commitment,
-      versioned_hash:
-        blob_sidecar.kzg_commitment.kzg_commitment_to_versioned_hash.to0xHex())
 
   ok()
 

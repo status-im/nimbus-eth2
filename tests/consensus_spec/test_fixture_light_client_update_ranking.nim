@@ -62,10 +62,6 @@ suite "EF - Light client - Update ranking" & preset():
       test "Light client - Update ranking - " & path:
         skip()
       continue
-    if fork >= ConsensusFork.Heze:
-      test "Light client - Update ranking - " & path:
-        skip()
-      continue
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
       withConsensusFork(fork):
         const lcDataFork = lcDataForkAtConsensusFork(consensusFork)

@@ -14,7 +14,7 @@ import
   ../spec/[beaconstate, forks, network, helpers, peerdas_helpers, column_map],
   ../networking/eth2_network,
   ../conf,
-  ../consensus_object_pools/[blockchain_dag, block_dag, blob_quarantine]
+  ../consensus_object_pools/[blockchain_dag, block_dag, column_quarantine]
 
 from ../beacon_clock import GetBeaconTimeFn
 

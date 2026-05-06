@@ -20,13 +20,15 @@ import
     peerdas_helpers, state_transition],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, envelope_quarantine,
+    blockchain_dag, block_quarantine, block_clearance, column_quarantine,
+    consensus_manager, envelope_quarantine
   ],
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
 
 from chronos/unittest2/asynctests import asyncTest
+from ../beacon_chain/consensus_object_pools/attestation_pool import
+  AttestationPool, init
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker
@@ -38,7 +40,7 @@ block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
   doAssert kzg.loadTrustedSetup(
     sourceDir &
-      "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
+      "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 7).isOk
 
 # Helper to create valid KZG blobs
 func createValidKzgBlob(): kzg.KzgBlob =
@@ -76,7 +78,6 @@ suite "Block processor" & preset():
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
-      blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
       envelopeQuarantine = newClone(EnvelopeQuarantine())
@@ -110,9 +111,8 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager, validatorMonitor,
-        blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-        envelopeQuarantine, getTimeFn,
-      )
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn)
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
 
@@ -172,9 +172,8 @@ suite "Block processor" & preset():
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        gloasColumnQuarantine, envelopeQuarantine, getTimeFn,
-        invalidBlockRoots = @[b2.root])
+        validatorMonitor, dataColumnQuarantine, gloasColumnQuarantine,
+        envelopeQuarantine, getTimeFn, invalidBlockRoots = @[b2.root])
 
     block:
       let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
@@ -205,9 +204,8 @@ suite "Block processor" & preset():
   asyncTest "Process a block from each fork (without blobs)" & preset():
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn,
-    )
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn)
 
     for consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Gloas:
       process_slots(
@@ -225,65 +223,13 @@ suite "Block processor" & preset():
 
       withState(state[]):
         let b0 = addTestEngineBlock(cfg, consensusFork, forkyState, cache)
+        when consensusFork == ConsensusFork.Fulu:
+          let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+        else:
+          let sidecarsOpt = noSidecars
         discard await processor.addBlock(
-          MsgSource.gossip, b0.blck, b0.blobsBundle.toSidecarsOpt(consensusFork)
+          MsgSource.gossip, b0.blck, sidecarsOpt
         )
-
-  asyncTest "Process Deneb block with blob sidecars" & preset():
-    # Advance to Deneb fork
-    process_slots(
-      cfg, state[], start_slot(cfg.DENEB_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Deneb:
-        # Create valid blobs and KZG data
-        let kzgBlob = createValidKzgBlob()
-        let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
-          raiseAssert "Failed to create commitment"
-        let proof = kzg.computeBlobKzgProof(kzgBlob, commitment).valueOr:
-          raiseAssert "Failed to create proof"
-
-        # Build BlobsBundle using testblockutil's type
-        var blobsBundle = testblockutil.BlobsBundle(
-          commitments: @[commitment],
-          proofs: @[proof],
-          blobs: @[kzgBlob.bytes]
-        )
-
-        # Create block with blobs
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Deneb, forkyState, blobsBundle, cache = cache
-        )
-
-        # Create blob sidecars from the block
-        var blobs: deneb.Blobs
-        var kzg_proofs: deneb.KzgProofs
-        doAssert blobs.add(kzgBlob.bytes)
-        doAssert kzg_proofs.add(proof)
-
-        let blobSidecars = create_blob_sidecars(
-          engineBlock.blck, kzg_proofs, blobs
-        )
-        let bscarRef = blobSidecars.mapIt(newClone(it))
-
-        # Process the block with blob sidecars
-        let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.some(bscarRef)
-        )
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
 
   asyncTest "Process Deneb block without blob sidecars" & preset():
     # Advance to Deneb fork
@@ -294,8 +240,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -309,10 +255,7 @@ suite "Block processor" & preset():
 
         # Process should succeed (empty commitments is valid)
         let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.none(deneb.BlobSidecars)
-        )
+          MsgSource.gossip, engineBlock.blck, noSidecars)
 
         check:
           res.isOk
@@ -327,8 +270,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -379,8 +322,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -413,8 +356,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -441,8 +384,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -480,8 +423,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     let
@@ -516,8 +459,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     let
@@ -556,8 +499,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     let
@@ -603,9 +546,8 @@ suite "Block processor" & preset():
         state2[].slot.start_beacon_time(cfg.timeParams)
       processor2 = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager2, validatorMonitor2,
-        newClone(BlobQuarantine()), newClone(ColumnQuarantine()),
-        newClone(GloasColumnQuarantine()), newClone(EnvelopeQuarantine()),
-        getTimeFn2)
+        newClone(ColumnQuarantine()), newClone(GloasColumnQuarantine()),
+        newClone(EnvelopeQuarantine()), getTimeFn2)
 
     # updateState should replay through b1-b3 from
     # disk, calling applyExecutionPayloadEnvelope for each

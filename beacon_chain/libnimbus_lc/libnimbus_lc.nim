@@ -15,7 +15,6 @@ import
   eth/p2p/discoveryv5/random2,
   eth/rlp,
   eth/trie/ordered_trie,
-  json_rpc/jsonmarshal,
   secp256k1,
   web3/[engine_api_types, eth_api_types, conversions],
   ../el/engine_api_conversions,
@@ -1088,10 +1087,10 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
   let data = try:
-    # a direct parameter like JrpcConv.decode($blockHeaderJson, BlockObject)
+    # a direct parameter like EthJson.decode($blockHeaderJson, BlockObject)
     # will cause premature garbage collector kick in.
     let jsonBytes = $blockHeaderJson
-    JrpcConv.decode(jsonBytes, BlockObject)
+    EthJson.decode(jsonBytes, BlockObject)
   except SerializationError:
     return nil
   if data == nil:
@@ -1580,10 +1579,10 @@ proc ETHTransactionsCreateFromJson(
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
   var datas = try:
-    # a direct parameter like JrpcConv.decode($transactionsJson, seq[TransactionObject])
+    # a direct parameter like EthJson.decode($transactionsJson, seq[TransactionObject])
     # will cause premature garbage collector kick in.
     let jsonBytes = $transactionsJson
-    JrpcConv.decode(jsonBytes, seq[TransactionObject])
+    EthJson.decode(jsonBytes, seq[TransactionObject])
   except SerializationError:
     return nil
 
@@ -1596,7 +1595,7 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 23,
+    static: doAssert totalSerializedFields(TransactionObject) == 24,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
@@ -2389,10 +2388,10 @@ proc ETHReceiptsCreateFromJson(
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
   var datas = try:
-    # a direct parameter like JrpcConv.decode($receiptsJson, seq[ReceiptObject])
+    # a direct parameter like EthJson.decode($receiptsJson, seq[ReceiptObject])
     # will cause premature garbage collector kick in.
     let jsonBytes = $receiptsJson
-    JrpcConv.decode(jsonBytes, seq[ReceiptObject])
+    EthJson.decode(jsonBytes, seq[ReceiptObject])
   except SerializationError:
     return nil
   if datas.len != ETHTransactionsGetCount(transactions):

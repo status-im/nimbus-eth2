@@ -128,6 +128,12 @@ type
 
   ### Modified/overloaded
 
+  EpochParticipationFlags* =
+    distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    ## Not a HashList because the list sees significant updates every block
+    ## effectively making the cost of clearing the cache higher than the typical
+    ## gains
+
   InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#beaconstate
@@ -397,6 +403,49 @@ type
 
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
+
+template asList*(epochFlags: EpochParticipationFlags): untyped =
+  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+template asList*(epochFlags: var EpochParticipationFlags): untyped =
+  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+
+template asSeq*(epochFlags: EpochParticipationFlags): untyped =
+  distinctBase(epochFlags)
+template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
+  distinctBase(epochFlags)
+
+template `[]`*(
+    epochFlags: EpochParticipationFlags,
+    idx: ValidatorIndex|uint64|int): ParticipationFlags =
+  asList(epochFlags)[idx]
+
+template `[]=`*(
+    epochFlags: var EpochParticipationFlags,
+    idx: ValidatorIndex|uint64|int,
+    flags: ParticipationFlags) =
+  asList(epochFlags)[idx] = flags
+
+template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
+  asList(epochFlags).add flags
+
+template len*(epochFlags: EpochParticipationFlags): int =
+  asList(epochFlags).len
+
+template low*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).low
+template high*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).high
+
+template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
+  mixin assign
+  assign(distinctBase(v), distinctBase(src))
+
+template toSszType*(v: EpochParticipationFlags): auto = asList v
+
+func fromSszBytes*(
+    T: type EpochParticipationFlags, bytes: openArray[byte]
+): T {.raises: [SszError].} =
+  readSszValue(bytes, asList(result))
 
 template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto =
   a[i.asInt]

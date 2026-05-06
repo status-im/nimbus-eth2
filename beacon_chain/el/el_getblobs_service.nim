@@ -5,12 +5,9 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  # Standard library
-  std/sequtils,
-
   # Status libraries
   chronicles,
   chronos,
@@ -19,12 +16,14 @@ import
   ssz_serialization/[proofs, types],
 
   # Internals
-  ../consensus_object_pools/[blob_quarantine,
-     block_pools_types, block_quarantine],
+  ../consensus_object_pools/[
+     block_pools_types, block_quarantine, column_quarantine],
   ../gossip_processing/block_processor,
   ../spec/[column_map, forks, helpers, peerdas_helpers],
   ../sync/validator_custody,
   ./el_manager
+
+from std/sequtils import mapIt
 
 declareCounter beacon_engine_getblobs_requests_total,
   "Total engine_getBlobs invocations issued by the sidecarless retrieval service"
