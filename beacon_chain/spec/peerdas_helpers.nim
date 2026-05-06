@@ -428,6 +428,7 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
   # Get the blob indices from the bitmap
   var blobIndices = newSeqOfCap[int](sidecar.partial_columns.len)
   for i in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
+    # BitArray's [] / []= accessors require a Natural (non-negative integer)
     if sidecar.cells_present_bitmap[Natural(i)]:
       blobIndices.add(i)
 
