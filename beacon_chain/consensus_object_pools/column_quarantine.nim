@@ -8,15 +8,14 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[sets, sequtils, strutils, lists],
+  std/[lists, sets, tables],
   results, metrics,
-  ../spec/[presets, helpers, column_map],
+  ../spec/[presets, column_map],
+  ../spec/datatypes/[fulu, gloas],
   ../beacon_chain_db_quarantine
 
-from ../spec/datatypes/deneb import SignedBeaconBlock
-from ../spec/datatypes/electra import SignedBeaconBlock
-from ../spec/datatypes/fulu import SignedBeaconBlock
-from ../spec/datatypes/gloas import SignedBeaconBlock
+from std/sequtils import mapIt, toSeq
+from std/strutils import join
 
 export results
 
@@ -68,18 +67,13 @@ type
     db: QuarantineDB
     onSidecarCallback*: B
 
-  OnBlobSidecarCallback* = proc(
-    data: BlobSidecarInfoObject) {.gcsafe, raises: [].}
   OnDataColumnSidecarCallback* = proc(
     data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
 
-  SomeSidecarRef* = ref BlobSidecar | ref fulu.DataColumnSidecar |
-                    ref gloas.DataColumnSidecar
-  SomeSidecarIndex* = fulu.ColumnIndex | BlobIndex
+  SomeSidecarRef* = ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar
+  SomeSidecarIndex* = fulu.ColumnIndex
   SomeDataColumnSidecar = fulu.DataColumnSidecar | gloas.DataColumnSidecar
 
-  BlobQuarantine* =
-    SidecarQuarantine[BlobSidecar, OnBlobSidecarCallback]
   ColumnQuarantine* =
     SidecarQuarantine[fulu.DataColumnSidecar, OnDataColumnSidecarCallback]
   GloasColumnQuarantine* =
@@ -103,7 +97,7 @@ func isUnloaded[A](holder: SidecarHolder[A]): bool =
 func isLoaded[A](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Loaded
 
-func maxSidecars*(maxSidecarsPerBlock: uint64): int =
+func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
   # blobs may arrive before an orphan is tagged `blobless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
@@ -161,21 +155,18 @@ func unload[A](holder: var SidecarHolder[A]): ref A =
   )
   res
 
-func getIndex(quarantine: BlobQuarantine, index: BlobIndex): int =
-  quarantine.indexMap[int(index)]
-
 func getIndex[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B], index: ColumnIndex
 ): int =
   quarantine.indexMap[int(index)]
 
-template slot*(b: BlobSidecar | fulu.DataColumnSidecar): Slot =
+template slot*(b: fulu.DataColumnSidecar): Slot =
   b.signed_block_header.message.slot
 
 template slot*(b: gloas.DataColumnSidecar): Slot =
   b.slot
 
-template proposer_index(b: BlobSidecar | fulu.DataColumnSidecar): uint64 =
+template proposer_index(b: fulu.DataColumnSidecar): uint64 =
   b.signed_block_header.message.proposer_index
 
 template proposer_index(b: gloas.DataColumnSidecar): uint64 =
@@ -275,11 +266,28 @@ proc ensureSidecarsFits[A, B](
 
   ok()
 
+proc moveToFront[A, B](
+    q: var SidecarQuarantine[A, B],
+    node: DoublyLinkedNode[RootTableRecord[A]]
+) =
+  # We should preserve `lastMemoryNode` reference.
+  if q.lastMemoryNode == node:
+    q.lastMemoryNode = node.prev
+
+  q.list.remove(node)
+  if isNil(q.list.head) and isNil(q.list.tail):
+    # In case when list empty, we could not use `prepend` operation.
+    q.list.add(node)
+  else:
+    q.list.prepend(node)
+
 proc put*[A, B](
     q: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
     sidecars: openArray[ref A]
 ) =
+  # Note: Sidecars with indices that are not in the current column custody set
+  # are IGNORED.
   let
     (node, missing) =
       block:
@@ -293,12 +301,17 @@ proc put*[A, B](
         var res = 0
         for sidecar in sidecars:
           let index = q.getIndex(sidecar.index)
-          doAssert(index >= 0,
-            "Incorrect sidecar index " & $sidecar.index & " points to " &
-            $index)
+          # Because custody set could change - it is possible that we could get
+          # sidecars with indices which are not suitable for current set, so
+          # we should not assert, but just continue looking for compatible
+          # sidecars.
+          if index < 0: continue
           if isEmpty(node[].value.sidecars[index]):
             inc(res)
         res
+
+  if newSidecarsCount == 0:
+    return
 
   q.ensureSidecarsFits(newSidecarsCount).isOkOr:
     return
@@ -329,13 +342,7 @@ proc put*[A, B](
     else:
       q.list.prepend(node)
   else:
-    # Move to first
-    q.list.remove(node)
-    if isNil(q.list.head) and isNil(q.list.tail):
-      # In case when list empty, we could not use `prepend` operation.
-      q.list.add(node)
-    else:
-      q.list.prepend(node)
+    q.moveToFront(node)
 
   if isNil(q.lastMemoryNode):
     q.lastMemoryNode = node
@@ -415,17 +422,6 @@ template hasSidecarImpl(
   let index = quarantine.getIndex(sidecarIndex)
   (index != -1) and not node[].value.sidecars[index].isEmpty()
 
-func hasSidecar*(
-    quarantine: BlobQuarantine,
-    blockRoot: Eth2Digest,
-    slot: Slot,
-    proposer_index: uint64,
-    index: BlobIndex,
-): bool =
-  ## Function returns ``true``if quarantine has blob corresponding to specific
-  ## ``block root``, ``index``, ``slot`` and ``proposer_index``.
-  hasSidecarImpl(blockRoot, slot, proposer_index, index)
-
 func hasSidecar*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
@@ -454,26 +450,6 @@ func hasSidecar*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
 ): bool =
   hasSidecarImpl(blockRoot, index)
 
-func hasSidecars*(
-    quarantine: BlobQuarantine,
-    blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
-): bool =
-  ## Function returns ``true`` if quarantine has all the blobs for block
-  ## ``blck`` with block root ``blockRoot``.
-  if len(blck.message.body.blob_kzg_commitments) == 0:
-    return true
-
-  let node = quarantine.roots.getOrDefault(blockRoot)
-  if isNil(node):
-    return false
-
-  if node[].value.count < len(blck.message.body.blob_kzg_commitments):
-    # Quarantine does not hold enough blob sidecars.
-    return false
-  true
-
 func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
@@ -497,15 +473,6 @@ func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     return false
   true
 
-func hasSidecars*(
-    quarantine: BlobQuarantine,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-          fulu.SignedBeaconBlock
-): bool =
-  ## Function returns ``true`` if quarantine has all the blobs for block
-  ## ``blck`` with block root ``blockRoot``.
-  hasSidecars(quarantine, blck.root, blck)
-
 func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
     blck: fulu.SignedBeaconBlock,
@@ -522,49 +489,6 @@ func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   ## ``envelope`` with block root ``blockRoot``.
   hasSidecars(quarantine, envelope.message.beacon_block_root)
 
-proc popSidecars*(
-    quarantine: var BlobQuarantine,
-    blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
-): Opt[seq[ref BlobSidecar]] =
-  ## Function returns sequence of blob sidecars for block root ``blockRoot`` and
-  ## block ``blck``.
-  ## If some of the blob sidecars are missing Opt.none() is returned.
-  ## If block do not have any blob sidecars Opt.some([]) is returned.
-
-  let sidecarsCount = len(blck.message.body.blob_kzg_commitments)
-  if sidecarsCount == 0:
-    # Block does not have any blob sidecars.
-    quarantine.remove(blockRoot)
-    return Opt.some(default(seq[ref BlobSidecar]))
-
-  var node = quarantine.roots.getOrDefault(blockRoot)
-  if isNil(node):
-    return Opt.none(seq[ref BlobSidecar])
-
-  if node[].value.count < sidecarsCount:
-    # Quarantine does not hold enough blob sidecars.
-    return Opt.none(seq[ref BlobSidecar])
-
-  let databaseCount = node[].value.unloaded
-  if databaseCount > 0:
-    # Quarantine unloaded some blobs to disk, we should load it back.
-    quarantine.loadRoot(blockRoot, node[].value)
-
-  var sidecars: seq[ref BlobSidecar]
-  for bindex in 0 ..< len(blck.message.body.blob_kzg_commitments):
-    let index = quarantine.getIndex(BlobIndex(bindex))
-    doAssert(node[].value.sidecars[index].isLoaded(),
-      "Record should only have loaded values, but it is `" &
-        $node[].value.sidecars[index].kind & "`")
-    sidecars.add(node[].value.sidecars[index].data)
-
-  # popSidecars() should remove all the artifacts from the quarantine in both
-  # memory and disk.
-  quarantine.removeNode(node, databaseCount)
-
-  Opt.some(sidecars)
-
 proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest
@@ -576,6 +500,8 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   var node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return Opt.none(seq[ref A])
+
+  quarantine.moveToFront(node)
 
   let
     supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
@@ -625,59 +551,6 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   quarantine.removeNode(node, databaseCount)
 
   Opt.some(sidecars)
-
-proc popSidecars*(
-    quarantine: var BlobQuarantine,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
-): Opt[seq[ref BlobSidecar]] =
-  ## Alias for `popSidecars()`.
-  popSidecars(quarantine, blck.root, blck)
-
-func fetchMissingSidecars*(
-    quarantine: BlobQuarantine,
-    blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
-): seq[BlobIdentifier] =
-  ## Function returns sequence of BlobIdentifiers for blobs which are missing
-  ## for block root ``blockRoot`` and block ``blck``.
-  var res: seq[BlobIdentifier]
-  let
-    node = quarantine.roots.getOrDefault(blockRoot)
-    commitmentsCount = len(blck.message.body.blob_kzg_commitments)
-
-  if commitmentsCount == 0:
-    return res
-  if not(isNil(node)) and (node[].value.count == commitmentsCount):
-    return res
-
-  for bindex in 0 ..< commitmentsCount:
-    let index = quarantine.getIndex(BlobIndex(bindex))
-    if isNil(node) or node[].value.sidecars[index].isEmpty():
-      res.add(BlobIdentifier(block_root: blockRoot, index: BlobIndex(bindex)))
-  res
-
-func getMissingSidecarIndices*(
-    quarantine: BlobQuarantine,
-    blockRoot: Eth2Digest,
-    blck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock
-): seq[BlobIndex] =
-  ## Function returns sequence of BlobIndex for blobs which are missing for
-  ## block root ``blockRoot`` and block ``blck``.
-  var res: seq[BlobIndex]
-  let
-    node = quarantine.roots.getOrDefault(blockRoot)
-    commitmentsCount = len(blck.message.body.blob_kzg_commitments)
-
-  if commitmentsCount == 0:
-    return res
-  if not(isNil(node)) and (node[].value.count == commitmentsCount):
-    return res
-
-  for bindex in 0 ..< commitmentsCount:
-    let index = quarantine.getIndex(BlobIndex(bindex))
-    if isNil(node) or node[].value.sidecars[index].isEmpty():
-      res.add(BlobIndex(bindex))
-  res
 
 func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
@@ -791,34 +664,6 @@ func getMissingSidecarIndices*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarC
     res.add(item)
   res
 
-proc pruneAfterFinalization*(
-    quarantine: var BlobQuarantine,
-    epoch: Epoch,
-    backfillNeeded: bool
-) =
-  let
-    startEpoch =
-      if backfillNeeded:
-        # Because BlobQuarantine could be used as temporary storage for incoming
-        # blob sidecars, we should not prune blobs which are behind
-        # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
-        # be able to backfill blobs.
-        if epoch < quarantine.minEpochsForSidecarsRequests:
-          Epoch(0)
-        else:
-          epoch - quarantine.minEpochsForSidecarsRequests
-      else:
-        epoch
-    epochSlot = (startEpoch + 1).start_slot()
-
-  var nodes: seq[DoublyLinkedNode[RootTableRecord[BlobSidecar]]]
-  for node in quarantine.list.nodes():
-    if (node[].value.count > 0) and (node[].value.slot < epochSlot):
-      nodes.add(node)
-
-  for node in nodes:
-    quarantine.removeNode(node, 0)
-
 proc pruneAfterFinalization*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: var SidecarQuarantine[A, B],
     epoch: Epoch,
@@ -847,50 +692,10 @@ proc pruneAfterFinalization*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCal
   for node in nodes:
     quarantine.removeNode(node, 0)
 
-template onBlobSidecarCallback*(
-    quarantine: BlobQuarantine
-): OnBlobSidecarCallback =
-  quarantine.onSidecarCallback
-
 template onDataColumnSidecarCallback*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B]
 ): OnDataColumnSidecarCallback =
   quarantine.onSidecarCallback
-
-proc init*(
-    T: typedesc[BlobQuarantine],
-    cfg: RuntimeConfig,
-    database: QuarantineDB,
-    maxDiskSizeMultipler: int,
-    onBlobSidecarCallback: OnBlobSidecarCallback
-): BlobQuarantine =
-  # BlobSidecars maps are trivial, but still useful
-  var indexMap = newSeqUninit[int](cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-  for index in 0 ..< len(indexMap):
-    indexMap[index] = index
-
-  let size = maxSidecars(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
-
-  blob_quarantine_memory_slots_total.set(int64(size))
-  blob_quarantine_database_slots_total.set(
-    int64(size) * int64(maxDiskSizeMultipler))
-  blob_quarantine_memory_slots_occupied.set(0'i64)
-  blob_quarantine_database_slots_occupied.set(0'i64)
-
-  BlobQuarantine(
-    minEpochsForSidecarsRequests:
-      cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-    maxSidecarsPerBlockCount:
-      int(cfg.MAX_BLOBS_PER_BLOCK_ELECTRA),
-    maxMemSidecarsCount: size,
-    maxDiskSidecarsCount: size * maxDiskSizeMultipler,
-    memSidecarsCount: 0,
-    diskSidecarsCount: 0,
-    indexMap: indexMap,
-    onSidecarCallback: onBlobSidecarCallback,
-    list: initDoublyLinkedList[RootTableRecord[BlobSidecar]](),
-    db: database
-  )
 
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],

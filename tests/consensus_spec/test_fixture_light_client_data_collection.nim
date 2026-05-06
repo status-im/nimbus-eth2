@@ -193,11 +193,6 @@ suite "EF - Light client - Data collection" & preset():
       test "Light client - Data collection - " & relativePathComponent:
         skip()
       continue
-    if consensusFork >= ConsensusFork.Heze:
-      let relativePathComponent = path.relativeTestPathComponent()
-      test "Light client - Data collection - " & relativePathComponent:
-        skip()
-      continue
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
       withConsensusFork(consensusFork):
         runTest(suiteName, testsPath/path, consensusFork)

@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[tables],
+  std/tables,
   chronicles, chronos, metrics,
   taskpools,
   kzg4844/kzg,
@@ -16,10 +16,10 @@ import
   ../el/el_manager,
   ../spec/[column_map, helpers, forks],
   ../consensus_object_pools/[
-    attestation_pool, blob_quarantine, block_clearance, block_quarantine,
-    blockchain_dag, envelope_quarantine, execution_payload_pool,
-    payload_attestation_pool, light_client_pool,
-    sync_committee_msg_pool, validator_change_pool],
+    attestation_pool, block_clearance, block_quarantine, blockchain_dag,
+    column_quarantine, envelope_quarantine, execution_payload_pool,
+    payload_attestation_pool, light_client_pool, sync_committee_msg_pool,
+    validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -174,7 +174,6 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
@@ -203,7 +202,6 @@ proc new*(T: type Eth2Processor,
           executionPayloadBidPool: ref ExecutionPayloadBidPool,
           payloadAttestationPool: ref PayloadAttestationPool,
           quarantine: ref Quarantine,
-          blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
@@ -226,7 +224,6 @@ proc new*(T: type Eth2Processor,
     executionPayloadBidPool: executionPayloadBidPool,
     payloadAttestationPool: payloadAttestationPool,
     quarantine: quarantine,
-    blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
@@ -273,7 +270,9 @@ proc processSignedBeaconBlock*(
   # decoding at this stage, which may be significant
   debug "Block received", delay
 
-  self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {}).isOkOr:
+  self.dag.validateBeaconBlock(
+      self.quarantine, self.envelopeQuarantine, signedBlock,
+      wallTime, {}).isOkOr:
     debug "Dropping block", err = error
 
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
@@ -303,12 +302,7 @@ proc processSignedBeaconBlock*(
     if sidecarsOpt.isNone():
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
-  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-    let sidecarsOpt = self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
-    if sidecarsOpt.isNone():
-      self.quarantine[].addSidecarless(signedBlock)
-      return ok()
-  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
     const sidecarsOpt = noSidecars
   else:
     {.error: "Unknown fork " & $consensusFork.}
@@ -386,28 +380,13 @@ proc processBlobSidecar*(
   debug "Blob received", delay
 
   let v =
-    self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,
+    self.dag.validateBlobSidecar(self.quarantine,
                                  blobSidecar, wallTime, subnet_id)
 
   if v.isErr():
     debug "Dropping blob", error = v.error()
     blob_sidecars_dropped.inc(1, [$v.error[0]])
     return v
-
-  let block_root = hash_tree_root(block_header)
-  debug "Blob validated, putting in blob quarantine"
-  self.blobQuarantine[].put(block_root, newClone(blobSidecar))
-
-  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
-    withBlck(o[]):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
-        if bres.isSome():
-          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, bres)
-        else:
-          self.quarantine[].addSidecarless(forkyBlck)
-      else:
-        raiseAssert "Wrong fork for blob: " & $consensusFork
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
@@ -987,10 +966,8 @@ proc processProposerPreferences*(
 ): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
-    currentSlot = wallTime.slotOrZero(self.dag.timeParams)
-
-  let v = validateProposerPreferences(
-    self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
+    v = validateProposerPreferences(
+      self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
   if v.isErr():
     debug "Dropping proposer preferences", reason = $v.error
     return err(v.error())

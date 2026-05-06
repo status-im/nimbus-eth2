@@ -239,7 +239,7 @@ func is_unslashed_participating_index(
       unsafeAddr state.previous_epoch_participation
 
   is_active_validator(state.validators[validator_index], epoch) and
-    has_flag(epoch_participation[].item(validator_index), flag_index) and
+    has_flag(epoch_participation[][validator_index], flag_index) and
     not state.validators[validator_index].slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#justification-and-finalization
@@ -699,7 +699,7 @@ template get_flag_and_inactivity_delta(
     pflags =
       if  is_active_validator(state.validators[vidx], previous_epoch) and
           not state.validators[vidx].slashed:
-        epoch_participation[].item(vidx)
+        epoch_participation[][vidx]
       else:
         0
 

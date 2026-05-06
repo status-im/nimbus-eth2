@@ -41,9 +41,15 @@ proc initGenesisState*(
 
   # Adjust latest_block_header with the right fork
   # https://github.com/ethereum/consensus-specs/pull/2323
+  # https://github.com/ethereum/consensus-specs/pull/5172
   withState(result[]):
     forkyState.data.latest_block_header.body_root =
-      hash_tree_root(default(consensusFork.BeaconBlockBody))
+      when consensusFork >= ConsensusFork.Gloas:
+        hash_tree_root(consensusFork.BeaconBlockBody(
+          signed_execution_payload_bid: consensusFork.SignedExecutionPayloadBid(
+            message: forkyState.data.latest_execution_payload_bid)))
+      else:
+        hash_tree_root(default(consensusFork.BeaconBlockBody))
     forkyState.root = hash_tree_root(forkyState.data)
 
 proc initGenesisState*(

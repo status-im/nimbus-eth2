@@ -184,8 +184,8 @@ update: | update-common
 #
 # REST tests:
 # - --base-port (REST_TEST_BASE_PORT + 0)
-# - --base-rest-port (REST_TEST_BASE_PORT + 1)
-# - --base-metrics-port (REST_TEST_BASE_PORT + 2)
+# - --base-rest-port (REST_TEST_BASE_PORT + 2)
+# - --base-metrics-port (REST_TEST_BASE_PORT + 3)
 #
 # Local testnets (entire continuous range):
 # - --base-port + [0, --nodes + --light-clients)
@@ -209,9 +209,9 @@ MAINNET_TESTNET_BASE_PORT := 26501
 restapi-test:
 	./tests/simulation/restapi.sh \
 		--data-dir resttest0_data \
-		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 0 )) \
-		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 1 )) \
-		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 2 )) \
+		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 0 )) \
+		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 2 )) \
+		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 3 )) \
 		--resttest-delay 30 \
 		--kill-old-processes
 
@@ -228,6 +228,8 @@ local-testnet-minimal:
 		--fulu-fork-epoch 10000 \
 		--stop-at-epoch 6 \
 		--disable-htop \
+		--debug-tcp false \
+		--debug-quic true \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -252,9 +254,11 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--fulu-fork-epoch 1 \
+		--fulu-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
+		--debug-tcp true \
+		--debug-quic false \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -486,6 +490,9 @@ nimbus_beacon_node: force_build_alone_tools
 
 GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--debug-tcp=true \
+	--debug-quic=true \
+	--debug-quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--metrics \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
