@@ -3878,6 +3878,20 @@ ConsensusSpecPreset-minimal
 + EF - Heze - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal] OK
 + EF - Heze - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minimal OK
 ```
+## EF - Light client - Data collection [Preset: minimal]
+```diff
++ Light client - Data collection - minimal/altair/light_client/data_collection/pyspec_tests/ OK
++ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
++ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
++ Light client - Data collection - minimal/bellatrix/light_client/data_collection/pyspec_tes OK
++ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/capella/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/deneb/light_client/data_collection/pyspec_tests/l OK
++ Light client - Data collection - minimal/electra/light_client/data_collection/pyspec_tests OK
++ Light client - Data collection - minimal/fulu/light_client/data_collection/pyspec_tests/li OK
++ Light client - Data collection - minimal/gloas/light_client/data_collection/pyspec_tests/l OK
+```
 ## EF - Light client - Single merkle proof [Preset: minimal]
 ```diff
 + Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK

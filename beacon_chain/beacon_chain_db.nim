@@ -876,21 +876,61 @@ proc delBlobSidecar*(
     root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
 
-proc putDataColumnSidecar*(
+proc putDataColumnSidecars*(
     db: BeaconChainDB,
-    value: fulu.DataColumnSidecar) =
+    values: openArray[ref fulu.DataColumnSidecar]) =
+  ## Batch-insert Fulu data column sidecars in a single SQL transaction
+  ## driven by one inline `INSERT OR REPLACE` prepared statement reused
+  ## across every row. Mirrors the inline-SQL pattern of
+  ## `delDataColumnSidecars`. Sidecars sharing a block share the same
+  ## `signed_block_header`, so the per-block `hash_tree_root` is memoized
+  ## across the batch.
+  if values.len == 0:
+    return
   const consensusFork = ConsensusFork.Fulu
   doAssert db.columns[consensusFork] != nil
-  let block_root = hash_tree_root(value.signed_block_header.message)
-  db.columns[consensusFork].putSZSSZ(columnkey(block_root, value.index), value)
 
-proc putDataColumnSidecar*(
+  let stmt = expectDb db.db.prepareStmt(
+    "INSERT OR REPLACE INTO 'fulu_columns'(key, value) VALUES (?, ?);",
+    (array[40, byte], seq[byte]), void, managed = false)
+  defer: stmt.dispose()
+
+  db.withManyWrites:
+    var
+      cachedHeader: BeaconBlockHeader
+      cachedRoot: Eth2Digest
+      have = false
+    for v in values:
+      template sidecar: untyped = v[]
+      let header = sidecar.signed_block_header.message
+      if not have or header != cachedHeader:
+        cachedHeader = header
+        cachedRoot = hash_tree_root(header)
+        have = true
+      expectDb stmt.exec(
+        (columnkey(cachedRoot, sidecar.index), encodeSZSSZ(sidecar)))
+
+proc putDataColumnSidecars*(
     db: BeaconChainDB,
-    value: gloas.DataColumnSidecar) =
+    values: openArray[ref gloas.DataColumnSidecar]) =
+  ## Batch-insert Gloas data column sidecars. Gloas sidecars carry
+  ## `beacon_block_root` directly, so no per-row hashing is required.
+  if values.len == 0:
+    return
   const consensusFork = ConsensusFork.Gloas
   doAssert db.columns[consensusFork] != nil
-  db.columns[consensusFork].putSZSSZ(columnkey(
-    value.beacon_block_root, value.index), value)
+
+  let stmt = expectDb db.db.prepareStmt(
+    "INSERT OR REPLACE INTO 'gloas_columns'(key, value) VALUES (?, ?);",
+    (array[40, byte], seq[byte]), void, managed = false)
+  defer: stmt.dispose()
+
+  db.withManyWrites:
+    for v in values:
+      template sidecar: untyped = v[]
+      expectDb stmt.exec(
+        (columnkey(sidecar.beacon_block_root, sidecar.index),
+         encodeSZSSZ(sidecar)))
 
 proc delDataColumnSidecar*(
     db: BeaconChainDB, consensusFork: ConsensusFork,

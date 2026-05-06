@@ -78,7 +78,7 @@ proc createMockEngineState*(
 
 proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
   ## Setup a mock execution engine API on the RPC server
-  server.rpc("engine_newPayloadV4") do(
+  server.rpc("engine_newPayloadV4", EthJson) do(
     payload: ExecutionPayloadV3,
     expectedBlobVersionedHashes: Opt[seq[Hash32]],
     parentBeaconBlockRoot: Opt[Hash32],
@@ -96,7 +96,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
     )
 
-  server.rpc("engine_newPayloadV5") do(
+  server.rpc("engine_newPayloadV5", EthJson) do(
     payload: ExecutionPayloadV4,
     expectedBlobVersionedHashes: Opt[seq[Hash32]],
     parentBeaconBlockRoot: Opt[Hash32],
@@ -114,7 +114,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
     )
 
-  server.rpc("engine_forkchoiceUpdatedV3") do(
+  server.rpc("engine_forkchoiceUpdatedV3", EthJson) do(
     fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV3]
   ) -> ForkchoiceUpdatedResponse:
     inc state.forkchoiceCallCount
@@ -138,7 +138,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
           Opt.none(Bytes8),
     )
 
-  server.rpc("engine_forkchoiceUpdatedV4") do(
+  server.rpc("engine_forkchoiceUpdatedV4", EthJson) do(
     fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV4]
   ) -> ForkchoiceUpdatedResponse:
     inc state.forkchoiceV4CallCount
@@ -162,7 +162,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
           Opt.none(Bytes8),
     )
 
-  server.rpc("engine_getPayloadV4") do(payloadId: Bytes8) -> GetPayloadV4Response:
+  server.rpc("engine_getPayloadV4", EthJson) do(payloadId: Bytes8) -> GetPayloadV4Response:
     inc state.getPayloadCallCount
     if state.responseDelay > 0.milliseconds:
       await sleepAsync(state.responseDelay)
@@ -173,7 +173,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     return GetPayloadV4Response()
 
-  server.rpc("engine_getPayloadV6") do(payloadId: Bytes8) -> GetPayloadV6Response:
+  server.rpc("engine_getPayloadV6", EthJson) do(payloadId: Bytes8) -> GetPayloadV6Response:
     inc state.getPayloadV6CallCount
     if state.responseDelay > 0.milliseconds:
       await sleepAsync(state.responseDelay)
@@ -184,7 +184,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
 
     return GetPayloadV6Response()
 
-  server.rpc("eth_chainId") do() -> UInt256:
+  server.rpc("eth_chainId", EthJson) do() -> UInt256:
     inc state.chainIdCallCount
     if state.responseDelay > 0.milliseconds:
       await sleepAsync(state.responseDelay)

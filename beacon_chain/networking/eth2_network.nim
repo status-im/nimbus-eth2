@@ -235,6 +235,12 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
+  
+  PeerAddrProto* {.pure.} = enum
+    TCP
+    UDP
+    QUIC
+
 
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
@@ -1330,8 +1336,20 @@ proc handleIncomingStream(network: Eth2Node,
     await noCancel conn.closeWithEOF()
     releasePeer(peer)
 
+template tcpEndPoint(address, port): auto =
+  MultiAddress.init(address, tcpProtocol, port)
+
+template udpEndPoint(address, port): auto =
+  MultiAddress.init(address, udpProtocol, port)
+
+template quicEndPoint(address, port): auto =
+  concat(
+    MultiAddress.init(address, udpProtocol, port),
+    MultiAddress.init("/quic-v1").expect("valid address")).expect(
+      "valid quic address")
+
 func toPeerAddr*(r: enr.TypedRecord,
-                 proto: IpTransportProtocol): Result[PeerAddr, cstring] =
+                 peerAddrProto: openArray[PeerAddrProto]): Result[PeerAddr, cstring] =
   if not r.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
 
@@ -1342,42 +1360,61 @@ func toPeerAddr*(r: enr.TypedRecord,
 
   var addrs = newSeq[MultiAddress]()
 
-  case proto
-  of tcpProtocol:
-    if r.ip.isSome and r.tcp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
+  for proto in peerAddrProto:
+    case proto
+    of PeerAddrProto.TCP:
+      if r.ip.isSome and r.tcp.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv4,
+          address_v4: r.ip.get)
+        addrs.add tcpEndPoint(ip, Port r.tcp.get)
 
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.tcp6.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
-      elif r.tcp.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
-      else:
-        discard
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.tcp6.isSome:
+          addrs.add tcpEndPoint(ip, Port r.tcp6.get)
+        elif r.tcp.isSome:
+          addrs.add tcpEndPoint(ip, Port r.tcp.get)
+        else:
+          discard
 
-  of udpProtocol:
-    if r.ip.isSome and r.udp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
+    of PeerAddrProto.UDP:
+      if r.ip.isSome and r.udp.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv4,
+          address_v4: r.ip.get)
+        addrs.add udpEndPoint(ip, Port r.udp.get)
 
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.udp6.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
-      elif r.udp.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
-      else:
-        discard
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.udp6.isSome:
+          addrs.add udpEndPoint(ip, Port r.udp6.get)
+        elif r.udp.isSome:
+          addrs.add udpEndPoint(ip, Port r.udp.get)
+        else:
+          discard
+
+    of PeerAddrProto.QUIC:
+      if r.ip.isSome and r.quic.isSome:
+        let ip = IpAddress(
+            family: IpAddressFamily.IPv4,
+            address_v4: r.ip.get)
+        addrs.add quicEndPoint(ip, Port r.quic.get)
+
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.quic6.isSome:
+          addrs.add quicEndPoint(ip, Port r.quic6.get)
+        elif r.quic.isSome:
+          addrs.add quicEndPoint(ip, Port r.quic.get)
+        else:
+          discard
 
   if addrs.len == 0:
     return err("enr: no addresses in record")
@@ -1450,7 +1487,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
 
 func toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let nodeRecord = TypedRecord.fromRecord(node.record)
-  let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
+  let peerAddr = ? nodeRecord.toPeerAddr([PeerAddrProto.TCP, PeerAddrProto.QUIC])
   ok(peerAddr)
 
 proc trimConnections(node: Eth2Node, count: int) =
@@ -1843,7 +1880,7 @@ proc new(T: type Eth2Node,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
          initialNextForkDigest: ForkDigest,
          switch: Switch, pubsub: GossipSub,
-         ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
+         ip: Opt[IpAddress], tcpPort, quicPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
          rng: ref HmacDrbgContext): T =
@@ -1878,7 +1915,7 @@ proc new(T: type Eth2Node,
     forkDigests: forkDigests,
     getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
-      config, ip, tcpPort, udpPort, privKey,
+      config, ip, tcpPort, quicPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
@@ -1939,7 +1976,7 @@ proc startListening*(node: Eth2Node) {.async.} =
   try:
     await node.switch.start()
   except CatchableError as exc:
-    fatal "Failed to start LibP2P transport. TCP port may be already in use",
+    fatal "Failed to start LibP2P transport. TCP/QUIC port may be already in use",
           exc = exc.msg
     quit 1
 
@@ -1963,7 +2000,7 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
-      let pa = TypedRecord.fromRecord(enr).toPeerAddr(tcpProtocol)
+      let pa = TypedRecord.fromRecord(enr).toPeerAddr([PeerAddrProto.TCP, PeerAddrProto.QUIC])
       if pa.isOk():
         await node.connQueue.addLast(pa.get())
   node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
@@ -2237,9 +2274,6 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
 
-template tcpEndPoint(address, port): auto =
-  MultiAddress.init(address, tcpProtocol, port)
-
 func initNetKeys(privKey: PrivateKey): NetKeyPair =
   let pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
@@ -2336,7 +2370,7 @@ func gossipId(
 proc newBeaconSwitch(
     config: BeaconNodeConf | LightClientConf,
     seckey: PrivateKey,
-    address: MultiAddress,
+    addresses: seq[MultiAddress],
     rng: ref HmacDrbgContext,
 ): Result[Switch, string] =
   let service: Service = WildcardAddressResolverService.new()
@@ -2344,17 +2378,23 @@ proc newBeaconSwitch(
   var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
   try:
-    ok sb
+    sb = sb
     .withPrivateKey(seckey)
-    .withAddress(address)
+    .withAddresses(addresses)
     .withRng(rng)
     .withNoise()
-    .withMplex(chronos.minutes(5), chronos.minutes(5))
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
-    .withTcpTransport({ServerFlags.ReuseAddr})
     .withServices(@[service])
-    .build()
+
+    if config.tcpEnabled: 
+      sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
+             .withTcpTransport({ServerFlags.ReuseAddr})
+
+    if config.quicEnabled:
+      sb = sb.withQuicTransport()
+        
+    ok sb.build()
   except LPError as exc:
     err(exc.msg)
 
@@ -2378,18 +2418,28 @@ proc createEth2Node*(
       else:
         getAutoAddress(Port(0)).toIpAddress()
 
+  var ports = @[(port: config.udpPort, protocol: PortProtocol.UDP)]
+
+  if config.tcpEnabled:
+    ports.add((port: config.tcpPort, protocol: PortProtocol.TCP))
+
+  if config.quicEnabled:
+    ports.add((port: config.quicPort, protocol: PortProtocol.UDP))
+
+  let
     (extIp, extPorts) = setupAddress(
       config.nat,
       listenAddress,
-      @[
-        (port: config.udpPort, protocol: PortProtocol.UDP),
-        (port: config.tcpPort, protocol: PortProtocol.TCP),
-      ],
+      ports,
       clientId,
     )
-
     extUdpPort = extPorts[0].toPort()
-    extTcpPort = extPorts[1].toPort()
+    extTcpPort = if config.tcpEnabled: extPorts[1].toPort() else: Opt.none(Port)
+    extQuicPort =
+      if config.quicEnabled:
+        extPorts[if config.tcpEnabled: 2 else: 1].toPort()
+      else:
+        Opt.none(Port)
 
     directPeers = block:
       var res: DirectPeers
@@ -2401,7 +2451,7 @@ proc createEth2Node*(
                 warn "Failed to parse direct peer address, skipping", enr=s, err = error
                 return err("Invalid direct peer")
               typedEnr = TypedRecord.fromRecord(enr)
-              peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
+              peerAddress = toPeerAddr(typedEnr, [PeerAddrProto.TCP, PeerAddrProto.QUIC]).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
             parseFullAddress(s).valueOr:
@@ -2414,10 +2464,18 @@ proc createEth2Node*(
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(listenAddress, config.tcpPort)
-    announcedAddresses =
-      if extIp.isNone() or extTcpPort.isNone(): @[]
-      else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
+  var hostAddress = newSeq[MultiAddress]()
+  var announcedAddresses = newSeq[MultiAddress]()
+
+  if config.tcpEnabled:
+    hostAddress.add(tcpEndPoint(listenAddress, config.tcpPort))
+    if not(extIp.isNone() or extTcpPort.isNone()):
+      announcedAddresses.add(tcpEndPoint(extIp.get(), extTcpPort.get()))
+
+  if config.quicEnabled:
+    hostAddress.add(quicEndPoint(listenAddress, config.quicPort))
+    if not(extIp.isNone() or extQuicPort.isNone()):
+      announcedAddresses.add(quicEndPoint(extIp.get(), extQuicPort.get()))
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,
@@ -2496,7 +2554,7 @@ proc createEth2Node*(
 
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, initialNextForkDigest, switch, pubsub, extIp,
-    extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
+    extTcpPort, extQuicPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
 

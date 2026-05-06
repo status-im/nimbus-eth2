@@ -58,7 +58,7 @@ template bellatrix_steps() =
   check:
     when typeof(b).kind >= ConsensusFork.Electra:
       b.message.body.attestations.add(electra.Attestation(
-        aggregation_bits: ElectraCommitteeValidatorsBits.init(1)))
+        aggregation_bits: AggregationBits.init(1)))
     else:
       b.message.body.attestations.add(phase0.Attestation(
         aggregation_bits: CommitteeValidatorsBits.init(1)))

@@ -23,7 +23,7 @@ import
   ./heze/all_heze_fixtures,
   ./test_fixture_fork,
   ./test_fixture_fork_choice,
-  #./test_fixture_light_client_data_collection, TODO
+  ./test_fixture_light_client_data_collection,
   ./test_fixture_light_client_single_merkle_proof,
   ./test_fixture_light_client_sync,
   ./test_fixture_light_client_update_ranking,
