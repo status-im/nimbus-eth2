@@ -978,6 +978,14 @@ proc updateBeaconMetrics(
         0'u64.toGaugeValue
     )
 
+proc updateHeadBlockMetrics*(headBlockId: BlockId) =
+  beacon_head_root.set(headBlockId.root.toGaugeValue)
+  beacon_head_slot.set(headBlockId.slot.toGaugeValue)
+
+proc updateFinalizedBlockMetrics*(finalizedBlockId: BlockId) =
+  beacon_finalized_epoch.set(finalizedBlockId.slot.epoch.toGaugeValue)
+  beacon_finalized_root.set(finalizedBlockId.root.toGaugeValue)
+
 proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
   beacon_safe_root.set(safeBlockId.root.toGaugeValue)
   beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)

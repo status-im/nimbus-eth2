@@ -161,6 +161,23 @@ type LightClientConf* = object
     defaultValue: 0
     name: "debug-stop-at-epoch" .}: uint64
 
+  # Metrics
+  metricsEnabled* {.
+    desc: "Enable the metrics server"
+    defaultValue: false
+    name: "metrics" .}: bool
+
+  metricsAddress* {.
+    desc: "Listening address of the metrics server"
+    defaultValue: defaultAdminListenAddress
+    defaultValueDesc: $defaultAdminListenAddressDesc
+    name: "metrics-address" .}: IpAddress
+
+  metricsPort* {.
+    desc: "Listening HTTP port of the metrics server"
+    defaultValue: 8008
+    name: "metrics-port" .}: Port
+
   logFile* {.
     obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"
     name: "log-file" .}: Option[OutFile]
