@@ -788,7 +788,7 @@ proc getBlobsV2*(
       .firstOrCancel(deadline)
 
 proc getBlobsV2*(
-    m: ELManager, kzg_commitments: KzgCommitments
+    m: ELManager, kzg_commitments: deneb.KzgCommitments
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError], raw: true).} =
   ## Variant used by the column-first sidecar retrieval path: derives
   ## versioned hashes from `kzg_commitments` directly, without requiring the
@@ -956,7 +956,7 @@ proc newPayload*(
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   let blob_versioned_hashes =
-    envelope.payload.transactions.asSeq.all_blob_versioned_hashes().valueOr:
+    envelope.payload.transactions.all_blob_versioned_hashes().valueOr:
       debug "Envelope has invalid blob transaction", err = error
       return Opt.none(PayloadExecutionStatus)
   await m.newPayload(

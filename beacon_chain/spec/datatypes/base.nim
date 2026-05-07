@@ -684,13 +684,16 @@ template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
 iterator vindices*(
-    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] |
+       HashSeq[Validator]): ValidatorIndex =
   static: doAssert distinctBase(ValidatorIndex) is uint32
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
 
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
+
+template asSeq*[T](x: seq[T]): seq[T] = x
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,

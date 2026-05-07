@@ -305,9 +305,9 @@ cli do(
               slot: slot,
               value: 0.Gwei,
               execution_payment: 0.Gwei,
-              blob_kzg_commitments: default(KzgCommitments),
+              blob_kzg_commitments: default(gloas.KzgCommitments),
               execution_requests_root:
-                hash_tree_root(default(ExecutionRequests)))
+                hash_tree_root(default(gloas.ExecutionRequests)))
           heze.SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         elif consensusFork == ConsensusFork.Gloas:
@@ -324,9 +324,9 @@ cli do(
               slot: slot,
               value: 0.Gwei,
               execution_payment: 0.Gwei,
-              blob_kzg_commitments: default(KzgCommitments),
+              blob_kzg_commitments: default(gloas.KzgCommitments),
               execution_requests_root:
-                hash_tree_root(default(ExecutionRequests)))
+                hash_tree_root(default(gloas.ExecutionRequests)))
           gloas.SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:
@@ -354,7 +354,7 @@ cli do(
         sync_aggregate,
         default(consensusFork.ExecutionPayloadForSigning),
         {},
-        default(ExecutionRequests),
+        default(consensusFork.ExecutionRequests),
         epb,
         payload_attestations
       ).expect("block")

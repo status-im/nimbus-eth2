@@ -2700,6 +2700,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_no_double_or_surround      OK
 + [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_participants_already_slash OK
 + [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_same_data                  OK
++ [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_too_many_attesting_indices OK
 + [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_unsorted_att_1             OK
 + [Invalid] EF - Gloas - Operations - Attester Slashing - invalid_unsorted_att_2             OK
 + [Valid]   EF - Gloas - Operations - Attester Slashing - already_exited_long_ago            OK
@@ -2871,6 +2872,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Parent Execution Payload  [Preset: minimal]
 ```diff
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_consolidat OK
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_deposit_re OK
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_withdrawal OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -3337,6 +3341,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Heze - Operations - Attester Slashing - invalid_no_double_or_surround       OK
 + [Invalid] EF - Heze - Operations - Attester Slashing - invalid_participants_already_slashe OK
 + [Invalid] EF - Heze - Operations - Attester Slashing - invalid_same_data                   OK
++ [Invalid] EF - Heze - Operations - Attester Slashing - invalid_too_many_attesting_indices  OK
 + [Invalid] EF - Heze - Operations - Attester Slashing - invalid_unsorted_att_1              OK
 + [Invalid] EF - Heze - Operations - Attester Slashing - invalid_unsorted_att_2              OK
 + [Valid]   EF - Heze - Operations - Attester Slashing - already_exited_long_ago             OK
@@ -3508,6 +3513,9 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Heze - Operations - Parent Execution Payload  [Preset: minimal]
 ```diff
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_consolidati OK
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_deposit_req OK
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_withdrawal_ OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
@@ -6249,6 +6257,13 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minim OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minim OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_attestations [Preset: minimal]   OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_attester_slashings [Preset: mini OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_bls_to_execution_changes [Preset OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_deposits [Preset: minimal]       OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_payload_attestations [Preset: mi OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_proposer_slashings [Preset: mini OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_voluntary_exits [Preset: minimal OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
 + [Invalid] EF - gloas - Sanity - Blocks - process_parent_execution_payload__wrong_execution OK
@@ -6293,6 +6308,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsati OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sat OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_uns OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_recovery_resumes_with_remaining_wi OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_recovery_resumes_without_remaining OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
 + [Valid]   EF - gloas - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
@@ -6596,6 +6613,13 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - heze - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: minima OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_same_slot_block_transition [Preset: minima OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attestations [Preset: minimal]    OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attester_slashings [Preset: minim OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_bls_to_execution_changes [Preset: OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_deposits [Preset: minimal]        OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_payload_attestations [Preset: min OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_proposer_slashings [Preset: minim OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_voluntary_exits [Preset: minimal] OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
 + [Invalid] EF - heze - Sanity - Blocks - process_parent_execution_payload__wrong_execution_ OK
@@ -6640,6 +6664,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsatis OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sati OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_unsa OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_recovery_resumes_with_remaining_wit OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_recovery_resumes_without_remaining_ OK
 + [Valid]   EF - heze - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
 + [Valid]   EF - heze - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
 + [Valid]   EF - heze - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: mi OK

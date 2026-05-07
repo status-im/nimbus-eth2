@@ -66,7 +66,7 @@ type
 
   EngineBid*[EPS: ForkyExecutionPayloadForSigning] = object
     eps*: EPS
-    execution_requests*: ExecutionRequests
+    execution_requests*: EPS.kind.ExecutionRequests
 
   Bids[consensusFork: static ConsensusFork] = object
     engineBid*: Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]
@@ -139,25 +139,26 @@ func builderBetterBid*(
 
 func decodePayloadRequests(
     eps:
-      electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
-      gloas.ExecutionPayloadForSigning
-): Result[ExecutionRequests, string] =
+      electra.ExecutionPayloadForSigning |
+      fulu.ExecutionPayloadForSigning |
+      gloas.ExecutionPayloadForSigning): auto =
+  type ResultType = Result[typeof(eps).kind.ExecutionRequests, string]
   try:
     var
-      execution_requests_buffer: ExecutionRequests
+      execution_requests_buffer: typeof(eps).kind.ExecutionRequests
       prev_type: Opt[byte]
 
     # TODO why aren't these decoded already?
     for request_type_and_payload in eps.executionRequests:
       if request_type_and_payload.len < 2:
-        return err("Execution layer request too short")
+        return ResultType.err("Execution layer request too short")
 
       let request_type = request_type_and_payload[0]
       if prev_type.isSome:
         if request_type < prev_type.get:
-          return err("Execution layer request types not sorted")
+          return ResultType.err("Execution layer request types not sorted")
         if request_type == prev_type.get:
-          return err("Execution layer request types duplicated")
+          return ResultType.err("Execution layer request types duplicated")
       prev_type.ok request_type
 
       template request_payload(): untyped =
@@ -166,29 +167,24 @@ func decodePayloadRequests(
       case request_type_and_payload[0]
       of DEPOSIT_REQUEST_TYPE:
         execution_requests_buffer.deposits = SSZ.decode(
-          request_payload, List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]
-        )
+          request_payload, typeof(execution_requests_buffer.deposits))
       of WITHDRAWAL_REQUEST_TYPE:
         execution_requests_buffer.withdrawals = SSZ.decode(
-          request_payload,
-          List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD],
-        )
+          request_payload, typeof(execution_requests_buffer.withdrawals))
       of CONSOLIDATION_REQUEST_TYPE:
         execution_requests_buffer.consolidations = SSZ.decode(
-          request_payload,
-          List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD],
-        )
+          request_payload, typeof(execution_requests_buffer.consolidations))
       else:
-        return err("Execution layer invalid request type")
+        return ResultType.err("Execution layer invalid request type")
 
-    ok execution_requests_buffer
+    ResultType.ok execution_requests_buffer
   except SerializationError:
-    err("Failed to deserialize execution requests")
+    ResultType.err("Failed to deserialize execution requests")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
 func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
-    execution_requests: ExecutionRequests,
+    execution_requests: gloas.ExecutionRequests,
     beacon_block_root: Eth2Digest,
     parent_block_root: Eth2Digest
 ): gloas.ExecutionPayloadEnvelope =
@@ -203,8 +199,8 @@ func makeExecutionPayloadEnvelope*(
 func makeSignedExecutionPayloadBid(
     T: type gloas.SignedExecutionPayloadBid,
     executionPayload: gloas.ExecutionPayload,
-    execution_requests: ExecutionRequests,
-    blob_kzg_commitments: KzgCommitments,
+    execution_requests: gloas.ExecutionRequests,
+    blob_kzg_commitments: gloas.KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
     _: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE],
@@ -231,8 +227,8 @@ func makeSignedExecutionPayloadBid(
 func makeSignedExecutionPayloadBid(
     T: type heze.SignedExecutionPayloadBid,
     executionPayload: gloas.ExecutionPayload,
-    execution_requests: ExecutionRequests,
-    blob_kzg_commitments: KzgCommitments,
+    execution_requests: gloas.ExecutionRequests,
+    blob_kzg_commitments: gloas.KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
     inclusion_list_bits: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE],
@@ -266,8 +262,9 @@ proc makeEngineBlock*(
     head: BlockRef,
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
-    execution_requests: ExecutionRequests,
-    parent_execution_requests: ExecutionRequests,
+    execution_requests: electra.ExecutionRequests | gloas.ExecutionRequests,
+    parent_execution_requests:
+      electra.ExecutionRequests | gloas.ExecutionRequests,
     verification_flags: UpdateFlags,
     builderBid: Opt[gloas.SignedExecutionPayloadBid] = Opt.none(
       gloas.SignedExecutionPayloadBid),
@@ -754,7 +751,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     slot,
     bids.engineBid[].eps,
     bids.engineBid[].execution_requests,
-    default(ExecutionRequests),
+    default(consensusFork.ExecutionRequests),
     {},
   )
 

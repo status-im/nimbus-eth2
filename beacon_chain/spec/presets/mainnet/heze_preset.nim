@@ -14,3 +14,12 @@ const
   # ---------------------------------------------------------------
   # 2**4 (= 16) validators
   INCLUSION_LIST_COMMITTEE_SIZE* = 16
+
+  # Type-specific SSZ bounds
+  # ---------------------------------------------------------------
+  # 8,344 bytes, ~8 KiB
+  MAX_SIGNED_INCLUSION_LIST_SIZE*: uint64 = 8344
+  # 196,934 bytes, ~192 KiB
+  MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE*: uint64 = 196934
+  # 4,034,306 bytes, ~4 MiB
+  MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE*: uint64 = 4034306

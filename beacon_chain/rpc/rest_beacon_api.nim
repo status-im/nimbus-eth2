@@ -1311,16 +1311,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
 
     return
-      if consensusFork < ConsensusFork.Electra:
+      if consensusFork >= ConsensusFork.Gloas:
         RestApiResponse.jsonResponseWVersion(
-          newSeq[phase0.Attestation](), consensusFork, node.hasRestAllowedOrigin
-        )
-      else:
+          toSeq(node.attestationPool[].gloasAttestations(vslot, vindex)),
+          consensusFork,
+          node.hasRestAllowedOrigin)
+      elif consensusFork >= ConsensusFork.Electra:
         RestApiResponse.jsonResponseWVersion(
           toSeq(node.attestationPool[].electraAttestations(vslot, vindex)),
           consensusFork,
-          node.hasRestAllowedOrigin,
-        )
+          node.hasRestAllowedOrigin)
+      else:
+        RestApiResponse.jsonResponseWVersion(
+          newSeq[phase0.Attestation](),
+          consensusFork,
+          node.hasRestAllowedOrigin)
 
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -1400,13 +1405,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
 
     withConsensusFork(contextFork):
-      when consensusFork < ConsensusFork.Electra:
+      when consensusFork >= ConsensusFork.Gloas:
         RestApiResponse.jsonResponseWVersion(
-          default(seq[phase0.AttesterSlashing]),
+          toSeq(node.validatorChangePool.attester_slashings),
+          contextFork, node.hasRestAllowedOrigin)
+      elif consensusFork >= ConsensusFork.Electra:
+        RestApiResponse.jsonResponseWVersion(
+          toSeq(node.validatorChangePool.attester_slashings)
+            .mapIt(downgrade_attester_slashing_to_electra(it)),
           contextFork, node.hasRestAllowedOrigin)
       else:
         RestApiResponse.jsonResponseWVersion(
-          toSeq(node.validatorChangePool.attester_slashings),
+          default(seq[phase0.AttesterSlashing]),
           contextFork, node.hasRestAllowedOrigin)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashingsV2
@@ -1439,8 +1449,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
         RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError,
                                   $error)
-      of ConsensusFork.Electra .. ConsensusFork.Heze:
+      of ConsensusFork.Electra .. ConsensusFork.Fulu:
         decodeAttesterSlashing(electra.AttesterSlashing)
+      of ConsensusFork.Gloas .. ConsensusFork.Heze:
+        decodeAttesterSlashing(gloas.AttesterSlashing)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings
   router.api2(MethodGet, "/eth/v1/beacon/pool/proposer_slashings") do (

@@ -318,9 +318,15 @@ template toList[A](attestations: seq[A]): auto =
   else:
     {.error: "Unknown attestation type".}
 
-template attester_slashings(changes: BeaconBlockValidatorChanges, consensusFork): auto =
-  when consensusFork >= ConsensusFork.Electra:
-    changes.electra_attester_slashings
+template toAttesterSlashings(
+    changes: BeaconBlockValidatorChanges, consensusFork): auto =
+  when consensusFork >= ConsensusFork.Gloas:
+    changes.attester_slashings
+  elif consensusFork >= ConsensusFork.Electra:
+    var s = newSeqOfCap[electra.AttesterSlashing](changes.attester_slashings.len)
+    for x in changes.attester_slashings:
+      s.add downgrade_attester_slashing_to_electra(x)
+    List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA](s)
   else:
     default(List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS])
 
@@ -339,22 +345,25 @@ proc makeBeaconBlockWithRewards*(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation] | seq[electra.Attestation],
+    attestations:
+      seq[phase0.Attestation] | seq[electra.Attestation] |
+      seq[gloas.Attestation],
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: ForkyExecutionPayloadOrHeader,
     verificationFlags: UpdateFlags,
-    kzg_commitments: KzgCommitments,
-    execution_requests: ExecutionRequests,
+    kzg_commitments: consensusFork.KzgCommitments,
+    execution_requests: consensusFork.ExecutionRequests,
     signed_execution_payload_bid:
         gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
-    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
+    parent_execution_requests: consensusFork.ExecutionRequests =
+      static(default(consensusFork.ExecutionRequests))
 ): Result[
     tuple[
-      blck: consensusFork.BeaconBlock(typeof(execution_payload)), rewards: BlockRewards
-    ],
+      blck: consensusFork.BeaconBlock(typeof(execution_payload)),
+      rewards: BlockRewards],
     cstring,
 ] =
   ## Create a block for the given state. The latest block applied to it will
@@ -374,11 +383,30 @@ proc makeBeaconBlockWithRewards*(
       randao_reveal: randao_reveal,
       eth1_data: eth1_data,
       graffiti: graffiti,
-      proposer_slashings: validator_changes.proposer_slashings,
-      attester_slashings: validator_changes.attester_slashings(consensusFork),
-      attestations: attestations.toList(),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: validator_changes.voluntary_exits,
+      proposer_slashings:
+        when consensusFork >= ConsensusFork.Gloas:
+          validator_changes.proposer_slashings
+        else:
+          List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
+            validator_changes.proposer_slashings),
+      attester_slashings:
+        validator_changes.toAttesterSlashings(consensusFork),
+      attestations:
+        when consensusFork >= ConsensusFork.Gloas:
+          toGloasAttestations(attestations)
+        else:
+          attestations.toList(),
+      deposits:
+        when consensusFork >= ConsensusFork.Gloas:
+          deposits
+        else:
+          List[Deposit, Limit MAX_DEPOSITS](deposits),
+      voluntary_exits:
+        when consensusFork >= ConsensusFork.Gloas:
+          validator_changes.voluntary_exits
+        else:
+          List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](
+            validator_changes.voluntary_exits),
     ),
   )
 
@@ -395,8 +423,12 @@ proc makeBeaconBlockWithRewards*(
       blck.body.execution_payload = execution_payload
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/capella/validator.md#block-proposal
-  when consensusFork >= ConsensusFork.Capella:
+  when consensusFork >= ConsensusFork.Gloas:
     blck.body.bls_to_execution_changes = validator_changes.bls_to_execution_changes
+  elif consensusFork >= ConsensusFork.Capella:
+    blck.body.bls_to_execution_changes =
+      capella.SignedBLSToExecutionChangeList(
+        validator_changes.bls_to_execution_changes)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/validator.md#constructing-the-beaconblockbody
   when consensusFork >= ConsensusFork.Deneb and
@@ -412,9 +444,7 @@ proc makeBeaconBlockWithRewards*(
       signed_execution_payload_bid
 
   when consensusFork >= ConsensusFork.Gloas:
-    blck.body.payload_attestations =
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS].init(
-        payload_attestations)
+    blck.body.payload_attestations = payload_attestations
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
   when consensusFork >= ConsensusFork.Gloas:
@@ -437,18 +467,21 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation] | seq[electra.Attestation],
+    attestations:
+      seq[phase0.Attestation] | seq[electra.Attestation] |
+      seq[gloas.Attestation],
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: EP,
     verificationFlags: UpdateFlags,
-    kzg_commitments: KzgCommitments,
-    execution_requests: ExecutionRequests,
+    kzg_commitments: consensusFork.KzgCommitments,
+    execution_requests: consensusFork.ExecutionRequests,
     signed_execution_payload_bid:
         gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
-    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
+    parent_execution_requests: consensusFork.ExecutionRequests =
+      default(consensusFork.ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
     ?makeBeaconBlockWithRewards(
@@ -469,17 +502,21 @@ proc makeBeaconBlock*(
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
-    attestations: seq[phase0.Attestation] | seq[electra.Attestation],
+    attestations:
+      seq[phase0.Attestation] | seq[electra.Attestation] |
+      seq[gloas.Attestation],
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     eps: ForkyExecutionPayloadForSigning,
     verificationFlags: UpdateFlags,
-    execution_requests: ExecutionRequests = default(ExecutionRequests),
+    execution_requests: consensusFork.ExecutionRequests =
+      default(consensusFork.ExecutionRequests),
     signed_execution_payload_bid:
         gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
-    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
+    parent_execution_requests: consensusFork.ExecutionRequests =
+      default(consensusFork.ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,

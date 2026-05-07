@@ -521,7 +521,9 @@ func clearDoppelgangerProtection*(self: var Eth2Processor) =
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor,
-    attestation: phase0.Attestation | electra.Attestation | SingleAttestation,
+    attestation:
+      phase0.Attestation | electra.Attestation | gloas.Attestation |
+      SingleAttestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
@@ -611,7 +613,8 @@ proc processAttestation*(
 proc processSignedAggregateAndProof*(
     self: ref Eth2Processor,
     src: MsgSource,
-    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    signedAggregateAndProof:
+      electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     checkSignature = true,
     checkCover = true,
 ): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
@@ -707,7 +710,9 @@ proc processBlsToExecutionChange*(
 
 proc checkKnownValidatorSlashing(
     self: var Eth2Processor,
-    msg: ProposerSlashing | phase0.AttesterSlashing | electra.AttesterSlashing) =
+    msg:
+      ProposerSlashing | phase0.AttesterSlashing |
+      electra.AttesterSlashing | gloas.AttesterSlashing) =
   for idx in getValidatorIndices(msg):
     let i = ValidatorIndex.init(idx).valueOr:
       continue
@@ -716,8 +721,8 @@ proc checkKnownValidatorSlashing(
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: electra.AttesterSlashing):
-    ValidationRes =
+    attesterSlashing:
+      electra.AttesterSlashing | gloas.AttesterSlashing): ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
 

@@ -186,8 +186,8 @@ proc check_beacon_and_target_block(
   ok(target)
 
 func check_aggregation_count(
-    attestation: electra.Attestation, singular: bool):
-    Result[void, ValidationError] =
+    attestation: electra.Attestation | gloas.Attestation,
+    singular: bool): Result[void, ValidationError] =
   block:
     let ones = attestation.committee_bits.countOnes()
     if singular and ones != 1:
@@ -477,6 +477,22 @@ template validateBeaconBlockGloas(
   # block's parent (defined by `block.parent_root`).
   if not (bid.parent_block_root == blck.parent_root):
     return dag.checkedReject("validateBeaconBlockGloas: parent block mismatch")
+
+  # [REJECT] The counts of `block.body.parent_execution_requests` are within
+  # their respective limits.
+  template parent_execution_requests: untyped = blck.body.parent_execution_requests
+  if parent_execution_requests.deposits.lenu64 >
+      MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many deposit requests")
+  if parent_execution_requests.withdrawals.lenu64 >
+      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many withdrawal requests")
+  if parent_execution_requests.consolidations.lenu64 >
+      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many consolidation requests")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
 proc validateBlobSidecar*(
@@ -782,7 +798,7 @@ proc validateDataColumnSidecar*(
       block_root: block_root,
       index: data_column_sidecar[].index,
       slot: data_column_sidecar[].signed_block_header.message.slot,
-      kzg_commitments: data_column_sidecar[].kzg_commitments)
+      kzg_commitments: data_column_sidecar[].kzg_commitments.asSeq)
 
   # Notify with the full sidecar so the EL (out of spec)
   # getBlobs service can derive header/commitments/inclusion proof when the
@@ -1147,6 +1163,22 @@ proc validateExecutionPayload*(
       bid.execution_requests_root):
     return dag.checkedReject("ExecutionPayload: requests mismatch")
 
+  # [REJECT] The counts of `execution_requests` are within their respective
+  # limits.
+  template execution_requests: untyped = envelope.execution_requests
+  if execution_requests.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many deposit requests")
+  if execution_requests.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many withdrawal requests")
+  if execution_requests.consolidations.lenu64 >
+      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "ExecutionPayload: too many consolidation requests")
+
+  # [REJECT] The number of withdrawals is within the limit.
+  if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many withdrawals")
+
   # [REJECT] `signed_execution_payload_envelope.signature` is valid as verified
   # by `verify_execution_payload_envelope_signature`.
   # TODO: headState may not match the envelope's fork during extended
@@ -1362,7 +1394,8 @@ proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    signedAggregateAndProof:
+      electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     wallTime: BeaconTime,
     checkSignature = true,
     checkCover = true,
@@ -1644,8 +1677,9 @@ proc validateBlsToExecutionChange*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ValidatorChangePool, attester_slashing: electra.AttesterSlashing):
-    Result[void, ValidationError] =
+    pool: ValidatorChangePool,
+    attester_slashing: electra.AttesterSlashing | gloas.AttesterSlashing
+): Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
@@ -1663,7 +1697,11 @@ proc validateAttesterSlashing*(
 
   # Send notification about new attester slashing via callback
   if not(isNil(pool.onAttesterSlashingReceived)):
-    pool.onAttesterSlashingReceived(attester_slashing)
+    when typeof(attester_slashing) is gloas.AttesterSlashing:
+      pool.onAttesterSlashingReceived(attester_slashing)
+    else:
+      pool.onAttesterSlashingReceived(
+        upgrade_attester_slashing_to_gloas(attester_slashing))
 
   ok()
 

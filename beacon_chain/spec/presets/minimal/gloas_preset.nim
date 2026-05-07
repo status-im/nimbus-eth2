@@ -20,14 +20,22 @@ const
   # 2**2 (= 4) attestations
   MAX_PAYLOAD_ATTESTATIONS* = 4
 
-  # State list lengths
-  # ---------------------------------------------------------------
-  # 2**40 (= 1,099,511,627,776) builder spots
-  BUILDER_REGISTRY_LIMIT* = 1099511627776
-  # 2**20 (= 1,048,576) builder pending withdrawals
-  BUILDER_PENDING_WITHDRAWALS_LIMIT* = 1048576
-
   # Withdrawals processing
   # ---------------------------------------------------------------
   # [customized] 2**4 (= 16) builders
   MAX_BUILDERS_PER_WITHDRAWALS_SWEEP* = 16
+
+  # Type-specific SSZ bounds
+  # ---------------------------------------------------------------
+  # 1,462 bytes, ~1 KiB
+  MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE*: uint64 = 1462
+  # 131,536 bytes, ~128 KiB
+  MAX_ATTESTER_SLASHING_SIZE*: uint64 = 131536
+  # 8,585,272 bytes, ~8 MiB
+  MAX_DATA_COLUMN_SIDECAR_SIZE*: uint64 = 8585272
+  # 8,585,741 bytes, ~8 MiB
+  MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE*: uint64 = 8585741
+  # 196,932 bytes, ~192 KiB
+  MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE*: uint64 = 196932
+  # 1,944,980 bytes, ~2 MiB
+  MAX_SIGNED_BEACON_BLOCK_SIZE*: uint64 = 1944980

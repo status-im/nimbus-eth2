@@ -437,7 +437,8 @@ func compute_timestamp_at_slot*(
   state.genesis_time +
     slots_since_genesis * timeParams.SLOT_DURATION.seconds.uint64
 
-template append*(w: var RlpWriter, v: bellatrix.Transaction) =
+template append*(
+    w: var RlpWriter, v: bellatrix.Transaction | gloas.Transaction) =
   w.appendRawBytes(distinctBase v)
 
 template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =
@@ -452,7 +453,7 @@ func computeTransactionsTrieRoot(payload: ForkyExecutionPayload): EthHash32 =
 
 # https://eips.ethereum.org/EIPS/eip-7685
 func computeRequestsHash*(
-    requests: electra.ExecutionRequests): EthHash32 =
+    requests: electra.ExecutionRequests | gloas.ExecutionRequests): EthHash32 =
 
   template individualHash(requestType, requestList): Digest =
     computeDigest:

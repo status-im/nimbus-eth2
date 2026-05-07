@@ -388,7 +388,7 @@ proc addTestEngineBlock*(
         sync_aggregate,
         eps,
         verificationFlags = {skipBlsValidation},
-        execution_requests = default(ExecutionRequests),
+        execution_requests = default(consensusFork.ExecutionRequests),
         signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )
@@ -499,7 +499,7 @@ proc addTestEngineBlockWithBlobs*(
         sync_aggregate,
         eps,
         verificationFlags = {skipBlsValidation},
-        execution_requests = default(ExecutionRequests),
+        execution_requests = default(consensusFork.ExecutionRequests),
         signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )
@@ -601,7 +601,9 @@ func makeAttestationData*(
 func makeAttestationSig(
     fork: Fork, genesis_validators_root: Eth2Digest, data: AttestationData,
     committee: openArray[ValidatorIndex],
-    bits: CommitteeValidatorsBits | AggregationBits): ValidatorSig =
+    bits:
+      CommitteeValidatorsBits | electra.AggregationBits |
+      gloas.AggregationBits): ValidatorSig =
   let signing_root = compute_attestation_signing_root(
     fork, genesis_validators_root, data)
 
@@ -725,7 +727,7 @@ func makeElectraAttestation(
 
   doAssert index_in_committee != -1, "find_beacon_committee should guarantee this"
 
-  var aggregation_bits = AggregationBits.init(committee.len)
+  var aggregation_bits = electra.AggregationBits.init(committee.len)
   aggregation_bits.setBit index_in_committee
 
   let sig = if skipBlsValidation in flags:
@@ -773,7 +775,7 @@ func makeFullElectraAttestations*(
 
     doAssert committee.len() >= 1
     var attestation = electra.Attestation(
-      aggregation_bits: AggregationBits.init(committee.len),
+      aggregation_bits: electra.AggregationBits.init(committee.len),
       committee_bits: committee_bits,
       data: data)
     for i in 0..<committee.len:
@@ -786,36 +788,34 @@ func makeFullElectraAttestations*(
 
     result.add attestation
 
-func makeElectraIndexedAttestation*(
+func makeIndexedAttestation*(
     state: ForkedHashedBeaconState, slot: Slot,
     validator_indices: openArray[uint64],
-    beacon_block_root: Eth2Digest): electra.IndexedAttestation =
+    beacon_block_root: Eth2Digest): gloas.IndexedAttestation =
   let
     data = AttestationData(slot: slot, beacon_block_root: beacon_block_root)
     committee = validator_indices.mapIt(it.ValidatorIndex)
-  var bits = AggregationBits.init(committee.len)
+  var bits = gloas.AggregationBits.init(committee.len)
   for i in 0 ..< committee.len:
     bits.setBit i
-  electra.IndexedAttestation(
+  gloas.IndexedAttestation(
     data: data,
-    attesting_indices:
-      List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT](
-        @validator_indices),
+    attesting_indices: @validator_indices,
     signature: makeAttestationSig(
       state.fork, state.genesis_validators_root, data, committee, bits))
 
-func makeElectraAttesterSlashing*(
+func makeAttesterSlashing*(
     state: ForkedHashedBeaconState,
     validator_indices: openArray[uint64], slot: Slot,
     root_a = Eth2Digest.fromHex(
       "0x0100000000000000000000000000000000000000000000000000000000000000"),
     root_b = Eth2Digest.fromHex(
       "0x0200000000000000000000000000000000000000000000000000000000000000")
-): electra.AttesterSlashing =
-  electra.AttesterSlashing(
-    attestation_1: makeElectraIndexedAttestation(
+): gloas.AttesterSlashing =
+  gloas.AttesterSlashing(
+    attestation_1: makeIndexedAttestation(
       state, slot, validator_indices, root_a),
-    attestation_2: makeElectraIndexedAttestation(
+    attestation_2: makeIndexedAttestation(
       state, slot, validator_indices, root_b))
 
 proc makeSyncAggregate(

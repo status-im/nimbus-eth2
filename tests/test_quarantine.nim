@@ -56,7 +56,8 @@ func genFuluSignedBeaconBlock(
   var res = @commitments
   fulu.SignedBeaconBlock(
     message: fulu.BeaconBlock(
-      body: fulu.BeaconBlockBody(blob_kzg_commitments: KzgCommitments(res))),
+      body: fulu.BeaconBlockBody(
+        blob_kzg_commitments: deneb.KzgCommitments(res))),
     root: blockRoot)
 
 func genGloasSignedExecutionPayloadEnvelope(

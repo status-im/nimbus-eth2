@@ -293,7 +293,7 @@ cli do(validatorsDir: string, secretsDir: string,
               syncAggregate,
               payload,
               {},
-              default(ExecutionRequests),
+              default(consensusFork.ExecutionRequests),
               default(gloas.SignedExecutionPayloadBid),
               newSeq[PayloadAttestation]() ).expect("block")
 

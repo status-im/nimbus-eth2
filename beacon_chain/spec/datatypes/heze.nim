@@ -26,15 +26,15 @@ import
   kzg4844/[kzg, kzg_abi]
 
 from ./altair import
-  EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
-  TrustedSyncAggregate, SyncnetBits, num_active_participants
+  ParticipationFlags, SyncAggregate, SyncCommittee, TrustedSyncAggregate,
+  SyncnetBits, num_active_participants
 from ./capella import
-  HistoricalSummary, SignedBLSToExecutionChange,
-  SignedBLSToExecutionChangeList, Withdrawal
-from ./deneb import
-  Blobs, KzgCommitments, KzgProofs
+  HistoricalSummary, SignedBLSToExecutionChange, Withdrawal
+from ./deneb import Blobs
 from ./gloas import
-  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, PayloadAttestation
+  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, PayloadAttestation,
+  EpochParticipationFlags, InactivityScores, KzgCommitments, KzgProofs,
+  SignedBLSToExecutionChangeList
 
 export json_serialization, base
 
@@ -44,7 +44,7 @@ type
     slot*: Slot
     validator_index*: uint64 # `ValidatorIndex` after validation
     inclusion_list_committee_root*: Eth2Digest
-    transactions*: List[bellatrix.Transaction, Limit MAX_TRANSACTIONS_PER_PAYLOAD]
+    transactions*: seq[gloas.Transaction]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#signedinclusionlist
   SignedInclusionList* = object
@@ -63,7 +63,7 @@ type
     slot*: Slot
     value*: Gwei
     execution_payment*: Gwei
-    blob_kzg_commitments*: KzgCommitments
+    blob_kzg_commitments*: gloas.KzgCommitments
     execution_requests_root*: Eth2Digest
     # [New in Heze:EIP7805]
     inclusion_list_bits*: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE]
@@ -75,7 +75,10 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#beaconstate
-  BeaconState* = object
+  BeaconState* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1].} = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -100,8 +103,8 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashSeq[Validator]
+    balances*: HashSeq[Gwei]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
@@ -111,8 +114,8 @@ type
       ## Per-epoch sums of slashed effective balances
 
     # Participation
-    previous_epoch_participation*: EpochParticipationFlags
-    current_epoch_participation*: EpochParticipationFlags
+    previous_epoch_participation*: gloas.EpochParticipationFlags
+    current_epoch_participation*: gloas.EpochParticipationFlags
 
     # Finality
     justification_bits*: JustificationBits
@@ -123,7 +126,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: InactivityScores
+    inactivity_scores*: gloas.InactivityScores
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee
@@ -145,30 +148,25 @@ type
     earliest_exit_epoch*: Epoch
     consolidation_balance_to_consume*: Gwei
     earliest_consolidation_epoch*: Epoch
-    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
-
-    pending_partial_withdrawals*:
-      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
-    pending_consolidations*:
-      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+    pending_deposits*: HashSeq[PendingDeposit]
+    pending_partial_withdrawals*: HashSeq[PendingPartialWithdrawal]
+    pending_consolidations*: HashSeq[PendingConsolidation]
 
     proposer_lookahead*:
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
-    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
+    builders*: HashSeq[Builder]
     next_withdrawal_builder_index*: uint64
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     builder_pending_payments*:
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
-    builder_pending_withdrawals*:
-      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
+    builder_pending_withdrawals*: HashSeq[BuilderPendingWithdrawal]
 
     # Execution
     # [Modified in Heze:EIP7805]
     latest_execution_payload_bid*: ExecutionPayloadBid
 
-    payload_expected_withdrawals*:
-      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
+    payload_expected_withdrawals*: HashSeq[Withdrawal]
     ptc_window*:
       HashArray[Limit ((2 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH),
         HashArray[Limit PTC_SIZE, uint64]]
@@ -242,7 +240,8 @@ type
     body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#beaconblockbody
-  BeaconBlockBody* = object
+  BeaconBlockBody* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
       ## Eth1 data vote
@@ -251,12 +250,11 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*:
-      List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
-    attestations*: List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    proposer_slashings*: seq[ProposerSlashing]
+    attester_slashings*: seq[gloas.AttesterSlashing]
+    attestations*: seq[gloas.Attestation]
+    deposits*: seq[Deposit]
+    voluntary_exits*: seq[SignedVoluntaryExit]
 
     sync_aggregate*: SyncAggregate
 
@@ -264,11 +262,11 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
     signed_execution_payload_bid*: SignedExecutionPayloadBid
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
-    parent_execution_requests*: ExecutionRequests
+    payload_attestations*: seq[PayloadAttestation]
+    parent_execution_requests*: gloas.ExecutionRequests
 
-  SigVerifiedBeaconBlockBody* = object
+  SigVerifiedBeaconBlockBody* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     ## A BeaconBlock body with signatures verified
     ## including:
     ## - Randao reveal
@@ -290,13 +288,11 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*:
-      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*:
-      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
-    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    proposer_slashings*: seq[TrustedProposerSlashing]
+    attester_slashings*: seq[gloas.TrustedAttesterSlashing]
+    attestations*: seq[gloas.TrustedAttestation]
+    deposits*: seq[Deposit]
+    voluntary_exits*: seq[TrustedSignedVoluntaryExit]
 
     sync_aggregate*: TrustedSyncAggregate
 
@@ -304,11 +300,11 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
     signed_execution_payload_bid*: SignedExecutionPayloadBid
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
-    parent_execution_requests*: ExecutionRequests
+    payload_attestations*: seq[PayloadAttestation]
+    parent_execution_requests*: gloas.ExecutionRequests
 
-  TrustedBeaconBlockBody* = object
+  TrustedBeaconBlockBody* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
@@ -318,13 +314,11 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*:
-      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*:
-      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
-    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    proposer_slashings*: seq[TrustedProposerSlashing]
+    attester_slashings*: seq[gloas.TrustedAttesterSlashing]
+    attestations*: seq[gloas.TrustedAttestation]
+    deposits*: seq[Deposit]
+    voluntary_exits*: seq[TrustedSignedVoluntaryExit]
 
     sync_aggregate*: TrustedSyncAggregate
 
@@ -332,9 +326,8 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
     signed_execution_payload_bid*: SignedExecutionPayloadBid
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
-    parent_execution_requests*: ExecutionRequests
+    payload_attestations*: seq[PayloadAttestation]
+    parent_execution_requests*: gloas.ExecutionRequests
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object

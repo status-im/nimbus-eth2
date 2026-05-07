@@ -92,7 +92,6 @@ RestJson.useDefaultSerializationFor(
   EventExecutionPayloadObject,
   EventExecutionPayloadGossipObject,
   EventExecutionPayloadAvailableObject,
-  ExecutionRequests,
   FinalizationInfoObject,
   Fork,
   FuluSignedBlockContents,
@@ -107,6 +106,7 @@ RestJson.useDefaultSerializationFor(
   GetGenesisResponse,
   GetHistoricalSummariesV1Response,
   GetHistoricalSummariesV1ResponseElectra,
+  GetHistoricalSummariesV1ResponseGloas,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -275,6 +275,7 @@ RestJson.useDefaultSerializationFor(
   electra.BeaconState,
   electra.BeaconBlockBody,
   electra.BlockContents,
+  electra.ExecutionRequests,
   electra.IndexedAttestation,
   electra.LightClientBootstrap,
   electra.LightClientFinalityUpdate,
@@ -298,6 +299,9 @@ RestJson.useDefaultSerializationFor(
   fulu_mev.BuilderBid,
   fulu_mev.SignedBlindedBeaconBlock,
   fulu_mev.SignedBuilderBid,
+  gloas.AggregateAndProof,
+  gloas.Attestation,
+  gloas.AttesterSlashing,
   gloas.BeaconBlock,
   gloas.BeaconBlockBody,
   gloas.BeaconState,
@@ -305,12 +309,16 @@ RestJson.useDefaultSerializationFor(
   gloas.DataColumnSidecar,
   gloas.ExecutionPayload,
   gloas.ExecutionPayloadBid,
+  gloas.ExecutionRequests,
+  gloas.IndexedAttestation,
   gloas.LightClientBootstrap,
   gloas.LightClientFinalityUpdate,
   gloas.LightClientHeader,
   gloas.LightClientOptimisticUpdate,
   gloas.LightClientUpdate,
+  gloas.SignedAggregateAndProof,
   gloas.SignedExecutionPayloadBid,
+  gloas.TrustedAttestation,
   heze.BeaconBlock,
   heze.BeaconBlockBody,
   heze.BeaconState,
@@ -438,12 +446,13 @@ proc writeValue*(w: var RestJsonWriter, value: Gwei | Epoch | Slot) {.writer.} =
 proc readValue*(r: var RestJsonReader, value: var (Gwei | Epoch | Slot)) {.reader.} =
   r.readValue(distinctBase(value))
 
-proc writeValue*(w: var RestJsonWriter, value: EpochParticipationFlags) {.writer.} =
+proc writeValue*(
+    w: var RestJsonWriter, value: altair.EpochParticipationFlags) {.writer.} =
   for e in w.stepwiseArrayCreation(value.asList):
     w.writeValue e
 
 proc readValue*(
-    r: var RestJsonReader, value: var EpochParticipationFlags
+    r: var RestJsonReader, value: var altair.EpochParticipationFlags
 ) {.raises: [SerializationError, IOError].} =
   for e in r.readArray(uint8):
     if not value.asList.add(e):

@@ -117,10 +117,10 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": checkSSZ(electra.AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(electra.Attestation, path, hash)
+          of "AggregateAndProof": checkSSZ(gloas.AggregateAndProof, path, hash)
+          of "Attestation": checkSSZ(gloas.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(gloas.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(gloas.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(gloas.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
@@ -153,7 +153,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "ExecutionPayloadBid":
             checkSSZ(gloas.ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
-            checkSSZ(electra.ExecutionRequests, path, hash)
+            checkSSZ(gloas.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkChoiceNode":
             debugGloasComment "skipping ForkChoiceNode test for now"
@@ -161,7 +161,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation":
-            checkSSZ(electra.IndexedAttestation, path, hash)
+            checkSSZ(gloas.IndexedAttestation, path, hash)
           of "IndexedPayloadAttestation":
             checkSSZ(IndexedPayloadAttestation, path, hash)
           of "LightClientBootstrap":
@@ -191,7 +191,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "ProposerPreferences": checkSSZ(ProposerPreferences, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            checkSSZ(electra.SignedAggregateAndProof, path, hash)
+            checkSSZ(gloas.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(gloas.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":

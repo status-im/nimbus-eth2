@@ -465,7 +465,7 @@ proc initFullNode(
     node.eventBus.blsToExecQueue.emit(data)
   proc onProposerSlashingAdded(data: ProposerSlashing) =
     node.eventBus.propSlashQueue.emit(data)
-  proc onAttesterSlashingAdded(data: electra.AttesterSlashing) =
+  proc onAttesterSlashingAdded(data: gloas.AttesterSlashing) =
     node.eventBus.attSlashQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
     node.eventBus.columnSidecarQueue.emit(data)
@@ -2380,7 +2380,16 @@ proc installMessageValidators(node: BeaconNode) =
         # beacon_aggregate_and_proof
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
-        when consensusFork >= ConsensusFork.Electra:
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addAsyncValidator(
+            getAggregateAndProofsTopic(digest), proc (
+              signedAggregateAndProof: gloas.SignedAggregateAndProof,
+              src: PeerId
+            ): Future[ValidationResult] {.async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processSignedAggregateAndProof(
+                  MsgSource.gossip, signedAggregateAndProof)))
+        elif consensusFork >= ConsensusFork.Electra:
           node.network.addAsyncValidator(
             getAggregateAndProofsTopic(digest), proc (
               signedAggregateAndProof: electra.SignedAggregateAndProof,
@@ -2393,7 +2402,16 @@ proc installMessageValidators(node: BeaconNode) =
         # attester_slashing
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#attester_slashing
         # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.6/specs/electra/p2p-interface.md#modifications-in-electra
-        when consensusFork >= ConsensusFork.Electra:
+        when consensusFork >= ConsensusFork.Gloas:
+          node.network.addValidator(
+            getAttesterSlashingsTopic(digest), proc (
+              attesterSlashing: gloas.AttesterSlashing,
+              src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                node.processor[].processAttesterSlashing(
+                  MsgSource.gossip, attesterSlashing)))
+        elif consensusFork >= ConsensusFork.Electra:
           node.network.addValidator(
             getAttesterSlashingsTopic(digest), proc (
               attesterSlashing: electra.AttesterSlashing,

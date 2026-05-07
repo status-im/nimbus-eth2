@@ -48,7 +48,7 @@ const
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
   LowestScoreAggregatedElectraAttestation* =
     electra.Attestation(
-      aggregation_bits: AggregationBits(BitSeq.init(1)))
+      aggregation_bits: electra.AggregationBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -925,6 +925,23 @@ func init*(
       ForkedAggregateAndProof.init(data, typeof(data).kind)
   )
 
+func init*(
+    t: typedesc[Web3SignerRequest],
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    data: gloas.AggregateAndProof,
+    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
+): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.AggregateAndProofV2,
+    forkInfo: Opt.some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    forkedAggregateAndProof:
+      ForkedAggregateAndProof.init(data, ConsensusFork.Gloas)
+  )
+
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
            genesis_validators_root: Eth2Digest, data: AttestationData,
            signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
@@ -1174,9 +1191,12 @@ const
     capella.BeaconState, "historical_summaries")
   HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = get_generalized_index(
     electra.BeaconState, "historical_summaries")
+  HISTORICAL_SUMMARIES_GINDEX_GLOAS* = get_generalized_index(
+    gloas.BeaconState, "historical_summaries")
 static:
   doAssert HISTORICAL_SUMMARIES_GINDEX == 59.GeneralizedIndex
   doAssert HISTORICAL_SUMMARIES_GINDEX_ELECTRA == 91.GeneralizedIndex
+  doAssert HISTORICAL_SUMMARIES_GINDEX_GLOAS == 2950.GeneralizedIndex
 
 type
   # Note: these could go in separate Capella/Electra spec files if they were
@@ -1185,6 +1205,8 @@ type
     array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
   HistoricalSummariesProofElectra* =
     array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_ELECTRA), Eth2Digest]
+  HistoricalSummariesProofGloas* =
+    array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_GLOAS), Eth2Digest]
 
   # REST API types
   GetHistoricalSummariesV1Response* = object
@@ -1199,13 +1221,21 @@ type
     proof*: HistoricalSummariesProofElectra
     slot*: Slot
 
+  GetHistoricalSummariesV1ResponseGloas* = object
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProofGloas
+    slot*: Slot
+
   ForkyGetHistoricalSummariesV1Response* =
     GetHistoricalSummariesV1Response |
-    GetHistoricalSummariesV1ResponseElectra
+    GetHistoricalSummariesV1ResponseElectra |
+    GetHistoricalSummariesV1ResponseGloas
 
   HistoricalSummariesFork* {.pure.} = enum
     Capella = 0,
-    Electra = 1
+    Electra = 1,
+    Gloas = 2
 
   # REST client response type
   ForkedHistoricalSummariesWithProof* = object
@@ -1214,10 +1244,14 @@ type
       GetHistoricalSummariesV1Response
     of HistoricalSummariesFork.Electra: electraData*:
       GetHistoricalSummariesV1ResponseElectra
+    of HistoricalSummariesFork.Gloas: gloasData*:
+      GetHistoricalSummariesV1ResponseGloas
 
 template historical_summaries_gindex*(
     kind: static HistoricalSummariesFork): GeneralizedIndex =
   case kind
+  of HistoricalSummariesFork.Gloas:
+    get_generalized_index(gloas.BeaconState, "historical_summaries")
   of HistoricalSummariesFork.Electra:
     HISTORICAL_SUMMARIES_GINDEX_ELECTRA
   of HistoricalSummariesFork.Capella:
@@ -1225,7 +1259,9 @@ template historical_summaries_gindex*(
 
 template getHistoricalSummariesResponse*(
     kind: static HistoricalSummariesFork): auto =
-  when kind >= HistoricalSummariesFork.Electra:
+  when kind >= HistoricalSummariesFork.Gloas:
+    GetHistoricalSummariesV1ResponseGloas
+  elif kind >= HistoricalSummariesFork.Electra:
     GetHistoricalSummariesV1ResponseElectra
   elif kind >= HistoricalSummariesFork.Capella:
     GetHistoricalSummariesV1Response
@@ -1246,11 +1282,21 @@ template init*(
       kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
     )
 
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1ResponseGloas,
+): T =
+    ForkedHistoricalSummariesWithProof(
+      kind: HistoricalSummariesFork.Gloas, gloasData: historical_summaries
+    )
+
 func historicalSummariesForkAtConsensusFork*(
     consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
   static:
-    doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
-  if consensusFork >= ConsensusFork.Electra:
+    doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Gloas
+  if consensusFork >= ConsensusFork.Gloas:
+    Opt.some HistoricalSummariesFork.Gloas
+  elif consensusFork >= ConsensusFork.Electra:
     Opt.some HistoricalSummariesFork.Electra
   elif consensusFork >= ConsensusFork.Capella:
     Opt.some HistoricalSummariesFork.Capella

@@ -440,9 +440,9 @@ proc proposeBlockAux(
           (true, parentExecutionRequests)
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          (false, default(ExecutionRequests))
+          (false, default(fork.ExecutionRequests))
       else:
-        (false, default(ExecutionRequests))
+        (false, default(fork.ExecutionRequests))
 
     engineBid =
       when fork == ConsensusFork.Heze:
@@ -1165,7 +1165,19 @@ proc signAndSendAggregate(
     discard await node.router.routeSignedAggregateAndProof(
       msg, checkSignature = false)
 
-  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Gloas:
+    var msg = gloas.SignedAggregateAndProof(
+      message: gloas.AggregateAndProof(
+        aggregator_index: distinctBase validator_index,
+        selection_proof: selectionProof))
+
+    msg.message.aggregate =
+      node.attestationPool[].getGloasAggregatedAttestation(
+        slot, committee_index).valueOr:
+          return
+
+    signAndSendAggregatedAttestations()
+  elif node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#aggregateandproof
     var msg = electra.SignedAggregateAndProof(
@@ -1173,9 +1185,10 @@ proc signAndSendAggregate(
         aggregator_index: distinctBase validator_index,
         selection_proof: selectionProof))
 
-    msg.message.aggregate = node.attestationPool[].getElectraAggregatedAttestation(
-      slot, committee_index).valueOr:
-        return
+    msg.message.aggregate =
+      node.attestationPool[].getElectraAggregatedAttestation(
+        slot, committee_index).valueOr:
+          return
 
     signAndSendAggregatedAttestations()
 

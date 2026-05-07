@@ -93,7 +93,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var heze.BeaconState, attestation: electra.Attestation):
+      preState: var heze.BeaconState, attestation: gloas.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
@@ -108,14 +108,14 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[electra.Attestation, typeof applyAttestation](
+    runTest[gloas.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var heze.BeaconState,
-      attesterSlashing: electra.AttesterSlashing): Result[void, cstring] =
+      attesterSlashing: gloas.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {},
@@ -123,7 +123,7 @@ suite baseDescription & "Attester Slashing " & preset():
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[electra.AttesterSlashing, typeof applyAttesterSlashing](
+    runTest[gloas.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 

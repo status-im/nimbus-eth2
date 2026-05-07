@@ -90,6 +90,7 @@ type
     seq[RestSyncCommitteeSubscription] |
     seq[phase0.SignedAggregateAndProof] |
     seq[electra.SignedAggregateAndProof] |
+    seq[gloas.SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
@@ -109,6 +110,7 @@ type
     GetDistributedKeystoresResponse |
     GetHistoricalSummariesV1Response |
     GetHistoricalSummariesV1ResponseElectra |
+    GetHistoricalSummariesV1ResponseGloas |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
     GetStateForkResponse |

@@ -33,7 +33,7 @@ func makeBid(
       fee_recipient: default(ExecutionAddress),
       gas_limit: 30000000,
       value: value,
-      blob_kzg_commitments: default(KzgCommitments)),
+      blob_kzg_commitments: default(gloas.KzgCommitments)),
     signature: default(ValidatorSig))
 
 suite "Execution Payload Bid Pool":

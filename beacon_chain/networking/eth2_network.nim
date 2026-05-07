@@ -235,7 +235,7 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
-  
+
   PeerAddrProto* {.pure.} = enum
     TCP
     UDP
@@ -851,6 +851,12 @@ func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
+  elif T is gloas.SignedBeaconBlock:
+    MAX_SIGNED_BEACON_BLOCK_SIZE.uint32
+  elif T is heze.SignedBeaconBlock:
+    MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE.uint32
+  elif T is gloas.DataColumnSidecar:
+    MAX_DATA_COLUMN_SIDECAR_SIZE.uint32
   else:
     static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
     MAX_PAYLOAD_SIZE.uint32
@@ -859,13 +865,26 @@ template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T).uint32
+    elif T is gloas.SignedBeaconBlock:
+      MAX_SIGNED_BEACON_BLOCK_SIZE
+    elif T is heze.SignedBeaconBlock:
+      MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE
+    elif T is gloas.SignedAggregateAndProof:
+      MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE
+    elif T is gloas.AttesterSlashing:
+      MAX_ATTESTER_SLASHING_SIZE
+    elif T is gloas.DataColumnSidecar:
+      MAX_DATA_COLUMN_SIDECAR_SIZE
+    elif T is gloas.SignedExecutionPayloadBid:
+      MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE
+    elif T is heze.SignedExecutionPayloadBid:
+      MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE
+    elif T is heze.SignedInclusionList:
+      MAX_SIGNED_INCLUSION_LIST_SIZE
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
-         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
-         T is gloas.SignedExecutionPayloadEnvelope or
-         T is gloas.SignedExecutionPayloadBid or
-         T is heze.SignedBeaconBlock:
+         T is gloas.SignedExecutionPayloadEnvelope:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -875,7 +894,7 @@ template gossipMaxSize(T: untyped): uint32 =
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
-         T is SomeForkyLightClientObject:
+         T is gloas.Attestation or T is SomeForkyLightClientObject:
       MAX_PAYLOAD_SIZE
     else:
       {.fatal: "unknown type " & name(T).}
@@ -1919,7 +1938,7 @@ proc new(T: type Eth2Node,
       {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
-        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)                                                   
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)
       },
     rng),
     discoveryEnabled: discovery,
@@ -2387,13 +2406,13 @@ proc newBeaconSwitch(
     .withAgentVersion(config.agentString)
     .withServices(@[service])
 
-    if config.tcpEnabled: 
+    if config.tcpEnabled:
       sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
              .withTcpTransport({ServerFlags.ReuseAddr})
 
     if config.quicEnabled:
       sb = sb.withQuicTransport()
-        
+
     ok sb.build()
   except LPError as exc:
     err(exc.msg)
@@ -2865,7 +2884,8 @@ proc broadcastVoluntaryExit*(
   node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node, slashing: electra.AttesterSlashing):
+    node: Eth2Node,
+    slashing: electra.AttesterSlashing | gloas.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
@@ -2887,8 +2907,10 @@ proc broadcastBlsToExecutionChange*(
 
 proc broadcastAggregateAndProof*(
     node: Eth2Node,
-    proof: phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+    proof:
+      phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof |
+      gloas.SignedAggregateAndProof
+): Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, proof)

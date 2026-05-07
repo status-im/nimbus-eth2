@@ -486,10 +486,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(PTC_SIZE)),
           MAX_PAYLOAD_ATTESTATIONS:
             Base10.toString(uint64(MAX_PAYLOAD_ATTESTATIONS)),
-          BUILDER_REGISTRY_LIMIT:
-            Base10.toString(uint64(BUILDER_REGISTRY_LIMIT)),
-          BUILDER_PENDING_WITHDRAWALS_LIMIT:
-            Base10.toString(uint64(BUILDER_PENDING_WITHDRAWALS_LIMIT)),
           MAX_BUILDERS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP)),
           CHURN_LIMIT_QUOTIENT_GLOAS:
@@ -497,7 +493,25 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           CONSOLIDATION_CHURN_LIMIT_QUOTIENT:
             Base10.toString(cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT),
           MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS:
-            Base10.toString(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS)
+            Base10.toString(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS),
+          MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE:
+            Base10.toString(MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE),
+          MAX_ATTESTER_SLASHING_SIZE:
+            Base10.toString(MAX_ATTESTER_SLASHING_SIZE),
+          MAX_DATA_COLUMN_SIDECAR_SIZE:
+            Base10.toString(MAX_DATA_COLUMN_SIDECAR_SIZE),
+          MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE:
+            Base10.toString(MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE),
+          MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE:
+            Base10.toString(MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE),
+          MAX_SIGNED_BEACON_BLOCK_SIZE:
+            Base10.toString(MAX_SIGNED_BEACON_BLOCK_SIZE),
+          MAX_SIGNED_INCLUSION_LIST_SIZE:
+            Base10.toString(MAX_SIGNED_INCLUSION_LIST_SIZE),
+          MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE:
+            Base10.toString(MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE),
+          MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE:
+            Base10.toString(MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE)
         )
       )
     cachedDepositContract =

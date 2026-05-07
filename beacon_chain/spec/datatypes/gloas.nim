@@ -7,7 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-# Types specific to Fulu (i.e. known to have changed across hard forks) - see
+# Types specific to Gloas (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -27,14 +27,12 @@ import
   kzg4844/[kzg, kzg_abi]
 
 from ./altair import
-  EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
-  TrustedSyncAggregate, SyncnetBits, num_active_participants
+  ParticipationFlags, SyncAggregate, SyncCommittee, TrustedSyncAggregate,
+  SyncnetBits, num_active_participants
 from ./capella import
-  BeaconBlockBody, ExecutionBranch, HistoricalSummary,
-  SignedBLSToExecutionChange, SignedBLSToExecutionChangeList,
-  Withdrawal, EXECUTION_PAYLOAD_GINDEX
-from ./deneb import
-  Blobs, KzgCommitments, KzgProofs
+  ExecutionBranch, HistoricalSummary,
+  SignedBLSToExecutionChange, Withdrawal, EXECUTION_PAYLOAD_GINDEX
+from ./deneb import Blobs
 
 export json_serialization, base
 
@@ -44,6 +42,18 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#custom-types
   BuilderIndex* = uint64
+
+  AggregationBits* = BitSeq
+  AttestingIndices* = seq[uint64]
+  Transaction* = ByteSeq
+  DepositRequests* = seq[DepositRequest]
+  WithdrawalRequests* = seq[WithdrawalRequest]
+  ConsolidationRequests* = seq[ConsolidationRequest]
+  EpochParticipationFlags* = seq[ParticipationFlags]
+  InactivityScores* = HashSeq[uint64]
+  KzgCommitments* = seq[KzgCommitment]
+  KzgProofs* = seq[KzgProof]
+  SignedBLSToExecutionChangeList* = seq[SignedBLSToExecutionChange]
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
@@ -56,10 +66,12 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   DataColumnSidecar* = object
     index*: ColumnIndex
-    column*: DataColumn
+    # [Modified in Gloas:EIP7688]
+    column*: seq[KzgCell]
     # [Modified in Gloas:EIP7732]
     # Removed `kzg_commitments`
-    kzg_proofs*: deneb.KzgProofs
+    # [Modified in Gloas:EIP7688]
+    kzg_proofs*: KzgProofs
     # [Modified in Gloas:EIP7732]
     # Removed `signed_block_header`
     # [Modified in Gloas:EIP7732]
@@ -71,8 +83,15 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  DataColumnSidecarInfoObject* = object
+    block_root*: Eth2Digest
+    index*: ColumnIndex
+    slot*: Slot
+    kzg_commitments*: KzgCommitments
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayload
-  ExecutionPayload* = object
+  ExecutionPayload* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
     state_root*: Eth2Digest
@@ -86,8 +105,10 @@ type
     extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas*: UInt256
     block_hash*: Eth2Digest
-    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
+    # [Modified in Gloas:EIP7688]
+    transactions*: seq[Transaction]
+    # [Modified in Gloas:EIP7688]
+    withdrawals*: seq[Withdrawal]
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
     # [New in Gloas:EIP7928]
@@ -113,6 +134,7 @@ type
     slot*: Slot
     value*: Gwei
     execution_payment*: Gwei
+    # [Modified in Gloas:EIP7688]
     blob_kzg_commitments*: KzgCommitments
     execution_requests_root*: Eth2Digest
 
@@ -170,6 +192,57 @@ type
     data*: PayloadAttestationData
     signature*: ValidatorSig
 
+  Attestation* {.sszActiveFields: [1, 1, 1, 1].} = object
+    aggregation_bits*: AggregationBits
+    data*: AttestationData
+    signature*: ValidatorSig
+    committee_bits*: AttestationCommitteeBits
+
+  TrustedAttestation* {.sszActiveFields: [1, 1, 1, 1].} = object
+    # The Trusted version, at the moment, implies that the cryptographic
+    # signature was checked. It DOES NOT imply that the state transition
+    # was verified. Currently the code MUST verify the state transition
+    # as soon as the signature is verified
+    aggregation_bits*: AggregationBits
+    data*: AttestationData
+    signature*: TrustedSig
+    committee_bits*: AttestationCommitteeBits
+
+  IndexedAttestation* {.sszActiveFields: [1, 1, 1].} = object
+    attesting_indices*: AttestingIndices
+    data*: AttestationData
+    signature*: ValidatorSig
+
+  TrustedIndexedAttestation* {.sszActiveFields: [1, 1, 1].} = object
+    attesting_indices*: AttestingIndices
+    data*: AttestationData
+    signature*: TrustedSig
+
+  AttesterSlashing* = object
+    attestation_1*: IndexedAttestation
+    attestation_2*: IndexedAttestation
+
+  TrustedAttesterSlashing* = object
+    attestation_1*: TrustedIndexedAttestation
+    attestation_2*: TrustedIndexedAttestation
+
+  AggregateAndProof* = object
+    aggregator_index*: uint64
+    aggregate*: Attestation
+    selection_proof*: ValidatorSig
+
+  SignedAggregateAndProof* = object
+    message*: AggregateAndProof
+    signature*: ValidatorSig
+
+  ExecutionRequests* {.sszActiveFields: [1, 1, 1].} = object
+    deposits*: DepositRequests
+    withdrawals*: WithdrawalRequests
+    consolidations*: ConsolidationRequests
+
+  SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
+  SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#builder
   Builder* = object
     pubkey*: ValidatorPubKey
@@ -204,7 +277,10 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#beaconstate
-  BeaconState* = object
+  BeaconState* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1].} = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -229,8 +305,10 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+    # [Modified in Gloas:EIP7688]
+    validators*: HashSeq[Validator]
+    # [Modified in Gloas:EIP7688]
+    balances*: HashSeq[Gwei]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
@@ -240,7 +318,9 @@ type
       ## Per-epoch sums of slashed effective balances
 
     # Participation
+    # [Modified in Gloas:EIP7688]
     previous_epoch_participation*: EpochParticipationFlags
+    # [Modified in Gloas:EIP7688]
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
@@ -252,6 +332,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
+    # [Modified in Gloas:EIP7688]
     inactivity_scores*: InactivityScores
 
     # Light client sync committees
@@ -275,21 +356,22 @@ type
     earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
     consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
-    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
+    # [Modified in Gloas:EIP7688]
+    pending_deposits*: HashSeq[PendingDeposit]
       ## [New in Electra:EIP7251]
 
     # [New in Electra:EIP7251]
-    pending_partial_withdrawals*:
-      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
-    pending_consolidations*:
-      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
+    # [Modified in Gloas:EIP7688]
+    pending_partial_withdrawals*: HashSeq[PendingPartialWithdrawal]
+    # [Modified in Gloas:EIP7688]
+    pending_consolidations*: HashSeq[PendingConsolidation]
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
         HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [New in Gloas:EIP7732]
-    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
+    builders*: HashSeq[Builder]
     # [New in Gloas:EIP7732]
     next_withdrawal_builder_index*: uint64
     # [New in Gloas:EIP7732]
@@ -298,16 +380,14 @@ type
     builder_pending_payments*:
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     # [New in Gloas:EIP7732]
-    builder_pending_withdrawals*:
-      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
+    builder_pending_withdrawals*: HashSeq[BuilderPendingWithdrawal]
 
     # Execution
     # [Modified in Gloas:EIP7732]
     latest_execution_payload_bid*: gloas.ExecutionPayloadBid
 
     # [New in Gloas:EIP7732]
-    payload_expected_withdrawals*:
-      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
+    payload_expected_withdrawals*: HashSeq[Withdrawal]
     # [New in Gloas:EIP7732]
     ptc_window*:
       HashArray[Limit ((2 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH),
@@ -382,7 +462,8 @@ type
     body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#beaconblockbody
-  BeaconBlockBody* = object
+  BeaconBlockBody* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
       ## Eth1 data vote
@@ -391,29 +472,34 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*:
-      List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    # [Modified in Gloas:EIP7688]
+    proposer_slashings*: seq[ProposerSlashing]
+    # [Modified in Gloas:EIP7688]
+    attester_slashings*: seq[AttesterSlashing]
       ## [Modified in Electra:EIP7549]
-    attestations*: List[electra.Attestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    # [Modified in Gloas:EIP7688]
+    attestations*: seq[Attestation]
       ## [Modified in Electra:EIP7549]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    # [Modified in Gloas:EIP7688]
+    deposits*: seq[Deposit]
+    # [Modified in Gloas:EIP7688]
+    voluntary_exits*: seq[SignedVoluntaryExit]
 
     sync_aggregate*: SyncAggregate
 
     # Execution
+    # [Modified in Gloas:EIP7688]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
     # [New in Gloas:EIP7732]
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    payload_attestations*: seq[PayloadAttestation]
     # [New in Gloas:EIP7732]
     parent_execution_requests*: ExecutionRequests
 
-  SigVerifiedBeaconBlockBody* = object
+  SigVerifiedBeaconBlockBody* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     ## A BeaconBlock body with signatures verified
     ## including:
     ## - Randao reveal
@@ -435,15 +521,13 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*:
-      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*:
-      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    proposer_slashings*: seq[TrustedProposerSlashing]
+    attester_slashings*: seq[TrustedAttesterSlashing]
       ## [Modified in Electra:EIP7549]
-    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    attestations*: seq[TrustedAttestation]
       ## [Modified in Electra:EIP7549]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    deposits*: seq[Deposit]
+    voluntary_exits*: seq[TrustedSignedVoluntaryExit]
 
     sync_aggregate*: TrustedSyncAggregate
 
@@ -453,12 +537,12 @@ type
     # [New in Gloas:EIP7732]
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    payload_attestations*: seq[PayloadAttestation]
     # [New in Gloas:EIP7732]
     parent_execution_requests*: ExecutionRequests
 
-  TrustedBeaconBlockBody* = object
+  TrustedBeaconBlockBody* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
@@ -468,15 +552,13 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*:
-      List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*:
-      List[electra.TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA]
+    proposer_slashings*: seq[TrustedProposerSlashing]
+    attester_slashings*: seq[TrustedAttesterSlashing]
       ## [Modified in Electra:EIP7549]
-    attestations*: List[electra.TrustedAttestation, Limit MAX_ATTESTATIONS_ELECTRA]
+    attestations*: seq[TrustedAttestation]
       ## [Modified in Electra:EIP7549]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    deposits*: seq[Deposit]
+    voluntary_exits*: seq[TrustedSignedVoluntaryExit]
 
     sync_aggregate*: TrustedSyncAggregate
 
@@ -486,8 +568,7 @@ type
     # [New in Gloas:EIP7732]
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     # [New in Gloas:EIP7732]
-    payload_attestations*:
-      List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    payload_attestations*: seq[PayloadAttestation]
     # [New in Gloas:EIP7732]
     parent_execution_requests*: ExecutionRequests
 
@@ -540,6 +621,13 @@ type
     `block`*: gloas.BeaconBlock
     kzg_proofs*: fulu.KzgProofs
     blobs*: Blobs
+
+  BeaconBlockValidatorChanges* = object
+    # Collection of exits that are suitable for block production
+    proposer_slashings*: seq[ProposerSlashing]
+    attester_slashings*: seq[AttesterSlashing]
+    voluntary_exits*: seq[SignedVoluntaryExit]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#expectedwithdrawals
   ExpectedWithdrawals* = object
@@ -679,6 +767,77 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
+template toElectraAggregationBits*(
+    bits: electra.AggregationBits): electra.AggregationBits = bits
+
+template toElectraAggregationBits*(
+    bits: gloas.AggregationBits): electra.AggregationBits =
+  electra.AggregationBits(bits)
+
+template toGloasAggregationBits*(
+    bits: electra.AggregationBits): gloas.AggregationBits =
+  gloas.AggregationBits(bits)
+
+template toGloasAggregationBits*(
+    bits: gloas.AggregationBits): gloas.AggregationBits = bits
+
+template toGloasAttestations*(
+    attestations: seq[electra.Attestation]): seq[gloas.Attestation] =
+  static: doAssert sizeof(electra.Attestation) == sizeof(gloas.Attestation)
+  cast[seq[gloas.Attestation]](attestations)
+
+template toGloasAttestations*(
+    attestations: seq[gloas.Attestation]): seq[gloas.Attestation] =
+  attestations
+
+template upgrade_attester_slashing_to_gloas*(
+    pre: electra.AttesterSlashing): gloas.AttesterSlashing =
+  isomorphicCast[gloas.AttesterSlashing](pre)
+
+template downgrade_attester_slashing_to_electra*(
+    pre: gloas.AttesterSlashing): electra.AttesterSlashing =
+  isomorphicCast[electra.AttesterSlashing](pre)
+
+func shortLog*(v: AggregationBits): auto =
+  $v.countOnes() & "/" & $v.len()
+
+func shortLog*(v: gloas.Attestation | gloas.TrustedAttestation): auto =
+  (
+    aggregation_bits: shortLog(v.aggregation_bits),
+    committee_bits: v.committee_bits,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(
+    v: gloas.IndexedAttestation | gloas.TrustedIndexedAttestation): auto =
+  (
+    attesting_indices: v.attesting_indices,
+    data: shortLog(v.data),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(
+    v: gloas.AttesterSlashing | gloas.TrustedAttesterSlashing): auto =
+  (
+    attestation_1: shortLog(v.attestation_1),
+    attestation_2: shortLog(v.attestation_2),
+  )
+
+from std/sets import toHashSet
+
+iterator getValidatorIndices*(
+    attester_slashing: gloas.AttesterSlashing |
+                       gloas.TrustedAttesterSlashing): uint64 =
+  template attestation_1(): auto = attester_slashing.attestation_1
+  template attestation_2(): auto = attester_slashing.attestation_2
+
+  let attestation_2_indices = toHashSet(attestation_2.attesting_indices)
+  for validator_index in attestation_1.attesting_indices:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
+
 # Helpers to frequently used values
 template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
 template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
@@ -701,14 +860,29 @@ const
     deneb.BeaconBlockBody, "execution_payload", "block_hash")
   EXECUTION_BLOCK_HASH_GINDEX_GLOAS* = get_generalized_index(BeaconBlockBody,
     "signed_execution_payload_bid", "message", "parent_block_hash")
+  FINALIZED_ROOT_GINDEX_GLOAS* =
+    get_generalized_index(BeaconState, "finalized_checkpoint", "root")
+  CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS* =
+    get_generalized_index(BeaconState, "current_sync_committee")
+  NEXT_SYNC_COMMITTEE_GINDEX_GLOAS* =
+    get_generalized_index(BeaconState, "next_sync_committee")
 static:
   doAssert EXECUTION_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
-  doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 832.GeneralizedIndex
+  doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 11424.GeneralizedIndex
+  doAssert FINALIZED_ROOT_GINDEX_GLOAS == 735.GeneralizedIndex
+  doAssert CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS == 2945.GeneralizedIndex
+  doAssert NEXT_SYNC_COMMITTEE_GINDEX_GLOAS == 2946.GeneralizedIndex
 
 type
   ExecutionBranch* =
     array[log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS), Eth2Digest]
+  FinalityBranch* =
+    array[log2trunc(FINALIZED_ROOT_GINDEX_GLOAS), Eth2Digest]
+  CurrentSyncCommitteeBranch* =
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS), Eth2Digest]
+  NextSyncCommitteeBranch* =
+    array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX_GLOAS), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
@@ -927,7 +1101,9 @@ func upgrade_lc_bootstrap_to_gloas*(
   LightClientBootstrap(
     header: upgrade_lc_header_to_gloas(pre.header, cfg),
     current_sync_committee: pre.current_sync_committee,
-    current_sync_committee_branch: pre.current_sync_committee_branch)
+    # [Modified in Gloas:EIP7688]
+    current_sync_committee_branch: normalize_merkle_branch(
+      pre.current_sync_committee_branch, CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_gloas*(
@@ -936,9 +1112,13 @@ func upgrade_lc_update_to_gloas*(
   LightClientUpdate(
     attested_header: upgrade_lc_header_to_gloas(pre.attested_header, cfg),
     next_sync_committee: pre.next_sync_committee,
-    next_sync_committee_branch: pre.next_sync_committee_branch,
+    # [Modified in Gloas:EIP7688]
+    next_sync_committee_branch: normalize_merkle_branch(
+      pre.next_sync_committee_branch, NEXT_SYNC_COMMITTEE_GINDEX_GLOAS),
     finalized_header: upgrade_lc_header_to_gloas(pre.finalized_header, cfg),
-    finality_branch: pre.finality_branch,
+    # [Modified in Gloas:EIP7688]
+    finality_branch: normalize_merkle_branch(
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_GLOAS),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
@@ -949,7 +1129,9 @@ func upgrade_lc_finality_update_to_gloas*(
   LightClientFinalityUpdate(
     attested_header: upgrade_lc_header_to_gloas(pre.attested_header, cfg),
     finalized_header: upgrade_lc_header_to_gloas(pre.finalized_header, cfg),
-    finality_branch: pre.finality_branch,
+    # [Modified in Gloas:EIP7688]
+    finality_branch: normalize_merkle_branch(
+      pre.finality_branch, FINALIZED_ROOT_GINDEX_GLOAS),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
