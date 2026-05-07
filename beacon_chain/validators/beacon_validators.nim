@@ -560,7 +560,7 @@ proc proposeBlockAux(
           engineBid[].eps.blockValue)
       selectedBuilderBid =
         if usePoolBid:
-          info "Using P2P bid from pool",
+          info "Using builder bid from pool",
             slot,
             builderIndex = poolBid.get().message.builder_index,
             bidValue = poolBid.get().message.value,
@@ -649,11 +649,11 @@ proc proposeBlockAux(
 
   when consensusFork >= ConsensusFork.Gloas:
     if selectedBuilderBid.isSome:
-      notice "Block uses P2P builder bid, skipping envelope broadcast",
+      notice "Block uses builder bid, skipping envelope broadcast",
         blockRoot = shortLog(blockRoot),
-        blck = shortLog(signedBlock.message),
         builderIndex = selectedBuilderBid.get().message.builder_index,
         bidValue = selectedBuilderBid.get().message.value,
+        signature = shortLog(selectedBuilderBid.get().signature),
         validator = shortLog(validator)
       return newBlockRef.get()
 

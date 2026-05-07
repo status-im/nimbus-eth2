@@ -128,7 +128,7 @@ func builderBetterBid*(
     else:
       (multipledBuilderValue div 100) >= engineValue
 
-func builderBetterBid(
+func builderBetterBid*(
     boostFactor: BoostFactor, builderValue: UInt256, engineValue: Wei
 ): bool =
   case boostFactor.kind
@@ -267,7 +267,7 @@ proc makeEngineBlock*(
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
-    p2pBid: Opt[gloas.SignedExecutionPayloadBid] = Opt.none(
+    builderBid: Opt[gloas.SignedExecutionPayloadBid] = Opt.none(
         gloas.SignedExecutionPayloadBid),
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
@@ -285,8 +285,8 @@ proc makeEngineBlock*(
           state.latest_block_root, slot,
           static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       elif consensusFork == ConsensusFork.Gloas:
-        if p2pBid.isSome:
-          p2pBid.get()
+        if builderBid.isSome:
+          builderBid.get()
         else:
           makeSignedExecutionPayloadBid(
             gloas.SignedExecutionPayloadBid,
