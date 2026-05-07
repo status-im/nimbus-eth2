@@ -385,14 +385,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
           res
@@ -546,7 +546,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     let
       custodyColumns = supernodeColumns()
       peerCustodyColumns1 =
-        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+        [15, 20, 33, 41, 42, 97, 100, 126].mapIt(ColumnIndex(it))
 
     var bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
     let
@@ -555,14 +555,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
@@ -573,18 +573,15 @@ suite "ColumnQuarantine data structure test suite " & preset():
       missing: DataColumnsByRootIdentifier
     ): bool =
       const ExpectedVectors = [
-        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
-        (@[63, 64, 65, 66, 95, 96, 97], 58 .. 58),
-        (@[63, 64, 65, 66, 95, 96], 59 .. 59),
-        (@[63, 64, 65, 66, 95], 60 .. 60),
-        (@[63, 64, 65, 66], 61 .. 61),
-        (@[63, 64, 65], 62 .. 62),
-        (@[63, 64], 63 .. 63),
-        (@[64], 64 .. 64),
-        (@[], 65 .. 65)
+        (@[15, 20, 33, 41, 42, 97, 100, 126], 0 .. 15),
+        (@[20, 33, 41, 42, 97, 100, 126], 16 .. 20),
+        (@[33, 41, 42, 97, 100, 126], 21 .. 33),
+        (@[41, 42, 97, 100, 126], 34 .. 41),
+        (@[42, 97, 100, 126], 42 .. 42),
+        (@[97, 100, 126], 43 .. 63)
       ]
 
-      doAssert(index in 0 .. 65)
+      doAssert(index in 0 .. 63)
       for expect in ExpectedVectors:
         if index in expect[1]:
           if len(expect[0]) != len(missing.indices):
@@ -597,7 +594,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           return true
       false
 
-    for i in 0 ..< len(sidecars1) + 1:
+    for i in 0 ..< len(sidecars1) div 2:
       let
         missing1 = bq.fetchMissingSidecars(broot1)
         missing2 = bq.fetchMissingSidecars(broot2)
@@ -610,12 +607,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         compareSidecars(
           broot2,
           sidecars2.toOpenArray(i, len(sidecars2) - 1), missing2) == true
-        checkSupernodeExpected(
-          broot1,
-          i, missing3) == true
-
-      if i >= len(sidecars1):
-        break
+        checkSupernodeExpected(broot1, i, missing3) == true
 
       bq.put(broot1, sidecars1[i])
       bq.put(broot2, sidecars2[i])
@@ -1506,10 +1498,15 @@ suite "ColumnQuarantine data structure test suite " & preset():
         block2 = genFuluSignedBeaconBlock(
           sidecars[0 + len(custodyColumns)].blockRoot, commitments)
 
-      # Both blocks should be incomplete.
-      check:
-        bq.hasSidecars(block1) == false
-        bq.hasSidecars(block2) == false
+      case cvec[0]:
+      of "node":
+        check:
+          bq.hasSidecars(block1) == false
+          bq.hasSidecars(block2) == false
+      of "supernode":
+        check:
+          bq.hasSidecars(block1) == true
+          bq.hasSidecars(block2) == true
 
       case cvec[0]
       of "node":
@@ -1567,7 +1564,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = 0
-              finish = len(custodyColumns) div 2 + 1
+              finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -1584,7 +1581,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = len(custodyColumns)
-              finish = start + len(custodyColumns) div 2 + 1
+              finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -2083,14 +2080,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
@@ -2244,7 +2241,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     let
       custodyColumns = supernodeColumns()
       peerCustodyColumns1 =
-        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+        [15, 20, 33, 41, 42, 97, 100, 126].mapIt(ColumnIndex(it))
 
     var bq = GloasColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
     let
@@ -2253,14 +2250,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2)))
           res
@@ -2271,18 +2268,15 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       missing: DataColumnsByRootIdentifier
     ): bool =
       const ExpectedVectors = [
-        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
-        (@[63, 64, 65, 66, 95, 96, 97], 58 .. 58),
-        (@[63, 64, 65, 66, 95, 96], 59 .. 59),
-        (@[63, 64, 65, 66, 95], 60 .. 60),
-        (@[63, 64, 65, 66], 61 .. 61),
-        (@[63, 64, 65], 62 .. 62),
-        (@[63, 64], 63 .. 63),
-        (@[64], 64 .. 64),
-        (@[], 65 .. 65)
+        (@[15, 20, 33, 41, 42, 97, 100, 126], 0 .. 15),
+        (@[20, 33, 41, 42, 97, 100, 126], 16 .. 20),
+        (@[33, 41, 42, 97, 100, 126], 21 .. 33),
+        (@[41, 42, 97, 100, 126], 34 .. 41),
+        (@[42, 97, 100, 126], 42 .. 42),
+        (@[97, 100, 126], 43 .. 63)
       ]
 
-      doAssert(index in 0 .. 65)
+      doAssert(index in 0 .. 63)
       for expect in ExpectedVectors:
         if index in expect[1]:
           if len(expect[0]) != len(missing.indices):
@@ -2295,7 +2289,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           return true
       false
 
-    for i in 0 ..< len(sidecars1) + 1:
+    for i in 0 ..< len(sidecars1) div 2:
       let
         missing1 = bq.fetchMissingSidecars(broot1)
         missing2 = bq.fetchMissingSidecars(broot2)
@@ -2311,9 +2305,6 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         checkSupernodeExpected(
           broot1,
           i, missing3) == true
-
-      if i >= len(sidecars1):
-        break
 
       bq.put(broot1, sidecars1[i])
       bq.put(broot2, sidecars2[i])
@@ -3165,10 +3156,16 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         envl2 = genGloasSignedExecutionPayloadEnvelope(
           sidecars[0 + len(custodyColumns)].blockRoot, commitments)
 
-      # Both blocks should be incomplete.
-      check:
-        bq.hasSidecars(envl1) == false
-        bq.hasSidecars(envl2) == false
+
+      case cvec[0]
+      of "node":
+        check:
+          bq.hasSidecars(envl1) == false
+          bq.hasSidecars(envl2) == false
+      of "supernode":
+        check:
+          bq.hasSidecars(envl1) == true
+          bq.hasSidecars(envl2) == true
 
       case cvec[0]
       of "node":
@@ -3226,7 +3223,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = 0
-              finish = len(custodyColumns) div 2 + 1
+              finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -3243,7 +3240,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = len(custodyColumns)
-              finish = start + len(custodyColumns) div 2 + 1
+              finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"

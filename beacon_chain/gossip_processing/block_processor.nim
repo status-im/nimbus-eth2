@@ -9,7 +9,8 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, column_map,
+           peerdas_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
