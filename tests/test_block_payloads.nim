@@ -114,3 +114,35 @@ suite "Beacon validators test suite":
         builderValue = strictParse(vector[0], UInt256, 16).get()
         engineValue = Wei(strictParse(vector[1], UInt256, 16).get())
       check builderBetterBid(vector[2], builderValue, engineValue) == vector[3]
+
+  test "builderBetterBid(localBlockValueBoost) with Gwei-to-Wei conversion":
+    # Simulates P2P bid selection: bid value is in Gwei, engine value in Wei
+    const GweiToWei = 1_000_000_000.u256
+
+    # builder bid of 1 Gwei vs engine value of 0 Wei, bid wins (default 10% boost)
+    check builderBetterBid(
+      10'u8, 1'u64.u256 * GweiToWei, Wei(0.u256)) == true
+
+    # builder bid of 100 Gwei vs engine value of 100 Gwei in Wei, bid loses (110 > 100)
+    check builderBetterBid(
+      10'u8, 100'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+
+    # builder bid of 111 Gwei vs engine value of 100 Gwei, bid wins (111 > 110)
+    check builderBetterBid(
+      10'u8, 111'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == true
+
+    # builder bid of 109 Gwei vs engine value of 100 Gwei, bid loses (109 < 110)
+    check builderBetterBid(
+      10'u8, 109'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+
+    # Zero boost, bid should exceed engine value
+    check builderBetterBid(
+      0'u8, 100'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+    check builderBetterBid(
+      0'u8, 101'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == true
+
+    # Max boost (255%), bid needs to be very high
+    check builderBetterBid(
+      255'u8, 100'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+    check builderBetterBid(
+      255'u8, 356'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == true
