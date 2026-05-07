@@ -10,14 +10,14 @@
 import
   std/[lists, sets, tables],
   results, metrics,
-  ../spec/[presets, column_map],
+  ../spec/[presets, column_map, block_id],
   ../spec/datatypes/[fulu, gloas],
   ../beacon_chain_db_quarantine
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import join
 
-export results
+export results, lists
 
 declareGauge blob_quarantine_memory_slots_total,
   "Total count of available memory slots inside blob quarantine"
@@ -916,3 +916,40 @@ proc update*(
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   let custodyMap = ColumnMap.init(custodyColumns)
   quarantine.update(cfg, custodyMap)
+
+func shortLog[A](car: SidecarHolder[A]): string =
+  case car.kind
+  of SidecarHolderKind.Empty:
+    ""
+  of SidecarHolderKind.Unloaded:
+    $car.index & "D"
+  of SidecarHolderKind.Loaded:
+    $car.index & "M"
+
+func shortLog[A](rec: RootTableRecord[A]): string =
+  "{\"bid\":\"" &
+    shortLog(BlockId(root: rec.blockRoot, slot: rec.slot)) & "\"," &
+    "\"unloaded\":" & $rec.unloaded & "," &
+    "\"count\":" & $rec.count & "," &
+    "\"sidecars\":[" &
+    rec.sidecars.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
+
+func debugJsonDump*[A, B](q: SidecarQuarantine[A, B]): string =
+  var records: seq[string]
+  for item in q.list.items():
+    records.add(shortLog(item))
+  "{\"min_epochs_for_sidecars_requests\":\"" &
+    $q.minEpochsForSidecarsRequests &
+  "\",\"max_mem_sidecars_count\":\"" &
+    $q.maxMemSidecarsCount &
+  "\",\"mem_sidecars_count\":\"" &
+    $q.memSidecarsCount &
+  "\",\"max_disk_sidecars_count\":\"" &
+    $q.maxDiskSidecarsCount &
+  "\",\"disk_sidecars_count\":\"" &
+    $q.diskSidecarsCount &
+  "\",\"max_sidecars_per_block_count\":\"" &
+    $q.maxSidecarsPerBlockCount &
+  "\",\"custody_map\":" & shortLog(q.custodyMap) &
+  ",\"index_map\":[" & q.indexMap.mapIt($it).join(",") &
+  "],\"records\":[" & records.join(",") & "]}"

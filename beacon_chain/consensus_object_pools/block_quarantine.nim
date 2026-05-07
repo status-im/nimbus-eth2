@@ -17,6 +17,9 @@ import
 
 export tables, minilru, forks, quarantine_types
 
+from std/sequtils import mapIt
+from std/strutils import join
+
 const
   MaxOrphans = int(SLOTS_PER_EPOCH * 3)
     ## Enough for finalization in an alternative fork
@@ -439,3 +442,90 @@ func peekSidecarless*(
 iterator peekSidecarless*(quarantine: Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.sidecarless.pairs():
     yield v
+
+func debugSidecarlessJsonDump*(q: var Quarantine): string =
+  var
+    res: seq[BlockId]
+    minBlockSlot = FAR_FUTURE_SLOT
+    maxBlockSlot = GENESIS_SLOT
+
+  for k, v in q.sidecarless.mpairs():
+    let
+      slot = v.slot()
+      bid = BlockId(root: k, slot: slot)
+    if slot < minBlockSlot:
+      minBlockSlot = slot
+    if slot > maxBlockSlot:
+      maxBlockSlot = slot
+    res.add(bid)
+
+  let
+    sminBlockSlot =
+      if len(q.sidecarless) == 0:
+        "not available"
+      else:
+        $minBlockSlot
+    smaxBlockSlot =
+      if len(q.sidecarless) == 0:
+        "not available"
+      else:
+        $maxBlockSlot
+
+  "{\"count\":" & $len(q.sidecarless) &
+    ",\"max_sidecarless_items\":" & $MaxSidecarless &
+    ",\"min_block_slot\":\"" & sminBlockSlot & "\"" &
+    ",\"max_block_slot\":\"" & smaxBlockSlot & "\"" &
+    ",\"items\":[" &
+    res.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
+
+func debugOrphansJsonDump*(q: var Quarantine): string =
+  var
+    res: seq[BlockId]
+    minBlockSlot = FAR_FUTURE_SLOT
+    maxBlockSlot = GENESIS_SLOT
+
+  for k, v in q.orphans.mpairs():
+    let
+      slot = v.slot()
+      bid = BlockId(root: k[0], slot: slot)
+    if slot < minBlockSlot:
+      minBlockSlot = slot
+    if slot > maxBlockSlot:
+      maxBlockSlot = slot
+    res.add(bid)
+
+  let
+    sminBlockSlot =
+      if len(q.orphans) == 0:
+        "not available"
+      else:
+        $minBlockSlot
+    smaxBlockSlot =
+      if len(q.orphans) == 0:
+        "not available"
+      else:
+        $maxBlockSlot
+
+  "{\"count\":" & $len(q.orphans) &
+    ",\"max_orphans_items\":" & $MaxOrphans &
+    ",\"min_block_slot\":\"" & sminBlockSlot & "\"" &
+    ",\"max_block_slot\":\"" & smaxBlockSlot & "\"" &
+    ",\"items\":[" &
+    res.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
+
+func debugMissingJsonDump*(q: var Quarantine): string =
+  var res: seq[Eth2Digest]
+  for k, v in q.missing.mpairs():
+    res.add(k)
+  "{\"count\":" & $len(q.missing) &
+    ",\"max_missing_items\":" & $MaxMissingItems &
+    ",\"items\":[" &
+    res.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
+
+func debugUnviablesJsonDump*(q: var Quarantine): string =
+  var res: seq[string]
+  for k, v in q.unviable.mpairs():
+    res.add("\"" & shortLog(k) & ":\"" &  $v & "\"")
+  "{\"count\":" & $len(q.unviable) &
+    ",\"max_unviables_items\":" & $MaxUnviables &
+    ",\"items\":{" & res.join(",") & "}}"

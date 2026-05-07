@@ -19,7 +19,8 @@ import
   ../el/el_manager,
   ../spec/[forks, beacon_time, peerdas_helpers, column_map],
   ../sync/validator_custody,
-  ../beacon_node, ../nimbus_binary_common
+  ../beacon_node, ../nimbus_binary_common,
+  ../consensus_object_pools/column_quarantine
 
 export rest_utils
 
@@ -680,4 +681,40 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       slot = node.currentSlot()
       res =
         "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/sidecarless") do (
+    ) -> RestApiResponse:
+    let res =
+      "{\"data\":" & node.quarantine[].debugSidecarlessJsonDump() & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/missing") do (
+    ) -> RestApiResponse:
+    let res =
+      "{\"data\":" & node.quarantine[].debugMissingJsonDump() & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/orphans") do (
+    ) -> RestApiResponse:
+    let res =
+      "{\"data\":" & node.quarantine[].debugOrphansJsonDump() & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/unviables") do (
+    ) -> RestApiResponse:
+    let res =
+      "{\"data\":" & node.quarantine[].debugUnviablesJsonDump() & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/fulu_column_quarantine") do (
+    ) -> RestApiResponse:
+    let res =
+      "{\"data\":" & node.dataColumnQuarantine[].debugJsonDump() & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")
+
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/sync_dag") do (
+    ) -> RestApiResponse:
+    let res =
+      "{\"data\":" & node.syncOverseer.sdag.debugJsonDump() & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
