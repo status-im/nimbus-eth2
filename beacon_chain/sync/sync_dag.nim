@@ -6,10 +6,12 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 {.push raises: [].}
 
-import std/[sets, tables, strutils, hashes]
+import std/[sets, tables, strutils, hashes, algorithm]
 import stew/base10, chronos, chronicles, results
 import ../spec/[forks, block_id, column_map]
 import ./sync_queue
+
+from std/sequtils import mapIt
 
 type
   DagEntryFlag* {.pure.} = enum
@@ -39,6 +41,28 @@ type
 
 const
   EmptyBlockId* = BlockId(slot: FAR_FUTURE_SLOT)
+
+func shortLog*(s: SyncDagEntryRef): string =
+  if isNil(s):
+    return "not available"
+  shortLog(s.blockId)
+
+func fullLog*(s: set[DagEntryFlag]): string =
+  var res: seq[string]
+  if DagEntryFlag.Local in s: res.add("local")
+  if DagEntryFlag.Pending in s: res.add("pending")
+  if DagEntryFlag.Unviable in s: res.add("unviable")
+  if DagEntryFlag.Finalized in s: res.add("finalized")
+  if DagEntryFlag.MissingSidecars in s: res.add("missing_sidecars")
+  "[" & res.join(",") & "]"
+
+func fullLog*(s: set[DagBlockSourceType]): string =
+  var res: seq[string]
+  if DagBlockSourceType.Orphan in s: res.add("orphan")
+  if DagBlockSourceType.Unviable in s: res.add("unviable")
+  if DagBlockSourceType.Dag in s: res.add("dag")
+  if DagBlockSourceType.Sidecarless in s: res.add("sidecarless")
+  "[" & res.join(",") & "]"
 
 proc hash*(entry: SyncDagEntryRef): Hash =
   hash(cast[pointer](entry))
@@ -307,3 +331,19 @@ proc init*(
     B: typedesc
 ): SyncDag[A, B] =
   SyncDag[A, B]()
+
+proc debugJsonDump*(sdag: SyncDag): string =
+  var res: seq[tuple[bid: BlockId, item: string]]
+
+  proc cmp(a, b: tuple[bid: BlockId, item: string]): int =
+    cmp(uint64(a.bid.slot), uint64(b.bid.slot))
+
+  for item in sdag.roots.values():
+    let
+      data = "{" & "\"bid\":\"" & shortLog(item.blockId) & "\"," &
+        "\"flags\":\"" & fullLog(item.flags) & "\"," &
+        "\"source\":\"" & fullLog(item.source) & "\"," &
+        "\"parent_bid\":\"" & shortLog(item.parent) & "\"}"
+    res.add((item.blockId, data))
+  res.sort(cmp)
+  "[" & res.mapIt(it.item).join(",") & "]"
