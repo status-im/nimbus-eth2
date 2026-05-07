@@ -545,13 +545,6 @@ proc addHeadExecutionPayload*(
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
 
-  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
-  # execution_payload: The node has received a `SignedExecutionPayloadEnvelope`
-  # (from P2P or API) that is successfully imported on the fork-choice
-  # `on_execution_payload_envelope` handler
-  if not isNil(dag.onEnvelopeAdded):
-    dag.onEnvelopeAdded(signedEnvelope)
-
   ok(blck)
 
 proc addBackfillExecutionPayload*(

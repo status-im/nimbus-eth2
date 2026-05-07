@@ -917,13 +917,6 @@ proc storePayload(
           chronos.nanoseconds((slotTime - wallTime).nanoseconds)
     deadline = sleepAsync(deadlineTime)
 
-  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
-  # execution_payload_available: The node has verified that the execution
-  # payload and blobs for a block are available and ready for payload
-  # attestation
-  if not isNil(dag.onEnvelopeAvailable):
-    dag.onEnvelopeAvailable(signedEnvelope)
-
   let
     optimisticStatusRes =
       block:
@@ -946,6 +939,13 @@ proc storePayload(
   debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload_available: The node has verified that the execution
+  # payload and blobs for a block are available and ready for payload
+  # attestation
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
+
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
   let previousExecutionValid = dag.head.executionValid
@@ -964,6 +964,13 @@ proc storePayload(
     head = shortLog(dag.head),
     blck = shortLog(blck),
     slot = signedBlock.message.slot
+
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload: The node has received a `SignedExecutionPayloadEnvelope`
+  # (from P2P or API) that is successfully imported on the fork-choice
+  # `on_execution_payload_envelope` handler
+  if not isNil(dag.onEnvelopeAdded):
+    dag.onEnvelopeAdded(signedEnvelope)
 
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
