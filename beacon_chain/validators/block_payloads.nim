@@ -380,10 +380,11 @@ proc getExecutionPayload*(
         # - If `should_extend_payload(store, parent_root)`:
         #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
         # - else `withdrawals = state.payload_expected_withdrawals`.
-        if forkyState.data.latest_execution_payload_bid.block_hash.isZero():
-          forkyState.data.payload_expected_withdrawals.asSeq()
-        else:
+        if forkyState.data.latest_block_hash ==
+            forkyState.data.latest_execution_payload_bid.block_hash:
           get_expected_withdrawals(forkyState.data).withdrawals
+        else:
+          forkyState.data.payload_expected_withdrawals.asSeq()
       elif consensusFork >= ConsensusFork.Capella:
         get_expected_withdrawals(forkyState.data)
       else:
