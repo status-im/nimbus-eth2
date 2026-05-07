@@ -486,7 +486,13 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           BUILDER_PENDING_WITHDRAWALS_LIMIT:
             Base10.toString(uint64(BUILDER_PENDING_WITHDRAWALS_LIMIT)),
           MAX_BUILDERS_PER_WITHDRAWALS_SWEEP:
-            Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP))
+            Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP)),
+          CHURN_LIMIT_QUOTIENT_GLOAS:
+            Base10.toString(cfg.CHURN_LIMIT_QUOTIENT_GLOAS),
+          CONSOLIDATION_CHURN_LIMIT_QUOTIENT:
+            Base10.toString(cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT),
+          MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS:
+            Base10.toString(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS)
         )
       )
     cachedDepositContract =

@@ -159,11 +159,17 @@ template epochProcessingSuite(consensusFork: static ConsensusFork): untyped =
       process_proposer_lookahead(state, cache)
 
   when consensusFork >= ConsensusFork.Gloas:
-    const BuilderPendingPaymentsDir = RootDir/"builder_pending_payments"
+    const
+      BuilderPendingPaymentsDir = RootDir/"builder_pending_payments"
+      PendingDepositsChurnDir   = RootDir/"pending_deposits_churn"
 
     runSuite(consensusFork, BuilderPendingPaymentsDir,
         "Builder pending payments"):
       process_builder_pending_payments(cfg, state, cache)
+
+    runSuite(consensusFork, PendingDepositsChurnDir,
+        "Pending deposits churn"):
+      process_pending_deposits(cfg, state, cache)
 
   when consensusFork == ConsensusFork.Gloas:
     const PtcWindowDir = RootDir/"ptc_window"
@@ -193,6 +199,7 @@ template epochProcessingSuite(consensusFork: static ConsensusFork): untyped =
       s.add(ProposerLookaheadDir)
     when consensusFork >= ConsensusFork.Gloas:
       s.add(BuilderPendingPaymentsDir)
+      s.add(PendingDepositsChurnDir)
     when consensusFork == ConsensusFork.Gloas:
       s.add(PtcWindowDir)
     s

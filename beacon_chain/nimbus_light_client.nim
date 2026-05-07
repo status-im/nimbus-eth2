@@ -9,19 +9,25 @@
 
 import
   std/os,
-  chronicles, chronos, stew/io2,
+  chronicles, chronos, metrics, stew/io2,
   eth/db/kvstore_sqlite3,
   ./el/el_manager,
   ./gossip_processing/block_processor_light_client,
   ./networking/[topic_params, network_metadata_downloads],
   ./spec/beaconstate,
-  ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
+  ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb, gloas],
   ./[
     beacon_clock, buildinfo, filepath, light_client, light_client_db,
     nimbus_binary_common, process_state, version]
 
+from ./consensus_object_pools/blockchain_dag import
+  updateFinalizedBlockMetrics, updateHeadBlockMetrics
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
+
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
+declareGauge beacon_slot, "Latest slot of the beacon chain state"
+declareGauge beacon_current_epoch, "Current epoch"
 
 # noinline to keep it in stack traces
 proc main() {.noinline, raises: [CatchableError].} =
@@ -94,20 +100,33 @@ proc main() {.noinline, raises: [CatchableError].} =
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        debugGloasComment ""
-        when consensusFork >= ConsensusFork.Bellatrix and
-             consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
+        when consensusFork in ConsensusFork.Bellatrix ..< ConsensusFork.Gloas:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if elManager != nil and not payload.block_hash.isZero:
               discard await elManager.newExecutionPayload(forkyBlck.message)
-        else: discard
+
+    lightEnvelopeHandler = proc(
+        signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    ): Future[void] {.async: (raises: [CancelledError]).} =
+      if elManager != nil and
+          not signedEnvelope.message.payload.block_hash.isZero:
+        discard await elManager.newExecutionPayload(signedEnvelope.message)
+
     lightBlockProcessor = initLightBlockProcessor(
-      cfg.timeParams, getBeaconTime, lightBlockHandler)
+      cfg.timeParams, getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
 
     lightClient = createLightClient(
       network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Optimistic)
+
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
+
+  let metricsServer = waitFor(config.initMetricsServer()).valueOr:
+    quit QuitFailure
+  defer: waitFor metricsServer.stopMetricsServer()
 
   # Run `exchangeTransitionConfiguration` loop
   if elManager != nil:
@@ -121,16 +140,22 @@ proc main() {.noinline, raises: [CatchableError].} =
   for consensusFork in ConsensusFork:
     for forkDigest in consensusFork.forkDigests(forkDigests[]):
       withConsensusFork(consensusFork):
+        network.addValidator(
+          getBeaconBlocksTopic(forkDigest), proc (
+              signedBlock: consensusFork.SignedBeaconBlock,
+              src: PeerId
+          ): ValidationResult =
+            toValidationResult(
+              lightBlockProcessor.processSignedBeaconBlock(signedBlock)))
+
         when consensusFork >= ConsensusFork.Gloas:
-          debugGloasComment "consensusFork.SignedBeaconBlock support missing"
-        else:
           network.addValidator(
-            getBeaconBlocksTopic(forkDigest), proc (
-                signedBlock: consensusFork.SignedBeaconBlock,
-                src: PeerId
-            ): ValidationResult =
+            getExecutionPayloadTopic(forkDigest), proc (
+                signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+                src: PeerId): ValidationResult =
               toValidationResult(
-                lightBlockProcessor.processSignedBeaconBlock(signedBlock)))
+                lightBlockProcessor.processExecutionPayloadEnvelope(
+                  signedEnvelope)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()
@@ -146,6 +171,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       when lcDataFork > LightClientDataFork.None:
         info "New LC finalized header",
           finalized_header = shortLog(forkyHeader)
+        updateFinalizedBlockMetrics(forkyHeader.beacon.toBlockId())
         let
           period = forkyHeader.beacon.slot.sync_committee_period
           syncCommittee = lightClient.finalizedSyncCommittee.expect("Init OK")
@@ -160,6 +186,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       return
     withForkyHeader(optimisticHeader):
       when lcDataFork > LightClientDataFork.None:
+        updateHeadBlockMetrics(forkyHeader.beacon.toBlockId())
         logScope: optimistic_header = shortLog(forkyHeader)
         when lcDataFork >= LightClientDataFork.Capella:
           let
@@ -242,38 +269,52 @@ proc main() {.noinline, raises: [CatchableError].} =
 
     isSynced(wallSlot)
 
-  var blocksGossipState: GossipState
-  proc updateBlocksGossipStatus(slot: Slot) =
+  template updateNewPayloadGossipStatus(
+      currentGossipState: var GossipState,
+      name: static string,
+      getTopic: proc (forkDigest: ForkDigest): string {.noSideEffect.},
+      topicParams: TopicParams,
+      enableTopicMetrics = false): untyped =
     let
       isBehind = not shouldSyncViaLightClient(slot)
       targetGossipState = getTargetGossipState(slot.epoch, cfg, isBehind)
-
-    template currentGossipState(): auto = blocksGossipState
     if currentGossipState == targetGossipState:
       return
 
-    if currentGossipState.len == 0 and targetGossipState.len > 0:
-      debug "Enabling blocks topic subscriptions",
+    if currentGossipState.card == 0 and targetGossipState.card > 0:
+      debug "Enabling " & name & " topic subscriptions",
         wallSlot = slot, targetGossipState
-    elif currentGossipState.len > 0 and targetGossipState.len == 0:
-      debug "Disabling blocks topic subscriptions",
+    elif currentGossipState.card > 0 and targetGossipState.card == 0:
+      debug "Disabling " & name & " topic subscriptions",
         wallSlot = slot
     else:
       # Individual forks added / removed
       discard
 
-    for gossipEpoch in currentGossipState - targetGossipState:
-      let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
-      network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+    let
+      newGossipEpochs = targetGossipState - currentGossipState
+      oldGossipEpochs = currentGossipState - targetGossipState
 
-    for gossipEpoch in targetGossipState - currentGossipState:
+    for gossipEpoch in oldGossipEpochs:
       let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
-      network.subscribe(
-        getBeaconBlocksTopic(forkDigest),
-        getBlockTopicParams(cfg.timeParams),
-        enableTopicMetrics = true)
+      network.unsubscribe(getTopic(forkDigest))
 
-    blocksGossipState = targetGossipState
+    for gossipEpoch in newGossipEpochs:
+      let forkDigest = forkDigests[].atEpoch(gossipEpoch, cfg)
+      network.subscribe(getTopic(forkDigest), topicParams, enableTopicMetrics)
+
+    currentGossipState = targetGossipState
+
+  var blocksGossipState: GossipState
+  proc updateBlocksGossipStatus(slot: Slot) =
+    blocksGossipState.updateNewPayloadGossipStatus(
+      "blocks", getBeaconBlocksTopic,
+      getBlockTopicParams(cfg.timeParams), enableTopicMetrics = true)
+
+  var envelopeGossipState: GossipState
+  proc updateEnvelopeGossipStatus(slot: Slot) =
+    envelopeGossipState.updateNewPayloadGossipStatus(
+      "envelope", getExecutionPayloadTopic, basicParams())
 
   proc onSlot(wallTime: BeaconTime, lastSlot: Slot) =
     let
@@ -312,6 +353,9 @@ proc main() {.noinline, raises: [CatchableError].} =
       finalized = shortLog(finalizedBid),
       delay = shortLog(delay)
 
+    beacon_slot.set wallSlot.toGaugeValue
+    beacon_current_epoch.set wallSlot.epoch.toGaugeValue
+
   proc runOnSlotLoop() {.async.} =
     var
       curSlot = beaconClock.currentSlot
@@ -333,11 +377,15 @@ proc main() {.noinline, raises: [CatchableError].} =
         nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
 
   proc onSecond(time: Moment) =
+    # Nim GC metrics (for the main thread)
+    updateThreadMetrics()
+
     let wallSlot = beaconClock.currentSlot
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)
 
     updateBlocksGossipStatus(wallSlot + 1)
+    updateEnvelopeGossipStatus(wallSlot + 1)
     lightClient.updateGossipStatus(wallSlot + 1)
 
   proc runOnSecondLoop() {.async.} =

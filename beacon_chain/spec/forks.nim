@@ -671,6 +671,14 @@ template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
   else:
     {.error: "ExecutionPayloadHeader unsupported in " & $kind.}
 
+template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Heze:
+    heze.SignedExecutionPayloadBid
+  elif kind >= ConsensusFork.Gloas:
+    gloas.SignedExecutionPayloadBid
+  else:
+    {.error: "SignedExecutionPayloadBid unsupported in " & $kind.}
+
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Heze:
     gloas.ExecutionPayloadForSigning
@@ -1686,8 +1694,10 @@ func nextForkDigestAtEpoch*(
 
 func lcDataForkAtConsensusFork*(
     consensusFork: ConsensusFork): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
-  if consensusFork >= ConsensusFork.Electra:
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
+  if consensusFork >= ConsensusFork.Gloas:
+    LightClientDataFork.Gloas
+  elif consensusFork >= ConsensusFork.Electra:
     LightClientDataFork.Electra
   elif consensusFork >= ConsensusFork.Deneb:
     LightClientDataFork.Deneb
@@ -1715,16 +1725,16 @@ static:
 
         when lcDataFork >= LightClientDataFork.Capella:
           when consensusFork >= ConsensusFork.Gloas:
-            check LATEST_BLOCK_HASH_GINDEX_GLOAS,
-              BeaconState, "latest_block_hash"
+            check EXECUTION_BLOCK_HASH_GINDEX_GLOAS, BeaconBlockBody,
+              "signed_execution_payload_bid", "message", "parent_block_hash"
           else:
             check EXECUTION_PAYLOAD_GINDEX,
               BeaconBlockBody, "execution_payload"
             const latest_block_hash_gindex =
               when consensusFork >= ConsensusFork.Deneb:
-                LATEST_BLOCK_HASH_GINDEX_DENEB
+                EXECUTION_BLOCK_HASH_GINDEX_DENEB
               else:
-                LATEST_BLOCK_HASH_GINDEX
+                EXECUTION_BLOCK_HASH_GINDEX
             check latest_block_hash_gindex,
               BeaconBlockBody, "execution_payload", "block_hash"
         else:

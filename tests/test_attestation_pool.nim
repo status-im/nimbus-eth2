@@ -766,7 +766,7 @@ suite "Attestation pool electra processing" & preset():
 
           # Create a bitfield filled with the given count per attestation,
           # exactly on the right-most part of the committee field.
-          var aggregation_bits = init(ElectraCommitteeValidatorsBits, committee.len)
+          var aggregation_bits = init(AggregationBits, committee.len)
           for v in 0 ..< committee.len * 2 div 3 + 1:
             aggregation_bits[v] = true
 

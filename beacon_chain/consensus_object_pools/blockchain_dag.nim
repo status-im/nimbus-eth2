@@ -978,6 +978,14 @@ proc updateBeaconMetrics(
         0'u64.toGaugeValue
     )
 
+proc updateHeadBlockMetrics*(headBlockId: BlockId) =
+  beacon_head_root.set(headBlockId.root.toGaugeValue)
+  beacon_head_slot.set(headBlockId.slot.toGaugeValue)
+
+proc updateFinalizedBlockMetrics*(finalizedBlockId: BlockId) =
+  beacon_finalized_epoch.set(finalizedBlockId.slot.epoch.toGaugeValue)
+  beacon_finalized_root.set(finalizedBlockId.root.toGaugeValue)
+
 proc updateSafeBlockMetrics*(safeBlockId: BlockId) =
   beacon_safe_root.set(safeBlockId.root.toGaugeValue)
   beacon_safe_slot.set(safeBlockId.slot.toGaugeValue)
@@ -1109,49 +1117,6 @@ proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, blck: BlockRef):
         cur = cur.parent
 
   (blck.executionBlockHash, blck.executionParentHash)
-
-proc isParentBlockFull(dag: ChainDAGRef, blck: BlockRef): bool =
-  ## Since Gloas, we want to skip applying envelope if the envelope of its
-  ## parent is orphaned. This is particularly useful for updateState() as
-  ## orphaned envelopes, even if they are valid, should not be applied to state
-  ## in order to transition to the correct position.
-  ##
-  ## There is a helper but it uses state which is not helpful for updateState().
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#new-is_parent_block_full
-  ##
-  ## It is more likely a port to the fork choice helper
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_parent_node_full
-  ##
-  ## Validating the consensus fork by slot (blck and blck.parent), and
-  ## blck.parent is not nil is responsibility of the call site as they cannot be
-  ## flagged by boolean and required different handling.
-
-  let
-    (_, blckParentHash) = dag.loadExecutionAndParentBlockHash(blck)
-    (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(blck.parent)
-
-  if blckParentHash.isNone() or parentBlockHash.isNone() or
-      blckParentHash.get().isZero():
-    false
-  else:
-    blckParentHash.get() == parentBlockHash.get()
-
-proc isParentBlockFull*(
-    dag: ChainDAGRef,
-    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    parent: BlockRef): bool =
-  ## A helper to check the parent payload status of a not validated Gloas block
-  ## when receiving block from gossip or api.
-
-  let (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(parent)
-
-  template bid(): auto = blck.message.body.signed_execution_payload_bid
-
-  if parentBlockHash.isNone() or
-      bid.message.parent_block_hash.isZero():
-    false
-  else:
-    bid.message.parent_block_hash == parentBlockHash.get()
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -2591,8 +2556,7 @@ proc updateHead*(
   # to use existing in-memory states to make this smooth
   var cache: StateCache
   if not updateState(
-      dag, dag.headState, newHead.bid.atSlot(), false, cache,
-      dag.updateFlags + {skipLastEnvelope}):
+      dag, dag.headState, newHead.bid.atSlot(), false, cache, dag.updateFlags):
     # Advancing the head state should never fail, given that the tail is
     # implicitly finalised, the head is an ancestor of the tail and we always
     # store the tail state in the database, as well as every epoch slot state in
