@@ -924,15 +924,18 @@ func shortLog[A](car: SidecarHolder[A]): string =
   of SidecarHolderKind.Unloaded:
     $car.index & "D"
   of SidecarHolderKind.Loaded:
-    $car.index & "M"
+    $car.index
 
 func shortLog[A](rec: RootTableRecord[A]): string =
+  var sidecars: seq[string]
+  for car in rec.sidecars:
+    if not(isEmpty(car)):
+      sidecars.add(shortLog(car))
   "{\"bid\":\"" &
     shortLog(BlockId(root: rec.blockRoot, slot: rec.slot)) & "\"," &
     "\"unloaded\":" & $rec.unloaded & "," &
     "\"count\":" & $rec.count & "," &
-    "\"sidecars\":[" &
-    rec.sidecars.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
+    "\"sidecars\":[" & sidecars.join(",") & "]}"
 
 func debugJsonDump*[A, B](q: SidecarQuarantine[A, B]): string =
   var records: seq[string]
@@ -950,6 +953,6 @@ func debugJsonDump*[A, B](q: SidecarQuarantine[A, B]): string =
     $q.diskSidecarsCount &
   "\",\"max_sidecars_per_block_count\":\"" &
     $q.maxSidecarsPerBlockCount &
-  "\",\"custody_map\":" & shortLog(q.custodyMap) &
+  "\",\"custody_map\":" & $q.custodyMap &
   ",\"index_map\":[" & q.indexMap.mapIt($it).join(",") &
   "],\"records\":[" & records.join(",") & "]}"
