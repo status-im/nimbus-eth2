@@ -413,9 +413,28 @@ proc proposeBlockAux(
           consensusFork, head, state, validator_index, validator.pubkey
         )
       elif consensusFork == ConsensusFork.Gloas:
+        debugGloasComment("WIP: so assume `should_extend_payload == true` here")
+        # We need a cloned state here, or otherwise the proposed block would get
+        # an incorrect state_root.
+        let builderState = assignClone(state[])
+        let parentBlck = node.dag.getBlock(
+            head.bid,
+            consensusFork.TrustedSignedBeaconBlock).valueOr:
+          debug "Proposal failed to get parent block", slot, head = shortLog(head)
+          return head
+        apply_parent_execution_payload(
+          node.dag.cfg,
+          builderState[].forky(consensusFork).data,
+          parentBlck.message.body.parent_execution_requests,
+          cache[],
+        ).isOkOr:
+          debug "Proposal failed to apply parent payload",
+            slot, head = shortlog(head)
+          return head
+
         # Fetch only engine payload for now
         await node.getExecutionPayload(
-          consensusFork, head, state, validator_index, validator.pubkey
+          consensusFork, head, builderState, validator_index, validator.pubkey
         )
       elif consensusFork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
