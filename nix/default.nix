@@ -38,7 +38,6 @@ in stdenv.mkDerivation rec {
     ];
   };
 
-
   nativeBuildInputs = let
     fakeGit = writeScriptBin "git" "echo ${version}";
   in

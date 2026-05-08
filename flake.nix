@@ -56,5 +56,18 @@
       devShells = forAllSystems (system: {
         default = pkgsFor.${system}.callPackage ./nix/shell.nix { };
       });
+
+      nixosModules = rec {
+        beacon-node = import ./nix/services/beacon-node.nix { inherit (self) packages; };
+        validator-client = import ./nix/services/validator-client.nix { inherit (self) packages; };
+        default = { imports = [ beacon-node validator-client ]; };
+      };
+
+      checks = forAllSystems (system: let
+        inherit (nixpkgs.legacyPackages.${system}) callPackage;
+      in {
+        beacon-node = callPackage ./nix/services/checks/beacon-node.nix { inherit self; };
+        validator-client = callPackage ./nix/services/checks/validator-client.nix { inherit self; };
+      });
     };
 }

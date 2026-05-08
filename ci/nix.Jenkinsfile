@@ -55,6 +55,12 @@ pipeline {
         sh 'result/bin/nimbus_beacon_node --version'
       } }
     }
+
+    stage('Service check') {
+      steps { script {
+        sh 'nix run ".#checks.x86_64-linux.beacon-node.driver"'
+      } }
+    }
   }
 
   post {
