@@ -683,38 +683,24 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
 
-  router.api2(MethodGet, "/nimbus/v1/debug/struct/sidecarless") do (
-    ) -> RestApiResponse:
+  router.api2(MethodGet, "/nimbus/v1/debug/struct/{structure}") do (
+    structure: string) -> RestApiResponse:
     let res =
-      "{\"data\":" & node.quarantine[].debugSidecarlessJsonDump() & "}\n"
-    RestApiResponse.response(res, Http200, "application/json")
+      case toLowerAscii(structure.get())
+      of "sidecarless":
+        node.quarantine[].debugSidecarlessJsonDump()
+      of "missing":
+        node.quarantine[].debugMissingJsonDump()
+      of "orphans":
+        node.quarantine[].debugOrphansJsonDump()
+      of "unviables":
+        node.quarantine[].debugUnviablesJsonDump()
+      of "fulu_column_quarantine":
+        node.dataColumnQuarantine[].debugJsonDump()
+      of "sync_dag":
+        node.syncOverseer.sdag.debugJsonDump()
+      else:
+        return RestApiResponse.response("Page not found", Http404, "text/plain")
 
-  router.api2(MethodGet, "/nimbus/v1/debug/struct/missing") do (
-    ) -> RestApiResponse:
-    let res =
-      "{\"data\":" & node.quarantine[].debugMissingJsonDump() & "}\n"
-    RestApiResponse.response(res, Http200, "application/json")
-
-  router.api2(MethodGet, "/nimbus/v1/debug/struct/orphans") do (
-    ) -> RestApiResponse:
-    let res =
-      "{\"data\":" & node.quarantine[].debugOrphansJsonDump() & "}\n"
-    RestApiResponse.response(res, Http200, "application/json")
-
-  router.api2(MethodGet, "/nimbus/v1/debug/struct/unviables") do (
-    ) -> RestApiResponse:
-    let res =
-      "{\"data\":" & node.quarantine[].debugUnviablesJsonDump() & "}\n"
-    RestApiResponse.response(res, Http200, "application/json")
-
-  router.api2(MethodGet, "/nimbus/v1/debug/struct/fulu_column_quarantine") do (
-    ) -> RestApiResponse:
-    let res =
-      "{\"data\":" & node.dataColumnQuarantine[].debugJsonDump() & "}\n"
-    RestApiResponse.response(res, Http200, "application/json")
-
-  router.api2(MethodGet, "/nimbus/v1/debug/struct/sync_dag") do (
-    ) -> RestApiResponse:
-    let res =
-      "{\"data\":" & node.syncOverseer.sdag.debugJsonDump() & "}\n"
-    RestApiResponse.response(res, Http200, "application/json")
+    RestApiResponse.response(
+      "{\"data\":" & res & "}\n", Http200, "application/json")
