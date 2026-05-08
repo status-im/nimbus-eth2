@@ -202,7 +202,7 @@ suite baseDescription & "Deposit Request " & preset():
       applyDepositRequest, path)
 
 suite baseDescription & "Parent Execution Payload " & preset():
-  proc applyParentExecutionPayload(
+  proc applyParentExecPayload(
       preState: var gloas.BeaconState,
       blck: gloas.BeaconBlock): Result[void, cstring] =
     var cache: StateCache
@@ -210,9 +210,9 @@ suite baseDescription & "Parent Execution Payload " & preset():
       defaultRuntimeConfig, preState, blck, cache)
 
   for path in walkTests(OpParentExecutionPayloadDir):
-    runTest[gloas.BeaconBlock, typeof applyParentExecutionPayload](
+    runTest[gloas.BeaconBlock, typeof applyParentExecPayload](
       OpParentExecutionPayloadDir, suiteName, "Parent Execution Payload",
-      "block", applyParentExecutionPayload, path)
+      "block", applyParentExecPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(
