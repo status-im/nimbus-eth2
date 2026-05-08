@@ -474,7 +474,7 @@ template validateBeaconBlockGloas(
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
   else:
-    # We don't have a reliable source of truth of the execution validity for
+    # We don't have a reliable source of truth of execution validity for
     # pre-Gloas blocks. Probably we could check with EL.
     #
     # TODO: execution validity of blocks
