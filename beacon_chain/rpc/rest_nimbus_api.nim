@@ -675,14 +675,6 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let res = "{\"data\":" & node.syncOverseer.debugRootSyncJsonDump() & "}\n"
     RestApiResponse.response(res, Http200, "application/json")
 
-  router.api2(MethodGet, "/nimbus/v1/debug/custody") do (
-    ) -> RestApiResponse:
-    let
-      slot = node.currentSlot()
-      res =
-        "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
-    RestApiResponse.response(res, Http200, "application/json")
-
   router.api2(MethodGet, "/nimbus/v1/debug/struct/{structure}") do (
     structure: string) -> RestApiResponse:
     let res =
@@ -701,6 +693,5 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.syncOverseer.sdag.debugJsonDump()
       else:
         return RestApiResponse.response("Page not found", Http404, "text/plain")
-
     RestApiResponse.response(
       "{\"data\":" & res & "}\n", Http200, "application/json")
