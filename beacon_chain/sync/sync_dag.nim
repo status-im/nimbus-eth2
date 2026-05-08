@@ -9,6 +9,7 @@
 import std/[sets, tables, strutils, hashes, algorithm]
 import stew/base10, chronos, chronicles, results
 import ../spec/[forks, block_id, column_map]
+import ../consensus_object_pools/blockchain_dag
 import ./sync_queue
 
 from std/sequtils import mapIt
@@ -47,18 +48,20 @@ func shortLog*(s: SyncDagEntryRef): string =
     return "not available"
   shortLog(s.blockId)
 
-func fullLog*(s: set[DagEntryFlag]): string =
+func fullLog*(s: set[DagEntryFlag], isHead, isFinalizedHead: bool): string =
   var res: seq[string]
   if DagEntryFlag.Local in s: res.add("local")
   if DagEntryFlag.Pending in s: res.add("pending")
   if DagEntryFlag.Unviable in s: res.add("unviable")
   if DagEntryFlag.Finalized in s: res.add("finalized")
   if DagEntryFlag.MissingSidecars in s: res.add("missing_sidecars")
+  if isHead: res.add("current_head")
+  if isFinalizedHead: res.add("current_finalized_head")
   "[" & res.join(",") & "]"
 
 func fullLog*(s: set[DagBlockSourceType]): string =
   var res: seq[string]
-  if DagBlockSourceType.Orphan in s: res.add("orphan")
+  if DagBlockSourceType.Orphan in s: res.add("missing")
   if DagBlockSourceType.Unviable in s: res.add("unviable")
   if DagBlockSourceType.Dag in s: res.add("dag")
   if DagBlockSourceType.Sidecarless in s: res.add("sidecarless")
@@ -332,7 +335,7 @@ proc init*(
 ): SyncDag[A, B] =
   SyncDag[A, B]()
 
-proc debugJsonDump*(sdag: SyncDag): string =
+proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
   var res: seq[tuple[bid: BlockId, item: string]]
 
   proc cmp(a, b: tuple[bid: BlockId, item: string]): int =
@@ -340,10 +343,25 @@ proc debugJsonDump*(sdag: SyncDag): string =
 
   for item in sdag.roots.values():
     let
-      data = "{" & "\"bid\":\"" & shortLog(item.blockId) & "\"," &
-        "\"flags\":\"" & fullLog(item.flags) & "\"," &
-        "\"source\":\"" & fullLog(item.source) & "\"," &
-        "\"parent_bid\":\"" & shortLog(item.parent) & "\"}"
+      bid =
+        if DagEntryFlag.Pending in item.flags:
+          shortLog(item.blockId.root)
+        else:
+          shortLog(item.blockId)
+      currentHead =
+        if dag.head.bid.root == item.blockId.root:
+          true
+        else:
+          false
+      currentFinHead =
+        if dag.finalizedHead.blck.bid.root == item.blockId.root:
+          true
+        else:
+          false
+      data = "{" & "\"bid\":\"" & bid &
+        ",\"flags\":\"" & fullLog(item.flags, currentHead, currentFinHead) &
+        ",\"source\":\"" & fullLog(item.source) &
+        ",\"parent_bid\":\"" & shortLog(item.parent) & "\"}"
     res.add((item.blockId, data))
   res.sort(cmp)
   "[" & res.mapIt(it.item).join(",") & "]"
