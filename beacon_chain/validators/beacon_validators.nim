@@ -418,8 +418,7 @@ proc proposeBlockAux(
         # an incorrect state_root.
         let builderState = assignClone(state[])
         let parentBlck = node.dag.getBlock(
-            head.bid,
-            consensusFork.TrustedSignedBeaconBlock).valueOr:
+            head.bid, consensusFork.TrustedSignedBeaconBlock).valueOr:
           debug "Proposal failed to get parent block", slot, head = shortLog(head)
           return head
         apply_parent_execution_payload(
