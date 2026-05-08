@@ -690,7 +690,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of "fulu_column_quarantine":
         node.dataColumnQuarantine[].debugJsonDump()
       of "sync_dag":
-        node.syncOverseer.sdag.debugJsonDump()
+        node.syncOverseer.sdag.debugJsonDump(node.dag)
       else:
         return RestApiResponse.response("Page not found", Http404, "text/plain")
     RestApiResponse.response(
