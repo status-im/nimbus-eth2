@@ -6,7 +6,9 @@
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
-library 'status-jenkins-lib@v1.9.41'
+library 'status-jenkins-lib@v1.9.44'
+
+def result = ''
 
 pipeline {
   agent {
@@ -23,6 +25,11 @@ pipeline {
       name: 'VERBOSITY',
       description: 'Value for the V make flag to increase log verbosity',
       choices: [0, 1, 2]
+    )
+    choice(
+      name: 'NIX_TARGET',
+      description: 'Nix flake target to build',
+      choices: ['beacon_node', 'validator_client']
     )
   }
 
@@ -44,15 +51,32 @@ pipeline {
   }
 
   stages {
-    stage('Beacon Node') {
+    stage('Deps') {
       steps { script {
-        nix.flake('beacon_node')
+        sh 'git submodule update --init --recursive'
+      } }
+    }
+
+    stage('Build') {
+      steps { script {
+        result = nix.flake(params.NIX_TARGET)
       } }
     }
 
     stage('Version check') {
       steps { script {
-        sh 'result/bin/nimbus_beacon_node --version'
+        sh "${result}/bin/nimbus_${params.NIX_TARGET} --version"
+      } }
+    }
+
+    stage('Push to Nix cache') {
+      when {
+        expression {
+          env.JOB_NAME.toLowerCase().contains('nightly')
+        }
+      }
+      steps { script {
+        nix.copyToCache(derivations: [result])
       } }
     }
   }
