@@ -930,7 +930,7 @@ func shortLog[A](rec: RootTableRecord[A]): string =
   var sidecars: seq[string]
   for car in rec.sidecars:
     if not(isEmpty(car)):
-      sidecars.add(shortLog(car))
+      sidecars.add("\"" & shortLog(car) & "\"")
   "{\"bid\":\"" &
     shortLog(BlockId(root: rec.blockRoot, slot: rec.slot)) & "\"," &
     "\"unloaded\":" & $rec.unloaded & "," &
@@ -938,9 +938,30 @@ func shortLog[A](rec: RootTableRecord[A]): string =
     "\"sidecars\":[" & sidecars.join(",") & "]}"
 
 func debugJsonDump*[A, B](q: SidecarQuarantine[A, B]): string =
-  var records: seq[string]
+  var
+    records: seq[string]
+    minSlot = FAR_FUTURE_SLOT
+    maxSlot = GENESIS_SLOT
+
   for item in q.list.items():
+    if item.slot < minSlot:
+      minSlot = item.slot
+    if item.slot > maxSlot:
+      maxSlot = item.slot
     records.add(shortLog(item))
+
+  let
+    sminSlot =
+      if len(records) == 0:
+        "not available"
+      else:
+        $minSlot
+    smaxSlot =
+      if len(records) == 0:
+        "not available"
+      else:
+        $maxSlot
+
   "{\"min_epochs_for_sidecars_requests\":\"" &
     $q.minEpochsForSidecarsRequests &
   "\",\"max_mem_sidecars_count\":\"" &
@@ -955,4 +976,7 @@ func debugJsonDump*[A, B](q: SidecarQuarantine[A, B]): string =
     $q.maxSidecarsPerBlockCount &
   "\",\"custody_map\":" & $q.custodyMap &
   ",\"index_map\":[" & q.indexMap.mapIt($it).join(",") &
-  "],\"records\":[" & records.join(",") & "]}"
+  "],\"records\":[" & records.join(",") &
+  "],\"records_count\":" & $len(records) &
+  ",\"min_slot\":\"" & sminSlot &
+  "\",\"max_slot\":\"" & smaxSlot & "\"}"
