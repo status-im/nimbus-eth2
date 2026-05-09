@@ -110,6 +110,7 @@ AllTests-mainnet
 ## Beacon validators test suite
 ```diff
 + builderBetterBid(builderBoostFactor) test                                                  OK
++ builderBetterBid(localBlockValueBoost) with Gwei-to-Wei conversion                         OK
 ```
 ## Blinded block conversions
 ```diff
