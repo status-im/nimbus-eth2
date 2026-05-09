@@ -1004,8 +1004,8 @@ AllTests-mainnet
 ```
 ## Quarantine [Preset: mainnet]
 ```diff
-+ put/iterate/remove test [BlobSidecars]                                                     OK
-+ put/iterate/remove test [DataColumnSidecar]                                                OK
++ put/iterate/remove test [fulu DataColumnSidecar]                                           OK
++ put/iterate/remove test [gloas DataColumnSidecar]                                          OK
 ```
 ## REST encoding and decoding
 ```diff
