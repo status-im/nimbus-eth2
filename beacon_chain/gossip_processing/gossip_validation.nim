@@ -462,20 +462,18 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  if executionParent.root in envelopeQuarantine.unviable:
-    return dag.checkedReject("validateBeaconBlockGloas: invalid parent payload")
-  elif dag.cfg.consensusForkAtEpoch(executionParent.slot.epoch()) >=
-      ConsensusFork.Gloas:
-    if not (
-        dag.db.containsExecutionPayloadEnvelope(executionParent.root) or
-        executionParent.root in envelopeQuarantine.orphans
-    ):
+  if dag.cfg.consensusForkAtEpoch(executionParent.slot.epoch()) >= ConsensusFork.Gloas:
+    # The executionParent exists in DAG, so we should check unviable envelope
+    # and the database for the validation rules.
+    if executionParent.root in envelopeQuarantine.unviable:
+      return dag.checkedReject("validateBeaconBlockGloas: invalid parent payload")
+    elif not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
       envelopeQuarantine[].addMissing(executionParent.root)
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
   else:
     # The execution parent is a pre-Gloas block. It has been validated and
-    # imported to DAG so we could assume it is execution valid.
+    # imported to DAG so we could assume that it is execution valid.
     discard
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
