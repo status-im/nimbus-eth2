@@ -1,7 +1,7 @@
 {
   pkgs ? import <nixpkgs> { },
   # Source code of this repo.
-  src ? ../.,
+  self ? {},
   # Nimbus-build-system package.
   nim ? null,
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
@@ -18,19 +18,26 @@
   ],
 }:
 
-# The 'or' is to handle src fallback to ../. which lack submodules attribute.
-assert pkgs.lib.assertMsg ((src.submodules or true) == true)
+# The 'or' is to handle self fallback to {} which lack submodules attribute.
+assert pkgs.lib.assertMsg ((self.submodules or true) == true)
   "Unable to build without submodules. Append '?submodules=1#' to the URI.";
 
 let
   inherit (pkgs) stdenv lib writeScriptBin callPackage;
 
-  revision = lib.substring 0 8 (src.rev or src.dirtyRev or "00000000");
+  revision = lib.substring 0 8 (self.rev or self.dirtyRev or "00000000");
 in stdenv.mkDerivation rec {
   pname = "nimbus-eth2";
   version = "${callPackage ./version.nix {}}-${revision}";
 
-  inherit src;
+  src = lib.fileset.toSource {
+    root = ./..;
+    fileset = lib.fileset.unions [
+      ./../Makefile ./../beacon_chain.nimble ./../config.nims
+      ./../beacon_chain ./../ncli ./../scripts ./../vendor ./../tools
+    ];
+  };
+
 
   nativeBuildInputs = let
     fakeGit = writeScriptBin "git" "echo ${version}";

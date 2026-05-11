@@ -802,10 +802,9 @@ proc validateDataColumnSidecar*(
   let blck =
     block:
       let
-        bsi = dag.getBlockIdAtSlot(data_column_sidecar.slot).valueOr:
-          debugGloasComment("deferred validation")
+        blckRef = dag.getBlockRef(blockRoot).valueOr:
           return errIgnore("DataColumnSidecar: block not yet seen")
-        forkedBlock = dag.getForkedBlock(bsi.bid).valueOr:
+        forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
           info "block is missing, database corrupt?",
             root = shortLog(blockRoot)
           return errIgnore("DataColumnSidecar: block not yet seen")
