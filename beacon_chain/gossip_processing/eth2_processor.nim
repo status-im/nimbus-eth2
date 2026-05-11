@@ -22,14 +22,15 @@ import
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
-  "."/[gossip_validation, block_processor, batch_validation],
+  "."/[gossip_validation, block_processor, batch_validation,
+       batch_kzg_validation],
   ../nimbus_binary_common
 
 export
   results, taskpools, block_clearance, blockchain_dag, attestation_pool,
   light_client_pool, sync_committee_msg_pool, validator_change_pool,
   validator_pool, beacon_clock, gossip_validation, block_processor,
-  batch_validation, block_quarantine
+  batch_validation, batch_kzg_validation, block_quarantine
 
 logScope: topics = "gossip_eth2"
 
@@ -58,10 +59,6 @@ declareCounter data_column_sidecars_received,
   "Number of valid data columns processed by this node"
 declareCounter data_column_sidecars_dropped,
   "Number of invalid data columns dropped by this node", labels = ["reason"]
-declareCounter data_column_kzg_batch_verifications,
-  "Number of batched KZG verifications performed across pending data column sidecars"
-declareCounter data_column_kzg_batch_fallbacks,
-  "Number of batched KZG verifications that failed and were retried per-sidecar"
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -183,14 +180,15 @@ type
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
-    # Pending data column sidecars awaiting batched KZG verification
+    # Batched KZG verification for data column sidecars
     # ----------------------------------------------------------------
-    # Gossip validation performs every non-KZG check synchronously and then
-    # parks the sidecar in one of these buffers. Once a buffer has grown to
-    # the size of its quarantine's `custodyColumns` we batch-verify KZG
-    # proofs for all buffered sidecars in a single call.
-    pendingColumnSidecars*: seq[ref fulu.DataColumnSidecar]
-    pendingGloasColumnSidecars*: seq[ref gloas.DataColumnSidecar]
+    # Gossip validation runs every non-KZG check synchronously, then awaits
+    # the appropriate `BatchKzg` for the verdict on the sidecar's KZG
+    # proofs before returning to libp2p. This keeps Nimbus from relaying
+    # potential KZG garbage (a strict reject condition under the gossip
+    # rules) while still amortising verifier cost across bursty arrivals.
+    batchKzgFulu*: ref BatchKzg[fulu.DataColumnSidecar]
+    batchKzgGloas*: ref BatchKzg[gloas.DataColumnSidecar]
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -250,7 +248,11 @@ proc new*(T: type Eth2Processor,
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks(),
       genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-        "working batcher")
+        "working batcher"),
+    batchKzgFulu: BatchKzg[fulu.DataColumnSidecar].new(
+      dag, eager = proc(): bool = not blockProcessor[].hasBlocks()),
+    batchKzgGloas: BatchKzg[gloas.DataColumnSidecar].new(
+      dag, eager = proc(): bool = not blockProcessor[].hasBlocks())
   )
 
 # Each validator logs, validates then passes valid data to its destination
@@ -428,8 +430,8 @@ proc processBlobSidecar*(
   v
 
 proc ingestColumnAndMaybeEnqueue(
-    self: var Eth2Processor, sidecar: ref fulu.DataColumnSidecar) =
-  ## Place a KZG-verified fulu data column sidecar in the quarantine and, if
+    self: ref Eth2Processor, sidecar: ref fulu.DataColumnSidecar) =
+  ## Place a KZG-verified Fulu data column sidecar in the quarantine and, if
   ## all required columns for its block are now present and the block is
   ## awaiting sidecars, pop both and enqueue the block for further processing.
   let block_root =
@@ -449,59 +451,24 @@ proc ingestColumnAndMaybeEnqueue(
     return
 
   withBlck(blckOpt.get()):
-    when (consensusFork >= ConsensusFork.Fulu) and
-        (consensusFork < ConsensusFork.Gloas):
+    when consensusFork == ConsensusFork.Fulu:
       self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
     else:
       raiseAssert "Wrong fork for columns: " & $consensusFork
 
-proc flushPendingColumnSidecars*(self: var Eth2Processor) =
-  ## Run a single batched KZG verification over every sidecar that has
-  ## passed non-KZG gossip checks since the last flush. On success, each
-  ## sidecar is moved into the column quarantine and any block that was
-  ## waiting on its columns is popped and enqueued for block processing. On
-  ## failure, re-verify each sidecar individually via the traditional
-  ## per-sidecar `validateDataColumnSidecar` (which includes KZG) and
-  ## ingest only the ones that pass.
-  if self.pendingColumnSidecars.len == 0:
-    return
-
-  var pending: seq[ref fulu.DataColumnSidecar]
-  swap(pending, self.pendingColumnSidecars)
-
-  var sidecars = newSeqOfCap[fulu.DataColumnSidecar](pending.len)
-  for s in pending:
-    sidecars.add(s[])
-
-  data_column_kzg_batch_verifications.inc()
-  let batchRes = verify_data_column_sidecar_kzg_proofs(sidecars)
-
-  if batchRes.isOk:
-    for s in pending:
-      self.ingestColumnAndMaybeEnqueue(s)
-    return
-
-  data_column_kzg_batch_fallbacks.inc()
-  debug "Batched data column KZG verification failed, falling back per-sidecar",
-    count = pending.len, err = batchRes.error()
-
-  let wallTime = self.getCurrentBeaconTime()
-  for s in pending:
-    let v = self.dag.validateDataColumnSidecar(
-      self.quarantine, self.dataColumnQuarantine, s[], wallTime,
-      compute_subnet_for_data_column_sidecar(s[].index),
-      checkKzgProofs = true)
-    if v.isErr():
-      debug "Dropping data column after batch fallback",
-        index = s[].index, error = v.error()
-      data_column_sidecars_dropped.inc(1, [$v.error[0]])
-      continue
-    self.ingestColumnAndMaybeEnqueue(s)
+proc ingestGloasColumnAndEnqueue(
+    self: ref Eth2Processor, sidecar: ref gloas.DataColumnSidecar) =
+  ## Place a KZG-verified Gloas data column sidecar in the quarantine and
+  ## notify the block processor that the payload for this block root now has
+  ## more columns available.
+  self.gloasColumnQuarantine[].put(sidecar[].beacon_block_root, sidecar)
+  self.blockProcessor.enqueuePayload(sidecar[].beacon_block_root)
 
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor, src: MsgSource,
     dataColumnSidecar: fulu.DataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+    subnet_id: uint64
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped = dataColumnSidecar.signed_block_header.message
 
   let
@@ -537,104 +504,33 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  # Non-KZG checks passed — park the sidecar in the pending buffer. KZG
-  # proofs are verified in a single batched call once the buffer has grown
-  # to the number of columns this node custodies, i.e. the largest batch
-  # we can reasonably expect to assemble per slot.
-  self.pendingColumnSidecars.add(newClone(dataColumnSidecar))
-
-  let batchThreshold = max(self.dataColumnQuarantine[].custodyColumns.len, 1)
-  if self.pendingColumnSidecars.len >= batchThreshold:
-    self.flushPendingColumnSidecars()
-
-  data_column_sidecars_received.inc()
-  data_column_sidecar_delay.observe(delay.toFloatSeconds())
-
-  v
-
-proc ingestGloasColumnAndEnqueue(
-    self: var Eth2Processor, sidecar: ref gloas.DataColumnSidecar) =
-  ## Place a KZG-verified Gloas data column sidecar in the quarantine and
-  ## notify the block processor that the payload for this block root now has
-  ## more columns available.
-  self.gloasColumnQuarantine[].put(sidecar[].beacon_block_root, sidecar)
-  self.blockProcessor.enqueuePayload(sidecar[].beacon_block_root)
-
-func lookupGloasBlobKzgCommitments(
-    dag: ChainDAGRef, sidecar: gloas.DataColumnSidecar): Opt[KzgCommitments] =
-  let
-    bsi = dag.getBlockIdAtSlot(sidecar.slot).valueOr:
-      return Opt.none(KzgCommitments)
-    forkedBlock = dag.getForkedBlock(bsi.bid).valueOr:
-      return Opt.none(KzgCommitments)
-  withBlck(forkedBlock):
-    when consensusFork == ConsensusFork.Gloas:
-      if forkyBlck.root != sidecar.beacon_block_root:
-        return Opt.none(KzgCommitments)
-      Opt.some(
-        forkyBlck.message.body.signed_execution_payload_bid.message
-          .blob_kzg_commitments)
-    else:
-      Opt.none(KzgCommitments)
-
-proc flushPendingGloasColumnSidecars*(self: var Eth2Processor) =
-  ## Gloas counterpart to `flushPendingColumnSidecars` — a single batched
-  ## KZG verification over every pending Gloas sidecar. On success, each
-  ## sidecar is placed in the Gloas column quarantine and its payload is
-  ## re-enqueued. On failure (including the block-lookup miss required to
-  ## obtain `blob_kzg_commitments`), re-run the traditional per-sidecar
-  ## Gloas validator and ingest only the ones that pass.
-  if self.pendingGloasColumnSidecars.len == 0:
-    return
-
-  var pending: seq[ref gloas.DataColumnSidecar]
-  swap(pending, self.pendingGloasColumnSidecars)
-
-  # All sidecars in a single batch must share a `kzg_commitments` slice —
-  # pick the first sidecar's block as the reference. Batches mixing
-  # sidecars from different blocks will fail here and drop into the
-  # per-sidecar fallback, which looks up commitments independently.
-  let commitmentsOpt =
-    lookupGloasBlobKzgCommitments(self.dag, pending[0][])
-
-  var batchOk = false
-  if commitmentsOpt.isSome():
-    var sidecars = newSeqOfCap[gloas.DataColumnSidecar](pending.len)
-    for s in pending:
-      sidecars.add(s[])
-
-    data_column_kzg_batch_verifications.inc()
-    let batchRes = verify_data_column_sidecar_kzg_proofs(
-      sidecars, commitmentsOpt.get())
-    batchOk = batchRes.isOk
-    if not batchOk:
-      debug "Batched Gloas data column KZG verification failed",
-        count = pending.len, err = batchRes.error()
-
-  if batchOk:
-    for s in pending:
-      self.ingestGloasColumnAndEnqueue(s)
-    return
-
-  data_column_kzg_batch_fallbacks.inc()
-  let wallTime = self.getCurrentBeaconTime()
-  for s in pending:
-    let v = self.dag.validateDataColumnSidecar(
-      self.quarantine, self.gloasColumnQuarantine,
-      self.executionPayloadBidPool, s[], wallTime,
-      compute_subnet_for_data_column_sidecar(s[].index),
-      checkKzgProofs = true)
-    if v.isErr():
-      debug "Dropping Gloas data column after batch fallback",
-        index = s[].index, error = v.error()
-      data_column_sidecars_dropped.inc(1, [$v.error[0]])
-      continue
-    self.ingestGloasColumnAndEnqueue(s)
+  # Non-KZG checks passed — schedule batched KZG verification and wait for
+  # the verdict before returning to libp2p. Returning ACCEPT prior to KZG
+  # would relay possibly invalid sidecars (strict reject under the gossip
+  # rules), which is what the legacy flush-after-the-fact path did.
+  let sidecarRef = newClone(dataColumnSidecar)
+  let kzgRes = await self.batchKzgFulu.scheduleColumnKzgCheck(sidecarRef)
+  case kzgRes
+  of BatchResult.Valid:
+    self.ingestColumnAndMaybeEnqueue(sidecarRef)
+    data_column_sidecars_received.inc()
+    data_column_sidecar_delay.observe(delay.toFloatSeconds())
+    ok()
+  of BatchResult.Invalid:
+    debug "Dropping data column after KZG verification failed",
+      index = dataColumnSidecar.index
+    data_column_sidecars_dropped.inc(1, ["DataColumnSidecarKzgInvalid"])
+    errReject("DataColumnSidecar: KZG verification failed")
+  of BatchResult.Timeout:
+    debug "Data column KZG batch timed out",
+      index = dataColumnSidecar.index
+    errIgnore("DataColumnSidecar: KZG batch timeout")
 
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor, src: MsgSource,
     dataColumnSidecar: gloas.DataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+    subnet_id: uint64
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
@@ -659,18 +555,22 @@ proc processDataColumnSidecar*(
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
 
-  # Non-KZG checks passed — park the sidecar in the pending buffer. KZG
-  # proofs are verified in a single batched call once the buffer has grown
-  # to the number of columns this node custodies.
-  self.pendingGloasColumnSidecars.add(newClone(dataColumnSidecar))
-
-  let batchThreshold =
-    max(self.gloasColumnQuarantine[].custodyColumns.len, 1)
-  if self.pendingGloasColumnSidecars.len >= batchThreshold:
-    self.flushPendingGloasColumnSidecars()
-
-  data_column_sidecars_received.inc()
-  v
+  let sidecarRef = newClone(dataColumnSidecar)
+  let kzgRes = await self.batchKzgGloas.scheduleColumnKzgCheck(sidecarRef)
+  case kzgRes
+  of BatchResult.Valid:
+    self.ingestGloasColumnAndEnqueue(sidecarRef)
+    data_column_sidecars_received.inc()
+    ok()
+  of BatchResult.Invalid:
+    debug "Dropping Gloas data column after KZG verification failed",
+      index = dataColumnSidecar.index
+    data_column_sidecars_dropped.inc(1, ["DataColumnSidecarKzgInvalid"])
+    errReject("DataColumnSidecar: KZG verification failed")
+  of BatchResult.Timeout:
+    debug "Gloas data column KZG batch timed out",
+      index = dataColumnSidecar.index
+    errIgnore("DataColumnSidecar: KZG batch timeout")
 
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # When another client's already running, this is very likely to detect
