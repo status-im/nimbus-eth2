@@ -17,12 +17,13 @@ import
   ../beacon_chain/spec/presets,
   ../beacon_chain/consensus_object_pools/partial_column_quarantine
 
+func genDigest(index: int): Eth2Digest =
+  let tmp = uint64(index).toBytesLE()
+  copyMem(addr result.data[0], unsafeAddr tmp[0], sizeof(uint64))
+
 func gen[T](index: int): T =
   let tmp = uint64(index).toBytesLE()
-  when T is Eth2Digest:
-    copyMem(addr result.data[0], unsafeAddr tmp[0], sizeof(uint64))
-  else:
-    copyMem(addr result.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
+  copyMem(addr result.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
 
 proc genPartialDataColumnHeader(
     slot: int, proposerIndex: int, numCommitments: int
@@ -58,7 +59,7 @@ func genPartialDataColumnSidecar(
 suite "Partial Column Quarantine":
   test "Init creates empty quarantine":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](1)
+    let root = genDigest(1)
     check:
       not quarantine.hasPartialHeader(root)
       quarantine.getPartialHeader(root).isNone()
@@ -70,7 +71,7 @@ suite "Partial Column Quarantine":
   test "Put and get partial header":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       header = genPartialDataColumnHeader(slot = 10, proposerIndex = 5,
                                           numCommitments = 3)
     quarantine.putPartialHeader(root, header)
@@ -84,8 +85,8 @@ suite "Partial Column Quarantine":
   test "Get header for unknown root returns none":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root1 = gen[Eth2Digest](1)
-      root2 = gen[Eth2Digest](2)
+      root1 = genDigest(1)
+      root2 = genDigest(2)
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                           numCommitments = 1)
     quarantine.putPartialHeader(root1, header)
@@ -97,7 +98,7 @@ suite "Partial Column Quarantine":
   test "Overwrite header with same root":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       header1 = genPartialDataColumnHeader(slot = 10, proposerIndex = 1,
                                            numCommitments = 2)
       header2 = genPartialDataColumnHeader(slot = 10, proposerIndex = 1,
@@ -111,9 +112,9 @@ suite "Partial Column Quarantine":
   test "Multiple headers for different roots":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root1 = gen[Eth2Digest](1)
-      root2 = gen[Eth2Digest](2)
-      root3 = gen[Eth2Digest](3)
+      root1 = genDigest(1)
+      root2 = genDigest(2)
+      root3 = genDigest(3)
       h1 = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                       numCommitments = 1)
       h2 = genPartialDataColumnHeader(slot = 2, proposerIndex = 2,
@@ -133,7 +134,7 @@ suite "Partial Column Quarantine":
   test "Remove header":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       header = genPartialDataColumnHeader(slot = 10, proposerIndex = 1,
                                           numCommitments = 2)
 
@@ -147,7 +148,7 @@ suite "Partial Column Quarantine":
 
   test "Remove non-existent header is no-op":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](99)
+    let root = genDigest(99)
     quarantine.removeHeader(root) # should not crash
 
   # --- Entry (cell tracking) management ---
@@ -155,7 +156,7 @@ suite "Partial Column Quarantine":
   test "Put and get entry":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(5)
       entry = PartialColumnEntry(
         headerValidated: true,
@@ -170,14 +171,14 @@ suite "Partial Column Quarantine":
 
   test "Get entry for unknown key returns none":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](1)
+    let root = genDigest(1)
     check:
       not quarantine.hasEntry(root, ColumnIndex(0))
       quarantine.getEntry(root, ColumnIndex(0)).isNone()
 
   test "Different column indices are independent":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](1)
+    let root = genDigest(1)
 
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
       headerValidated: true, cellsReceived: BitSeq.init(3)))
@@ -194,8 +195,8 @@ suite "Partial Column Quarantine":
   test "Different block roots with same column index are independent":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root1 = gen[Eth2Digest](1)
-      root2 = gen[Eth2Digest](2)
+      root1 = genDigest(1)
+      root2 = genDigest(2)
       colIdx = ColumnIndex(7)
 
     quarantine.putEntry(root1, colIdx, PartialColumnEntry(
@@ -210,7 +211,7 @@ suite "Partial Column Quarantine":
   test "Remove entry":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(3)
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
@@ -224,7 +225,7 @@ suite "Partial Column Quarantine":
 
   test "Remove entry does not affect other entries":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](1)
+    let root = genDigest(1)
 
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
       headerValidated: true, cellsReceived: BitSeq.init(2)))
@@ -238,14 +239,14 @@ suite "Partial Column Quarantine":
 
   test "Remove non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
-    quarantine.removeEntry(gen[Eth2Digest](99), ColumnIndex(0))
+    quarantine.removeEntry(genDigest(99), ColumnIndex(0))
 
   # --- getOrCreateEntry ---
 
   test "getOrCreateEntry creates new entry":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(2)
 
     let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 6)
@@ -257,7 +258,7 @@ suite "Partial Column Quarantine":
   test "getOrCreateEntry returns existing entry":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(2)
 
     var cellBits = BitSeq.init(3)
@@ -279,7 +280,7 @@ suite "Partial Column Quarantine":
   test "getOrCreateEntry reflects header validation status":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       header = genPartialDataColumnHeader(slot = 5, proposerIndex = 1,
                                           numCommitments = 3)
@@ -298,7 +299,7 @@ suite "Partial Column Quarantine":
   test "Mark and check cell received":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
@@ -322,14 +323,14 @@ suite "Partial Column Quarantine":
 
   test "Mark cell received for non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](99)
+    let root = genDigest(99)
     quarantine.markCellReceived(root, ColumnIndex(0), 0)
     check not quarantine.hasCellReceived(root, ColumnIndex(0), 0)
 
   test "Mark cell received with out-of-bounds blob index is no-op":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
@@ -341,12 +342,12 @@ suite "Partial Column Quarantine":
 
   test "hasCellReceived for non-existent entry returns false":
     var quarantine = PartialColumnQuarantine.init()
-    check not quarantine.hasCellReceived(gen[Eth2Digest](1), ColumnIndex(0), 0)
+    check not quarantine.hasCellReceived(genDigest(1), ColumnIndex(0), 0)
 
   test "hasCellReceived for out-of-bounds index returns false":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     quarantine.putEntry(root, colIdx, PartialColumnEntry(
@@ -358,7 +359,7 @@ suite "Partial Column Quarantine":
   test "Mark all cells received":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       numBlobs = 6
 
@@ -374,7 +375,7 @@ suite "Partial Column Quarantine":
 
   test "Cell tracking is per-column":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](1)
+    let root = genDigest(1)
 
     quarantine.putEntry(root, ColumnIndex(0), PartialColumnEntry(
       headerValidated: true, cellsReceived: BitSeq.init(3)))
@@ -391,8 +392,8 @@ suite "Partial Column Quarantine":
 
   test "PartialColumnKey equality":
     let
-      root1 = gen[Eth2Digest](1)
-      root2 = gen[Eth2Digest](2)
+      root1 = genDigest(1)
+      root2 = genDigest(2)
     check:
       PartialColumnKey(blockRoot: root1, columnIndex: ColumnIndex(0)) ==
         PartialColumnKey(blockRoot: root1, columnIndex: ColumnIndex(0))
@@ -403,8 +404,8 @@ suite "Partial Column Quarantine":
 
   test "PartialColumnKey hash differs for different keys":
     let
-      root1 = gen[Eth2Digest](1)
-      root2 = gen[Eth2Digest](2)
+      root1 = genDigest(1)
+      root2 = genDigest(2)
       k1 = PartialColumnKey(blockRoot: root1, columnIndex: ColumnIndex(0))
       k2 = PartialColumnKey(blockRoot: root1, columnIndex: ColumnIndex(1))
       k3 = PartialColumnKey(blockRoot: root2, columnIndex: ColumnIndex(0))
@@ -423,18 +424,18 @@ suite "Partial Column Quarantine":
 
     # Fill beyond MaxPartialHeaders
     for i in 0 ..< MaxPartialHeaders + 5:
-      let root = gen[Eth2Digest](i)
+      let root = genDigest(i)
       let header = genPartialDataColumnHeader(
         slot = i, proposerIndex = 1, numCommitments = 1)
       quarantine.putPartialHeader(root, header)
 
     # The most recently added headers should still be present
-    let lastRoot = gen[Eth2Digest](MaxPartialHeaders + 4)
+    let lastRoot = genDigest(MaxPartialHeaders + 4)
     check quarantine.hasPartialHeader(lastRoot)
 
     # The very first ones should have been evicted
     # (LRU with capacity MaxPartialHeaders means the first entries get pushed out)
-    let firstRoot = gen[Eth2Digest](0)
+    let firstRoot = genDigest(0)
     check not quarantine.hasPartialHeader(firstRoot)
 
   # --- Header and entry independence ---
@@ -442,7 +443,7 @@ suite "Partial Column Quarantine":
   test "Removing header does not remove entries":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                           numCommitments = 3)
 
@@ -458,7 +459,7 @@ suite "Partial Column Quarantine":
   test "Removing entry does not remove header":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                           numCommitments = 3)
 
@@ -476,7 +477,7 @@ suite "Partial Column Quarantine":
   test "markCellReceived with data stores cell and proof":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       numBlobs = 3
 
@@ -505,12 +506,12 @@ suite "Partial Column Quarantine":
   test "markCellReceived with data on non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
     quarantine.markCellReceived(
-      gen[Eth2Digest](99), ColumnIndex(0), 0, gen[KzgCell](1), gen[KzgProof](1))
-    check not quarantine.hasCellReceived(gen[Eth2Digest](99), ColumnIndex(0), 0)
+      genDigest(99), ColumnIndex(0), 0, gen[KzgCell](1), gen[KzgProof](1))
+    check not quarantine.hasCellReceived(genDigest(99), ColumnIndex(0), 0)
 
   test "markCellReceived with data out-of-bounds is no-op":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](1)
+    let root = genDigest(1)
     let entry = quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs = 2)
     check entry == quarantine.getEntry(root, ColumnIndex(0)).get()
     quarantine.markCellReceived(
@@ -522,7 +523,7 @@ suite "Partial Column Quarantine":
   test "getOrCreateEntry new entry has properly sized cells and proofs":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       numBlobs = 4
 
@@ -542,7 +543,7 @@ suite "Partial Column Quarantine":
   test "addCells ingests cells from a PartialDataColumnSidecar":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(5)
       numBlobs = 4
 
@@ -575,7 +576,7 @@ suite "Partial Column Quarantine":
   test "addCells accumulates across multiple sidecars":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       numBlobs = 3
 
@@ -602,13 +603,13 @@ suite "Partial Column Quarantine":
   test "addCells on non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
     let sidecar = genPartialDataColumnSidecar([0], startCellId = 1)
-    quarantine.addCells(gen[Eth2Digest](99), ColumnIndex(0), sidecar)
-    check not quarantine.hasEntry(gen[Eth2Digest](99), ColumnIndex(0))
+    quarantine.addCells(genDigest(99), ColumnIndex(0), sidecar)
+    check not quarantine.hasEntry(genDigest(99), ColumnIndex(0))
 
   test "addCells with overlapping bitmap overwrites existing cells":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
@@ -628,7 +629,7 @@ suite "Partial Column Quarantine":
 
   test "addCells is independent across columns":
     var quarantine = PartialColumnQuarantine.init()
-    let root = gen[Eth2Digest](1)
+    let root = genDigest(1)
 
     let entry0 = quarantine.getOrCreateEntry(root, ColumnIndex(0), numBlobs = 3)
     check entry0 == quarantine.getEntry(root, ColumnIndex(0)).get()
@@ -650,12 +651,12 @@ suite "Partial Column Quarantine":
 
   test "isComplete returns false for non-existent entry":
     var quarantine = PartialColumnQuarantine.init()
-    check not quarantine.isComplete(gen[Eth2Digest](99), ColumnIndex(0))
+    check not quarantine.isComplete(genDigest(99), ColumnIndex(0))
 
   test "isComplete returns false when header not validated":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     # Create entry without header (headerValidated = false)
@@ -669,7 +670,7 @@ suite "Partial Column Quarantine":
   test "isComplete returns false when cells are missing":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                           numCommitments = 3)
@@ -686,7 +687,7 @@ suite "Partial Column Quarantine":
   test "isComplete returns true when header validated and all cells received":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       numBlobs = 3
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
@@ -703,7 +704,7 @@ suite "Partial Column Quarantine":
   test "isComplete with single blob":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                           numCommitments = 1)
@@ -719,7 +720,7 @@ suite "Partial Column Quarantine":
   test "isComplete becomes true after incremental addCells":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       numBlobs = 3
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
@@ -746,12 +747,12 @@ suite "Partial Column Quarantine":
   test "assembleDataColumnSidecar returns none for non-existent entry":
     var quarantine = PartialColumnQuarantine.init()
     check quarantine.assembleDataColumnSidecar(
-      gen[Eth2Digest](99), ColumnIndex(0)).isNone()
+      genDigest(99), ColumnIndex(0)).isNone()
 
   test "assembleDataColumnSidecar returns none when header not validated":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 2)
@@ -764,7 +765,7 @@ suite "Partial Column Quarantine":
   test "assembleDataColumnSidecar returns none when cells incomplete":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                           numCommitments = 3)
@@ -780,7 +781,7 @@ suite "Partial Column Quarantine":
   test "assembleDataColumnSidecar returns none when header missing from cache":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     # Manually create entry with headerValidated = true but no header in cache
@@ -797,7 +798,7 @@ suite "Partial Column Quarantine":
   test "assembleDataColumnSidecar produces correct DataColumnSidecar":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(7)
       numBlobs = 3
       header = genPartialDataColumnHeader(slot = 10, proposerIndex = 5,
@@ -840,7 +841,7 @@ suite "Partial Column Quarantine":
   test "assembleDataColumnSidecar with cells added incrementally":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(3)
       numBlobs = 3
       header = genPartialDataColumnHeader(slot = 5, proposerIndex = 2,
@@ -878,7 +879,7 @@ suite "Partial Column Quarantine":
   test "assembleDataColumnSidecar with markCellReceived (data overload)":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
       numBlobs = 2
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
@@ -903,14 +904,14 @@ suite "Partial Column Quarantine":
   test "assembleDataColumnSidecar preserves inclusion proof from header":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       colIdx = ColumnIndex(0)
 
     # Create header with a custom inclusion proof
     var header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                             numCommitments = 1)
     for i in 0 ..< KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH:
-      header.kzg_commitments_inclusion_proof[i] = gen[Eth2Digest](100 + int(i))
+      header.kzg_commitments_inclusion_proof[i] = genDigest(100 + int(i))
 
     quarantine.putPartialHeader(root, header)
     let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 1)
@@ -923,14 +924,14 @@ suite "Partial Column Quarantine":
 
     let dcs = assembled.get()
     for i in 0 ..< KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH:
-      check dcs.kzg_commitments_inclusion_proof[i] == gen[Eth2Digest](100 + int(i))
+      check dcs.kzg_commitments_inclusion_proof[i] == genDigest(100 + int(i))
 
   # --- End-to-end: multiple columns for same block ---
 
   test "Assemble multiple columns for the same block independently":
     var quarantine = PartialColumnQuarantine.init()
     let
-      root = gen[Eth2Digest](1)
+      root = genDigest(1)
       numBlobs = 2
       header = genPartialDataColumnHeader(slot = 1, proposerIndex = 1,
                                           numCommitments = numBlobs)
