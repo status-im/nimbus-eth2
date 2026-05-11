@@ -173,7 +173,7 @@ type
     balances*: seq[ForkChoiceBalance]
     execution_payload_states*: HashSet[Eth2Digest]
     ptc_vote*: Table[Eth2Digest, PtcVotes]
-    ptc_data_availability*: Table[Eth2Digest, PtcVotes]
+    ptc_data_availability_vote*: Table[Eth2Digest, PtcVotes]
     block_timeliness*: Table[Eth2Digest, array[2, bool]]
 
   QueuedAttestation* = object
