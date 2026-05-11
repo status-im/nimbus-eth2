@@ -729,6 +729,7 @@ func getMissingColumnsMap*(
       for index in 0 ..< NUMBER_OF_COLUMNS:
         if node[].value.sidecars[index].isEmpty():
           res.incl(ColumnIndex(index))
+      res
   else:
     var res: ColumnMap
     for column in quarantine.custodyMap.items():
