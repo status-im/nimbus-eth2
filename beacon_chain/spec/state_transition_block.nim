@@ -1911,7 +1911,8 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_parent_execution_payload(cfg, state, blck, cache)
+  if skipProcessParentExecutionPayload notin flags:
+    ? process_parent_execution_payload(cfg, state, blck, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)
@@ -1940,7 +1941,8 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_parent_execution_payload(cfg, state, blck, cache)
+  if skipProcessParentExecutionPayload notin flags:
+    ? process_parent_execution_payload(cfg, state, blck, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)

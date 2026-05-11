@@ -267,6 +267,7 @@ proc makeEngineBlock*(
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
+    verificationFlags: UpdateFlags = {},
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -321,7 +322,7 @@ proc makeEngineBlock*(
       exits,
       sync_aggregate,
       eps.executionPayload,
-      verificationFlags = {},
+      verificationFlags,
       eps.kzg_commitments,
       execution_requests,
       signed_execution_payload_bid,

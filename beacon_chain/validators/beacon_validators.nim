@@ -560,6 +560,11 @@ proc proposeBlockAux(
     return head
 
   let
+    verificationFlags: UpdateFlags =
+      when consensusFork >= ConsensusFork.Gloas:
+        {skipProcessParentExecutionPayload}
+      else:
+        {}
     engineBlock = node.makeEngineBlock(
       consensusFork,
       state[].forky(consensusFork),
@@ -571,6 +576,7 @@ proc proposeBlockAux(
       slot,
       engineBid[].eps,
       engineBid[].execution_requests,
+      verificationFlags = verificationFlags,
     ).valueOr:
       beacon_block_production_errors.inc()
       return head
