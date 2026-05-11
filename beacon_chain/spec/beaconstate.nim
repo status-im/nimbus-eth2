@@ -1083,7 +1083,7 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
     return tab[]
   do:
     let tab = get_total_balance(
-      state, get_active_validator_indices(state, epoch))
+      state, cache.get_shuffled_active_validator_indices(state, epoch))
     cache.total_active_balance[epoch] = tab
     return tab
 
