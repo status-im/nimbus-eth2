@@ -26,6 +26,7 @@ type
     parent*: SyncDagEntryRef
     flags*: set[DagEntryFlag]
     source*: set[DagBlockSourceType]
+    moment*: chronos.Moment
 
   PeerEntryRef*[A] = ref object
     peer*: A
@@ -42,6 +43,18 @@ type
 
 const
   EmptyBlockId* = BlockId(slot: FAR_FUTURE_SLOT)
+  PendingExpirationTime = 5.minutes
+
+func isExpired(s: SyncDagEntryRef, currentTime: Moment): bool =
+  doAssert(not(isNil(s)))
+  if DagEntryFlag.Pending notin s.flags:
+    return false
+  if currentTime < s.moment:
+    return false
+  if (currentTime - s.moment) >= PendingExpirationTime:
+    true
+  else:
+    false
 
 func shortLog*(s: SyncDagEntryRef): string =
   if isNil(s):
@@ -73,29 +86,32 @@ proc hash*(entry: SyncDagEntryRef): Hash =
 func toBlockId*(checkpoint: Checkpoint): BlockId =
   BlockId(root: checkpoint.root, slot: checkpoint.epoch.start_slot())
 
-func init*(
+proc init*(
     t: typedesc[SyncDagEntryRef],
     blockId: BlockId
 ): SyncDagEntryRef =
   SyncDagEntryRef(
     blockId: blockId,
-    flags: {DagEntryFlag.Pending})
+    flags: {DagEntryFlag.Pending},
+    moment: Moment.now())
 
-func init*(
+proc init*(
     t: typedesc[SyncDagEntryRef],
     root: Eth2Digest
 ): SyncDagEntryRef =
   SyncDagEntryRef(
     blockId: BlockId(root: root, slot: FAR_FUTURE_SLOT),
-    flags: {DagEntryFlag.Pending})
+    flags: {DagEntryFlag.Pending},
+    moment: Moment.now())
 
-func init*(
+proc init*(
     t: typedesc[SyncDagEntryRef],
     checkpoint: Checkpoint
 ): SyncDagEntryRef =
   SyncDagEntryRef(
     blockId: checkpoint.toBlockId(),
-    flags: {DagEntryFlag.Finalized, DagEntryFlag.Pending})
+    flags: {DagEntryFlag.Finalized, DagEntryFlag.Pending},
+    moment: Moment.now())
 
 func init*[T](
     t: typedesc[PeerEntryRef],
@@ -278,7 +294,9 @@ proc prune*[A, B](
     slotsToDelete: seq[Slot]
     entriesToDelete: HashSet[SyncDagEntryRef]
 
-  let startSlot = epoch.start_slot()
+  let
+    startSlot = epoch.start_slot()
+    currentTime = Moment.now()
   for cslot, roots in sdag.slots.pairs():
     if cslot < startSlot:
       slotsToDelete.add(cslot)
@@ -289,9 +307,13 @@ proc prune*[A, B](
     sdag.slots.del(slot)
   slotsToDelete.reset()
 
-  # Next two loops to cleanup ancestor->parent reference relation.
+  # Next two loops to cleanup ancestor->parent reference relation, and to
+  # delete `Pending` entries whose time has expired.
   for root, entry in sdag.roots.mpairs():
     if root in rootsToDelete:
+      entriesToDelete.incl(entry)
+    if entry.isExpired(currentTime):
+      rootsToDelete.incl(entry.blockId.root)
       entriesToDelete.incl(entry)
   for entry in sdag.roots.mvalues():
     if entry.parent in entriesToDelete:
@@ -341,6 +363,7 @@ proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
   proc cmp(a, b: tuple[bid: BlockId, item: string]): int =
     cmp(uint64(a.bid.slot), uint64(b.bid.slot))
 
+  let currentTime = Moment.now()
   for item in sdag.roots.values():
     let
       bid =
@@ -359,9 +382,10 @@ proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
         else:
           false
       data = "{" & "\"bid\":\"" & bid &
-        ",\"flags\":\"" & fullLog(item.flags, currentHead, currentFinHead) &
-        ",\"source\":\"" & fullLog(item.source) &
-        ",\"parent_bid\":\"" & shortLog(item.parent) & "\"}"
+        "\",\"flags\":\"" & fullLog(item.flags, currentHead, currentFinHead) &
+        "\",\"source\":\"" & fullLog(item.source) &
+        "\",\"parent_bid\":\"" & shortLog(item.parent) &
+        "\",\"duration\":\"" & shortLog(currentTime - item.moment) & "\"}"
     res.add((item.blockId, data))
   res.sort(cmp)
   "[" & res.mapIt(it.item).join(",") & "]"
