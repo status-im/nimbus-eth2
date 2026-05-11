@@ -285,9 +285,7 @@ proc makeEngineBlock*(
           state.latest_block_root, slot,
           static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       elif consensusFork == ConsensusFork.Gloas:
-        if builderBid.isSome:
-          builderBid.get()
-        else:
+        builderBid.valueOr:
           makeSignedExecutionPayloadBid(
             gloas.SignedExecutionPayloadBid,
             eps.executionPayload, execution_requests, eps.kzg_commitments,
