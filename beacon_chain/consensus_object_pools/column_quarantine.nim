@@ -600,10 +600,11 @@ proc popSidecars*[
   if supernode:
     # When supernode - we pop all sidecars.
     for sidecar in node[].value.sidecars:
-      doAssert(not(sidecar.isEmpty()), "Record should not have empty values")
-      doAssert(sidecar.isLoaded(),
-        "Record should only have loaded values, but it is `" &
-            $sidecar.kind & "`")
+      # Supernode could have some of the columns not filled.
+      if not(sidecar.isEmpty()):
+        doAssert(sidecar.isLoaded(),
+          "Record should only have loaded values, but it is `" &
+              $sidecar.kind & "`")
         sidecars.add(sidecar.data)
         if not sidecar.verified:
           unverified.incl(ColumnIndex(sidecar.index))
