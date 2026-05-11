@@ -288,18 +288,9 @@ proc addHeadBlockWithParent*(
   # We've verified that the slot of the new block is newer than that of the
   # parent, so we should now be able to create an appropriate clearance state
   # onto which we can apply the new block
-  let
-    clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
-    updateFlags =
-      when typeof(signedBlock).kind >= ConsensusFork.Gloas:
-        if isParentBlockFull(dag, signedBlock, parent):
-          dag.updateFlags
-        else:
-          dag.updateFlags + {skipLastEnvelope}
-      else:
-        dag.updateFlags
+  let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(
-      dag, dag.clearanceState, clearanceBlock, true, cache, updateFlags):
+      dag, dag.clearanceState, clearanceBlock, true, cache, dag.updateFlags):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
@@ -534,35 +525,30 @@ proc addHeadExecutionPayload*(
   # envelope with state, as the block could be older than the head.
   let blckBsi = BlockSlotId.init(blck.bid, envelopeSlot)
   if not updateState(
-      dag, dag.clearanceState, blckBsi, false, cache,
-      dag.updateFlags + {skipLastEnvelope}):
+      dag, dag.clearanceState, blckBsi, false, cache, dag.updateFlags):
     # If updateState() fails, it means there may be some missing blocks and
     # envelopes of its parents, or the database is corrupted.
     error "Unable to load clearance state for envelope, database corrupt?",
       clearanceBlock = shortLog(blckBsi)
     return err(VerifierError.MissingParent)
 
-  # Validate the envelope with state. Slot and latest block root in state should
-  # match with the envelope.
-  if not (
-      dag.clearanceState.slot() == envelopeSlot and
-      dag.clearanceState.latest_block_root() == envelopeBlockRoot
-  ):
-    debug "Envelope is not for the current head"
-    return err(VerifierError.Invalid)
-  # With skipLastEnvelope flag and containsExecutionPayloadEnvelope() check
-  # above, the envelope should have not been applied but double check.
-  elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
-       signedEnvelope.message.payload.block_hash:
-    debug "Envelope has been applied to the state"
-    return err(VerifierError.Duplicate)
-
   # Verify with state transition function.
-  debugGloasComment("verify sig")
+  verify_execution_payload_envelope(
+      dag.timeParams,
+      dag.forkAtEpoch(envelopeSlot.epoch),
+      dag.clearanceState.forky(consensusFork),
+      signedEnvelope,
+      dag.genesis_validators_root).isOkOr:
+    debug "Envelope verification failed", reason = error
+    return err(VerifierError.Invalid)
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
 
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload: The node has received a `SignedExecutionPayloadEnvelope`
+  # (from P2P or API) that is successfully imported on the fork-choice
+  # `on_execution_payload_envelope` handler
   if not isNil(dag.onEnvelopeAdded):
     dag.onEnvelopeAdded(signedEnvelope)
 
@@ -617,10 +603,17 @@ proc addBackfillExecutionPayload*(
     return err(VerifierError.Invalid)
 
   # Verify signature
-  let builderKey = dag.validatorKey(builderIdx).valueOr:
-    fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
-      head = shortLog(dag.head), tail = shortLog(dag.tail)
-    quit 1
+  let builderKey =
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        if bidBuilderIdx == BUILDER_INDEX_SELF_BUILD:
+          forkyState.data.validators.item(builderIdx).pubkey
+        else:
+          if bidBuilderIdx >= forkyState.data.builders.lenu64:
+            return err(VerifierError.Invalid)
+          forkyState.data.builders.item(bidBuilderIdx).pubkey
+      else:
+        return err(VerifierError.UnviableFork)
   if not verify_execution_payload_envelope_signature(
       dag.forkAtEpoch(envelope.slot.epoch),
       dag.genesis_validators_root,

@@ -42,19 +42,21 @@ proc initLightClient*(
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork == ConsensusFork.Heze:
-          debugHezeComment ""
-        elif consensusFork == ConsensusFork.Gloas:
-          debugGloasComment ""
-        elif consensusFork >= ConsensusFork.Bellatrix:
+        when consensusFork in ConsensusFork.Bellatrix ..< ConsensusFork.Gloas:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if not payload.block_hash.isZero:
               discard await node.elManager.newExecutionPayload(
                 forkyBlck.message)
-          else: discard
+
+    lightEnvelopeHandler = proc(
+        signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    ): Future[void] {.async: (raises: [CancelledError]).} =
+      if not signedEnvelope.message.payload.block_hash.isZero:
+        discard await node.elManager.newExecutionPayload(signedEnvelope.message)
+
     lightBlockProcessor = initLightBlockProcessor(
-      cfg.timeParams, getBeaconTime, lightBlockHandler)
+      cfg.timeParams, getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
 
     shouldInhibitSync = func(): bool =
       if isNil(node.syncOverseer):
@@ -88,7 +90,7 @@ proc initLightClient*(
             # May temporarily block `forkchoiceUpdated` calls, e.g., Geth:
             # - Refuses `newPayload`: "Ignoring payload while snap syncing"
             # - Refuses `fcU`: "Forkchoice requested unknown head"
-            # Once DAG sync catches up or as new optimistic heads are fetched
+            # Once DAG sync catches up or as new light client heads are fetched
             # the situation recovers
             debug "New LC optimistic header"
             node.consensusManager[].setLightClientHead(bid, blockHash)
@@ -187,13 +189,11 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     return
   var header: ForkedLightClientHeader
   withBlck(bdata):
-    debugGloasComment ""
-    when consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
-      const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-      when lcDataFork > LightClientDataFork.None:
-        header = ForkedLightClientHeader.init(
-          forkyBlck.toLightClientHeader(lcDataFork))
-      else: raiseAssert "Unreachable"
+    const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
+    when lcDataFork > LightClientDataFork.None:
+      header = ForkedLightClientHeader.init(
+        forkyBlck.toLightClientHeader(lcDataFork))
+    else: raiseAssert "Unreachable"
   let current_sync_committee = block:
     let tmpState = assignClone(node.dag.headState)
     node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:

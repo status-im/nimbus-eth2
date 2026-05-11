@@ -48,7 +48,7 @@ const
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
   LowestScoreAggregatedElectraAttestation* =
     electra.Attestation(
-      aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1)))
+      aggregation_bits: AggregationBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)

@@ -98,7 +98,7 @@ iterator get_attesting_indices*(
     shufflingRef: ShufflingRef,
     slot: Slot,
     committee_bits: AttestationCommitteeBits,
-    aggregation_bits: ElectraCommitteeValidatorsBits,
+    aggregation_bits: AggregationBits,
 ): ValidatorIndex =
   if slot.epoch == shufflingRef.epoch:
     var committee_offset = 0
@@ -118,7 +118,7 @@ func get_attesting_indices*(
     shufflingRef: ShufflingRef,
     slot: Slot,
     committee_bits: AttestationCommitteeBits,
-    aggregation_bits: ElectraCommitteeValidatorsBits,
+    aggregation_bits: AggregationBits,
 ): seq[ValidatorIndex] =
   for vidx in shufflingRef.get_attesting_indices(slot, committee_bits, aggregation_bits):
     result.add vidx

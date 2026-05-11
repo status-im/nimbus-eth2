@@ -185,21 +185,25 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
 func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
     beacon_block_root: Eth2Digest,
+    parent_block_root: Eth2Digest
 ): gloas.ExecutionPayloadEnvelope =
   gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
+    parent_beacon_block_root: parent_block_root,
   )
 
 func makeSignedExecutionPayloadBid(
     T: type gloas.SignedExecutionPayloadBid,
     executionPayload: gloas.ExecutionPayload,
+    execution_requests: ExecutionRequests,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -217,6 +221,7 @@ func makeSignedExecutionPayloadBid(
     value: 0.Gwei,
     execution_payment: 0.Gwei,
     blob_kzg_commitments: blob_kzg_commitments,
+    execution_requests_root: hash_tree_root(execution_requests),
   )
   gloas.SignedExecutionPayloadBid(
     message: bid,
@@ -226,6 +231,7 @@ func makeSignedExecutionPayloadBid(
 func makeSignedExecutionPayloadBid(
     T: type heze.SignedExecutionPayloadBid,
     executionPayload: gloas.ExecutionPayload,
+    execution_requests: ExecutionRequests,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
@@ -243,6 +249,7 @@ func makeSignedExecutionPayloadBid(
     value: 0.Gwei,
     execution_payment: 0.Gwei,
     blob_kzg_commitments: blob_kzg_commitments,
+    execution_requests_root: hash_tree_root(execution_requests),
     inclusion_list_bits: inclusion_list_bits)
   heze.SignedExecutionPayloadBid(
     message: bid,
@@ -272,20 +279,33 @@ proc makeEngineBlock*(
         debugHezeComment "set inclusion_list_bits with FOCIL information"
         makeSignedExecutionPayloadBid(
           heze.SignedExecutionPayloadBid,
-          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
-          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
+          eps.executionPayload, execution_requests, eps.kzg_commitments,
+          state.latest_block_root, slot,
+          static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       elif consensusFork == ConsensusFork.Gloas:
         makeSignedExecutionPayloadBid(
           gloas.SignedExecutionPayloadBid,
-          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
-          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
+          eps.executionPayload, execution_requests, eps.kzg_commitments,
+          state.latest_block_root, slot,
+          static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       else:
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, state.latest_block_root)
       else:
         default(seq[PayloadAttestation])
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
+    parent_execution_requests =
+      when consensusFork >= ConsensusFork.Gloas:
+        block:
+          let envelope = node.dag.db.getExecutionPayloadEnvelope(
+              state.latest_block_root).valueOr:
+            default(TrustedSignedExecutionPayloadEnvelope)
+          envelope.message.execution_requests
+      else:
+        default(ExecutionRequests)
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -306,6 +326,7 @@ proc makeEngineBlock*(
       execution_requests,
       signed_execution_payload_bid,
       payload_attestations,
+      parent_execution_requests,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -344,7 +365,7 @@ proc getExecutionPayload*(
     beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead =
       when consensusFork >= ConsensusFork.Gloas:
-        forkyState.data.latest_execution_payload_bid.block_hash
+        proposalExecutionHead(forkyState.data)
       elif consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
       else:
@@ -355,7 +376,15 @@ proc getExecutionPayload*(
     prevRandao = get_randao_mix(forkyState.data, slot.epoch)
     withdrawals =
       when consensusFork >= ConsensusFork.Gloas:
-        get_expected_withdrawals(forkyState.data).withdrawals
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/validator.md#executionpayload
+        # - If `should_extend_payload(store, parent_root)`:
+        #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
+        # - else `withdrawals = state.payload_expected_withdrawals`.
+        if forkyState.data.latest_block_hash ==
+            forkyState.data.latest_execution_payload_bid.block_hash:
+          get_expected_withdrawals(forkyState.data).withdrawals
+        else:
+          forkyState.data.payload_expected_withdrawals.asSeq()
       elif consensusFork >= ConsensusFork.Capella:
         get_expected_withdrawals(forkyState.data)
       else:
@@ -378,7 +407,7 @@ proc getExecutionPayload*(
       when consensusFork >= ConsensusFork.Gloas:
         PayloadAttributesV4.init(
           timestamp, prevRandao, feeRecipient, withdrawals,
-          beaconHead.blck.bid.root, beaconHead.blck.bid.slot,
+          beaconHead.blck.bid.root, slot,
         )
       else:
         PayloadAttributesV3.init(
@@ -519,7 +548,8 @@ proc makeBuilderBlock*(
     signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, state.latest_block_root)
       else:
         newSeq[PayloadAttestation]()
 
@@ -592,11 +622,11 @@ proc collectBids*(
 
     builderBidFut =
       if usePayloadBuilder:
-        debugGloasComment "handle different get_expected_withdrawals types"
         let
           withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
-            when consensusFork == ConsensusFork.Gloas:
-              get_expected_withdrawals(proposalState[].forky(consensusFork).data)[0]
+            when consensusFork >= ConsensusFork.Gloas:
+              get_expected_withdrawals(
+                proposalState[].forky(consensusFork).data).withdrawals
             else:
               get_expected_withdrawals(proposalState[].forky(consensusFork).data)
           )

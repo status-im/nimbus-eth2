@@ -80,7 +80,7 @@ const
   MAX_PAYLOAD_SIZE* = 10'u64 * 1024 * 1024 # bytes
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#configuration
-  MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128 # TODO Make use of in request code
+  MAX_REQUEST_BLOCKS_DENEB*: uint64 = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#misc
   UNSET_DEPOSIT_REQUESTS_START_INDEX*: uint64 = not 0'u64
@@ -104,3 +104,6 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#index-flags
   BUILDER_INDEX_FLAG* = 1'u64 shl 40
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/p2p-interface.md#configuration
+  MAX_REQUEST_PAYLOADS* = 128

@@ -43,7 +43,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,fulu-fork-epoch:,gloas-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,signer-nodes:,signer-type:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,run-spamoor,light-clients:,run-nimbus-eth1,verbose,fulu-fork-epoch:,gloas-fork-epoch:,debug-tcp:,debug-quic:"
 
 # default values
 BINARIES=""
@@ -55,6 +55,8 @@ USE_PAYLOAD_BUILDER="false"
 : ${PAYLOAD_BUILDER_HOST:=127.0.0.1}
 : ${PAYLOAD_BUILDER_PORT:=4888}
 LOG_LEVEL="DEBUG; TRACE:networking"
+P2P_TCP_ENABLED="true"
+P2P_QUIC_ENABLED="false"
 BASE_PORT="9000"
 BASE_REMOTE_SIGNER_PORT="6000"
 BASE_REMOTE_SIGNER_METRICS_PORT="6100"
@@ -138,6 +140,8 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               and validator clients, with all beacon nodes being paired up
                               with a corresponding validator client)
   --log-level                 set the log level (default: "${LOG_LEVEL}")
+  --debug-tcp                 enable TCP transport: true or false (default: ${P2P_TCP_ENABLED})
+  --debug-quic                enable QUIC transport: true or false (default: ${P2P_QUIC_ENABLED})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --reuse-binaries            don't (re)build the binaries we need and don't delete them at the end (speeds up testing)
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
@@ -231,6 +235,14 @@ while true; do
       ;;
     --log-level)
       LOG_LEVEL="$2"
+      shift 2
+      ;;
+    --debug-tcp)
+      P2P_TCP_ENABLED="$2"
+      shift 2
+      ;;
+    --debug-quic)
+      P2P_QUIC_ENABLED="$2"
       shift 2
       ;;
     --base-port)
@@ -355,6 +367,22 @@ if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
   fi
 fi
 
+case "${P2P_TCP_ENABLED}" in
+  true|false) ;;
+  *)
+    echo "Invalid --debug-tcp value: ${P2P_TCP_ENABLED}. Expected true or false."
+    exit 1
+    ;;
+esac
+
+case "${P2P_QUIC_ENABLED}" in
+  true|false) ;;
+  *)
+    echo "Invalid --debug-quic value: ${P2P_QUIC_ENABLED}. Expected true or false."
+    exit 1
+    ;;
+esac
+
 # when sourcing env.sh, it will try to execute $@, so empty it
 EXTRA_ARGS="$@"
 if [[ $# != 0 ]]; then
@@ -413,6 +441,16 @@ kill_by_port() {
   for PORT in "${ports[@]}"; do
     for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
       echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
+      if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+        echo "Killing it."
+        kill -SIGKILL "${PID}" || true
+      else
+        echo "Aborting."
+        exit 1
+      fi
+    done
+    for PID in $(lsof -n -i udp:${PORT} -t); do
+      echo -n "Found old process using UDP port ${PORT}, with PID ${PID}. "
       if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
         echo "Killing it."
         kill -SIGKILL "${PID}" || true
@@ -497,7 +535,7 @@ if [[ "${OS}" != "windows" ]]; then
 
   # Stop Nimbus CL nodes
   for NUM_NODE in $(seq 1 $NUM_NODES); do
-    for PORT in $(( BASE_PORT + NUM_NODE - 1 )) $(( BASE_METRICS_PORT + NUM_NODE - 1)) $(( BASE_REST_PORT + NUM_NODE - 1)); do
+    for PORT in $(( BASE_PORT + NUM_NODE - 1 )) $(( BASE_PORT + 2000 + NUM_NODE - 1 )) $(( BASE_METRICS_PORT + NUM_NODE - 1)) $(( BASE_REST_PORT + NUM_NODE - 1)); do
       PORTS_TO_KILL+=("${PORT}")
     done
   done
@@ -845,7 +883,11 @@ done
   --output-genesis="$CONTAINER_DATA_DIR/genesis.ssz" \
   --output-bootstrap-file="$CONTAINER_DATA_DIR/bootstrap_nodes.txt" \
   --bootstrap-address=127.0.0.1 \
-  --bootstrap-port=$(( BASE_PORT + BOOTSTRAP_NODE - 1 )) \
+  --bootstrap-tcp-port=$(( BASE_PORT + BOOTSTRAP_NODE - 1 )) \
+  --bootstrap-udp-port=$(( BASE_PORT + BOOTSTRAP_NODE - 1 )) \
+  --tcp=${P2P_TCP_ENABLED} \
+  --debug-quic=${P2P_QUIC_ENABLED} \
+  --debug-bootstrap-quic-port=$(( BASE_PORT + 2000 + BOOTSTRAP_NODE - 1 )) \
   --netkey-file=$CONTAINER_BOOTSTRAP_NETWORK_KEYFILE \
   --insecure-netkey-password=true \
   --genesis-time=$GENESIS_TIME \
@@ -861,7 +903,11 @@ DIRECTPEER_ENR=$(
     --data-dir="$CONTAINER_DATA_DIR/node$DIRECTPEER_NODE" \
     --bootstrap-enr="$CONTAINER_DATA_DIR/bootstrap_nodes.txt" \
     --enr-address=127.0.0.1 \
-    --enr-port=$(( BASE_PORT + DIRECTPEER_NODE - 1 )) \
+    --tcp=${P2P_TCP_ENABLED} \
+    --debug-quic=${P2P_QUIC_ENABLED} \
+    --enr-tcp-port=$(( BASE_PORT + DIRECTPEER_NODE - 1 )) \
+    --enr-udp-port=$(( BASE_PORT + DIRECTPEER_NODE - 1 )) \
+    --debug-enr-quic-port=$(( BASE_PORT + 2000 + DIRECTPEER_NODE - 1 )) \
     --enr-netkey-file=$DIRECTPEER_NETWORK_KEYFILE \
     --insecure-netkey-password=true 2>&1 > /dev/null
 )
@@ -1075,6 +1121,9 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE - 1 )) \
     --udp-port=$(( BASE_PORT + NUM_NODE - 1 )) \
+    --debug-tcp=${P2P_TCP_ENABLED} \
+    --debug-quic=${P2P_QUIC_ENABLED} \
+    --debug-quic-port=$(( BASE_PORT + 2000 + NUM_NODE - 1 )) \
     --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
@@ -1172,14 +1221,21 @@ if [ "$LC_NODES" -ge "1" ]; then
       WEB3_ARG+=("--el=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
     fi
 
+    TCP_PORT=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 ))
+    UDP_PORT=$(( TCP_PORT ))
+    QUIC_PORT=$(( TCP_PORT + 2000 ))
+
     ./build/nimbus_light_client \
       --log-level="${LOG_LEVEL}" \
       --log-format="json" \
       --data-dir="${LC_DATA_DIR}" \
       --network="${CONTAINER_DATA_DIR}" \
       --bootstrap-node="${LC_BOOTSTRAP_NODE}" \
-      --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
-      --udp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
+      --tcp-port=$(( TCP_PORT )) \
+      --udp-port=$(( UDP_PORT ))  \
+      --debug-tcp=${P2P_TCP_ENABLED} \
+      --debug-quic=${P2P_QUIC_ENABLED} \
+      --debug-quic-port=$(( QUIC_PORT )) \
       --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
       --nat="extip:127.0.0.1" \
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \

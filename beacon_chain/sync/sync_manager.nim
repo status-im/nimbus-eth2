@@ -92,7 +92,7 @@ type
     slots*: uint64
 
   BeaconBlocksRes =
-    NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS]]
+    NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB]]
   BlobSidecarsRes =
     NetRes[List[ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)]]
 

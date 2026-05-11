@@ -1050,13 +1050,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           static: doAssert high(ConsensusFork) == ConsensusFork.Heze
           when consensusFork == ConsensusFork.Heze:
             debugHezeComment "stub: heze block routing"
+            debugHezeComment("data columns")
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
-              checkValidator = true)
+              forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Gloas:
+            debugGloasComment("data columns")
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
-              checkValidator = true)
+              forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
@@ -1642,6 +1642,36 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Opt.some(node.dag.is_optimistic(bid)), node.dag.isFinalized(bid))
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadBid
+  router.api(MethodPost, "/eth/v1/beacon/execution_payload_bid") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400,
+                                       FailedToObtainConsensusForkError)
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    debugHezeComment "Heze has a different ExecutionPayloadBid"
+    if consensusVersion.get() != ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400,
+                                       SlotFromTheIncorrectForkError)
+
+    let dres = decodeBodyJsonOrSsz(
+      gloas.SignedExecutionPayloadBid, contentBody.get())
+    if dres.isErr():
+      return RestApiResponse.jsonError(dres.error())
+    let res = await node.router.routeExecutionPayloadBid(dres.get())
+    if res.isErr():
+      return RestApiResponse.jsonError(Http400,
+                                       ExecutionPayloadBidValidationError,
+                                       $res.error)
+    RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
   router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (

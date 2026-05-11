@@ -107,7 +107,9 @@ suite "Payload attestation pool" & preset():
           message = makePayloadAttestationMessage(
             forkyState, beacon_block_root, ptc_member, privkey, cache)
 
+        check not pool[].isSeen(message)
         check pool[].addPayloadAttestation(message, wallTime)
+        check pool[].isSeen(message)
 
         # Should not be able to add the same attestation twice
         check not pool[].addPayloadAttestation(message, wallTime)
@@ -225,7 +227,7 @@ suite "Payload attestation pool" & preset():
           added_count += 1
 
         let attestations =
-          pool[].getPayloadAttestationsForBlock(target_slot)
+          pool[].getPayloadAttestationsForBlock(target_slot, beacon_block_root)
         check attestations.len > 0
         check attestations[0].data.slot == slot
 
@@ -258,7 +260,7 @@ suite "Payload attestation pool" & preset():
 
         # Old attestation should no longer be retrievable
         let attestations =
-          pool[].getPayloadAttestationsForBlock(slot + 6)
+          pool[].getPayloadAttestationsForBlock(slot + 6, beacon_block_root)
         check attestations.len == 0
 
   test "Different 'blob data available' and 'payload presence' values" & preset():

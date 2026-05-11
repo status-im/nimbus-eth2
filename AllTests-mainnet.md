@@ -37,6 +37,7 @@ AllTests-mainnet
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + batch delete data columns [Preset: mainnet]                                                OK
++ batch put data columns [Preset: mainnet]                                                   OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
@@ -118,19 +119,6 @@ AllTests-mainnet
 + electra toSignedBlindedBeaconBlock                                                         OK
 + fulu toSignedBlindedBeaconBlock                                                            OK
 ```
-## BlobQuarantine data structure test suite  [Preset: mainnet]
-```diff
-+ database and memory overfill protection and pruning test                                   OK
-+ database unload/load test                                                                  OK
-+ overfill protection test                                                                   OK
-+ overfill test [maximum number of blobs]                                                    OK
-+ popSidecars()/hasSidecars() return []/true on block without blobs                          OK
-+ pruneAfterFinalization() test                                                              OK
-+ put() duplicate items should not affect counters                                           OK
-+ put()/fetchMissingSidecars/remove test                                                     OK
-+ put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
-+ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test                         OK
-```
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -152,7 +140,6 @@ AllTests-mainnet
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
-+ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
@@ -976,6 +963,62 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
+## Partial Column Quarantine
+```diff
++ Assemble multiple columns for the same block independently                                 OK
++ Cell tracking is per-column                                                                OK
++ Different block roots with same column index are independent                               OK
++ Different column indices are independent                                                   OK
++ Get entry for unknown key returns none                                                     OK
++ Get header for unknown root returns none                                                   OK
++ Header LRU evicts oldest entry when full                                                   OK
++ Init creates empty quarantine                                                              OK
++ Mark all cells received                                                                    OK
++ Mark and check cell received                                                               OK
++ Mark cell received for non-existent entry is no-op                                         OK
++ Mark cell received with out-of-bounds blob index is no-op                                  OK
++ Multiple headers for different roots                                                       OK
++ Overwrite header with same root                                                            OK
++ PartialColumnKey equality                                                                  OK
++ PartialColumnKey hash differs for different keys                                           OK
++ Put and get entry                                                                          OK
++ Put and get partial header                                                                 OK
++ Remove entry                                                                               OK
++ Remove entry does not affect other entries                                                 OK
++ Remove header                                                                              OK
++ Remove non-existent entry is no-op                                                         OK
++ Remove non-existent header is no-op                                                        OK
++ Removing entry does not remove header                                                      OK
++ Removing header does not remove entries                                                    OK
++ addCells accumulates across multiple sidecars                                              OK
++ addCells ingests cells from a PartialDataColumnSidecar                                     OK
++ addCells is independent across columns                                                     OK
++ addCells on non-existent entry is no-op                                                    OK
++ addCells with overlapping bitmap overwrites existing cells                                 OK
++ assembleDataColumnSidecar preserves inclusion proof from header                            OK
++ assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
++ assembleDataColumnSidecar returns none for non-existent entry                              OK
++ assembleDataColumnSidecar returns none when cells incomplete                               OK
++ assembleDataColumnSidecar returns none when header missing from cache                      OK
++ assembleDataColumnSidecar returns none when header not validated                           OK
++ assembleDataColumnSidecar with cells added incrementally                                   OK
++ assembleDataColumnSidecar with markCellReceived (data overload)                            OK
++ getOrCreateEntry creates new entry                                                         OK
++ getOrCreateEntry new entry has properly sized cells and proofs                             OK
++ getOrCreateEntry reflects header validation status                                         OK
++ getOrCreateEntry returns existing entry                                                    OK
++ hasCellReceived for non-existent entry returns false                                       OK
++ hasCellReceived for out-of-bounds index returns false                                      OK
++ isComplete becomes true after incremental addCells                                         OK
++ isComplete returns false for non-existent entry                                            OK
++ isComplete returns false when cells are missing                                            OK
++ isComplete returns false when header not validated                                         OK
++ isComplete returns true when header validated and all cells received                       OK
++ isComplete with single blob                                                                OK
++ markCellReceived with data on non-existent entry is no-op                                  OK
++ markCellReceived with data out-of-bounds is no-op                                          OK
++ markCellReceived with data stores cell and proof                                           OK
+```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
 + Can add and retrieve payload attestations [Preset: mainnet]                                OK
@@ -1017,8 +1060,8 @@ AllTests-mainnet
 ```
 ## Quarantine [Preset: mainnet]
 ```diff
-+ put/iterate/remove test [BlobSidecars]                                                     OK
-+ put/iterate/remove test [DataColumnSidecar]                                                OK
++ put/iterate/remove test [fulu DataColumnSidecar]                                           OK
++ put/iterate/remove test [gloas DataColumnSidecar]                                          OK
 ```
 ## REST encoding and decoding
 ```diff

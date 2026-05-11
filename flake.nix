@@ -36,7 +36,7 @@
     in rec {
       packages = forAllSystems (system: let
         buildTarget = pkgsFor.${system}.callPackage ./nix/default.nix {
-          inherit stableSystems; src = self;
+          inherit stableSystems self;
         };
         nim = nimbusBuildSystem.packages.${system}.nim;
         build = targets: buildTarget.override { inherit targets nim; };
