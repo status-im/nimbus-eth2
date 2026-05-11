@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status
   results,
   chronicles,
@@ -121,6 +121,9 @@ type
     invalid*: bool
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
+    parentPayloadStatus*: PayloadStatus
+    bidBlockHash*: Eth2Digest
+    proposerIndex*: uint64
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
@@ -142,6 +145,13 @@ type
     current_root*: Eth2Digest
     next_root*: Eth2Digest
     slot*: Slot
+    next_epoch*: Epoch
+    next_slot*: Slot
+    payload_present*: bool
+
+  PtcVotes* = object
+    voted*: BitArray[int(PTC_SIZE)]
+    value*: BitArray[int(PTC_SIZE)]
 
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
@@ -161,22 +171,34 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
+    execution_payload_states*: HashSet[Eth2Digest]
+    ptc_vote*: Table[Eth2Digest, PtcVotes]
+    ptc_data_availability*: Table[Eth2Digest, PtcVotes]
+    block_timeliness*: Table[Eth2Digest, array[2, bool]]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
     slot*: Slot
+    committee_index*: CommitteeIndex
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
     queuedAttestations*: seq[QueuedAttestation]
 
+  ForkChoiceNode* = object
+    root*: Eth2Digest
+    payloadStatus*: PayloadStatus
+
 func shortLog*(vote: VoteTracker): auto =
   (
     slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
+    next_epoch: vote.next_epoch,
+    next_slot: vote.next_slot,
+    payload_present: vote.payload_present
   )
 
 chronicles.formatIt VoteTracker: it.shortLog
