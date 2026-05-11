@@ -358,7 +358,10 @@ proc init*(
   SyncDag[A, B]()
 
 proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
-  var res: seq[tuple[bid: BlockId, item: string]]
+  var
+    res: seq[tuple[bid: BlockId, item: string]]
+    minSlot: Opt[Slot]
+    maxSlot: Opt[Slot]
 
   proc cmp(a, b: tuple[bid: BlockId, item: string]): int =
     cmp(uint64(a.bid.slot), uint64(b.bid.slot))
@@ -387,5 +390,15 @@ proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
         "\",\"parent_bid\":\"" & shortLog(item.parent) &
         "\",\"duration\":\"" & shortLog(currentTime - item.moment) & "\"}"
     res.add((item.blockId, data))
+    if DagEntryFlag.Pending notin item.flags:
+      if minSlot.isNone() or item.blockId.slot < minSlot.get():
+        minSlot = Opt.some(item.blockId.slot)
+      if maxSlot.isNone() or item.blockId.slot > maxSlot.get():
+        maxSlot = Opt.some(item.blockId.slot)
   res.sort(cmp)
-  "[" & res.mapIt(it.item).join(",") & "]"
+  let
+    sminSlot = if minSlot.isNone(): "not available" else: $minSlot.get()
+    smaxSlot = if maxSlot.isNone(): "not available" else: $maxSlot.get()
+  "{\"min_slot\":\"" & sminSlot &
+    "\",\"max_slot\":\"" & smaxSlot &
+    "\",\"records\":[" & res.mapIt(it.item).join(",") & "]}"
