@@ -408,32 +408,39 @@ proc proposeBlockAux(
 
     engineBid =
       when consensusFork == ConsensusFork.Heze:
+        debugHezeComment "apply_parent_execution_payload"
         debugHezeComment "stub: heze block proposals"
         await node.getExecutionPayload(
           consensusFork, head, state, validator_index, validator.pubkey
         )
       elif consensusFork == ConsensusFork.Gloas:
         debugGloasComment("WIP: so assume `should_extend_payload == true` here")
-        # We need a cloned state here, or otherwise the proposed block would get
-        # an incorrect state_root.
-        let payloadState = assignClone(state[])
-        let parentBlck = node.dag.getBlock(
-            head.bid, consensusFork.TrustedSignedBeaconBlock).valueOr:
-          debug "Proposal failed to get parent block", slot, head = shortLog(head)
-          return head
-        apply_parent_execution_payload(
-          node.dag.cfg,
-          payloadState[].forky(consensusFork).data,
-          parentBlck.message.body.parent_execution_requests,
-          cache[],
-        ).isOkOr:
-          debug "Proposal failed to apply parent payload",
-            slot, head = shortlog(head)
-          return head
+        let parentExecReqs = block:
+          # Parent block is either in Fulu or Gloas.
+          let parentId = state[].latest_block_id
+          let parentBlck = node.dag.getForkedBlock(parentId).valueOr:
+            debug "Proposal failed to get parent block",
+              slot, head = shortLog(head)
+            return head
+          withBlck(parentBlck):
+            when consensusFork == ConsensusFork.Gloas:
+              Opt.some(forkyBlck.message.body.parent_execution_requests)
+            else:
+              Opt.none(ExecutionRequests)
+        if parentExecReqs.isSome():
+          apply_parent_execution_payload(
+            node.dag.cfg,
+            state[].forky(consensusFork).data,
+            parentExecReqs.get(),
+            cache[],
+          ).isOkOr:
+            debug "Proposal failed to apply parent payload",
+              slot, head = shortlog(head)
+            return head
 
         # Fetch only engine payload for now
         await node.getExecutionPayload(
-          consensusFork, head, payloadState, validator_index, validator.pubkey
+          consensusFork, head, state, validator_index, validator.pubkey
         )
       elif consensusFork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
