@@ -648,12 +648,12 @@ proc proposeBlockAux(
   beacon_blocks_proposed.inc()
 
   when consensusFork >= ConsensusFork.Gloas:
-    if selectedBuilderBid.isSome:
+    selectedBuilderBid.isErrOr:
       notice "Block uses builder bid, skipping envelope broadcast",
         blockRoot = shortLog(blockRoot),
-        builderIndex = selectedBuilderBid.get().message.builder_index,
-        bidValue = selectedBuilderBid.get().message.value,
-        signature = shortLog(selectedBuilderBid.get().signature),
+        builderIndex = value.message.builder_index,
+        bidValue = value.message.value,
+        signature = shortLog(value.signature),
         validator = shortLog(validator)
       return newBlockRef.get()
 
