@@ -16,7 +16,7 @@ import
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
-  ../consensus_object_pools/[spec_cache, blockchain_dag],
+  ../consensus_object_pools/blockchain_dag,
   "."/[fork_choice_types, proto_array]
 
 func isGloasEnabled*(dag: ChainDAGRef, slot: Slot): bool =
@@ -130,34 +130,6 @@ proc update_proposer_boost_root*(
         blck.proposer_index == expectedProposer.get().uint64:
       self.checkpoints.proposer_boost_root = blckRef.root
 
-# Payload timeliness and data availability
-# ----------------------------------------------------------------------
-
-func ptcVoteAboveThreshold(
-    self: ForkChoiceBackend, root: Eth2Digest,
-    votes: Table[Eth2Digest, PtcVotes], threshold: uint64): bool =
-  # The beacon block root must be known AND payload loacally available
-  root in votes and root in self.execution_payload_states and
-    votes.getOrDefault(root, default(PtcVotes)).value.countOnes().uint64 >
-      threshold
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#new-is_payload_timely
-func is_payload_timely*(self: ForkChoiceBackend, root: Eth2Digest): bool =
-  ## Return whether the execution payload for the beacon block with root ``root``
-  ## was voted as present by the PTC, and was locally determined to be available.
-  self.ptcVoteAboveThreshold(root, self.ptc_vote, PAYLOAD_TIMELY_THRESHOLD)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-is_payload_data_available
-func is_payload_data_available(
-    self: ForkChoiceBackend, root: Eth2Digest): bool =
-  ## Return whether the blob data for the beacon block with root ``root``
-  ## was voted as present by the PTC, and was locally determined to be available.
-  self.ptcVoteAboveThreshold(
-    root, self.ptc_vote, DATA_AVAILABILITY_TIMELY_THRESHOLD)
-
-# Tree navigation helpers
-# ----------------------------------------------------------------------
-
 template getPhysicalNode*(
     self: var ForkChoice, logicalIdx: int): ptr ProtoNode =
   let physicalIdx = logicalIdx - self.backend.proto_array.nodes.offset
@@ -172,49 +144,6 @@ template getNode*(
   if idx < 0: nil
   else:
     self.getPhysicalNode(idx)
-
-#https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_extend_payload
-func should_extend_payload*(
-    self: var ForkChoice, root: Eth2Digest): bool =
-  if self.backend.is_payload_timely(root) and
-      self.backend.is_payload_data_available(root):
-    return true
-
-  let proposer_root = self.checkpoints.proposer_boost_root
-  if proposer_root.isZero:
-    return true
-
-  let proposer_node = self.getNode(proposer_root)
-  if proposer_node == nil or proposer_node.parent.isNone:
-    return true
-
-  let parent_node = self.getPhysicalNode(proposer_node.parent.get())
-  if parent_node == nil or parent_node.bid.root != root:
-    return true
-
-  proposer_node.parentPayloadStatus == PAYLOAD_STATUS_FULL
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/fork-choice.md#new-get_payload_status_tiebreaker
-func get_payload_status_tiebreaker*(
-    self: var ForkChoice, node: ForkChoiceNode,
-    current_slot: Slot, dag: ChainDAGRef): uint8 =
-  if not dag.isGloasEnabled(current_slot):
-    return node.payloadStatus
-
-  let proto_node = self.getNode(node.root)
-  if proto_node == nil:
-    return node.payloadStatus
-
-  if node.payloadStatus == PAYLOAD_STATUS_PENDING or
-      proto_node.bid.slot + 1 != current_slot:
-    return node.payloadStatus
-
-  if node.payloadStatus == PAYLOAD_STATUS_EMPTY:
-    1'u8
-  elif node.payloadStatus == PAYLOAD_STATUS_FULL:
-    if self.should_extend_payload(node.root): 2'u8 else: 0'u8
-  else:
-    0'u8
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_weak
 func is_head_weak(
