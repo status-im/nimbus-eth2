@@ -753,7 +753,7 @@ proc updatePeerStatus(overseer: SyncOverseerRef2, peer: Peer) =
     return
 
   for root in pendingRoots:
-    entry.pendingRoots.addLast(root)
+    entry.pendingRoots.add(root)
 
   if not(isNil(fentry)) and (DagEntryFlag.Pending notin fentry.flags):
     # Finalized root is already present in SyncDag.
@@ -781,7 +781,7 @@ proc updatePeer(
   if missingParentRoot.isSome() and
      (missingParentRoot.get() != GenesisCheckpoint.root):
     if not(isNil(peerEntry)):
-      peerEntry.pendingRoots.addLast(missingParentRoot.get())
+      peerEntry.pendingRoots.add(missingParentRoot.get())
     else:
       if missingParentRoot.get() == block_parent_root:
         # We only change global `missingRoots` if we got a block without
@@ -1205,7 +1205,7 @@ proc doPeerUpdateMetadata(
 
   true
 
-proc doPeerUpdateRoots(
+proc doRootSyncStep(
     overseer: SyncOverseerRef2,
     peer: Peer,
 ): Future[bool] {.async: (raises: [CancelledError]).} =
@@ -1226,7 +1226,7 @@ proc doPeerUpdateRoots(
         # Add peer missing roots
         while counter < peerEntry.maxBlocksPerRequest:
           if len(peerEntry.pendingRoots) > 0:
-            let blockRoot = peerEntry.pendingRoots.popFirst()
+            let blockRoot = peerEntry.pendingRoots.pop()
             if blockRoot notin dupcheck:
               dupcheck.incl(blockRoot)
               res.add(blockRoot)
@@ -1247,7 +1247,7 @@ proc doPeerUpdateRoots(
   template restoreRoots() =
     # We should return all the roots back to the pending queue.
     for index in countdown(len(roots) - 1, 0):
-      peerEntry.pendingRoots.addFirst(roots[index])
+      peerEntry.pendingRoots.add(roots[index])
 
   template removeRoot(root: Eth2Digest) =
     let index = roots.find(root)
@@ -1313,18 +1313,22 @@ proc doPeerUpdateRoots(
 
   for signedBlock in blocks.asSeq():
     # maybeFinalized = false because we are working in range `>finalizedEpoch`.
-    let res =
-      try:
-        await overseer.verifyBlock(signedBlock, maybeFinalized = false)
-      except CancelledError as exc:
-        restoreRoots()
-        raise exc
+    let
+      res =
+        try:
+          await overseer.verifyBlock(signedBlock, maybeFinalized = false)
+        except CancelledError as exc:
+          restoreRoots()
+          raise exc
+      bid =
+        BlockId(slot: signedBlock[].slot(), root: signedBlock[].root())
+
+    logScope:
+      fork = signedBlock[].kind
+      bid = shortLog(bid)
 
     if res.isErr() and (res.error == VerifierError.Invalid):
-      debug "Block verification NOT passed",
-        fork = signedBlock[].kind,
-        block_root = shortLog(signedBlock[].root),
-        reason = $res.error
+      debug "Block verification NOT passed", reason = $res.error
       restoreRoots()
       peer.updateScore(PeerScoreBadResponse)
       return false
@@ -1338,38 +1342,33 @@ proc doPeerUpdateRoots(
         if res.isErr():
           case res.error
           of VerifierError.Invalid:
-            debug "Block verification NOT passed",
-              fork = signedBlock[].kind,
-              block_root = shortLog(signedBlock[].root),
-              reason = $res.error
-            restoreRoots()
             peer.updateScore(PeerScoreBadResponse)
+            debug "Block verification NOT passed", reason = $res.error
+            restoreRoots()
             return false
           of VerifierError.MissingParent:
-            debug "Block verification passed",
-              fork = signedBlock[].kind,
-              block_root = shortLog(signedBlock[].root),
-              reason = $res.error
+            peer.updateScore(PeerScoreGoodValues)
+            debug "Block verification passed", reason = $res.error
+            peerEntry.pendingRoots.add(signedBlock[].parent_root())
             DagBlockSourceType.Orphan
           of VerifierError.Duplicate:
+            peer.updateScore(PeerScoreGoodValues)
             DagBlockSourceType.Dag
           of VerifierError.UnviableFork:
+            peer.updateScore(PeerScoreUnviableFork)
             debug "Block is unviable",
-              fork = signedBlock[].kind,
               missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
               reason = $res.error
             DagBlockSourceType.Unviable
           of VerifierError.MissingSidecars:
+            peer.updateScore(PeerScoreGoodValues)
             debug "Block missing sidecars",
-              fork = signedBlock[].kind,
               missing_sidecars = overseer.getMissingIndicesLog(signedBlock),
               reason = $res.error
             DagBlockSourceType.Sidecarless
         else:
-          debug "Block verification passed",
-            fork = signedBlock[].kind,
-            block_root = shortLog(signedBlock[].root),
-            reason = "ok"
+          peer.updateScore(PeerScoreGoodValues)
+          debug "Block verification passed", reason = "ok"
           DagBlockSourceType.Dag
     # Update SyncDAG with block
     overseer.updatePeer(
@@ -1378,7 +1377,7 @@ proc doPeerUpdateRoots(
 
   true
 
-proc doPeerUpdateRootsSidecars(
+proc doRootSidecarsSyncStep(
     overseer: SyncOverseerRef2,
     peer: Peer
 ): Future[bool] {.async: (raises: [CancelledError]).} =
@@ -1534,9 +1533,7 @@ proc doPeerUpdateRootsSidecars(
               reason = res.error, blck = slimLog(signedBlock)
             case res.error
             of VerifierError.Invalid:
-              # TODO (cheatfate): This part should remove all references to
-              # specific block and it sidecars, so syncer should download
-              # block and all the sidecars again.
+              peer.updateScore(PeerScoreBadValues)
               entry.flags.incl(
                 {DagEntryFlag.Pending, DagEntryFlag.MissingSidecars})
               entry.parent = nil
@@ -1548,18 +1545,25 @@ proc doPeerUpdateRootsSidecars(
               return false
             of VerifierError.UnviableFork:
               # TODO (cheatfate): Think about this part!
+              peer.updateScore(PeerScoreUnviableFork)
               entry.flags.excl(DagEntryFlag.MissingSidecars)
               entry.flags.incl(DagEntryFlag.Unviable)
               discard overseer.blockQuarantine[].addUnviable(
                 forkyBlck.root, UnviableKind.UnviableFork)
               return false
-            of VerifierError.MissingParent, VerifierError.Duplicate:
+            of VerifierError.MissingParent:
+              peer.updateScore(PeerScoreGoodValues)
+              entry.flags.excl(DagEntryFlag.MissingSidecars)
+              peerEntry.pendingRoots.add(forkyBlck.message.parent_root)
+            of VerifierError.Duplicate:
               # This flags means that we have sidecars.
+              peer.updateScore(PeerScoreGoodValues)
               entry.flags.excl(DagEntryFlag.MissingSidecars)
             of VerifierError.MissingSidecars:
               # We still missing sidecars.
               discard
           else:
+            peer.updateScore(PeerScoreGoodValues)
             debug "Block and sidecars by root processor response",
               reason = "ok", blck = slimLog(signedBlock)
             overseer.blockQuarantine[].remove(forkyBlck)
@@ -1884,6 +1888,8 @@ proc doRangeSidecarsStep(
           for record in grouped:
             overseer.columnQuarantine[].put(record.block_root, record.sidecar)
 
+          peer.updateScore(PeerScoreGoodValues)
+
           if (len(blocks) == 0) and (len(grouped) > 0):
             # Case when we have no blocks, but a lot of blobs.
             debug "Received columns range which do not have corresponding " &
@@ -2064,12 +2070,12 @@ proc startPeer(
           local_head = dag.head.slot,
           head_distance = overseer.syncDistance(peer)
 
-        if not(await overseer.doPeerUpdateRoots(peer)):
+        if not(await overseer.doRootSyncStep(peer)):
           return
         if not(overseer.pool.checkPeerScore(peer)):
           return
 
-        if not(await overseer.doPeerUpdateRootsSidecars(peer)):
+        if not(await overseer.doRootSidecarsSyncStep(peer)):
           return
         if not(overseer.pool.checkPeerScore(peer)):
           return
@@ -2123,6 +2129,10 @@ proc startPeer(
   finally:
     # Cleanup
     var entry: PeerEntryRef[Peer]
+    try:
+      await peer.disconnect(FaultOrError)
+    except CancelledError:
+      discard
     if overseer.sdag.peers.pop(peer.getKey(), entry):
       overseer.pool.release(peer)
     debug "Remote peer disconnected"

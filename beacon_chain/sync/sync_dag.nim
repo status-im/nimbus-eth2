@@ -4,6 +4,7 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.push raises: [].}
 
 import std/[sets, tables, strutils, hashes, algorithm]
@@ -28,9 +29,13 @@ type
     source*: set[DagBlockSourceType]
     moment*: chronos.Moment
 
+  RootQueue* = object
+    queue: Deque[Eth2Digest]
+    roots: HashSet[Eth2Digest]
+
   PeerEntryRef*[A] = ref object
     peer*: A
-    pendingRoots*: Deque[Eth2Digest]
+    pendingRoots*: RootQueue
     maxBlocksPerRequest*: int
     maxSidecarsPerRequest*: int
     peerLoopFut*: Future[void].Raising([])
@@ -44,6 +49,22 @@ type
 const
   EmptyBlockId* = BlockId(slot: FAR_FUTURE_SLOT)
   PendingExpirationTime = 5.minutes
+
+proc init*(t: typedesc[RootQueue]): RootQueue =
+  RootQueue(queue: initDeque[Eth2Digest](16))
+
+proc add*(rq: var RootQueue, root: Eth2Digest) =
+  if root notin rq.roots:
+    rq.queue.addLast(root)
+    rq.roots.incl(root)
+
+proc len*(rq: RootQueue): int =
+  len(rq.queue)
+
+proc pop*(rq: var RootQueue): Eth2Digest =
+  let root = rq.queue.popFirst()
+  rq.roots.excl(root)
+  root
 
 func isExpired(s: SyncDagEntryRef, currentTime: Moment): bool =
   doAssert(not(isNil(s)))
@@ -118,7 +139,7 @@ func init*[T](
     peer: T,
 ): PeerEntryRef[T] =
   PeerEntryRef[T](
-    pendingRoots: initDeque[Eth2Digest](16),
+    pendingRoots: RootQueue.init(),
     peer: peer,
     maxBlocksPerRequest: 4,
     maxSidecarsPerRequest: 128
