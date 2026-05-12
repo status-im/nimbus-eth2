@@ -2544,14 +2544,16 @@ proc missingMonitoringLoop(
   try:
     while true:
         await overseer.blockQuarantine[].missingEvent.wait()
-
         let missingRoots = overseer.blockQuarantine[].checkMissing(high(int))
+        debug "Got missing block event",
+          missing_roots = missingRoots.mapIt(shortLog(it.root))
         for record in missingRoots:
           let entry = overseer.sdag.roots.getOrDefault(record.root)
           if not(isNil(entry)):
             entry.flags.incl(DagEntryFlag.Pending)
-          else:
-            overseer.missingRoots.incl(record.root)
+          overseer.missingRoots.incl(record.root)
+          debug "Missing block root inserted into queue",
+             block_root = record.root, block_known = not(isNil(entry))
         overseer.blockQuarantine[].missingEvent.clear()
 
   except CancelledError:
