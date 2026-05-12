@@ -40,8 +40,8 @@ type
       ## should skip calculating that last state root.
     skipProcessParentExecutionPayload
       ## When proposing Gloas blocks, apply_parent_execution_payload() is needed
-      ## for producing a correct execution payload. Which cause the transition
-      ## function called twice as it will be used in process_block(). For
+      ## for producing a correct execution payload. This causes the transition
+      ## function to be called twice, as it will be used in process_block(). For
       ## optimization, this is used in proposal for skipping the transitioning
       ## in process_block().
 
