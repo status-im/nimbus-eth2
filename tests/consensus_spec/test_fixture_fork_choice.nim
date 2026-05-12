@@ -571,12 +571,9 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         continue
       if path.contains("eip7805") or path.contains("heze"):
         continue
-      let fork = forkForPathComponent(path).valueOr:
-        continue
+      let fork = forkForPathComponent(path).get()
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
         let basePath = testsPath/path/"pyspec_tests"
-        if kind != pcDir:
-          continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
           runTest(suiteName, basePath/path, fork, rng, taskpool)
 

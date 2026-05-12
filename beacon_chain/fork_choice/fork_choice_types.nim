@@ -108,6 +108,7 @@ type
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
+    fullBlockIndices*: Table[Eth2Digest, Index]
     unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
@@ -148,6 +149,7 @@ type
     next_epoch*: Epoch
     next_slot*: Slot
     payload_present*: bool
+    next_payload_present*: bool
   
   PtcVotes* = object
     voted*: BitArray[int(PTC_SIZE)]
@@ -206,7 +208,8 @@ func shortLog*(vote: VoteTracker): auto =
     next_root: shortLog(vote.next_root),
     next_epoch: vote.next_epoch,
     next_slot: vote.next_slot,
-    payload_present: vote.payload_present
+    payload_present: vote.payload_present,
+    next_payload_present: vote.next_payload_present
   )
 
 chronicles.formatIt VoteTracker: it.shortLog

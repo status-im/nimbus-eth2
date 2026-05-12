@@ -201,8 +201,8 @@ func applyScoreChanges*(
   #    updating if the current node should become the best-child
   # 4. If required, update the parent's best-descendant with the current node
   #    or its best-descendant
-  doAssert self.indices.len == self.nodes.len # By construction
-  if deltas.len != self.indices.len:
+  doAssert self.indices.len + self.fullBlockIndices.len == self.nodes.len # By construction
+  if deltas.len != self.nodes.len:
     return err ForkChoiceError(
       kind: fcInvalidDeltaLen,
       deltasLen: deltas.len,
@@ -242,8 +242,10 @@ func applyScoreChanges*(
     if not node.invalid:
       # If we find the node for which the proposer boost was previously applied,
       # decrease the delta by the previous score amount.
+      let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
       if  (not self.previousProposerBoostRoot.isZero) and
-          self.previousProposerBoostRoot == node.bid.root:
+          self.previousProposerBoostRoot == node.bid.root and
+          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
             if  nodeDelta < 0 and
                 nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
               return err ForkChoiceError(
@@ -255,7 +257,8 @@ func applyScoreChanges*(
       # the delta by the new score amount.
       #
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-      if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
+      if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root and
+          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
         proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
         if  nodeDelta >= 0 and
             high(Delta) - nodeDelta < proposerBoostScore.int64:
@@ -351,12 +354,18 @@ func onBlock*(
   if bid.root in self.indices:
     return ok()
 
-  let parentIdx = self.find(parent)
-  if parentIdx < 0:
+  let baseParentIdx = self.find(parent)
+  if baseParentIdx < 0:
     return err ForkChoiceError(
       kind: fcUnknownParent,
       childRoot: bid.root,
       parentRoot: parent)
+
+  let parentIdx =
+    if parent_payload_status == PAYLOAD_STATUS_FULL:
+      self.fullBlockIndices.getOrDefault(parent, baseParentIdx)
+    else:
+      baseParentIdx
 
   let nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
 
@@ -382,7 +391,39 @@ func onBlock*(
 
   ok()
 
-func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
+func onPayloadVerified*(
+    self: var ProtoArray, root: Eth2Digest): FcResult[void] =
+  if root in self.fullBlockIndices:
+    return ok()
+
+  let blockIdx = self.find(root)
+  if blockIdx < 0:
+    return ok()
+
+  let blockNode = self.nodes[blockIdx].valueOr:
+    return ok()
+
+  let fullIdx = self.nodes.offset + self.nodes.buf.len
+  let fullNode = ProtoNode(
+    bid: blockNode.bid,
+    parent: blockNode.parent,
+    checkpoints: blockNode.checkpoints,
+    sharedFinalizedEpoch: blockNode.sharedFinalizedEpoch,
+    weight: 0,
+    invalid: blockNode.invalid,
+    bestChild: Opt.none(int),
+    bestDescendant: Opt.none(int))
+
+  self.fullBlockIndices[root] = fullIdx
+  self.nodes.add fullNode
+
+  if blockNode.parent.isSome:
+    ? self.maybeUpdateBestChildAndDescendant(
+        blockNode.parent.unsafeGet, fullIdx)
+
+  ok()
+
+func findHead*(self: var ProtoArray, head: var ForkChoiceNode): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ️ Warning
@@ -414,7 +455,12 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
       headRoot: justifiedNode.bid.root,
       headCheckpoints: justifiedNode.checkpoints)
 
-  head = bestNode.bid.root
+  let payloadStatus =
+    if self.fullBlockIndices.getOrDefault(bestNode.bid.root, -1) == bestDescendantIdx:
+      PAYLOAD_STATUS_FULL
+    else:
+      PAYLOAD_STATUS_EMPTY
+  head = ForkChoiceNode(root: bestNode.bid.root, payloadStatus: payloadStatus)
   ok()
 
 func prune*(
@@ -453,6 +499,7 @@ func prune*(
     let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
     self.unrealized.del nodeLogicalIdx
     self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
+    self.fullBlockIndices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
 
   # Drop all nodes prior to finalization.
   # This is done in-place with `moveMem` to avoid costly reallocations.
@@ -529,8 +576,35 @@ func maybeUpdateBestChildAndDescendant(
           elif not childLeadsToViableHead and bestChildLeadsToViableHead:
             # The best child leads to a viable head, but the child doesn't
             noChange
+          elif child.bid.root == bestChild.bid.root:
+            # EMPTY/FULL siblings: neutralize proposer boost for comparison
+            # Per spec, boost vote has slot <= block.slot so it does not
+            # support EMPTY or FULL via is_supporting_vote
+            var childEffective = child.weight
+            var bestEffective = bestChild.weight
+            if (not self.previousProposerBoostRoot.isZero) and
+                self.previousProposerBoostRoot == child.bid.root:
+              let boost = self.previousProposerBoostScore.int64
+              let childIsFull =
+                self.fullBlockIndices.getOrDefault(
+                  child.bid.root, -1) == childIdx
+              if not childIsFull:
+                childEffective -= boost
+              else:
+                bestEffective -= boost
+            if childEffective == bestEffective:
+              let childIsFull =
+                self.fullBlockIndices.getOrDefault(
+                  child.bid.root, -1) == childIdx
+              if childIsFull:
+                changeToChild
+              else:
+                noChange
+            elif childEffective > bestEffective:
+              changeToChild
+            else:
+              noChange
           elif child.weight == bestChild.weight:
-            # Tie-breaker of equal weights by root
             if child.bid.root.tiebreak(bestChild.bid.root):
               changeToChild
             else:
@@ -678,7 +752,7 @@ func root(self: ProtoNodes, logicalIdx: Opt[Index]): Eth2Digest =
 
 iterator items*(self: ProtoArray): ProtoArrayItem =
   ## Iterate over all nodes known by fork choice.
-  doAssert self.indices.len == self.nodes.len
+  doAssert self.indices.len + self.fullBlockIndices.len == self.nodes.len
   for nodePhysicalIdx, node in self.nodes.buf:
     if node.bid.root.isZero:
       continue

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[tables, sets],
+  std/tables,
   stew/bitseqs,
   # Status libraries
   results, chronicles,
@@ -39,6 +39,7 @@ type Index = fork_choice_types.Index
 func compute_deltas(
     deltas: var openArray[Delta],
     indices: Table[Eth2Digest, Index],
+    fullBlockIndices: Table[Eth2Digest, Index],
     indices_offset: Index,
     votes: var openArray[VoteTracker],
     old_balances: openArray[ForkChoiceBalance],
@@ -47,7 +48,8 @@ func compute_deltas(
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
-    checkpoints: Checkpoints): FcResult[Eth2Digest]
+    checkpoints: Checkpoints,
+    proposerBoostRoot: Eth2Digest): FcResult[ForkChoiceNode]
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -104,7 +106,7 @@ func process_attestation(
       vote.next_root = block_root
       vote.next_slot = slot
       vote.next_epoch = slot.epoch
-      vote.payload_present = payload_present
+      vote.next_payload_present = payload_present
 
       trace "Integrating Gloas vote in fork choice",
         validator_index = validator_index,
@@ -262,7 +264,14 @@ proc reconfirm_fcr(
   self.update_unrealized_justified(dag)
 
   # Restart confirmation chain if necessary
-  fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
+  let reconfirmBoostRoot =
+    if dag.isGloasEnabled(current_slot) and
+        not self.should_apply_proposer_boost(dag):
+      ZERO_HASH
+    else:
+      self.checkpoints.proposer_boost_root
+  fcr.current_slot_head =
+    (? fcr.find_head(current_slot, self.checkpoints, reconfirmBoostRoot)).root
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
     confirmed = fcr.observed_justified_block_id
@@ -524,13 +533,15 @@ proc process_block*(
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
-    checkpoints: Checkpoints): FcResult[Eth2Digest] =
+    checkpoints: Checkpoints,
+    proposerBoostRoot: Eth2Digest): FcResult[ForkChoiceNode] =
   ## Returns the new blockchain head
 
   # Apply score changes
-  var deltas = newSeq[Delta](self.proto_array.indices.len)
+  var deltas = newSeq[Delta](self.proto_array.nodes.len)
   ? deltas.compute_deltas(
     indices = self.proto_array.indices,
+    fullBlockIndices = self.proto_array.fullBlockIndices,
     indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
@@ -541,30 +552,19 @@ func find_head(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
     checkpoints.justified.total_active_balance,
-    checkpoints.proposer_boost_root)
+    proposerBoostRoot)
   self.balances = checkpoints.justified.balances
 
   # Find the best block
-  var new_head{.noinit.}: Eth2Digest
+  var new_head{.noinit.}: ForkChoiceNode
   ? self.proto_array.findHead(new_head)
 
   trace "Fork choice requested",
     current_slot, checkpoints = FinalityCheckpoints(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
-    fork_choice_head = shortLog(new_head)
+    fork_choice_head = shortLog(new_head.root)
   ok(new_head)
-
-func buildChildrenIndex(self: var ForkChoice): ChildrenIndex =
-  # Build a parent --> children lookup table from proto_array.
-  for root, idx in self.backend.proto_array.indices:
-    let child = self.getPhysicalNode(idx)
-    if child == nil or child.parent.isNone:
-      continue
-    let parent = self.getPhysicalNode(child.parent.get())
-    if parent == nil:
-      continue
-    result.mgetOrPut(parent.bid.root, @[]).add((root, idx))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-get_head
@@ -573,77 +573,15 @@ proc get_head*(
     wallTime: BeaconTime): FcResult[ForkChoiceNode] =
   ? self.update_time(dag, wallTime)
 
-  if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
-    return ok(ForkChoiceNode(
-      root: ? self.backend.find_head(
-          self.checkpoints.time.slotOrZero(dag.timeParams),
-          self.checkpoints),
-        payloadStatus: PAYLOAD_STATUS_EMPTY))
-
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  let boostRoot =
+    if dag.isGloasEnabled(current_slot) and
+        not self.should_apply_proposer_boost(dag):
+      ZERO_HASH
+    else:
+      self.checkpoints.proposer_boost_root
 
-  # Build filtered block tree (spec: get_filtered_block_tree)
-  self.backend.proto_array.checkpoints = FinalityCheckpoints(
-    justified: self.checkpoints.justified.checkpoint,
-    finalized: self.checkpoints.finalized)
-  self.backend.proto_array.currentSlot = current_slot
-  let childrenIdx = self.buildChildrenIndex()
-  var filtered: HashSet[Eth2Digest]
-  discard self.filter_block_tree(
-    self.checkpoints.justified.checkpoint.root, childrenIdx, filtered)
-
-  var head = ForkChoiceNode(
-    root: self.checkpoints.justified.checkpoint.root,
-    payloadStatus: PAYLOAD_STATUS_PENDING)
-
-  let applyProposerBoost =
-    self.should_apply_proposer_boost(dag)
-
-  var iterations = 0
-
-  while iterations < 1000:
-    inc iterations
-
-    let children = self.get_node_children(head, dag, childrenIdx, filtered)
-    if children.len == 0:
-      return ok(head)
-
-    var
-      best = children[0]
-      best_weight = self.get_weight(best, current_slot, dag, applyProposerBoost)
-      best_tiebreaker =
-        self.get_payload_status_tiebreaker(best, current_slot, dag)
-
-    for i in 1..<children.len:
-      let
-        child = children[i]
-        child_weight = self.get_weight(child, current_slot, dag, applyProposerBoost)
-        child_tiebreaker =
-          self.get_payload_status_tiebreaker(child, current_slot, dag)
-
-      if child_weight > best_weight:
-        best = child
-        best_weight = child_weight
-        best_tiebreaker = child_tiebreaker
-      elif child_weight == best_weight:
-        var root_cmp = 0
-        for j in 0..<32:
-          if child.root.data[j] > best.root.data[j]:
-            root_cmp = 1
-            break
-          elif child.root.data[j] < best.root.data[j]:
-            root_cmp = -1
-            break
-
-        if root_cmp > 0 or
-            (root_cmp == 0 and child_tiebreaker > best_tiebreaker):
-          best = child
-          best_weight = child_weight
-          best_tiebreaker = child_tiebreaker
-
-    head = best
-
-  err ForkChoiceError(kind: fcInvalidBestNode)
+  self.backend.find_head(current_slot, self.checkpoints, boostRoot)
 
 proc advance_fcr(
     self: var ForkChoice, dag: ChainDAGRef, blckRef: BlockRef,
@@ -733,6 +671,7 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
 func compute_deltas(
     deltas: var openArray[Delta],
     indices: Table[Eth2Digest, Index],
+    fullBlockIndices: Table[Eth2Digest, Index],
     indices_offset: Index,
     votes: var openArray[VoteTracker],
     old_balances: openArray[ForkChoiceBalance],
@@ -741,67 +680,58 @@ func compute_deltas(
   ##   between old and new balances
   ##   between votes
   ##
-  ## `deltas.len` must match `indices.len` (length match)
-  ##
   ## Error:
-  ## - If a value in indices is greater than `indices.len`
+  ## - If a value in indices is greater than `deltas.len`
   ## - If a `Eth2Digest` in `votes` does not exist in `indices`
   ##   except for the `ZERO_HASH`
 
   for val_index, vote in votes.mpairs():
-    # No need to create a score change if the validator has never voted
-    # or if votes are for the zero hash (alias to the genesis block)
     if vote.current_root.isZero and vote.next_root.isZero:
       continue
 
-    # If the validator was not included in `old_balances` (i.e. did not exist)
-    # its balance is zero
     let old_balance =
       if val_index < old_balances.len:
         old_balances[val_index].unslashed_balance
       else:
         0.Gwei
 
-    # If the validator is not known in the `new_balances` then
-    # use balance of zero
-    #
-    # It is possible that there is a vote for an unknown validator if we change
-    # our justified state to a new state with a higher epoch on a different fork
-    # as that fork may have on-boarded less validators than the previous fork.
-    #
-    # Note that attesters are the same as they are activated only under finality
     let new_balance =
       if val_index < new_balances.len:
         new_balances[val_index].unslashed_balance
       else:
         0.Gwei
 
-    if vote.current_root != vote.next_root or old_balance != new_balance:
-      # Ignore the current or next vote if it is not known in `indices`.
-      # We assume that it is outside of our tree (i.e., pre-finalization)
-      # and therefore not interesting.
+    if vote.current_root != vote.next_root or old_balance != new_balance or
+        vote.payload_present != vote.next_payload_present:
+      # Route current vote: payload_present determines EMPTY vs FULL target
       if vote.current_root in indices:
-        let index = indices.unsafeGet(vote.current_root) - indices_offset
+        let index =
+          if vote.payload_present and vote.current_root in fullBlockIndices:
+            fullBlockIndices.unsafeGet(vote.current_root) - indices_offset
+          else:
+            indices.unsafeGet(vote.current_root) - indices_offset
         if index >= deltas.len:
           return err ForkChoiceError(
             kind: fcInvalidNodeDelta,
             index: index)
         deltas[index] -= Delta old_balance
-          # Note that delta can be negative
-          # TODO: is int64 big enough?
 
+      # Route next vote
       if vote.slot != FAR_FUTURE_SLOT and not vote.next_root.isZero:
         if vote.next_root in indices:
-          let index = indices.unsafeGet(vote.next_root) - indices_offset
+          let index =
+            if vote.next_payload_present and vote.next_root in fullBlockIndices:
+              fullBlockIndices.unsafeGet(vote.next_root) - indices_offset
+            else:
+              indices.unsafeGet(vote.next_root) - indices_offset
           if index >= deltas.len:
             return err ForkChoiceError(
               kind: fcInvalidNodeDelta,
               index: index)
           deltas[index] += Delta new_balance
-            # Note that delta can be negative
-            # TODO: is int64 big enough?
 
       vote.current_root = vote.next_root
+      vote.payload_present = vote.next_payload_present
   return ok()
 
 # Sanity checks
@@ -838,7 +768,8 @@ when isMainModule:
       new_balances.add 0.ForkChoiceBalance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -872,7 +803,8 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -912,7 +844,8 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -950,7 +883,8 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -999,7 +933,8 @@ when isMainModule:
       slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -1038,7 +973,8 @@ when isMainModule:
       new_balances.add NewBalance
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -1084,7 +1020,8 @@ when isMainModule:
         slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
@@ -1124,7 +1061,8 @@ when isMainModule:
         slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, indices_offset = 0, votes, old_balances, new_balances)
+      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
 
