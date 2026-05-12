@@ -531,9 +531,6 @@ proc proposeBlockAux(
             return head
 
         bids.engineBid
-      elif consensusFork == ConsensusFork.Electra:
-        await node.getExecutionPayload(
-          consensusFork, head, state, validator_index, validator.pubkey)
       else:
         static: raiseAssert "Unsupported fork " & $consensusFork
 
@@ -580,10 +577,6 @@ proc proposeBlockAux(
     let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
       engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
       engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
-  elif consensusFork == ConsensusFork.Electra:
-    let sidecarsOpt = signedBlock.create_blob_sidecars(
-      engineBlock.blobsBundle.proofs,
-      engineBlock.blobsBundle.blobs)
   else:
     static: raiseAssert "Unsupported fork " & $consensusFork
 
@@ -670,7 +663,7 @@ proc proposeBlock(
       return head
 
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
-    when consensusFork >= ConsensusFork.Electra:
+    when consensusFork >= ConsensusFork.Fulu:
       await node.proposeBlockAux(consensusFork, validator, head, slot, randao_reveal)
     else:
       warn "Block proposals for fork no longer supported", consensusFork
