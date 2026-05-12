@@ -38,7 +38,7 @@ declareGauge beacon_engine_getblobs_slot_hit_rate,
 type
   GetBlobsService* = object
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
-    columnSidecarBus*: AsyncEventQueue[ref fulu.DataColumnSidecar]
+    fuluColumnSidecarBus*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
     validatorCustody*: ValidatorCustodyRef
@@ -58,14 +58,14 @@ type
 proc new*(
     t: typedesc[GetBlobsServiceRef],
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
-    columnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar],
+    fuluColumnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar],
     blockProcessor: ref BlockProcessor,
     dataColumnQuarantine: ref ColumnQuarantine,
     validatorCustody: ValidatorCustodyRef
 ): GetBlobsServiceRef =
   GetBlobsServiceRef(
     blockGossipBus: blockGossipBus,
-    columnSidecarBus: columnSidecarBus,
+    fuluColumnSidecarBus: fuluColumnSidecarBus,
     blockProcessor: blockProcessor,
     dataColumnQuarantine: dataColumnQuarantine,
     validatorCustody: validatorCustody,
@@ -262,10 +262,10 @@ proc consumeBlockGossip(
 
 proc consumeColumnSidecars(
     self: GetBlobsServiceRef) {.async: (raises: []).} =
-  let ticket = self.columnSidecarBus.register()
+  let ticket = self.fuluColumnSidecarBus.register()
   try:
     while true:
-      let events = await self.columnSidecarBus.waitEvents(ticket)
+      let events = await self.fuluColumnSidecarBus.waitEvents(ticket)
       for event in events:
         await self.attemptGetBlobsFromColumn(event)
   except AsyncEventQueueFullError:
@@ -273,7 +273,7 @@ proc consumeColumnSidecars(
   except CancelledError:
     discard
   finally:
-    self.columnSidecarBus.unregister(ticket)
+    self.fuluColumnSidecarBus.unregister(ticket)
 
 proc run*(self: GetBlobsServiceRef) {.async: (raises: []).} =
   debug "Engine GetBlobs service started"
