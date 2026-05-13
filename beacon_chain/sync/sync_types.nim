@@ -72,6 +72,7 @@ type
     blocksQueueBus*: AsyncEventQueue[EventBeaconBlockObject]
     blockFinalizationBus*: AsyncEventQueue[FinalizationInfoObject]
     missingRoots*: HashSet[Eth2Digest]
+    missingSidecars*: HashSet[Eth2Digest]
     avgSpeedCounter*: int
     avgSpeed*: float
     blocksChunkSize*: int
