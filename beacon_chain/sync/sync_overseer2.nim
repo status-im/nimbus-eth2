@@ -2164,13 +2164,18 @@ proc startPeer(
   finally:
     # Cleanup
     var entry: PeerEntryRef[Peer]
-    try:
-      await peer.disconnect(FaultOrError)
-    except CancelledError:
-      discard
+    let reason =
+      if not(overseer.pool.checkPeerScore(peer)):
+        PeerScoreLow
+      else:
+        CommunicationTimeout
     if overseer.sdag.peers.pop(peer.getKey(), entry):
       overseer.pool.release(peer)
-    debug "Remote peer disconnected"
+    try:
+      await peer.disconnect(reason)
+    except CancelledError:
+      discard
+    debug "Peer loop stopped"
 
 proc speed(
     startslot, lastslot: Slot,
@@ -2822,10 +2827,6 @@ proc mainLoop*(
     var entry = overseer.initPeer(peer)
     overseer.updatePeerStatus(peer)
     entry.peerLoopFut = overseer.startPeer(peer)
-    entry.peerLoopFut.addCallback(
-      proc(_: pointer) =
-        overseer.sdag.peers.del(peer.getKey())
-    )
 
 proc start*(overseer: SyncOverseerRef2) =
   overseer.loopFuture = overseer.mainLoop()

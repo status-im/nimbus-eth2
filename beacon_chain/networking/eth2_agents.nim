@@ -80,7 +80,8 @@ const
   # Nimbus errors could be found here
   # https://github.com/status-im/nimbus-eth2/blob/9b6b42c8f9792e657397bb3669a80b57da470c04/beacon_chain/networking/eth2_network.nim#L176
   NimbusErrors = [
-    (237'u64, "Peer score is too low")
+    (237'u64, "Peer score is too low"),
+    (238'u64, "Communication timeout (peer too slow)")
   ].toTable()
 
   # Grandine errors could be found here
