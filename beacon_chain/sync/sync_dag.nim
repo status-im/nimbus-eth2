@@ -66,6 +66,10 @@ proc pop*(rq: var RootQueue): Eth2Digest =
   rq.roots.excl(root)
   root
 
+proc clear*(rq: var RootQueue) =
+  rq.queue.clear()
+  rq.roots.clear()
+
 func isExpired(s: SyncDagEntryRef, currentTime: Moment): bool =
   doAssert(not(isNil(s)))
   if DagEntryFlag.Pending notin s.flags:

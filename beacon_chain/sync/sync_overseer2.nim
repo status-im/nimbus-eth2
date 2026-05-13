@@ -2819,9 +2819,17 @@ proc mainLoop*(
           lateBlockMonitoringLoopFut, missingBlocksMonitoringLoopFut,
           missingSidecarsMonitoringLoopFut)
         return
-    let entry = overseer.initPeer(peer)
+    var entry = overseer.initPeer(peer)
     overseer.updatePeerStatus(peer)
     entry.peerLoopFut = overseer.startPeer(peer)
+    entry.peerLoopFut.addCallback(
+      proc(_: pointer) =
+        overseer.sdag.peers.del(peer.getKey())
+        entry.pendingRoots.clear()
+        entry.peer = nil
+        entry.peerLoopFut = nil
+        entry = nil
+    )
 
 proc start*(overseer: SyncOverseerRef2) =
   overseer.loopFuture = overseer.mainLoop()
