@@ -1223,6 +1223,15 @@ proc doRootSyncStep(
           dupcheck: HashSet[Eth2Digest]
           res: seq[Eth2Digest]
           counter = 0
+        # Add global missing roots.
+        for item in overseer.missingRoots:
+          if counter < peerEntry.maxBlocksPerRequest:
+            if item notin dupcheck:
+              dupcheck.incl(item)
+              res.add(item)
+              inc(counter)
+          else:
+            break
         # Add peer missing roots
         while counter < peerEntry.maxBlocksPerRequest:
           if len(peerEntry.pendingRoots) > 0:
@@ -1230,15 +1239,6 @@ proc doRootSyncStep(
             if blockRoot notin dupcheck:
               dupcheck.incl(blockRoot)
               res.add(blockRoot)
-              inc(counter)
-          else:
-            break
-        # Add global missing roots.
-        for item in overseer.missingRoots:
-          if counter < peerEntry.maxBlocksPerRequest:
-            if item notin dupcheck:
-              dupcheck.incl(item)
-              res.add(item)
               inc(counter)
           else:
             break
@@ -1372,7 +1372,7 @@ proc doRootSyncStep(
           DagBlockSourceType.Dag
     # Update SyncDAG with block
     overseer.updatePeer(
-      peer.getKey(), true, signedBlock, missingSidecars,source)
+      peer.getKey(), true, signedBlock, missingSidecars, source)
     removeRoot(signedBlock[].root)
 
   true
@@ -2581,16 +2581,16 @@ proc missingBlocksMonitoringLoop(
         await overseer.blockQuarantine[].missingEvent.wait()
 
         let missingRoots = overseer.blockQuarantine[].checkMissing(high(int))
-        debug "Got missing block event",
-          missing_roots = missingRoots.mapIt(shortLog(it.root))
 
         for record in missingRoots:
           let entry = overseer.sdag.roots.getOrDefault(record.root)
           if not(isNil(entry)):
             entry.flags.incl(DagEntryFlag.Pending)
-          overseer.missingRoots.incl(record.root)
-          debug "Missing block root inserted into queue",
-             block_root = record.root, block_known = not(isNil(entry))
+          else:
+            overseer.missingRoots.incl(record.root)
+            debug "Missing block root inserted into queue",
+               block_root = record.root
+
         overseer.blockQuarantine[].missingEvent.clear()
 
   except CancelledError:
@@ -2621,9 +2621,6 @@ proc missingSidecarsMonitoringLoop(
                 res.add(root)
           res
 
-      debug "Got missing sidecars block event",
-        missing_roots = missingSidecars.mapIt(shortLog(it))
-
       for root in missingSidecars:
         let entry = overseer.sdag.roots.getOrDefault(root)
         if not(isNil(entry)):
@@ -2632,6 +2629,7 @@ proc missingSidecarsMonitoringLoop(
           overseer.missingSidecars.incl(root)
           debug "Missing sidecars block root inserted into queue",
              block_root = shortLog(root)
+
       overseer.blockQuarantine[].sidecarlessEvent.clear()
 
   except CancelledError:
