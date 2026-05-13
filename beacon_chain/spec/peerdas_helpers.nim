@@ -323,9 +323,9 @@ proc recover_cells_and_proofs_parallel*(
 
 proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock,
-    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): fulu.DataColumnSidecars =
   template blck(): auto = signed_beacon_block.message
-  var sidecars = newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  var sidecars = newSeqOfCap[ref fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   template kzg_commitments: untyped =
     signed_beacon_block.message.body.blob_kzg_commitments
@@ -365,27 +365,28 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    sidecars.add fulu.DataColumnSidecar(
-      index: ColumnIndex(columnIndex),
-      column: DataColumn.init(column),
-      kzg_commitments: blck.body.blob_kzg_commitments,
-      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
-      signed_block_header: signed_beacon_block_header,
-      kzg_commitments_inclusion_proof: inclusion_proof)
+    let sidecar = new fulu.DataColumnSidecar
+    sidecar[].index = ColumnIndex(columnIndex)
+    sidecar[].column = DataColumn.init(column)
+    sidecar[].kzg_commitments = blck.body.blob_kzg_commitments
+    sidecar[].kzg_proofs = deneb.KzgProofs.init(kzgProofOfColumn)
+    sidecar[].signed_block_header = signed_beacon_block_header
+    sidecar[].kzg_commitments_inclusion_proof = inclusion_proof
+    sidecars.add(sidecar)
 
   sidecars
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/builder.md#modified-get_data_column_sidecars
 proc assemble_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
-    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[gloas.DataColumnSidecar] =
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): gloas.DataColumnSidecars =
   template kzg_commitments(): auto =
     signed_beacon_block.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
 
   if kzg_commitments.len == 0 or blobs.len == 0:
-    return static(default(seq[gloas.DataColumnSidecar]))
+    return static(default(gloas.DataColumnSidecars))
 
-  var sidecars = newSeqOfCap[gloas.DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  var sidecars = newSeqOfCap[ref gloas.DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if blobs.len != kzg_commitments.len:
     return sidecars
@@ -414,13 +415,12 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    let sidecar = gloas.DataColumnSidecar(
-      index: ColumnIndex(columnIndex),
-      column: DataColumn.init(column),
-      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
-      slot: signed_beacon_block.message.slot,
-      beacon_block_root: beacon_block_root
-    )
+    let sidecar = new gloas.DataColumnSidecar
+    sidecar[].index = ColumnIndex(columnIndex)
+    sidecar[].column = DataColumn.init(column)
+    sidecar[].kzg_proofs = deneb.KzgProofs.init(kzgProofOfColumn)
+    sidecar[].slot = signed_beacon_block.message.slot
+    sidecar[].beacon_block_root = beacon_block_root
     sidecars.add(sidecar)
 
   sidecars
@@ -657,7 +657,7 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 
 proc recover_blobs_from_data_columns*(
-  dataColumns: seq[fulu.DataColumnSidecar]
+  dataColumns: openArray[ref fulu.DataColumnSidecar]
 ): Blobs =
   const numCols = CELLS_PER_EXT_BLOB div 2
   var blobs: Blobs
@@ -665,15 +665,15 @@ proc recover_blobs_from_data_columns*(
   if dataColumns.len < numCols:
     return blobs
   for i in 0 ..< numCols:
-    if dataColumns[i].index != i.uint64:
+    if dataColumns[i][].index != i.uint64:
       return blobs
-  let numBlobs = dataColumns[0].column.len
+  let numBlobs = dataColumns[0][].column.len
 
   for blobIndex in 0 ..< numBlobs:
     var blobBytes: Blob
     for colIdx in 0 ..< numCols:
       let
-        cellBytes = dataColumns[colIdx].column[blobIndex].bytes
+        cellBytes = dataColumns[colIdx][].column[blobIndex].bytes
         offset = colIdx * fulu.BYTES_PER_CELL
       assign(
         blobBytes.toOpenArray(offset, offset + fulu.BYTES_PER_CELL - 1),
