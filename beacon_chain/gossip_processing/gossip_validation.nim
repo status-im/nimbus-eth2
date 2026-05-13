@@ -423,34 +423,26 @@ template validateBeaconBlockGloas(
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
   let executionParent = block:
-    let
-      parent = dag.getBlockRef(bid.parent_block_root).valueOr:
+    var
+      cur = dag.getBlockRef(bid.parent_block_root).valueOr:
         return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-      pBhash = dag.loadExecutionBlockHash(parent).valueOr:
+      i = 0
+      found = false
+
+    # Search execution parent up to 2 ancestors. Also stop searching if there is
+    # not any parents, that could be a finalized block or genesis.
+    while not isNil(cur.parent) and i < 2:
+      let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
         return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-    if pBhash == bid.parent_block_hash:
-      # Parent's payload status is FULL
-      parent.bid
-    else:
-      # Parent's payload status is EMPTY, i.e. check with grandparent.
-      let res = block:
-        if not isNil(parent.parent):
-          # Grandparent is non-finalized yet.
-          let gpBhash = dag.loadExecutionBlockHash(parent.parent).valueOr:
-            return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-          (parent.parent.bid, gpBhash)
-        else:
-          # Grandparent should be either finalized or nonexistent.
-          let
-            gpBid = dag.parent(parent.bid).valueOr:
-              return errIgnore("validateBeaconBlockGloas: invalid execution parent")
-            gpBhash = dag.loadExecutionBlockHash(gpBid).valueOr:
-              return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-          (gpBid, gpBhash)
-      if res[1] == bid.parent_block_hash:
-        res[0]
+      if pBhash == bid.parent_block_hash:
+        found = true
+        break
       else:
-        return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+        cur = cur.parent
+      inc i
+    if not found:
+      return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+    cur
 
   # - [IGNORE] The block's parent execution payload (defined by
   #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
@@ -466,15 +458,17 @@ template validateBeaconBlockGloas(
     # The executionParent exists in DAG, so we should check unviable envelope
     # and the database for the validation rules.
     if executionParent.root in envelopeQuarantine.unviable:
-      return dag.checkedReject("validateBeaconBlockGloas: invalid parent payload")
+      return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
     elif not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
       envelopeQuarantine[].addMissing(executionParent.root)
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
   else:
-    # The execution parent is a pre-Gloas block. It has been validated and
-    # imported to DAG so we could assume that it is execution valid.
-    discard
+    # For pre-Gloas block, we validate that it is an execution block.
+    let parentBlck = dag.getForkedBlock(executionParent.bid).valueOr:
+      return errIgnore("validateBeaconBlockGloas: missing parent block")
+    if not parentBlck.is_execution_block:
+      return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
