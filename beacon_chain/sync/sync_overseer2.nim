@@ -1587,10 +1587,12 @@ proc doRootSidecarsSyncStep(
               peer.updateScore(PeerScoreGoodValues)
               entry.flags.excl(DagEntryFlag.MissingSidecars)
               peerEntry.pendingRoots.add(forkyBlck.message.parent_root)
+              overseer.missingSidecars.excl(forkyBlck.root)
             of VerifierError.Duplicate:
               # This flags means that we have sidecars.
               peer.updateScore(PeerScoreGoodValues)
               entry.flags.excl(DagEntryFlag.MissingSidecars)
+              overseer.missingSidecars.excl(forkyBlck.root)
             of VerifierError.MissingSidecars:
               # We still missing sidecars.
               discard
@@ -1600,6 +1602,7 @@ proc doRootSidecarsSyncStep(
               reason = "ok", blck = slimLog(signedBlock)
             overseer.blockQuarantine[].remove(forkyBlck)
             entry.flags.excl(DagEntryFlag.MissingSidecars)
+            overseer.missingSidecars.excl(forkyBlck.root)
       else:
         raiseAssert "Should not be happen!"
   true
@@ -2625,9 +2628,10 @@ proc missingSidecarsMonitoringLoop(
         let entry = overseer.sdag.roots.getOrDefault(root)
         if not(isNil(entry)):
           entry.flags.incl(DagEntryFlag.MissingSidecars)
+        else:
           overseer.missingSidecars.incl(root)
-          debug "Missing block root inserted into queue",
-             block_root = root, block_known = not(isNil(entry))
+          debug "Missing sidecars block root inserted into queue",
+             block_root = shortLog(root)
       overseer.blockQuarantine[].sidecarlessEvent.clear()
 
   except CancelledError:
