@@ -362,24 +362,27 @@ proc updateAgent*(peer: Peer) =
   let
     agent = toLowerAscii(peer.network.switch.peerStore[AgentBook][peer.peerId])
 
-  if "nimbus" in agent:
-    peer.remoteAgent = Eth2Agent.Nimbus
-  elif "lighthouse" in agent:
-    peer.remoteAgent = Eth2Agent.Lighthouse
-  elif "teku" in agent:
-    peer.remoteAgent = Eth2Agent.Teku
-  elif "lodestar" in agent:
-    peer.remoteAgent = Eth2Agent.Lodestar
-  elif "prysm" in agent:
-    peer.remoteAgent = Eth2Agent.Prysm
-  elif "grandine" in agent:
-    peer.remoteAgent = Eth2Agent.Grandine
+  if len(agent) > 0:
+    if "nimbus" in agent:
+      peer.remoteAgent = Eth2Agent.Nimbus
+    elif "lighthouse" in agent:
+      peer.remoteAgent = Eth2Agent.Lighthouse
+    elif "teku" in agent:
+      peer.remoteAgent = Eth2Agent.Teku
+    elif "lodestar" in agent:
+      peer.remoteAgent = Eth2Agent.Lodestar
+    elif "prysm" in agent:
+      peer.remoteAgent = Eth2Agent.Prysm
+    elif "grandine" in agent:
+      peer.remoteAgent = Eth2Agent.Grandine
+    else:
+      debug "New unknown agent string discovered",
+        peer = shortLog(peer),
+        protocol = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId],
+        agent = agent
+      peer.remoteAgent = Eth2Agent.Unknown
   else:
-    debug "New unknown agent string discovered",
-      peer = shortLog(peer),
-      protocol = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId],
-      agent = agent
-    peer.remoteAgent = Eth2Agent.Unknown
+    peer.remoteAgent = Eth2Agent.Pending
 
 proc getRemoteAgent*(peer: Peer): Eth2Agent =
   if peer.remoteAgent == Eth2Agent.Pending:
