@@ -2825,10 +2825,6 @@ proc mainLoop*(
     entry.peerLoopFut.addCallback(
       proc(_: pointer) =
         overseer.sdag.peers.del(peer.getKey())
-        entry.pendingRoots.clear()
-        entry.peer = nil
-        entry.peerLoopFut = nil
-        entry = nil
     )
 
 proc start*(overseer: SyncOverseerRef2) =
