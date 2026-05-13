@@ -38,7 +38,7 @@ type
       ## When process_slots() is being called as part of a state_transition(),
       ## the hash_tree_root() from the block will fill in the state.root so it
       ## should skip calculating that last state root.
-    skipProcessParentExecutionPayload
+    skipApplyParentExecutionPayload
       ## When proposing Gloas blocks, apply_parent_execution_payload() is needed
       ## for producing a correct execution payload. This causes the transition
       ## function to be called twice, as it will be used in process_block(). For

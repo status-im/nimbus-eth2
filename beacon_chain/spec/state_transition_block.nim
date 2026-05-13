@@ -1337,6 +1337,7 @@ proc process_parent_execution_payload*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
     blck: SomeGloasBeaconBlock | SomeHezeBeaconBlock,
+    flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   template bid(): auto = blck.body.signed_execution_payload_bid.message
   template parent_bid(): auto = state.latest_execution_payload_bid
@@ -1351,7 +1352,11 @@ proc process_parent_execution_payload*(
   # Parent was FULL -- verify the bid commitment and apply the payload
   if not (hash_tree_root(requests) == parent_bid.execution_requests_root):
     return err("process_parent_execution_payload: execution requests root mismatch")
-  apply_parent_execution_payload(cfg, state, requests, cache)
+
+  if skipApplyParentExecutionPayload notin flags:
+    apply_parent_execution_payload(cfg, state, requests, cache)
+  else:
+    ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
@@ -1911,8 +1916,7 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  if skipProcessParentExecutionPayload notin flags:
-    ? process_parent_execution_payload(cfg, state, blck, cache)
+  ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)
@@ -1941,8 +1945,7 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  if skipProcessParentExecutionPayload notin flags:
-    ? process_parent_execution_payload(cfg, state, blck, cache)
+  ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)

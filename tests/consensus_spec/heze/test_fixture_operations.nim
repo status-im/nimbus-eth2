@@ -210,7 +210,7 @@ suite baseDescription & "Parent Execution Payload " & preset():
       blck: heze.BeaconBlock): Result[void, cstring] =
     var cache: StateCache
     process_parent_execution_payload(
-      defaultRuntimeConfig, preState, blck, cache)
+      defaultRuntimeConfig, preState, blck, {}, cache)
 
   for path in walkTests(OpParentExecutionPayloadDir):
     runTest[heze.BeaconBlock, typeof applyParentExecPayload](
