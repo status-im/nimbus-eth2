@@ -2754,22 +2754,21 @@ proc lateBlockMonitoringLoop*(
             overseer.lastSeenHead.get.slot
         head = dag.head.bid
 
-      if syncedSlot <= dag.head.slot:
-        await sleepAsync(5.seconds)
-        continue
+      if wallSlot > dag.head.slot:
+        debug "Check for late blocks", synced_slot = syncedSlot,
+          head = shortLog(head), distance = syncedSlot - dag.head.slot
 
-      debug "Check for late blocks", synced_slot = syncedSlot,
-        head = shortLog(head), distance = syncedSlot - dag.head.slot
-
-      if not(await overseer.checkData(
-        head, BlocksSource.OrphansQuarantine)):
-        debug "No ancestor orphan blocks found for current head"
         if not(await overseer.checkData(
-          head, BlocksSource.SidecarlessQuarantine)):
-          debug "No ancestor sidecarless blocks found for current head"
-          # Recover missing blocks from the network.
-          overseer.recoverBlocks(head)
-          await sleepAsync(5.seconds)
+          head, BlocksSource.OrphansQuarantine)):
+          debug "No ancestor orphan blocks found for current head"
+          if not(await overseer.checkData(
+            head, BlocksSource.SidecarlessQuarantine)):
+            debug "No ancestor sidecarless blocks found for current head"
+            # Recover missing blocks from the network.
+            overseer.recoverBlocks(head)
+        await sleepAsync(500.milliseconds)
+      else:
+        await sleepAsync(1.seconds)
 
   except CancelledError:
     discard
