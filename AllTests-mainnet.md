@@ -1210,7 +1210,6 @@ AllTests-mainnet
 ```
 ## SyncManager test suite
 ```diff
-+ [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
 + [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
 + [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK

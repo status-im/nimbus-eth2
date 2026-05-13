@@ -271,7 +271,7 @@ proc recover_cells_and_proofs_parallel*(
           except AsyncError:
             hadError = true
             break spawning
-          except CancelledError as exc:
+          except CancelledError:
             hadTimeout = true
             break spawning
           wait = tsp.wait()
@@ -656,7 +656,7 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 
-proc recover_blobs_from_data_columns*(
+func recover_blobs_from_data_columns*(
   dataColumns: seq[fulu.DataColumnSidecar]
 ): Blobs =
   const numCols = CELLS_PER_EXT_BLOB div 2

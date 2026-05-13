@@ -98,16 +98,9 @@ proc getPeerBlock(
 ): Future[BlockDataRes] {.async: (raises: [CancelledError]).} =
   let peer = await overseer.pool.acquire()
   try:
-    let
-      maxBlobs = overseer.consensusManager.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
-      res = (await getSyncBlockData(peer, slot, maxBlobs)).valueOr:
-        return err(error)
-      blob =
-        if res.blobs.isSome():
-          Opt.some(res.blobs.get()[0])
-        else:
-          Opt.none(BlobSidecars)
-    ok(BlockData(blck: res.blocks[0][], blob: blob))
+    let res = (await getSyncBlockData(peer, slot)).valueOr:
+      return err(error)
+    ok(BlockData(blck: res.blocks[0][], blob: Opt.none(BlobSidecars)))
   finally:
     overseer.pool.release(peer)
 

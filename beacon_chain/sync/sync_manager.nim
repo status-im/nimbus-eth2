@@ -5,9 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
-import std/[strutils, sequtils, algorithm]
 import stew/base10, chronos, chronicles, results
 import
   ../spec/eth2_apis/rest_types,
@@ -15,7 +14,10 @@ import
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../gossip_processing/block_processor,
   ../beacon_clock,
-  "."/[sync_protocol, sync_queue]
+  ./[sync_protocol, sync_queue]
+
+from std/sequtils import filterIt, mapIt
+from std/strutils import ffDecimal
 
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks, sync_protocol
@@ -54,10 +56,7 @@ type
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
-    DENEB_FORK_EPOCH: Epoch
     FULU_FORK_EPOCH: Epoch
-    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: uint64
-    MAX_BLOBS_PER_BLOCK_ELECTRA: uint64
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     isWithinWeakSubjectivityPeriod: GetBoolCallback
@@ -93,12 +92,9 @@ type
 
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB]]
-  BlobSidecarsRes =
-    NetRes[List[ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)]]
 
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]
-    blobs*: Opt[seq[BlobSidecars]]
 
   SyncBlockDataRes* = Result[SyncBlockData, string]
 
@@ -143,10 +139,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
 
 proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
-    denebEpoch: Epoch,
     fuluEpoch: Epoch,
-    minEpochsForBlobSidecarsRequests: uint64,
-    maxBlobsPerBlockElectra: uint64,
     direction: SyncQueueKind,
     getLocalHeadSlotCb: GetSlotCallback,
     getLocalWallSlotCb: GetSlotCallback,
@@ -174,10 +167,7 @@ proc newSyncManager*[A, B](
 
   var res = SyncManager[A, B](
     pool: pool,
-    DENEB_FORK_EPOCH: denebEpoch,
     FULU_FORK_EPOCH: fuluEpoch,
-    MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS: minEpochsForBlobSidecarsRequests,
-    MAX_BLOBS_PER_BLOCK_ELECTRA: maxBlobsPerBlockElectra,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     isWithinWeakSubjectivityPeriod: weakSubjectivityPeriodCb,
@@ -215,35 +205,6 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
 
   beaconBlocksByRange_v2(peer, req.data.slot, req.data.count, 1'u64)
 
-proc shouldGetBlobs[A, B](man: SyncManager[A, B], s: Slot): bool =
-  let
-    wallEpoch = man.getLocalWallSlot().epoch
-    epoch = s.epoch()
-  (epoch >= man.DENEB_FORK_EPOCH) and (epoch < man.FULU_FORK_EPOCH) and
-  (wallEpoch < man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
-   epoch >=  wallEpoch - man.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
-
-proc shouldGetBlobs[A, B](man: SyncManager[A, B], r: SyncRequest[A]): bool =
-  man.shouldGetBlobs(r.data.slot) or
-    man.shouldGetBlobs(r.data.slot + (r.data.count - 1))
-
-proc getBlobSidecars[A, B](man: SyncManager[A, B], peer: A,
-                           req: SyncRequest[A]): Future[BlobSidecarsRes]
-                           {.async: (raises: [CancelledError], raw: true).} =
-  mixin getScore, `==`
-
-  doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blob sidecars from peer",
-        request = req,
-        peer_score = req.item.getScore(),
-        peer_speed = req.item.netKbps(),
-        sync_ident = man.ident,
-        topics = "syncman"
-
-  blobSidecarsByRange(
-    peer, req.data.slot, req.data.count,
-    maxResponseItems = (req.data.count * man.MAX_BLOBS_PER_BLOCK_ELECTRA).Limit)
-
 proc remainingSlots(man: SyncManager): uint64 =
   let
     first = man.getFirstSlot()
@@ -259,54 +220,9 @@ proc remainingSlots(man: SyncManager): uint64 =
     else:
       0'u64
 
-func groupBlobs*(
-    blocks: openArray[ref ForkedSignedBeaconBlock],
-    blobs: openArray[ref BlobSidecar]
-): Result[seq[BlobSidecars], string] =
-  var
-    grouped = newSeq[BlobSidecars](len(blocks))
-    blob_cursor = 0
-  for block_idx, blck in blocks:
-    withBlck(blck[]):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
-        if kzgs.len == 0:
-          continue
-        # Clients MUST include all blob sidecars of each block from which they include blob sidecars.
-        # The following blob sidecars, where they exist, MUST be sent in consecutive (slot, index) order.
-        # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
-        let header = forkyBlck.toSignedBeaconBlockHeader()
-        for blob_idx, kzg_commitment in kzgs:
-          if blob_cursor >= blobs.len:
-            return err("BlobSidecar: response too short")
-          let blob_sidecar = blobs[blob_cursor]
-          if blob_sidecar.index != BlobIndex blob_idx:
-            return err("BlobSidecar: unexpected index")
-          if blob_sidecar.kzg_commitment != kzg_commitment:
-            return err("BlobSidecar: unexpected kzg_commitment")
-          if blob_sidecar.signed_block_header != header:
-            return err("BlobSidecar: unexpected signed_block_header")
-          grouped[block_idx].add(blob_sidecar)
-          inc blob_cursor
-
-  if blob_cursor != len(blobs):
-    # we reached end of blocks without consuming all blobs so either
-    # the peer we got too few blocks in the paired request, or the
-    # peer is sending us spurious blobs.
-    Result[seq[BlobSidecars], string].err "invalid block or blob sequence"
-  else:
-    Result[seq[BlobSidecars], string].ok grouped
-
-func checkBlobs(blobs: seq[BlobSidecars]): Result[void, string] =
-  for blob_sidecars in blobs:
-    for blob_sidecar in blob_sidecars:
-      ? blob_sidecar[].verify_blob_sidecar_inclusion_proof()
-  ok()
-
 proc getSyncBlockData*[T](
     peer: T,
     slot: Slot,
-    maxBlobsPerBlockElectra: uint64
 ): Future[SyncBlockDataRes] {.async: (raises: [CancelledError]).} =
   mixin getScore
 
@@ -345,64 +261,7 @@ proc getSyncBlockData*[T](
     peer.updateScore(PeerScoreBadResponse)
     return err("The received block is not in the requested range")
 
-  let (shouldGetBlob, blobsCount) =
-    withBlck(blocksRange[0][]):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        let res = len(forkyBlck.message.body.blob_kzg_commitments)
-        if res > 0:
-          (true, res)
-        else:
-          (false, 0)
-      else:
-        (false, 0)
-
-  let blobsRange =
-    if shouldGetBlob:
-      let blobData =
-        block:
-          debug "Requesting blob sidecars from peer",
-                slot = slot,
-                peer = peer,
-                peer_score = peer.getScore(),
-                peer_speed = peer.netKbps(),
-                topics = "syncman"
-          let res = await blobSidecarsByRange(
-            peer, slot, 1'u64, maxResponseItems = maxBlobsPerBlockElectra.Limit)
-          if res.isErr():
-            peer.updateScore(PeerScoreNoValues)
-            return err(
-              "Failed to receive blobs on request, reason: " & $res.error)
-          res.get().asSeq()
-
-      if len(blobData) == 0:
-        peer.updateScore(PeerScoreNoValues)
-        return err("An empty range of blobs was returned by peer")
-
-      if len(blobData) != blobsCount:
-        peer.updateScore(PeerScoreBadResponse)
-        return err("Incorrect number of received blobs in the requested range")
-
-      debug "Received blobs on request",
-            slot = slot,
-            blobs_count = len(blobData),
-            peer = peer,
-            peer_score = peer.getScore(),
-            peer_speed = peer.netKbps(),
-            topics = "syncman"
-
-      let groupedBlobs = groupBlobs(blocksRange, blobData).valueOr:
-        peer.updateScore(PeerScoreNoValues)
-        return err("Received blobs sequence is inconsistent, reason: " & error)
-
-      groupedBlobs.checkBlobs().isOkOr:
-        peer.updateScore(PeerScoreBadResponse)
-        return err("Received blobs sequence is invalid, reason: " & error)
-
-      Opt.some(groupedBlobs)
-    else:
-      Opt.none(seq[BlobSidecars])
-
-  ok(SyncBlockData(blocks: blocksRange, blobs: blobsRange))
+  ok(SyncBlockData(blocks: blocksRange))
 
 proc getSyncBlockData[A, B](
     man: SyncManager[A, B],
@@ -430,57 +289,7 @@ proc getSyncBlockData[A, B](
     peer.updateScore(PeerScoreBadResponse)
     return err("Incorrect blocks sequence received, reason: " & $error)
 
-  let
-    shouldGetBlobs =
-      if not(man.shouldGetBlobs(sr)):
-        false
-      else:
-        var hasBlobs = false
-        for blck in blocks:
-          withBlck(blck[]):
-            when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-              if len(forkyBlck.message.body.blob_kzg_commitments) > 0:
-                hasBlobs = true
-                break
-        hasBlobs
-    blobs =
-      if shouldGetBlobs:
-        let
-          res = (await man.getBlobSidecars(peer, sr)).valueOr:
-            peer.updateScore(PeerScoreNoValues)
-            return err("Failed to receive blobs on request, reason: " & $error)
-          blobData = res.asSeq()
-
-        debug "Received blobs on request",
-              request = sr,
-              peer_score = sr.item.getScore(),
-              peer_speed = sr.item.netKbps(),
-              index = index,
-              blobs_count = len(blobData),
-              blobs_map = getShortMap(sr, blobData),
-              sync_ident = man.ident,
-              topics = "syncman"
-
-        if len(blobData) > 0:
-          let blobSlots = mapIt(blobData, it[].signed_block_header.message.slot)
-          checkBlobsResponse(
-              sr, blobSlots, man.MAX_BLOBS_PER_BLOCK_ELECTRA).isOkOr:
-            peer.updateScore(PeerScoreBadResponse)
-            return err("Incorrect blobs sequence received, reason: " & $error)
-
-        let groupedBlobs = groupBlobs(blocks.asSeq(), blobData).valueOr:
-          peer.updateScore(PeerScoreNoValues)
-          return err(
-            "Received blobs sequence is inconsistent, reason: " & error)
-
-        groupedBlobs.checkBlobs().isOkOr:
-          peer.updateScore(PeerScoreBadResponse)
-          return err("Received blobs verification failed, reason: " & error)
-        Opt.some(groupedBlobs)
-      else:
-        Opt.none(seq[BlobSidecars])
-
-  ok(SyncBlockData(blocks: blocks.asSeq(), blobs: blobs))
+  ok(SyncBlockData(blocks: blocks.asSeq()))
 
 proc getOrUpdatePeerStatus[A, B](
     man: SyncManager[A, B], index: int, peer: A
@@ -705,8 +514,8 @@ proc syncStep[A, B](
         # TODO descore peers that lie
         maybeFinalized = lastSlot < peerFinalized
 
-      jobs.add(man.queue.push(request, data.blocks, data.blobs, maybeFinalized,
-                              processCallback))
+      jobs.add(man.queue.push(request, data.blocks, Opt.none(seq[BlobSidecars]),
+                              maybeFinalized, processCallback))
 
     if len(jobs) > 0:
       await allFutures(jobs)

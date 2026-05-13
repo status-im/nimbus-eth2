@@ -744,10 +744,7 @@ proc initFullNode(
         {}
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -756,10 +753,7 @@ proc initFullNode(
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -774,10 +768,7 @@ proc initFullNode(
     eaSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
       dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
