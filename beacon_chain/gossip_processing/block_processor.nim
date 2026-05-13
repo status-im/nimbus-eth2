@@ -9,7 +9,8 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, column_map,
+           peerdas_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -938,6 +939,13 @@ proc storePayload(
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload_available: The node has verified that the execution
+  # payload and blobs for a block are available and ready for payload
+  # attestation
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.

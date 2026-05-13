@@ -689,12 +689,6 @@ iterator vindices*(
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
 
-iterator vindices*(
-    a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
-  static: doAssert distinctBase(ValidatorIndex) is uint32
-  for i in 0..<a.len.uint32:
-    yield i.ValidatorIndex
-
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
 

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Status libraries
@@ -25,8 +25,7 @@ export chronicles
 logScope: topics = "qudata"
 
 type
-  ForkyDataSidecar* = deneb.BlobSidecar | fulu.DataColumnSidecar |
-                      gloas.DataColumnSidecar
+  ForkyDataSidecar* = fulu.DataColumnSidecar | gloas.DataColumnSidecar
 
   DataSidecarStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
@@ -38,17 +37,13 @@ type
     backend: SqStoreRef
       ## SQLite backend
 
-    electraDataSidecar: DataSidecarStore
-      ## Proposer signature verified data blob sidecars.
     fuluDataSidecar: DataSidecarStore
       ## Proposer signature verified data column sidecars.
     gloasDataSidecar: DataSidecarStore
       ## Proposer signature verified data column sidecars.
 
 template tableName(sidecar: typedesc[ForkyDataSidecar]): string =
-  when sidecar is deneb.BlobSidecar:
-    "electra_sidecars_quarantine"
-  elif sidecar is fulu.DataColumnSidecar:
+  when sidecar is fulu.DataColumnSidecar:
     "fulu_sidecars_quarantine"
   elif sidecar is gloas.DataColumnSidecar:
     "gloas_sidecars_quarantine"
@@ -114,12 +109,7 @@ iterator sidecars*(
     T: typedesc[ForkyDataSidecar],
     blockRoot: Eth2Digest
 ): T =
-  when T is deneb.BlobSidecar:
-    template statement: untyped =
-      db.electraDataSidecar.getStmt
-    template storeName: untyped =
-      "electraDataSidecar"
-  elif T is fulu.DataColumnSidecar:
+  when T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.getStmt
     template storeName: untyped =
@@ -150,10 +140,7 @@ proc putDataSidecars*[T: ForkyDataSidecar](
 ) =
   doAssert(not(db.backend.readOnly))
 
-  when T is deneb.BlobSidecar:
-    template statement: untyped =
-      db.electraDataSidecar.putStmt
-  elif T is fulu.DataColumnSidecar:
+  when T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.putStmt
   elif T is gloas.DataColumnSidecar:
@@ -177,10 +164,7 @@ proc removeDataSidecars*(
 ) =
   doAssert not(db.backend.readOnly)
 
-  when T is deneb.BlobSidecar:
-    template statement: untyped =
-      db.electraDataSidecar.delStmt
-  elif T is fulu.DataColumnSidecar:
+  when T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.delStmt
   elif T is gloas.DataColumnSidecar:
@@ -198,10 +182,7 @@ proc sidecarsCount*(
 ): int64 =
   var recordCount = 0'i64
 
-  when T is deneb.BlobSidecar:
-    template statement: untyped =
-      db.electraDataSidecar.countStmt
-  elif T is fulu.DataColumnSidecar:
+  when T is fulu.DataColumnSidecar:
     template statement: untyped =
       db.fuluDataSidecar.countStmt
   elif T is gloas.DataColumnSidecar:
@@ -223,8 +204,6 @@ proc initQuarantineDB*(
   # Therefore there is no need to maintain forward or backward compatibility
   # guarantees.
   let
-    electraDataSidecar =
-      ? backend.initDataSidecarStore(tableName(deneb.BlobSidecar))
     fuluDataSidecar =
       ? backend.initDataSidecarStore(tableName(fulu.DataColumnSidecar))
     gloasDataSidecar =
@@ -232,14 +211,12 @@ proc initQuarantineDB*(
 
   ok QuarantineDB(
     backend: backend,
-    electraDataSidecar: electraDataSidecar,
     fuluDataSidecar: fuluDataSidecar,
     gloasDataSidecar: gloasDataSidecar
   )
 
 proc close*(db: QuarantineDB) =
   if not(isNil(db.backend)):
-    db.electraDataSidecar.close()
     db.fuluDataSidecar.close()
     db.gloasDataSidecar.close()
     db[].reset()

@@ -1504,22 +1504,6 @@ proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
 
   state_roots
 
-proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
-  # Load summaries into table - there's no telling what order they're in so we
-  # load them all - bugs in nim prevent this code from living in the iterator.
-  var summaries = initTable[Eth2Digest, BeaconBlockSummary](1024*1024)
-
-  discard db.summaries.find([], proc(k, v: openArray[byte]) =
-    var output: BeaconBlockSummary
-
-    if k.len() == sizeof(Eth2Digest) and decodeSSZ(v, output):
-      summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
-    else:
-      warn "Invalid summary in database", klen = k.len(), vlen = v.len()
-  )
-
-  summaries
-
 type RootedSummary = tuple[root: Eth2Digest, summary: BeaconBlockSummary]
 iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     RootedSummary =
