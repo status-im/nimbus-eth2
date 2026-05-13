@@ -14,8 +14,8 @@ import std/[os, strutils], ./buildinfo
 
 const
   versionMajor* = 26
-  versionMinor* = 3
-  versionBuild* = 1
+  versionMinor* = 5
+  versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 

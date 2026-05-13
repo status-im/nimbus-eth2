@@ -409,11 +409,6 @@ template asList*(epochFlags: EpochParticipationFlags): untyped =
 template asList*(epochFlags: var EpochParticipationFlags): untyped =
   List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
 
-template asSeq*(epochFlags: EpochParticipationFlags): untyped =
-  distinctBase(epochFlags)
-template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
-  distinctBase(epochFlags)
-
 template `[]`*(
     epochFlags: EpochParticipationFlags,
     idx: ValidatorIndex|uint64|int): ParticipationFlags =
@@ -430,11 +425,6 @@ template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags
 
 template len*(epochFlags: EpochParticipationFlags): int =
   asList(epochFlags).len
-
-template low*(epochFlags: EpochParticipationFlags): int =
-  asSeq(epochFlags).low
-template high*(epochFlags: EpochParticipationFlags): int =
-  asSeq(epochFlags).high
 
 template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
   mixin assign

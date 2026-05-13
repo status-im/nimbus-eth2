@@ -261,8 +261,7 @@ proc pruneAfterFinalization*(
 # Interchange
 # --------------------------------------------
 
-# The high-level import/export functions are
-# - importSlashingInterchange
+# The high-level export function is
 # - exportSlashingInterchange
 # in slashing_protection_types.nim
 #
