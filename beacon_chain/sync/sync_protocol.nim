@@ -373,6 +373,68 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
+  proc beaconBlocksByHead(
+      peer: Peer,
+      beaconRoot: Eth2Digest,
+      reqCount: uint64,
+      response: MultipleChunksResponse[
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB])
+      {.async, libp2pProtocol("beacon_blocks_by_head", 1).} =
+    trace "got blocks by head request",
+      peer, beaconRoot = shortLog(beaconRoot), count = reqCount
+    if reqCount == 0:
+      raise newException(InvalidInputsError, "Empty request")
+
+    let
+      dag = peer.networkState.dag
+      count = int min(reqCount, MAX_REQUEST_BLOCKS_DENEB)
+      startBid = dag.getBlockId(beaconRoot).valueOr:
+        # We don't know about this block at all - peers MAY respond with
+        # ResourceUnavailable when `beacon_root` is outside the served range.
+        raise newException(ResourceUnavailableError, BlocksUnavailable)
+
+    if startBid.slot < dag.backfill.slot:
+      # Block is older than what we've backfilled - outside the serving range.
+      raise newException(ResourceUnavailableError, BlocksUnavailable)
+
+    var
+      cur = startBid
+      found = 0
+      bytes: seq[byte]
+
+    while found < count:
+      if not dag.getBlockSZ(cur, bytes):
+        break
+
+      let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+        warn "Cannot read block size, database corrupt?",
+          bytes = bytes.len(), blck = shortLog(cur)
+        break
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(blockResponseCost, "beacon_blocks_by_head/1")
+      peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_head/1")
+
+      await response.writeBytesSZ(
+        uncompressedLen, bytes,
+        peer.network.forkDigestAtEpoch(cur.slot.epoch).data)
+
+      inc found
+
+      if found >= count:
+        break
+
+      # Walk to the parent; stop at genesis or when the next ancestor falls
+      # outside the epoch range we are required to serve.
+      let parentBid = dag.parent(cur).valueOr:
+        break
+      if parentBid.slot < dag.backfill.slot:
+        break
+      cur = parentBid
+
+    debug "Block head request done",
+      peer, beaconRoot = shortLog(beaconRoot), count = reqCount, found
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
   proc executionPayloadEnvelopesByRange(
       peer: Peer,
