@@ -1416,14 +1416,15 @@ proc doRootSidecarsSyncStep(
   debug "Preparing sidecars by root for peer",
     block_ids = shortLog(bids), block_ids_count = len(bids)
 
-  for bid in bids:
+  # First we looking for global `missingSidecars` registry, because there is
+  # request from processor for most recent sidecars.
+  for root in overseer.missingSidecars:
     let signedBlock =
-      overseer.blockQuarantine[].peekSidecarless(bid.root).valueOr:
+      overseer.blockQuarantine[].peekSidecarless(root).valueOr:
         debug "Block without sidecars disappeared from quarantine",
-          bid = shortLog(bid)
-        overseer.missingRoots.incl(bid.root)
+          block_root = shortLog(root)
+        overseer.missingRoots.incl(root)
         continue
-
     withBlck(signedBlock):
       when consensusFork == ConsensusFork.Fulu:
         let
@@ -1432,11 +1433,8 @@ proc doRootSidecarsSyncStep(
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
               DataColumnsByRootIdentifier()
             else:
-              overseer.columnQuarantine[].fetchMissingSidecars(
-                bid.root, peerMap)
+              overseer.columnQuarantine[].fetchMissingSidecars(root, peerMap)
         if len(request.indices) > 0:
-          # len(request.indices) == 0 when we already have data column sidecars
-          # which peer could provide.
           emptyColumnBlocks.add(signedBlock)
           columnRoots.add(request)
           columnsCount.inc(len(request.indices))
@@ -1446,6 +1444,40 @@ proc doRootSidecarsSyncStep(
         raiseAssert "Should not be happen!"
       else:
         raiseAssert "Unsupported fork"
+
+  # If there still space available we download all sidecars we are missing right
+  # now.
+  if columnsCount < peerEntry.maxSidecarsPerRequest:
+    for bid in bids:
+      let signedBlock =
+        overseer.blockQuarantine[].peekSidecarless(bid.root).valueOr:
+          debug "Block without sidecars disappeared from quarantine",
+            bid = shortLog(bid)
+          overseer.missingRoots.incl(bid.root)
+          continue
+
+      withBlck(signedBlock):
+        when consensusFork == ConsensusFork.Fulu:
+          let
+            peerMap = peer.getColumnMapOrDefault()
+            request =
+              if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+                DataColumnsByRootIdentifier()
+              else:
+                overseer.columnQuarantine[].fetchMissingSidecars(
+                  bid.root, peerMap)
+          if len(request.indices) > 0:
+            # len(request.indices) == 0 when we already have data column sidecars
+            # which peer could provide.
+            emptyColumnBlocks.add(signedBlock)
+            columnRoots.add(request)
+            columnsCount.inc(len(request.indices))
+            if columnsCount >= peerEntry.maxSidecarsPerRequest:
+              break
+        elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
+          raiseAssert "Should not be happen!"
+        else:
+          raiseAssert "Unsupported fork"
 
   ##
   ## Data column sidecars processing.
@@ -2535,7 +2567,7 @@ proc finalMonitoringLoop(
 
   debug "Finalization monitoring stopped"
 
-proc missingMonitoringLoop(
+proc missingBlocksMonitoringLoop(
     overseer: SyncOverseerRef2
 ): Future[void] {.async: (raises: []).} =
 
@@ -2544,9 +2576,11 @@ proc missingMonitoringLoop(
   try:
     while true:
         await overseer.blockQuarantine[].missingEvent.wait()
+
         let missingRoots = overseer.blockQuarantine[].checkMissing(high(int))
         debug "Got missing block event",
           missing_roots = missingRoots.mapIt(shortLog(it.root))
+
         for record in missingRoots:
           let entry = overseer.sdag.roots.getOrDefault(record.root)
           if not(isNil(entry)):
@@ -2560,6 +2594,46 @@ proc missingMonitoringLoop(
     discard
 
   debug "Block quarantine monitoring stopped"
+
+proc missingSidecarsMonitoringLoop(
+    overseer: SyncOverseerRef2
+): Future[void] {.async: (raises: []).} =
+
+  debug "Sidecarless quarantine monitoring established"
+
+  try:
+    let dag = overseer.consensusManager.dag
+    while true:
+      await overseer.blockQuarantine[].sidecarlessEvent.wait()
+
+      let missingSidecars =
+        block:
+          var res: seq[Eth2Digest]
+          for signedBlock in overseer.blockQuarantine[].peekSidecarless():
+            withBlck(signedBlock):
+              let
+                slot = forkyBlck.message.slot
+                root = forkyBlck.root
+              if slot >= dag.head.slot:
+                res.add(root)
+          res
+
+      debug "Got missing sidecars block event",
+        missing_roots = missingSidecars.mapIt(shortLog(it))
+
+      for root in missingSidecars:
+        let entry = overseer.sdag.roots.getOrDefault(root)
+        if not(isNil(entry)):
+          entry.flags.incl(DagEntryFlag.MissingSidecars)
+          overseer.missingSidecars.incl(root)
+          debug "Missing block root inserted into queue",
+             block_root = root, block_known = not(isNil(entry))
+      overseer.blockQuarantine[].sidecarlessEvent.clear()
+
+  except CancelledError:
+    discard
+
+  debug "Sidecarless quarantine monitoring stopped"
 
 iterator popBlocks(
     overseer: SyncOverseerRef2,
@@ -2728,7 +2802,8 @@ proc mainLoop*(
     finalMonitoringLoopFut = overseer.finalMonitoringLoop()
     timeMonitoringLoopFut = overseer.timeMonitoringLoop()
     lateBlockMonitoringLoopFut = overseer.lateBlockMonitoringLoop()
-    missingMonitoringLoopFut = overseer.missingMonitoringLoop()
+    missingBlocksMonitoringLoopFut = overseer.missingBlocksMonitoringLoop()
+    missingSidecarsMonitoringLoopFut = overseer.missingSidecarsMonitoringLoop()
 
   while true:
     let peer =
@@ -2740,7 +2815,8 @@ proc mainLoop*(
         await cancelAndWait(
           gossipMonitoringLoopFut, blockMonitoringLoopFut,
           finalMonitoringLoopFut, timeMonitoringLoopFut,
-          lateBlockMonitoringLoopFut, missingMonitoringLoopFut)
+          lateBlockMonitoringLoopFut, missingBlocksMonitoringLoopFut,
+          missingSidecarsMonitoringLoopFut)
         return
     let entry = overseer.initPeer(peer)
     overseer.updatePeerStatus(peer)
