@@ -506,7 +506,7 @@ proc new*(T: type BeaconChainDBV0,
 proc new*(T: type BeaconChainDB,
           db: SqStoreRef,
           cfg: RuntimeConfig,
-          lightClientDataImportBackfill: bool
+          lightClientDataImportBackfill = false
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
