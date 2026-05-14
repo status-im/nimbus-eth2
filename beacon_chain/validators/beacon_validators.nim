@@ -989,7 +989,7 @@ proc signAndSendProposerPreference(
     return
   let signed = SignedProposerPreferences(message: data, signature: signature)
   await node.router.routeProposerPreferences(signed)
-  node.sentProposerPreferences.incl(
+  node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].incl(
     (data.validator_index, data.proposal_slot))
 
 proc sendProposerPreferences(
@@ -998,14 +998,6 @@ proc sendProposerPreferences(
 
   if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
     return
-
-  # Prune past slots
-  var toRemove: seq[(uint64, Slot)]
-  for key in node.sentProposerPreferences:
-    if key[1] <= slot:
-      toRemove.add(key)
-  for key in toRemove:
-    node.sentProposerPreferences.excl(key)
 
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -1022,7 +1014,7 @@ proc sendProposerPreferences(
           forkyState.data, validator_index.uint64
         ):
           if (validator_index.uint64, proposal_slot) in
-              node.sentProposerPreferences:
+              node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
           let dependent_root =

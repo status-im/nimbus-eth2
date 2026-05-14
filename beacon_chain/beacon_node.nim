@@ -129,7 +129,7 @@ type
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
     lastColumnCustodyIndices*: seq[CustodyIndex]
-    sentProposerPreferences*: HashSet[(uint64, Slot)]
+    sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     shutdownEvent*: AsyncEvent
 
 # TODO https://github.com/status-im/nim-stew/pull/258

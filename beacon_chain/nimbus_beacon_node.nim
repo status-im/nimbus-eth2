@@ -1935,6 +1935,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       let justEnded = slot.epoch - Epoch(1)
       node.processor.seenProposerPreferences[justEnded.uint64 mod 2].reset()
 
+      node.sentProposerPreferences[justEnded.uint64 mod 2].clear()
+
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head
   if node.isSynced(head) and head.executionValid:
