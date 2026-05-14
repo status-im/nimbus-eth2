@@ -429,8 +429,8 @@ template validateBeaconBlockGloas(
       i = 0
       found = false
 
-    # Search execution parent up to 2 ancestors. Also stop searching if there is
-    # not any parents, that could be a finalized block or genesis.
+    # Search execution parent up to 2 ancestors. Also stop searching when there
+    # is not any parents, means that it is either a finalized or genesis block.
     while not isNil(cur.parent) and i < 2:
       let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
         return errIgnore("validateBeaconBlockGloas: cannot load block hash")
@@ -459,16 +459,22 @@ template validateBeaconBlockGloas(
     # and the database for the validation rules.
     if executionParent.root in envelopeQuarantine.unviable:
       return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
-    elif not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
+    # The genesis block would not have an envelope. Otherwise, we should have
+    # the envelope for the execution parent.
+    elif not (executionParent.slot != GENESIS_SLOT and
+        dag.db.containsExecutionPayloadEnvelope(executionParent.root)):
       envelopeQuarantine[].addMissing(executionParent.root)
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
   else:
-    # For pre-Gloas block, we validate that it is an execution block.
+    # The executionParent is found from DAG, which is a validated Fulu block. We
+    # do not need to check with the block quarantine but at least we want to be
+    # sure that it is execution enabled.
     let parentBlck = dag.getForkedBlock(executionParent.bid).valueOr:
       return errIgnore("validateBeaconBlockGloas: missing parent block")
-    if not parentBlck.is_execution_block:
-      return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
+    withBlck(parentBlck):
+      if not forkyBlck.message.body.is_execution_block:
+        return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
