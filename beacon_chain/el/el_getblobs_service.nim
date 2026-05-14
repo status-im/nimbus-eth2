@@ -197,7 +197,7 @@ proc attemptGetBlobsFromColumn*(
     return
 
   # If the sidecarless block is already in the block quarantine, the
-  # block-first path (consumeBlockGossip → attemptGetBlobs) owns this
+  # block-first path (consumeBlockGossip - attemptGetBlobs) owns this
   # block — leave it alone.
   if quarantine[].getSidecarless(block_root).isSome():
     return
