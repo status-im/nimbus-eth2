@@ -453,43 +453,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             node.hasRestAllowedOrigin)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
-      elif consensusFork == ConsensusFork.Electra:
-        let
-          cache = new StateCache
-          state = node.dag.getProposalState(qhead, qslot, cache[]).valueOr:
-            return RestApiResponse.jsonError(
-              Http500, "Proposal state is not available")
-          engineBid = (await node.getExecutionPayload(
-              consensusFork, qhead, state, proposer,
-              node.dag.validatorKey(proposer).get().toPubKey())).valueOr:
-            return RestApiResponse.jsonError(Http500,
-              "Engine payload is not available")
-          message = (node.makeEngineBlock(
-              consensusFork, state[].forky(consensusFork), cache[],
-              proposer, qrandao, qgraffiti, qhead, qslot,
-              engineBid.eps, engineBid.execution_requests)).valueOr:
-            return RestApiResponse.jsonError(
-              Http500, "Engine block production failed: " & error)
-          blockContents = electra.BlockContents(
-            `block`: message.blck,
-            kzg_proofs: message.blobsBundle.proofs,
-            blobs: message.blobsBundle.blobs)
-
-        if contentType == sszMediaType:
-          RestApiResponse.sszResponse(
-            blockContents, consensusFork, isBlinded = false,
-            message.executionValue, message.consensusValue,
-            node.hasRestAllowedOrigin)
-        elif contentType == jsonMediaType:
-          RestApiResponse.jsonResponsePlain(
-            ForkedMaybeBlindedBeaconBlock.init(
-              blockContents,
-              Opt.some message.executionValue,
-              Opt.some message.consensusValue),
-            consensusFork, false, message.executionValue,
-            message.consensusValue, node.hasRestAllowedOrigin)
-        else:
-          raiseAssert "preferredContentType() returns invalid content type"
       else:
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
