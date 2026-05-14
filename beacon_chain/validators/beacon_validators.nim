@@ -406,37 +406,45 @@ proc proposeBlockAux(
     graffiti = node.getGraffitiBytes(validator)
     validator_index = validator.index.expect("index set for proposer")
 
+    (shouldExtendPayload, parentExecutionRequests) = block:
+      debugGloasComment("refactor when we have a proper should_extend_payload")
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
+      when fork >= ConsensusFork.Gloas:
+        let envelope = node.dag.db.getExecutionPayloadEnvelope(
+          state[].latest_block_root)
+
+        if envelope.isOk():
+          let parentExecutionRequests =
+            envelope.get().message.execution_requests
+          apply_parent_execution_payload(
+            node.dag.cfg,
+            state[].forky(fork).data,
+            parentExecutionRequests,
+            cache[],
+          ).isOkOr:
+            debug "Proposal failed to apply parent payload",
+              slot, head = shortlog(head)
+            return head
+          (true, parentExecutionRequests)
+        else:
+          debug "Proposal not extending payload", slot, head = shortlog(head)
+          (false, default(ExecutionRequests))
+      else:
+        (false, default(ExecutionRequests))
+
     engineBid =
       when fork == ConsensusFork.Heze:
-        debugHezeComment "apply_parent_execution_payload"
         debugHezeComment "stub: heze block proposals"
         await node.getExecutionPayload(
-          fork, head, state, validator_index, validator.pubkey
+          fork, head, state, validator_index, validator.pubkey,
+          shouldExtendPayload = shouldExtendPayload,
         )
       elif fork == ConsensusFork.Gloas:
-        debugGloasComment("WIP: so assume `should_extend_payload == true` here")
-        # Parent block is either in Fulu or Gloas.
-        let
-          parentId = state[].latest_block_id
-          parentBlck = node.dag.getForkedBlock(parentId).valueOr:
-            debug "Proposal failed to get parent block",
-              slot, head = shortLog(head)
-            return head
-        withBlck(parentBlck):
-          when consensusFork == ConsensusFork.Gloas:
-            apply_parent_execution_payload(
-              node.dag.cfg,
-              state[].forky(fork).data,
-              forkyBlck.message.body.parent_execution_requests,
-              cache[],
-            ).isOkOr:
-              debug "Proposal failed to apply parent payload",
-                slot, head = shortlog(head)
-              return head
-
         # Fetch only engine payload for now
         await node.getExecutionPayload(
-          fork, head, state, validator_index, validator.pubkey
+          fork, head, state, validator_index, validator.pubkey,
+          shouldExtendPayload = shouldExtendPayload,
         )
       elif fork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
@@ -564,10 +572,7 @@ proc proposeBlockAux(
 
   let
     verificationFlags: UpdateFlags =
-      when fork >= ConsensusFork.Gloas:
-        {skipApplyParentExecutionPayload}
-      else:
-        {}
+      if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
     engineBlock = node.makeEngineBlock(
       fork,
       state[].forky(fork),
@@ -579,6 +584,7 @@ proc proposeBlockAux(
       slot,
       engineBid[].eps,
       engineBid[].execution_requests,
+      parentExecutionRequests = parentExecutionRequests,
       verificationFlags = verificationFlags,
     ).valueOr:
       beacon_block_production_errors.inc()

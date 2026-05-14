@@ -267,6 +267,7 @@ proc makeEngineBlock*(
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
+    parentExecutionRequests: ExecutionRequests = default(ExecutionRequests),
     verificationFlags: UpdateFlags = {},
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
@@ -297,16 +298,6 @@ proc makeEngineBlock*(
           slot, state.latest_block_root)
       else:
         default(seq[PayloadAttestation])
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
-    parent_execution_requests =
-      when consensusFork >= ConsensusFork.Gloas:
-        block:
-          let envelope = node.dag.db.getExecutionPayloadEnvelope(
-              state.latest_block_root).valueOr:
-            default(TrustedSignedExecutionPayloadEnvelope)
-          envelope.message.execution_requests
-      else:
-        default(ExecutionRequests)
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -327,7 +318,7 @@ proc makeEngineBlock*(
       execution_requests,
       signed_execution_payload_bid,
       payload_attestations,
-      parent_execution_requests,
+      parentExecutionRequests,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -350,6 +341,7 @@ proc getExecutionPayload*(
     proposalState: ref ForkedHashedBeaconState,
     validator_index: ValidatorIndex,
     validator_pubkey: ValidatorPubKey,
+    shouldExtendPayload: bool = false,
 ): Future[Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]] {.
     async: (raises: [CancelledError])
 .} =
@@ -381,8 +373,7 @@ proc getExecutionPayload*(
         # - If `should_extend_payload(store, parent_root)`:
         #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
         # - else `withdrawals = state.payload_expected_withdrawals`.
-        if forkyState.data.latest_block_hash ==
-            forkyState.data.latest_execution_payload_bid.block_hash:
+        if shouldExtendPayload:
           get_expected_withdrawals(forkyState.data).withdrawals
         else:
           forkyState.data.payload_expected_withdrawals.asSeq()
