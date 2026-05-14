@@ -19,8 +19,8 @@ import
 from std/sequtils import filterIt, mapIt
 from std/strutils import ffDecimal
 
-export phase0, altair, merge, chronos, chronicles, results,
-       helpers, peer_scores, sync_queue, forks, sync_protocol
+export merge, chronos, chronicles, results, helpers, peer_scores, sync_queue,
+       forks, sync_protocol
 
 const
   SyncWorkersCount* = 10
@@ -56,7 +56,6 @@ type
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
-    FULU_FORK_EPOCH: Epoch
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     isWithinWeakSubjectivityPeriod: GetBoolCallback
@@ -139,7 +138,6 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
 
 proc newSyncManager*[A, B](
     pool: PeerPool[A, B],
-    fuluEpoch: Epoch,
     direction: SyncQueueKind,
     getLocalHeadSlotCb: GetSlotCallback,
     getLocalWallSlotCb: GetSlotCallback,
@@ -167,7 +165,6 @@ proc newSyncManager*[A, B](
 
   var res = SyncManager[A, B](
     pool: pool,
-    FULU_FORK_EPOCH: fuluEpoch,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     isWithinWeakSubjectivityPeriod: weakSubjectivityPeriodCb,
