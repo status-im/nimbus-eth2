@@ -411,10 +411,18 @@ proc proposeBlockAux(
       # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
       # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
       when fork >= ConsensusFork.Gloas:
-        let envelope = node.dag.db.getExecutionPayloadEnvelope(
-          state[].latest_block_root)
+        let
+          parentId = state[].latest_block_id
+          envelope =
+            if node.dag.cfg.consensusForkAtEpoch(parentId.slot.epoch()) >=
+                ConsensusFork.Gloas:
+              node.dag.db.getExecutionPayloadEnvelope(parentId.root)
+            # For parent in pre-Gloas, we should extend the payload with empty
+            # execution requests.
+            else:
+              Opt.some(default(TrustedSignedExecutionPayloadEnvelope))
 
-        if envelope.isOk():
+        if envelope.isSome():
           let parentExecutionRequests =
             envelope.get().message.execution_requests
           apply_parent_execution_payload(
@@ -424,11 +432,11 @@ proc proposeBlockAux(
             cache[],
           ).isOkOr:
             debug "Proposal failed to apply parent payload",
-              slot, head = shortlog(head)
+              slot, head = shortLog(head)
             return head
           (true, parentExecutionRequests)
         else:
-          debug "Proposal not extending payload", slot, head = shortlog(head)
+          debug "Proposal not extending payload", slot, head = shortLog(head)
           (false, default(ExecutionRequests))
       else:
         (false, default(ExecutionRequests))
