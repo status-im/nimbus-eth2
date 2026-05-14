@@ -2235,7 +2235,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
@@ -2252,12 +2252,34 @@ proc validateProposerPreferences*(
   # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
   # [get_current_epoch(state), get_current_epoch(state) + 1].
   if proposalEpoch != currentEpoch and proposalEpoch != currentEpoch + 1:
-    return errIgnore("ProposerPreferences: proposal_slot in current/next epoch")
+    return errIgnore("ProposerPreferences: proposal_slot not in current/next epoch")
 
   # [IGNORE] preferences.proposal_slot has not already passed
-  # -- i.e. preferences.proposal_slot > state.slot
+  # -- i.e. preferences.proposal_slot > current_slot
   if preferences.proposal_slot <= currentSlot:
     return errIgnore("ProposerPreferences: proposal_slot not in future")
+
+  # [IGNORE] The block with root preferences.dependent_root
+  # has been seen (via gossip or non-gossip sources)
+  if dag.getBlockId(preferences.dependent_root).isNone:
+    return errIgnore("ProposerPreferences: dependent_root not seen")
+
+  # [REJECT] is_valid_proposal_slot(state, preferences) returns True,
+  # where state is the checkpoint state at the epoch 
+  # compute_epoch_at_slot(preferences.proposal_slot) - 1
+  # and the root preferences.dependent_root.
+  # Spec requires the checkpoint state at dependent_root; we approximate
+  # with head state which should have the same proposer_lookahead when synced.
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      if not is_valid_proposal_slot(
+          forkyState.data, preferences.proposal_slot,
+          preferences.validator_index):
+        return dag.checkedReject(
+          "ProposerPreferences: not the proposer for proposal_slot")
+    else:
+      return errIgnore(
+        "ProposerPreferences: head state not yet at Gloas fork")
 
   # [IGNORE] The signed_proposer_preferences is the first valid message seen
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,
@@ -2270,20 +2292,6 @@ proc validateProposerPreferences*(
     if existing.dependent_root == preferences.dependent_root and
         existing.validator_index == preferences.validator_index:
       return errIgnore("ProposerPreferences: already seen")
-
-  # [REJECT] preferences.validator_index is present at the correct slot
-  # in the current or next epoch's portion of state.proposer_lookahead
-  # i.e. is_valid_proposal_slot(state, preferences) returns True.
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      if not is_valid_proposal_slot(
-          forkyState.data, preferences.proposal_slot,
-          preferences.validator_index):
-        return dag.checkedReject(
-          "ProposerPreferences: not the proposer for proposal_slot")
-    else:
-      return dag.checkedReject(
-        "ProposerPreferences: only valid for Gloas fork or later")
 
   # [REJECT] signed_proposer_preferences.signature is valid with
   # respect to the validator's public key.
