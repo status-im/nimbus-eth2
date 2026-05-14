@@ -129,6 +129,8 @@ type
     direction*: PeerType
     disconnectedFut: Future[void]
     statistics*: SyncResponseStats
+    lastDisconnectReason*: Opt[DisconnectionReason]
+    lastDisconnectAt*: Opt[chronos.Moment]
 
   PeerAddr* = object
     peerId*: PeerId
@@ -569,6 +571,8 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
   # we currently don't - the fact that we're disconnecting is obvious and the
   # reason already known (wrong network is known from status message) or doesn't
   # greatly matter for the listening side (since it can't be trusted anyway)
+  peer.lastDisconnectReason = Opt.some(reason)
+  peer.lastDisconnectAt = Opt.some(chronos.Moment.now())
   try:
     if peer.connectionState notin {Disconnecting, Disconnected}:
       peer.connectionState = Disconnecting
