@@ -1721,7 +1721,14 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
             node.dag.finalizedHead.slot.epoch()
           )
     node.processor.quarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+      node.dag.finalizedHead.slot.epoch())
+    let backfillSlot =
+      if node.dag.needsBackfill():
+        Opt.some(node.dag.backfill.slot)
+      else:
+        Opt.none(Slot)
+    node.dataColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), backfillSlot)
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
