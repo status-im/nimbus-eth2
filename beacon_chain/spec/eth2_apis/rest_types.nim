@@ -256,6 +256,7 @@ type
     direction*: string
     agent*: string # This is not part of specification
     proto*: string # This is not part of specification
+    score*: Opt[int] # This is not part of specification
 
   RestSyncPeer* = object
     peer_id*: string
