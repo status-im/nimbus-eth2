@@ -235,7 +235,7 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
-  
+
   PeerAddrProto* {.pure.} = enum
     TCP
     UDP
@@ -1834,6 +1834,12 @@ proc onConnEvent(
         # We have established a connection with the peer that we have seen
         # before - reusing the existing peer object is fine
         peer.connectionState = Connecting
+        if peer.score < PeerScoreLowLimit:
+          debug "Got connection attempt from low score peer", peer = peerId,
+            peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+            score_high_limit = PeerScoreHighLimit
+          await peer.disconnect(PeerScoreLow)
+          return
         peer.score = 0 # Will be set to NewPeerScore after handshake
       of Connecting, Connected:
         # This means that we got notification event from peer which we already
@@ -1919,7 +1925,7 @@ proc new(T: type Eth2Node,
       {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
-        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)                                                   
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)
       },
     rng),
     discoveryEnabled: discovery,
@@ -2387,13 +2393,13 @@ proc newBeaconSwitch(
     .withAgentVersion(config.agentString)
     .withServices(@[service])
 
-    if config.tcpEnabled: 
+    if config.tcpEnabled:
       sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
              .withTcpTransport({ServerFlags.ReuseAddr})
 
     if config.quicEnabled:
       sb = sb.withQuicTransport()
-        
+
     ok sb.build()
   except LPError as exc:
     err(exc.msg)
