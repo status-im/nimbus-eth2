@@ -782,6 +782,14 @@ proc validateDataColumnSidecar*(
       slot: data_column_sidecar.signed_block_header.message.slot,
       kzg_commitments: data_column_sidecar.kzg_commitments)
 
+  # Notify with the full sidecar so the EL (out of spec)
+  # getBlobs service can derive header/commitments/inclusion proof when the
+  # block has not yet been seen via gossip.
+  let onFuluColumnAddedCallback =
+    dataColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
+  if not(isNil(onFuluColumnAddedCallback)):
+    onFuluColumnAddedCallback newClone(data_column_sidecar)
+
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id

@@ -466,6 +466,8 @@ proc initFullNode(
     node.eventBus.attSlashQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
     node.eventBus.columnSidecarQueue.emit(data)
+  proc onFuluColumnSidecarAdded(data: ref fulu.DataColumnSidecar) =
+    node.eventBus.columnSidecarFullQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -586,7 +588,7 @@ proc initFullNode(
   let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
-      onColumnSidecarAdded))
+      onColumnSidecarAdded, onFuluColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
@@ -744,10 +746,6 @@ proc initFullNode(
         {}
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -756,10 +754,6 @@ proc initFullNode(
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -774,10 +768,6 @@ proc initFullNode(
     eaSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -870,6 +860,7 @@ proc initFullNode(
                                           syncManager, backfiller,
                                           untrustedManager)
   node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
+                                                node.eventBus.columnSidecarFullQueue,
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
                                                 node.validatorCustody)
@@ -2775,7 +2766,6 @@ proc doRunBeaconNode(
 ) {.raises: [CatchableError].} =
   info "Launching beacon node",
     version = fullVersionStr,
-    bls_backend = $BLS_BACKEND,
     const_preset,
     cmdParams = commandLineParams(),
     config
