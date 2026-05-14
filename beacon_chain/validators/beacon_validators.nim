@@ -571,7 +571,7 @@ proc proposeBlockAux(
     return head
 
   let
-    verificationFlags: UpdateFlags =
+    verificationFlags =
       if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
     engineBlock = node.makeEngineBlock(
       fork,
@@ -584,8 +584,8 @@ proc proposeBlockAux(
       slot,
       engineBid[].eps,
       engineBid[].execution_requests,
-      parentExecutionRequests = parentExecutionRequests,
-      verificationFlags = verificationFlags,
+      parentExecutionRequests,
+      verificationFlags,
     ).valueOr:
       beacon_block_production_errors.inc()
       return head

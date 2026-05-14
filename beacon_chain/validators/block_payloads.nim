@@ -267,8 +267,8 @@ proc makeEngineBlock*(
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
-    parentExecutionRequests: ExecutionRequests = default(ExecutionRequests),
-    verificationFlags: UpdateFlags = {},
+    parent_execution_requests: ExecutionRequests,
+    verification_flags: UpdateFlags,
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -313,12 +313,12 @@ proc makeEngineBlock*(
       exits,
       sync_aggregate,
       eps.executionPayload,
-      verificationFlags,
+      verification_flags,
       eps.kzg_commitments,
       execution_requests,
       signed_execution_payload_bid,
       payload_attestations,
-      parentExecutionRequests,
+      parent_execution_requests,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -736,6 +736,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
   if bids.engineBid.isNone:
     return err("Engine payload is not available")
 
+  debugGloasComment("parent_execution_requests")
   let engineBlock = ?node.makeEngineBlock(
     consensusFork,
     state[].forky(consensusFork),
@@ -747,6 +748,8 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     slot,
     bids.engineBid[].eps,
     bids.engineBid[].execution_requests,
+    default(ExecutionRequests),
+    {},
   )
 
   ok(
