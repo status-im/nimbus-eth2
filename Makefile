@@ -485,7 +485,7 @@ endif
 force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
 
 # https://www.gnu.org/software/make/manual/html_node/Multiple-Rules.html#Multiple-Rules
-# Already defined as a reult
+# Already defined as a result
 nimbus_beacon_node: force_build_alone_tools
 
 GOERLI_TESTNETS_PARAMS := \
