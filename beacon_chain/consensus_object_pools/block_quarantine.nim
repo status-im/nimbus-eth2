@@ -279,25 +279,8 @@ func clearAfterReorg*(quarantine: var Quarantine) =
   quarantine.missing.resetItems()
   quarantine.orphans.reset()
 
-func pruneAfterFinalization*(
-    quarantine: var Quarantine, epoch: Epoch, needsBackfill: bool
-) =
-  let
-    startEpoch =
-      if needsBackfill:
-        # Because Quarantine could be used as temporary storage for blocks which
-        # do not have sidecars yet, we should not prune blocks which are behind
-        # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
-        # be able to backfill these blocks properly.
-        if epoch < quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
-          Epoch(0)
-        else:
-          epoch - quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
-      else:
-        epoch
-    slot = startEpoch.start_slot()
-
-  quarantine.cleanupSidecarless(slot)
+func pruneAfterFinalization*(quarantine: var Quarantine, epoch: Epoch) =
+  quarantine.cleanupSidecarless(epoch.start_slot())
 
 # Typically, blocks will arrive in mostly topological order, with some
 # out-of-order block pairs. Therefore, it is unhelpful to use either a

@@ -754,26 +754,40 @@ proc pruneAfterFinalization*[
 ](
     quarantine: var SidecarQuarantine[A, B, C],
     epoch: Epoch,
-    backfillNeeded: bool
+    backfillSlot: Opt[Slot]
 ) =
   let
-    startEpoch =
-      if backfillNeeded:
+    pruneRange =
+      if backfillSlot.isSome():
         # Because ColumnQuarantine could be used as temporary storage for
         # incoming data column sidecars, we should not prune data columns which
         # are behind `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS` epoch.
         # Otherwise we will not be able to backfill data columns.
-        if epoch < quarantine.minEpochsForSidecarsRequests:
-          Epoch(0)
+        let
+          backslot =
+            if backfillSlot.get() == FAR_FUTURE_SLOT:
+              FAR_FUTURE_SLOT
+            else:
+              backfillSlot.get() + 1
+          startEpoch =
+            if epoch < quarantine.minEpochsForSidecarsRequests:
+              Epoch(0)
+            else:
+              epoch - quarantine.minEpochsForSidecarsRequests
+          startSlot = max(startEpoch.start_slot(), backslot)
+        if epoch == GENESIS_EPOCH:
+          startSlot .. GENESIS_SLOT
         else:
-          epoch - quarantine.minEpochsForSidecarsRequests
+          startSlot .. (epoch.start_slot() - 1)
       else:
-        epoch
-    epochSlot = (startEpoch + 1).start_slot()
+        if epoch == GENESIS_EPOCH:
+          GENESIS_SLOT .. GENESIS_SLOT
+        else:
+          GENESIS_SLOT .. (epoch.start_slot() - 1)
 
   var nodes: seq[DoublyLinkedNode[RootTableRecord[A]]]
   for node in quarantine.list.nodes():
-    if (node[].value.count > 0) and (node[].value.slot < epochSlot):
+    if node[].value.slot in pruneRange:
       nodes.add(node)
 
   for node in nodes:
