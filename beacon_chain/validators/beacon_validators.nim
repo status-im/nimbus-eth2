@@ -438,13 +438,13 @@ proc proposeBlockAux(
         debugHezeComment "stub: heze block proposals"
         await node.getExecutionPayload(
           fork, head, state, validator_index, validator.pubkey,
-          shouldExtendPayload = shouldExtendPayload,
+          shouldExtendPayload,
         )
       elif fork == ConsensusFork.Gloas:
         # Fetch only engine payload for now
         await node.getExecutionPayload(
           fork, head, state, validator_index, validator.pubkey,
-          shouldExtendPayload = shouldExtendPayload,
+          shouldExtendPayload,
         )
       elif fork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
@@ -562,7 +562,7 @@ proc proposeBlockAux(
         bids.engineBid
       elif fork == ConsensusFork.Electra:
         await node.getExecutionPayload(
-          fork, head, state, validator_index, validator.pubkey)
+          fork, head, state, validator_index, validator.pubkey, false)
       else:
         static: raiseAssert "Unsupported fork " & $fork
 

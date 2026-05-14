@@ -341,7 +341,7 @@ proc getExecutionPayload*(
     proposalState: ref ForkedHashedBeaconState,
     validator_index: ValidatorIndex,
     validator_pubkey: ValidatorPubKey,
-    shouldExtendPayload: bool = false,
+    should_extend_payload: bool,
 ): Future[Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]] {.
     async: (raises: [CancelledError])
 .} =
@@ -373,7 +373,7 @@ proc getExecutionPayload*(
         # - If `should_extend_payload(store, parent_root)`:
         #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
         # - else `withdrawals = state.payload_expected_withdrawals`.
-        if shouldExtendPayload:
+        if should_extend_payload:
           get_expected_withdrawals(forkyState.data).withdrawals
         else:
           forkyState.data.payload_expected_withdrawals.asSeq()
@@ -630,9 +630,12 @@ proc collectBids*(
       else:
         nil
 
-    enginePayloadFut = node.getExecutionPayload(
-      consensusFork, head, proposalState, validator_index, validator_pubkey
-    )
+    enginePayloadFut = block:
+      debugGloasComment("should_extend_payload")
+      node.getExecutionPayload(
+        consensusFork, head, proposalState, validator_index, validator_pubkey,
+        false,
+      )
 
   # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
   # second for remote validators. getExecutionPayload times out after
