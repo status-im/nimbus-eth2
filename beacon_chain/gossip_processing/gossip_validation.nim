@@ -467,14 +467,10 @@ template validateBeaconBlockGloas(
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
   else:
-    # The executionParent is found from DAG, which is a validated Fulu block. We
-    # do not need to check with the block quarantine but at least we want to be
-    # sure that it is execution enabled.
-    let parentBlck = dag.getForkedBlock(executionParent.bid).valueOr:
-      return errIgnore("validateBeaconBlockGloas: missing parent block")
-    withBlck(parentBlck):
-      if not forkyBlck.message.body.is_execution_block:
-        return dag.checkedReject("validateBeaconBlockGloas: invalid execution parent")
+    # The executionParent is found from DAG, which is a validated pre-Gloas
+    # block. It could also be pre-merge or optimistic block. In either case,
+    # they shouldn't be rejected.
+    discard
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
