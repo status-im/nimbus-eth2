@@ -1107,7 +1107,6 @@ proc init*(
 
   let node = BeaconNode(
     nickname: nickname,
-    graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
     network: network,
     netKeys: netKeys,
     db: db,
