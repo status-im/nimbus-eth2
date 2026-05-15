@@ -614,21 +614,29 @@ func is_valid_proposal_slot*(
     return false
   state.proposer_lookahead.item(slot - start_slot) == validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+# The signature of this function diverges from the spec to avoid passing the full
+# beacon state through an inline interator which triggers stack-materialization of
+# the enclosing case object. 
+# context: https://github.com/status-im/nimbus-eth2/pull/8438#discussion_r3246095410
+# nim-lang/Nim#25287, nim-lang/Nim#25694
 iterator get_upcoming_proposal_slots*(
-    state: gloas.BeaconState | heze.BeaconState,
+    proposer_lookahead:
+      HashArray[Limit((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64],
+    current_epoch: Epoch,
+    state_slot: Slot,
     validator_index: uint64): Slot =
   ## Yield the future slots in the current epoch and the slots in the next
   ## epoch for which ``validator_index`` is proposing.
   const total_slots = (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH
   for offset in 0'u64 ..< total_slots:
-    if state.proposer_lookahead.item(offset) == validator_index:
+    if proposer_lookahead.item(offset) == validator_index:
       let
         epoch_offset = offset div SLOTS_PER_EPOCH
         slot_in_epoch = offset mod SLOTS_PER_EPOCH
-        slot = (state.get_current_epoch() + epoch_offset).start_slot +
+        slot = (current_epoch + epoch_offset).start_slot +
           slot_in_epoch
-      if slot > state.slot:
+      if slot > state_slot:
         yield slot
 
 func initialize_proposer_lookahead*(state: electra.BeaconState,

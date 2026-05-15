@@ -1011,7 +1011,10 @@ proc sendProposerPreferences(
             continue
 
         for proposal_slot in get_upcoming_proposal_slots(
-          forkyState.data, validator_index.uint64
+          forkyState.data.proposer_lookahead,
+          forkyState.data.get_current_epoch(),
+          forkyState.data.slot,
+          validator_index.uint64
         ):
           if (validator_index.uint64, proposal_slot) in
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
