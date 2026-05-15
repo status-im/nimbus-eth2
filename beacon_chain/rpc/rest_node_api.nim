@@ -221,8 +221,12 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           agent: node.network.switch.peerStore[AgentBook][peer.peerId],
           proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId],
           score: Opt.some(peer.score),
+          # Per beacon-API spec, `disconnect_reason` MUST only be populated
+          # when `state` is `disconnected` or `disconnecting`.
           disconnect_reason:
-            if peer.lastDisconnectReason.isSome():
+            if peer.connectionState in
+                {ConnectionState.Disconnected, ConnectionState.Disconnecting} and
+                peer.lastDisconnectReason.isSome():
               Opt.some(mapDisconnectReason(peer.lastDisconnectReason.get()))
             else:
               Opt.none(string)
@@ -276,7 +280,11 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # Fields `agent`, `proto`, `score` and `disconnect_reason` are not
           # part of specification
         disconnect_reason:
-            if peer.lastDisconnectReason.isSome():
+            # Per beacon-API spec, `disconnect_reason` MUST only be populated
+            # when `state` is `disconnected` or `disconnecting`.
+            if peer.connectionState in
+                {ConnectionState.Disconnected, ConnectionState.Disconnecting} and
+                peer.lastDisconnectReason.isSome():
               Opt.some(mapDisconnectReason(peer.lastDisconnectReason.get()))
             else:
               Opt.none(string)
