@@ -4,6 +4,8 @@
   self ? {},
   # Nimbus-build-system package.
   nim ? null,
+  # GCC version to compile the target with.
+  gcc ? null,
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
   targets ? ["nimbus_beacon_node"],
   # Options: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL, NONE
@@ -23,7 +25,12 @@ assert pkgs.lib.assertMsg ((self.submodules or true) == true)
   "Unable to build without submodules. Append '?submodules=1#' to the URI.";
 
 let
-  inherit (pkgs) stdenv lib writeScriptBin callPackage;
+  inherit (pkgs) lib writeScriptBin callPackage;
+
+  stdenv =
+    if gcc != null && !pkgs.stdenv.isDarwin
+    then pkgs.overrideCC pkgs.stdenv gcc
+    else pkgs.stdenv;
 
   revision = lib.substring 0 8 (self.rev or self.dirtyRev or "00000000");
 in stdenv.mkDerivation rec {
