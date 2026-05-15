@@ -1793,6 +1793,16 @@ proc handlePeer*(peer: Peer) {.async: (raises: [CancelledError]).} =
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
+proc closeConnection(
+    node: Eth2Node, peerId: PeerId) {.async: (raises: [CancelledError]).} =
+  try:
+    await node.switch.disconnect(peerId)
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    debug "Unexpected error while disconnecting peer",
+      peer = peerId, exc = exc.msg
+
 proc onConnEvent(
     node: Eth2Node, peerId: PeerId, event: ConnEvent) {.
     async: (raises: [CancelledError]).} =
@@ -1820,12 +1830,7 @@ proc onConnEvent(
         # we might end up here
         debug "Got connection attempt from peer that we are disconnecting",
              peer = peerId
-        try:
-          await node.switch.disconnect(peerId)
-        except CancelledError as exc:
-          raise exc
-        except CatchableError as exc:
-          debug "Unexpected error while disconnecting peer", exc = exc.msg
+        await node.closeConnection(peerId)
         return
       of None:
         # We have established a connection with the new peer.
@@ -1833,13 +1838,16 @@ proc onConnEvent(
       of Disconnected:
         # We have established a connection with the peer that we have seen
         # before - reusing the existing peer object is fine
-        peer.connectionState = Connecting
         if peer.score < PeerScoreLowLimit:
+          # Use closeConnection instead of peer.disconnect to allow the entry
+          # in the seen-table entry to eventually expire (e.g., peer fixes sw)
           debug "Got connection attempt from low score peer", peer = peerId,
             peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
             score_high_limit = PeerScoreHighLimit
-          await peer.disconnect(PeerScoreLow)
+          peer.connectionState = Disconnecting
+          await node.closeConnection(peerId)
           return
+        peer.connectionState = Connecting
         peer.score = 0 # Will be set to NewPeerScore after handshake
       of Connecting, Connected:
         # This means that we got notification event from peer which we already
