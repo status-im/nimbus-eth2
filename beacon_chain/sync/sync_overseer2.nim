@@ -2087,18 +2087,18 @@ proc startPeer(
     while true:
       let loopTime = Moment.now()
       if not(await overseer.doPeerUpdateStatus(peer)):
-        return
+        break
       if not(overseer.pool.checkPeerScore(peer)):
-        return
+        break
 
       if not(await overseer.doPeerUpdateMetadata(peer)):
-        return
+        break
       if not(overseer.pool.checkPeerScore(peer)):
-        return
+        break
 
       let peerEntry = overseer.sdag.peers.getOrDefault(peer.getKey())
       if isNil(peerEntry):
-        return
+        break
 
       if overseer.finalizedDistance().get() < RootSyncEpochsActivationCount:
         debug "Peer current root state",
@@ -2106,14 +2106,14 @@ proc startPeer(
           head_distance = overseer.syncDistance(peer)
 
         if not(await overseer.doRootSyncStep(peer)):
-          return
+          break
         if not(overseer.pool.checkPeerScore(peer)):
-          return
+          break
 
         if not(await overseer.doRootSidecarsSyncStep(peer)):
-          return
+          break
         if not(overseer.pool.checkPeerScore(peer)):
-          return
+          break
 
       let checkpoint = dag.headState.finalized_checkpoint
 
@@ -2127,14 +2127,14 @@ proc startPeer(
 
         if not(overseer.fblockBuffer.almostFull()):
           if not(await overseer.doRangeSyncStep(peer, SyncQueueKind.Forward)):
-            return
+            break
           if not(overseer.pool.checkPeerScore(peer)):
-            return
+            break
 
         if not(await overseer.doRangeSidecarsStep(peer, SyncQueueKind.Forward)):
-          return
+          break
         if not(overseer.pool.checkPeerScore(peer)):
-          return
+          break
 
       if dag.needsBackfill():
         debug "Peer current backfill state",
@@ -2146,36 +2146,38 @@ proc startPeer(
           if not(overseer.bblockBuffer.almostFull()):
             if not(
               await overseer.doRangeSyncStep(peer, SyncQueueKind.Backward)):
-              return
+              break
             if not(overseer.pool.checkPeerScore(peer)):
-              return
+              break
 
           if not(
             await overseer.doRangeSidecarsStep(peer, SyncQueueKind.Backward)):
-            return
+            break
           if not(overseer.pool.checkPeerScore(peer)):
-            return
+            break
 
       if not(await overseer.doPeerPause(peer, loopTime)):
-        return
+        break
 
   except CancelledError:
     discard
-  finally:
-    # Cleanup
-    var entry: PeerEntryRef[Peer]
-    let reason =
-      if not(overseer.pool.checkPeerScore(peer)):
-        PeerScoreLow
-      else:
-        CommunicationTimeout
-    if overseer.sdag.peers.pop(peer.getKey(), entry):
-      overseer.pool.release(peer)
-    try:
-      await peer.disconnect(reason)
-    except CancelledError:
-      discard
-    debug "Peer loop stopped"
+
+  let reason =
+    if not(overseer.pool.checkPeerScore(peer)):
+      PeerScoreLow
+    else:
+      CommunicationTimeout
+
+  var entry: PeerEntryRef[Peer]
+  if overseer.sdag.peers.pop(peer.getKey(), entry):
+    overseer.pool.release(peer)
+
+  try:
+    await peer.disconnect(reason)
+  except CancelledError:
+    discard
+
+  debug "Peer loop stopped", reason = reason
 
 proc speed(
     startslot, lastslot: Slot,
@@ -2816,8 +2818,11 @@ proc mainLoop*(
       try:
         await overseer.pool.acquire()
       except CancelledError:
-        # TODO (cheatfate): Release all peers?
         debug "Sync overseer interrupted"
+        var pending: seq[Future[void].Raising([])]
+        for entry in overseer.sdag.peers.values():
+          pending.add(entry.peerLoopFut)
+        await cancelAndWait(pending)
         await cancelAndWait(
           gossipMonitoringLoopFut, blockMonitoringLoopFut,
           finalMonitoringLoopFut, timeMonitoringLoopFut,
