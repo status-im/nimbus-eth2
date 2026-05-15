@@ -616,7 +616,6 @@ AllTests-mainnet
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
-+ Invalid URls                                                                               OK
 + New style config files                                                                     OK
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
