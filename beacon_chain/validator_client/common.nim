@@ -224,7 +224,6 @@ type
   ValidatorClient* = object
     config*: ValidatorClientConf
     metricsServer*: Opt[MetricsHttpServerRef]
-    graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
     forkService*: ForkServiceRef

@@ -13,7 +13,8 @@
 
 import std/[strutils, tables]
 import chronos, chronicles, confutils,
-       results, stew/[base10, io2], blscurve, presto
+       results, stew/[base10, io2], blscurve, presto,
+       nimcrypto/utils
 import ../spec/[keystore, crypto]
 import ../spec/eth2_apis/rest_keymanager_types
 import ../validators/[slashing_protection, keystore_management,
@@ -87,7 +88,7 @@ func checkAuthorization*(
     for authHeader in authorizations:
       let parts = authHeader.split(' ', maxsplit = 1)
       if parts.len == 2 and parts[0] == "Bearer":
-        if parts[1] == host.keymanagerToken:
+        if equalMemFull(parts[1], host.keymanagerToken):
           return ok()
         else:
           return err incorrectToken

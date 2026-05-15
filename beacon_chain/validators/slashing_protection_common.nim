@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Stdlib
@@ -234,15 +234,6 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
     a = (typeof a)(r.readValue(string).parseBiggestUInt())
   except ValueError:
     raiseUnexpectedValue(r, "Integer in a string expected")
-
-proc importSlashingInterchange*(
-       db: auto,
-       path: string): SlashingImportStatus {.raises: [IOError, SerializationError].} =
-  ## Import a Slashing Protection Database Interchange Format
-  ## into a Nimbus DB.
-  ## This adds data to already existing data.
-  let spdir = Json.loadFile(path, SPDIR)
-  return db.inclSPDIR(spdir)
 
 # Logging
 # --------------------------------------------

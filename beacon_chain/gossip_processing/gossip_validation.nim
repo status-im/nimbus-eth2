@@ -423,34 +423,26 @@ template validateBeaconBlockGloas(
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
   let executionParent = block:
-    let
-      parent = dag.getBlockRef(bid.parent_block_root).valueOr:
+    var
+      cur = dag.getBlockRef(bid.parent_block_root).valueOr:
         return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-      pBhash = dag.loadExecutionBlockHash(parent).valueOr:
+      i = 0
+      found = false
+
+    # Search execution parent up to 2 ancestors. Also stop searching when there
+    # is not any parents, means that it is either a finalized or genesis block.
+    while not isNil(cur.parent) and i < 2:
+      let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
         return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-    if pBhash == bid.parent_block_hash:
-      # Parent's payload status is FULL
-      parent.bid
-    else:
-      # Parent's payload status is EMPTY, i.e. check with grandparent.
-      let res = block:
-        if not isNil(parent.parent):
-          # Grandparent is non-finalized yet.
-          let gpBhash = dag.loadExecutionBlockHash(parent.parent).valueOr:
-            return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-          (parent.parent.bid, gpBhash)
-        else:
-          # Grandparent should be either finalized or nonexistent.
-          let
-            gpBid = dag.parent(parent.bid).valueOr:
-              return errIgnore("validateBeaconBlockGloas: invalid execution parent")
-            gpBhash = dag.loadExecutionBlockHash(gpBid).valueOr:
-              return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-          (gpBid, gpBhash)
-      if res[1] == bid.parent_block_hash:
-        res[0]
+      if pBhash == bid.parent_block_hash:
+        found = true
+        break
       else:
-        return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+        cur = cur.parent
+      inc i
+    if not found:
+      return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+    cur
 
   # - [IGNORE] The block's parent execution payload (defined by
   #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
@@ -462,15 +454,23 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  if executionParent.root in envelopeQuarantine.unviable:
-    return dag.checkedReject("validateBeaconBlockGloas: invalid parent payload")
-  elif not (
-      dag.db.containsExecutionPayloadEnvelope(executionParent.root) or
-      executionParent.root in envelopeQuarantine.orphans
-  ):
-    envelopeQuarantine[].addMissing(executionParent.root)
-    discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
-    return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
+  if dag.cfg.consensusForkAtEpoch(executionParent.slot.epoch()) >= ConsensusFork.Gloas:
+    # The executionParent exists in DAG, so we should check unviable envelope
+    # and the database for the validation rules.
+    if executionParent.root in envelopeQuarantine.unviable:
+      return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
+    # The genesis block would not have an envelope. Otherwise, we should have
+    # the envelope for the execution parent.
+    elif not (executionParent.slot != GENESIS_SLOT and
+        dag.db.containsExecutionPayloadEnvelope(executionParent.root)):
+      envelopeQuarantine[].addMissing(executionParent.root)
+      discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
+      return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
+  else:
+    # The executionParent is found from DAG, which is a validated pre-Gloas
+    # block. It could also be pre-merge or optimistic block. In either case,
+    # they shouldn't be rejected.
+    discard
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
@@ -782,6 +782,14 @@ proc validateDataColumnSidecar*(
       slot: data_column_sidecar.signed_block_header.message.slot,
       kzg_commitments: data_column_sidecar.kzg_commitments)
 
+  # Notify with the full sidecar so the EL (out of spec)
+  # getBlobs service can derive header/commitments/inclusion proof when the
+  # block has not yet been seen via gossip.
+  let onFuluColumnAddedCallback =
+    dataColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
+  if not(isNil(onFuluColumnAddedCallback)):
+    onFuluColumnAddedCallback newClone(data_column_sidecar)
+
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
@@ -802,10 +810,9 @@ proc validateDataColumnSidecar*(
   let blck =
     block:
       let
-        bsi = dag.getBlockIdAtSlot(data_column_sidecar.slot).valueOr:
-          debugGloasComment("deferred validation")
+        blckRef = dag.getBlockRef(blockRoot).valueOr:
           return errIgnore("DataColumnSidecar: block not yet seen")
-        forkedBlock = dag.getForkedBlock(bsi.bid).valueOr:
+        forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
           info "block is missing, database corrupt?",
             root = shortLog(blockRoot)
           return errIgnore("DataColumnSidecar: block not yet seen")
@@ -1464,9 +1471,8 @@ proc validateAggregate*(
     shufflingRef.get_committee_index(agg_idx.uint64).valueOr:
       return pool.checkedReject("Aggregate: committee index not within expected range")
 
-  if not aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
-    shufflingRef, slot, committee_index
-  ):
+  if not (aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
+      shufflingRef, slot, committee_index)):
     return pool.checkedReject(
       "Aggregate: number of aggregation bits and committee size mismatch"
     )
