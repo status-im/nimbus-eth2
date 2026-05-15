@@ -615,11 +615,11 @@ func is_valid_proposal_slot*(
   state.proposer_lookahead.item(slot - start_slot) == validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#broadcasting-signedproposerpreferences
-# The signature of this function diverges from the spec to avoid passing the full
-# beacon state through an inline interator which triggers stack-materialization of
-# the enclosing case object. 
-# context: https://github.com/status-im/nimbus-eth2/pull/8438#discussion_r3246095410
-# nim-lang/Nim#25287, nim-lang/Nim#25694
+# The signature of this function diverges from the spec to avoid
+# passing the full beacon state through an inline iterator which
+# triggers stack-materialization of the enclosing case object.
+# https://github.com/nim-lang/Nim/issues/25287
+# https://github.com/nim-lang/Nim/issues/25694
 iterator get_upcoming_proposal_slots*(
     proposer_lookahead:
       HashArray[Limit((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64],
