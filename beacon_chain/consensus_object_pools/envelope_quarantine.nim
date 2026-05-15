@@ -9,6 +9,7 @@
 
 import
   std/tables,
+  minilru,
   ../spec/[digest, forks]
 
 const
@@ -16,8 +17,12 @@ const
     ## Exponential backoff, double interval between each attempt
   MaxMissingItems* = 1024
     ## Revisit the setting and same as block quarantine for now
+  MaxUnviables = 16 * 1024
+    ## Set to same as max unviable blocks.
 
 type
+  UnviableLru = LruCache[Eth2Digest, ()]
+
   MissingEnvelope* = object
     tries*: int
 
@@ -32,8 +37,13 @@ type
       ## have not got yet. Missing envelopes should usually be found when we
       ## received a block, blob or data column.
 
+    unviable*: UnviableLru
+      ## List of block roots that their envelopes are unviable.
+
 func init*(T: typedesc[EnvelopeQuarantine]): T =
-  T()
+  T(
+    unviable: UnviableLru.init(MaxUnviables),
+  )
 
 template root(v: SignedExecutionPayloadEnvelope): Eth2Digest =
   v.message.beacon_block_root
@@ -93,6 +103,10 @@ func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
 func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.orphans.del(root)
   self.missing.del(root)
+
+func addUnviable*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+  self.remove(root)
+  self.unviable.put(root, ())
 
 func cleanupOrphans*(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]

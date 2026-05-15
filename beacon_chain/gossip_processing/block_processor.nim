@@ -9,7 +9,8 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, column_map,
+           peerdas_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -18,7 +19,7 @@ from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead
 from ../consensus_object_pools/blockchain_dag import
   getBlockRef, getForkedBlock, getProposer, forkAtEpoch, loadExecutionBlockHash,
-  markExecutionValid, validatorKey, is_optimistic, isParentBlockFull
+  markExecutionValid, validatorKey, is_optimistic
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
@@ -30,13 +31,14 @@ from ../consensus_object_pools/block_quarantine import
 from ../consensus_object_pools/column_quarantine import
   ColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot
 from ../consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, addMissing, addOrphan, delOrphan, popOrphan, remove
+  EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
+  delOrphan, popOrphan, remove
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import
-  containsExecutionPayloadEnvelope, getBlobSidecar, getDataColumnSidecar,
-  putBlobSidecar, putDataColumnSidecar
+  containsExecutionPayloadEnvelope, getDataColumnSidecar, putBlobSidecar,
+  putDataColumnSidecars
 
 export sszdump, signatures_batch
 
@@ -236,8 +238,7 @@ proc storeSidecars(
     sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
 ) =
   if sidecarsOpt.isSome():
-    for c in sidecarsOpt[]:
-      self.consensusManager.dag.db.putDataColumnSidecar(c[])
+    self.consensusManager.dag.db.putDataColumnSidecars(sidecarsOpt[])
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
@@ -939,6 +940,13 @@ proc storePayload(
   debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload_available: The node has verified that the execution
+  # payload and blobs for a block are available and ready for payload
+  # attestation
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
+
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
   let previousExecutionValid = dag.head.executionValid
@@ -992,8 +1000,7 @@ proc addPayload*(
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
       # gossip or skip processing the same one.
-      self.envelopeQuarantine[].remove(signedBlock.root)
-      debugGloasComment("mark as unviable")
+      self.envelopeQuarantine[].addUnviable(signedBlock.root)
     of VerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
 

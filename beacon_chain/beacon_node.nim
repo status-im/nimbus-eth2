@@ -58,6 +58,7 @@ type
     attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
+    columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
@@ -66,6 +67,7 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
+    execPayloadAddedQueue*: AsyncEventQueue[EventExecutionPayloadObject]
     execPayloadGossipAddedQueue*: AsyncEventQueue[EventExecutionPayloadGossipObject]
     execPayloadAvlQueue*: AsyncEventQueue[EventExecutionPayloadAvailableObject]
     execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
@@ -73,7 +75,6 @@ type
 
   BeaconNode* = ref object
     nickname*: string
-    graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: NetKeyPair
     db*: BeaconChainDB
@@ -208,6 +209,8 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[BlobSidecarInfoObject](),
     columnSidecarQueue:
       newAsyncEventQueue[DataColumnSidecarInfoObject](),
+    columnSidecarFullQueue:
+      newAsyncEventQueue[ref fulu.DataColumnSidecar](),
     finalQueue:
       newAsyncEventQueue[FinalizationInfoObject](),
     reorgQueue:
@@ -220,6 +223,8 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
     optFinHeaderUpdateQueue:
       newAsyncEventQueue[ForkedLightClientHeader](),
+    execPayloadAddedQueue:
+      newAsyncEventQueue[EventExecutionPayloadObject](),
     execPayloadGossipAddedQueue:
       newAsyncEventQueue[EventExecutionPayloadGossipObject](),
     execPayloadAvlQueue:

@@ -22,8 +22,8 @@ template parse(keystore: string): auto =
     checkpoint "Serialization Error: " & err.formatMsg("<keystore>")
     raise err
 
-suite "Remove keystore testing suite":
-  test "vesion 1" :
+suite "Remote keystore testing suite":
+  test "version 1":
     for version in [1, 2]:
       let remoteKeyStores = """{
         "version": """ & $version & """,

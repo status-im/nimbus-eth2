@@ -423,6 +423,8 @@ template validateBeaconBlockDeneb(
 
 template validateBeaconBlockGloas(
     _: ChainDAGRef,
+    _: ref Quarantine,
+    _: ref EnvelopeQuarantine,
     _:
       phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
@@ -434,9 +436,33 @@ template validateBeaconBlockGloas(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockGloas(
     dag: ChainDAGRef,
+    quarantine: ref Quarantine,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     signed_beacon_block: gloas.SignedBeaconBlock): untyped =
   template blck: untyped = signed_beacon_block.message
   template bid: untyped = blck.body.signed_execution_payload_bid.message
+
+  let executionParent = block:
+    var
+      cur = dag.getBlockRef(bid.parent_block_root).valueOr:
+        return errIgnore("validateBeaconBlockGloas: parent not yet seen")
+      i = 0
+      found = false
+
+    # Search execution parent up to 2 ancestors. Also stop searching when there
+    # is not any parents, means that it is either a finalized or genesis block.
+    while not isNil(cur.parent) and i < 2:
+      let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
+        return errIgnore("validateBeaconBlockGloas: cannot load block hash")
+      if pBhash == bid.parent_block_hash:
+        found = true
+        break
+      else:
+        cur = cur.parent
+      inc i
+    if not found:
+      return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+    cur
 
   # - [IGNORE] The block's parent execution payload (defined by
   #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
@@ -448,17 +474,23 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  let parent = dag.getBlockRef(bid.parent_block_root).valueOr:
-    return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-  debugGloasComment("request missing envelope if not found in db")
-  debugGloasComment("revisit the naive parent.parent.isNil guard")
-  if not (
-      isParentBlockFull(dag, signed_beacon_block, parent) or
-      parent.parent.isNil or
-      isParentBlockFull(dag, signed_beacon_block, parent.parent)
-  ):
-    # REJECT only once EL verification complete and parent doesn't validate.
-    return errIgnore("validateBeaconBlockGloas: parent execution payload not yet verified")
+  if dag.cfg.consensusForkAtEpoch(executionParent.slot.epoch()) >= ConsensusFork.Gloas:
+    # The executionParent exists in DAG, so we should check unviable envelope
+    # and the database for the validation rules.
+    if executionParent.root in envelopeQuarantine.unviable:
+      return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
+    # The genesis block would not have an envelope. Otherwise, we should have
+    # the envelope for the execution parent.
+    elif not (executionParent.slot != GENESIS_SLOT and
+        dag.db.containsExecutionPayloadEnvelope(executionParent.root)):
+      envelopeQuarantine[].addMissing(executionParent.root)
+      discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
+      return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
+  else:
+    # The executionParent is found from DAG, which is a validated pre-Gloas
+    # block. It could also be pre-merge or optimistic block. In either case,
+    # they shouldn't be rejected.
+    discard
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
@@ -965,6 +997,14 @@ proc validateDataColumnSidecar*(
       slot: data_column_sidecar.signed_block_header.message.slot,
       kzg_commitments: data_column_sidecar.kzg_commitments)
 
+  # Notify with the full sidecar so the EL (out of spec)
+  # getBlobs service can derive header/commitments/inclusion proof when the
+  # block has not yet been seen via gossip.
+  let onFuluColumnAddedCallback =
+    dataColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
+  if not(isNil(onFuluColumnAddedCallback)):
+    onFuluColumnAddedCallback newClone(data_column_sidecar)
+
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
@@ -985,10 +1025,9 @@ proc validateDataColumnSidecar*(
   let blck =
     block:
       let
-        bsi = dag.getBlockIdAtSlot(data_column_sidecar.slot).valueOr:
-          debugGloasComment("deferred validation")
+        blckRef = dag.getBlockRef(blockRoot).valueOr:
           return errIgnore("DataColumnSidecar: block not yet seen")
-        forkedBlock = dag.getForkedBlock(bsi.bid).valueOr:
+        forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
           info "block is missing, database corrupt?",
             root = shortLog(blockRoot)
           return errIgnore("DataColumnSidecar: block not yet seen")
@@ -1041,7 +1080,7 @@ proc validateDataColumnSidecar*(
 
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
-      block_root: block_root,
+      block_root: blockRoot,
       index: data_column_sidecar.index,
       slot: data_column_sidecar.slot,
       kzg_commitments: bid.blob_kzg_commitments)
@@ -1053,6 +1092,7 @@ proc validateDataColumnSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
+    envelopeQuarantine: ref EnvelopeQuarantine,
     signed_beacon_block: ForkySignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
@@ -1179,7 +1219,8 @@ proc validateBeaconBlock*(
 
   dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
 
-  dag.validateBeaconBlockGloas(signed_beacon_block)
+  dag.validateBeaconBlockGloas(
+    quarantine, envelopeQuarantine, signed_beacon_block)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
@@ -1245,7 +1286,6 @@ proc validateExecutionPayload*(
     block:
       var seen =
         envelope.beacon_block_root in quarantine.unviable or
-        envelope.beacon_block_root in quarantine.missing or
         dag.getBlockRef(envelope.beacon_block_root).isSome()
       if not seen:
         for k, _ in quarantine.orphans:
@@ -1254,6 +1294,10 @@ proc validateExecutionPayload*(
             break
       seen
   if not blockSeen:
+    # TODO: when the envelope arrives before its block, we return IGNORE which
+    # prevents it from being forwarded to peers. The envelope is quarantined and
+    # processed locally once the block arrives, but never re-gossiped to peers
+    # who may also be missing it.
     discard quarantine[].addMissing(envelope.beacon_block_root)
     envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: block not found")
@@ -1311,19 +1355,27 @@ proc validateExecutionPayload*(
 
   # [REJECT] `signed_execution_payload_envelope.signature` is valid as verified
   # by `verify_execution_payload_envelope_signature`.
-  if dag.headState.kind >= ConsensusFork.Gloas:
-    let builderKey = dag.validatorKey(blck.builder_index).valueOr:
-      return dag.checkedReject("ExecutionPayload: unknown builder")
-    if not verify_execution_payload_envelope_signature(
-        dag.forkAtEpoch(envelope.slot.epoch),
-        dag.genesis_validators_root,
-        envelope.slot.epoch,
-        signed_execution_payload_envelope.message,
-        builderKey,
-        signed_execution_payload_envelope.signature):
-      return dag.checkedReject("ExecutionPayload: invalid builder signature")
-  else:
-    return dag.checkedReject("ExecutionPayload: invalid fork")
+  # TODO: headState may not match the envelope's fork during extended
+  # non-finality.
+  let builderKey =
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
+          forkyState.data.validators.item(blck.proposer_index).pubkey
+        else:
+          if bid.builder_index >= forkyState.data.builders.lenu64:
+            return dag.checkedReject("ExecutionPayload: unknown builder")
+          forkyState.data.builders.item(bid.builder_index).pubkey
+      else:
+        return dag.checkedReject("ExecutionPayload: invalid fork")
+  if not verify_execution_payload_envelope_signature(
+      dag.forkAtEpoch(envelope.slot.epoch),
+      dag.genesis_validators_root,
+      envelope.slot.epoch,
+      signed_execution_payload_envelope.message,
+      builderKey,
+      signed_execution_payload_envelope.signature):
+    return dag.checkedReject("ExecutionPayload: invalid builder signature")
 
   ok()
 
@@ -1634,9 +1686,8 @@ proc validateAggregate*(
     shufflingRef.get_committee_index(agg_idx.uint64).valueOr:
       return pool.checkedReject("Aggregate: committee index not within expected range")
 
-  if not aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
-    shufflingRef, slot, committee_index
-  ):
+  if not (aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
+      shufflingRef, slot, committee_index)):
     return pool.checkedReject(
       "Aggregate: number of aggregation bits and committee size mismatch"
     )

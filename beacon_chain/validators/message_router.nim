@@ -124,7 +124,9 @@ proc validateRouteBlock(
     return err("Block was not sent from validator that is also managed by the beacon node")
 
   # gossip validation
-  let res = validateBeaconBlock(router[].dag, router[].quarantine, blck, wallTime, {})
+  let res = validateBeaconBlock(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, blck, wallTime, {})
   if not res.isGoodForSending():
     warn "Block failed validation",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
@@ -830,3 +832,25 @@ proc routeProposerPreferences*(
     notice "Proposer preferences not sent",
       proposal_slot = signed_preferences.message.proposal_slot,
       error = res.error()
+
+proc routeExecutionPayloadBid*(
+    router: ref MessageRouter,
+    signedBid: gloas.SignedExecutionPayloadBid):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res =
+      router[].processor[].processExecutionPayloadBid(signedBid)
+    if not res.isGoodForSending:
+      warn "Execution payload bid failed validation",
+        bid = shortLog(signedBid.message), error = res.error()
+      return err(res.error()[1])
+
+  let res = await router[].network.broadcastExecutionPayloadBid(signedBid)
+  if res.isOk():
+    notice "Execution payload bid sent",
+      bid = shortLog(signedBid.message)
+  else:
+    notice "Execution payload bid not sent",
+      bid = shortLog(signedBid.message), error = res.error()
+
+  ok()

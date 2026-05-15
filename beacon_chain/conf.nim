@@ -331,7 +331,7 @@ type
         desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
-        name: "debug-quic-port" .}: Port   
+        name: "debug-quic-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
@@ -553,6 +553,12 @@ type
         defaultValue: LightClientDataImportMode.OnlyNew
         defaultValueDesc: $LightClientDataImportMode.OnlyNew
         name: "light-client-data-import-mode" .}: LightClientDataImportMode
+
+      lightClientDataImportBackfill* {.
+        hidden
+        desc: "Collect additional data for enabling peers to backfill light client data (experimental)"
+        defaultValue: false
+        name: "debug-light-client-data-import-backfill" .}: bool
 
       lightClientDataMaxPeriods* {.
         desc: "Maximum number of sync committee periods to retain light client data"
