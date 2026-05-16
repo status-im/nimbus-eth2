@@ -787,6 +787,24 @@ proc getBlobsV2*(
       )
       .firstOrCancel(deadline)
 
+proc getBlobsV2*(
+    m: ELManager, kzg_commitments: KzgCommitments
+): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError], raw: true).} =
+  ## Variant used by the column-first sidecar retrieval path: derives
+  ## versioned hashes from `kzg_commitments` directly, without requiring the
+  ## block (which has not yet been seen via gossip).
+  mixin getBlobsV2
+
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+  m.elConnections
+    .mapIt(
+      it.getBlobsV2(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
+      )
+    )
+    .firstOrCancel(deadline)
+
 proc getBlobsV3*(
     m: ELManager, blck: fulu.SignedBeaconBlock
 ): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.

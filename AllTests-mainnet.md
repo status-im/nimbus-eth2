@@ -6,14 +6,14 @@ AllTests-mainnet
 ```
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
-+ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
++ Aggregated attestations with disjoint committee bits into a single on-chain aggregate [Pre OK
 + Aggregating across committees [Preset: mainnet]                                            OK
 + Attestation from different branch [Preset: mainnet]                                        OK
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
 + Attestations may overlap, bigger first [Preset: mainnet]                                   OK
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
 + Attestations should be combined [Preset: mainnet]                                          OK
-+ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Attestations with disjoint committee bits and equal data into single on-chain aggregate [P OK
 + Attester slashing marks validator as equivocating                                          OK
 + Attester slashing retains unrealized checkpoints                                           OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
@@ -616,7 +616,6 @@ AllTests-mainnet
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
-+ Invalid URls                                                                               OK
 + New style config files                                                                     OK
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
@@ -840,7 +839,7 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-## Key spliting
+## Key splitting
 ```diff
 + k < n                                                                                      OK
 + k == n                                                                                     OK
@@ -1094,13 +1093,13 @@ AllTests-mainnet
 + remote signing example VOLUNTARY_EXIT                                                      OK
 + strictParse(Stuint) tests                                                                  OK
 ```
-## Remove keystore testing suite
+## Remote keystore testing suite
 ```diff
 + Many remotes                                                                               OK
 + Single remote                                                                              OK
 + Verifying Signer / Many remotes                                                            OK
 + Verifying Signer / Single remote                                                           OK
-+ vesion 1                                                                                   OK
++ version 1                                                                                  OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
@@ -1210,7 +1209,6 @@ AllTests-mainnet
 ```
 ## SyncManager test suite
 ```diff
-+ [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
 + [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
 + [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK

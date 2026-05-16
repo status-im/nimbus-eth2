@@ -66,9 +66,12 @@ type
     indexMap: seq[int]
     db: QuarantineDB
     onSidecarCallback*: B
+    onFuluColumnAddedCallback*: OnFuluDataColumnSidecarAddedCallback
 
   OnDataColumnSidecarCallback* = proc(
     data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
+  OnFuluDataColumnSidecarAddedCallback* = proc(
+    data: ref fulu.DataColumnSidecar) {.gcsafe, raises: [].}
 
   SomeSidecarRef* = ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar
   SomeSidecarIndex* = fulu.ColumnIndex
@@ -673,19 +676,25 @@ template onDataColumnSidecarCallback*[A: SomeDataColumnSidecar, B: OnDataColumnS
 ): OnDataColumnSidecarCallback =
   quarantine.onSidecarCallback
 
+template onFuluDataColumnSidecarAddedCallback*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
+    quarantine: SidecarQuarantine[A, B]
+): OnFuluDataColumnSidecarAddedCallback =
+  quarantine.onFuluColumnAddedCallback
+
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],
     cfg: RuntimeConfig,
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: OnFuluDataColumnSidecarAddedCallback = nil
 ): SidecarQuarantine[A, B] =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   let custodyMap = ColumnMap.init(custodyColumns)
   T.init(
     cfg, custodyMap, database, maxDiskSizeMultipler,
-    onDataColumnSidecarCallback)
+    onDataColumnSidecarCallback, onFuluColumnAddedCallback)
 
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],
@@ -693,7 +702,8 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     custodyMap: ColumnMap,
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: OnFuluDataColumnSidecarAddedCallback = nil
 ): SidecarQuarantine[A, B] =
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyMap) < NUMBER_OF_COLUMNS:
@@ -723,7 +733,8 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     custodyMap: custodyMap,
     list: initDoublyLinkedList[RootTableRecord[A]](),
     db: database,
-    onSidecarCallback: onDataColumnSidecarCallback
+    onSidecarCallback: onDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: onFuluColumnAddedCallback
   )
 
 proc update*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](

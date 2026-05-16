@@ -141,7 +141,8 @@ proc runTest(suiteName, path: string, consensusFork: static ConsensusFork) =
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(cfg, db, validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
-          serve: true, importMode: LightClientDataImportMode.Full))
+          serve: true, importMode: LightClientDataImportMode.Full,
+          importBackfill: true))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
     var
