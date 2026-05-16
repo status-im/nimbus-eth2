@@ -728,6 +728,8 @@ proc seekForChunkBackward(
     if indexOpt.isNone():
       setFilePos(handle, offset, SeekPosition.SeekBegin).isOkOr:
         return err(ioErrorMsg(error))
+      if offset == 0'i64:
+        return ok(Opt.none(int64))
       continue
 
     state = 0

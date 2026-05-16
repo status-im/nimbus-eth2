@@ -60,14 +60,15 @@ type
 suite "Beacon chain file test suite":
   var fixtureData: seq[byte]
 
-  proc doAutoCheckRepairTest(id, size: int): Result[AutoRepairObject, string] =
+  proc doAutoCheckRepairTest(
+      id: int, data: openArray[byte]): Result[AutoRepairObject, string] =
     let path =
       block:
         let res = getTempPath().valueOr:
           return err(ioErrorMsg(error))
-        res & DirSep & "tmp_" & $id & "_" & $size & ".tmp"
+        res & DirSep & "tmp_" & $id & "_" & $len(data) & ".tmp"
     discard removeFile(path)
-    io2.writeFile(path, fixtureData.toOpenArray(0, size - 1)).isOkOr:
+    io2.writeFile(path, data).isOkOr:
       return err(ioErrorMsg(error))
     let
       flags = {ChainFileFlag.Repair}
@@ -79,6 +80,9 @@ suite "Beacon chain file test suite":
     removeFile(path).isOkOr:
       return err(ioErrorMsg(error))
     ok(AutoRepairObject(data: fres.data, size: filesize))
+
+  proc doAutoCheckRepairTest(id, size: int): Result[AutoRepairObject, string] =
+    doAutoCheckRepairTest(id, fixtureData.toOpenArray(0, size - 1))
 
   template check01(adata: untyped): untyped =
     check:
@@ -339,4 +343,19 @@ suite "Beacon chain file test suite":
           adata.data.head.isNone()
           adata.data.tail.isNone()
           adata.size == 0
+      inc(counter)
+
+  test "Auto check/repair test (zero-filled file)":
+    var counter = 1
+
+    for size in [32 * 1024, 4096, 512]:
+      let
+        zeros = newSeq[byte](size)
+        tres = doAutoCheckRepairTest(counter, zeros)
+      check tres.isOk()
+      let adata = tres.get()
+      check:
+        adata.data.head.isNone()
+        adata.data.tail.isNone()
+        adata.size == 0
       inc(counter)

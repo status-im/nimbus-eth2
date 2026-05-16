@@ -89,6 +89,7 @@ AllTests-mainnet
 + Auto check/repair test (missing footer)                                                    OK
 + Auto check/repair test (missing last chunk)                                                OK
 + Auto check/repair test (only header)                                                       OK
++ Auto check/repair test (zero-filled file)                                                  OK
 + Fixture file validation                                                                    OK
 ```
 ## Beacon state [Preset: mainnet]
