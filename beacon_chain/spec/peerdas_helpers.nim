@@ -365,14 +365,13 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    let sidecar = new fulu.DataColumnSidecar
-    sidecar[].index = ColumnIndex(columnIndex)
-    sidecar[].column = DataColumn.init(column)
-    sidecar[].kzg_commitments = blck.body.blob_kzg_commitments
-    sidecar[].kzg_proofs = deneb.KzgProofs.init(kzgProofOfColumn)
-    sidecar[].signed_block_header = signed_beacon_block_header
-    sidecar[].kzg_commitments_inclusion_proof = inclusion_proof
-    sidecars.add(sidecar)
+    sidecars.add (ref fulu.DataColumnSidecar)(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(column),
+      kzg_commitments: blck.body.blob_kzg_commitments,
+      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
+      signed_block_header: signed_beacon_block_header,
+      kzg_commitments_inclusion_proof: inclusion_proof)
 
   sidecars
 
@@ -415,13 +414,12 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    let sidecar = new gloas.DataColumnSidecar
-    sidecar[].index = ColumnIndex(columnIndex)
-    sidecar[].column = DataColumn.init(column)
-    sidecar[].kzg_proofs = deneb.KzgProofs.init(kzgProofOfColumn)
-    sidecar[].slot = signed_beacon_block.message.slot
-    sidecar[].beacon_block_root = beacon_block_root
-    sidecars.add(sidecar)
+    sidecars.add (ref gloas.DataColumnSidecar)(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(column),
+      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
+      slot: signed_beacon_block.message.slot,
+      beacon_block_root: beacon_block_root)
 
   sidecars
 

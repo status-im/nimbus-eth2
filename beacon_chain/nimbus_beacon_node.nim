@@ -1832,16 +1832,15 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) {.async: (raises: []).
         for j in 0 ..< rowCount:
           cells[j] = recovered[j].cells[i]
           proofs[j] = recovered[j].proofs[i]
-        let sidecar = new fulu.DataColumnSidecar
-        sidecar[].index = ColumnIndex(i)
-        sidecar[].column = DataColumn.init(cells)
-        sidecar[].kzg_commitments = columns[0][].kzg_commitments
-        sidecar[].kzg_proofs = deneb.KzgProofs.init(proofs)
-        sidecar[].signed_block_header =
-          forkyBlck.asSigned().toSignedBeaconBlockHeader()
-        sidecar[].kzg_commitments_inclusion_proof =
-          columns[0][].kzg_commitments_inclusion_proof  # TODO might already have
-        reconstructed.add sidecar
+        reconstructed.add (ref fulu.DataColumnSidecar)(
+          index: ColumnIndex(i),
+          column: DataColumn.init(cells),
+          kzg_commitments: columns[0][].kzg_commitments,
+          kzg_proofs: deneb.KzgProofs.init(proofs),
+          signed_block_header:
+            forkyBlck.asSigned().toSignedBeaconBlockHeader(),
+          kzg_commitments_inclusion_proof:
+            columns[0][].kzg_commitments_inclusion_proof)  # TODO might already have
         inc reconCounter
       node.dag.db.putDataColumnSidecars(reconstructed)
 
