@@ -459,17 +459,23 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           state = node.dag.getProposalState(qhead, qslot, cache[]).valueOr:
             return RestApiResponse.jsonError(
               Http500, "Proposal state is not available")
-          engineBid = (await node.getExecutionPayload(
-              consensusFork, qhead, state, proposer,
-              node.dag.validatorKey(proposer).get().toPubKey())).valueOr:
-            return RestApiResponse.jsonError(Http500,
-              "Engine payload is not available")
-          message = (node.makeEngineBlock(
-              consensusFork, state[].forky(consensusFork), cache[],
-              proposer, qrandao, qgraffiti, qhead, qslot,
-              engineBid.eps, engineBid.execution_requests)).valueOr:
-            return RestApiResponse.jsonError(
-              Http500, "Engine block production failed: " & error)
+          engineBid = block:
+            debugGloasComment("should_extend_payload")
+            (await node.getExecutionPayload(
+                consensusFork, qhead, state, proposer,
+                node.dag.validatorKey(proposer).get().toPubKey(),
+                false)).valueOr:
+              return RestApiResponse.jsonError(Http500,
+                "Engine payload is not available")
+          message = block:
+            debugGloasComment("parent_execution_requests")
+            (node.makeEngineBlock(
+                consensusFork, state[].forky(consensusFork), cache[],
+                proposer, qrandao, qgraffiti, qhead, qslot,
+                engineBid.eps, engineBid.execution_requests,
+                default(ExecutionRequests), {})).valueOr:
+              return RestApiResponse.jsonError(
+                Http500, "Engine block production failed: " & error)
           blockContents = electra.BlockContents(
             `block`: message.blck,
             kzg_proofs: message.blobsBundle.proofs,

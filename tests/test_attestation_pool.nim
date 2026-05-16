@@ -313,7 +313,7 @@ suite "Attestation pool electra processing" & preset():
       pool[].getElectraAggregatedAttestation(
         2.Slot, hash_tree_root(combined[0].data), 1.CommitteeIndex).isNone()
 
-  test "Attestations with disjoint comittee bits and equal data into single on-chain aggregate" & preset():
+  test "Attestations with disjoint committee bits and equal data into single on-chain aggregate" & preset():
     let
       bc0 = get_beacon_committee(
         state[], state[].slot, 0.CommitteeIndex, cache)
@@ -351,7 +351,7 @@ suite "Attestation pool electra processing" & preset():
       attestations[0].aggregation_bits.countOnes() == 2
       attestations[0].committee_bits.countOnes() == 2
 
-  test "Aggregated attestations with disjoint comittee bits into a single on-chain aggregate" & preset():
+  test "Aggregated attestations with disjoint committee bits into a single on-chain aggregate" & preset():
     proc verifyAttestationSignature(attestation: electra.Attestation): bool =
       withState(state[]):
         let

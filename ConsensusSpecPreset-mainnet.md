@@ -5797,6 +5797,9 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]    OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: main OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]   OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_invalid_signature [Pr OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_too_old_slot [Preset: OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_wrong_beacon_block_ro OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
@@ -6105,6 +6108,9 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mainn OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_invalid_signature [Pre OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_too_old_slot [Preset:  OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_wrong_beacon_block_roo OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK

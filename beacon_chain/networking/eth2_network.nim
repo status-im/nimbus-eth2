@@ -2986,3 +2986,12 @@ proc broadcastProposerPreferences*(
     topic = getProposerPreferencesTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
+
+proc broadcastExecutionPayloadBid*(
+    node: Eth2Node, signedBid: gloas.SignedExecutionPayloadBid):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = signedBid.message.slot.epoch
+    topic = getExecutionPayloadBidTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, signedBid)

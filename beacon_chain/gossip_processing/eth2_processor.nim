@@ -270,7 +270,9 @@ proc processSignedBeaconBlock*(
   # decoding at this stage, which may be significant
   debug "Block received", delay
 
-  self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {}).isOkOr:
+  self.dag.validateBeaconBlock(
+      self.quarantine, self.envelopeQuarantine, signedBlock,
+      wallTime, {}).isOkOr:
     debug "Dropping block", err = error
 
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
