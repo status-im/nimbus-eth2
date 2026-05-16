@@ -205,37 +205,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonResponse((peers: res))
 
   router.api2(MethodPost, "/nimbus/v1/graffiti") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
-    if contentBody.isNone:
-      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-
-    template setGraffitiAux(node: BeaconNode,
-                            graffitiStr: string): RestApiResponse =
-      node.graffitiBytes = try:
-        GraffitiBytes.init(graffitiStr)
-      except CatchableError as err:
-        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         err.msg)
-      RestApiResponse.jsonResponse((result: true))
-
-    let body = contentBody.get()
-    if body.contentType == ApplicationJsonMediaType:
-      let graffitiBytes = decodeBody(GraffitiBytes, body)
-      if graffitiBytes.isErr():
-        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         $graffitiBytes.error())
-      node.graffitiBytes = graffitiBytes.get()
-      RestApiResponse.jsonResponse((result: true))
-    elif body.contentType == TextPlainMediaType:
-      node.setGraffitiAux body.strData()
-    elif body.contentType == UrlEncodedMediaType:
-      node.setGraffitiAux decodeUrl(body.strData())
-    else:
-      RestApiResponse.jsonError(
-        Http400, "Unsupported content type: " & $body.contentType)
+      contentBody: Option[ContentBody]) -> RestApiResponse:
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodGet, "/nimbus/v1/graffiti") do () -> RestApiResponse:
-    RestApiResponse.jsonResponse(node.graffitiBytes)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodPost, "/nimbus/v1/chronicles/settings") do (
     log_level: Option[string]) -> RestApiResponse:

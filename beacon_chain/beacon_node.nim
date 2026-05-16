@@ -58,6 +58,7 @@ type
     attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
+    columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
@@ -74,7 +75,6 @@ type
 
   BeaconNode* = ref object
     nickname*: string
-    graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: NetKeyPair
     db*: BeaconChainDB
@@ -209,6 +209,8 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[BlobSidecarInfoObject](),
     columnSidecarQueue:
       newAsyncEventQueue[DataColumnSidecarInfoObject](),
+    columnSidecarFullQueue:
+      newAsyncEventQueue[ref fulu.DataColumnSidecar](),
     finalQueue:
       newAsyncEventQueue[FinalizationInfoObject](),
     reorgQueue:

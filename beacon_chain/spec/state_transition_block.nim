@@ -1205,13 +1205,13 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
-proc apply_parent_execution_payload(
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
+proc apply_parent_execution_payload*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
-    parent_bid: gloas.ExecutionPayloadBid | heze.ExecutionPayloadBid,
     requests: ExecutionRequests,
     cache: var StateCache): Result[void, cstring] =
+  template parent_bid(): auto = state.latest_execution_payload_bid
   template parent_slot(): auto = parent_bid.slot
   template parent_epoch(): auto = parent_slot.epoch()
 
@@ -1243,6 +1243,8 @@ proc apply_parent_execution_payload(
     let payment_index = parent_slot mod SLOTS_PER_EPOCH
     ? settle_builder_payment(state, payment_index)
   elif uint64(parent_bid.value) > 0'u64:
+    # Parent is older than the previous epoch, its payment entry has been
+    # evicted from builder_pending_payments. Append the withdrawal directly.
     discard state.builder_pending_withdrawals.add(
       BuilderPendingWithdrawal(
         fee_recipient: parent_bid.fee_recipient,
@@ -1335,6 +1337,7 @@ proc process_parent_execution_payload*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
     blck: SomeGloasBeaconBlock | SomeHezeBeaconBlock,
+    flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   template bid(): auto = blck.body.signed_execution_payload_bid.message
   template parent_bid(): auto = state.latest_execution_payload_bid
@@ -1349,7 +1352,11 @@ proc process_parent_execution_payload*(
   # Parent was FULL -- verify the bid commitment and apply the payload
   if not (hash_tree_root(requests) == parent_bid.execution_requests_root):
     return err("process_parent_execution_payload: execution requests root mismatch")
-  apply_parent_execution_payload(cfg, state, parent_bid, requests, cache)
+
+  if skipApplyParentExecutionPayload notin flags:
+    apply_parent_execution_payload(cfg, state, requests, cache)
+  else:
+    ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
@@ -1909,7 +1916,7 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_parent_execution_payload(cfg, state, blck, cache)
+  ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)
@@ -1938,7 +1945,7 @@ proc process_block*(
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
 
-  ? process_parent_execution_payload(cfg, state, blck, cache)
+  ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
   ? process_execution_payload_bid(cfg, state, blck)

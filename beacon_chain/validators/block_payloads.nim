@@ -267,6 +267,8 @@ proc makeEngineBlock*(
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
     execution_requests: ExecutionRequests,
+    parent_execution_requests: ExecutionRequests,
+    verification_flags: UpdateFlags,
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -296,16 +298,6 @@ proc makeEngineBlock*(
           slot, state.latest_block_root)
       else:
         default(seq[PayloadAttestation])
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
-    parent_execution_requests =
-      when consensusFork >= ConsensusFork.Gloas:
-        block:
-          let envelope = node.dag.db.getExecutionPayloadEnvelope(
-              state.latest_block_root).valueOr:
-            default(TrustedSignedExecutionPayloadEnvelope)
-          envelope.message.execution_requests
-      else:
-        default(ExecutionRequests)
 
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
@@ -321,7 +313,7 @@ proc makeEngineBlock*(
       exits,
       sync_aggregate,
       eps.executionPayload,
-      verificationFlags = {},
+      verification_flags,
       eps.kzg_commitments,
       execution_requests,
       signed_execution_payload_bid,
@@ -349,6 +341,7 @@ proc getExecutionPayload*(
     proposalState: ref ForkedHashedBeaconState,
     validator_index: ValidatorIndex,
     validator_pubkey: ValidatorPubKey,
+    should_extend_payload: bool,
 ): Future[Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]] {.
     async: (raises: [CancelledError])
 .} =
@@ -380,8 +373,7 @@ proc getExecutionPayload*(
         # - If `should_extend_payload(store, parent_root)`:
         #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
         # - else `withdrawals = state.payload_expected_withdrawals`.
-        if forkyState.data.latest_block_hash ==
-            forkyState.data.latest_execution_payload_bid.block_hash:
+        if should_extend_payload:
           get_expected_withdrawals(forkyState.data).withdrawals
         else:
           forkyState.data.payload_expected_withdrawals.asSeq()
@@ -638,9 +630,12 @@ proc collectBids*(
       else:
         nil
 
-    enginePayloadFut = node.getExecutionPayload(
-      consensusFork, head, proposalState, validator_index, validator_pubkey
-    )
+    enginePayloadFut = block:
+      debugGloasComment("should_extend_payload")
+      node.getExecutionPayload(
+        consensusFork, head, proposalState, validator_index, validator_pubkey,
+        false,
+      )
 
   # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
   # second for remote validators. getExecutionPayload times out after
@@ -744,6 +739,7 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
   if bids.engineBid.isNone:
     return err("Engine payload is not available")
 
+  debugGloasComment("parent_execution_requests")
   let engineBlock = ?node.makeEngineBlock(
     consensusFork,
     state[].forky(consensusFork),
@@ -755,6 +751,8 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     slot,
     bids.engineBid[].eps,
     bids.engineBid[].execution_requests,
+    default(ExecutionRequests),
+    {},
   )
 
   ok(

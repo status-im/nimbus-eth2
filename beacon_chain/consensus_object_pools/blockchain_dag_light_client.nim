@@ -110,6 +110,7 @@ proc initLightClientDataStore*(
     db: db,
     serve: config.serve,
     importMode: config.importMode,
+    importBackfill: config.importBackfill,
     maxPeriods: maxPeriods,
     onLightClientFinalityUpdate: config.onLightClientFinalityUpdate,
     onLightClientOptimisticUpdate: config.onLightClientOptimisticUpdate)
