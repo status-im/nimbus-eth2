@@ -519,13 +519,14 @@ proc process_block*(
       when consensusFork >= ConsensusFork.Gloas:
         for payload_attestation in blck.body.payload_attestations:
           let indexed = get_indexed_payload_attestation(
-            forkyState.data, blck.slot, payload_attestation)
+            forkyState.data, payload_attestation.data.slot, payload_attestation)
           for idx in indexed.attesting_indices:
             discard self.on_payload_attestation_message(
-              dag, ValidatorIndex(idx), payload_attestation.data.beacon_block_root,
-              payload_attestation.data.slot,
-              payload_attestation.data.payload_present,
-              payload_attestation.data.blob_data_available,
+              dag,
+              PayloadAttestationMessage(
+                validator_index: idx,
+                data: payload_attestation.data,
+                signature: payload_attestation.signature),
               is_from_block = true)
 
   ok()

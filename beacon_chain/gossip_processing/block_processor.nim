@@ -37,14 +37,9 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import
-<<<<<<< HEAD
-  containsExecutionPayloadEnvelope, getBlobSidecar, getDataColumnSidecar,
-  putBlobSidecar, putDataColumnSidecars
-from ../fork_choice/fork_choice_gloas import on_execution_payload
-=======
   containsExecutionPayloadEnvelope, getDataColumnSidecar, putBlobSidecar,
   putDataColumnSidecars
->>>>>>> ed4d73263cc177088faf25d648e351138f72d181
+from ../fork_choice/fork_choice_gloas import on_execution_payload
 
 export sszdump, signatures_batch
 

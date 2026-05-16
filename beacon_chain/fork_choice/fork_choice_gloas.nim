@@ -22,76 +22,79 @@ import
 func isGloasEnabled*(dag: ChainDAGRef, slot: Slot): bool =
   slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-on_payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-on_payload_attestation_message
 proc on_payload_attestation_message*(
-   self: var ForkChoice,
-   dag: ChainDAGRef,
-   validator_index: ValidatorIndex,
-   beacon_block_root: Eth2Digest,
-   slot: Slot,
-   payload_present: bool,
-   blob_data_available: bool,
-   is_from_block: bool = false): FcResult[void] =
-  ## Run ``on_payload_attestation_message`` upon receiving
-  ## a new ``ptc_message`` directly on the wire.
+    self: var ForkChoice,
+    dag: ChainDAGRef,
+    ptc_message: PayloadAttestationMessage,
+    is_from_block: bool = false): FcResult[void] =
+  let
+    beacon_block_root = ptc_message.data.beacon_block_root
+    slot = ptc_message.data.slot
+    validator_index = ValidatorIndex(ptc_message.validator_index)
 
   if not dag.isGloasEnabled(slot):
     return ok()
 
-  # The beacon block root must be known
   if beacon_block_root notin self.backend.proto_array.indices:
-    return ok()
+    return err ForkChoiceError(kind: fcPtcBlockUnknown)
 
-  # PTC attestation must be for a known block.
-  # If block is unknown, delay consideration until the block is found
-  discard self.backend.ptc_vote.mgetOrPut(
-    beacon_block_root, default(PtcVotes))
+  let blockSlot = self.backend.proto_array.slot(beacon_block_root).valueOr:
+    return err ForkChoiceError(kind: fcPtcBlockUnknown)
+  if slot != blockSlot:
+    return ok()
 
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      # check that its for the current slot if it is coming from the wire
       if not is_from_block:
         if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
-          return ok()
+          return err ForkChoiceError(kind: fcPtcInvalidSlot)
+        if not is_valid_indexed_payload_attestation(
+            forkyState.data,
+            IndexedPayloadAttestation(
+              attesting_indices:
+                List[uint64, Limit PTC_SIZE].init(
+                  @[ptc_message.validator_index]),
+              data: ptc_message.data,
+              signature: ptc_message.signature)):
+          return err ForkChoiceError(kind: fcPtcInvalidSignature)
 
       var
-        ptc_index = -1
+        ptc_indices: seq[int]
         i = 0
-
       for vidx in get_ptc(forkyState.data, slot):
         if vidx == validator_index:
-          ptc_index = i
-          break
+          ptc_indices.add(i)
         inc i
 
-      # Check that the attester is from the PTC
-      if ptc_index >= 0:
-        var votes =
-          self.backend.ptc_vote.mgetOrPut(
-            beacon_block_root, default(PtcVotes))
+      if ptc_indices.len == 0:
+        return err ForkChoiceError(kind: fcPtcNotMember)
+
+      var votes = self.backend.ptc_vote.mgetOrPut(
+        beacon_block_root, default(PtcVotes))
+      var da_votes = self.backend.ptc_data_availability_vote.mgetOrPut(
+        beacon_block_root, default(PtcVotes))
+
+      for ptc_index in ptc_indices:
         votes.voted.setBit(ptc_index)
-        if payload_present:
+        if ptc_message.data.payload_present:
           votes.value.setBit(ptc_index)
         else:
           votes.value.clearBit(ptc_index)
-        self.backend.ptc_vote[beacon_block_root] = votes
-
-        var da_votes =
-          self.backend.ptc_data_availability_vote.mgetOrPut(
-            beacon_block_root, default(PtcVotes))
         da_votes.voted.setBit(ptc_index)
-        if blob_data_available:
+        if ptc_message.data.blob_data_available:
           da_votes.value.setBit(ptc_index)
         else:
           da_votes.value.clearBit(ptc_index)
-        self.backend.ptc_data_availability_vote[beacon_block_root] = da_votes
 
-        trace "Recorded PTC vote",
-          validator_index, payload_present, blob_data_available
+      self.backend.ptc_vote[beacon_block_root] = votes
+      self.backend.ptc_data_availability_vote[beacon_block_root] = da_votes
+
+      trace "Recorded PTC vote",
+        validator_index,
+        payload_present = ptc_message.data.payload_present,
+        blob_data_available = ptc_message.data.blob_data_available
   ok()
-
-# Block timeliness and proposer boost
-# ----------------------------------------------------------------------
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-record_block_timeliness
 proc record_block_timeliness*(

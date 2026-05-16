@@ -25,7 +25,8 @@ import
   ./fixtures_utils, ./os_ops
 
 from std/json import
-  JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
+  JsonNode, JsonNodeKind, getBool, getInt, getStr, hasKey, items, len, pairs,
+  `$`, `[]`
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
@@ -131,12 +132,7 @@ proc initialLoad(
       cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
       dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
 
-  # Gloas separates execution payloads into envelopes that arrive separately
-  # from beacon blocks. Skip envelope application during state replay since
-  # fork choice tests don't store envelopes in the database.
   if StateType.kind >= ConsensusFork.Gloas:
-    dag.updateFlags.incl skipLastEnvelope
-
     let anchorRoot = dag.finalizedHead.blck.root
 
     # Spec initializes PTC votes for anchor as all-True
@@ -255,6 +251,12 @@ proc loadOps(
           gloas.SignedExecutionPayloadEnvelope))
     elif step.hasKey"payload_attestation":
       let filename = step["payload_attestation"].getStr()
+      result.add Operation(kind: opOnPayloadAttestation,
+        payloadAttestation: parseTest(
+          path/filename & ".ssz_snappy", SSZ,
+          gloas.PayloadAttestationMessage))
+    elif step.hasKey"payload_attestation_message":
+      let filename = step["payload_attestation_message"].getStr()
       result.add Operation(kind: opOnPayloadAttestation,
         payloadAttestation: parseTest(
           path/filename & ".ssz_snappy", SSZ,
@@ -433,6 +435,23 @@ proc stepChecks(
     elif check == "head_payload_status":
       let headNode = fkChoice[].get_head(dag, time).get()
       doAssert headNode.payloadStatus == PayloadStatus(val.getInt())
+    elif check == "payload_timeliness_vote" or
+         check == "payload_data_availability_vote":
+      let
+        blockRoot = Eth2Digest.fromHex(val["block_root"].getStr())
+        votes =
+          if check == "payload_timeliness_vote":
+            fkChoice.backend.ptc_vote.getOrDefault(blockRoot)
+          else:
+            fkChoice.backend.ptc_data_availability_vote.getOrDefault(blockRoot)
+      var i = 0
+      for v in val["votes"].items:
+        if v.kind == JNull:
+          doAssert not votes.voted[i]
+        else:
+          doAssert votes.voted[i]
+          doAssert votes.value[i] == v.getBool()
+        inc i
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
@@ -507,14 +526,8 @@ proc doRunTest(
         step.executionPayload)
       doAssert status.isOk == step.valid
     of opOnPayloadAttestation:
-      let msg = step.payloadAttestation
       let status = stores.fkChoice[].on_payload_attestation_message(
-        stores.dag,
-        ValidatorIndex(msg.validator_index),
-        msg.data.beacon_block_root,
-        msg.data.slot,
-        msg.data.payload_present,
-        msg.data.blob_data_available)
+        stores.dag, step.payloadAttestation)
       doAssert status.isOk == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
