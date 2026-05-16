@@ -2784,6 +2784,13 @@ proc lateBlockMonitoringLoop*(
 
   debug "Late block monitoring stopped"
 
+proc peerPoolFilter(peer: Peer): bool {.gcsafe, raises: [].} =
+  # We use this callback because `nim-libp2p` does not disconnect immediately.
+  if peer.connectionState in [Disconnecting, Disconnected]:
+    false
+  else:
+    true
+
 proc mainLoop*(
     overseer: SyncOverseerRef2
 ): Future[void] {.async: (raises: []).} =
@@ -2816,7 +2823,7 @@ proc mainLoop*(
   while true:
     let peer =
       try:
-        await overseer.pool.acquire()
+        await overseer.pool.acquire({Incoming, Outgoing}, peerPoolFilter)
       except CancelledError:
         debug "Sync overseer interrupted"
         var pending: seq[Future[void].Raising([])]
