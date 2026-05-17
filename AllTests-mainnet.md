@@ -677,7 +677,9 @@ AllTests-mainnet
 ```diff
 + Add missing                                                                                OK
 + Add orphan                                                                                 OK
++ Add unviable                                                                               OK
 + Clean up orphans                                                                           OK
++ Has orphan                                                                                 OK
 + Pop orphan                                                                                 OK
 ```
 ## Eth2 specific discovery tests

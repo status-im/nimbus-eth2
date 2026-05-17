@@ -993,7 +993,8 @@ proc addPayload*(
       # any missing parents. In either case, they should be caught when
       # processing block. So we only put the envelope into the quarantine for
       # the next try.
-      self.envelopeQuarantine[].addOrphan(signedEnvelope)
+      self.envelopeQuarantine[].addOrphan(
+        self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
       if sidecarsOpt.isSome():
         self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
     of VerifierError.Invalid, VerifierError.UnviableFork:
@@ -1035,7 +1036,8 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
         if sidecarsOpt.isNone():
           # As sidecars are missing, put envelope back to quarantine.
           self.consensusManager.quarantine[].addSidecarless(blck)
-          self.envelopeQuarantine[].addOrphan(envelope)
+          self.envelopeQuarantine[].addOrphan(
+            self.consensusManager.dag.finalizedHead.slot, envelope)
           return
         sidecarsOpt
 

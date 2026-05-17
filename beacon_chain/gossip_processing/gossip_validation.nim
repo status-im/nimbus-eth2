@@ -1060,9 +1060,14 @@ proc validateBeaconBlock*(
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
-    Result[void, ValidationError] =
+    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
+    wallTime: BeaconTime): Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
+
+  # No matching block can exist: blocks [IGNORE] future slots.
+  if not (envelope.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+    return errIgnore("ExecutionPayload: slot too high")
 
   # [IGNORE] The envelope's block root `envelope.beacon_block_root` has been
   # seen (via gossip or non-gossip sources) (a client MAY queue payload for
@@ -1084,7 +1089,8 @@ proc validateExecutionPayload*(
     # processed locally once the block arrives, but never re-gossiped to peers
     # who may also be missing it.
     discard quarantine[].addMissing(envelope.beacon_block_root)
-    envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
+    envelopeQuarantine[].addOrphan(
+      dag.finalizedHead.slot, signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: block not found")
 
   # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
@@ -1234,7 +1240,7 @@ proc validateAttestation*(
     if attestation.data.index == 1:
       template block_root: untyped = attestation.data.beacon_block_root
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin envelopeQuarantine[].orphans:
+          not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
           "SingleAttestation: execution payload not yet seen")
   else:
@@ -1447,7 +1453,7 @@ proc validateAggregate*(
       template block_root: untyped = aggregate.data.beacon_block_root
       debugGloasComment("unviable envelope")
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin envelopeQuarantine[].orphans:
+          not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
           "Aggregate: execution payload not yet seen")
   else:
