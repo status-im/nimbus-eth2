@@ -1769,8 +1769,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(dataColumnPruneEpoch)
     var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
     var count = 0
-    let startIndex = node.dag.getBlockRange(
-      dataColumnPruneEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
+    let startIndex = node.dag.getBlockRange(dataColumnPruneEpoch.start_slot, blocks)
     for i in startIndex..<SLOTS_PER_EPOCH:
       # Iterate the full column space rather than just the local custody
       # set so late-arriving or reconstructed columns outside of this
