@@ -15,6 +15,9 @@ import
 
 from ../beacon_chain/spec/helpers import GWEI_TO_WEI
 
+func gweiToWei(gwei: uint64): UInt256 =
+  gwei.u256 * GWEI_TO_WEI.u256
+
 suite "Beacon validators test suite":
   test "builderBetterBid(builderBoostFactor) test":
     const TestVectors =
@@ -121,28 +124,28 @@ suite "Beacon validators test suite":
     # Simulates P2P bid selection: bid value is in Gwei, engine value in Wei
     # builder bid of 1 Gwei vs engine value of 0 Wei, bid wins (default 10% boost)
     check builderBetterBid(
-      10'u8, 1'u64.u256 * GWEI_TO_WEI.u256, Wei(0.u256)) == true
+      10'u8, gweiToWei(1), Wei(0.u256)) == true
 
     # builder bid of 100 Gwei vs engine value of 100 Gwei in Wei, bid loses (110 > 100)
     check builderBetterBid(
-      10'u8, 100'u64.u256 * GWEI_TO_WEI.u256, Wei(100'u64.u256 * GWEI_TO_WEI.u256)) == false
+      10'u8, gweiToWei(100), gweiToWei(100)) == false
 
     # builder bid of 111 Gwei vs engine value of 100 Gwei, bid wins (111 > 110)
     check builderBetterBid(
-      10'u8, 111'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == true
+      10'u8, gweiToWei(111), gweiToWei(100)) == true
 
     # builder bid of 109 Gwei vs engine value of 100 Gwei, bid loses (109 < 110)
     check builderBetterBid(
-      10'u8, 109'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+      10'u8, gweiToWei(109), gweiToWei(100)) == false
 
     # Zero boost, bid should exceed engine value
     check builderBetterBid(
-      0'u8, 100'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+      0'u8, gweiToWei(100), gweiToWei(100)) == false
     check builderBetterBid(
-      0'u8, 101'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == true
+      0'u8, gweiToWei(101), gweiToWei(100)) == true
 
     # Max boost (255%), bid needs to be very high
     check builderBetterBid(
-      255'u8, 100'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+      255'u8, gweiToWei(100), gweiToWei(100)) == false
     check builderBetterBid(
-      255'u8, 356'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == true
+      255'u8, gweiToWei(356), gweiToWei(100)) == true
