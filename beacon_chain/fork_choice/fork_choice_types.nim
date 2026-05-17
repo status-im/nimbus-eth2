@@ -186,6 +186,7 @@ type
     ptc_vote*: Table[Eth2Digest, PtcVotes]
     ptc_data_availability_vote*: Table[Eth2Digest, PtcVotes]
     block_timeliness*: Table[Eth2Digest, array[2, bool]]
+    timely_proposer_blocks*: Table[(Slot, uint64), seq[Eth2Digest]]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]

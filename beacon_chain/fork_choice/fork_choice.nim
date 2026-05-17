@@ -422,7 +422,7 @@ func process_block*(
     proposerIndex = 0'u64): FcResult[void] =
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status,
-    bidBlockHash)
+    bidBlockHash, proposerIndex)
 
 proc process_block*(
     self: var ForkChoice,
@@ -452,7 +452,8 @@ proc process_block*(
     block_root = shortLog(blckRef)
 
   # Record block timeliness
-  self.record_block_timeliness(dag, blck.slot, blckRef.root, typeof(blck).kind)
+  self.record_block_timeliness(
+    dag, blck.slot, blckRef.root, typeof(blck).kind, blck.proposer_index)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)

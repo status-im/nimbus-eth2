@@ -100,16 +100,22 @@ proc on_payload_attestation_message*(
 proc record_block_timeliness*(
     self: var ForkChoice, dag: ChainDAGRef,
     blck_slot: Slot, root: Eth2Digest,
-    consensusFork: ConsensusFork) =
+    consensusFork: ConsensusFork,
+    proposerIndex: uint64) =
   let
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
     is_current_slot = current_slot == blck_slot
+    ptc_timely = is_current_slot and self.checkpoints.time <
+      current_slot.payload_attestation_deadline(dag.timeParams)
 
   self.backend.block_timeliness[root] = [
     is_current_slot and self.checkpoints.time <
       current_slot.attestation_deadline(dag.timeParams, consensusFork),
-    is_current_slot and self.checkpoints.time <
-      current_slot.payload_attestation_deadline(dag.timeParams)]
+    ptc_timely]
+
+  if ptc_timely:
+    self.backend.timely_proposer_blocks.mgetOrPut(
+      (blck_slot, proposerIndex), @[]).add(root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/fork-choice.md#update_proposer_boost_root
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
@@ -187,15 +193,10 @@ proc should_apply_proposer_boost*(
   if not self.is_head_weak(parent_node.bid.root, dag):
     return true
 
-  # If parent is weak and from the previous slot, apply
-  # proposer boost if there are no early equivocations
-  for i in 0 ..< self.backend.proto_array.nodes.buf.len:
-    let blk = addr self.backend.proto_array.nodes.buf[i]
-    if blk.bid.root != parent_node.bid.root and
-        blk.bid.slot + 1 == slot and
-        blk.proposerIndex == parent_node.proposerIndex and
-        self.backend.block_timeliness.getOrDefault(
-          blk.bid.root, [false, false])[PTC_TIMELINESS_INDEX]:
+  let key = (parent_node.bid.slot, parent_node.proposerIndex)
+  let roots = self.backend.timely_proposer_blocks.getOrDefault(key)
+  for root in roots:
+    if root != parent_node.bid.root:
       return false
 
   true
