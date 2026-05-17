@@ -179,6 +179,10 @@ func syncCommitteeMessageSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
 func syncContributionSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.CONTRIBUTION_DUE_BPS_GLOAS)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-get_payload_due_ms
+func payloadSlotOffset*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.PAYLOAD_DUE_BPS)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#payload-timeliness-attestation
 func payloadAttestationSlotOffset*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
@@ -240,6 +244,10 @@ func sync_contribution_deadline_gloas*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.syncContributionSlotOffsetGloas
+
+func payload_deadline*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.payloadSlotOffset
 
 func payload_attestation_deadline*(
     s: Slot, timeParams: TimeParams): BeaconTime =

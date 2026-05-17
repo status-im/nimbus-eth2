@@ -153,6 +153,16 @@ func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
 func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
                          columns: openArray[ref fulu.DataColumnSidecar]):
                          Opt[seq[DataColumnResponseRecord]] =
+  # The response is a list of DataColumnSidecar whose length is
+  # less than or equal to requested_columns_count, where
+  # requested_columns_count = sum(len(r.columns) for r in request).
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
+  var expectedMax = 0
+  for id in idList:
+    expectedMax += id.indices.len
+  if columns.len > expectedMax:
+    return Opt.none(seq[DataColumnResponseRecord])
+
   var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
     let block_root =
@@ -422,12 +432,21 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)
-      let records = checkColumnResponse(colIdList, ucolumns).valueOr:
-        debug "Response to columns by root is not a subset",
+      let
+        records = checkColumnResponse(colIdList, ucolumns).valueOr:
+          debug "Response to columns by root is not a subset",
+            peer = peer,
+            columns = shortLog(colIdList),
+            ucolumns = len(ucolumns)
+          peer.updateScore(PeerScoreBadResponse)
+          return
+        v = verify_data_column_sidecar_kzg_proofs(records.mapIt(it.sidecar))
+      if v.isErr:
+        debug "Data columns failed KZG verification",
           peer = peer,
           columns = shortLog(colIdList),
           ucolumns = len(ucolumns)
-        peer.updateScore(PeerScoreBadResponse)
+        peer.updateScore(PeerScoreBadValues)
         return
       for col in records:
         debug "Received column responses",

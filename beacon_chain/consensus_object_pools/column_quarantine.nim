@@ -328,6 +328,7 @@ proc put*[A, B](
 
   for sidecar in sidecars:
     let index = q.getIndex(sidecar.index)
+    if index < 0: continue
     if isEmpty(node[].value.sidecars[index]):
       inc(node[].value.count)
       node[].value.slot = sidecar[].slot()

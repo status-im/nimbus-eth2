@@ -1,6 +1,12 @@
 {
   description = "nimbus-eth2";
 
+  nixConfig = {
+    extra-substituters = [ "https://nix-cache.status.im/" ];
+    extra-trusted-public-keys = [ "nix-cache.status.im-1:x/93lOfLU+duPplwMSBR+OlY4+mo+dCN7n0mr4oPwgY=" ];
+  };
+
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?rev=2a777ace4b722f2714cc06d596f2476ee628c04a";
 
@@ -92,6 +98,19 @@
 
       devShells = forAllSystems (system: {
         default = pkgsFor.${system}.callPackage ./nix/shell.nix { };
+      });
+
+      nixosModules = rec {
+        beacon-node = import ./nix/services/beacon-node.nix { inherit (self) packages; };
+        validator-client = import ./nix/services/validator-client.nix { inherit (self) packages; };
+        default = { imports = [ beacon-node validator-client ]; };
+      };
+
+      checks = forAllSystems (system: let
+        inherit (nixpkgs.legacyPackages.${system}) callPackage;
+      in {
+        beacon-node = callPackage ./nix/services/checks/beacon-node.nix { inherit self; };
+        validator-client = callPackage ./nix/services/checks/validator-client.nix { inherit self; };
       });
     };
 }
