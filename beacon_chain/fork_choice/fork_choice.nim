@@ -704,27 +704,23 @@ func compute_deltas(
 
     if vote.current_root != vote.next_root or old_balance != new_balance or
         vote.payload_present != vote.next_payload_present:
-      # Route current vote: payload_present determines EMPTY vs FULL target
+      template resolveNodeIndex(root: Eth2Digest, payloadPresent: bool): int =
+        if payloadPresent and root in fullBlockIndices:
+          fullBlockIndices.unsafeGet(root) - indices_offset
+        else:
+          indices.unsafeGet(root) - indices_offset
+
       if vote.current_root in indices:
-        let index =
-          if vote.payload_present and vote.current_root in fullBlockIndices:
-            fullBlockIndices.unsafeGet(vote.current_root) - indices_offset
-          else:
-            indices.unsafeGet(vote.current_root) - indices_offset
+        let index = resolveNodeIndex(vote.current_root, vote.payload_present)
         if index >= deltas.len:
           return err ForkChoiceError(
             kind: fcInvalidNodeDelta,
             index: index)
         deltas[index] -= Delta old_balance
 
-      # Route next vote
       if vote.slot != FAR_FUTURE_SLOT and not vote.next_root.isZero:
         if vote.next_root in indices:
-          let index =
-            if vote.next_payload_present and vote.next_root in fullBlockIndices:
-              fullBlockIndices.unsafeGet(vote.next_root) - indices_offset
-            else:
-              indices.unsafeGet(vote.next_root) - indices_offset
+          let index = resolveNodeIndex(vote.next_root, vote.next_payload_present)
           if index >= deltas.len:
             return err ForkChoiceError(
               kind: fcInvalidNodeDelta,
