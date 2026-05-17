@@ -153,16 +153,6 @@ func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
 func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
                          columns: openArray[ref fulu.DataColumnSidecar]):
                          Opt[seq[DataColumnResponseRecord]] =
-  # The response is a list of DataColumnSidecar whose length is
-  # less than or equal to requested_columns_count, where
-  # requested_columns_count = sum(len(r.columns) for r in request).
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
-  var expectedMax = 0
-  for id in idList:
-    expectedMax += id.indices.len
-  if columns.len > expectedMax:
-    return Opt.none(seq[DataColumnResponseRecord])
-
   var colRec: seq[DataColumnResponseRecord]
   for colresp in columns:
     let block_root =
@@ -187,7 +177,8 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     debug "Requesting blocks by root", peer = peer, blocks = shortLog(items),
                                        peer_score = peer.getScore()
 
-    let blocks = (await beaconBlocksByRoot_v2(peer, BlockRootsList items))
+    let blocks = (await beaconBlocksByRoot_v2(
+      peer, BlockRootsList items, maxResponseItems = items.len))
 
     if blocks.isOk:
       let ublocks = blocks.get()
@@ -428,7 +419,13 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       peer = peer,
       columns = shortLog(intColIdList),
       peer_score = peer.getScore()
-    let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
+    let expectedColumnCount = block:
+      var n = 0
+      for id in intColIdList: n += id.indices.len
+      n
+    let columns = await dataColumnSidecarsByRoot(
+      peer, DataColumnsByRootIdentifierList intColIdList,
+      maxResponseItems = expectedColumnCount)
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)
