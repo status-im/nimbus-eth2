@@ -514,20 +514,29 @@ proc process_block*(
     self.backend.ptc_vote[blckRef.root] = default(PtcVotes)
     self.backend.ptc_data_availability_vote[blckRef.root] = default(PtcVotes)
 
-    var cache = StateCache()
-    withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        for payload_attestation in blck.body.payload_attestations:
-          let indexed = get_indexed_payload_attestation(
-            forkyState.data, payload_attestation.data.slot, payload_attestation)
-          for idx in indexed.attesting_indices:
-            discard self.on_payload_attestation_message(
-              dag,
-              PayloadAttestationMessage(
-                validator_index: idx,
-                data: payload_attestation.data,
-                signature: payload_attestation.signature),
-              is_from_block = true)
+    for payload_attestation in blck.body.payload_attestations:
+      let
+        attData = payload_attestation.data
+        blockRoot = attData.beacon_block_root
+      var
+        votes = self.backend.ptc_vote.mgetOrPut(
+          blockRoot, default(PtcVotes))
+        daVotes = self.backend.ptc_data_availability_vote.mgetOrPut(
+          blockRoot, default(PtcVotes))
+        i = 0
+      withState(dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          for vidx in get_ptc(forkyState.data, attData.slot):
+            if payload_attestation.aggregation_bits[i]:
+              votes.voted.setBit(i)
+              if attData.payload_present:
+                votes.value.setBit(i)
+              daVotes.voted.setBit(i)
+              if attData.blob_data_available:
+                daVotes.value.setBit(i)
+            inc i
+      self.backend.ptc_vote[blockRoot] = votes
+      self.backend.ptc_data_availability_vote[blockRoot] = daVotes
 
   ok()
   
