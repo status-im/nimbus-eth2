@@ -225,7 +225,7 @@ type
 
     UnknownError
 
-  Eth2NetworkingError = object
+  Eth2NetworkingError* = object
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
       responseCode*: ResponseCode

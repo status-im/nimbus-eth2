@@ -36,6 +36,8 @@ type
   PeerEntryRef*[A] = ref object
     peer*: A
     pendingRoots*: RootQueue
+    minBackBlockSlot*: Opt[Slot]
+    minBackCarSlot*: Opt[Slot]
     maxBlocksPerRequest*: int
     maxSidecarsPerRequest*: int
     peerLoopFut*: Future[void].Raising([])

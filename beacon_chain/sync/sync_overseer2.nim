@@ -70,6 +70,10 @@ template cleanupRecordsList(a: untyped) =
     mitem.sidecar = nil
   a.reset()
 
+template rsrcUnavailable(err: Eth2NetworkingError): bool =
+  (error.kind == ReceivedErrorResponse) and
+    (err.responseCode == ResourceUnavailable)
+
 func shortLog(digests: openArray[Eth2Digest]): string =
   "[" & digests.mapIt(shortLog(it)).join(",") & "]"
 
@@ -416,6 +420,9 @@ proc getBackfillSidecarFinalSlot(overseer: SyncOverseerRef2): Slot =
     min(backfillSlot, GENESIS_SLOT)
   else:
     min(backfillSlot, dag.finalizedHead.slot - horizon)
+
+template isBackward(direction: SyncQueueKind): bool =
+  direction == SyncQueueKind.Backward
 
 template tbsqueue(
     overseer: SyncOverseerRef2,
@@ -1595,15 +1602,18 @@ proc doRangeSyncStep(
     peer: Peer,
     direction: SyncQueueKind
 ): Future[bool] {.async: (raises: [CancelledError]).} =
-  if isNil(overseer.sdag.peers.getOrDefault(peer.getKey())):
-    return false
-
   let
+    peerEntry =
+      block:
+        let res = overseer.sdag.peers.getOrDefault(peer.getKey())
+        if isNil(res):
+          debug "Peer entry does not exist anymore", peer = peer
+          return false
+        res
     dag = overseer.consensusManager.dag
     checkpoint = peer.getFinalizedCheckpoint()
-
-  let request =
-    overseer.tbsqueue(direction).pop(checkpoint.epoch.start_slot(), peer)
+    request =
+      overseer.tbsqueue(direction).pop(checkpoint.epoch.start_slot(), peer)
 
   logScope:
     peer = peer
@@ -1626,6 +1636,13 @@ proc doRangeSyncStep(
     debug "Empty request received from blocks queue"
     return true
 
+  if direction.isBackward() and peerEntry.minBackBlockSlot.isSome():
+    if request.data.slot <= peerEntry.minBackBlockSlot.get():
+      debug "Peer has already reported that this block range is unavailable",
+        min_backfill_block_slot = peerEntry.minBackBlockSlot.get()
+      overseer.tbsqueue(direction).push(request)
+      return true
+
   debug "New blocks range request"
 
   try:
@@ -1635,7 +1652,15 @@ proc doRangeSyncStep(
           peer, request.data.slot, request.data.count, 1'u64)).valueOr:
             debug "Failed to get block range from peer", reason = error
             overseer.tbsqueue(direction).push(request)
-            return false
+            if direction.isBackward() and rsrcUnavailable(error):
+              # `ResourceUnavailable` is not critical for backfilling.
+              if peerEntry.minBackBlockSlot.isNone() or
+                request.data.slot < peerEntry.minBackBlockSlot.get():
+                peerEntry.minBackBlockSlot = Opt.some(request.data.slot)
+              return true
+            else:
+              peer.updateScore(PeerScoreNoValues)
+              return false
 
     debug "Received blocks range on request",
       blocks_count = len(blocks),
@@ -1700,6 +1725,13 @@ proc doRangeSidecarsStep(
     direction: SyncQueueKind
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
+    peerEntry =
+      block:
+        let res = overseer.sdag.peers.getOrDefault(peer.getKey())
+        if isNil(res):
+          debug "Peer entry does not exist anymore", peer = peer
+          return false
+        res
     dag = overseer.consensusManager.dag
     checkpoint = peer.getFinalizedCheckpoint()
 
@@ -1754,6 +1786,13 @@ proc doRangeSidecarsStep(
     debug "Empty request received from sidecars queue",
       reason = request.reason
     return true
+
+  if direction.isBackward() and peerEntry.minBackCarSlot.isSome():
+    if request.data.slot <= peerEntry.minBackCarSlot.get():
+      debug "Peer has already reported that this sidecar range is unavailable",
+        min_backfill_sidecar_slot = peerEntry.minBackCarSlot.get()
+      overseer.tssqueue(direction).push(request)
+      return true
 
   debug "New sidecars range request"
 
@@ -1856,11 +1895,18 @@ proc doRangeSidecarsStep(
                 peer, request.data.slot, request.data.count,
                 List[ColumnIndex, NUMBER_OF_COLUMNS](
                   intersectMap.items().toSeq()))).valueOr:
-                    peer.updateScore(PeerScoreNoValues)
-                    debug "Failed to receive data column sidecars range " &
-                          "on request", reason = $error
-                    overseer.tssqueue(direction).push(request)
-                    return false
+                debug "Failed to get data column sidecars range from peer",
+                  reason = $error
+                overseer.tssqueue(direction).push(request)
+                if direction.isBackward() and rsrcUnavailable(error):
+                  # `ResourceUnavailable` is not critical for backfilling.
+                  if peerEntry.minBackCarSlot.isNone() or
+                    request.data.slot < peerEntry.minBackCarSlot.get():
+                    peerEntry.minBackCarSlot = Opt.some(request.data.slot)
+                  return true
+                else:
+                  peer.updateScore(PeerScoreNoValues)
+                  return false
 
           debug "Received data columns sidecars range from peer",
             columns_map = getShortMap(request, intersectMap, data.toSeq()),
