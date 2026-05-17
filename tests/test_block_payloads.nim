@@ -13,6 +13,8 @@ import
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/validators/block_payloads
 
+from ../beacon_chain/spec/helpers import GWEI_TO_WEI
+
 suite "Beacon validators test suite":
   test "builderBetterBid(builderBoostFactor) test":
     const TestVectors =
@@ -117,15 +119,13 @@ suite "Beacon validators test suite":
 
   test "builderBetterBid(localBlockValueBoost) with Gwei-to-Wei conversion":
     # Simulates P2P bid selection: bid value is in Gwei, engine value in Wei
-    const GweiToWei = 1_000_000_000.u256
-
     # builder bid of 1 Gwei vs engine value of 0 Wei, bid wins (default 10% boost)
     check builderBetterBid(
-      10'u8, 1'u64.u256 * GweiToWei, Wei(0.u256)) == true
+      10'u8, 1'u64.u256 * GWEI_TO_WEI.u256, Wei(0.u256)) == true
 
     # builder bid of 100 Gwei vs engine value of 100 Gwei in Wei, bid loses (110 > 100)
     check builderBetterBid(
-      10'u8, 100'u64.u256 * GweiToWei, Wei(100'u64.u256 * GweiToWei)) == false
+      10'u8, 100'u64.u256 * GWEI_TO_WEI.u256, Wei(100'u64.u256 * GWEI_TO_WEI.u256)) == false
 
     # builder bid of 111 Gwei vs engine value of 100 Gwei, bid wins (111 > 110)
     check builderBetterBid(

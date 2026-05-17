@@ -593,7 +593,7 @@ proc proposeBlockAux(
         poolBid.isSome and
         builderBetterBid(
           localBlockValueBoost,
-          poolBid.get().message.value.uint64.u256 * 1_000_000_000.u256,
+          poolBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
           engineBid[].eps.blockValue)
       selectedBuilderBid =
         if usePoolBid:
