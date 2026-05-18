@@ -20,11 +20,17 @@ To import an era archive, place the files in a folder called `era` in the [data 
 # Go to the nimbus directory
 cd build/data/shared_mainnet_0
 
-# Create era directory
+# Create era directory and enter it
 mkdir -p era
+cd era
 
 # Download era store from era provider
 wget --no-parent  -A '*.era' -q --show-progress -nd -r -c https://provider/era
+
+# Verify the downloaded files (requires `make ncli_db`)
+for f in *.era; do
+  ../../../ncli_db verifyEra --eraFile="$f"
+done
 ```
 
 The beacon node will automatically serve data from the Era files.
