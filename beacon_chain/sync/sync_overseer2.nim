@@ -1495,9 +1495,6 @@ proc doRootSidecarsSyncStep(
   debug "Requesting data column sidecars by root from peer"
 
   let
-    consensusFork = ConsensusFork.Fulu
-      # This `consensusFork` is only used for request sidecars amount
-      # adjustments.
     columnSidecars =
       (await dataColumnSidecarsByRoot(peer,
         DataColumnsByRootIdentifierList columnRoots)).valueOr:
@@ -1534,7 +1531,7 @@ proc doRootSidecarsSyncStep(
     peerEntry.maxSidecarsPerRequest.decreaseSidecarsCount()
   else:
     overseer.increaseSidecarsCount(
-      peerEntry.maxSidecarsPerRequest, consensusFork)
+      peerEntry.maxSidecarsPerRequest, ConsensusFork.Fulu)
 
   # Peer provided at least some sidecars, so we award it with reward.
   peer.updateScore(PeerScoreGoodValues)
@@ -1799,8 +1796,11 @@ proc doRangeSidecarsStep(
   if not(overseer.checkDataAvailable(peer, direction, request.data)):
     debug "Request cannot be satisfied by the peer",
       peer_ea_slot = peer.getEarliestAvailableSlot().get()
-    peer.updateScore(PeerScoreNoValues)
     overseer.tssqueue(direction).push(request)
+    if not(direction.isBackward()):
+      # Backfilling is optional, so we not penalize peers which does not have
+      # enough sidecars.
+      peer.updateScore(PeerScoreNoValues)
     return true
 
   let consensusFork = dag.cfg.consensusForkAtEpoch(
@@ -1826,11 +1826,14 @@ proc doRangeSidecarsStep(
 
         # Here we perform check if remote peer has compatible columns or not.
         if len(intersectMap) == 0:
-          peer.updateScore(PeerScoreNoValues)
           debug "Peer does not have compatible columns",
             custody_map = shortLog(custodyMap),
             peer_map = shortLog(peerMap)
           overseer.tssqueue(direction).push(request)
+          if not(direction.isBackward()):
+            # Backfilling is optional, so we not penalize peers which does not
+            # have compatible sidecars.
+            peer.updateScore(PeerScoreNoValues)
           return true
 
         let (columnsNeeded, columnsHave) =
@@ -1877,7 +1880,6 @@ proc doRangeSidecarsStep(
            missing_log = missingLog
 
         if (len(blocks) > 0) and (columnsNeeded and not(columnsHave)):
-          peer.updateScore(PeerScoreNoValues)
           debug "Peer has compatible columns that we already have",
             custody_map = shortLog(custodyMap),
             peer_map = shortLog(peerMap),
