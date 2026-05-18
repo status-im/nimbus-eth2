@@ -717,9 +717,11 @@ proc routeExecutionPayloadEnvelope*(
     sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
-  let vRes = validateExecutionPayload(
-    router[].dag, router[].quarantine,
-    router.processor.envelopeQuarantine, signedEnvelope)
+  let
+    wallTime = router[].getCurrentBeaconTime()
+    vRes = validateExecutionPayload(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, signedEnvelope, wallTime)
   if not isGoodForSending(vRes):
     warn "Envelope failed validation",
       envelope = shortLog(signedEnvelope.message),

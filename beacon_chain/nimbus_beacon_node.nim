@@ -154,7 +154,9 @@ proc setupDatabase(
 ): Future[Opt[BeaconChainDB]] {.async: (raises: [CancelledError]).} =
   # Open the database and initialize it with genesis/checkpoint if it wasn't
   # setup before - fails if the data sources we use are broken
-  let db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
+  let db = BeaconChainDB.new(
+    config.databaseDir, metadata.cfg, inMemory = false,
+    lightClientDataImportBackfill = config.lightClientDataImportBackfill)
 
   if ChainDAGRef.isInitialized(db).isOk():
     if config.finalizedCheckpointState.isSome:
@@ -398,6 +400,7 @@ proc loadChainDag(
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,
       importMode: config.lightClientDataImportMode,
+      importBackfill: config.lightClientDataImportBackfill,
       maxPeriods: config.lightClientDataMaxPeriods,
       onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
       onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
@@ -466,6 +469,8 @@ proc initFullNode(
     node.eventBus.attSlashQueue.emit(data)
   proc onColumnSidecarAdded(data: DataColumnSidecarInfoObject) =
     node.eventBus.columnSidecarQueue.emit(data)
+  proc onFuluColumnSidecarAdded(data: ref fulu.DataColumnSidecar) =
+    node.eventBus.columnSidecarFullQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -497,6 +502,12 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
+  proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
+    let optimistic = node.dag.is_optimistic(BlockId(
+      root: data.message.beacon_block_root,
+      slot: data.message.slot))
+    node.eventBus.execPayloadAddedQueue.emit(
+      EventExecutionPayloadObject.init(data, optimistic))
   proc onEnvelopeGossipAdded(data: SignedExecutionPayloadEnvelope) =
     node.eventBus.execPayloadGossipAddedQueue.emit(
       EventExecutionPayloadGossipObject.init(data))
@@ -580,7 +591,7 @@ proc initFullNode(
   let
     dataColumnQuarantine = newClone(ColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
-      onColumnSidecarAdded))
+      onColumnSidecarAdded, onFuluColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
@@ -665,6 +676,7 @@ proc initFullNode(
       ## enqueuePayload() except when the valid block or any sidecars is
       ## missing, we will return ok() as it is not any types of VerifierError.
       ## Therefore, the call is discarded silently.
+      envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, signedEnvelope)
       template blockRoot(): auto = signedEnvelope.message.beacon_block_root
 
       let
@@ -708,7 +720,7 @@ proc initFullNode(
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
               consensusManager.quarantine[].addSidecarless(blck)
-              envelopeQuarantine[].addOrphan(envelope)
+              envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
               # Return ok() as columns may arrive late.
               return ok()
             sidecarsOpt
@@ -738,10 +750,6 @@ proc initFullNode(
         {}
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -750,10 +758,6 @@ proc initFullNode(
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -768,10 +772,6 @@ proc initFullNode(
     eaSlot = dag.head.slot
     untrustedManager = newSyncManager[Peer, PeerId](
       node.network.peerPool,
-      dag.cfg.DENEB_FORK_EPOCH,
-      dag.cfg.FULU_FORK_EPOCH,
-      dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS,
-      dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
@@ -828,6 +828,7 @@ proc initFullNode(
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
+  dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
 
@@ -863,6 +864,7 @@ proc initFullNode(
                                           syncManager, backfiller,
                                           untrustedManager)
   node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
+                                                node.eventBus.columnSidecarFullQueue,
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
                                                 node.validatorCustody)
@@ -1109,7 +1111,6 @@ proc init*(
 
   let node = BeaconNode(
     nickname: nickname,
-    graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
     network: network,
     netKeys: netKeys,
     db: db,
@@ -1759,7 +1760,7 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
             consensusFork, blocks[int(i)].root)
     debug "pruned data columns", count, dataColumnPruneEpoch
 
-proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
+proc reconstructDataColumns(node: BeaconNode, slot: Slot) {.async: (raises: []).} =
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/das-core.md#reconstruction-and-cross-seeding
   # "If the node obtains 50%+ of all the columns, it SHOULD reconstruct the
   # full data matrix via the recover_matrix helper."
@@ -1806,8 +1807,8 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
       let startTime = Moment.now()
 
       # Reconstruct columns
-      let recovered = recover_cells_and_proofs_parallel(
-        node.batchVerifier[].taskpool, columns).valueOr:
+      let recovered = await(recover_cells_and_proofs_parallel(
+        node.batchVerifier[].taskpool, columns)).valueOr:
           error "Data column reconstruction incomplete"
           return
       let rowCount = recovered.len
@@ -1836,16 +1837,20 @@ proc reconstructDataColumns(node: BeaconNode, slot: Slot) =
         inc reconCounter
       node.dag.db.putDataColumnSidecars(reconstructed)
 
-      let reconstructedTime = Moment.now()
-
       trace "Columns reconstructed",
         columns = reconCounter,
         recoveryTime = recoveredTime - startTime,
-        reconstructionTime = reconstructedTime - recoveredTime
+        reconstructionTime = Moment.now() - recoveredTime
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
+
+  let reconstructFut =
+    if node.dag.cfg.consensusForkAtEpoch(slot.epoch()) >= ConsensusFork.Fulu:
+      reconstructDataColumns(node, slot)
+    else:
+      nil
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
@@ -1859,8 +1864,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     debug "Waiting for slot end", slot, endCutoff = shortLog(endCutoff.offset)
     await sleepAsync(endCutoff.offset)
 
-  if node.dag.cfg.consensusForkAtEpoch(slot.epoch()) >= ConsensusFork.Fulu:
-    reconstructDataColumns(node, slot)
+  if not reconstructFut.isNil:
+    await reconstructFut
 
   if node.dag.needStateCachesAndForkChoicePruning():
     if node.attachedValidators[].validators.len > 0:
@@ -2764,7 +2769,6 @@ proc doRunBeaconNode(
 ) {.raises: [CatchableError].} =
   info "Launching beacon node",
     version = fullVersionStr,
-    bls_backend = $BLS_BACKEND,
     const_preset,
     cmdParams = commandLineParams(),
     config
@@ -2932,7 +2936,9 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
 
     let
       metadata = loadEth2Network(config)
-      db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
+      db = BeaconChainDB.new(
+        config.databaseDir, metadata.cfg, inMemory = false,
+        lightClientDataImportBackfill = config.lightClientDataImportBackfill)
       genesisState = (waitFor fetchGenesisState(metadata, config.eraDir)).valueOr:
         quit 1
     waitFor db.doRunTrustedNodeSync(

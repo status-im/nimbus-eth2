@@ -46,6 +46,9 @@ import
 from std/sequtils import mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
+from ../spec/beaconstate import proposalExecutionHead
+from ../consensus_object_pools/execution_payload_pool import
+  getHighestBidForSlotAndParent
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -389,7 +392,7 @@ proc getBlockSignature(
 
 proc proposeBlockAux(
     node: BeaconNode,
-    consensusFork: static ConsensusFork,
+    fork: static ConsensusFork,
     validator: AttachedValidator,
     head: BlockRef,
     slot: Slot,
@@ -406,18 +409,55 @@ proc proposeBlockAux(
     graffiti = node.getGraffitiBytes(validator)
     validator_index = validator.index.expect("index set for proposer")
 
+    (shouldExtendPayload, parentExecutionRequests) = block:
+      debugGloasComment("refactor when we have a proper should_extend_payload")
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
+      when fork >= ConsensusFork.Gloas:
+        let
+          parentId = state[].latest_block_id
+          envelope =
+            if node.dag.cfg.consensusForkAtEpoch(parentId.slot.epoch()) >=
+                ConsensusFork.Gloas:
+              node.dag.db.getExecutionPayloadEnvelope(parentId.root)
+            # For parent in pre-Gloas, we should extend the payload with empty
+            # execution requests.
+            else:
+              Opt.some(default(TrustedSignedExecutionPayloadEnvelope))
+
+        if envelope.isSome():
+          let parentExecutionRequests =
+            envelope.get().message.execution_requests
+          apply_parent_execution_payload(
+            node.dag.cfg,
+            state[].forky(fork).data,
+            parentExecutionRequests,
+            cache[],
+          ).isOkOr:
+            debug "Proposal failed to apply parent payload",
+              slot, head = shortLog(head)
+            return head
+          (true, parentExecutionRequests)
+        else:
+          debug "Proposal not extending payload", slot, head = shortLog(head)
+          (false, default(ExecutionRequests))
+      else:
+        (false, default(ExecutionRequests))
+
     engineBid =
-      when consensusFork == ConsensusFork.Heze:
+      when fork == ConsensusFork.Heze:
         debugHezeComment "stub: heze block proposals"
         await node.getExecutionPayload(
-          consensusFork, head, state, validator_index, validator.pubkey
+          fork, head, state, validator_index, validator.pubkey,
+          shouldExtendPayload,
         )
-      elif consensusFork == ConsensusFork.Gloas:
+      elif fork == ConsensusFork.Gloas:
         # Fetch only engine payload for now
         await node.getExecutionPayload(
-          consensusFork, head, state, validator_index, validator.pubkey
+          fork, head, state, validator_index, validator.pubkey,
+          shouldExtendPayload,
         )
-      elif consensusFork == ConsensusFork.Fulu:
+      elif fork == ConsensusFork.Fulu:
         # Fetch both builder and engine payloads then use the better one to
         # make a block
         let
@@ -425,7 +465,7 @@ proc proposeBlockAux(
             node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
 
           bids = await node.collectBids(
-            consensusFork, payloadBuilderClient, validator.pubkey, validator_index,
+            fork, payloadBuilderClient, validator.pubkey, validator_index,
             head, slot, state,
           )
 
@@ -446,8 +486,8 @@ proc proposeBlockAux(
         if useBuilderPayload:
           doAssert bids.builderBid.isSome(), "Checked in useBuilderPayload"
           let builderBlockRes = node.makeBuilderBlock(
-            consensusFork,
-            state[].forky(consensusFork),
+            fork,
+            state[].forky(fork),
             cache[],
             validator_index,
             randao_reveal,
@@ -475,7 +515,7 @@ proc proposeBlockAux(
                 beacon_block_production_errors.inc()
                 return head
 
-              blindedBlock = consensusFork.SignedBlindedBeaconBlock(
+              blindedBlock = fork.SignedBlindedBeaconBlock(
                 message: blck, signature: signature
               )
 
@@ -531,20 +571,48 @@ proc proposeBlockAux(
             return head
 
         bids.engineBid
-      elif consensusFork == ConsensusFork.Electra:
+      elif fork == ConsensusFork.Electra:
         await node.getExecutionPayload(
-          consensusFork, head, state, validator_index, validator.pubkey)
+          fork, head, state, validator_index, validator.pubkey, false)
       else:
-        static: raiseAssert "Unsupported fork " & $consensusFork
+        static: raiseAssert "Unsupported fork " & $fork
 
   if engineBid.isNone():
     beacon_block_production_errors.inc()
     return head
 
+  when fork >= ConsensusFork.Gloas:
+    let
+      executionHead = proposalExecutionHead(
+        state[].forky(fork).data)
+      poolBid = node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
+        slot, executionHead)
+      localBlockValueBoost =
+        BoostFactor.init(node.config.localBlockValueBoost)
+      usePoolBid =
+        poolBid.isSome and
+        builderBetterBid(
+          localBlockValueBoost,
+          poolBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
+          engineBid[].eps.blockValue)
+      selectedBuilderBid =
+        if usePoolBid:
+          info "Using builder bid from pool",
+            slot,
+            builderIndex = poolBid.get().message.builder_index,
+            bidValue = poolBid.get().message.value,
+            engineValue = engineBid[].eps.blockValue,
+            localBlockValueBoost
+          Opt.some(poolBid.get())
+        else:
+          Opt.none(gloas.SignedExecutionPayloadBid)
+
   let
+    verificationFlags =
+      if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
     engineBlock = node.makeEngineBlock(
-      consensusFork,
-      state[].forky(consensusFork),
+      fork,
+      state[].forky(fork),
       cache[],
       validator_index,
       randao_reveal,
@@ -553,6 +621,12 @@ proc proposeBlockAux(
       slot,
       engineBid[].eps,
       engineBid[].execution_requests,
+      parentExecutionRequests,
+      verificationFlags,
+      when fork >= ConsensusFork.Gloas:
+        selectedBuilderBid
+      else:
+        Opt.none(gloas.SignedExecutionPayloadBid),
     ).valueOr:
       beacon_block_production_errors.inc()
       return head
@@ -565,32 +639,32 @@ proc proposeBlockAux(
       beacon_block_production_errors.inc()
       return head
 
-    signedBlock = consensusFork.SignedBeaconBlock(
+    signedBlock = fork.SignedBeaconBlock(
       message: engineBlock.blck, signature: signature, root: blockRoot
     )
 
-  when consensusFork == ConsensusFork.Heze:
+  when fork == ConsensusFork.Heze:
     debugHezeComment "stub: heze sidecar assembly"
     let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
-  elif consensusFork == ConsensusFork.Gloas:
+  elif fork == ConsensusFork.Gloas:
     let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
       engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
       engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
-  elif consensusFork == ConsensusFork.Fulu:
+  elif fork == ConsensusFork.Fulu:
     let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
       engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
       engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
-  elif consensusFork == ConsensusFork.Electra:
+  elif fork == ConsensusFork.Electra:
     let sidecarsOpt = signedBlock.create_blob_sidecars(
       engineBlock.blobsBundle.proofs,
       engineBlock.blobsBundle.blobs)
   else:
-    static: raiseAssert "Unsupported fork " & $consensusFork
+    static: raiseAssert "Unsupported fork " & $fork
 
   let
     newBlockRef = block:
       let res =
-        when consensusFork >= ConsensusFork.Gloas:
+        when fork >= ConsensusFork.Gloas:
           await node.router.routeSignedBeaconBlock(
             signedBlock, checkValidator = false)
         else:
@@ -614,7 +688,16 @@ proc proposeBlockAux(
 
   beacon_blocks_proposed.inc()
 
-  when consensusFork >= ConsensusFork.Gloas:
+  when fork >= ConsensusFork.Gloas:
+    selectedBuilderBid.isErrOr:
+      notice "Block uses builder bid, skipping envelope broadcast",
+        blockRoot = shortLog(blockRoot),
+        builderIndex = value.message.builder_index,
+        bidValue = value.message.value,
+        signature = shortLog(value.signature),
+        validator = shortLog(validator)
+      return newBlockRef.get()
+
     debugGloasComment("check if slot/slot_number is set properly in eps")
     # The envelope is published immediately after the block. Peers may receive
     # this envelope before they have validated the block. Per the p2p-interface

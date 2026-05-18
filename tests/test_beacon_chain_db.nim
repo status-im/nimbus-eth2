@@ -918,41 +918,24 @@ suite "Quarantine" & preset():
     copyMem(addr res.data[0], unsafeAddr tmp[0], sizeof(uint64))
     res
 
-  func genKzgCommitment(index: int): KzgCommitment =
-    var res: KzgCommitment
-    let tmp = uint64(index).toBytesLE()
-    copyMem(addr res.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
-    res
-
-  func genBlobSidecar(
-      index: int,
-      slot: int,
-      kzg_commitment: int,
-      proposer_index: int
-  ): BlobSidecar =
-    BlobSidecar(
-      index: BlobIndex(index),
-      kzg_commitment: genKzgCommitment(kzg_commitment),
-      signed_block_header: SignedBeaconBlockHeader(
-        message: BeaconBlockHeader(
-          slot: Slot(slot),
-          proposer_index: uint64(proposer_index))))
-
-  func genDataColumnSidecar(
-      index: int,
-      slot: int,
-      proposer_index: int
-  ): fulu.DataColumnSidecar =
-    fulu.DataColumnSidecar(
+  func genDataColumnSidecar[T: fulu.DataColumnSidecar](
+      index: int, slot: int, proposer_index: int): T =
+    T(
       index: ColumnIndex(index),
       signed_block_header: SignedBeaconBlockHeader(
         message: BeaconBlockHeader(
           slot: Slot(slot),
           proposer_index: uint64(proposer_index))))
 
-  proc cmp(
-      a: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar],
-      b: openArray[ref BlobSidecar|ref fulu.DataColumnSidecar]
+  func genDataColumnSidecar[T: gloas.DataColumnSidecar](
+      index: int, slot: int, _: int): T =
+    T(
+      index: ColumnIndex(index),
+      slot: Slot(slot))
+
+  func cmp(
+      a: openArray[ref fulu.DataColumnSidecar|ref gloas.DataColumnSidecar],
+      b: openArray[ref fulu.DataColumnSidecar|ref gloas.DataColumnSidecar]
   ): bool =
     if len(a) != len(b):
       return false
@@ -961,42 +944,29 @@ suite "Quarantine" & preset():
         return false
     true
 
-  proc generateBlobSidecars(): seq[ref BlobSidecar] =
+  func generateDataColumnSidecars[T](): seq[ref T] =
     @[
-      newClone(genBlobSidecar(0, 100, 10, 24)),
-      newClone(genBlobSidecar(1, 100, 11, 24)),
-      newClone(genBlobSidecar(2, 100, 12, 24)),
-      newClone(genBlobSidecar(3, 100, 13, 24)),
-      newClone(genBlobSidecar(4, 100, 14, 24)),
-      newClone(genBlobSidecar(5, 100, 15, 24)),
-      newClone(genBlobSidecar(6, 100, 16, 24)),
-      newClone(genBlobSidecar(7, 100, 17, 24)),
-      newClone(genBlobSidecar(8, 100, 18, 24))
-    ]
-
-  proc generateDataColumnSidecars(): seq[ref fulu.DataColumnSidecar] =
-    @[
-      newClone(genDataColumnSidecar(0, 200, 100234)),
-      newClone(genDataColumnSidecar(7, 200, 100234)),
-      newClone(genDataColumnSidecar(14, 200, 100234)),
-      newClone(genDataColumnSidecar(21, 200, 100234)),
-      newClone(genDataColumnSidecar(28, 200, 100234)),
-      newClone(genDataColumnSidecar(35, 200, 100234)),
-      newClone(genDataColumnSidecar(42, 200, 100234)),
-      newClone(genDataColumnSidecar(49, 200, 100234)),
-      newClone(genDataColumnSidecar(56, 200, 100234)),
-      newClone(genDataColumnSidecar(63, 200, 100234)),
-      newClone(genDataColumnSidecar(70, 200, 100234)),
-      newClone(genDataColumnSidecar(77, 200, 100234)),
-      newClone(genDataColumnSidecar(84, 200, 100234)),
-      newClone(genDataColumnSidecar(91, 200, 100234)),
-      newClone(genDataColumnSidecar(98, 200, 100234)),
-      newClone(genDataColumnSidecar(127, 200, 100234)),
+      newClone(genDataColumnSidecar[T](0, 200, 100234)),
+      newClone(genDataColumnSidecar[T](7, 200, 100234)),
+      newClone(genDataColumnSidecar[T](14, 200, 100234)),
+      newClone(genDataColumnSidecar[T](21, 200, 100234)),
+      newClone(genDataColumnSidecar[T](28, 200, 100234)),
+      newClone(genDataColumnSidecar[T](35, 200, 100234)),
+      newClone(genDataColumnSidecar[T](42, 200, 100234)),
+      newClone(genDataColumnSidecar[T](49, 200, 100234)),
+      newClone(genDataColumnSidecar[T](56, 200, 100234)),
+      newClone(genDataColumnSidecar[T](63, 200, 100234)),
+      newClone(genDataColumnSidecar[T](70, 200, 100234)),
+      newClone(genDataColumnSidecar[T](77, 200, 100234)),
+      newClone(genDataColumnSidecar[T](84, 200, 100234)),
+      newClone(genDataColumnSidecar[T](91, 200, 100234)),
+      newClone(genDataColumnSidecar[T](98, 200, 100234)),
+      newClone(genDataColumnSidecar[T](127, 200, 100234)),
     ]
 
   proc getSidecars(
       quarantine: QuarantineDB,
-      T: typedesc[BlobSidecar|fulu.DataColumnSidecar],
+      T: typedesc[fulu.DataColumnSidecar|gloas.DataColumnSidecar],
       blockRoot: Eth2Digest
   ): seq[ref T] =
     var res: seq[ref T]
@@ -1012,11 +982,7 @@ suite "Quarantine" & preset():
       broots = @[
         genBlockRoot(100), genBlockRoot(200), genBlockRoot(300)
       ]
-      sidecars =
-        when T is deneb.BlobSidecar:
-          generateBlobSidecars()
-        else:
-          generateDataColumnSidecars()
+      sidecars = generateDataColumnSidecars[T]()
       offsets =
         when T is deneb.BlobSidecar:
           @[(0, 8), (0, 3), (0, 5)]
@@ -1112,11 +1078,11 @@ suite "Quarantine" & preset():
       len(quarantine.getSidecars(T, broots[2])) == 0
       quarantine.sidecarsCount(T) == 0
 
-  test "put/iterate/remove test [BlobSidecars]":
-    quarantine.runDataSidecarTest(deneb.BlobSidecar)
-
-  test "put/iterate/remove test [DataColumnSidecar]":
+  test "put/iterate/remove test [fulu DataColumnSidecar]":
     quarantine.runDataSidecarTest(fulu.DataColumnSidecar)
+
+  test "put/iterate/remove test [gloas DataColumnSidecar]":
+    quarantine.runDataSidecarTest(gloas.DataColumnSidecar)
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():

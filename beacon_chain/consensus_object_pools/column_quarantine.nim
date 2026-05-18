@@ -66,9 +66,12 @@ type
     indexMap: seq[int]
     db: QuarantineDB
     onSidecarCallback*: B
+    onFuluColumnAddedCallback*: OnFuluDataColumnSidecarAddedCallback
 
   OnDataColumnSidecarCallback* = proc(
     data: DataColumnSidecarInfoObject) {.gcsafe, raises: [].}
+  OnFuluDataColumnSidecarAddedCallback* = proc(
+    data: ref fulu.DataColumnSidecar) {.gcsafe, raises: [].}
 
   SomeSidecarRef* = ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar
   SomeSidecarIndex* = fulu.ColumnIndex
@@ -101,6 +104,13 @@ func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
   # blobs may arrive before an orphan is tagged `blobless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
+
+func enoughColumns*[A, B](q: SidecarQuarantine[A, B], count: int): bool =
+  if count >= NUMBER_OF_COLUMNS div 2:
+    return true
+  if count == len(q.custodyMap):
+    return true
+  false
 
 func init[A, B](
     t: typedesc[RootTableRecord],
@@ -318,6 +328,7 @@ proc put*[A, B](
 
   for sidecar in sidecars:
     let index = q.getIndex(sidecar.index)
+    if index < 0: continue
     if isEmpty(node[].value.sidecars[index]):
       inc(node[].value.count)
       node[].value.slot = sidecar[].slot()
@@ -459,19 +470,10 @@ func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return false
-
-  let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
-
-  if node[].value.count < columnsCount:
-    # Quarantine does not hold enough column sidecars.
-    return false
-  true
+  if quarantine.enoughColumns(node[].value.count):
+    # Quarantine holds enough column sidecars.
+    return true
+  false
 
 func hasSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
@@ -504,14 +506,9 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   quarantine.moveToFront(node)
 
   let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2 + 1)
-      else:
-        len(quarantine.custodyColumns)
+    supernode = (len(quarantine.custodyMap) == NUMBER_OF_COLUMNS)
 
-  if node[].value.count < columnsCount:
+  if not(quarantine.enoughColumns(node[].value.count)):
     # Quarantine does not hold enough column sidecars.
     return Opt.none(seq[ref A])
 
@@ -522,6 +519,7 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
 
   var sidecars: seq[ref A]
   if supernode:
+    # When supernode - we pop all sidecars.
     for sidecar in node[].value.sidecars:
       # Supernode could have some of the columns not filled.
       if not(sidecar.isEmpty()):
@@ -529,21 +527,15 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
           "Record should only have loaded values, but it is `" &
             $sidecar.kind & "`")
         sidecars.add(sidecar.data)
-      if len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1):
-        break
-
-    doAssert(len(sidecars) >= (NUMBER_OF_COLUMNS div 2 + 1),
-      "Incorrect amount of sidecars in record for supernode - " &
-        $len(sidecars))
   else:
-    for cindex in quarantine.custodyColumns:
+    for cindex in quarantine.custodyMap:
       let index = quarantine.getIndex(cindex)
       doAssert(node[].value.sidecars[index].isLoaded(),
         "Record should only have loaded values, but it is `" &
           $node[].value.sidecars[index].kind & "`")
       sidecars.add(node[].value.sidecars[index].data)
 
-    doAssert(len(sidecars) == len(quarantine.custodyColumns),
+    doAssert(len(sidecars) == len(quarantine.custodyMap),
       "Incorrect amount of sidecars in record for node - " & $len(sidecars))
 
   # popSidecars() should remove all the artifacts from the quarantine in both
@@ -575,34 +567,20 @@ func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
       indices: DataColumnIndices(default(seq[ColumnIndex])))
 
   let
-    supernode = (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS)
-    columnsCount =
-      if supernode:
-        (NUMBER_OF_COLUMNS div 2)
-      else:
-        len(quarantine.custodyColumns)
+    supernode = (len(quarantine.custodyMap) == NUMBER_OF_COLUMNS)
 
   if supernode:
     if isNil(node):
       for column in peerMap.items():
-        if len(res) > columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
-          # columns.
-          break
         res.incl(column)
     else:
-      if node[].value.count > columnsCount:
-        # We already have enough columns for reconstruction.
+      if quarantine.enoughColumns(node[].value.count):
         return
           DataColumnsByRootIdentifier(
             block_root: blockRoot,
             indices: DataColumnIndices(default(seq[ColumnIndex])))
 
       for column in peerMap.items():
-        if node[].value.count + len(res) > columnsCount:
-          # We don't need to request more than (NUMBER_OF_COLUMNS div 2)
-          # columns.
-          break
         let index = quarantine.getIndex(column)
         if (index == -1) or node[].value.sidecars[index].isEmpty():
           res.incl(column)
@@ -635,25 +613,27 @@ func getMissingColumnsMap*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallb
     quarantine: SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
 ): ColumnMap =
-  var res: ColumnMap
-  let node = quarantine.roots.getOrDefault(blockRoot)
+  let
+    node = quarantine.roots.getOrDefault(blockRoot)
+    supernode = (len(quarantine.custodyMap) == NUMBER_OF_COLUMNS)
 
-  if (len(quarantine.custodyColumns) == NUMBER_OF_COLUMNS):
+  if supernode:
     if isNil(node):
-      for index in 0 ..< NUMBER_OF_COLUMNS:
-        res.incl(ColumnIndex(index))
+      supernodeMap()
     else:
-      if len(node[].value.sidecars) > NUMBER_OF_COLUMNS div 2:
-        return res
+      var res: ColumnMap
+      if quarantine.enoughColumns(node[].value.count):
+        return default(ColumnMap)
       for index in 0 ..< NUMBER_OF_COLUMNS:
         if node[].value.sidecars[index].isEmpty():
           res.incl(ColumnIndex(index))
   else:
+    var res: ColumnMap
     for column in quarantine.custodyMap.items():
       let index = quarantine.getIndex(column)
       if isNil(node) or (index == -1) or node[].value.sidecars[index].isEmpty():
         res.incl(column)
-  res
+    res
 
 func getMissingSidecarIndices*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],
@@ -697,19 +677,25 @@ template onDataColumnSidecarCallback*[A: SomeDataColumnSidecar, B: OnDataColumnS
 ): OnDataColumnSidecarCallback =
   quarantine.onSidecarCallback
 
+template onFuluDataColumnSidecarAddedCallback*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
+    quarantine: SidecarQuarantine[A, B]
+): OnFuluDataColumnSidecarAddedCallback =
+  quarantine.onFuluColumnAddedCallback
+
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],
     cfg: RuntimeConfig,
     custodyColumns: openArray[ColumnIndex],
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: OnFuluDataColumnSidecarAddedCallback = nil
 ): SidecarQuarantine[A, B] =
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   let custodyMap = ColumnMap.init(custodyColumns)
   T.init(
     cfg, custodyMap, database, maxDiskSizeMultipler,
-    onDataColumnSidecarCallback)
+    onDataColumnSidecarCallback, onFuluColumnAddedCallback)
 
 proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     T: typedesc[SidecarQuarantine[A, B]],
@@ -717,7 +703,8 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     custodyMap: ColumnMap,
     database: QuarantineDB,
     maxDiskSizeMultipler: int,
-    onDataColumnSidecarCallback: OnDataColumnSidecarCallback
+    onDataColumnSidecarCallback: OnDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: OnFuluDataColumnSidecarAddedCallback = nil
 ): SidecarQuarantine[A, B] =
   var indexMap = newSeqUninit[int](NUMBER_OF_COLUMNS)
   if len(custodyMap) < NUMBER_OF_COLUMNS:
@@ -747,7 +734,8 @@ proc init*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     custodyMap: custodyMap,
     list: initDoublyLinkedList[RootTableRecord[A]](),
     db: database,
-    onSidecarCallback: onDataColumnSidecarCallback
+    onSidecarCallback: onDataColumnSidecarCallback,
+    onFuluColumnAddedCallback: onFuluColumnAddedCallback
   )
 
 proc update*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](

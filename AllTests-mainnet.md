@@ -6,14 +6,14 @@ AllTests-mainnet
 ```
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
-+ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
++ Aggregated attestations with disjoint committee bits into a single on-chain aggregate [Pre OK
 + Aggregating across committees [Preset: mainnet]                                            OK
 + Attestation from different branch [Preset: mainnet]                                        OK
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
 + Attestations may overlap, bigger first [Preset: mainnet]                                   OK
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
 + Attestations should be combined [Preset: mainnet]                                          OK
-+ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Attestations with disjoint committee bits and equal data into single on-chain aggregate [P OK
 + Attester slashing marks validator as equivocating                                          OK
 + Attester slashing retains unrealized checkpoints                                           OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
@@ -89,6 +89,7 @@ AllTests-mainnet
 + Auto check/repair test (missing footer)                                                    OK
 + Auto check/repair test (missing last chunk)                                                OK
 + Auto check/repair test (only header)                                                       OK
++ Auto check/repair test (zero-filled file)                                                  OK
 + Fixture file validation                                                                    OK
 ```
 ## Beacon state [Preset: mainnet]
@@ -110,6 +111,7 @@ AllTests-mainnet
 ## Beacon validators test suite
 ```diff
 + builderBetterBid(builderBoostFactor) test                                                  OK
++ builderBetterBid(localBlockValueBoost) with Gwei-to-Wei conversion                         OK
 ```
 ## Blinded block conversions
 ```diff
@@ -616,7 +618,6 @@ AllTests-mainnet
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
-+ Invalid URls                                                                               OK
 + New style config files                                                                     OK
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
@@ -677,7 +678,9 @@ AllTests-mainnet
 ```diff
 + Add missing                                                                                OK
 + Add orphan                                                                                 OK
++ Add unviable                                                                               OK
 + Clean up orphans                                                                           OK
++ Has orphan                                                                                 OK
 + Pop orphan                                                                                 OK
 ```
 ## Eth2 specific discovery tests
@@ -840,7 +843,7 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-## Key spliting
+## Key splitting
 ```diff
 + k < n                                                                                      OK
 + k == n                                                                                     OK
@@ -968,6 +971,62 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
+## Partial Column Quarantine
+```diff
++ Assemble multiple columns for the same block independently                                 OK
++ Cell tracking is per-column                                                                OK
++ Different block roots with same column index are independent                               OK
++ Different column indices are independent                                                   OK
++ Get entry for unknown key returns none                                                     OK
++ Get header for unknown root returns none                                                   OK
++ Header LRU evicts oldest entry when full                                                   OK
++ Init creates empty quarantine                                                              OK
++ Mark all cells received                                                                    OK
++ Mark and check cell received                                                               OK
++ Mark cell received for non-existent entry is no-op                                         OK
++ Mark cell received with out-of-bounds blob index is no-op                                  OK
++ Multiple headers for different roots                                                       OK
++ Overwrite header with same root                                                            OK
++ PartialColumnKey equality                                                                  OK
++ PartialColumnKey hash differs for different keys                                           OK
++ Put and get entry                                                                          OK
++ Put and get partial header                                                                 OK
++ Remove entry                                                                               OK
++ Remove entry does not affect other entries                                                 OK
++ Remove header                                                                              OK
++ Remove non-existent entry is no-op                                                         OK
++ Remove non-existent header is no-op                                                        OK
++ Removing entry does not remove header                                                      OK
++ Removing header does not remove entries                                                    OK
++ addCells accumulates across multiple sidecars                                              OK
++ addCells ingests cells from a PartialDataColumnSidecar                                     OK
++ addCells is independent across columns                                                     OK
++ addCells on non-existent entry is no-op                                                    OK
++ addCells with overlapping bitmap overwrites existing cells                                 OK
++ assembleDataColumnSidecar preserves inclusion proof from header                            OK
++ assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
++ assembleDataColumnSidecar returns none for non-existent entry                              OK
++ assembleDataColumnSidecar returns none when cells incomplete                               OK
++ assembleDataColumnSidecar returns none when header missing from cache                      OK
++ assembleDataColumnSidecar returns none when header not validated                           OK
++ assembleDataColumnSidecar with cells added incrementally                                   OK
++ assembleDataColumnSidecar with markCellReceived (data overload)                            OK
++ getOrCreateEntry creates new entry                                                         OK
++ getOrCreateEntry new entry has properly sized cells and proofs                             OK
++ getOrCreateEntry reflects header validation status                                         OK
++ getOrCreateEntry returns existing entry                                                    OK
++ hasCellReceived for non-existent entry returns false                                       OK
++ hasCellReceived for out-of-bounds index returns false                                      OK
++ isComplete becomes true after incremental addCells                                         OK
++ isComplete returns false for non-existent entry                                            OK
++ isComplete returns false when cells are missing                                            OK
++ isComplete returns false when header not validated                                         OK
++ isComplete returns true when header validated and all cells received                       OK
++ isComplete with single blob                                                                OK
++ markCellReceived with data on non-existent entry is no-op                                  OK
++ markCellReceived with data out-of-bounds is no-op                                          OK
++ markCellReceived with data stores cell and proof                                           OK
+```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
 + Can add and retrieve payload attestations [Preset: mainnet]                                OK
@@ -1009,8 +1068,8 @@ AllTests-mainnet
 ```
 ## Quarantine [Preset: mainnet]
 ```diff
-+ put/iterate/remove test [BlobSidecars]                                                     OK
-+ put/iterate/remove test [DataColumnSidecar]                                                OK
++ put/iterate/remove test [fulu DataColumnSidecar]                                           OK
++ put/iterate/remove test [gloas DataColumnSidecar]                                          OK
 ```
 ## REST encoding and decoding
 ```diff
@@ -1043,13 +1102,13 @@ AllTests-mainnet
 + remote signing example VOLUNTARY_EXIT                                                      OK
 + strictParse(Stuint) tests                                                                  OK
 ```
-## Remove keystore testing suite
+## Remote keystore testing suite
 ```diff
 + Many remotes                                                                               OK
 + Single remote                                                                              OK
 + Verifying Signer / Many remotes                                                            OK
 + Verifying Signer / Single remote                                                           OK
-+ vesion 1                                                                                   OK
++ version 1                                                                                  OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
@@ -1159,7 +1218,6 @@ AllTests-mainnet
 ```
 ## SyncManager test suite
 ```diff
-+ [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
 + [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
 + [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK

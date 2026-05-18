@@ -62,6 +62,8 @@ type
       ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
+    importBackfill*: bool
+      ## Whether to collect data for backfilling historical light client data
     maxPeriods*: Option[uint64]
       ## Maximum number of sync committee periods to retain light client data
     onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
@@ -85,6 +87,8 @@ type
       ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
+    importBackfill*: bool
+      ## Whether to collect data for backfilling historical light client data
     maxPeriods*: uint64
       ## Maximum number of sync committee periods to retain light client data
 

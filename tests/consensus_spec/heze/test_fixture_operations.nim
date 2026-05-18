@@ -205,17 +205,17 @@ from ../../../beacon_chain/spec/datatypes/gloas import
   SignedExecutionPayloadEnvelope, PayloadAttestation
 
 suite baseDescription & "Parent Execution Payload " & preset():
-  proc applyParentExecutionPayload(
+  proc applyParentExecPayload(
       preState: var heze.BeaconState,
       blck: heze.BeaconBlock): Result[void, cstring] =
     var cache: StateCache
     process_parent_execution_payload(
-      defaultRuntimeConfig, preState, blck, cache)
+      defaultRuntimeConfig, preState, blck, {}, cache)
 
   for path in walkTests(OpParentExecutionPayloadDir):
-    runTest[heze.BeaconBlock, typeof applyParentExecutionPayload](
+    runTest[heze.BeaconBlock, typeof applyParentExecPayload](
       OpParentExecutionPayloadDir, suiteName, "Parent Execution Payload",
-      "block", applyParentExecutionPayload, path)
+      "block", applyParentExecPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(

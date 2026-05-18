@@ -109,3 +109,9 @@ func shortLog*(a: ColumnMap): string =
   if len(a) > NUMBER_OF_COLUMNS div 2:
     return "[supernode]"
   $a
+
+func supernodeMap*(): ColumnMap =
+  ColumnMap(data: [0xFFFF_FFFF_FFFF_FFFF'u64, 0xFFFF_FFFF_FFFF_FFFF'u64])
+
+func lightSupernodeMap*(): ColumnMap =
+  ColumnMap(data: [0xFFFF_FFFF_FFFF_FFFF'u64, 0'u64])

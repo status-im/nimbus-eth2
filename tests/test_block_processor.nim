@@ -403,7 +403,7 @@ suite "Block processor" & preset():
             )
           )
         )
-        envelopeQuarantine[].addOrphan(envelope)
+        envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
 
         let res = await processor.addBlock(
           MsgSource.gossip, engineBlock.blck, noSidecars)
@@ -412,7 +412,8 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Envelope was popped, not marked as orphan
-          engineBlock.blck.root notin envelopeQuarantine[].orphans
+          (engineBlock.blck.root, BUILDER_INDEX_SELF_BUILD) notin
+            envelopeQuarantine[].orphans
 
   asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
     # Multiple blocks stored optimistically, each marks its envelope as missing.

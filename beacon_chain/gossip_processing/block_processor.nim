@@ -9,7 +9,8 @@
 
 import
   chronicles, chronos, metrics,
-  ../spec/[forks, helpers_el, signatures, signatures_batch, peerdas_helpers],
+  ../spec/[forks, helpers_el, signatures, signatures_batch, column_map,
+           peerdas_helpers],
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
@@ -36,8 +37,8 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import
-  containsExecutionPayloadEnvelope, getBlobSidecar, getDataColumnSidecar,
-  putBlobSidecar, putDataColumnSidecars
+  containsExecutionPayloadEnvelope, getDataColumnSidecar, putBlobSidecar,
+  putDataColumnSidecars
 
 export sszdump, signatures_batch
 
@@ -769,55 +770,57 @@ proc addBlock*(
     # because there are no state rewinds to deal with
     return self.storeBackfillBlock(blck, sidecarsOpt)
 
-  let queueTick = Moment.now()
-
-  # If the lock is acquired already, the current block will be put on hold
-  # meaning that we'll form an unbounded queue of blocks to be processed
-  # waiting for the lock - this is similar to using an `AsyncQueue` but
-  # without the copying and transition to/from `Forked`.
-  # The lock is important to ensure that we don't process blocks out-of-order
-  # which both would upset the `storeBlock` logic and cause unnecessary
-  # quarantine traffic.
-  self.pendingStores += 1
-  await self.storeLock.acquire()
-
-  let res =
-    try:
-      # Since block processing is async, we want to make sure it doesn't get
-      # (re)added there while we're busy - the start of processing also removes
-      # the block from the various quarantines.
-      # The processing status is cleared in the finally block below.
-      quarantine[].startProcessing(blck)
-
-      # Cooperative concurrency: one block per loop iteration - because
-      # we run both networking and CPU-heavy things like block processing
-      # on the same thread, we need to make sure that there is steady progress
-      # on the networking side or we get long lockups that lead to timeouts.
-      const
-        # We cap waiting for an idle slot in case there's a lot of network traffic
-        # taking up all CPU - we don't want to _completely_ stop processing blocks
-        # in this case - doing so also allows us to benefit from more batching /
-        # larger network reads when under load.
-        idleTimeout = chronos.milliseconds(10)
-
-      discard await idleAsync().withTimeout(idleTimeout)
-
-      let wallTime = self.getBeaconTime()
-      if not wallTime.afterGenesis:
-        fatal "Processing block before genesis, clock turned back?"
-        quit 1
-
-      await self.storeBlock(
-        src, wallTime, blck, sidecarsOpt, maybeFinalized, queueTick, validationDur
-      )
-    finally:
-      quarantine[].clearProcessing()
-
+  let
+    queueTick = Moment.now()
+    res =
       try:
-        self.storeLock.release()
+        # If the lock is acquired already, the current block will be put on hold
+        # meaning that we'll form an unbounded queue of blocks to be processed
+        # waiting for the lock - this is similar to using an `AsyncQueue` but
+        # without the copying and transition to/from `Forked`.
+        # The lock is important to ensure that we don't process blocks
+        # out-of-order which both would upset the `storeBlock` logic and cause
+        # unnecessary quarantine traffic.
+        self.pendingStores += 1
+        await self.storeLock.acquire()
+
+        try:
+          # Since block processing is async, we want to make sure it doesn't get
+          # (re)added there while we're busy - the start of processing also
+          # removes the block from the various quarantines.
+          # The processing status is cleared in the finally block below.
+          quarantine[].startProcessing(blck)
+
+          # Cooperative concurrency: one block per loop iteration - because
+          # we run both networking and CPU-heavy things like block processing
+          # on the same thread, we need to ensure that there is steady progress
+          # on the networking side or we get long lockups that lead to timeouts.
+          const
+            # We cap waiting for an idle slot in case there's a lot of network
+            # traffic taking up all CPU - we don't want to _completely_ stop
+            # processing blocks in this case - doing so also allows us to
+            # benefit from more batching / larger network reads when under load.
+            idleTimeout = chronos.milliseconds(10)
+
+          discard await idleAsync().withTimeout(idleTimeout)
+
+          let wallTime = self.getBeaconTime()
+          if not wallTime.afterGenesis:
+            fatal "Processing block before genesis, clock turned back?"
+            quit 1
+
+          await self.storeBlock(
+            src, wallTime, blck, sidecarsOpt, maybeFinalized,
+            queueTick, validationDur)
+        finally:
+          quarantine[].clearProcessing()
+
+          try:
+            self.storeLock.release()
+          except AsyncLockError:
+            raiseAssert "release matched with acquire, shouldn't happen"
+      finally:
         self.pendingStores -= 1
-      except AsyncLockError:
-        raiseAssert "release matched with acquire, shouldn't happen"
 
   self[].dumpBlock(blck, res)
 
@@ -939,6 +942,13 @@ proc storePayload(
   debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload_available: The node has verified that the execution
+  # payload and blobs for a block are available and ready for payload
+  # attestation
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
+
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
   let previousExecutionValid = dag.head.executionValid
@@ -985,7 +995,8 @@ proc addPayload*(
       # any missing parents. In either case, they should be caught when
       # processing block. So we only put the envelope into the quarantine for
       # the next try.
-      self.envelopeQuarantine[].addOrphan(signedEnvelope)
+      self.envelopeQuarantine[].addOrphan(
+        self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
       if sidecarsOpt.isSome():
         self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
     of VerifierError.Invalid, VerifierError.UnviableFork:
@@ -1027,7 +1038,8 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
         if sidecarsOpt.isNone():
           # As sidecars are missing, put envelope back to quarantine.
           self.consensusManager.quarantine[].addSidecarless(blck)
-          self.envelopeQuarantine[].addOrphan(envelope)
+          self.envelopeQuarantine[].addOrphan(
+            self.consensusManager.dag.finalizedHead.slot, envelope)
           return
         sidecarsOpt
 

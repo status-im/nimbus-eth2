@@ -340,7 +340,8 @@ proc processExecutionPayloadEnvelope*(
   debug "Envelope received", delay
 
   self.dag.validateExecutionPayload(
-      self.quarantine, self.envelopeQuarantine, signedEnvelope).isOkOr:
+      self.quarantine, self.envelopeQuarantine, signedEnvelope,
+      wallTime).isOkOr:
     debug "Dropping envelope", err = error
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
@@ -349,7 +350,8 @@ proc processExecutionPayloadEnvelope*(
     self.dag.onEnvelopeGossipAdded(signedEnvelope)
 
   trace "Envelope validated"
-  self.envelopeQuarantine[].addOrphan(signedEnvelope)
+  self.envelopeQuarantine[].addOrphan(
+    self.dag.finalizedHead.slot, signedEnvelope)
   self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
   execution_payload_envelopes_received.inc()

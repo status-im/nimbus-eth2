@@ -225,7 +225,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--fulu-fork-epoch 10000 \
+		--fulu-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp false \
@@ -485,7 +485,7 @@ endif
 force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
 
 # https://www.gnu.org/software/make/manual/html_node/Multiple-Rules.html#Multiple-Rules
-# Already defined as a reult
+# Already defined as a result
 nimbus_beacon_node: force_build_alone_tools
 
 GOERLI_TESTNETS_PARAMS := \
