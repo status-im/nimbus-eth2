@@ -428,21 +428,12 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)
-      let
-        records = checkColumnResponse(colIdList, ucolumns).valueOr:
-          debug "Response to columns by root is not a subset",
-            peer = peer,
-            columns = shortLog(colIdList),
-            ucolumns = len(ucolumns)
-          peer.updateScore(PeerScoreBadResponse)
-          return
-        v = verify_data_column_sidecar_kzg_proofs(records.mapIt(it.sidecar))
-      if v.isErr:
-        debug "Data columns failed KZG verification",
+      let records = checkColumnResponse(colIdList, ucolumns).valueOr:
+        debug "Response to columns by root is not a subset",
           peer = peer,
           columns = shortLog(colIdList),
           ucolumns = len(ucolumns)
-        peer.updateScore(PeerScoreBadValues)
+        peer.updateScore(PeerScoreBadResponse)
         return
       for col in records:
         debug "Received column responses",
