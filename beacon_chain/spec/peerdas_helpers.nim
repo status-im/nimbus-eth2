@@ -322,9 +322,16 @@ proc recover_cells_and_proofs_parallel*(
   ok(res)
 
 proc assemble_data_column_sidecars*(
-    signed_beacon_block: fulu.SignedBeaconBlock,
-    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): fulu.DataColumnSidecars =
-  template blck(): auto = signed_beacon_block.message
+    signed_block_header: SignedBeaconBlockHeader,
+    kzg_commitments: KzgCommitments,
+    kzg_commitments_inclusion_proof:
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest],
+    blobs: seq[KzgBlob],
+    cell_proofs: seq[KzgProof]): fulu.DataColumnSidecars =
+  ## Variant used by the column-first sidecar retrieval path: assembles
+  ## column sidecars from the per-block constants carried by an existing
+  ## column sidecar (header, commitments, inclusion proof) plus blobs and
+  ## cell proofs recovered from the EL. The block itself is not required.
   var sidecars = newSeqOfCap[ref fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if kzg_commitments.len == 0 or blobs.len == 0:
@@ -352,7 +359,7 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    sidecars.add fulu.DataColumnSidecar(
+    sidecars.add (ref fulu.DataColumnSidecar)(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
       kzg_commitments: kzg_commitments,
