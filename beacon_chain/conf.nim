@@ -554,6 +554,12 @@ type
         defaultValueDesc: $LightClientDataImportMode.OnlyNew
         name: "light-client-data-import-mode" .}: LightClientDataImportMode
 
+      lightClientDataImportBackfill* {.
+        hidden
+        desc: "Collect additional data for enabling peers to backfill light client data (experimental)"
+        defaultValue: false
+        name: "debug-light-client-data-import-backfill" .}: bool
+
       lightClientDataMaxPeriods* {.
         desc: "Maximum number of sync committee periods to retain light client data"
         name: "light-client-data-max-periods" .}: Option[uint64]

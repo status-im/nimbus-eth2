@@ -154,7 +154,9 @@ proc setupDatabase(
 ): Future[Opt[BeaconChainDB]] {.async: (raises: [CancelledError]).} =
   # Open the database and initialize it with genesis/checkpoint if it wasn't
   # setup before - fails if the data sources we use are broken
-  let db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
+  let db = BeaconChainDB.new(
+    config.databaseDir, metadata.cfg, inMemory = false,
+    lightClientDataImportBackfill = config.lightClientDataImportBackfill)
 
   if ChainDAGRef.isInitialized(db).isOk():
     if config.finalizedCheckpointState.isSome:
@@ -398,6 +400,7 @@ proc loadChainDag(
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,
       importMode: config.lightClientDataImportMode,
+      importBackfill: config.lightClientDataImportBackfill,
       maxPeriods: config.lightClientDataMaxPeriods,
       onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
       onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
@@ -673,6 +676,7 @@ proc initFullNode(
       ## enqueuePayload() except when the valid block or any sidecars is
       ## missing, we will return ok() as it is not any types of VerifierError.
       ## Therefore, the call is discarded silently.
+      envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, signedEnvelope)
       template blockRoot(): auto = signedEnvelope.message.beacon_block_root
 
       let
@@ -716,7 +720,7 @@ proc initFullNode(
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
               consensusManager.quarantine[].addSidecarless(blck)
-              envelopeQuarantine[].addOrphan(envelope)
+              envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
               # Return ok() as columns may arrive late.
               return ok()
             sidecarsOpt
@@ -1107,7 +1111,6 @@ proc init*(
 
   let node = BeaconNode(
     nickname: nickname,
-    graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
     network: network,
     netKeys: netKeys,
     db: db,
@@ -2935,7 +2938,9 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
 
     let
       metadata = loadEth2Network(config)
-      db = BeaconChainDB.new(config.databaseDir, metadata.cfg, inMemory = false)
+      db = BeaconChainDB.new(
+        config.databaseDir, metadata.cfg, inMemory = false,
+        lightClientDataImportBackfill = config.lightClientDataImportBackfill)
       genesisState = (waitFor fetchGenesisState(metadata, config.eraDir)).valueOr:
         quit 1
     waitFor db.doRunTrustedNodeSync(

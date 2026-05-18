@@ -614,7 +614,7 @@ func is_valid_proposal_slot*(
     return false
   state.proposer_lookahead.item(slot - start_slot) == validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/validator.md#broadcasting-signedproposerpreferences
 # The signature of this function diverges from the spec to avoid
 # passing the full beacon state through an inline iterator which
 # triggers stack-materialization of the enclosing case object.

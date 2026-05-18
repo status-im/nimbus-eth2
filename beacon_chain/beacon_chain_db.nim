@@ -505,7 +505,8 @@ proc new*(T: type BeaconChainDBV0,
 
 proc new*(T: type BeaconChainDB,
           db: SqStoreRef,
-          cfg: RuntimeConfig
+          cfg: RuntimeConfig,
+          lightClientDataImportBackfill = false
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -679,7 +680,8 @@ proc new*(T: type BeaconChainDB,
           dir: string,
           cfg: RuntimeConfig,
           inMemory = false,
-          readOnly = false
+          readOnly = false,
+          lightClientDataImportBackfill = false
     ): BeaconChainDB =
   let db =
     if inMemory:
@@ -694,7 +696,7 @@ proc new*(T: type BeaconChainDB,
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
-  BeaconChainDB.new(db, cfg)
+  BeaconChainDB.new(db, cfg, lightClientDataImportBackfill)
 
 template getQuarantineDB*(db: BeaconChainDB): QuarantineDB =
   db.quarantine

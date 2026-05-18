@@ -47,6 +47,7 @@ type TimeParams* = object
   AGGREGATE_DUE_BPS_GLOAS*: uint16
   SYNC_MESSAGE_DUE_BPS_GLOAS*: uint16
   CONTRIBUTION_DUE_BPS_GLOAS*: uint16
+  PAYLOAD_DUE_BPS*: uint16
   PAYLOAD_ATTESTATION_DUE_BPS*: uint16
 
 const
@@ -81,6 +82,7 @@ func isValid*(timeParams: TimeParams): bool =
     timeParams.AGGREGATE_DUE_BPS_GLOAS and
   timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
     timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS
+
 type
   Version* = distinct array[4, byte]
 
@@ -322,14 +324,16 @@ when const_preset == "mainnet":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 7500,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
-    # 2**6 (= 64) epochs ~7 hours
-    MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
+    # 2**13 (= 8,192) epochs ~36 days
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 8192,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -531,14 +535,16 @@ elif const_preset == "gnosis":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 7500,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
-    # 2**6 (= 64) epochs ~7 hours
-    MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
+    # 2**13 (= 8,192) epochs ~36 days
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 8192,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -735,6 +741,8 @@ elif const_preset == "minimal":
       SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 7500,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
@@ -1230,6 +1238,9 @@ proc readRuntimeConfig*(
     checkParsedValue(
       "CONTRIBUTION_DUE_BPS_GLOAS", cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS,
       cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS)
+    checkParsedValue(
+      "PAYLOAD_DUE_BPS", cfg.timeParams.PAYLOAD_DUE_BPS,
+      cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
     checkParsedValue(
       "PAYLOAD_ATTESTATION_DUE_BPS", cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
       cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)

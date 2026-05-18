@@ -423,34 +423,26 @@ template validateBeaconBlockGloas(
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
   let executionParent = block:
-    let
-      parent = dag.getBlockRef(bid.parent_block_root).valueOr:
+    var
+      cur = dag.getBlockRef(bid.parent_block_root).valueOr:
         return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-      pBhash = dag.loadExecutionBlockHash(parent).valueOr:
+      i = 0
+      found = false
+
+    # Search execution parent up to 2 ancestors. Also stop searching when there
+    # is not any parents, means that it is either a finalized or genesis block.
+    while not isNil(cur.parent) and i < 2:
+      let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
         return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-    if pBhash == bid.parent_block_hash:
-      # Parent's payload status is FULL
-      parent.bid
-    else:
-      # Parent's payload status is EMPTY, i.e. check with grandparent.
-      let res = block:
-        if not isNil(parent.parent):
-          # Grandparent is non-finalized yet.
-          let gpBhash = dag.loadExecutionBlockHash(parent.parent).valueOr:
-            return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-          (parent.parent.bid, gpBhash)
-        else:
-          # Grandparent should be either finalized or nonexistent.
-          let
-            gpBid = dag.parent(parent.bid).valueOr:
-              return errIgnore("validateBeaconBlockGloas: invalid execution parent")
-            gpBhash = dag.loadExecutionBlockHash(gpBid).valueOr:
-              return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-          (gpBid, gpBhash)
-      if res[1] == bid.parent_block_hash:
-        res[0]
+      if pBhash == bid.parent_block_hash:
+        found = true
+        break
       else:
-        return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+        cur = cur.parent
+      inc i
+    if not found:
+      return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+    cur
 
   # - [IGNORE] The block's parent execution payload (defined by
   #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
@@ -462,15 +454,23 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  if executionParent.root in envelopeQuarantine.unviable:
-    return dag.checkedReject("validateBeaconBlockGloas: invalid parent payload")
-  elif not (
-      dag.db.containsExecutionPayloadEnvelope(executionParent.root) or
-      executionParent.root in envelopeQuarantine.orphans
-  ):
-    envelopeQuarantine[].addMissing(executionParent.root)
-    discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
-    return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
+  if dag.cfg.consensusForkAtEpoch(executionParent.slot.epoch()) >= ConsensusFork.Gloas:
+    # The executionParent exists in DAG, so we should check unviable envelope
+    # and the database for the validation rules.
+    if executionParent.root in envelopeQuarantine.unviable:
+      return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
+    # The genesis block would not have an envelope. Otherwise, we should have
+    # the envelope for the execution parent.
+    elif not (executionParent.slot != GENESIS_SLOT and
+        dag.db.containsExecutionPayloadEnvelope(executionParent.root)):
+      envelopeQuarantine[].addMissing(executionParent.root)
+      discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
+      return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
+  else:
+    # The executionParent is found from DAG, which is a validated pre-Gloas
+    # block. It could also be pre-merge or optimistic block. In either case,
+    # they shouldn't be rejected.
+    discard
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
@@ -1060,9 +1060,14 @@ proc validateBeaconBlock*(
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
-    Result[void, ValidationError] =
+    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
+    wallTime: BeaconTime): Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
+
+  # No matching block can exist: blocks [IGNORE] future slots.
+  if not (envelope.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+    return errIgnore("ExecutionPayload: slot too high")
 
   # [IGNORE] The envelope's block root `envelope.beacon_block_root` has been
   # seen (via gossip or non-gossip sources) (a client MAY queue payload for
@@ -1084,7 +1089,8 @@ proc validateExecutionPayload*(
     # processed locally once the block arrives, but never re-gossiped to peers
     # who may also be missing it.
     discard quarantine[].addMissing(envelope.beacon_block_root)
-    envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
+    envelopeQuarantine[].addOrphan(
+      dag.finalizedHead.slot, signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: block not found")
 
   # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
@@ -1234,7 +1240,7 @@ proc validateAttestation*(
     if attestation.data.index == 1:
       template block_root: untyped = attestation.data.beacon_block_root
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin envelopeQuarantine[].orphans:
+          not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
           "SingleAttestation: execution payload not yet seen")
   else:
@@ -1447,7 +1453,7 @@ proc validateAggregate*(
       template block_root: untyped = aggregate.data.beacon_block_root
       debugGloasComment("unviable envelope")
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin envelopeQuarantine[].orphans:
+          not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
           "Aggregate: execution payload not yet seen")
   else:
@@ -1471,9 +1477,8 @@ proc validateAggregate*(
     shufflingRef.get_committee_index(agg_idx.uint64).valueOr:
       return pool.checkedReject("Aggregate: committee index not within expected range")
 
-  if not aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
-    shufflingRef, slot, committee_index
-  ):
+  if not (aggregate.aggregation_bits.lenu64 == get_beacon_committee_len(
+      shufflingRef, slot, committee_index)):
     return pool.checkedReject(
       "Aggregate: number of aggregation bits and committee size mismatch"
     )
@@ -2243,7 +2248,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],

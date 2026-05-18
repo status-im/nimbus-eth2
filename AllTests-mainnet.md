@@ -89,6 +89,7 @@ AllTests-mainnet
 + Auto check/repair test (missing footer)                                                    OK
 + Auto check/repair test (missing last chunk)                                                OK
 + Auto check/repair test (only header)                                                       OK
++ Auto check/repair test (zero-filled file)                                                  OK
 + Fixture file validation                                                                    OK
 ```
 ## Beacon state [Preset: mainnet]
@@ -110,6 +111,7 @@ AllTests-mainnet
 ## Beacon validators test suite
 ```diff
 + builderBetterBid(builderBoostFactor) test                                                  OK
++ builderBetterBid(localBlockValueBoost) with Gwei-to-Wei conversion                         OK
 ```
 ## Blinded block conversions
 ```diff
@@ -616,7 +618,6 @@ AllTests-mainnet
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
-+ Invalid URls                                                                               OK
 + New style config files                                                                     OK
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
@@ -677,7 +678,9 @@ AllTests-mainnet
 ```diff
 + Add missing                                                                                OK
 + Add orphan                                                                                 OK
++ Add unviable                                                                               OK
 + Clean up orphans                                                                           OK
++ Has orphan                                                                                 OK
 + Pop orphan                                                                                 OK
 ```
 ## Eth2 specific discovery tests
