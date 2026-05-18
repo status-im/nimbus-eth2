@@ -46,6 +46,9 @@ import
 from std/sequtils import mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
+from ../spec/beaconstate import proposalExecutionHead
+from ../consensus_object_pools/execution_payload_pool import
+  getHighestBidForSlotAndParent
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -578,6 +581,32 @@ proc proposeBlockAux(
     beacon_block_production_errors.inc()
     return head
 
+  when fork >= ConsensusFork.Gloas:
+    let
+      executionHead = proposalExecutionHead(
+        state[].forky(fork).data)
+      poolBid = node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
+        slot, executionHead)
+      localBlockValueBoost =
+        BoostFactor.init(node.config.localBlockValueBoost)
+      usePoolBid =
+        poolBid.isSome and
+        builderBetterBid(
+          localBlockValueBoost,
+          poolBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
+          engineBid[].eps.blockValue)
+      selectedBuilderBid =
+        if usePoolBid:
+          info "Using builder bid from pool",
+            slot,
+            builderIndex = poolBid.get().message.builder_index,
+            bidValue = poolBid.get().message.value,
+            engineValue = engineBid[].eps.blockValue,
+            localBlockValueBoost
+          Opt.some(poolBid.get())
+        else:
+          Opt.none(gloas.SignedExecutionPayloadBid)
+
   let
     verificationFlags =
       if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
@@ -594,6 +623,10 @@ proc proposeBlockAux(
       engineBid[].execution_requests,
       parentExecutionRequests,
       verificationFlags,
+      when fork >= ConsensusFork.Gloas:
+        selectedBuilderBid
+      else:
+        Opt.none(gloas.SignedExecutionPayloadBid),
     ).valueOr:
       beacon_block_production_errors.inc()
       return head
@@ -612,7 +645,7 @@ proc proposeBlockAux(
 
   when fork == ConsensusFork.Heze:
     debugHezeComment "stub: heze sidecar assembly"
-    let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
+    let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
   elif fork == ConsensusFork.Gloas:
     let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
       engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
@@ -656,6 +689,15 @@ proc proposeBlockAux(
   beacon_blocks_proposed.inc()
 
   when fork >= ConsensusFork.Gloas:
+    selectedBuilderBid.isErrOr:
+      notice "Block uses builder bid, skipping envelope broadcast",
+        blockRoot = shortLog(blockRoot),
+        builderIndex = value.message.builder_index,
+        bidValue = value.message.value,
+        signature = shortLog(value.signature),
+        validator = shortLog(validator)
+      return newBlockRef.get()
+
     debugGloasComment("check if slot/slot_number is set properly in eps")
     # The envelope is published immediately after the block. Peers may receive
     # this envelope before they have validated the block. Per the p2p-interface

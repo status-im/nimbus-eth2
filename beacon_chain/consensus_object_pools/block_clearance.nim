@@ -206,12 +206,16 @@ proc checkHeadBlock*(
         debug "Duplicate block"
         return err(VerifierError.Duplicate)
 
-    # Block is older than finalized, but different from the block in our
-    # canonical history: it must be from an unviable branch
-    debug "Block from unviable fork",
-      existing = shortLog(existing.get()),
-      finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail)
+      # Block is older than finalized, but different from the block in our
+      # canonical history: it must be from an unviable branch
+      debug "Block from unviable fork",
+        existing = shortLog(existing.get()),
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail)
+    else:
+      debug "Block from unviable fork (slot not backfilled)",
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail)
 
     return err(VerifierError.UnviableFork)
 
