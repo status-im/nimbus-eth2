@@ -6,7 +6,7 @@
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
-library 'status-jenkins-lib@v1.9.44'
+library 'status-jenkins-lib@v1.9.45'
 
 def result = ''
 
@@ -51,15 +51,12 @@ pipeline {
   }
 
   stages {
-    stage('Deps') {
-      steps { script {
-        sh 'git submodule update --init --recursive'
-      } }
-    }
-
     stage('Build') {
       steps { script {
-        result = nix.flake(params.NIX_TARGET)
+        result = nix.flake('validator_client_gcc11', [
+            path: "git+https://github.com/status-im/nimbus-eth2?ref=${env.BRANCH_NAME}",
+            noWriteLockFile: true,
+        ])
       } }
     }
 
