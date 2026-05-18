@@ -2940,8 +2940,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
     let
       metadata = loadEth2Network(config)
       db = BeaconChainDB.new(
-        config.databaseDir, metadata.cfg, inMemory = false,
-        lightClientDataImportBackfill = config.lightClientDataImportBackfill)
+        config.databaseDir, metadata.cfg, inMemory = false)
       genesisState = (waitFor fetchGenesisState(metadata, config.eraDir)).valueOr:
         quit 1
     waitFor db.doRunTrustedNodeSync(
