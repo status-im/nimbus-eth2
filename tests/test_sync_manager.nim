@@ -8,7 +8,6 @@
 {.push raises: [], gcsafe.}
 {.used.}
 
-import std/sequtils
 import unittest2
 import chronos, stew/base10, chronos/unittest2/asynctests, libp2p/peerid
 import ../beacon_chain/networking/[peer_scores, eth2_agents]
@@ -16,7 +15,7 @@ import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/[sync_queue, response_utils],
        ../beacon_chain/spec/[forks, column_map]
 
-from std/sequtils import repeat
+from std/sequtils import repeat, mapIt
 
 type
   SomeTPeer = ref object
