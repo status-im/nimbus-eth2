@@ -68,7 +68,9 @@ func addOrphan*(
     finalizedSlot: Slot,
     envelope: SignedExecutionPayloadEnvelope) =
   self.cleanupOrphans(finalizedSlot)
-  self.orphans.put((envelope.root, envelope.message.builder_index), envelope)
+  self.orphans.put(
+    (envelope.message.beacon_block_root, envelope.message.builder_index),
+    envelope)
 
 func popOrphan*(
     self: var EnvelopeQuarantine,
