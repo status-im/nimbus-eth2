@@ -1108,7 +1108,10 @@ proc sendProposerPreferences(
           let data = ProposerPreferences(
             dependent_root: dependent_root,
             validator_index: validator_index.uint64,
-            proposal_slot: proposal_slot)
+            proposal_slot: proposal_slot,
+            fee_recipient: node.getFeeRecipient(
+              validator.pubkey, validator.index, proposal_slot.epoch),
+            gas_limit: node.getGasLimit(validator.pubkey))
 
           asyncSpawn node.signAndSendProposerPreference(
             validator, fork, genesis_validators_root, data)
