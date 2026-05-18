@@ -2261,11 +2261,12 @@ proc validateProposerPreferences*(
     currentEpoch = currentSlot.epoch
     proposalEpoch = preferences.proposal_slot.epoch
 
-  # [IGNORE] preferences.proposal_slot is in the current or next epoch
+  # [IGNORE] preferences.proposal_slot is within the proposer lookahead
   # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
-  # [get_current_epoch(state), get_current_epoch(state) + 1].
-  if proposalEpoch != currentEpoch and proposalEpoch != currentEpoch + 1:
-    return errIgnore("ProposerPreferences: proposal_slot not in current/next epoch")
+  # [get_current_epoch(state), get_current_epoch(state) + MIN_SEED_LOOKAHEAD].
+  if proposalEpoch < currentEpoch or
+      proposalEpoch > currentEpoch + MIN_SEED_LOOKAHEAD:
+    return errIgnore("ProposerPreferences: proposal_slot outside proposer lookahead")
 
   # [IGNORE] preferences.proposal_slot has not already passed
   # -- i.e. preferences.proposal_slot > current_slot

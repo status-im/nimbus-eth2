@@ -602,12 +602,12 @@ func get_beacon_proposer_indices*(
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
 func is_valid_proposal_slot*(
     state: gloas.BeaconState | heze.BeaconState,
     slot: Slot, validator_index: uint64): bool =
-  ## Check if the validator is the proposer for the given slot in the current or
-  ## next epoch.
+  ## Check if the validator is the proposer for the given slot within the
+  ## proposer lookahead.
   let start_slot = state.get_current_epoch().start_slot()
   if slot < start_slot or
       slot - start_slot >= state.proposer_lookahead.lenu64:
@@ -626,8 +626,8 @@ iterator get_upcoming_proposal_slots*(
     current_epoch: Epoch,
     state_slot: Slot,
     validator_index: uint64): Slot =
-  ## Yield the future slots in the current epoch and the slots in the next
-  ## epoch for which ``validator_index`` is proposing.
+  ## Get the future slots within the proposer lookahead for which
+  ## ``validator_index`` is proposing.
   const total_slots = (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH
   for offset in 0'u64 ..< total_slots:
     if proposer_lookahead.item(offset) == validator_index:
