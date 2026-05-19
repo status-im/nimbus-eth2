@@ -388,13 +388,23 @@ p2pProtocol BeaconSync(version = 1,
     let
       dag = peer.networkState.dag
       count = int min(reqCount, MAX_REQUEST_BLOCKS_DENEB)
+
+      # The epoch range we are required to serve, per spec:
+      # `[current_epoch - compute_min_epochs_for_block_requests(), current_epoch]`
+      serveFloorEpoch =
+        if dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS >= dag.head.slot.epoch:
+          GENESIS_EPOCH
+        else:
+          dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
+
       startBid = dag.getBlockId(beaconRoot).valueOr:
-        # We don't know about this block at all - peers MAY respond with
-        # ResourceUnavailable when `beacon_root` is outside the served range.
+        # We have no record of this block - peers MAY respond with
+        # `ResourceUnavailable` when `beacon_root` is outside the served range
+        # or simply unknown.
         raise newException(ResourceUnavailableError, BlocksUnavailable)
 
-    if startBid.slot < dag.backfill.slot:
-      # Block is older than what we've backfilled - outside the serving range.
+    if startBid.slot.epoch < serveFloorEpoch:
+      # `beacon_root` is older than the epoch range we are required to serve.
       raise newException(ResourceUnavailableError, BlocksUnavailable)
 
     var
@@ -404,6 +414,7 @@ p2pProtocol BeaconSync(version = 1,
 
     while found < count:
       if not dag.getBlockSZ(cur, bytes):
+        # Block bytes unavailable (e.g. summary present but block pruned).
         break
 
       let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
@@ -424,12 +435,21 @@ p2pProtocol BeaconSync(version = 1,
       if found >= count:
         break
 
-      # Walk to the parent; stop at genesis or when the next ancestor falls
-      # outside the epoch range we are required to serve.
+      # `dag.parent` walks the in-memory `BlockRef` tree while above the
+      # finalized head and falls through to the canonical chain in the
+      # database (via `getBlockIdAtSlot`) below it - so the walk spans the
+      # full available history, not just the head-to-finalized window.
       let parentBid = dag.parent(cur).valueOr:
+        # No further ancestor is resolvable. On a checkpoint-synced node
+        # this typically means we hit `dag.backfill.slot` (the lower bound
+        # of locally available history), not genesis.
         break
-      if parentBid.slot < dag.backfill.slot:
+
+      if parentBid.slot.epoch < serveFloorEpoch:
+        # Next ancestor falls outside the epoch range we are required to
+        # serve - stop per spec.
         break
+
       cur = parentBid
 
     debug "Block head request done",
