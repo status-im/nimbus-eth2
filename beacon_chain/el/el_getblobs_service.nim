@@ -147,8 +147,8 @@ proc attemptGetBlobs*(
       let custodyMap = self.validatorCustody.getMap()
       var batch = newSeqOfCap[ref fulu.DataColumnSidecar](len(custodyMap))
       for col in recovered_columns:
-        if col.index in custodyMap:
-          batch.add newClone(col)
+        if col[].index in custodyMap:
+          batch.add col
 
       if batch.len == 0:
         return

@@ -1604,11 +1604,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
 
-    var data_columns: seq[fulu.DataColumnSidecar]
+    var data_columns: fulu.DataColumnSidecars
     for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
-      var dataColumnSidecar = new fulu.DataColumnSidecar
+      let dataColumnSidecar = new fulu.DataColumnSidecar
       if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
-        data_columns.add dataColumnSidecar[]
+        data_columns.add dataColumnSidecar
 
     let data = recover_blobs_from_data_columns(data_columns)
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)

@@ -300,13 +300,12 @@ suite "Block processor" & preset():
         let dataColumnSidecars = assemble_data_column_sidecars(
           engineBlock.blck, @[kzgBlob], cellsAndProofs.proofs.mapIt(kzg.KzgProof(it))
         )
-        let dsRef = dataColumnSidecars.mapIt(newClone(it))
 
         # Process the block with data columns
         let res = await processor.addBlock(
           MsgSource.gossip,
           engineBlock.blck,
-          Opt.some(dsRef)
+          Opt.some(dataColumnSidecars)
         )
 
         check:

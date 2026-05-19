@@ -397,16 +397,17 @@ proc processBlobSidecar*(
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: fulu.DataColumnSidecar,
+    dataColumnSidecar: ref fulu.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
-  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  template block_header: untyped =
+    dataColumnSidecar[].signed_block_header.message
 
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
-    dcs = shortLog(dataColumnSidecar)
+    dcs = shortLog(dataColumnSidecar[])
     wallSlot
 
   if not afterGenesis:
@@ -435,12 +436,12 @@ proc processDataColumnSidecar*(
   let block_root = hash_tree_root(block_header)
 
   debug "Data column validated, putting data column in quarantine"
-  if dataColumnSidecar.index notin self.dataColumnQuarantine[].custodyMap:
+  if dataColumnSidecar[].index notin self.dataColumnQuarantine[].custodyMap:
     data_column_sidecars_received.inc()
     data_column_sidecar_delay.observe(delay.toFloatSeconds())
     return v
 
-  self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
+  self.dataColumnQuarantine[].put(block_root, dataColumnSidecar)
 
   if block_root in self.quarantine[].sidecarless:
     let cres = self.dataColumnQuarantine[].popSidecars(block_root)
@@ -460,14 +461,14 @@ proc processDataColumnSidecar*(
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: gloas.DataColumnSidecar,
+    dataColumnSidecar: ref gloas.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
-    dcs = shortLog(dataColumnSidecar)
+    dcs = shortLog(dataColumnSidecar[])
     wallSlot
 
   if not afterGenesis:
@@ -486,13 +487,13 @@ proc processDataColumnSidecar*(
     return v
 
   debug "Data column validated"
-  if dataColumnSidecar.index notin self.gloasColumnQuarantine[].custodyMap:
+  if dataColumnSidecar[].index notin self.gloasColumnQuarantine[].custodyMap:
     data_column_sidecars_received.inc()
     return v
 
   self.gloasColumnQuarantine[].put(
-    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
-  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
+    dataColumnSidecar[].beacon_block_root, dataColumnSidecar)
+  self.blockProcessor.enqueuePayload(dataColumnSidecar[].beacon_block_root)
 
   data_column_sidecars_received.inc()
   v

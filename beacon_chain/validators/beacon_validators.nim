@@ -645,7 +645,7 @@ proc proposeBlockAux(
 
   when fork == ConsensusFork.Heze:
     debugHezeComment "stub: heze sidecar assembly"
-    let sidecarsOpt = Opt.none(seq[gloas.DataColumnSidecar])
+    let sidecarsOpt = Opt.none(gloas.DataColumnSidecars)
   elif fork == ConsensusFork.Gloas:
     let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
       engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
