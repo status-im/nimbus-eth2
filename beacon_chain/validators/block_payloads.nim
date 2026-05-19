@@ -89,7 +89,7 @@ func init*(t: typedesc[BoostFactor], value: uint8): BoostFactor =
 func init*(t: typedesc[BoostFactor], value: uint64): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Builder, value64: value)
 
-func builderBetterBid(
+func builderBetterBid*(
     localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei
 ): bool =
   # Scale down to ensure no overflows; if lower few bits would have been
@@ -128,7 +128,7 @@ func builderBetterBid*(
     else:
       (multipledBuilderValue div 100) >= engineValue
 
-func builderBetterBid(
+func builderBetterBid*(
     boostFactor: BoostFactor, builderValue: UInt256, engineValue: Wei
 ): bool =
   case boostFactor.kind
@@ -269,6 +269,8 @@ proc makeEngineBlock*(
     execution_requests: ExecutionRequests,
     parent_execution_requests: ExecutionRequests,
     verification_flags: UpdateFlags,
+    builderBid: Opt[gloas.SignedExecutionPayloadBid] = Opt.none(
+      gloas.SignedExecutionPayloadBid),
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -285,11 +287,12 @@ proc makeEngineBlock*(
           state.latest_block_root, slot,
           static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       elif consensusFork == ConsensusFork.Gloas:
-        makeSignedExecutionPayloadBid(
-          gloas.SignedExecutionPayloadBid,
-          eps.executionPayload, execution_requests, eps.kzg_commitments,
-          state.latest_block_root, slot,
-          static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
+        builderBid.valueOr:
+          makeSignedExecutionPayloadBid(
+            gloas.SignedExecutionPayloadBid,
+            eps.executionPayload, execution_requests, eps.kzg_commitments,
+            state.latest_block_root, slot,
+            static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
       else:
         default(gloas.SignedExecutionPayloadBid)
     payload_attestations =

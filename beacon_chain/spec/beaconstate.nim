@@ -2228,7 +2228,7 @@ func add_builder_to_registry(
   if state.builders.lenu64 == index:
     # TODO handle this potential failure (?) differently
     discard state.builders.add builder
-    # TODO this isn't really safe
+    debugGloasComment "this isn't really safe"
     bucket_sorted_builders.add index.ValidatorIndex
   else:
     state.builders.mitem(index) = builder
@@ -2256,66 +2256,61 @@ func apply_deposit_for_builder*(
     # Increase balance by deposit amount
     state.builders.mitem(opt_validator_index.get).balance += amount
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
 func onboard_builders_from_pending_deposits*(
     cfg: RuntimeConfig,
     state: var gloas.BeaconState) =
-  ## Applies any pending deposit for builders, effectively
-  ## onboarding builders at the fork.
-
-  var
+  ## Applies any pending deposit for builders, effectively onboarding builders
+  ## at the fork.
+  debugGloasComment "In the slots leading up to the fork, implementations SHOULD validate pending deposit signatures and cache the results."
+  let
     bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
+  var
     pending_deposits: seq[PendingDeposit]
     pending_validator_pubkeys: HashSet[ValidatorPubKey]
 
   for deposit in state.pending_deposits:
-    # Deposits for existing validators stay in pending queue
-    let is_existing_validator = findValidatorIndex(
-      state.validators.asSeq, bucket_sorted_validators[], deposit.pubkey).isSome
-
-    if is_existing_validator or deposit.pubkey in pending_validator_pubkeys:
+    # Deposits for existing validators stay in the pending queue
+    if findValidatorIndex(
+        state.validators.asSeq, bucket_sorted_validators[],
+        deposit.pubkey).isSome:
       pending_deposits.add(deposit)
       continue
 
-    # If the pubkey is associated with a builder that was created in a
-    # previous iteration or it is a builder deposit, try to apply the
-    # deposit to the new/existing builder. Note that the function
-    # apply_deposit_for_builder can mutate the state and may add a builder
-    # to the registry.
-    let
-      is_existing_builder = findValidatorIndex(
-        state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
-      has_builder_credentials =
-        is_builder_withdrawal_credential(deposit.withdrawal_credentials)
+    # Note that the function apply_deposit_for_builder can mutate the state and
+    # may add a builder to the registry. For this reason, the list of builder
+    # pubkeys must be recomputed each iteration.
+    let is_existing_builder = findValidatorIndex(
+      state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
 
-    if is_existing_builder or has_builder_credentials:
-      apply_deposit_for_builder(
-        cfg, state, bucket_sorted_builders[],
-        deposit.pubkey,
-        deposit.withdrawal_credentials,
-        deposit.amount,
-        deposit.signature,
-        deposit.slot)
-      continue
+    # Deposits for non-builders stay in the pending queue. If there is a valid
+    # pending deposit for a new validator with this pubkey, keep this deposit
+    # in the pending queue to be applied to that validator later.
+    if not is_existing_builder:
+      if not is_builder_withdrawal_credential(deposit.withdrawal_credentials):
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/beacon-chain.md#new-is_pending_validator
+        if verify_deposit_signature(
+            cfg.GENESIS_FORK_VERSION,
+            DepositData(
+              pubkey: deposit.pubkey,
+              withdrawal_credentials: deposit.withdrawal_credentials,
+              amount: deposit.amount,
+              signature: deposit.signature)):
+          pending_validator_pubkeys.incl(deposit.pubkey)
+        pending_deposits.add(deposit)
+        continue
+      if deposit.pubkey in pending_validator_pubkeys:
+        pending_deposits.add(deposit)
+        continue
 
-    # If there is a pending deposit for a new validator that has a valid
-    # signature, track the pubkey so that subsequent builder deposits for
-    # the same pubkey stay in pending (applied to the validator later)
-    # rather than creating a builder. Deposits with invalid signatures are
-    # dropped here since they would fail in apply_pending_deposit anyway.
-    if verify_deposit_signature(
-        cfg.GENESIS_FORK_VERSION,
-        DepositData(
-          pubkey: deposit.pubkey,
-          withdrawal_credentials: deposit.withdrawal_credentials,
-          amount: deposit.amount,
-          signature: deposit.signature)):
-      pending_validator_pubkeys.incl(deposit.pubkey)
-      pending_deposits.add(deposit)
+    apply_deposit_for_builder(
+      cfg, state, bucket_sorted_builders[], deposit.pubkey,
+      deposit.withdrawal_credentials, deposit.amount, deposit.signature,
+      deposit.slot)
 
-  state.pending_deposits =
-    typeof(state.pending_deposits).init(pending_deposits)
+  assign(state.pending_deposits,
+    typeof(state.pending_deposits).init(pending_deposits))
 
 # {.closure.} prevents stack overflow from inline expansion.
 # See: https://github.com/nim-lang/Nim/issues/25287
@@ -2883,7 +2878,7 @@ func upgrade_to_next*(
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork.md#upgrading-the-state
 # upgrade_to_gloas
 func upgrade_to_next*(
     cfg: RuntimeConfig, pre: fulu.BeaconState, cache: var StateCache):
@@ -2949,6 +2944,7 @@ func upgrade_to_next*(
     # [Modified in Gloas:EIP7732]
     latest_execution_payload_bid: gloas.ExecutionPayloadBid(
       block_hash: pre.latest_execution_payload_header.block_hash,
+      gas_limit: pre.latest_execution_payload_header.gas_limit,
       execution_requests_root: hash_tree_root(default(ExecutionRequests)),
     ),
     next_withdrawal_index: pre.next_withdrawal_index,

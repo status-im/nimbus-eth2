@@ -233,17 +233,18 @@ func check_blob_sidecar_inclusion_proof(
   ok()
 
 func check_data_column_sidecar_inclusion_proof(
-    data_column_sidecar: fulu.DataColumnSidecar): Result[void, ValidationError] =
-  let res = data_column_sidecar.verify_data_column_sidecar_inclusion_proof()
+    data_column_sidecar: ref fulu.DataColumnSidecar):
+    Result[void, ValidationError] =
+  let res = data_column_sidecar[].verify_data_column_sidecar_inclusion_proof()
   if res.isErr:
     return errReject(res.error)
 
   ok()
 
 proc check_data_column_sidecar_kzg_proofs(
-    data_column_sidecar: fulu.DataColumnSidecar):
+    data_column_sidecar: ref fulu.DataColumnSidecar):
     Result[void, ValidationError] =
-  let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
+  let res = data_column_sidecar[].verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
 
@@ -872,22 +873,22 @@ proc validatePartialDataColumnSidecar*(
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine,
-    data_column_sidecar: fulu.DataColumnSidecar,
+    data_column_sidecar: ref fulu.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
 
   # If the header is invalid, so is the block that shares its block_root ->
   # we can mark those blocks invalid without further processing
-  template block_header: untyped = data_column_sidecar.signed_block_header.message
+  template block_header: untyped = data_column_sidecar[].signed_block_header.message
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar(sidecar)
   block:
-    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar)
+    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar[])
     if v.isErr:
       return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar is for the correct subnet
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
-  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
+  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) == subnet_id):
     return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
 
   # [IGNORE] The sidecar is not from a future slot
@@ -909,7 +910,8 @@ proc validateDataColumnSidecar*(
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
   if dataColumnQuarantine[].hasSidecar(
-      block_root, block_header.slot, block_header.proposer_index, data_column_sidecar.index):
+      block_root, block_header.slot, block_header.proposer_index,
+      data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
 
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
@@ -968,7 +970,7 @@ proc validateDataColumnSidecar*(
 
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
-    data_column_sidecar.signed_block_header.signature,
+    data_column_sidecar[].signed_block_header.signature,
     quarantine.latest_sidecar_signatures
   ).isOkOr:
     if error.invalid:
@@ -977,7 +979,7 @@ proc validateDataColumnSidecar*(
 
   # Cache the verified (block_root, signature) pair for future fast-path checks
   quarantine.latest_sidecar_signatures.put(
-    (block_root, data_column_sidecar.signed_block_header.signature), ())
+    (block_root, data_column_sidecar[].signed_block_header.signature), ())
 
   # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`
@@ -993,9 +995,9 @@ proc validateDataColumnSidecar*(
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: block_root,
-      index: data_column_sidecar.index,
-      slot: data_column_sidecar.signed_block_header.message.slot,
-      kzg_commitments: data_column_sidecar.kzg_commitments)
+      index: data_column_sidecar[].index,
+      slot: data_column_sidecar[].signed_block_header.message.slot,
+      kzg_commitments: data_column_sidecar[].kzg_commitments)
 
   # Notify with the full sidecar so the EL (out of spec)
   # getBlobs service can derive header/commitments/inclusion proof when the
@@ -1012,11 +1014,11 @@ proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
-    data_column_sidecar: gloas.DataColumnSidecar,
+    data_column_sidecar: ref gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
 
-  template blockRoot(): auto = data_column_sidecar.beacon_block_root
+  template blockRoot(): auto = data_column_sidecar[].beacon_block_root
 
   # [IGNORE] A valid block for the sidecar's `slot` has been seen (via gossip or
   # non-gossip sources). If not yet seen, a client MUST queue the sidecar for
@@ -1042,8 +1044,8 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's `slot` matches the slot of the block with root
   # `beacon_block_root`.
-  if not (blck.message.slot == data_column_sidecar.slot and
-      blck.root == data_column_sidecar.beacon_block_root):
+  if not (blck.message.slot == data_column_sidecar[].slot and
+      blck.root == data_column_sidecar[].beacon_block_root):
     return dag.checkedReject("DataColumnSidecar: slot mismatched")
 
   # [REJECT] The sidecar is valid as verified by
@@ -1051,13 +1053,13 @@ proc validateDataColumnSidecar*(
   template bid(): auto = blck.message.body.signed_execution_payload_bid.message
   block:
     let v = verify_data_column_sidecar(
-      dag.cfg, data_column_sidecar, bid.blob_kzg_commitments)
+      dag.cfg, data_column_sidecar[], bid.blob_kzg_commitments)
     if v.isErr:
       return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar is for the correct subnet -- i.e.
   # `compute_subnet_for_data_column_sidecar(sidecar.index) == subnet_id`.
-  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) ==
+  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) ==
       subnet_id):
     return dag.checkedReject("DataColumnSidecar: not for correct subnet")
 
@@ -1065,13 +1067,14 @@ proc validateDataColumnSidecar*(
   # `verify_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments)`.
   block:
     let v = verify_data_column_sidecar_kzg_proofs(
-      data_column_sidecar, bid.blob_kzg_commitments)
+      data_column_sidecar[], bid.blob_kzg_commitments)
     if v.isErr:
       return dag.checkedReject(v.error)
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # `(sidecar.beacon_block_root, sidecar.index)` with valid kzg proof.
-  if gloasColumnQuarantine[].hasSidecar(blockRoot, data_column_sidecar.index):
+  if gloasColumnQuarantine[].hasSidecar(
+      blockRoot, data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column")
 
   # Send notification about new data column sidecar via callback
@@ -1081,8 +1084,8 @@ proc validateDataColumnSidecar*(
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: blockRoot,
-      index: data_column_sidecar.index,
-      slot: data_column_sidecar.slot,
+      index: data_column_sidecar[].index,
+      slot: data_column_sidecar[].slot,
       kzg_commitments: bid.blob_kzg_commitments)
 
   ok()
@@ -1275,9 +1278,14 @@ proc validateBeaconBlock*(
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope):
-    Result[void, ValidationError] =
+    signed_execution_payload_envelope: SignedExecutionPayloadEnvelope,
+    wallTime: BeaconTime): Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
+
+  # No matching block can exist: blocks [IGNORE] future slots.
+  if not (envelope.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+    return errIgnore("ExecutionPayload: slot too high")
 
   # [IGNORE] The envelope's block root `envelope.beacon_block_root` has been
   # seen (via gossip or non-gossip sources) (a client MAY queue payload for
@@ -1299,7 +1307,8 @@ proc validateExecutionPayload*(
     # processed locally once the block arrives, but never re-gossiped to peers
     # who may also be missing it.
     discard quarantine[].addMissing(envelope.beacon_block_root)
-    envelopeQuarantine[].addOrphan(signed_execution_payload_envelope)
+    envelopeQuarantine[].addOrphan(
+      dag.finalizedHead.slot, signed_execution_payload_envelope)
     return errIgnore("ExecutionPayload: block not found")
 
   # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
@@ -1449,7 +1458,7 @@ proc validateAttestation*(
     if attestation.data.index == 1:
       template block_root: untyped = attestation.data.beacon_block_root
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin envelopeQuarantine[].orphans:
+          not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
           "SingleAttestation: execution payload not yet seen")
   else:
@@ -1662,7 +1671,7 @@ proc validateAggregate*(
       template block_root: untyped = aggregate.data.beacon_block_root
       debugGloasComment("unviable envelope")
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
-          block_root notin envelopeQuarantine[].orphans:
+          not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
           "Aggregate: execution payload not yet seen")
   else:

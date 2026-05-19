@@ -1832,6 +1832,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
               item.sidecar[].signed_block_header.message.proposer_index,
               item.sidecar[].index) == false
 
+      # Re-add pre-update set (new root to force newSidecarsCount > 0)
+      bq.put(genBlockRoot(int.high), sidecars.mapIt(it.sidecar))
+
 suite "GloasColumnQuarantine data structure test suite " & preset():
   setup:
     let
