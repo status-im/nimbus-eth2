@@ -161,6 +161,20 @@ type
       ## The most recently known head, as chosen by fork choice; might be
       ## optimistic
 
+    headPayload*: BlockRef
+      ## The known payload head that is chosen by fork choice. It will be used
+      ## on the next block proposal for building payload on either the current
+      ## head (parent) or the parent of the current head (grandparent).
+      ##
+      ## Uses only since Gloas.
+      ##
+      ## In the usual scenarios it should point to
+      ## - `dag.head`
+      ## - `dag.head.parent`
+      ##
+      ## If it points to blocks other than the above, we may have issues on
+      ## syncing or gossip.
+
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
       ## dag.tail - when backfilling, we'll move backwards in time starting

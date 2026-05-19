@@ -209,6 +209,9 @@ type
       ## for future deposits, beyond the `finalized` branch from EIP-4881.
       ## Those extra hashes may be set to ZERO_HASH when importing from a
       ## compressed EIP-4881 `DepositTreeSnapshot`.
+    kHeadPayload
+      ## Pointer to the most recent payload selected by the fork choice. Used
+      ## only since Gloas.
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -1096,6 +1099,9 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
+proc putHeadPayload*(db: BeaconChainDB, key: Eth2Digest) =
+  db.keyValues.putRaw(subkey(kHeadPayload), key)
+
 proc getPhase0Block(
     db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
@@ -1415,6 +1421,9 @@ proc getGenesisBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
 proc getGenesisBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kGenesisBlock), Eth2Digest) or
     db.v0.getGenesisBlock()
+
+proc getHeadPayload*(db: BeaconChainDB): Opt[Eth2Digest] =
+  db.keyValues.getRaw(subkey(kHeadPayload), Eth2Digest)
 
 proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   db.backend.contains(subkey(phase0.SignedBeaconBlock, key)).expectDb()
