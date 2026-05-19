@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-set -e
+set -Eeuo pipefail
 
 # DEFAULTS
 BASE_PORT="49000"
@@ -27,7 +27,7 @@ SCRIPTS_DIR="${REPO_ROOT}/scripts"
 GETOPT_BINARY="${SCRIPTS_DIR}/getopt-wrapper.sh"
 
 ! ${GETOPT_BINARY} --test > /dev/null
-if [ ${PIPESTATUS[0]} != 4 ]; then
+if [ "${PIPESTATUS[0]}" != 4 ]; then
   echo '`getopt --test` failed in this environment.'
   exit 1
 fi
@@ -50,7 +50,7 @@ EOF
 }
 
 ! PARSED=$(${GETOPT_BINARY} --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
-if [ ${PIPESTATUS[0]} != 0 ]; then
+if [ "${PIPESTATUS[0]}" != 0 ]; then
   # getopt has complained about wrong arguments to stdout
   exit 1
 fi
@@ -106,13 +106,11 @@ LOG_TEST_FILE="${TEST_DIR}/client_log.txt"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
 SNAPSHOT_FILE="${TEST_DIR}/genesis.ssz"
-DEPOSIT_TREE_SNAPSHOT_FILE="${TEST_DIR}/deposit_tree_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_nodes.txt"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
 RESTTEST_BIN="${GIT_ROOT}/build/resttest"
 NIMBUS_BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
 LOCAL_TESTNET_SIMULATION_BIN="${GIT_ROOT}/build/ncli_testnet"
-BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
 RUNTIME_CONFIG_FILE="${TEST_DIR}/config.yaml"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
@@ -133,6 +131,8 @@ else
   which lsof &>/dev/null && HAVE_LSOF=1 || { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 fi
 
+which curl &>/dev/null || { echo "'curl' not installed and we need it to poll for light client updates. Aborting."; exit 1; }
+
 # number of CPU cores
 if uname | grep -qi darwin; then
   NPROC="$(sysctl -n hw.logicalcpu)"
@@ -143,21 +143,21 @@ fi
 # kill lingering processes from a previous run
 if [[ "${HAVE_LSOF}" == "1" ]]; then
   for PORT in ${BASE_PORT} $((BASE_PORT + 2000)) ${BASE_METRICS_PORT} ${BASE_REST_PORT}; do
-    for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+    for PID in $(lsof -n -i tcp:"${PORT}" -sTCP:LISTEN -t); do
       echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
       if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
 	echo "Killing it."
-	kill -9 ${PID} || true
+	kill -9 "${PID}" || true
       else
 	echo "Aborting."
 	exit 1
       fi
     done
-    for PID in $(lsof -n -i udp:${PORT} -t); do
+    for PID in $(lsof -n -i udp:"${PORT}" -t); do
       echo -n "Found old process using UDP port ${PORT}, with PID ${PID}. "
       if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
         echo "Killing it."
-        kill -9 ${PID} || true
+        kill -9 "${PID}" || true
       else
         echo "Aborting."
         exit 1
@@ -168,7 +168,7 @@ fi
 
 build_if_missing () {
   if [[ ! -e "${GIT_ROOT}/build/${1}" ]]; then
-    ${MAKE} -C "${GIT_ROOT}" -j ${NPROC} ${1}
+    ${MAKE} -C "${GIT_ROOT}" -j "${NPROC}" "${1}"
   fi
 }
 
@@ -176,7 +176,7 @@ EXISTING_VALIDATORS=0
 if [[ -f "${DEPOSITS_FILE}" ]]; then
   # We count the number of deposits by counting the number of
   # occurrences of the 'deposit_data_root' field:
-  EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "${DEPOSITS_FILE}" | wc -l)
+  EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "${DEPOSITS_FILE}" | wc -l || true)
 fi
 
 build_if_missing nimbus_beacon_node
@@ -205,10 +205,7 @@ cleanup() {
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
-DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
-DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
-
-echo Wrote $RUNTIME_CONFIG_FILE:
+echo Wrote "$RUNTIME_CONFIG_FILE":
 
 # DENEB_FORK_EPOCH must be non-FAR_FUTURE_EPOCH to trigger creation of blob
 # sidecar database table.
@@ -218,14 +215,12 @@ MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${NUM_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
 GENESIS_FORK_VERSION: 0x00000000
-DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
-ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 0
 BELLATRIX_FORK_EPOCH: 0
 CAPELLA_FORK_EPOCH: 0
 DENEB_FORK_EPOCH: 0
 ELECTRA_FORK_EPOCH: 0
-FULU_FORK_EPOCH: 9000
+FULU_FORK_EPOCH: 0
 EOF
 
 echo "Creating testnet genesis..."
@@ -242,7 +237,7 @@ ${LOCAL_TESTNET_SIMULATION_BIN} \
   --capella-fork-epoch=0 \
   --deneb-fork-epoch=0 \
   --electra-fork-epoch=0 \
-  --fulu-fork-epoch=9000 \
+  --fulu-fork-epoch=0 \
   --insecure-netkey-password=true \
   --genesis-offset=-60 # Chain that has already started allows testing empty slots
 # Make sure we use the newly generated genesis
@@ -273,8 +268,8 @@ ${NIMBUS_BEACON_NODE_BIN} \
   --keymanager-port=${BASE_REST_PORT} \
   --keymanager-token-file="${TOKEN_FILE}" \
   --discv5=no \
-  ${ADDITIONAL_BEACON_NODE_ARGS} \
-  "$@" > ${LOG_NODE_FILE} 2>&1 &
+  ${ADDITIONAL_BEACON_NODE_ARGS:-} \
+  "$@" > "${LOG_NODE_FILE}" 2>&1 &
 BEACON_NODE_STATUS=$?
 
 if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
@@ -282,23 +277,57 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
 
   BEACON_NODE_PID="$(jobs -p)"
 
+  wait_for_light_client_updates() {
+    local base_url="http://${REST_ADDRESS}:${BASE_REST_PORT}/eth/v1/beacon/light_client"
+    local timeout=240 interval=3 waited=0 fin opt
+    echo "Waiting for light client updates to become available..."
+    while true; do
+      if ! kill -0 "${BEACON_NODE_PID}" 2>/dev/null; then
+        echo "nimbus_beacon_node exited before light client updates were available"
+        tail -n 100 "${LOG_NODE_FILE}"
+        exit 1
+      fi
+      fin=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+        -H 'Accept: application/json' "${base_url}/finality_update" || true)
+      opt=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+        -H 'Accept: application/json' "${base_url}/optimistic_update" || true)
+      if [[ "${fin}" == "200" && "${opt}" == "200" ]]; then
+        echo "Light client updates available after ${waited}s"
+        break
+      fi
+      if [[ ${waited} -ge ${timeout} ]]; then
+        echo "Timed out after ${timeout}s waiting for light client updates" \
+             "(finality_update=${fin}, optimistic_update=${opt})"
+        tail -n 100 "${LOG_NODE_FILE}"
+        exit 1
+      fi
+      if (( waited % 15 == 0 )); then
+        echo "  still waiting (${waited}/${timeout}s):" \
+             "finality_update=${fin}, optimistic_update=${opt}"
+      fi
+      sleep "${interval}"
+      waited=$((waited + interval))
+    done
+  }
+  wait_for_light_client_updates
+
   ${RESTTEST_BIN} \
-    --delay=${RESTTEST_DELAY} \
+    --delay="${RESTTEST_DELAY}" \
     --timeout=60 \
     --skip-topic=slow \
     --connections=4 \
     --rules-file="${RESTTEST_RULES}" \
-    http://${REST_ADDRESS}:${BASE_REST_PORT} \
-    > ${LOG_TEST_FILE} 2>&1
+    "http://${REST_ADDRESS}:${BASE_REST_PORT}" \
+    > "${LOG_TEST_FILE}" 2>&1
   RESTTEST_STATUS=$?
 
-  kill -SIGINT ${BEACON_NODE_PID}
+  kill -SIGINT "${BEACON_NODE_PID}"
 
   if [[ ${RESTTEST_STATUS} -eq 0 ]]; then
     echo "All tests were completed successfully!"
   else
     echo "Some of the tests failed!"
-    tail -n 100 ${LOG_NODE_FILE}
+    tail -n 100 "${LOG_NODE_FILE}"
     exit 1
   fi
 else
