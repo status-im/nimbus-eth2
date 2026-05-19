@@ -17,19 +17,11 @@ import
     beaconstate, state_transition_block, forks,
     helpers, network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
-<<<<<<< HEAD
-    attestation_pool, blockchain_dag, blob_quarantine, block_clearance,
-    block_quarantine, envelope_quarantine, execution_payload_pool,
+    attestation_pool, blockchain_dag, block_clearance, block_quarantine,
+    column_quarantine, envelope_quarantine, execution_payload_pool,
     light_client_pool, partial_column_quarantine, payload_attestation_pool,
     spec_cache, sync_committee_msg_pool, validator_change_pool],
   ".."/[beacon_clock],
-=======
-    attestation_pool, blockchain_dag, block_clearance, block_quarantine,
-    column_quarantine, envelope_quarantine, execution_payload_pool,
-    light_client_pool, payload_attestation_pool,spec_cache,
-    sync_committee_msg_pool, validator_change_pool],
-  ../beacon_clock,
->>>>>>> dc71cf782a4e1fb82ad274a8568748dcec94eff8
   ./batch_validation
 
 from libp2p/protocols/pubsub/errors import ValidationResult

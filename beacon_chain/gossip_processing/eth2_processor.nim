@@ -14,21 +14,12 @@ import
   kzg4844/kzg,
   ssz_serialization/types,
   ../el/el_manager,
-<<<<<<< HEAD
-  ../spec/[helpers, forks, network],
-  ../consensus_object_pools/[
-    attestation_pool, blob_quarantine, block_clearance, block_quarantine,
-    blockchain_dag, envelope_quarantine, execution_payload_pool,
-    partial_column_quarantine, payload_attestation_pool, light_client_pool,
-    sync_committee_msg_pool, validator_change_pool],
-=======
-  ../spec/[column_map, helpers, forks],
+  ../spec/[column_map, helpers, forks, network],
   ../consensus_object_pools/[
     attestation_pool, block_clearance, block_quarantine, blockchain_dag,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    payload_attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
->>>>>>> dc71cf782a4e1fb82ad274a8568748dcec94eff8
+    partial_column_quarantine, payload_attestation_pool, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],

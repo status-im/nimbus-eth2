@@ -588,6 +588,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
   validatorCustody.setQuarantine(dataColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
 
@@ -2515,40 +2516,21 @@ proc installMessageValidators(node: BeaconNode) =
                     node.processor[].processDataColumnSidecar(
                       MsgSource.gossip, dataColumnSidecar, subnet_id)))
         elif consensusFork == ConsensusFork.Fulu:
-          if node.config.partialColumns:
-            for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-              closureScope:
-                let subnet_id = it
-                addDualValidator[
-                    fulu.PartialDataColumnSidecar, fulu.DataColumnSidecar](
-                  node.network,
-                  getDataColumnSidecarTopic(digest, subnet_id),
-                  proc (
-                    partialDataColumnSidecar: fulu.PartialDataColumnSidecar,
-                    src: PeerId
-                  ): ValidationResult =
-                    toValidationResult(
-                      node.processor[].processPartialDataColumnSidecar(
-                        MsgSource.gossip, partialDataColumnSidecar, subnet_id)),
-                  proc (
-                    dataColumnSidecar: fulu.DataColumnSidecar,
-                    src: PeerId
-                  ): ValidationResult =
-                    toValidationResult(
-                      node.processor[].processDataColumnSidecar(
-                        MsgSource.gossip, dataColumnSidecar, subnet_id)))
-          else:
-            for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-              closureScope:
-                let subnet_id = it
-                node.network.addValidator(
-                  getDataColumnSidecarTopic(digest, subnet_id), proc (
-                    dataColumnSidecar: fulu.DataColumnSidecar,
-                    src: PeerId
-                  ): ValidationResult =
-                    toValidationResult(
-                      node.processor[].processDataColumnSidecar(
-                        MsgSource.gossip, dataColumnSidecar, subnet_id)))
+          # Regular data_column_sidecar topic carries fulu.DataColumnSidecar.
+          # Partial columns are delivered separately via the libp2p Partial
+          # Message Extension RPC (see onPartialColumnRPC callback) and must
+          # not be SSZ-decoded on this topic.
+          for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+            closureScope:
+              let subnet_id = it
+              node.network.addValidator(
+                getDataColumnSidecarTopic(digest, subnet_id), proc (
+                  dataColumnSidecar: fulu.DataColumnSidecar,
+                  src: PeerId
+                ): ValidationResult =
+                  toValidationResult(
+                    node.processor[].processDataColumnSidecar(
+                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
 
         when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           # blob_sidecar_{subnet_id}

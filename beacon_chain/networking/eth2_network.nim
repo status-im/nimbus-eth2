@@ -2702,52 +2702,6 @@ func addValidator*[MsgType](
   node.validTopics.incl topic # Only allow subscription to validated topics
   node.pubsub.addValidator(topic, execValidator)
 
-func addDualValidator*[MsgType1, MsgType2](
-    node: Eth2Node,
-    topic: string,
-    primaryValidator: ValidationSyncProc[MsgType1],
-    fallbackValidator: ValidationSyncProc[MsgType2]
-) =
-  ## Register a validator that tries to decode as MsgType1 first, and if that
-  ## fails, tries MsgType2. This enables backward compatibility where both
-  ## full and partial message types can arrive on the same topic.
-  proc execValidator(topic: string, message: GossipMsg):
-      Future[ValidationResult] {.raises: [].} =
-    inc nbc_gossip_messages_received
-    trace "Validating incoming gossip message (dual)",
-      len = message.data.len, topic
-
-    let maxSize = max(gossipMaxSize(MsgType1), gossipMaxSize(MsgType2))
-    var decompressed = snappy.decode(message.data, maxSize)
-    let res = if decompressed.len > 0:
-      block:
-        var v = ValidationResult.Reject
-        # Try primary type first
-        try:
-          let decoded = SSZ.decode(decompressed, MsgType1)
-          v = primaryValidator(decoded, message.fromPeer)
-        except SerializationError:
-          # Try fallback type
-          try:
-            let decoded = SSZ.decode(decompressed, MsgType2)
-            v = fallbackValidator(decoded, message.fromPeer)
-          except SerializationError as e:
-            inc nbc_gossip_failed_ssz
-            debug "Error decoding gossip (dual)",
-              topic, len = message.data.len,
-              decompressed = decompressed.len, error = e.msg
-            v = ValidationResult.Reject
-        v
-    else:
-      inc nbc_gossip_failed_snappy
-      debug "Error decompressing gossip", topic, len = message.data.len
-      ValidationResult.Reject
-
-    newValidationResultFuture(res)
-
-  node.validTopics.incl topic
-  node.pubsub.addValidator(topic, execValidator)
-
 proc addAsyncValidator*[MsgType](
     node: Eth2Node,
     topic: string,
@@ -3007,9 +2961,9 @@ proc broadcastPartialDataColumnSidecar*(
     node: Eth2Node, subnet_id: uint64,
     p_data_column: fulu.PartialDataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let header = p_data_column.header[0]
   let
-    contextEpoch = header.signed_block_header.message.slot.epoch
+    contextEpoch =
+      p_data_column.header[0].signed_block_header.message.slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, p_data_column)
