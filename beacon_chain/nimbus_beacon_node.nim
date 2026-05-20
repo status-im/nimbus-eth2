@@ -93,7 +93,7 @@ proc readEraState(
   ##
   ## If the Era file is corrup
   debug "Reading era state", file
-  let ef = EraFile.open(file.path).valueOr:
+  let ef = EraFile.open(file.path, file.era).valueOr:
     error "Could not open era file", file, error
     return Opt.none(ref ForkedHashedBeaconState)
 
@@ -1744,20 +1744,16 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
   let dataColumnPruneEpoch = (slot.epoch -
                               node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
   if slot.is_epoch() and dataColumnPruneEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
+    let consensusFork = node.dag.cfg.consensusForkAtEpoch(dataColumnPruneEpoch)
     var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
     var count = 0
-    let startIndex = node.dag.getBlockRange(
-      dataColumnPruneEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
+    let startIndex = node.dag.getBlockRange(dataColumnPruneEpoch.start_slot, blocks)
     for i in startIndex..<SLOTS_PER_EPOCH:
-      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
-      withBlck(blck):
-        when consensusFork < ConsensusFork.Fulu: continue
-        else:
-          # Iterate the full column space rather than just the local custody
-          # set so late-arriving or reconstructed columns outside of this
-          # node's custody groups are also cleaned up.
-          count += node.db.delDataColumnSidecars(
-            consensusFork, blocks[int(i)].root)
+      # Iterate the full column space rather than just the local custody
+      # set so late-arriving or reconstructed columns outside of this
+      # node's custody groups are also cleaned up.
+      count += node.db.delDataColumnSidecars(
+        consensusFork, blocks[int(i)].root)
     debug "pruned data columns", count, dataColumnPruneEpoch
 
 proc reconstructDataColumns(node: BeaconNode, slot: Slot) {.async: (raises: []).} =
