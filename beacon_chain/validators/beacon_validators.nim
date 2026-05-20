@@ -1069,11 +1069,11 @@ proc signAndSendProposerPreference(
     fork, genesis_validators_root, data)).valueOr:
     warn "Unable to sign proposer preferences",
       validator = shortLog(validator), error_msg = error
+    node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
+      (data.validator_index, data.proposal_slot))
     return
   let signed = SignedProposerPreferences(message: data, signature: signature)
   await node.router.routeProposerPreferences(signed)
-  node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].incl(
-    (data.validator_index, data.proposal_slot))
 
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
@@ -1081,6 +1081,10 @@ proc sendProposerPreferences(
 
   if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
     return
+
+  if slot.is_epoch and slot.epoch > 0:
+    let justEnded = slot.epoch - Epoch(1)
+    node.sentProposerPreferences[justEnded.uint64 mod 2].clear()
 
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -1113,6 +1117,8 @@ proc sendProposerPreferences(
               validator.pubkey, validator.index, proposal_slot.epoch),
             gas_limit: node.getGasLimit(validator.pubkey))
 
+          node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2].incl(
+            (validator_index.uint64, proposal_slot))
           asyncSpawn node.signAndSendProposerPreference(
             validator, fork, genesis_validators_root, data)
 
