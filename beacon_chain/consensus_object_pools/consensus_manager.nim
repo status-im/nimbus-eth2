@@ -362,7 +362,8 @@ proc prepareNextSlot*(
           when consensusFork >= ConsensusFork.Gloas:
             PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
               get_expected_withdrawals(forkyState.data).withdrawals,
-              beaconHead.blck.bid.root, proposalSlot)
+              beaconHead.blck.bid.root, proposalSlot,
+              self[].getGasLimit(nextProposer))
           else:
             # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
             PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,

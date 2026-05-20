@@ -80,7 +80,7 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init(cfg))
       dataColumnQuarantine = newClone(ColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
-      envelopeQuarantine = newClone(EnvelopeQuarantine())
+      envelopeQuarantine = newClone(EnvelopeQuarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker = default(ActionTracker)
@@ -371,7 +371,7 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Block stored but envelope not available, should be in missing list
-          engineBlock.blck.root in envelopeQuarantine[].checkMissing(32)
+          FetchRecord(root: engineBlock.blck.root) in envelopeQuarantine[].checkMissing(32)
 
   asyncTest "Gloas block pops pre-arrived envelope from quarantine" & preset():
     # Envelope arrives before its block (orphan envelope).
@@ -445,8 +445,8 @@ suite "Block processor" & preset():
     # Both envelopes should be missing
     let missing = envelopeQuarantine[].checkMissing(32)
     check:
-      b1.root in missing
-      b2.root in missing
+      FetchRecord(root: b1.root) in missing
+      FetchRecord(root: b2.root) in missing
 
   asyncTest "Gloas reverse order blocks with missing parent" & preset():
     # Block N+1 arrives before block N. Block N+1 goes to
