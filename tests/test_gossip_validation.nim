@@ -535,7 +535,7 @@ suite "Proposer preferences validation " & preset():
         proposal_slot: proposer_slot,
         validator_index: proposer_index,
         fee_recipient: default(ExecutionAddress),
-        gas_limit: 30_000_000)
+        target_gas_limit: 30_000_000)
       signed = signProposerPreferences(
         dag, prefs, MockPrivKeys[proposerIndex.ValidatorIndex])
       wallTime = dag.head.slot.start_beacon_time(dag.cfg.timeParams)
