@@ -440,7 +440,7 @@ suite "EL Manager - getPayload":
       state = ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH)
       attrs = PayloadAttributesV4.init(
         0'u64, ZERO_HASH, default(Eth1Address),
-        default(seq[capella.Withdrawal]), ZERO_HASH, Slot(1))
+        default(seq[capella.Withdrawal]), ZERO_HASH, Slot(1), 60_000_000'u64)
       resp =
         waitFor manager.getPayload(gloas.ExecutionPayloadForSigning, state, attrs)
 
