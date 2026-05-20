@@ -7,15 +7,16 @@
 
 {.push raises: [], gcsafe.}
 
-import std/tables, minilru, chronicles, ../spec/[block_id, forks, presets]
+import
+  chronicles,
+  minilru,
+  std/tables,
+  ./quarantine_types,
+  ../spec/[block_id, forks, presets]
 
-export tables, minilru, forks
+export tables, minilru, forks, quarantine_types
 
 const
-  MaxRetriesPerMissingItem = 7
-    ## Exponential backoff, double interval between each attempt
-  MaxMissingItems* = 1024
-    ## Arbitrary
   MaxOrphans = int(SLOTS_PER_EPOCH * 3)
     ## Enough for finalization in an alternative fork
   MaxSidecarless = int(SLOTS_PER_EPOCH * 128)
@@ -26,12 +27,6 @@ const
     ## Cache recent valid sidecar signatures to avoid re-verification
 
 type
-  MissingBlock* = object
-    tries*: int
-
-  FetchRecord* = object
-    root*: Eth2Digest
-
   UnviableKind* {.pure.} = enum
     UnviableFork
     Invalid
@@ -81,7 +76,7 @@ type
       ## only those we have observed, been able to verify as unviable and fit
       ## in this cache.
 
-    missing*: Table[Eth2Digest, MissingBlock]
+    missing*: MissingTable
       ## Roots of blocks that we would like to have (either parent_root of
       ## unresolved blocks or block roots of attestations)
 
@@ -103,27 +98,13 @@ func init*(T: type Quarantine, cfg: RuntimeConfig): T =
     sidecarless: SidecarlessLru.init(MaxSidecarless),
     unviable: UnviableLru.init(MaxUnviables),
     latest_sidecar_signatures: RecentSidecarSignatureLru.init(MaxRecentSidecarSignatures),
+    missing: MissingTable.init(),
   )
 
 func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
-  var done: seq[Eth2Digest]
-
-  for k, v in quarantine.missing.mpairs():
-    if v.tries > static(1 shl MaxRetriesPerMissingItem):
-      done.add(k)
-
-  for k in done:
-    quarantine.missing.del(k)
-
-  # simple (simplistic?) exponential backoff for retries..
-  for k, v in quarantine.missing.mpairs:
-    v.tries += 1
-    if countOnes(v.tries.uint64) == 1:
-      result.add(FetchRecord(root: k))
-      if result.len >= max:
-        break
+  quarantine.missing.checkMissing(max)
 
 proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, UnviableKind] =
   ## Schedule the download a given block or its ancestor, if we're keeping
@@ -133,7 +114,7 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
   quarantine.unviable.get(root).isErrOr:
     return err(value)
 
-  if quarantine.missing.len >= MaxMissingItems:
+  if quarantine.missing.isFull():
     # The block might still be viable, but we don't have space to investigate
     return ok()
 
@@ -154,7 +135,7 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
 
     # Add if it's not there, but don't update missing counter
     if not found:
-      discard quarantine.missing.hasKeyOrPut(r, MissingBlock())
+      quarantine.missing.add(r)
       break
 
   ok()
@@ -272,7 +253,7 @@ func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
 func clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
   ## Unviables remain unviable and are not cleared.
-  quarantine.missing.reset()
+  quarantine.missing.resetItems()
   quarantine.orphans.reset()
 
 func pruneAfterFinalization*(

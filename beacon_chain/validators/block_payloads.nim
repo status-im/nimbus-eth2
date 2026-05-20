@@ -403,6 +403,7 @@ proc getExecutionPayload*(
         PayloadAttributesV4.init(
           timestamp, prevRandao, feeRecipient, withdrawals,
           beaconHead.blck.bid.root, slot,
+          node.consensusManager[].getGasLimit(validator_pubkey),
         )
       else:
         PayloadAttributesV3.init(

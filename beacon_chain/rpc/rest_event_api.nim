@@ -199,6 +199,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.payloadAttMsgQueue,
                                               "payload_attestation_message")
           res.add(handler)
+        if EventTopic.FastConfirmation in eventTopics:
+          let handler = response.eventHandler(node.eventBus.fastConfirmationQueue,
+                                              "fast_confirmation")
+          res.add(handler)
         res
 
     try:

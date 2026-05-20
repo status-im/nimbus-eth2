@@ -97,7 +97,7 @@ proc readEraState(
   ##
   ## If the Era file is corrup
   debug "Reading era state", file
-  let ef = EraFile.open(file.path).valueOr:
+  let ef = EraFile.open(file.path, file.era).valueOr:
     error "Could not open era file", file, error
     return Opt.none(ref ForkedHashedBeaconState)
 
@@ -506,6 +506,8 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
+  proc onFastConfirmation(data: FastConfirmationInfoObject) =
+    node.eventBus.fastConfirmationQueue.emit(data)
   proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
     let optimistic = node.dag.is_optimistic(BlockId(
       root: data.message.beacon_block_root,
@@ -832,6 +834,7 @@ proc initFullNode(
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
+  dag.setFastConfirmationCb(onFastConfirmation)
   dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
