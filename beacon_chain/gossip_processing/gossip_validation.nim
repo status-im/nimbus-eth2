@@ -19,12 +19,14 @@ import
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    light_client_pool, payload_attestation_pool,spec_cache,
+    light_client_pool, payload_attestation_pool, spec_cache,
     sync_committee_msg_pool, validator_change_pool],
   ../beacon_clock,
   ./batch_validation
 
 from libp2p/protocols/pubsub/errors import ValidationResult
+from ../consensus_object_pools/common_tools import
+  is_gas_limit_target_compatible
 
 export results, ValidationResult
 
@@ -2047,7 +2049,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -2096,7 +2098,7 @@ proc validateExecutionPayloadBid*(
       # [IGNORE] bid.parent_block_hash is the block hash of a known execution
       # payload in fork choice
       let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore("Bid: parent block root not found in fork choice")
+        return errIgnore("ExecutionPayloadBid: parent block root not found in fork choice")
 
       try:
         let parentExecHash = dag.loadExecutionBlockHash(parentBlck).valueOr:
@@ -2108,6 +2110,25 @@ proc validateExecutionPayloadBid*(
             "Bid: parent_block_hash doesn't match parent beacon block")
       except KeyError:
         return errIgnore("Bid: error loading parent execution hash")
+
+      let seenPref = block:
+        let
+          seenBucket = uint64(bid.slot.epoch()) mod 2
+          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+        try:
+          seenProposerPreferences[seenBucket][seenKey].valueOr:
+            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+        except KeyError:
+          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+
+      # [IGNORE]
+      # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
+      # proposer_preferences.target_gas_limit)` is True, where
+      # `parent_gas_limit` is the `gas_limit` of that execution payload.
+      if not is_gas_limit_target_compatible(
+          forkyState.data.latest_execution_payload_bid.gas_limit,
+          bid.gas_limit, seenPref.target_gas_limit):
+        return errIgnore("ExecutionPayloadBid: gas limit not target-compatible")
 
       # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
       # block in fork choice
@@ -2131,23 +2152,8 @@ proc validateExecutionPayloadBid*(
 
       # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
       # proposer's `SignedProposerPreferences` associated with `bid.slot`.
-      let seenPref = block:
-        let
-          seenBucket = uint64(bid.slot.epoch()) mod 2
-          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
-        try:
-          seenProposerPreferences[seenBucket][seenKey].valueOr:
-            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
-        except KeyError:
-          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
-
       if not (bid.fee_recipient == seenPref.fee_recipient):
         return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
-
-      # [REJECT] `bid.gas_limit` matches the `gas_limit` from the proposer's
-      # `SignedProposerPreferences` associated with `bid.slot`.
-      if not (bid.gas_limit == seenPref.target_gas_limit):
-        return dag.checkedReject("ExecutionPayloadBid: gas limit mismatch")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
@@ -2282,7 +2288,7 @@ proc validateProposerPreferences*(
     return errIgnore("ProposerPreferences: dependent_root not seen")
 
   # [REJECT] is_valid_proposal_slot(state, preferences) returns True,
-  # where state is the checkpoint state at the epoch 
+  # where state is the checkpoint state at the epoch
   # compute_epoch_at_slot(preferences.proposal_slot) - 1
   # and the root preferences.dependent_root.
   # Spec requires the checkpoint state at dependent_root; we approximate

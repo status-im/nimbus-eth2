@@ -65,6 +65,22 @@ proc getGasLimit*(configValidatorsDir: string,
   getSuggestedGasLimit(configValidatorsDir, pubkey, configGasLimit).valueOr:
     configGasLimit
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#is_gas_limit_target_compatible
+func is_gas_limit_target_compatible*(
+    parent_gas_limit, gas_limit, target_gas_limit: uint64): bool =
+  ## Check if ``gas_limit`` is compatible with ``target_gas_limit`` under
+  ## the EIP-1559 transition rule from ``parent_gas_limit``.
+  let
+    max_gas_limit_difference = max(parent_gas_limit div 1024, 1) - 1
+    min_gas_limit = parent_gas_limit - max_gas_limit_difference
+    max_gas_limit = parent_gas_limit + max_gas_limit_difference
+
+  if target_gas_limit >= min_gas_limit and target_gas_limit <= max_gas_limit:
+    return gas_limit == target_gas_limit
+  if target_gas_limit > max_gas_limit:
+    return gas_limit == max_gas_limit
+  gas_limit == min_gas_limit
+
 proc getGraffiti*(configValidatorsDir: string,
                   configGraffiti: GraffitiBytes,
                   pubkey: ValidatorPubKey): GraffitiBytes =
