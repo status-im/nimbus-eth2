@@ -867,7 +867,8 @@ proc initFullNode(
                                                 node.eventBus.columnSidecarFullQueue,
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
-                                                node.validatorCustody)
+                                                node.validatorCustody,
+                                                node.network)
   node.router = router
 
   await node.addValidators()
