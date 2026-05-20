@@ -93,7 +93,7 @@ proc readEraState(
   ##
   ## If the Era file is corrup
   debug "Reading era state", file
-  let ef = EraFile.open(file.path).valueOr:
+  let ef = EraFile.open(file.path, file.era).valueOr:
     error "Could not open era file", file, error
     return Opt.none(ref ForkedHashedBeaconState)
 

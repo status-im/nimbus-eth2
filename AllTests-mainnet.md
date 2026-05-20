@@ -933,6 +933,11 @@ AllTests-mainnet
 + payload attestation message signatures                                                     OK
 + proposer preferences message signatures                                                    OK
 ```
+## Missing Table
+```diff
++ Add and delete missing                                                                     OK
++ Check missing with exponential backoff                                                     OK
+```
 ## Network metadata
 ```diff
 + mainnet                                                                                    OK

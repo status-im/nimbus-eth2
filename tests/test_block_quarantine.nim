@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -123,11 +123,11 @@ suite "Block quarantine":
   test "Keep downloading parent chain even if we hit missing limit":
     var quarantine = Quarantine.init(defaultRuntimeConfig)
     var blocks = @[makeBlock(Slot 0, ZERO_HASH)]
-    for i in 0 ..< MaxMissingItems:
+    for i in 0 ..< quarantine.missing.maxCapacity:
       blocks.add makeBlock(blocks[^1].message.slot + 1, blocks[^1].root)
 
     # Fill missing list with junk
-    for i in 0 ..< MaxMissingItems:
+    for i in 0 ..< quarantine.missing.maxCapacity:
       discard quarantine.addMissing(blocks[^(i + 1)].root)
 
     check:
