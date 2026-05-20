@@ -2144,11 +2144,6 @@ proc validateExecutionPayloadBid*(
       if not (bid.fee_recipient == seenPref.fee_recipient):
         return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
 
-      # [REJECT] `bid.gas_limit` matches the `gas_limit` from the proposer's
-      # `SignedProposerPreferences` associated with `bid.slot`.
-      if not (bid.gas_limit == seenPref.target_gas_limit):
-        return dag.checkedReject("ExecutionPayloadBid: gas limit mismatch")
-
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
       let builderPubkey =
