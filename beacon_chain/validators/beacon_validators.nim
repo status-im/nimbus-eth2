@@ -395,6 +395,7 @@ proc proposeBlockAux(
     fork: static ConsensusFork,
     validator: AttachedValidator,
     head: BlockRef,
+    headPayload: BlockRef,
     slot: Slot,
     randao_reveal: ValidatorSig,
 ): Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -408,26 +409,28 @@ proc proposeBlockAux(
   let
     graffiti = node.getGraffitiBytes(validator)
     validator_index = validator.index.expect("index set for proposer")
-
-    (shouldExtendPayload, parentExecutionRequests) = block:
-      debugGloasComment("refactor when we have a proper should_extend_payload")
-      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
-      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
+    shouldExtendPayload = head == headPayload
+    parentExecutionRequests = block:
       when fork >= ConsensusFork.Gloas:
-        let
-          parentId = state[].latest_block_id
-          envelope =
-            if node.dag.cfg.consensusForkAtEpoch(parentId.slot.epoch()) >=
-                ConsensusFork.Gloas:
-              node.dag.db.getExecutionPayloadEnvelope(parentId.root)
-            # For parent in pre-Gloas, we should extend the payload with empty
-            # execution requests.
-            else:
-              Opt.some(default(TrustedSignedExecutionPayloadEnvelope))
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
+        if shouldExtendPayload:
+          let
+            parentId = state[].latest_block_id
+            parentExecutionRequests =
+              if node.dag.cfg.consensusForkAtEpoch(parentId.slot.epoch()) >=
+                  ConsensusFork.Gloas:
+                let envelope = node.dag.db.getExecutionPayloadEnvelope(
+                    parentId.root).valueOr:
+                  debug "Proposal parent payload is missing",
+                    slot, head = shortLog(head)
+                  return head
+                envelope.message.execution_requests
+              # For parent in pre-Gloas, we should extend the payload with empty
+              # execution requests.
+              else:
+                default(ExecutionRequests)
 
-        if envelope.isSome():
-          let parentExecutionRequests =
-            envelope.get().message.execution_requests
           apply_parent_execution_payload(
             node.dag.cfg,
             state[].forky(fork).data,
@@ -437,12 +440,13 @@ proc proposeBlockAux(
             debug "Proposal failed to apply parent payload",
               slot, head = shortLog(head)
             return head
-          (true, parentExecutionRequests)
+
+          parentExecutionRequests
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          (false, default(ExecutionRequests))
+          default(ExecutionRequests)
       else:
-        (false, default(ExecutionRequests))
+        default(ExecutionRequests)
 
     engineBid =
       when fork == ConsensusFork.Heze:
@@ -740,7 +744,8 @@ proc proposeBlockAux(
   newBlockRef.get()
 
 proc proposeBlock(
-    node: BeaconNode, validator: AttachedValidator, head: BlockRef, slot: Slot
+    node: BeaconNode, validator: AttachedValidator,
+    head: BlockRef, headPayload: BlockRef, slot: Slot
 ): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -754,7 +759,8 @@ proc proposeBlock(
 
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Electra:
-      await node.proposeBlockAux(consensusFork, validator, head, slot, randao_reveal)
+      await node.proposeBlockAux(
+        consensusFork, validator, head, headPayload, slot, randao_reveal)
     else:
       warn "Block proposals for fork no longer supported", consensusFork
       head
@@ -1099,7 +1105,8 @@ proc sendProposerPreferences(
 
           await node.router.routeProposerPreferences(signed)
 
-proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
+proc handleProposal(
+    node: BeaconNode, head: BlockRef, headPayload: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
   ## Perform the proposal for the given slot, iff we have a validator attached
   ## that is supposed to do so, given the shuffling at that slot for the given
@@ -1125,7 +1132,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
                                         proposer = shortLog(proposerKey)
       return head
 
-  await proposeBlock(node, validator, head, slot)
+  await proposeBlock(node, validator, head, headPayload, slot)
 
 proc signAndSendAggregate(
     node: BeaconNode, validator: AttachedValidator, shufflingRef: ShufflingRef,
@@ -1494,7 +1501,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   withState(node.dag.headState):
     node.updateValidators(forkyState.data.validators.asSeq())
 
-  let newHead = await handleProposal(node, head, slot)
+  let newHead = await handleProposal(node, head, node.dag.headPayload, slot)
   head = newHead
 
   # The latest point in time when we'll be sending out attestations
