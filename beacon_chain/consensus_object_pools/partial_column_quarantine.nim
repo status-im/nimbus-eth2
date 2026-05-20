@@ -18,10 +18,6 @@ import
 # - Fulu: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md
 # - Gloas: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md
 
-# Both `fulu` and `gloas` define a type named `PartialDataColumnSidecar`,
-# so we reach them via qualified access (`fulu.X` / `gloas.X`) rather than
-# unqualified imports to avoid name clashes. The unqualified imports below
-# only bring in symbols that exist in only one of the modules.
 from ../spec/datatypes/fulu import
   ColumnIndex, DataColumn, MAX_BLOB_COMMITMENTS_PER_BLOCK
 
@@ -63,9 +59,9 @@ type
     ## Quarantine for partial data column messages, generic over the
     ## per-fork block-identifier type `K` and "header" type `H`.
     ## For Fulu, `K = Eth2Digest` and `H` is the rich
-    ## `PartialDataColumnHeader`. For Gloas — per the v1.7.0-alpha.8 spec
-    ## — the sidecar carries no header on the wire; the binding is
-    ## `PartialDataColumnGroupID`, which we use as both `K` and `H`.
+    ## `PartialDataColumnHeader`. For Gloas — the sidecar carries no
+    ## header on the wire; the binding is `PartialDataColumnGroupID`,
+    ## which we use as both `K` and `H`.
     ##
     ## Stores validated headers / group-ids and tracks which cells have
     ## been received for each (block_id, column_index) pair. Validation
@@ -83,16 +79,14 @@ type
     PartialColumnQuarantine[
       gloas.PartialDataColumnGroupID, gloas.PartialDataColumnGroupID]
 
-  # Type class matching any fork's partial sidecar. Both variants share the
-  # cell-bearing fields used during ingestion (modulo the spec-driven
-  # `partial_columns` / `partial_column` rename).
+  # Type class matching any fork's partial sidecar. Both variants share
+  # the same cell-bearing fields (cells_present_bitmap, partial_column,
+  # kzg_proofs) per spec.
   AnyPartialDataColumnSidecar* =
     fulu.PartialDataColumnSidecar | gloas.PartialDataColumnSidecar
 
 func hash*(gid: gloas.PartialDataColumnGroupID): Hash =
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
-  ## Lets `PartialDataColumnGroupID` be used as an LruCache / hash-table
-  ## key in the Gloas quarantine.
   var h: Hash = 0
   h = h !& hash(uint64(gid.slot))
   h = h !& hash(gid.beacon_block_root)
@@ -237,16 +231,6 @@ func hasCellReceived*[K, H](
 
 # --- Cell ingestion and assembly ---
 
-template partialCells(sidecar: untyped): untyped =
-  ## Per-spec, the Fulu sidecar names this list `partial_columns` (plural,
-  ## as carried in nimbus today) while the Gloas sidecar uses
-  ## `partial_column` (singular). Hide the rename here so the rest of the
-  ## quarantine stays fork-agnostic.
-  when sidecar is fulu.PartialDataColumnSidecar:
-    sidecar.partial_columns
-  else:
-    sidecar.partial_column
-
 func addCells*[K, H; S: AnyPartialDataColumnSidecar](
     quarantine: var PartialColumnQuarantine[K, H],
     blockId: K,
@@ -254,12 +238,7 @@ func addCells*[K, H; S: AnyPartialDataColumnSidecar](
     sidecar: ref S) =
   ## Ingest cells and proofs from a validated partial data column sidecar
   ## into the quarantine entry for the given (block_id, column_index)
-  ## pair. The sidecar is passed by reference — these objects are bulky
-  ## and carried as `seq[ref ...]` in the rest of the codebase, so we
-  ## never want to copy them here. Works for either the Fulu or Gloas
-  ## variant (modulo `partial_columns` / `partial_column`, handled by
-  ## the `partialCells` helper). Assumes the sidecar has already passed
-  ## the per-fork validation.
+  ## pair.
   let key = PartialColumnKey[K](blockId: blockId, columnIndex: columnIndex)
   var entry = quarantine.entries.get(key).valueOr:
     return
@@ -268,11 +247,11 @@ func addCells*[K, H; S: AnyPartialDataColumnSidecar](
   var cellIdx = 0
   for blobIdx in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
     if s.cells_present_bitmap[Natural(blobIdx)]:
-      if cellIdx < s.partialCells.len and
+      if cellIdx < s.partial_column.len and
          cellIdx < s.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len:
         entry.cellsReceived.setBit(blobIdx)
-        entry.cells[blobIdx] = Opt.some(s.partialCells[cellIdx])
+        entry.cells[blobIdx] = Opt.some(s.partial_column[cellIdx])
         entry.proofs[blobIdx] = Opt.some(s.kzg_proofs[cellIdx])
       cellIdx.inc
 
@@ -345,7 +324,6 @@ func assembleDataColumnSidecar*(
   ## Assemble a full Gloas DataColumnSidecar from accumulated partial cells
   ## and the validated group-id. Returns Opt.none if the entry is not
   ## complete or the group-id is not in the cache.
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   let key = PartialColumnKey[gloas.PartialDataColumnGroupID](
     blockId: groupId, columnIndex: columnIndex)
   let entry = quarantine.entries.get(key).valueOr:

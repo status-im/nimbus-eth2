@@ -118,7 +118,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnsidecar
   PartialDataColumnSidecar* = object
     cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     kzg_proofs*: deneb.KzgProofs
     # Optional header, only sent on eager pushes
     header*: List[PartialDataColumnHeader, 1]
@@ -477,7 +477,7 @@ func shortLog*(v: DataColumnSidecar): auto =
 func shortLog*(v: PartialDataColumnSidecar): auto =
   (
     cells_present: v.cells_present_bitmap,
-    partial_columns: v.partial_columns.len,
+    partial_column: v.partial_column.len,
     kzg_proofs: v.kzg_proofs.len,
     has_header: v.header.len > 0,
   )

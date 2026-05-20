@@ -63,7 +63,7 @@ func genPartialDataColumnSidecar(
   result = new fulu.PartialDataColumnSidecar
   result[] = fulu.PartialDataColumnSidecar(
     cells_present_bitmap: bitmap,
-    partial_columns: DataColumn.init(cells),
+    partial_column: DataColumn.init(cells),
     kzg_proofs: deneb.KzgProofs.init(proofs))
 
 # --- Gloas helpers ---

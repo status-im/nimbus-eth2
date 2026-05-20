@@ -498,7 +498,7 @@ proc assemble_partial_data_column_sidecars*(
 
     sidecars.add fulu.PartialDataColumnSidecar(
       cells_present_bitmap: bitmap,
-      partial_columns: DataColumn.init(partialColumn),
+      partial_column: DataColumn.init(partialColumn),
       kzg_proofs: deneb.KzgProofs.init(partialProofs))
 
   sidecars
@@ -511,7 +511,7 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
   ## Verify the KZG proofs for partial data column sidecars.
 
   # Get the blob indices from the bitmap
-  var blobIndices = newSeqOfCap[int](sidecar.partial_columns.len)
+  var blobIndices = newSeqOfCap[int](sidecar.partial_column.len)
   for i in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
     # BitArray's [] / []= accessors require a Natural (non-negative integer)
     if sidecar.cells_present_bitmap[Natural(i)]:
@@ -524,7 +524,7 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
   let commitments = blobIndices.mapIt(all_commitments[it])
 
   let res = verifyCellKzgProofBatch(
-      commitments, cellIndices, sidecar.partial_columns.asSeq,
+      commitments, cellIndices, sidecar.partial_column.asSeq,
       sidecar.kzg_proofs.asSeq).valueOr:
     return err("PartialDataColumnSidecar: validation error")
 

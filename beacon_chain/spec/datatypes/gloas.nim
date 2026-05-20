@@ -83,8 +83,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
   # [Modified in Gloas] Compared to Fulu, the `header` field is removed
-  # (peers now key on `PartialDataColumnGroupID` out-of-band) and the
-  # cell list is named `partial_column` (singular) per spec.
+  # (peers now key on `PartialDataColumnGroupID` out-of-band)
   PartialDataColumnSidecar* = object
     cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
