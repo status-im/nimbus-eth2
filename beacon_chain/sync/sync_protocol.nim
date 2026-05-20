@@ -435,14 +435,21 @@ p2pProtocol BeaconSync(version = 1,
       if found >= count:
         break
 
-      # `dag.parent` walks the in-memory `BlockRef` tree while above the
-      # finalized head and falls through to the canonical chain in the
-      # database (via `getBlockIdAtSlot`) below it - so the walk spans the
-      # full available history, not just the head-to-finalized window.
-      let parentBid = dag.parent(cur).valueOr:
-        # No further ancestor is resolvable. On a checkpoint-synced node
-        # this typically means we hit `dag.backfill.slot` (the lower bound
-        # of locally available history), not genesis.
+      if cur.slot == GENESIS_SLOT:
+        break
+
+      # Walk the parent chain via the block summary table (root-indexed),
+      # not via `dag.parent` - `dag.parent` for finalized blocks goes
+      # through `getBlockIdAtSlot` (slot-indexed `dag.db.finalizedBlocks`),
+      # which can run out before the summary table does. Every block we
+      # have stored has a summary, so this walk spans the full available
+      # history regardless of which side of the finalized head we're on.
+      let summary = dag.db.getBeaconBlockSummary(cur.root).valueOr:
+        break
+      let parentBid = dag.getBlockId(summary.parent_root).valueOr:
+        # Parent is not known to us - we've reached the lower bound of
+        # locally available history (typically `dag.backfill.slot` on a
+        # checkpoint-synced node, not genesis).
         break
 
       if parentBid.slot.epoch < serveFloorEpoch:
