@@ -1115,7 +1115,7 @@ proc sendProposerPreferences(
             proposal_slot: proposal_slot,
             fee_recipient: node.getFeeRecipient(
               validator.pubkey, validator.index, proposal_slot.epoch),
-            gas_limit: node.getGasLimit(validator.pubkey))
+            target_gas_limit: node.getGasLimit(validator.pubkey))
 
           node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2].incl(
             (validator_index.uint64, proposal_slot))

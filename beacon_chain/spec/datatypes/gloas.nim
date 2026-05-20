@@ -190,15 +190,15 @@ type
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/p2p-interface.md#new-proposerpreferences
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#new-proposerpreferences
   ProposerPreferences* = object
     dependent_root*: Eth2Digest
     proposal_slot*: Slot
     validator_index*: uint64
     fee_recipient*: ExecutionAddress
-    gas_limit*: uint64
+    target_gas_limit*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/p2p-interface.md#new-signedproposerpreferences
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#new-signedproposerpreferences
   SignedProposerPreferences* = object
     message*: ProposerPreferences
     signature*: ValidatorSig
@@ -647,7 +647,7 @@ func shortLog*(v: ProposerPreferences): auto =
     proposal_slot: v.proposal_slot,
     validator_index: v.validator_index,
     fee_recipient: v.fee_recipient,
-    gas_limit: v.gas_limit
+    target_gas_limit: v.target_gas_limit
   )
 
 func shortLog*(v: SignedProposerPreferences): auto =

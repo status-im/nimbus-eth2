@@ -2143,7 +2143,7 @@ proc validateExecutionPayloadBid*(
 
       # [REJECT] `bid.gas_limit` matches the `gas_limit` from the proposer's
       # `SignedProposerPreferences` associated with `bid.slot`.
-      if not (bid.gas_limit == seenPref.gas_limit):
+      if not (bid.gas_limit == seenPref.target_gas_limit):
         return dag.checkedReject("ExecutionPayloadBid: gas limit mismatch")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
