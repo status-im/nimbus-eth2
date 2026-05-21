@@ -2034,8 +2034,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         nextSlotCutoff = node.beaconClock.fromNow(
           nextSlot.start_beacon_time(node.dag.timeParams))
         head = node.dag.head # could be a new head compared to earlier
+        headPayload = node.dag.headPayload
 
-      if nextSlotCutoff.inFuture and node.isSynced(head) and head.executionValid:
+      if nextSlotCutoff.inFuture and node.isSynced(head) and
+          node.dag.headExecutionValid(head, headPayload):
         # If there is a proposal, we want to let the execution client know a bit
         # earlier - the risk is that fork choice changes again before the proposal
         # but this risk should be small - this function also prepares the

@@ -2432,6 +2432,31 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   dag.loadExecutionAndParentBlockHash(blck)[0]
 
+func headExecutionValid*(head: BlockRef, headPayload: BlockRef): bool =
+  ## Since Gloas, execution validity of block is only known when we received the
+  ## envelope. In general, it would be execution invalid if the envelope is
+  ## invalid or missing (i.e. it has never been seen).
+  ##
+  ## Fork choice will decide whether or not to extend the head payload. In case
+  ## of not extending the payload, we should check `head.parent` instead.
+  ##
+  ## Validity result is purely based on head block as headPayload could be out
+  ## of synced which is unreliable.
+  if head == headPayload:
+    head.executionValid
+  elif not head.parent.isNil:
+    head.parent.executionValid
+  else:
+    false
+
+func headExecutionValid*(
+    dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
+  ## Helper function for the routes between Gloas and pre-Gloas.
+  if dag.cfg.consensusForkAtEpoch(head.slot.epoch) >= ConsensusFork.Gloas:
+    headExecutionValid(head, headPayload)
+  else:
+    head.executionValid
+
 func payloadStatusFull*(
     dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_extend_payload
