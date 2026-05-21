@@ -2940,22 +2940,24 @@ proc broadcastBlobSidecar*(
   node.broadcast(topic, blob)
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: fulu.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref fulu.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.signed_block_header.message.slot.epoch
+    contextEpoch = data_column[].signed_block_header.message.slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: gloas.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref gloas.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.slot.epoch
+    contextEpoch = data_column[].slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastPartialDataColumnSidecar*(
     node: Eth2Node, subnet_id: uint64,
@@ -3096,3 +3098,12 @@ proc broadcastProposerPreferences*(
     topic = getProposerPreferencesTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, msg)
+
+proc broadcastExecutionPayloadBid*(
+    node: Eth2Node, signedBid: gloas.SignedExecutionPayloadBid):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = signedBid.message.slot.epoch
+    topic = getExecutionPayloadBidTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, signedBid)

@@ -129,9 +129,8 @@ func getOrCreateEntry*(
     numBlobs: int): PartialColumnEntry =
   ## Get or create a PartialColumnEntry for the given (block_root, column_index).
   let key = PartialColumnKey(blockRoot: blockRoot, columnIndex: columnIndex)
-  let existing = quarantine.entries.get(key)
-  if existing.isSome():
-    return existing.get()
+  quarantine.entries.get(key).isErrOr:
+    return value
 
   var cellOpts = newSeq[Opt[KzgCell]](numBlobs)
   var proofOpts = newSeq[Opt[KzgProof]](numBlobs)

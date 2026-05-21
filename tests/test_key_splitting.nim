@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,7 +17,7 @@ import
 func sign(secrets: seq[SecretShare], message: seq[byte]): seq[SignatureShare] =
   return secrets.mapIt(it.key.blsSign(message).toSignatureShare(it.id))
 
-suite "Key spliting":
+suite "Key splitting":
   let
     privateKey = ValidatorPrivKey.init("0x25295f0d1d592a90b333e26e85149708208e9f8e8bc18f6c77bd62f8ad7a6866")
     pubKey = privateKey.toPubKey.toPubKey

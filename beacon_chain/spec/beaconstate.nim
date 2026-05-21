@@ -54,18 +54,12 @@ func is_builder_withdrawal_credential*(
     withdrawal_credentials: Eth2Digest): bool =
   withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-has_compounding_withdrawal_credential
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
 func has_compounding_withdrawal_credential*(
     consensusFork: static ConsensusFork, validator: Validator): bool =
-  when consensusFork >= ConsensusFork.Gloas:
-    ## Check if ``validator`` has an 0x02 or 0x03 prefixed withdrawal credential.
-    is_compounding_withdrawal_credential(validator.withdrawal_credentials) or
-        is_builder_withdrawal_credential(validator.withdrawal_credentials)
-  else:
-    ## Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal
-    ## credential.
-    is_compounding_withdrawal_credential(validator.withdrawal_credentials)
+  ## Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal
+  ## credential.
+  is_compounding_withdrawal_credential(validator.withdrawal_credentials)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#new-get_max_effective_balance
 func get_max_effective_balance*(
@@ -887,35 +881,9 @@ func get_attesting_indices*(
 
 proc is_valid_indexed_attestation(
     state: ForkyBeaconState,
-    attestation: SomeAttestation,
-    flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
-  # This is a variation on `is_valid_indexed_attestation` that works directly
-  # with an attestation instead of first constructing an `IndexedAttestation`
-  # and then validating it - for the purpose of validating the signature, the
-  # order doesn't matter and we can proceed straight to validating the
-  # signature instead
-
-  let sigs = attestation.aggregation_bits.countOnes()
-  if sigs == 0:
-    return err("is_valid_indexed_attestation: no attesting indices")
-
-  # Verify aggregate signature
-  if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
-    var
-      pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
-    for vidx in state.get_attesting_indices(attestation, cache):
-      pubkeys.add(state.validators[vidx].pubkey)
-
-    if not verify_attestation_signature(
-        state.fork, state.genesis_validators_root, attestation.data,
-        pubkeys, attestation.signature):
-      return err("indexed attestation: signature verification failure")
-
-  ok()
-
-proc is_valid_indexed_attestation(
-    state: ForkyBeaconState,
-    attestation: electra.Attestation | electra.TrustedAttestation,
+    attestation:
+      phase0.Attestation | phase0.TrustedAttestation |
+      electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
   # with an attestation instead of first constructing an `IndexedAttestation`
@@ -1109,7 +1077,7 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
     return tab[]
   do:
     let tab = get_total_balance(
-      state, get_active_validator_indices(state, epoch))
+      state, cache.get_shuffled_active_validator_indices(state, epoch))
     cache.total_active_balance[epoch] = tab
     return tab
 
@@ -1139,7 +1107,9 @@ func get_base_reward(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
-    state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: ForkyBeaconState,
+    attestation: phase0.Attestation | phase0.TrustedAttestation,
+    flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -1274,7 +1244,9 @@ proc check_bls_to_execution_change*(
 
 func get_proposer_reward*(
     state: ForkyBeaconState,
-    attestation: SomeAttestation,
+    attestation:
+      phase0.Attestation | phase0.TrustedAttestation |
+      electra.Attestation | electra.TrustedAttestation,
     base_reward_per_increment: Gwei,
     cache: var StateCache,
     epoch_participation: var EpochParticipationFlags): Gwei =
@@ -1285,34 +1257,9 @@ func get_proposer_reward*(
       base_reward = get_base_reward(state, vidx, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.item(vidx), flag_index):
-        asList(epoch_participation)[vidx] =
-          add_flag(epoch_participation.item(vidx), flag_index)
-        # these are all valid; TODO statically verify or do it type-safely
-        result += base_reward * weight.uint64
-
-  let proposer_reward_denominator =
-    (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
-    WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
-
-  result div proposer_reward_denominator
-
-func get_proposer_reward*(
-    state: ForkyBeaconState,
-    attestation: electra.Attestation | electra.TrustedAttestation,
-    base_reward_per_increment: Gwei,
-    cache: var StateCache,
-    epoch_participation: var EpochParticipationFlags): Gwei =
-  let participation_flag_indices = get_attestation_participation_flag_indices(
-    state, attestation.data, state.slot - attestation.data.slot)
-  for vidx in state.get_attesting_indices(attestation, cache):
-    let
-      base_reward = get_base_reward(state, vidx, base_reward_per_increment)
-    for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-      if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.item(vidx), flag_index):
-        asList(epoch_participation)[vidx] =
-          add_flag(epoch_participation.item(vidx), flag_index)
+         not has_flag(epoch_participation[vidx], flag_index):
+        epoch_participation[vidx] =
+          add_flag(epoch_participation[vidx], flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += base_reward * weight.uint64
 
@@ -1323,7 +1270,9 @@ func get_proposer_reward*(
   result div proposer_reward_denominator
 
 proc process_attestation*(
-    state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: var ForkyBeaconState,
+    attestation: phase0.Attestation | phase0.TrustedAttestation,
+    flags: UpdateFlags,
     base_reward_per_increment: Gwei, cache: var StateCache):
     Result[Gwei, cstring] =
   # In the spec, attestation validation is mixed with state mutation, so here
@@ -1434,9 +1383,9 @@ proc process_attestation*(
       var will_set_new_flag = false
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
         if flag_index in participation_flag_indices and
-           not has_flag(epoch_participation.item(vidx), flag_index):
-          asList(epoch_participation)[vidx] =
-            add_flag(epoch_participation.item(vidx), flag_index)
+           not has_flag(epoch_participation[vidx], flag_index):
+          epoch_participation[vidx] =
+            add_flag(epoch_participation[vidx], flag_index)
           proposer_reward_numerator +=
             get_base_reward(
               state, vidx, base_reward_per_increment) * weight.uint64
@@ -1630,8 +1579,7 @@ func switch_to_compounding_validator*(
   validator.withdrawal_credentials.data[0] = COMPOUNDING_WITHDRAWAL_PREFIX
   queue_excess_active_balance(state, index.uint64)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-get_pending_balance_to_withdraw
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw
 func get_pending_balance_to_withdraw*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
            heze.BeaconState,
@@ -1640,14 +1588,6 @@ func get_pending_balance_to_withdraw*(
   for withdrawal in state.pending_partial_withdrawals:
     if withdrawal.validator_index == validator_index:
       pending_balance += withdrawal.amount
-
-  when type(state).kind >= ConsensusFork.Gloas:
-    for withdrawal in state.builder_pending_withdrawals:
-      if withdrawal.builder_index == validator_index:
-        pending_balance += withdrawal.amount
-    for payment in state.builder_pending_payments:
-      if payment.withdrawal.builder_index == validator_index:
-        pending_balance += payment.withdrawal.amount
 
   pending_balance
 
@@ -2245,7 +2185,7 @@ func translate_participation(
     ):
       for flag_index in participation_flag_indices:
         state.previous_epoch_participation[vidx] =
-          add_flag(state.previous_epoch_participation.item(vidx), flag_index)
+          add_flag(state.previous_epoch_participation[vidx], flag_index)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-get_index_for_new_builder
 func get_index_for_new_builder(
@@ -2288,7 +2228,7 @@ func add_builder_to_registry(
   if state.builders.lenu64 == index:
     # TODO handle this potential failure (?) differently
     discard state.builders.add builder
-    # TODO this isn't really safe
+    debugGloasComment "this isn't really safe"
     bucket_sorted_builders.add index.ValidatorIndex
   else:
     state.builders.mitem(index) = builder
@@ -2316,66 +2256,61 @@ func apply_deposit_for_builder*(
     # Increase balance by deposit amount
     state.builders.mitem(opt_validator_index.get).balance += amount
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
 func onboard_builders_from_pending_deposits*(
     cfg: RuntimeConfig,
     state: var gloas.BeaconState) =
-  ## Applies any pending deposit for builders, effectively
-  ## onboarding builders at the fork.
-
-  var
+  ## Applies any pending deposit for builders, effectively onboarding builders
+  ## at the fork.
+  debugGloasComment "In the slots leading up to the fork, implementations SHOULD validate pending deposit signatures and cache the results."
+  let
     bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
+  var
     pending_deposits: seq[PendingDeposit]
     pending_validator_pubkeys: HashSet[ValidatorPubKey]
 
   for deposit in state.pending_deposits:
-    # Deposits for existing validators stay in pending queue
-    let is_existing_validator = findValidatorIndex(
-      state.validators.asSeq, bucket_sorted_validators[], deposit.pubkey).isSome
-
-    if is_existing_validator or deposit.pubkey in pending_validator_pubkeys:
+    # Deposits for existing validators stay in the pending queue
+    if findValidatorIndex(
+        state.validators.asSeq, bucket_sorted_validators[],
+        deposit.pubkey).isSome:
       pending_deposits.add(deposit)
       continue
 
-    # If the pubkey is associated with a builder that was created in a
-    # previous iteration or it is a builder deposit, try to apply the
-    # deposit to the new/existing builder. Note that the function
-    # apply_deposit_for_builder can mutate the state and may add a builder
-    # to the registry.
-    let
-      is_existing_builder = findValidatorIndex(
-        state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
-      has_builder_credentials =
-        is_builder_withdrawal_credential(deposit.withdrawal_credentials)
+    # Note that the function apply_deposit_for_builder can mutate the state and
+    # may add a builder to the registry. For this reason, the list of builder
+    # pubkeys must be recomputed each iteration.
+    let is_existing_builder = findValidatorIndex(
+      state.builders.asSeq, bucket_sorted_builders[], deposit.pubkey).isSome
 
-    if is_existing_builder or has_builder_credentials:
-      apply_deposit_for_builder(
-        cfg, state, bucket_sorted_builders[],
-        deposit.pubkey,
-        deposit.withdrawal_credentials,
-        deposit.amount,
-        deposit.signature,
-        deposit.slot)
-      continue
+    # Deposits for non-builders stay in the pending queue. If there is a valid
+    # pending deposit for a new validator with this pubkey, keep this deposit
+    # in the pending queue to be applied to that validator later.
+    if not is_existing_builder:
+      if not is_builder_withdrawal_credential(deposit.withdrawal_credentials):
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/beacon-chain.md#new-is_pending_validator
+        if verify_deposit_signature(
+            cfg.GENESIS_FORK_VERSION,
+            DepositData(
+              pubkey: deposit.pubkey,
+              withdrawal_credentials: deposit.withdrawal_credentials,
+              amount: deposit.amount,
+              signature: deposit.signature)):
+          pending_validator_pubkeys.incl(deposit.pubkey)
+        pending_deposits.add(deposit)
+        continue
+      if deposit.pubkey in pending_validator_pubkeys:
+        pending_deposits.add(deposit)
+        continue
 
-    # If there is a pending deposit for a new validator that has a valid
-    # signature, track the pubkey so that subsequent builder deposits for
-    # the same pubkey stay in pending (applied to the validator later)
-    # rather than creating a builder. Deposits with invalid signatures are
-    # dropped here since they would fail in apply_pending_deposit anyway.
-    if verify_deposit_signature(
-        cfg.GENESIS_FORK_VERSION,
-        DepositData(
-          pubkey: deposit.pubkey,
-          withdrawal_credentials: deposit.withdrawal_credentials,
-          amount: deposit.amount,
-          signature: deposit.signature)):
-      pending_validator_pubkeys.incl(deposit.pubkey)
-      pending_deposits.add(deposit)
+    apply_deposit_for_builder(
+      cfg, state, bucket_sorted_builders[], deposit.pubkey,
+      deposit.withdrawal_credentials, deposit.amount, deposit.signature,
+      deposit.slot)
 
-  state.pending_deposits =
-    typeof(state.pending_deposits).init(pending_deposits)
+  assign(state.pending_deposits,
+    typeof(state.pending_deposits).init(pending_deposits))
 
 # {.closure.} prevents stack overflow from inline expansion.
 # See: https://github.com/nim-lang/Nim/issues/25287
@@ -2943,7 +2878,7 @@ func upgrade_to_next*(
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork.md#upgrading-the-state
 # upgrade_to_gloas
 func upgrade_to_next*(
     cfg: RuntimeConfig, pre: fulu.BeaconState, cache: var StateCache):
@@ -3009,6 +2944,7 @@ func upgrade_to_next*(
     # [Modified in Gloas:EIP7732]
     latest_execution_payload_bid: gloas.ExecutionPayloadBid(
       block_hash: pre.latest_execution_payload_header.block_hash,
+      gas_limit: pre.latest_execution_payload_header.gas_limit,
       execution_requests_root: hash_tree_root(default(ExecutionRequests)),
     ),
     next_withdrawal_index: pre.next_withdrawal_index,

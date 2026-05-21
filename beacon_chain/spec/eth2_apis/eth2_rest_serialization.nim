@@ -1070,6 +1070,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.LightClientFinalityUpdate)
   of "light_client_optimistic_update":
     ok(EventTopic.LightClientOptimisticUpdate)
+  of "execution_payload":
+    ok(EventTopic.ExecutionPayloadAdded)
   of "execution_payload_gossip":
     ok(EventTopic.ExecutionPayloadGossipAdded)
   of "execution_payload_available":
@@ -1113,6 +1115,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("light_client_finality_update,")
   if EventTopic.LightClientOptimisticUpdate in value:
     res.add("light_client_optimistic_update,")
+  if EventTopic.ExecutionPayloadAdded in value:
+    res.add("execution_payload,")
   if EventTopic.ExecutionPayloadGossipAdded in value:
     res.add("execution_payload_gossip,")
   if EventTopic.ExecutionPayloadAvailable in value:

@@ -177,7 +177,8 @@ proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: 
     debug "Requesting blocks by root", peer = peer, blocks = shortLog(items),
                                        peer_score = peer.getScore()
 
-    let blocks = (await beaconBlocksByRoot_v2(peer, BlockRootsList items))
+    let blocks = (await beaconBlocksByRoot_v2(
+      peer, BlockRootsList items, maxResponseItems = items.len))
 
     if blocks.isOk:
       let ublocks = blocks.get()
@@ -260,7 +261,6 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           gotUnviableEnvelope = false
 
         for envelope in uenvelopes:
-          self.envelopeQuarantine[].addOrphan(envelope[])
           let res = await self.envelopeVerifier(envelope[])
           if res.isErr():
             case res.error():
@@ -418,7 +418,13 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       peer = peer,
       columns = shortLog(intColIdList),
       peer_score = peer.getScore()
-    let columns = await dataColumnSidecarsByRoot(peer, DataColumnsByRootIdentifierList intColIdList)
+    let expectedColumnCount = block:
+      var n = 0
+      for id in intColIdList: n += id.indices.len
+      n
+    let columns = await dataColumnSidecarsByRoot(
+      peer, DataColumnsByRootIdentifierList intColIdList,
+      maxResponseItems = expectedColumnCount)
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)

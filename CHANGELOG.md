@@ -1,3 +1,39 @@
+2026-05-11 v26.5.0
+==================
+
+The Nimbus consensus client `v26.5.0` is a `medium-urgency` release which improves performance and execution client compatibility.
+
+### Improvements
+
+- Batch-verify KZG columns for increased performance:
+  https://github.com/status-im/nimbus-eth2/pull/8302
+
+- Increase KZG recovery and verification performance by 60%:
+  https://github.com/status-im/nimbus-eth2/pull/8405
+
+- Increase data column storage performance by 40%:
+  https://github.com/status-im/nimbus-eth2/pull/8336
+
+- Avoid unnecessary work on epoch transitions:
+  https://github.com/status-im/nimbus-eth2/pull/8214
+
+- Provides standalone light client finalized block hashes to execution clients by default:
+  https://github.com/status-im/nimbus-eth2/pull/8376
+
+### Fixes
+
+- Temporarily disable fast confirmation rule in engine API due to execution client incompatibility:
+  https://github.com/status-im/nimbus-eth2/pull/8280
+
+- Ensure engine API calls time out regardless of underlying reason:
+  https://github.com/status-im/nimbus-eth2/pull/8294
+
+- Avoid blocking main thread on column reconstruction:
+  https://github.com/status-im/nimbus-eth2/pull/8346
+
+- Add missing nfd field to ENRs:
+  https://github.com/status-im/nimbus-eth2/pull/8273
+
 2026-03-28 v26.3.1
 ==================
 

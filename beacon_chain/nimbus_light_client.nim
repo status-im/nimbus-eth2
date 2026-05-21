@@ -9,7 +9,7 @@
 
 import
   std/os,
-  chronicles, chronos, stew/io2,
+  chronicles, chronos, metrics, stew/io2,
   eth/db/kvstore_sqlite3,
   ./el/el_manager,
   ./gossip_processing/block_processor_light_client,
@@ -20,8 +20,14 @@ import
     beacon_clock, buildinfo, filepath, light_client, light_client_db,
     nimbus_binary_common, process_state, version]
 
+from ./consensus_object_pools/blockchain_dag import
+  updateFinalizedBlockMetrics, updateHeadBlockMetrics
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
+
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
+declareGauge beacon_slot, "Latest slot of the beacon chain state"
+declareGauge beacon_current_epoch, "Current epoch"
 
 # noinline to keep it in stack traces
 proc main() {.noinline, raises: [CatchableError].} =
@@ -114,6 +120,14 @@ proc main() {.noinline, raises: [CatchableError].} =
       network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Optimistic)
 
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
+
+  let metricsServer = waitFor(config.initMetricsServer()).valueOr:
+    quit QuitFailure
+  defer: waitFor metricsServer.stopMetricsServer()
+
   # Run `exchangeTransitionConfiguration` loop
   if elManager != nil:
     elManager.start()
@@ -157,6 +171,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       when lcDataFork > LightClientDataFork.None:
         info "New LC finalized header",
           finalized_header = shortLog(forkyHeader)
+        updateFinalizedBlockMetrics(forkyHeader.beacon.toBlockId())
         let
           period = forkyHeader.beacon.slot.sync_committee_period
           syncCommittee = lightClient.finalizedSyncCommittee.expect("Init OK")
@@ -171,6 +186,7 @@ proc main() {.noinline, raises: [CatchableError].} =
       return
     withForkyHeader(optimisticHeader):
       when lcDataFork > LightClientDataFork.None:
+        updateHeadBlockMetrics(forkyHeader.beacon.toBlockId())
         logScope: optimistic_header = shortLog(forkyHeader)
         when lcDataFork >= LightClientDataFork.Capella:
           let
@@ -337,6 +353,9 @@ proc main() {.noinline, raises: [CatchableError].} =
       finalized = shortLog(finalizedBid),
       delay = shortLog(delay)
 
+    beacon_slot.set wallSlot.toGaugeValue
+    beacon_current_epoch.set wallSlot.epoch.toGaugeValue
+
   proc runOnSlotLoop() {.async.} =
     var
       curSlot = beaconClock.currentSlot
@@ -358,6 +377,9 @@ proc main() {.noinline, raises: [CatchableError].} =
         nextSlot.start_beacon_time(cfg.timeParams) - beaconClock.now()
 
   proc onSecond(time: Moment) =
+    # Nim GC metrics (for the main thread)
+    updateThreadMetrics()
+
     let wallSlot = beaconClock.currentSlot
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)

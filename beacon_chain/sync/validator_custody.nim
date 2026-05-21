@@ -51,12 +51,21 @@ type
     config: BeaconNodeConf
     curGroupsCount: CgcCount
     curColumnMap: ColumnMap
+    totalNodeBalance: Gwei
     fuluColumnQuarantine: ref ColumnQuarantine
     gloasColumnQuarantine: ref GloasColumnQuarantine
     state: ValidatorCustodyState
     stabilitySlot: Opt[Slot]
+    stabilityMoment: Opt[chronos.Moment]
 
   ValidatorCustodyRef* = ref ValidatorCustody
+
+func shortLog*(state: ValidatorCustodyState): string =
+  case state
+  of ValidatorCustodyState.Init: "init"
+  of ValidatorCustodyState.FullCustody: "full"
+  of ValidatorCustodyState.LimitedCustody: "limited"
+  of ValidatorCustodyState.StabilityPeriod: "stability"
 
 func supernodeGroupsCount*(cfg: RuntimeConfig): CgcCount =
   CgcCount(cfg.NUMBER_OF_CUSTODY_GROUPS)
@@ -145,7 +154,14 @@ func syncDistance(
   else:
     currentSlot - headSlot
 
-func updateState(vcus: ValidatorCustodyRef, currentSlot: Slot) =
+proc updateStability(vcus: ValidatorCustodyRef, slot: Opt[Slot]) =
+  vcus.stabilitySlot = slot
+  if slot.isNone():
+    vcus.stabilityMoment = Opt.none(chronos.Moment)
+  else:
+    vcus.stabilityMoment = Opt.some(Moment.now())
+
+proc updateState(vcus: ValidatorCustodyRef, currentSlot: Slot) =
   let distance = vcus.syncDistance(currentSlot)
   case vcus.state
   of ValidatorCustodyState.Init:
@@ -157,22 +173,22 @@ func updateState(vcus: ValidatorCustodyRef, currentSlot: Slot) =
     if distance > MaxSyncDistanceDeviationSlots:
       vcus.state = ValidatorCustodyState.LimitedCustody
   of ValidatorCustodyState.LimitedCustody:
-    if distance > MaxSyncDistanceDeviationSlots:
+    if distance <= MaxSyncDistanceDeviationSlots:
       vcus.state = ValidatorCustodyState.StabilityPeriod
-      vcus.stabilitySlot = Opt.some(currentSlot)
+      vcus.updateStability(Opt.some(currentSlot))
   of ValidatorCustodyState.StabilityPeriod:
     if distance > MaxSyncDistanceDeviationSlots:
       vcus.state = ValidatorCustodyState.LimitedCustody
-      vcus.stabilitySlot = Opt.none(Slot)
+      vcus.updateStability(Opt.none(Slot))
     else:
       doAssert(vcus.stabilitySlot.isSome(),
         "Stability start slot should be set at this moment")
-      if vcus.stabilitySlot.get() <= currentSlot:
+      if vcus.stabilitySlot.get() > currentSlot:
         # Invalid time, or time shift, so we just update stability slot.
-        vcus.stabilitySlot = Opt.some(currentSlot)
+        vcus.updateStability(Opt.some(currentSlot))
       if currentSlot - vcus.stabilitySlot.get() >= StabilityDistanceSlots:
         vcus.state = ValidatorCustodyState.FullCustody
-        vcus.stabilitySlot = Opt.none(Slot)
+        vcus.updateStability(Opt.none(Slot))
 
 proc init*(
     T: type ValidatorCustodyRef,
@@ -207,7 +223,8 @@ proc setValidatorCustody*(
   vcus: ValidatorCustodyRef,
   currentSlot: Slot,
   newGroupsCount: CgcCount,
-  newMap: ColumnMap
+  newMap: ColumnMap,
+  nodeBalance: Gwei
 ) =
   if len(newMap) != len(vcus.curColumnMap):
     let oldMapLen = len(vcus.curColumnMap)
@@ -224,7 +241,10 @@ proc setValidatorCustody*(
     if len(newMap) > oldMapLen:
       vcus.dag.eaSlot = currentSlot
 
-    info "New validator custody set", custody_columns = len(newMap)
+    info "New validator custody set",
+      custody_columns = len(newMap),
+      current_slot = currentSlot,
+      ea_slot = vcus.dag.eaSlot
 
 proc updateValidatorCustody*(
     vcus: ValidatorCustodyRef,
@@ -237,8 +257,11 @@ proc updateValidatorCustody*(
   logScope:
     total_node_balance = totalNodeBalance
     current_state = vcus.state
+    current_slot = currentSlot
 
   debug "Total node balance before applying validator custody"
+
+  vcus.totalNodeBalance = totalNodeBalance
 
   vcus.updateState(currentSlot)
 
@@ -248,10 +271,14 @@ proc updateValidatorCustody*(
 
   if len(vcus.curColumnMap) != len(newMap):
     info "New validator custody count detected"
-    vcus.setValidatorCustody(currentSlot, newGroupsCount, newMap)
+    vcus.setValidatorCustody(
+      currentSlot, newGroupsCount, newMap, totalNodeBalance)
 
 func getMap*(vcus: ValidatorCustodyRef): ColumnMap =
   vcus.curColumnMap
+
+func getGroupsCount*(vcus: ValidatorCustodyRef): CgcCount =
+  vcus.curGroupsCount
 
 iterator getSet*(vcus: ValidatorCustodyRef): ColumnIndex =
   for index in vcus.curColumnMap:
@@ -279,3 +306,55 @@ iterator custodyGroups*(vcus: ValidatorCustodyRef): CustodyIndex =
     for i in vcus.dag.cfg.get_custody_groups(
       vcus.network.nodeId, vcus.curGroupsCount):
       yield CustodyIndex(i)
+
+func getCurrentState*(vcus: ValidatorCustodyRef): ValidatorCustodyState =
+  vcus.state
+
+func getStabilityDistance*(
+    vcus: ValidatorCustodyRef,
+    currentSlot: Slot
+): Opt[uint64] =
+  if vcus.state != ValidatorCustodyState.StabilityPeriod:
+    return Opt.none(uint64)
+  if vcus.stabilitySlot.isNone():
+    return Opt.none(uint64)
+  if currentSlot < vcus.stabilitySlot.get():
+    return Opt.some(0'u64)
+  Opt.some(currentSlot - vcus.stabilitySlot.get())
+
+proc getStabilityDuration*(
+    vcus: ValidatorCustodyRef,
+): Opt[chronos.Duration] =
+  if vcus.stabilityMoment.isNone():
+    return Opt.none(chronos.Duration)
+  Opt.some(Moment.now() - vcus.stabilityMoment.get())
+
+proc debugCustodyJsonDump*(vcus: ValidatorCustodyRef, slot: Slot): string =
+  let
+    distance =
+      block:
+        let res = vcus.getStabilityDistance(slot)
+        if res.isNone():
+          "not available"
+        else:
+          $res.get()
+    duration =
+      block:
+        let res = vcus.getStabilityDuration()
+        if res.isNone():
+          "not available"
+        else:
+          $res.get()
+
+  "{" &
+  "\"state\":\"" & shortLog(vcus.getCurrentState()) & "\"," &
+  "\"custody_groups_count\":" & $vcus.curGroupsCount & "," &
+  "\"custody_columns\":" & $vcus.getMap() & "," &
+  "\"total_node_balance\":\"" & $vcus.totalNodeBalance & "\"," &
+  "\"supernode_config\":" & $vcus.config.peerdasSupernode & "," &
+  "\"light_supernode_config\":" & $vcus.config.lightSupernode & "," &
+  "\"is_supernode_check\":" & $vcus.isSupernode() & "," &
+  "\"is_lightsupernode_check\":" & $vcus.isLightSupernode() & "," &
+  "\"stability_distance\":\"" & distance & "\"," &
+  "\"stability_duration\":\"" & duration & "\"" &
+  "}"

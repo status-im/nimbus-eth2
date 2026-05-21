@@ -582,21 +582,6 @@ Equivalent call in the official REST API:
 curl -X POST http://localhost:5052/nimbus/v1/chronicles/settings -d "DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none" -s | jq
 ```
 
-### setGraffiti
-
-Set the graffiti bytes that will be included in proposed blocks.
-The graffiti bytes can be specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying raw bytes.
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"setGraffiti","params":["Mr F was here"] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
-
-Equivalent call in the official REST API:
-
-```
-curl -X POST http://localhost:5052/nimbus/v1/graffiti -d "Mr F was here" -s | jq
-```
-
 ### getEth1Chain
 
 Get the list of Eth1 blocks that the beacon node is currently storing in memory.

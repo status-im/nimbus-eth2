@@ -12,6 +12,7 @@ updates:
     ignore:
       - dependency-name: vendor/nim-libp2p
         versions: ["<= 0.0.0"]
+      - dependency-name: vendor/nim-eth2-scenarios
     schedule:
       interval: daily
     target-branch: unstable

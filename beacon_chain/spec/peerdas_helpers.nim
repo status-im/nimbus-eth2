@@ -9,7 +9,7 @@
 
 # Uncategorized helper functions from the spec
 import
-  chronos, chronicles, results, taskpools,
+  chronos, chronos/threadsync, chronicles, results, taskpools,
   eth/p2p/discoveryv5/node,
   kzg4844/kzg,
   ssz_serialization/[
@@ -21,7 +21,7 @@ import
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
-from std/sequtils import mapIt, repeat, toSeq
+from std/sequtils import anyIt, mapIt, repeat, toSeq
 from stew/staticfor import staticFor
 
 type
@@ -157,24 +157,25 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
 proc recoverCellsAndKzgProofsTask(cellIndices: openArray[CellIndex],
                                   cells: openArray[Cell]): Result[CellsAndProofs, void] =
-  recoverCellsAndKzgProofs(cellIndices, cells).mapErr(
-    proc (x: string) =
-      discard)
+  recoverCellsAndKzgProofs(cellIndices, cells).mapConvertErr(void)
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref fulu.DataColumnSidecar]):
-    Result[seq[CellsAndProofs], cstring] =
+    Future[Result[seq[CellsAndProofs], cstring]] {.async: (raises: []).} =
   ## Recover blobs from data column sidecars in parallel.
   ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
   ## - Checks timeout before every spawn operation.
   ## - Ensures all spawned tasks are awaited (drained) before returning.
-
   if dataColumns.len == 0:
     return err("DataColumnSidecar: Length should not be 0")
   if dataColumns.len > NUMBER_OF_COLUMNS:
     return err("DataColumnSidecar: Length exceeds NUMBER_OF_COLUMNS")
+  if tp.numThreads < 2:
+    # Without 2 threads, tasks might require blocking the "main" thread which
+    # won't work with the logic below
+    return err("Need at least 2 threads")
 
   let
     columnCount = dataColumns.len
@@ -184,109 +185,195 @@ proc recover_cells_and_proofs_parallel*(
     if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
 
+  let tsp = ThreadSignalPtr.new().valueOr:
+    return err("Could not allocate signal")
+
+  var wait = tsp.wait() # `wait` before task-ended check to avoid race
+
+  defer:
+    await wait.cancelAndWait()
+    # If there's an error closing the TSP, there's nothing we can do about it
+    # here..
+    discard tsp.close()
+
+  type Task = object
+    pendingIndices: seq[CellIndex]
+    pendingCells: seq[Cell]
+    ok: Flowvar[bool]
+
   proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
-                    columnCount: int): Result[CellsAndProofs, void] =
+                     columnCount: int, res: ptr CellsAndProofs, tsp: ThreadSignalPtr): bool =
     let
       idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
       cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
     # Use toOpenArray to create views without copying
-    recoverCellsAndKzgProofsTask(
+    defer:
+      discard tsp.fireSync()
+
+    res[] = recoverCellsAndKzgProofsTask(
       idxArr.toOpenArray(0, columnCount - 1),
-      cellsArr.toOpenArray(0, columnCount - 1))
+      cellsArr.toOpenArray(0, columnCount - 1)).valueOr:
+        return false
+    true
 
   var
-    pendingFuts = newSeq[Flowvar[Result[CellsAndProofs, void]]] (blobCount)
-    pendingIndices = newSeq[seq[CellIndex]](blobCount)
-    pendingCells = newSeq[seq[Cell]](blobCount)
     res = newSeq[CellsAndProofs](blobCount)
+    spawned = 0 # how many we've actually spawned
 
-  # track how many we've actually spawned
-  var spawned = 0
-
-  # Choose a sane limit for concurrent tasks to reduce peak memory pressure.
-  let maxInFlight = min(blobCount, 9)
+  # Run no more tasks than we have threads so that we don't swamp the tp with
+  # reconstruction tasks and thus sig verification
+  var tasks = newSeq[Task](min(min(blobCount, tp.numThreads), 8))
+  for t in tasks.mitems():
+    t.pendingIndices = newSeq[CellIndex](columnCount)
+    t.pendingCells = newSeq[Cell](columnCount)
 
   let startTime = Moment.now()
   const reconstructionTimeout = 2.seconds
 
   var
-    completed = 0
     hadError = false
+    hadTimeout = false
 
-  # ---- Spawn + bounded-await loop ----
-  for blobIdx in 0 ..< blobCount:
-    # Check timeout BEFORE spawning
-    if (Moment.now() - startTime) > reconstructionTimeout:
-      trace "PeerDAS reconstruction timed out before spawning task",
-        spawned = spawned, completed = completed, total = blobCount
-      hadError = true
-      break  # Stop spawning new tasks
-
-    # Allocate sequences and assign directly to avoid temporary copies
-    pendingIndices[spawned] = newSeq[CellIndex](columnCount)
-    pendingCells[spawned] = newSeq[Cell](columnCount)
-
-    # Cache addresses to avoid repeated lookups and bounds checks
-    let
-      indicesPtr = addr pendingIndices[spawned]
-      cellsPtr = addr pendingCells[spawned]
-
-    for i in 0 ..< columnCount:
-      indicesPtr[][i] = dataColumns[i][].index
-      cellsPtr[][i] = dataColumns[i][].column[blobIdx]
-
-    # Store sequences and spawn worker with pointers to their data
-    pendingFuts[spawned] = tp.spawn workerRecover(
-      addr pendingIndices[spawned][0],
-      addr pendingCells[spawned][0],
-      columnCount)
-    inc spawned
-
-    # If too many in-flight tasks, await the oldest one
-    while spawned - completed >= maxInFlight:
-      # Check timeout BEFORE syncing
+  # Spawn tasks incrementally as they get completed to avoid monopolising the
+  # thread pool task queue.
+  block spawning:
+    # ---- Spawn + bounded-await loop ----
+    for blobIdx in 0 ..< blobCount:
+      # Check timeout BEFORE spawning
       if (Moment.now() - startTime) > reconstructionTimeout:
-        trace "PeerDAS reconstruction timed out before syncing task",
-          completed = completed, totalSpawned = spawned
-        hadError = true
-        break
+        trace "PeerDAS reconstruction timed out before spawning task",
+          spawned = spawned, total = blobCount
+        hadTimeout = true
+        break spawning  # Stop spawning new tasks
 
-      let futRes = sync pendingFuts[completed]
+      # Find a free task, waiting for some unfinished tasks if none are available
+      let taskPtr = block:
+        var found = -1
+        while true:
+          for i, t in tasks.mpairs():
+            if not t.ok.isSpawned:
+              found = i
+              break
+            if t.ok.isReady:
+              if not t.ok.sync():
+                hadError = true
+              t.ok.reset()
+              if hadError:
+                break spawning
+              found = i
+              break
 
-      if futRes.isErr:
-        hadError = true
-      else:
-        res[completed] = futRes.get
+          if found != -1:
+            break
 
-      inc completed
+          try:
+            await wait
+          except AsyncError:
+            hadError = true
+            break spawning
+          except CancelledError:
+            hadTimeout = true
+            break spawning
+          wait = tsp.wait()
+        addr tasks[found]
 
-    if hadError:
+      # Set up pointers to actual data
+      for i in 0 ..< columnCount:
+        taskPtr[].pendingIndices[i] = dataColumns[i][].index
+        taskPtr[].pendingCells[i] = dataColumns[i][].column[blobIdx]
+
+      # Store sequences and spawn worker with pointers to their data
+      taskPtr[].ok = tp.spawn workerRecover(
+        addr taskPtr[].pendingIndices[0],
+        addr taskPtr[].pendingCells[0],
+        columnCount,
+        addr res[spawned],
+        tsp,
+      )
+      inc spawned
+
+  # ---- CRITICAL: Complete all spawned tasks before returning ----
+  while true:
+    for t in tasks.mitems():
+      if t.ok.isSpawned() and t.ok.isReady():
+        # Always consume ok
+        hadError = not t.ok.sync() or hadError
+        t.ok.reset()
+
+    if tasks.anyIt(it.ok.isSpawned):
+      try:
+        await wait
+      except CatchableError:
+        # Waiting for a signal should never fail, but if it does anyway we have
+        # to make sure that the tasks are all finished to retain memory safety
+        for t in tasks.mitems():
+          if t.ok.isSpawned():
+            if not t.ok.sync():
+              hadError = true
+      wait = tsp.wait()
+    else:
       break
 
-  # ---- CRITICAL: Drain all spawned tasks before returning ----
-  # This ensures no task references memory that will be destroyed
-  for i in completed ..< spawned:
-    let futRes = sync pendingFuts[i]
-    # Store results only if we haven't had an error and the result is ok
-    if not hadError and futRes.isOk:
-      res[i] = futRes.get
-    elif futRes.isErr:
-      hadError = true
-
   if hadError:
-    if (Moment.now() - startTime) > reconstructionTimeout:
-      return err("Data column reconstruction timed out")
-    # Segregate errors from timeouts
-    else:
-      return err("Data column reconstruction failed")
+    return err("Data column reconstruction failed")
+  elif hadTimeout:
+    return err("Data column reconstruction timed out")
 
   ok(res)
 
 proc assemble_data_column_sidecars*(
+    signed_block_header: SignedBeaconBlockHeader,
+    kzg_commitments: KzgCommitments,
+    kzg_commitments_inclusion_proof:
+      array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest],
+    blobs: seq[KzgBlob],
+    cell_proofs: seq[KzgProof]): fulu.DataColumnSidecars =
+  ## Variant used by the column-first sidecar retrieval path: assembles
+  ## column sidecars from the per-block constants carried by an existing
+  ## column sidecar (header, commitments, inclusion proof) plus blobs and
+  ## cell proofs recovered from the EL. The block itself is not required.
+  var sidecars = newSeqOfCap[ref fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
+
+  if kzg_commitments.len == 0 or blobs.len == 0:
+    return sidecars
+  if blobs.len != kzg_commitments.len:
+    return sidecars
+  if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return sidecars
+
+  var
+    cells = newSeq[CellBytes](blobs.len)
+    proofs = newSeq[ProofBytes](blobs.len)
+
+  for i in 0 ..< blobs.len:
+    cells[i] = computeCells(blobs[i]).get
+    let proofElem = addr proofs[i]
+    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+
+  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+    var
+      column = newSeqOfCap[KzgCell](blobs.len)
+      kzgProofOfColumn = newSeqOfCap[KzgProof](blobs.len)
+    for rowIndex in 0 ..< blobs.len:
+      column.add(cells[rowIndex][columnIndex])
+      kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
+
+    sidecars.add (ref fulu.DataColumnSidecar)(
+      index: ColumnIndex(columnIndex),
+      column: DataColumn.init(column),
+      kzg_commitments: kzg_commitments,
+      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
+      signed_block_header: signed_block_header,
+      kzg_commitments_inclusion_proof: kzg_commitments_inclusion_proof)
+
+  sidecars
+
+proc assemble_data_column_sidecars*(
     signed_beacon_block: fulu.SignedBeaconBlock,
-    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[fulu.DataColumnSidecar] =
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): fulu.DataColumnSidecars =
   template blck(): auto = signed_beacon_block.message
-  var sidecars = newSeqOfCap[fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  var sidecars = newSeqOfCap[ref fulu.DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   template kzg_commitments: untyped =
     signed_beacon_block.message.body.blob_kzg_commitments
@@ -326,7 +413,7 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    sidecars.add fulu.DataColumnSidecar(
+    sidecars.add (ref fulu.DataColumnSidecar)(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
       kzg_commitments: blck.body.blob_kzg_commitments,
@@ -339,14 +426,14 @@ proc assemble_data_column_sidecars*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/builder.md#modified-get_data_column_sidecars
 proc assemble_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
-    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): seq[gloas.DataColumnSidecar] =
+    blobs: seq[KzgBlob], cell_proofs: seq[KzgProof]): gloas.DataColumnSidecars =
   template kzg_commitments(): auto =
     signed_beacon_block.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
 
   if kzg_commitments.len == 0 or blobs.len == 0:
-    return static(default(seq[gloas.DataColumnSidecar]))
+    return static(default(gloas.DataColumnSidecars))
 
-  var sidecars = newSeqOfCap[gloas.DataColumnSidecar](CELLS_PER_EXT_BLOB)
+  var sidecars = newSeqOfCap[ref gloas.DataColumnSidecar](CELLS_PER_EXT_BLOB)
 
   if blobs.len != kzg_commitments.len:
     return sidecars
@@ -375,14 +462,12 @@ proc assemble_data_column_sidecars*(
       column.add(cells[rowIndex][columnIndex])
       kzgProofOfColumn.add(proofs[rowIndex][columnIndex])
 
-    let sidecar = gloas.DataColumnSidecar(
+    sidecars.add (ref gloas.DataColumnSidecar)(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(column),
       kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
       slot: signed_beacon_block.message.slot,
-      beacon_block_root: beacon_block_root
-    )
-    sidecars.add(sidecar)
+      beacon_block_root: beacon_block_root)
 
   sidecars
 
@@ -418,15 +503,17 @@ proc assemble_partial_data_column_sidecars*(
 
   sidecars
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#verify_partial_data_column_sidecar_kzg_proofs
 proc verify_partial_data_column_sidecar_kzg_proofs*(
     sidecar: fulu.PartialDataColumnSidecar,
     all_commitments: deneb.KzgCommitments,
     column_index: ColumnIndex): Result[void, cstring] =
-  ## Verify the KZG proofs.
+  ## Verify the KZG proofs for partial data column sidecars.
 
   # Get the blob indices from the bitmap
   var blobIndices = newSeqOfCap[int](sidecar.partial_columns.len)
   for i in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
+    # BitArray's [] / []= accessors require a Natural (non-negative integer)
     if sidecar.cells_present_bitmap[Natural(i)]:
       blobIndices.add(i)
 
@@ -616,7 +703,7 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 
 proc recover_blobs_from_data_columns*(
-  dataColumns: seq[fulu.DataColumnSidecar]
+  dataColumns: openArray[ref fulu.DataColumnSidecar]
 ): Blobs =
   const numCols = CELLS_PER_EXT_BLOB div 2
   var blobs: Blobs
@@ -624,15 +711,15 @@ proc recover_blobs_from_data_columns*(
   if dataColumns.len < numCols:
     return blobs
   for i in 0 ..< numCols:
-    if dataColumns[i].index != i.uint64:
+    if dataColumns[i][].index != i.uint64:
       return blobs
-  let numBlobs = dataColumns[0].column.len
+  let numBlobs = dataColumns[0][].column.len
 
   for blobIndex in 0 ..< numBlobs:
     var blobBytes: Blob
     for colIdx in 0 ..< numCols:
       let
-        cellBytes = dataColumns[colIdx].column[blobIndex].bytes
+        cellBytes = dataColumns[colIdx][].column[blobIndex].bytes
         offset = colIdx * fulu.BYTES_PER_CELL
       assign(
         blobBytes.toOpenArray(offset, offset + fulu.BYTES_PER_CELL - 1),

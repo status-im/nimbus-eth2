@@ -84,7 +84,8 @@ suite "Light client" & preset():
         cfg, cfg.makeTestDB(numValidators), validatorMonitor, {},
         lcDataConfig = LightClientDataConfig(
           serve: true,
-          importMode: LightClientDataImportMode.OnlyNew))
+          importMode: LightClientDataImportMode.OnlyNew,
+          importBackfill: true))
       quarantine = newClone(Quarantine.init(cfg))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
@@ -238,13 +239,14 @@ suite "Light client" & preset():
         let finalizedSlot = (epoch + 2).start_slot
         dag.advanceToSlot(finalizedSlot, verifier, quarantine[])
 
-        let cpDb = BeaconChainDB.new("", cfg, inMemory = true)
+        let cpDb = BeaconChainDB.new(
+          "", cfg, inMemory = true, lightClientDataImportBackfill = true)
         ChainDAGRef.preInit(cpDb, genesisState[])
         ChainDAGRef.preInit(cpDb, dag.headState)
         let cpDag = ChainDAGRef.init(
           cfg, cpDb, validatorMonitor, {},
           lcDataConfig = LightClientDataConfig(
-            serve: true, importMode: importMode))
+            serve: true, importMode: importMode, importBackfill: true))
 
         for i in 1'u64 .. 10:
           let headSlot = (finalizedSlot.epoch + i).start_slot

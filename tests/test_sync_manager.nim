@@ -8,7 +8,6 @@
 {.push raises: [], gcsafe.}
 {.used.}
 
-import std/[strutils, sequtils]
 import unittest2
 import chronos, stew/base10, chronos/unittest2/asynctests
 import ../beacon_chain/networking/peer_scores
@@ -16,6 +15,8 @@ import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/sync_manager,
        ../beacon_chain/sync/sync_queue,
        ../beacon_chain/spec/forks
+
+from std/sequtils import repeat
 
 type
   SomeTPeer = ref object
@@ -45,7 +46,7 @@ func getStaticSlotCb(slot: Slot): GetSlotCallback =
     slot
   getSlot
 
-proc testforkAtEpoch(epoch: Epoch): ConsensusFork =
+func testforkAtEpoch(epoch: Epoch): ConsensusFork =
   ConsensusFork.Phase0
 
 type
@@ -61,42 +62,12 @@ func createChain(slots: Slice[Slot]): seq[ref ForkedSignedBeaconBlock] =
     res.add(item)
   res
 
-proc createChain(srange: SyncRange): seq[ref ForkedSignedBeaconBlock] =
+func createChain(srange: SyncRange): seq[ref ForkedSignedBeaconBlock] =
   createChain(srange.slot .. (srange.slot + srange.count - 1))
 
 func cmp(request: SyncRequest[SomeTPeer], srange: Slice[Slot]): bool =
   (request.data.start_slot() == srange.a) and
   (request.data.last_slot() == srange.b)
-
-func createBlobs(
-    blocks: var seq[ref ForkedSignedBeaconBlock],
-    slots: openArray[Slot]
-): seq[ref BlobSidecar] =
-  var res = newSeq[ref BlobSidecar](len(slots))
-  for blck in blocks:
-    withBlck(blck[]):
-      when consensusFork >= ConsensusFork.Fulu:
-        doAssert false   # create_blob_sidecars() might not work as such
-      elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        template kzgs: untyped = forkyBlck.message.body.blob_kzg_commitments
-        for i, slot in slots:
-          if slot == forkyBlck.message.slot:
-            doAssert kzgs.add default(KzgCommitment)
-        if kzgs.len > 0:
-          forkyBlck.root = hash_tree_root(forkyBlck.message)
-          var
-            kzg_proofs: deneb.KzgProofs
-            blobs: Blobs
-          for _ in kzgs:
-            doAssert kzg_proofs.add default(KzgProof)
-            doAssert blobs.add default(Blob)
-          let sidecars = forkyBlck.create_blob_sidecars(kzg_proofs, blobs)
-          var sidecarIdx = 0
-          for i, slot in slots:
-            if slot == forkyBlck.message.slot:
-              res[i] = newClone sidecars[sidecarIdx]
-              inc sidecarIdx
-  res
 
 func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   proc verify(
@@ -1192,7 +1163,7 @@ suite "SyncManager test suite":
 
       func epochManager(epochs: openArray[ConsensusFork]): ForkAtEpochCallback =
         var epochsSeq = @epochs
-        proc forkAtEpoch(epoch: Epoch): ConsensusFork =
+        func forkAtEpoch(epoch: Epoch): ConsensusFork =
           let index = int(epoch)
           if index >= len(epochsSeq):
             epochsSeq[^1]
@@ -1742,7 +1713,7 @@ suite "SyncManager test suite":
   test "[SyncQueue] checkBlobsResponse() test":
     const maxBlobsPerBlockElectra = 9
 
-    proc checkBlobsResponse[T](
+    func checkBlobsResponse[T](
         req: SyncRequest[T],
         data: openArray[Slot]): Result[void, cstring] =
       checkBlobsResponse(req, data, maxBlobsPerBlockElectra)
@@ -1817,54 +1788,3 @@ suite "SyncManager test suite":
       checkBlobsResponse(r2, d2 & d1).isOk() == false
       checkBlobsResponse(r2, d3 & d2).isOk() == false
       checkBlobsResponse(r2, d3 & d1).isOk() == false
-
-  test "[SyncManager] groupBlobs() test":
-    var
-      blocks = createChain(Slot(10) .. Slot(15))
-      blobs = createBlobs(blocks, @[Slot(11), Slot(11), Slot(12), Slot(14)])
-
-    let groupedRes = groupBlobs(blocks, blobs)
-
-    check groupedRes.isOk()
-
-    let grouped = groupedRes.get()
-
-    check:
-      len(grouped) == 6
-      # slot 10
-      len(grouped[0]) == 0
-      # slot 11
-      len(grouped[1]) == 2
-      grouped[1][0].signed_block_header.message.slot == Slot(11)
-      grouped[1][1].signed_block_header.message.slot == Slot(11)
-      # slot 12
-      len(grouped[2]) == 1
-      grouped[2][0].signed_block_header.message.slot == Slot(12)
-      # slot 13
-      len(grouped[3]) == 0
-      # slot 14
-      len(grouped[4]) == 1
-      grouped[4][0].signed_block_header.message.slot == Slot(14)
-      # slot 15
-      len(grouped[5]) == 0
-
-    # Add block with a gap from previous block.
-    let block17 = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
-    block17[].denebData.message.slot = Slot(17)
-    blocks.add(block17)
-    let groupedRes2 = groupBlobs(blocks, blobs)
-
-    check:
-      groupedRes2.isOk()
-    let grouped2 = groupedRes2.get()
-    check:
-      len(grouped2) == 7
-      len(grouped2[6]) == 0 # slot 17
-
-    let blob18 = new (ref BlobSidecar)
-    blob18[].signed_block_header.message.slot = Slot(18)
-    blobs.add(blob18)
-    let groupedRes3 = groupBlobs(blocks, blobs)
-
-    check:
-      groupedRes3.isErr()

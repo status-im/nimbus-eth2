@@ -22,7 +22,6 @@ template toSszType*(v: BlsCurveType): auto = toRaw(v)
 template toSszType*(v: ForkDigest|GraffitiBytes): auto = distinctBase(v)
 template toSszType*(v: Version): auto = distinctBase(v)
 template toSszType*(v: JustificationBits): auto = distinctBase(v)
-template toSszType*(v: EpochParticipationFlags): auto = asList v
 template toSszType*(v: Eth1Address): auto = v.data()
 
 func fromSszBytes*(
@@ -61,13 +60,6 @@ func fromSszBytes*(
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
-
-func fromSszBytes*(
-    T: type EpochParticipationFlags, bytes: openArray[byte]
-): T {.raises: [SszError].} =
-  # TODO https://github.com/nim-lang/Nim/issues/21123
-  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr result)
-  readSszValue(bytes, tmp[])
 
 func fromSszBytes*(
     T: type Eth1Address, bytes: openArray[byte]): T {.raises: [SszError].} =

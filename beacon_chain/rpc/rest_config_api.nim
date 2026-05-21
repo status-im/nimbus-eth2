@@ -247,6 +247,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS),
           CONTRIBUTION_DUE_BPS_GLOAS:
             Base10.toString(cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS),
+          PAYLOAD_DUE_BPS:
+            Base10.toString(cfg.timeParams.PAYLOAD_DUE_BPS),
           PAYLOAD_ATTESTATION_DUE_BPS:
             Base10.toString(cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS),
 
@@ -346,6 +348,9 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             restBlobSchedule,
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
+
+          MIN_BUILDER_WITHDRAWABILITY_DELAY:
+            Base10.toString(cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY),
 
           CONFIRMATION_BYZANTINE_THRESHOLD:
             Base10.toString(cfg.CONFIRMATION_BYZANTINE_THRESHOLD),

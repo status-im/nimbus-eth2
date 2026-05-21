@@ -23,7 +23,7 @@ block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
   doAssert loadTrustedSetup(
     sourceDir &
-      "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
+      "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 7).isOk
 
 # 114 is the MSB (most/max significant byte)
 # such that BLS modulus does not overflow

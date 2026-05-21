@@ -101,19 +101,19 @@ type
     block_root*: Eth2Digest
     indices*: DataColumnIndices
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
   PartialDataColumnPartsMetadata* = object
     available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partialdatacolumnheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#partialdatacolumnheader
   PartialDataColumnHeader* = object
     kzg_commitments*: KzgCommitments
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#encoding-and-decoding-responses
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#encoding-and-decoding-responses
   PartialDataColumnSidecar* = object
     cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
