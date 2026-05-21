@@ -20,12 +20,12 @@ logScope: topics = "bidpool"
 
 type
   SlotBids* = object
-    highestBids*: Table[Eth2Digest, gloas.SignedExecutionPayloadBid]
+    highestBids*: Table[(Eth2Digest, Eth2Digest), gloas.SignedExecutionPayloadBid]
     seenBuilders*: HashSet[uint64]
 
   ExecutionPayloadBidPool* = object
     ## Pool for tracking execution payload bids received from builders
-    ## Only stores the highest-value bid per (slot, parent_block_hash)
+    ## Only stores the highest-value bid per (slot, parent_block_hash, parent_block_root)
     dag*: ChainDAGRef
     slotBids*: Table[Slot, SlotBids]
     blockRootIndex*: Table[Eth2Digest, seq[(Slot, Eth2Digest)]]
@@ -55,7 +55,9 @@ proc addBid*(
     debug "Duplicate bid from builder, ignoring"
     return
 
-  let currentBid = slotData.highestBids.getOrDefault(bid.parent_block_hash)
+  let
+    bidKey = (bid.parent_block_hash, bid.parent_block_root)
+    currentBid = slotData.highestBids.getOrDefault(bidKey)
   if currentBid != static(default(gloas.SignedExecutionPayloadBid)):
     if bid.value <= currentBid.message.value:
       debug "Bid value not higher than current best",
@@ -67,7 +69,7 @@ proc addBid*(
   else:
     debug "First bid for this slot and parent"
 
-  slotData.highestBids[bid.parent_block_hash] = signedBid
+  slotData.highestBids[bidKey] = signedBid
 
   pool.blockRootIndex.mgetOrPut(
     bid.parent_block_root, @[]).add((bid.slot, bid.parent_block_hash))
@@ -84,10 +86,10 @@ func getBidForSlotAndBuilder*(
 
 func getHighestBidForSlotAndParent*(
     pool: ExecutionPayloadBidPool, slot: Slot,
-    parentBlockHash: Eth2Digest): Opt[gloas.SignedExecutionPayloadBid] =
+    parentBlockHash, parentBlockRoot: Eth2Digest): Opt[gloas.SignedExecutionPayloadBid] =
   let
     slotData = pool.slotBids.getOrDefault(slot)
-    bid = slotData.highestBids.getOrDefault(parentBlockHash)
+    bid = slotData.highestBids.getOrDefault((parentBlockHash, parentBlockRoot))
   if bid != static(default(gloas.SignedExecutionPayloadBid)):
     Opt.some(bid)
   else:
@@ -99,7 +101,7 @@ func getBidForBlockRoot*(
   let references = pool.blockRootIndex.getOrDefault(blockRoot, @[])
   if references.len > 0:
     let (slot, parentHash) = references[0]
-    return pool.getHighestBidForSlotAndParent(slot, parentHash)
+    return pool.getHighestBidForSlotAndParent(slot, parentHash, blockRoot)
   Opt.none(gloas.SignedExecutionPayloadBid)
 
 func hasBidForBlockRoot*(
@@ -121,12 +123,12 @@ proc prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
 
     for slot in slotsToRemove:
       if slot in pool.slotBids:
-        for parentHash, bid in pool.slotBids[slot].highestBids:
+        for key, bid in pool.slotBids[slot].highestBids:
           let blockRoot = bid.message.parent_block_root
           if blockRoot in pool.blockRootIndex:
             pool.blockRootIndex[blockRoot] =
               pool.blockRootIndex[blockRoot].filterIt(
-                it != (slot, parentHash))
+                it != (slot, key[0]))
             if pool.blockRootIndex[blockRoot].len == 0:
               pool.blockRootIndex.del(blockRoot)
 

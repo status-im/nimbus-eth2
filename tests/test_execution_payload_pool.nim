@@ -54,7 +54,7 @@ suite "Execution Payload Bid Pool":
 
   test "Empty pool returns none":
     check:
-      not pool.getHighestBidForSlotAndParent(1.Slot, parentHash1).isSome()
+      not pool.getHighestBidForSlotAndParent(1.Slot, parentHash1, blockRoot).isSome()
       not pool.hasBidForBlockRoot(blockRoot)
       not pool.getBidForBlockRoot(blockRoot).isSome()
       not pool.hasSeenBidFromBuilder(1.Slot, 0)
@@ -65,9 +65,9 @@ suite "Execution Payload Bid Pool":
     pool.addBid(bid, wallTime)
 
     check:
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).isSome()
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.value == 100.Gwei
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.builder_index == 1
+      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1, blockRoot).isSome()
+      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1, blockRoot).get().message.value == 100.Gwei
+      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1, blockRoot).get().message.builder_index == 1
 
   test "Duplicate detection - same builder same slot":
     let
@@ -79,7 +79,7 @@ suite "Execution Payload Bid Pool":
 
     pool.addBid(bid2, wallTime)
 
-    let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
+    let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1, blockRoot)
     check:
       highest.isSome()
       highest.get().message.value == 100.Gwei
@@ -89,7 +89,7 @@ suite "Execution Payload Bid Pool":
     pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei), wallTime)
     pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 150.Gwei), wallTime)
 
-    let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
+    let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1, blockRoot)
     check:
       highest.isSome()
       highest.get().message.value == 200.Gwei
@@ -133,8 +133,8 @@ suite "Execution Payload Bid Pool":
     pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 120.Gwei), wallTime)
 
     let
-      highest1 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
-      highest2 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash2)
+      highest1 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1, blockRoot)
+      highest2 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash2, blockRoot)
 
     check:
       highest1.isSome()

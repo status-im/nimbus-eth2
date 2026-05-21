@@ -2085,10 +2085,10 @@ proc validateExecutionPayloadBid*(
       if not is_active_builder(forkyState.data, bid.builder_index):
         return dag.checkedReject("ExecutionPayloadBid: builder not active")
 
-      # [REJECT] bid.execution_payment is not zero
-      if bid.execution_payment == 0.Gwei:
+      # [REJECT] bid.execution_payment == 0
+      if bid.execution_payment != 0.Gwei:
         return dag.checkedReject(
-          "ExecutionPayloadBid: execution_payment is zero")
+          "ExecutionPayloadBid: execution_payment is not zero")
 
       # [REJECT] bid.fee_recipient == proposer_preferences.fee_recipient.
       if bid.fee_recipient != seenPref.fee_recipient:
@@ -2111,7 +2111,7 @@ proc validateExecutionPayloadBid*(
       # [IGNORE] This bid is the highest value bid seen for the tuple
       # (slot, parent_block_hash, parent_block_root)
       let highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
-        bid.slot, bid.parent_block_hash)
+        bid.slot, bid.parent_block_hash, bid.parent_block_root)
       if highestBid.isSome() and highestBid.get().message.value > bid.value:
         return errIgnore(
           "ExecutionPayloadBid: not the highest value bid for this slot and parent")

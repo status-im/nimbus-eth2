@@ -586,7 +586,7 @@ proc proposeBlockAux(
       executionHead = proposalExecutionHead(
         state[].forky(fork).data)
       poolBid = node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
-        slot, executionHead)
+        slot, executionHead, head.root)
       localBlockValueBoost =
         BoostFactor.init(node.config.localBlockValueBoost)
       usePoolBid =
