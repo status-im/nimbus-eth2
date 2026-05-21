@@ -944,25 +944,20 @@ proc storePayload(
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
   # Notify fork choice that the execution payload is available for the block
-  discard self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
+  let fcRes = self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
     dag, signedEnvelope)
+  if fcRes.isErr:
+    warn "on_execution_payload failed",
+      error = fcRes.error,
+      blck = shortLog(signedBlock.root),
+      slot = signedBlock.message.slot
 
-  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
-  # execution_payload_available: The node has verified that the execution
-  # payload and blobs for a block are available and ready for payload
-  # attestation
+  # Re-evaluate head now that this block's payload is verified
+  let previousExecutionValid = dag.head.executionValid
+  self.consensusManager[].updateHead(wallSlot)
+
   if not isNil(dag.onEnvelopeAvailable):
     dag.onEnvelopeAvailable(signedEnvelope)
-
-  # The execution payload has added to the clearance state successfully, so try
-  # adding to the current state.
-  let previousExecutionValid = dag.head.executionValid
-
-  debugGloasComment("deadline")
-  debugGloasComment("should be decided by Fork Choice")
-  # TODO To be removed - Temporary call without import.
-  if blck.slot() >= dag.head.slot():
-    blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
 
   if optimisticStatusRes.isSome():
     await self.consensusManager.updateExecutionHead(

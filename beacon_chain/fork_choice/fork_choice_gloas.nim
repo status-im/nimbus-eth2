@@ -217,21 +217,31 @@ proc on_execution_payload*(
     return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
                                 blockRoot: beacon_block_root)
 
-  # Verify the execution payload envelope
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      let verifyResult = dag.timeParams.verify_execution_payload_envelope(
-          dag.forkAtEpoch(envelope.payload.slot_number.epoch),
-          forkyState, signedEnvelope,
-          dag.genesis_validators_root)
-      if verifyResult.isErr:
-        debug "Execution payload envelope verification failed",
-          error = verifyResult.error,
-          beacon_block_root = shortLog(beacon_block_root),
-          headSlot = forkyState.data.slot
-        return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
-                                    blockRoot: beacon_block_root)
+  # Verify the execution payload envelope using the state after the block,
+  # not dag.headState which may still be at the parent.
+  let blck = dag.getBlockRef(beacon_block_root).valueOr:
+    return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
+                                blockRoot: beacon_block_root)
+  let bsi = blck.bid.atSlot()
+  dag.withUpdatedState(dag.epochRefState, bsi):
+    withState(updatedState):
+      when consensusFork >= ConsensusFork.Gloas:
+        let verifyResult = dag.timeParams.verify_execution_payload_envelope(
+            dag.forkAtEpoch(envelope.payload.slot_number.epoch),
+            forkyState, signedEnvelope,
+            dag.genesis_validators_root)
+        if verifyResult.isErr:
+          debug "Execution payload envelope verification failed",
+            error = verifyResult.error,
+            beacon_block_root = shortLog(beacon_block_root),
+            stateSlot = forkyState.data.slot
+          return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
+                                      blockRoot: beacon_block_root)
+  do:
+    debug "Unable to load state for envelope verification",
+      beacon_block_root = shortLog(beacon_block_root)
+    return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
+                                blockRoot: beacon_block_root)
 
   self.backend.execution_payload_states.incl(beacon_block_root)
-  ? self.backend.proto_array.onPayloadVerified(beacon_block_root)
   ok()
