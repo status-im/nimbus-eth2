@@ -168,12 +168,10 @@ type
       ##
       ## Uses only since Gloas.
       ##
-      ## In the usual scenarios it should point to
-      ## - `dag.head`
-      ## - `dag.head.parent`
-      ##
-      ## If it points to blocks other than the above, we may have issues on
-      ## syncing or gossip.
+      ## In the usual scenarios it should point to either`dag.head` or
+      ## `dag.head.parent`. It would be nil at the beginning of Gloas fork,
+      ## either Gloas genesis or upgrading from pre-Gloas. It would also be nil
+      ## if it is in different fork from the head at node startup.
 
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
