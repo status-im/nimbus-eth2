@@ -25,6 +25,8 @@ import
   ./batch_validation
 
 from libp2p/protocols/pubsub/errors import ValidationResult
+from ../consensus_object_pools/common_tools import
+  is_gas_limit_target_compatible
 
 export results, ValidationResult
 
@@ -2292,7 +2294,7 @@ proc validateProposerPreferences*(
     return errIgnore("ProposerPreferences: dependent_root not seen")
 
   # [REJECT] is_valid_proposal_slot(state, preferences) returns True,
-  # where state is the checkpoint state at the epoch 
+  # where state is the checkpoint state at the epoch
   # compute_epoch_at_slot(preferences.proposal_slot) - 1
   # and the root preferences.dependent_root.
   # Spec requires the checkpoint state at dependent_root; we approximate
