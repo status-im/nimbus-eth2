@@ -4,7 +4,8 @@
 
 let
   inherit (lib) mkEnableOption mkOption mkIf
-    types filterAttrs escapeShellArgs literalExpression;
+    types filterAttrs escapeShellArgs literalExpression
+    optionals optionalString;
 
   cfg = config.services.nimbus-validator-client;
   system = pkgs.stdenv.hostPlatform.system;
@@ -158,15 +159,21 @@ in {
         ProtectSystem = "full";
         NoNewPrivileges = "true";
         PrivateDevices = "true";
-        StateDirectory = "nimbus-validator-client";
-        WorkingDirectory = "%S/nimbus-validator-client";
         MemoryDenyWriteExecute = "true";
+        WorkingDirectory = "%S/nimbus-validator-client";
+        StateDirectory = "nimbus-validator-client";
+        LoadCredential = optionals (cfg.settings.keymanager-token-file != null) [
+          "keymanager-token-file:${cfg.settings.keymanager-token-file}"
+        ];
 
         Restart = "on-failure";
-        ExecStart = ''
+        ExecStart = let
+          keymanagerTokenFlag = optionalString (cfg.settings.keymanager-token-file != null)
+            "--keymanager-token-file=%d/keymanager-token-file";
+        in ''
           ${cfg.package}/bin/nimbus_validator_client \
             --data-dir=${cfg.settings.data-dir} \
-            --config-file=${configFile} \
+            --config-file=${configFile} ${keymanagerTokenFlag} \
             ${escapeShellArgs cfg.extraArgs}
         '';
       };
