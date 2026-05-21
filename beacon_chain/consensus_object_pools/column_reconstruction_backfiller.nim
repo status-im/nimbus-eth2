@@ -1,0 +1,322 @@
+# beacon_chain
+# Copyright (c) 2026 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [], gcsafe.}
+
+import
+  std/sets,
+  chronicles,
+  chronos,
+  taskpools,
+  kzg4844/kzg,
+  metrics,
+  ssz_serialization/[proofs, types],
+  ../spec/[forks, helpers, peerdas_helpers],
+  ../spec/datatypes/fulu,
+  ../sync/validator_custody,
+  ../beacon_chain_db,
+  ../beacon_clock,
+  ./blockchain_dag
+
+logScope: topics = "column_reconstruction_backfiller"
+
+declareCounter beacon_column_reconstruction_attempts_total,
+  "Total column reconstruction attempts by the backfiller service"
+
+declareCounter beacon_column_reconstruction_success_total,
+  "Successful column reconstructions by the backfiller service"
+
+declareCounter beacon_column_reconstruction_failures_total,
+  "Failed column reconstruction attempts by the backfiller service"
+
+declareGauge beacon_column_reconstruction_backfill_slot,
+  "Slot most recently selected for reconstruction by the backfiller service"
+
+const
+  # Spec: a node "SHOULD reconstruct the full data matrix" once it holds
+  # 50%+ of the columns, i.e. NUMBER_OF_COLUMNS / 2 == 64 on mainnet.
+  ColumnsRequiredForReconstruction = NUMBER_OF_COLUMNS div 2
+
+  # Idle delay between bitmap re-scans when there's no slot pending
+  # reconstruction. Roughly one slot so we pick up newly arrived columns
+  # without busy-waiting.
+  IdleSleepDuration = chronos.seconds(12)
+
+  # Brief yield between back-to-back reconstructions so the taskpool and
+  # other duties (sig verification, gossip) aren't fully starved.
+  WorkYieldDuration = chronos.milliseconds(50)
+
+type
+  SlotRecon = enum
+    Unknown      ## Not yet inspected by the backfiller.
+    NoColumns    ## Slot has no block, or the block has zero blob commitments.
+    TooFew       ## Block has blobs but <64 columns present — cannot recover.
+    Full         ## All 128 columns are now present (original or reconstructed).
+
+  ColumnReconstructionBackfiller* = object
+    dag: ChainDAGRef
+    validatorCustody: ValidatorCustodyRef
+    beaconClock: BeaconClock
+    taskpool: Taskpool
+    # Sliding bitmap over [bitmapStartSlot..head]. Each entry is the
+    # backfiller's last-known reconstruction status for that slot. Kept in
+    # memory only — on restart we rebuild via a fresh backward scan.
+    slotStates: seq[SlotRecon]
+    bitmapStartSlot: Slot
+
+  ColumnReconstructionBackfillerRef* = ref ColumnReconstructionBackfiller
+
+proc new*(
+    t: typedesc[ColumnReconstructionBackfillerRef],
+    dag: ChainDAGRef,
+    validatorCustody: ValidatorCustodyRef,
+    beaconClock: BeaconClock,
+    taskpool: Taskpool
+): ColumnReconstructionBackfillerRef =
+  ColumnReconstructionBackfillerRef(
+    dag: dag,
+    validatorCustody: validatorCustody,
+    beaconClock: beaconClock,
+    taskpool: taskpool,
+    bitmapStartSlot: FAR_FUTURE_SLOT)
+
+func retentionStartSlot(self: ColumnReconstructionBackfillerRef): Slot =
+  ## Earliest slot still within the data-column retention window.
+  ## Mirrors the prune horizon used by `pruneDataColumns`
+  ## (MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS, ~18 days).
+  let
+    headSlot = self.dag.head.slot
+    retentionEpochs = self.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+    retentionSlots = retentionEpochs * SLOTS_PER_EPOCH
+    fuluStartSlot = self.dag.cfg.FULU_FORK_EPOCH.start_slot()
+  if uint64(headSlot) <= retentionSlots:
+    fuluStartSlot
+  else:
+    max(headSlot - retentionSlots, fuluStartSlot)
+
+proc syncBitmap(self: ColumnReconstructionBackfillerRef) =
+  ## Resize and slide the bitmap so it spans the current
+  ## [retentionStart..head] window. New top entries are `Unknown`; entries
+  ## that fall behind the retention horizon are dropped.
+  let
+    retentionStart = self.retentionStartSlot()
+    head = self.dag.head.slot
+
+  if self.bitmapStartSlot == FAR_FUTURE_SLOT:
+    self.bitmapStartSlot = retentionStart
+    if head >= retentionStart:
+      self.slotStates = newSeq[SlotRecon](int(head - retentionStart) + 1)
+    return
+
+  if head >= self.bitmapStartSlot:
+    let wanted = int(head - self.bitmapStartSlot) + 1
+    if wanted > self.slotStates.len:
+      self.slotStates.setLen(wanted)
+
+  if retentionStart > self.bitmapStartSlot:
+    let drop = int(retentionStart - self.bitmapStartSlot)
+    if drop >= self.slotStates.len:
+      self.slotStates.setLen(0)
+    else:
+      self.slotStates.delete(0, drop - 1)
+    self.bitmapStartSlot = retentionStart
+
+func slotIdx(self: ColumnReconstructionBackfillerRef, slot: Slot): int =
+  int(slot - self.bitmapStartSlot)
+
+proc markSlot(
+    self: ColumnReconstructionBackfillerRef, slot: Slot, state: SlotRecon) =
+  if slot < self.bitmapStartSlot:
+    return
+  let idx = self.slotIdx(slot)
+  if idx >= 0 and idx < self.slotStates.len:
+    self.slotStates[idx] = state
+
+proc pickNextSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
+  ## Walk backward from head, returning the highest-slot entry whose state
+  ## is still `Unknown` (never inspected) or that we have re-marked as a
+  ## reconstruction candidate. `Full`/`NoColumns`/`TooFew` slots are
+  ## skipped — they have nothing for us to do.
+  if self.slotStates.len == 0:
+    return Opt.none(Slot)
+
+  let head = self.dag.head.slot
+  if head < self.bitmapStartSlot:
+    return Opt.none(Slot)
+
+  var s = head
+  while true:
+    let idx = self.slotIdx(s)
+    if idx >= 0 and idx < self.slotStates.len:
+      if self.slotStates[idx] == Unknown:
+        return Opt.some(s)
+    if s == self.bitmapStartSlot:
+      break
+    s = s - 1
+  Opt.none(Slot)
+
+proc countExistingColumns(
+    db: BeaconChainDB,
+    blockRoot: Eth2Digest
+): HashSet[uint64] =
+  var present: HashSet[uint64]
+  for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
+    if db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot, i):
+      present.incl(i)
+  present
+
+proc loadExistingColumns(
+    db: BeaconChainDB,
+    blockRoot: Eth2Digest,
+    indices: HashSet[uint64]
+): seq[ref fulu.DataColumnSidecar] =
+  var columns = newSeqOfCap[ref fulu.DataColumnSidecar](indices.len)
+  for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
+    if i notin indices:
+      continue
+    let colData = new fulu.DataColumnSidecar
+    if db.getDataColumnSidecar(blockRoot, i, colData[]):
+      columns.add(colData)
+  columns
+
+proc reconstructAndStore(
+    self: ColumnReconstructionBackfillerRef,
+    slot: Slot,
+    blockRoot: Eth2Digest,
+    have: HashSet[uint64],
+    columns: seq[ref fulu.DataColumnSidecar]
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  ## Run the parallel cell+proof recovery and persist every column the
+  ## caller did not already have. Returns true on full success.
+  beacon_column_reconstruction_attempts_total.inc()
+  beacon_column_reconstruction_backfill_slot.set(int64(slot))
+
+  let startTime = Moment.now()
+  let recovered = (await recover_cells_and_proofs_parallel(
+      self.taskpool, columns)).valueOr:
+    beacon_column_reconstruction_failures_total.inc()
+    debug "Column reconstruction failed",
+      slot, blockRoot, haveCount = columns.len, reason = error
+    return false
+
+  let
+    recoveredTime = Moment.now()
+    rowCount = recovered.len
+
+  var reconstructed = newSeqOfCap[ref fulu.DataColumnSidecar](
+    NUMBER_OF_COLUMNS - columns.len)
+  for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
+    if i in have:
+      continue
+    var
+      cells = newSeq[Cell](rowCount)
+      proofs = newSeq[kzg.KzgProof](rowCount)
+    for j in 0 ..< rowCount:
+      cells[j] = recovered[j].cells[i]
+      proofs[j] = recovered[j].proofs[i]
+    reconstructed.add (ref fulu.DataColumnSidecar)(
+      index: ColumnIndex(i),
+      column: DataColumn.init(cells),
+      kzg_commitments: columns[0][].kzg_commitments,
+      kzg_proofs: deneb.KzgProofs.init(proofs),
+      signed_block_header: columns[0][].signed_block_header,
+      kzg_commitments_inclusion_proof:
+        columns[0][].kzg_commitments_inclusion_proof)
+
+  self.dag.db.putDataColumnSidecars(reconstructed)
+  beacon_column_reconstruction_success_total.inc()
+
+  debug "Backfilled reconstructed columns",
+    slot, blockRoot,
+    haveCount = columns.len,
+    addedCount = reconstructed.len,
+    recoveryTime = recoveredTime - startTime,
+    storeTime = Moment.now() - recoveredTime
+  true
+
+proc processSlot(
+    self: ColumnReconstructionBackfillerRef,
+    slot: Slot) {.async: (raises: [CancelledError]).} =
+  if self.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Fulu:
+    self.markSlot(slot, NoColumns)
+    return
+
+  let bsi = self.dag.getBlockIdAtSlot(slot).valueOr:
+    self.markSlot(slot, NoColumns)
+    return
+
+  # `getBlockIdAtSlot` returns the most recent block at or before `slot`;
+  # if that block is not the proposed block for this slot, the slot is
+  # empty and there is nothing to reconstruct.
+  if not bsi.isProposed():
+    self.markSlot(slot, NoColumns)
+    return
+
+  let blockRoot = bsi.bid.root
+  let have = countExistingColumns(self.dag.db, blockRoot)
+  let count = have.len
+
+  if count.uint64 == NUMBER_OF_COLUMNS:
+    self.markSlot(slot, Full)
+    return
+
+  if count == 0:
+    # Distinguish "block legitimately has zero blobs" from "we never
+    # received any columns" — only the latter is a reconstruction miss.
+    let forked = self.dag.getForkedBlock(bsi.bid).valueOr:
+      self.markSlot(slot, NoColumns)
+      return
+    var blockHadBlobs = false
+    withBlck(forked):
+      when consensusFork >= ConsensusFork.Fulu:
+        blockHadBlobs = forkyBlck.message.body.blob_kzg_commitments.len > 0
+    if not blockHadBlobs:
+      self.markSlot(slot, NoColumns)
+    else:
+      self.markSlot(slot, TooFew)
+    return
+
+  if count < ColumnsRequiredForReconstruction:
+    self.markSlot(slot, TooFew)
+    return
+
+  let columns = loadExistingColumns(self.dag.db, blockRoot, have)
+  if columns.len < ColumnsRequiredForReconstruction:
+    # Columns pruned out from under us between the count and the load.
+    self.markSlot(slot, TooFew)
+    return
+
+  if await self.reconstructAndStore(slot, blockRoot, have, columns):
+    self.markSlot(slot, Full)
+  # On failure we leave the slot as `Unknown` so a later pass can retry
+  # once more columns have arrived.
+
+proc run*(
+    self: ColumnReconstructionBackfillerRef) {.async: (raises: []).} =
+  debug "Column reconstruction backfiller started"
+  try:
+    while true:
+      # Reconstruction is only a duty of nodes that aim to hold the full
+      # (or full half) column matrix. For limited-custody nodes there is
+      # no point burning CPU here.
+      if not (self.validatorCustody.isSupernode() or
+              self.validatorCustody.isLightSupernode()):
+        await sleepAsync(IdleSleepDuration)
+        continue
+
+      self.syncBitmap()
+
+      let target = self.pickNextSlot()
+      if target.isNone():
+        await sleepAsync(IdleSleepDuration)
+        continue
+
+      await self.processSlot(target.get())
+      await sleepAsync(WorkYieldDuration)
+  except CancelledError:
+    discard
+  debug "Column reconstruction backfiller stopped"
