@@ -2428,6 +2428,23 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   dag.loadExecutionAndParentBlockHash(blck)[0]
 
+func payloadStatusFull*(
+    dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_extend_payload
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_build_on_full
+  ##
+  ## A helper function for getting the status of whether or not to build/extend
+  ## on the head payload, as the payload selected by fork choice is stored in
+  ## DAG.
+
+  # For either genesis or pre-Gloas block, we should build on them.
+  if head.slot == GENESIS_SLOT or
+      dag.cfg.consensusForkAtEpoch(head.slot.epoch) < ConsensusFork.Gloas:
+    true
+  # The usual path since Gloas
+  else:
+    head == headPayload
+
 from std/packedsets import PackedSet, incl, items
 
 func getBlsToExecutionChangeStatuses(

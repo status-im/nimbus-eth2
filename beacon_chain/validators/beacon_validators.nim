@@ -409,21 +409,23 @@ proc proposeBlockAux(
   let
     graffiti = node.getGraffitiBytes(validator)
     validator_index = validator.index.expect("index set for proposer")
-    shouldExtendPayload = head == headPayload
-    parentExecutionRequests = block:
+
+    (shouldExtendPayload, parentExecutionRequests) = block:
       when fork >= ConsensusFork.Gloas:
         # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
         # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
-        if shouldExtendPayload:
+        if node.dag.payloadStatusFull(head, headPayload):
           let
             parentId = state[].latest_block_id
             parentExecutionRequests =
               if node.dag.cfg.consensusForkAtEpoch(parentId.slot.epoch()) >=
                   ConsensusFork.Gloas:
+                # When proposal should extend the head payload, the envelope must
+                # exist or otherwise we shouldn't proceed.
                 let envelope = node.dag.db.getExecutionPayloadEnvelope(
                     parentId.root).valueOr:
-                  debug "Proposal parent payload is missing",
-                    slot, head = shortLog(head)
+                  warn "Proposal parent payload is missing",
+                    slot, head = shortLog(head), parentId = shortLog(parentId)
                   return head
                 envelope.message.execution_requests
               # For parent in pre-Gloas, we should extend the payload with empty
@@ -438,15 +440,15 @@ proc proposeBlockAux(
             cache[],
           ).isOkOr:
             debug "Proposal failed to apply parent payload",
-              slot, head = shortLog(head)
+              slot, head = shortLog(head), parentId = shortLog(parentId)
             return head
 
-          parentExecutionRequests
+          (true, parentExecutionRequests)
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          default(ExecutionRequests)
+          (false, default(ExecutionRequests))
       else:
-        default(ExecutionRequests)
+        (false, default(ExecutionRequests))
 
     engineBid =
       when fork == ConsensusFork.Heze:
