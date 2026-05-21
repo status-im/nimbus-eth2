@@ -42,6 +42,8 @@ import
   ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
+from ../consensus_object_pools/common_tools import
+  is_gas_limit_target_compatible
 from ../spec/beaconstate import get_expected_withdrawals
 
 export results
@@ -302,6 +304,24 @@ proc makeEngineBlock*(
       else:
         default(seq[PayloadAttestation])
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/builder.md#constructing-the-signedexecutionpayloadbid
+  # Set `bid.gas_limit` to be the gas limit of the constructed payload, which
+  # **MUST** satisfy `is_gas_limit_target_compatible(parent_gas_limit,
+  # bid.gas_limit, target_gas_limit)`
+  when consensusFork == ConsensusFork.Gloas:
+    if builderBid.isNone():
+      let
+        parentGasLimit = state.data.latest_execution_payload_bid.gas_limit
+        gasLimit = signed_execution_payload_bid.message.gas_limit
+        targetGasLimit = node.consensusManager[].getGasLimit(
+          state.data.validators.item(validator_index).pubkey)
+      if not is_gas_limit_target_compatible(
+          parentGasLimit, gasLimit, targetGasLimit):
+        warn "Self-built EL payload gas_limit not target-compatible; refusing to propose",
+          slot, parentGasLimit, gasLimit, targetGasLimit
+        return err("EL payload gas_limit not target-compatible")
+
+  let
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
       consensusFork,
@@ -406,6 +426,7 @@ proc getExecutionPayload*(
         PayloadAttributesV4.init(
           timestamp, prevRandao, feeRecipient, withdrawals,
           beaconHead.blck.bid.root, slot,
+          node.consensusManager[].getGasLimit(validator_pubkey),
         )
       else:
         PayloadAttributesV3.init(
@@ -745,7 +766,6 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
   if bids.engineBid.isNone:
     return err("Engine payload is not available")
 
-  debugGloasComment("parent_execution_requests")
   let engineBlock = ?node.makeEngineBlock(
     consensusFork,
     state[].forky(consensusFork),

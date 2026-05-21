@@ -19,12 +19,14 @@ import
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    light_client_pool, payload_attestation_pool,spec_cache,
+    light_client_pool, payload_attestation_pool, spec_cache,
     sync_committee_msg_pool, validator_change_pool],
   ../beacon_clock,
   ./batch_validation
 
 from libp2p/protocols/pubsub/errors import ValidationResult
+from ../consensus_object_pools/common_tools import
+  is_gas_limit_target_compatible
 
 export results, ValidationResult
 
@@ -225,17 +227,18 @@ func check_blob_sidecar_inclusion_proof(
   ok()
 
 func check_data_column_sidecar_inclusion_proof(
-    data_column_sidecar: fulu.DataColumnSidecar): Result[void, ValidationError] =
-  let res = data_column_sidecar.verify_data_column_sidecar_inclusion_proof()
+    data_column_sidecar: ref fulu.DataColumnSidecar):
+    Result[void, ValidationError] =
+  let res = data_column_sidecar[].verify_data_column_sidecar_inclusion_proof()
   if res.isErr:
     return errReject(res.error)
 
   ok()
 
 proc check_data_column_sidecar_kzg_proofs(
-    data_column_sidecar: fulu.DataColumnSidecar):
+    data_column_sidecar: ref fulu.DataColumnSidecar):
     Result[void, ValidationError] =
-  let res = data_column_sidecar.verify_data_column_sidecar_kzg_proofs()
+  let res = data_column_sidecar[].verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
 
@@ -429,16 +432,15 @@ template validateBeaconBlockGloas(
       i = 0
       found = false
 
-    # Search execution parent up to 2 ancestors. Also stop searching when there
-    # is not any parents, means that it is either a finalized or genesis block.
-    while not isNil(cur.parent) and i < 2:
+    while i < 2:
       let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
         return errIgnore("validateBeaconBlockGloas: cannot load block hash")
       if pBhash == bid.parent_block_hash:
         found = true
         break
-      else:
-        cur = cur.parent
+      if isNil(cur.parent):
+        break
+      cur = cur.parent
       inc i
     if not found:
       return errIgnore("validateBeaconBlockGloas: invalid execution parent")
@@ -461,8 +463,8 @@ template validateBeaconBlockGloas(
       return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
     # The genesis block would not have an envelope. Otherwise, we should have
     # the envelope for the execution parent.
-    elif not (executionParent.slot != GENESIS_SLOT and
-        dag.db.containsExecutionPayloadEnvelope(executionParent.root)):
+    elif executionParent.slot != GENESIS_SLOT and
+        not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
       envelopeQuarantine[].addMissing(executionParent.root)
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
@@ -657,22 +659,22 @@ proc validateBlobSidecar*(
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine,
-    data_column_sidecar: fulu.DataColumnSidecar,
+    data_column_sidecar: ref fulu.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
 
   # If the header is invalid, so is the block that shares its block_root ->
   # we can mark those blocks invalid without further processing
-  template block_header: untyped = data_column_sidecar.signed_block_header.message
+  template block_header: untyped = data_column_sidecar[].signed_block_header.message
   # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar(sidecar)
   block:
-    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar)
+    let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar[])
     if v.isErr:
       return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar is for the correct subnet
   # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
-  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) == subnet_id):
+  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) == subnet_id):
     return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
 
   # [IGNORE] The sidecar is not from a future slot
@@ -694,7 +696,8 @@ proc validateDataColumnSidecar*(
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
   if dataColumnQuarantine[].hasSidecar(
-      block_root, block_header.slot, block_header.proposer_index, data_column_sidecar.index):
+      block_root, block_header.slot, block_header.proposer_index,
+      data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
 
   # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
@@ -753,7 +756,7 @@ proc validateDataColumnSidecar*(
 
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
-    data_column_sidecar.signed_block_header.signature,
+    data_column_sidecar[].signed_block_header.signature,
     quarantine.latest_sidecar_signatures
   ).isOkOr:
     if error.invalid:
@@ -762,7 +765,7 @@ proc validateDataColumnSidecar*(
 
   # Cache the verified (block_root, signature) pair for future fast-path checks
   quarantine.latest_sidecar_signatures.put(
-    (block_root, data_column_sidecar.signed_block_header.signature), ())
+    (block_root, data_column_sidecar[].signed_block_header.signature), ())
 
   # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`
@@ -778,9 +781,9 @@ proc validateDataColumnSidecar*(
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: block_root,
-      index: data_column_sidecar.index,
-      slot: data_column_sidecar.signed_block_header.message.slot,
-      kzg_commitments: data_column_sidecar.kzg_commitments)
+      index: data_column_sidecar[].index,
+      slot: data_column_sidecar[].signed_block_header.message.slot,
+      kzg_commitments: data_column_sidecar[].kzg_commitments)
 
   # Notify with the full sidecar so the EL (out of spec)
   # getBlobs service can derive header/commitments/inclusion proof when the
@@ -797,11 +800,11 @@ proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
-    data_column_sidecar: gloas.DataColumnSidecar,
+    data_column_sidecar: ref gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
 
-  template blockRoot(): auto = data_column_sidecar.beacon_block_root
+  template blockRoot(): auto = data_column_sidecar[].beacon_block_root
 
   # [IGNORE] A valid block for the sidecar's `slot` has been seen (via gossip or
   # non-gossip sources). If not yet seen, a client MUST queue the sidecar for
@@ -827,8 +830,8 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's `slot` matches the slot of the block with root
   # `beacon_block_root`.
-  if not (blck.message.slot == data_column_sidecar.slot and
-      blck.root == data_column_sidecar.beacon_block_root):
+  if not (blck.message.slot == data_column_sidecar[].slot and
+      blck.root == data_column_sidecar[].beacon_block_root):
     return dag.checkedReject("DataColumnSidecar: slot mismatched")
 
   # [REJECT] The sidecar is valid as verified by
@@ -836,13 +839,13 @@ proc validateDataColumnSidecar*(
   template bid(): auto = blck.message.body.signed_execution_payload_bid.message
   block:
     let v = verify_data_column_sidecar(
-      dag.cfg, data_column_sidecar, bid.blob_kzg_commitments)
+      dag.cfg, data_column_sidecar[], bid.blob_kzg_commitments)
     if v.isErr:
       return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar is for the correct subnet -- i.e.
   # `compute_subnet_for_data_column_sidecar(sidecar.index) == subnet_id`.
-  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar.index) ==
+  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) ==
       subnet_id):
     return dag.checkedReject("DataColumnSidecar: not for correct subnet")
 
@@ -850,13 +853,14 @@ proc validateDataColumnSidecar*(
   # `verify_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments)`.
   block:
     let v = verify_data_column_sidecar_kzg_proofs(
-      data_column_sidecar, bid.blob_kzg_commitments)
+      data_column_sidecar[], bid.blob_kzg_commitments)
     if v.isErr:
       return dag.checkedReject(v.error)
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # `(sidecar.beacon_block_root, sidecar.index)` with valid kzg proof.
-  if gloasColumnQuarantine[].hasSidecar(blockRoot, data_column_sidecar.index):
+  if gloasColumnQuarantine[].hasSidecar(
+      blockRoot, data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column")
 
   # Send notification about new data column sidecar via callback
@@ -866,8 +870,8 @@ proc validateDataColumnSidecar*(
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
       block_root: blockRoot,
-      index: data_column_sidecar.index,
-      slot: data_column_sidecar.slot,
+      index: data_column_sidecar[].index,
+      slot: data_column_sidecar[].slot,
       kzg_commitments: bid.blob_kzg_commitments)
 
   ok()
@@ -2044,7 +2048,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -2093,7 +2097,7 @@ proc validateExecutionPayloadBid*(
       # [IGNORE] bid.parent_block_hash is the block hash of a known execution
       # payload in fork choice
       let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore("Bid: parent block root not found in fork choice")
+        return errIgnore("ExecutionPayloadBid: parent block root not found in fork choice")
 
       try:
         let parentExecHash = dag.loadExecutionBlockHash(parentBlck).valueOr:
@@ -2105,6 +2109,25 @@ proc validateExecutionPayloadBid*(
             "Bid: parent_block_hash doesn't match parent beacon block")
       except KeyError:
         return errIgnore("Bid: error loading parent execution hash")
+
+      let seenPref = block:
+        let
+          seenBucket = uint64(bid.slot.epoch()) mod 2
+          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+        try:
+          seenProposerPreferences[seenBucket][seenKey].valueOr:
+            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+        except KeyError:
+          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+
+      # [IGNORE]
+      # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
+      # proposer_preferences.target_gas_limit)` is True, where
+      # `parent_gas_limit` is the `gas_limit` of that execution payload.
+      if not is_gas_limit_target_compatible(
+          forkyState.data.latest_execution_payload_bid.gas_limit,
+          bid.gas_limit, seenPref.target_gas_limit):
+        return errIgnore("ExecutionPayloadBid: gas limit not target-compatible")
 
       # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
       # block in fork choice
@@ -2128,23 +2151,8 @@ proc validateExecutionPayloadBid*(
 
       # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
       # proposer's `SignedProposerPreferences` associated with `bid.slot`.
-      let seenPref = block:
-        let
-          seenBucket = uint64(bid.slot.epoch()) mod 2
-          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
-        try:
-          seenProposerPreferences[seenBucket][seenKey].valueOr:
-            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
-        except KeyError:
-          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
-
       if not (bid.fee_recipient == seenPref.fee_recipient):
         return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
-
-      # [REJECT] `bid.gas_limit` matches the `gas_limit` from the proposer's
-      # `SignedProposerPreferences` associated with `bid.slot`.
-      if not (bid.gas_limit == seenPref.gas_limit):
-        return dag.checkedReject("ExecutionPayloadBid: gas limit mismatch")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
@@ -2248,7 +2256,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
@@ -2261,16 +2269,39 @@ proc validateProposerPreferences*(
     currentEpoch = currentSlot.epoch
     proposalEpoch = preferences.proposal_slot.epoch
 
-  # [IGNORE] preferences.proposal_slot is in the current or next epoch
+  # [IGNORE] preferences.proposal_slot is within the proposer lookahead
   # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
-  # [get_current_epoch(state), get_current_epoch(state) + 1].
-  if proposalEpoch != currentEpoch and proposalEpoch != currentEpoch + 1:
-    return errIgnore("ProposerPreferences: proposal_slot in current/next epoch")
+  # [get_current_epoch(state), get_current_epoch(state) + MIN_SEED_LOOKAHEAD].
+  if proposalEpoch < currentEpoch or
+      proposalEpoch > currentEpoch + MIN_SEED_LOOKAHEAD:
+    return errIgnore("ProposerPreferences: proposal_slot outside proposer lookahead")
 
   # [IGNORE] preferences.proposal_slot has not already passed
-  # -- i.e. preferences.proposal_slot > state.slot
+  # -- i.e. preferences.proposal_slot > current_slot
   if preferences.proposal_slot <= currentSlot:
     return errIgnore("ProposerPreferences: proposal_slot not in future")
+
+  # [IGNORE] The block with root preferences.dependent_root
+  # has been seen (via gossip or non-gossip sources)
+  if dag.getBlockId(preferences.dependent_root).isNone:
+    return errIgnore("ProposerPreferences: dependent_root not seen")
+
+  # [REJECT] is_valid_proposal_slot(state, preferences) returns True,
+  # where state is the checkpoint state at the epoch
+  # compute_epoch_at_slot(preferences.proposal_slot) - 1
+  # and the root preferences.dependent_root.
+  # Spec requires the checkpoint state at dependent_root; we approximate
+  # with head state which should have the same proposer_lookahead when synced.
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      if not is_valid_proposal_slot(
+          forkyState.data, preferences.proposal_slot,
+          preferences.validator_index):
+        return dag.checkedReject(
+          "ProposerPreferences: not the proposer for proposal_slot")
+    else:
+      return errIgnore(
+        "ProposerPreferences: head state not yet at Gloas fork")
 
   # [IGNORE] The signed_proposer_preferences is the first valid message seen
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,
@@ -2283,20 +2314,6 @@ proc validateProposerPreferences*(
     if existing.dependent_root == preferences.dependent_root and
         existing.validator_index == preferences.validator_index:
       return errIgnore("ProposerPreferences: already seen")
-
-  # [REJECT] preferences.validator_index is present at the correct slot
-  # in the current or next epoch's portion of state.proposer_lookahead
-  # i.e. is_valid_proposal_slot(state, preferences) returns True.
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      if not is_valid_proposal_slot(
-          forkyState.data, preferences.proposal_slot,
-          preferences.validator_index):
-        return dag.checkedReject(
-          "ProposerPreferences: not the proposer for proposal_slot")
-    else:
-      return dag.checkedReject(
-        "ProposerPreferences: only valid for Gloas fork or later")
 
   # [REJECT] signed_proposer_preferences.signature is valid with
   # respect to the validator's public key.

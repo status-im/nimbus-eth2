@@ -181,6 +181,8 @@ proc update_confirmed(
     reason = "", diag = default(FcrDiagnostics)) =
   template prev: BlockId = self.confirmed
   template curr: BlockId = confirmed
+  if curr == prev:
+    return
   if reason != "" and (prev.slot > curr.slot or not dag.isCanonical(prev)):
     incSafeReorgs()
     if diag.chain_len > 0:
@@ -189,10 +191,12 @@ proc update_confirmed(
     else:
       notice "Previous 'safe' block no longer safe",
         previousSafe = prev, currentSafe = curr, reason
-  elif confirmed != prev:
+  else:
     trace "Updating 'safe' block",
       previousSafe = prev, currentSafe = curr
   prev = curr
+  if dag.onFastConfirmation != nil:
+    dag.onFastConfirmation FastConfirmationInfoObject.init(curr)
 
 proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
   result.slot = self.proto_array.slot(checkpoint.root).valueOr:
