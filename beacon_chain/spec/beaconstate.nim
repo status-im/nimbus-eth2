@@ -3298,6 +3298,20 @@ func can_builder_cover_bid*(
     return false
   builder_balance - min_balance >= bid_amount
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#execution_payload_bid
+func is_gas_limit_target_compatible*(
+    parent_gas_limit, gas_limit, target_gas_limit: uint64): bool =
+  let
+    max_gas_limit_difference = max(parent_gas_limit div 1024, 1'u64) - 1
+    min_gas_limit = parent_gas_limit - max_gas_limit_difference
+    max_gas_limit = parent_gas_limit + max_gas_limit_difference
+  if target_gas_limit >= min_gas_limit and target_gas_limit <= max_gas_limit:
+    gas_limit == target_gas_limit
+  elif target_gas_limit > max_gas_limit:
+    gas_limit == max_gas_limit
+  else:
+    gas_limit == min_gas_limit
+
 func proposalExecutionHead*(
     state: gloas.BeaconState | heze.BeaconState): Eth2Digest =
   debugGloasComment "this empirically matches a current testnet gloas provider behavior"

@@ -2047,7 +2047,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -2059,17 +2059,46 @@ proc validateExecutionPayloadBid*(
 
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      # [REJECT] bid.builder_index is a valid, active builder index
+      # [IGNORE] bid.slot is the current slot or the next slot
+      let currentSlot = wallTime.slotOrZero(dag.timeParams)
+      if bid.slot != currentSlot and bid.slot != currentSlot + 1:
+        return errIgnore(
+          "ExecutionPayloadBid: slot not current or next slot")
+
+      # [IGNORE] The matching signed_proposer_preferences has been seen.
+      let seenPref = block:
+        let
+          seenBucket = uint64(bid.slot.epoch()) mod 2
+          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+        try:
+          seenProposerPreferences[seenBucket][seenKey].valueOr:
+            return errIgnore(
+              "ExecutionPayloadBid: proposer preferences not seen")
+        except KeyError:
+          return errIgnore(
+            "ExecutionPayloadBid: proposer preferences not seen")
+
+      # [REJECT] bid.builder_index is a valid/active builder index
       if bid.builder_index >= forkyState.data.builders.lenu64:
         return dag.checkedReject("ExecutionPayloadBid: invalid builder index")
 
       if not is_active_builder(forkyState.data, bid.builder_index):
         return dag.checkedReject("ExecutionPayloadBid: builder not active")
 
-      # [REJECT] bid.execution_payment is zero
-      if bid.execution_payment != 0.Gwei:
+      # [REJECT] bid.execution_payment is not zero
+      if bid.execution_payment == 0.Gwei:
         return dag.checkedReject(
-          "ExecutionPayloadBid: execution_payment is not zero")
+          "ExecutionPayloadBid: execution_payment is zero")
+
+      # [REJECT] bid.fee_recipient == proposer_preferences.fee_recipient.
+      if bid.fee_recipient != seenPref.fee_recipient:
+        return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
+
+      # [REJECT] The length of KZG commitments is less than or equal to
+      # the limitation defined in the consensus layer
+      if not (bid.blob_kzg_commitments.lenu64() <=
+          dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
+        return dag.checkedReject("ExecutionPayloadBid: invalid kzg commitments")
 
       # [IGNORE] This is the first signed bid seen with a valid signature from
       # the given builder for this slot
@@ -2079,8 +2108,8 @@ proc validateExecutionPayloadBid*(
         return errIgnore(
           "ExecutionPayloadBid: already seen bid from this builder for this slot")
 
-      # [IGNORE] This bid is the highest value bid seen for the corresponding
-      # slot and the given parent block hash
+      # [IGNORE] This bid is the highest value bid seen for the tuple
+      # (slot, parent_block_hash, parent_block_root)
       let highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
         bid.slot, bid.parent_block_hash)
       if highestBid.isSome() and highestBid.get().message.value > bid.value:
@@ -2094,55 +2123,41 @@ proc validateExecutionPayloadBid*(
           "ExecutionPayloadBid: insufficient builder balance")
 
       # [IGNORE] bid.parent_block_hash is the block hash of a known execution
-      # payload in fork choice
+      # payload in fork choice and is_gas_limit_target_compatible(parent_gas_limit,
+      # bid.gas_limit, proposer_preferences.target_gas_limit) is True where 
+      # parent_gas_limit is the gas_limit of that execution payload.
       let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore("Bid: parent block root not found in fork choice")
-
-      try:
-        let parentExecHash = dag.loadExecutionBlockHash(parentBlck).valueOr:
-          return errIgnore("Bid: parent has no execution payload")
-
-        # Verify the bid references the correct execution payload
-        if parentExecHash != bid.parent_block_hash:
-          return dag.checkedReject(
-            "Bid: parent_block_hash doesn't match parent beacon block")
-      except KeyError:
-        return errIgnore("Bid: error loading parent execution hash")
-
-      # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
-      # block in fork choice
-      if dag.getBlockRef(bid.parent_block_root).isNone():
         return errIgnore(
           "ExecutionPayloadBid: parent block root not found in fork choice")
 
-      # [IGNORE] bid.slot is the current slot or the next slot
-      let currentSlot = wallTime.slotOrZero(dag.timeParams)
-      if bid.slot != currentSlot and bid.slot != currentSlot + 1:
-        return errIgnore(
-          "ExecutionPayloadBid: slot not current or next slot")
+      try:
+        let parentBlock = dag.getForkedBlock(parentBlck.bid).valueOr:
+          return errIgnore(
+            "ExecutionPayloadBid: could not load parent block")
 
-      # [REJECT] The length of KZG commitments is less than or equal to the
-      # limitation defined in the consensus layer -- i.e. validate that
-      # `len(bid.blob_kzg_commitments) <=
-      # get_blob_parameters(compute_epoch_at_slot(bid.slot)).max_blobs_per_block`.
-      if not (bid.blob_kzg_commitments.lenu64() <=
-          dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
-        return dag.checkedReject("ExecutionPayloadBid: invalid kzg commitments")
+        var
+          parentExecHash: Eth2Digest
+          parentGasLimit: uint64
+        withBlck(parentBlock):
+          when consensusFork >= ConsensusFork.Gloas:
+            parentExecHash =
+              forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
+            parentGasLimit =
+              forkyBlck.message.body.signed_execution_payload_bid.message.gas_limit
+          else:
+            return errIgnore(
+              "ExecutionPayloadBid: parent is pre-Gloas")
 
-      # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
-      # proposer's `SignedProposerPreferences` associated with `bid.slot`.
-      let seenPref = block:
-        let
-          seenBucket = uint64(bid.slot.epoch()) mod 2
-          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
-        try:
-          seenProposerPreferences[seenBucket][seenKey].valueOr:
-            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
-        except KeyError:
-          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+        if parentExecHash != bid.parent_block_hash:
+          return errIgnore(
+            "ExecutionPayloadBid: parent_block_hash doesn't match parent")
 
-      if not (bid.fee_recipient == seenPref.fee_recipient):
-        return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
+        if not is_gas_limit_target_compatible(
+            parentGasLimit, bid.gas_limit, seenPref.target_gas_limit):
+          return errIgnore(
+            "ExecutionPayloadBid: gas limit not compatible with target")
+      except KeyError:
+        return errIgnore("ExecutionPayloadBid: error loading parent block")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
