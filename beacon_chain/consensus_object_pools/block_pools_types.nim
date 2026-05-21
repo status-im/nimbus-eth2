@@ -173,7 +173,7 @@ type
       ## In the usual scenarios it should point to either`dag.head` or
       ## `dag.head.parent`. It would be nil at the beginning of Gloas fork,
       ## either Gloas genesis or upgrading from pre-Gloas. It would also be nil
-      ## if it is in different fork from the head at node startup.
+      ## if it is in a different fork from the head at node startup.
 
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
