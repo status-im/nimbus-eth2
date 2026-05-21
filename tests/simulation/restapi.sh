@@ -131,7 +131,7 @@ else
   which lsof &>/dev/null && HAVE_LSOF=1 || { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 fi
 
-which curl &>/dev/null || { echo "'curl' not installed and we need it to poll for light client updates. Aborting."; exit 1; }
+which curl &>/dev/null || { echo "'curl' not installed and we need it to wait for the first head event. Aborting."; exit 1; }
 
 # number of CPU cores
 if uname | grep -qi darwin; then
@@ -277,39 +277,19 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
 
   BEACON_NODE_PID="$(jobs -p)"
 
-  wait_for_light_client_updates() {
-    local base_url="http://${REST_ADDRESS}:${BASE_REST_PORT}/eth/v1/beacon/light_client"
-    local timeout=240 interval=3 waited=0 fin opt
-    echo "Waiting for light client updates to become available..."
-    while true; do
-      if ! kill -0 "${BEACON_NODE_PID}" 2>/dev/null; then
-        echo "nimbus_beacon_node exited before light client updates were available"
-        tail -n 100 "${LOG_NODE_FILE}"
-        exit 1
-      fi
-      fin=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
-        -H 'Accept: application/json' "${base_url}/finality_update" || true)
-      opt=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
-        -H 'Accept: application/json' "${base_url}/optimistic_update" || true)
-      if [[ "${fin}" == "200" && "${opt}" == "200" ]]; then
-        echo "Light client updates available after ${waited}s"
-        break
-      fi
-      if [[ ${waited} -ge ${timeout} ]]; then
-        echo "Timed out after ${timeout}s waiting for light client updates" \
-             "(finality_update=${fin}, optimistic_update=${opt})"
-        tail -n 100 "${LOG_NODE_FILE}"
-        exit 1
-      fi
-      if (( waited % 15 == 0 )); then
-        echo "  still waiting (${waited}/${timeout}s):" \
-             "finality_update=${fin}, optimistic_update=${opt}"
-      fi
-      sleep "${interval}"
-      waited=$((waited + interval))
-    done
+  wait_for_head_event() {
+    echo "Waiting for first head event..."
+    # --max-time bounds the pipeline since curl won't notice SIGPIPE until the next SSE write (no keepalives).
+    if ! (curl -sN --retry 7 --retry-delay 1 --retry-all-errors --max-time 30 \
+            -H 'Accept: text/event-stream' \
+            "http://${REST_ADDRESS}:${BASE_REST_PORT}/eth/v1/events?topics=head" || true) \
+         | grep -q -m1 '^event: head'; then
+      echo "Timed out waiting for head event"
+      tail -n 100 "${LOG_NODE_FILE}"
+      exit 1
+    fi
   }
-  wait_for_light_client_updates
+  wait_for_head_event
 
   ${RESTTEST_BIN} \
     --delay="${RESTTEST_DELAY}" \
