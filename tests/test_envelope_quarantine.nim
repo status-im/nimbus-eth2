@@ -24,7 +24,7 @@ suite "Envelope Quarantine":
     check root1 notin quarantine.missing
     quarantine.addMissing(root1)
     check root1 in quarantine.missing
-    check root1 in quarantine.checkMissing(32)
+    check FetchRecord(root: root1) in quarantine.checkMissing(32)
 
   test "Add orphan":
     check (root1, 1'u64) notin quarantine.orphans

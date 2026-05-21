@@ -2876,6 +2876,9 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_deposit_re OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_withdrawal OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_consolidation_requests  OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_deposit_requests        OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_withdrawal_requests     OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -3517,6 +3520,9 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_deposit_req OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_withdrawal_ OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_consolidation_requests   OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_deposit_requests         OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_withdrawal_requests      OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
@@ -6304,6 +6310,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]       OK
 + [Valid]   EF - gloas - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_attestations [Preset: minimal]                OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_attester_slashings [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_bls_to_execution_changes [Preset: minimal]    OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_deposits [Preset: minimal]                    OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_payload_attestations [Preset: minimal]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_proposer_slashings [Preset: minimal]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_voluntary_exits [Preset: minimal]             OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisf OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsati OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sat OK
@@ -6660,6 +6673,13 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
 + [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]        OK
 + [Valid]   EF - heze - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - heze - Sanity - Blocks - max_attestations [Preset: minimal]                 OK
++ [Valid]   EF - heze - Sanity - Blocks - max_attester_slashings [Preset: minimal]           OK
++ [Valid]   EF - heze - Sanity - Blocks - max_bls_to_execution_changes [Preset: minimal]     OK
++ [Valid]   EF - heze - Sanity - Blocks - max_deposits [Preset: minimal]                     OK
++ [Valid]   EF - heze - Sanity - Blocks - max_payload_attestations [Preset: minimal]         OK
++ [Valid]   EF - heze - Sanity - Blocks - max_proposer_slashings [Preset: minimal]           OK
++ [Valid]   EF - heze - Sanity - Blocks - max_voluntary_exits [Preset: minimal]              OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisfy OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsatis OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sati OK

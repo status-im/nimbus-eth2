@@ -373,6 +373,95 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
+  proc beaconBlocksByHead(
+      peer: Peer,
+      beaconRoot: Eth2Digest,
+      reqCount: uint64,
+      response: MultipleChunksResponse[
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB])
+      {.async, libp2pProtocol("beacon_blocks_by_head", 1).} =
+    trace "got blocks by head request",
+      peer, beaconRoot = shortLog(beaconRoot), count = reqCount
+    if reqCount == 0:
+      raise newException(InvalidInputsError, "Empty request")
+
+    let
+      dag = peer.networkState.dag
+      count = int min(reqCount, MAX_REQUEST_BLOCKS_DENEB)
+
+      # The epoch range we are required to serve, per spec:
+      # `[current_epoch - compute_min_epochs_for_block_requests(), current_epoch]`
+      serveFloorEpoch =
+        if dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS >= dag.head.slot.epoch:
+          GENESIS_EPOCH
+        else:
+          dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
+
+      startBid = dag.getBlockId(beaconRoot).valueOr:
+        # We have no record of this block - peers MAY respond with
+        # `ResourceUnavailable` when `beacon_root` is outside the served range
+        # or simply unknown.
+        raise newException(ResourceUnavailableError, BlocksUnavailable)
+
+    if startBid.slot.epoch < serveFloorEpoch:
+      # `beacon_root` is older than the epoch range we are required to serve.
+      raise newException(ResourceUnavailableError, BlocksUnavailable)
+
+    var
+      cur = startBid
+      found = 0
+      bytes: seq[byte]
+
+    while found < count:
+      if not dag.getBlockSZ(cur, bytes):
+        # Block bytes unavailable (e.g. summary present but block pruned).
+        break
+
+      let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+        warn "Cannot read block size, database corrupt?",
+          bytes = bytes.len(), blck = shortLog(cur)
+        break
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(blockResponseCost, "beacon_blocks_by_head/1")
+      peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_head/1")
+
+      await response.writeBytesSZ(
+        uncompressedLen, bytes,
+        peer.network.forkDigestAtEpoch(cur.slot.epoch).data)
+
+      inc found
+
+      if found >= count:
+        break
+
+      if cur.slot == GENESIS_SLOT:
+        break
+
+      # Walk the parent chain via the block summary table (root-indexed),
+      # not via `dag.parent` - `dag.parent` for finalized blocks goes
+      # through `getBlockIdAtSlot` (slot-indexed `dag.db.finalizedBlocks`),
+      # which can run out before the summary table does. Every block we
+      # have stored has a summary, so this walk spans the full available
+      # history regardless of which side of the finalized head we're on.
+      let summary = dag.db.getBeaconBlockSummary(cur.root).valueOr:
+        break
+      let parentBid = dag.getBlockId(summary.parent_root).valueOr:
+        # Parent is not known to us - we've reached the lower bound of
+        # locally available history (typically `dag.backfill.slot` on a
+        # checkpoint-synced node, not genesis).
+        break
+
+      if parentBid.slot.epoch < serveFloorEpoch:
+        # Next ancestor falls outside the epoch range we are required to
+        # serve - stop per spec.
+        break
+
+      cur = parentBid
+
+    debug "Block head request done",
+      peer, beaconRoot = shortLog(beaconRoot), count = reqCount, found
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
   proc executionPayloadEnvelopesByRange(
       peer: Peer,

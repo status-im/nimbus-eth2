@@ -22,7 +22,8 @@ import
   ../consensus_object_pools/[
      block_pools_types, block_quarantine, column_quarantine],
   ../gossip_processing/block_processor,
-  ../spec/[column_map, forks, helpers, peerdas_helpers],
+  ../networking/eth2_network,
+  ../spec/[column_map, forks, helpers, network, peerdas_helpers],
   ../sync/validator_custody,
   ./el_manager
 
@@ -42,6 +43,7 @@ type
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
     validatorCustody*: ValidatorCustodyRef
+    network*: Eth2Node
     # Per-slot engine_getBlobs accounting. `slotInFlight` is the slot whose
     # counts are currently accumulating; when a request lands for a different
     # slot we flush the previous slot's ratio to the gauge and reset.
@@ -61,7 +63,8 @@ proc new*(
     fuluColumnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar],
     blockProcessor: ref BlockProcessor,
     dataColumnQuarantine: ref ColumnQuarantine,
-    validatorCustody: ValidatorCustodyRef
+    validatorCustody: ValidatorCustodyRef,
+    network: Eth2Node
 ): GetBlobsServiceRef =
   GetBlobsServiceRef(
     blockGossipBus: blockGossipBus,
@@ -69,6 +72,7 @@ proc new*(
     blockProcessor: blockProcessor,
     dataColumnQuarantine: dataColumnQuarantine,
     validatorCustody: validatorCustody,
+    network: network,
     slotInFlight: FAR_FUTURE_SLOT)
 
 proc recordEngineGetBlobs(
@@ -88,6 +92,27 @@ proc recordEngineGetBlobs(
   if hit:
     inc self.slotHits
     beacon_engine_getblobs_hits_total.inc()
+
+proc redistributeColumns(
+    self: GetBlobsServiceRef,
+    columns: fulu.DataColumnSidecars,
+    skipIndex = Opt.none(ColumnIndex)
+) {.async: (raises: [CancelledError]).} =
+  ## Publish each reconstructed column to its respective gossip subnet.
+  ## `skipIndex` lets the column-first path avoid re-publishing the column
+  ## that already arrived via gossip.
+  var workers = newSeqOfCap[Future[SendResult]](columns.len)
+  for col in columns:
+    if skipIndex.isSome and col[].index == skipIndex.get():
+      continue
+    let subnet = compute_subnet_for_data_column_sidecar(col[].index)
+    workers.add self.network.broadcastDataColumnSidecar(subnet, col)
+  let results = await allFinished(workers)
+  for r in results:
+    doAssert r.finished()
+    if r.failed():
+      debug "Failed to redistribute data column from EL blobpool",
+        error = r.error[].msg
 
 proc attemptGetBlobs*(
     self: GetBlobsServiceRef,
@@ -140,6 +165,11 @@ proc attemptGetBlobs*(
         forkyBlck,
         blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
         flat_proof)
+
+      # Redistribute every reconstructed column to its subnet before any
+      # custody-based filtering — peers on subnets we don't custody still
+      # need them.
+      await self.redistributeColumns(recovered_columns)
 
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
@@ -222,6 +252,13 @@ proc attemptGetBlobsFromColumn*(
     sidecar[].kzg_commitments_inclusion_proof,
     blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
     flat_proof)
+
+  # Redistribute reconstructed columns to their subnets. Skip the trigger
+  # column: it already reached us via gossip and was published by its
+  # originator, so re-broadcasting it is wasted work (gossipsub would
+  # dedupe at peers anyway).
+  await self.redistributeColumns(
+    recovered_columns, skipIndex = Opt.some(sidecar[].index))
 
   let custodyMap = self.validatorCustody.getMap()
   var batch = newSeqOfCap[ref fulu.DataColumnSidecar](len(custodyMap))

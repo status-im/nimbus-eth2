@@ -505,8 +505,9 @@ suite "Proposer preferences validation " & preset():
     # Pick an upcoming slot and its scheduled proposer from the head state's
     # proposer_lookahead.
     var
-      proposerSlot: Slot
-      proposerIndex: uint64
+      proposer_slot: Slot
+      proposer_index: uint64
+      dependent_root: Eth2Digest
       proposerFound = false
       wrongValidator: uint64
     withState(dag.headState):
@@ -515,8 +516,9 @@ suite "Proposer preferences validation " & preset():
         for offset in 1'u64 ..< forkyState.data.proposer_lookahead.lenu64:
           let slot = startSlot + offset
           if slot > forkyState.data.slot:
-            proposerSlot = slot
-            proposerIndex = forkyState.data.proposer_lookahead.item(offset)
+            proposer_slot = slot
+            proposer_index = forkyState.data.proposer_lookahead.item(offset)
+            dependent_root = forkyState.dependent_root(slot.epoch)
             proposerFound = true
             break
         # wrongValidator just needs to differ from the scheduled proposer at
@@ -529,10 +531,11 @@ suite "Proposer preferences validation " & preset():
 
     let
       prefs = ProposerPreferences(
-        proposal_slot: proposerSlot,
-        validator_index: proposerIndex,
+        dependent_root: dependent_root,
+        proposal_slot: proposer_slot,
+        validator_index: proposer_index,
         fee_recipient: default(ExecutionAddress),
-        gas_limit: 30_000_000)
+        target_gas_limit: 30_000_000)
       signed = signProposerPreferences(
         dag, prefs, MockPrivKeys[proposerIndex.ValidatorIndex])
       wallTime = dag.head.slot.start_beacon_time(dag.cfg.timeParams)

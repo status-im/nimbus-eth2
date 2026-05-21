@@ -263,15 +263,15 @@ type
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/p2p-interface.md#new-proposerpreferences
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#new-proposerpreferences
   ProposerPreferences* = object
     dependent_root*: Eth2Digest
     proposal_slot*: Slot
     validator_index*: uint64
     fee_recipient*: ExecutionAddress
-    gas_limit*: uint64
+    target_gas_limit*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.0/specs/gloas/p2p-interface.md#new-signedproposerpreferences
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#new-signedproposerpreferences
   SignedProposerPreferences* = object
     message*: ProposerPreferences
     signature*: ValidatorSig
@@ -735,7 +735,7 @@ func shortLog*(v: ProposerPreferences): auto =
     proposal_slot: v.proposal_slot,
     validator_index: v.validator_index,
     fee_recipient: v.fee_recipient,
-    gas_limit: v.gas_limit
+    target_gas_limit: v.target_gas_limit
   )
 
 func shortLog*(v: SignedProposerPreferences): auto =
@@ -860,12 +860,12 @@ const
     deneb.BeaconBlockBody, "execution_payload", "block_hash")
   EXECUTION_BLOCK_HASH_GINDEX_GLOAS* = get_generalized_index(BeaconBlockBody,
     "signed_execution_payload_bid", "message", "parent_block_hash")
-  FINALIZED_ROOT_GINDEX_GLOAS* =
-    get_generalized_index(BeaconState, "finalized_checkpoint", "root")
-  CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS* =
-    get_generalized_index(BeaconState, "current_sync_committee")
-  NEXT_SYNC_COMMITTEE_GINDEX_GLOAS* =
-    get_generalized_index(BeaconState, "next_sync_committee")
+  FINALIZED_ROOT_GINDEX_GLOAS* = get_generalized_index(
+    BeaconState, "finalized_checkpoint", "root")
+  CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS* = get_generalized_index(
+    BeaconState, "current_sync_committee")
+  NEXT_SYNC_COMMITTEE_GINDEX_GLOAS* = get_generalized_index(
+    BeaconState, "next_sync_committee")
 static:
   doAssert EXECUTION_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex

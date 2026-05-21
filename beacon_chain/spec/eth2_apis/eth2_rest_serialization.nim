@@ -1082,6 +1082,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.ExecutionPayloadBid)
   of "payload_attestation_message":
     ok(EventTopic.PayloadAttestationMessage)
+  of "fast_confirmation":
+    ok(EventTopic.FastConfirmation)
   else:
     err("Incorrect event's topic value")
 
