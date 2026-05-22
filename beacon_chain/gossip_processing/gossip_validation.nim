@@ -432,16 +432,15 @@ template validateBeaconBlockGloas(
       i = 0
       found = false
 
-    # Search execution parent up to 2 ancestors. Also stop searching when there
-    # is not any parents, means that it is either a finalized or genesis block.
-    while not isNil(cur.parent) and i < 2:
+    while i < 2:
       let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
         return errIgnore("validateBeaconBlockGloas: cannot load block hash")
       if pBhash == bid.parent_block_hash:
         found = true
         break
-      else:
-        cur = cur.parent
+      if isNil(cur.parent):
+        break
+      cur = cur.parent
       inc i
     if not found:
       return errIgnore("validateBeaconBlockGloas: invalid execution parent")
@@ -464,8 +463,8 @@ template validateBeaconBlockGloas(
       return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
     # The genesis block would not have an envelope. Otherwise, we should have
     # the envelope for the execution parent.
-    elif not (executionParent.slot != GENESIS_SLOT and
-        dag.db.containsExecutionPayloadEnvelope(executionParent.root)):
+    elif executionParent.slot != GENESIS_SLOT and
+        not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
       envelopeQuarantine[].addMissing(executionParent.root)
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")

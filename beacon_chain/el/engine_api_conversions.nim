@@ -134,8 +134,8 @@ func asConsensusType*(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
-    block_access_list: List[byte, MAX_BYTES_PER_TRANSACTION].init(
-      rpcExecutionPayload.blockAccessList),
+    block_access_list:
+      gloas.BlockAccessList(rpcExecutionPayload.blockAccessList),
     slot_number: Slot(rpcExecutionPayload.slotNumber))
 
 func asConsensusType*(

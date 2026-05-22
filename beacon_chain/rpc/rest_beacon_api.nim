@@ -1058,6 +1058,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
+            if blobs.len !=
+                forkyBlck.message.body.blob_kzg_commitments.len:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
+            if kzg_proofs.len != blobs.len * fulu.CELLS_PER_EXT_BLOB:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
               kzg_proofs.mapIt(kzg.KzgProof(it)))

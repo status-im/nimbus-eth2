@@ -379,6 +379,10 @@ proc assemble_data_column_sidecars*(
     signed_beacon_block.message.body.blob_kzg_commitments
   if kzg_commitments.len == 0:
     return sidecars
+  if blobs.len != kzg_commitments.len:
+    return sidecars
+  if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return sidecars
   let
     beacon_block_header =
       BeaconBlockHeader(

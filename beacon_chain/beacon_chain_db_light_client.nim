@@ -28,7 +28,8 @@ logScope: topics = "lcdata"
 # - Altair: ~38 KB per `SyncCommitteePeriod` (~1.0 MB per month)
 # - Capella: ~221 KB per `SyncCommitteePeriod` (~6.0 MB per month)
 # - Deneb: ~225 KB per `SyncCommitteePeriod` (~6.2 MB per month)
-# - Electra: ~249 KB per `SyncCommitteePeriod` (~6.2 MB per month)
+# - Electra: ~225 KB per `SyncCommitteePeriod` (~6.2 MB per month)
+# - Gloas: ~118 KB per `SyncCommitteePeriod` (~3.2 MB per month)
 #
 # `lc_xxxxx_current_branches` holds Merkle proofs needed to
 # construct `LightClientBootstrap` objects.
@@ -61,7 +62,8 @@ logScope: topics = "lcdata"
 # - Altair: ~25 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 # - Capella: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 # - Deneb: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
-# - Electra: ~27 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - Electra: ~26 KB per `SyncCommitteePeriod` (~0.7 MB per month)
+# - Gloas: ~25 KB per `SyncCommitteePeriod` (~0.7 MB per month)
 #
 # `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
@@ -78,6 +80,7 @@ logScope: topics = "lcdata"
 #   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
 # - Electra: 256*(112+4+616+128+40)/1024*28/1024
 #   616 = 32+20+32+32+256+32+8+8+8+8+4+32+32+32+32+32+8+8
+# - Gloas: 256*(112+32+9*32+40)/1024*28/1024
 #
 # Committee branch computations:
 # - Altair: 256*(5*32+8)/1024*28/1024
@@ -92,13 +95,14 @@ logScope: topics = "lcdata"
 #   513*48 = 24624
 #
 # Aggregate computations:
-# - Altair: 112 = 512/8+48
+# - Altair: 160 = 512/8+96
 #
 # Update computations:
-# - Altair: (112+24624+5*32+112+6*32+112+8+9)/1024*28/1024
-# - Capella: (4+844+24624+5*32+4+844+6*32+112+8+9)/1024*28/1024
-# - Deneb: (4+860+24624+5*32+4+860+6*32+112+8+9)/1024*28/1024
-# - Electra: (4+860+24624+6*32+4+860+7*32+112+8+9)/1024*28/1024
+# - Altair: (112+24624+5*32+112+6*32+160+8+16)/1024*28/1024
+# - Capella: (4+844+24624+5*32+4+844+6*32+160+8+16)/1024*28/1024
+# - Deneb: (4+860+24624+5*32+4+860+6*32+160+8+16)/1024*28/1024
+# - Electra: (4+860+24624+6*32+4+860+7*32+160+8+16)/1024*28/1024
+# - Gloas: (432+24624+6*32+432+7*32+160+8+16)/1024*28/1024
 
 type
   LightClientHeaderStore = object

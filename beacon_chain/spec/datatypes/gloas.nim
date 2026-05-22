@@ -46,6 +46,7 @@ type
   AggregationBits* = BitSeq
   AttestingIndices* = seq[uint64]
   Transaction* = ByteSeq
+  BlockAccessList* = ByteSeq
   DepositRequests* = seq[DepositRequest]
   WithdrawalRequests* = seq[WithdrawalRequest]
   ConsolidationRequests* = seq[ConsolidationRequest]
@@ -112,7 +113,7 @@ type
     blob_gas_used*: uint64
     excess_blob_gas*: uint64
     # [New in Gloas:EIP7928]
-    block_access_list*: List[byte, MAX_BYTES_PER_TRANSACTION]
+    block_access_list*: BlockAccessList
     # [New in Gloas:EIP7843]
     slot_number*: Slot
 
