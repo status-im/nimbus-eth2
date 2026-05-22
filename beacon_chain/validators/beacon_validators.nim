@@ -1061,12 +1061,30 @@ proc sendPayloadAttestations(
         asyncSpawn createAndSendPayloadAttestation(
           node, fork, genesis_validators_root, validator, vidx, slot, head)
 
+proc signAndSendProposerPreference(
+    node: BeaconNode, validator: AttachedValidator,
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
+  let signature = (await validator.getProposerPreferencesSignature(
+    fork, genesis_validators_root, data)).valueOr:
+    warn "Unable to sign proposer preferences",
+      validator = shortLog(validator), error_msg = error
+    node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
+      (data.validator_index, data.proposal_slot))
+    return
+  let signed = SignedProposerPreferences(message: data, signature: signature)
+  await node.router.routeProposerPreferences(signed)
+
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
 
   if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
     return
+
+  if slot.is_epoch and slot.epoch > 0:
+    let justEnded = slot.epoch - Epoch(1)
+    node.sentProposerPreferences[justEnded.uint64 mod 2].clear()
 
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -1080,24 +1098,29 @@ proc sendProposerPreferences(
             continue
 
         for proposal_slot in get_upcoming_proposal_slots(
-          forkyState.data, validator_index.uint64
+          forkyState.data.proposer_lookahead,
+          forkyState.data.get_current_epoch(),
+          forkyState.data.slot,
+          validator_index.uint64
         ):
-          let
-            data = ProposerPreferences(
-              validator_index: validator_index.uint64, proposal_slot: proposal_slot
-            )
-            signature = await(
-              validator.getProposerPreferencesSignature(
-                fork, genesis_validators_root, data
-              )
-            ).valueOr:
-              warn "Unable to sign proposer preferences",
-                validator = shortLog(validator), error_msg = error
-              continue
+          if (validator_index.uint64, proposal_slot) in
+              node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
+            continue
 
-          let signed = SignedProposerPreferences(message: data, signature: signature)
+          let dependent_root =
+            forkyState.dependent_root(proposal_slot.epoch)
+          let data = ProposerPreferences(
+            dependent_root: dependent_root,
+            validator_index: validator_index.uint64,
+            proposal_slot: proposal_slot,
+            fee_recipient: node.getFeeRecipient(
+              validator.pubkey, validator.index, proposal_slot.epoch),
+            target_gas_limit: node.getGasLimit(validator.pubkey))
 
-          await node.router.routeProposerPreferences(signed)
+          node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2].incl(
+            (validator_index.uint64, proposal_slot))
+          asyncSpawn node.signAndSendProposerPreference(
+            validator, fork, genesis_validators_root, data)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -1551,6 +1574,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
+
+  await node.sendProposerPreferences(head, slot)
 
 proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
   if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Gloas:

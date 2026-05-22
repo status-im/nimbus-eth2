@@ -502,6 +502,8 @@ proc initFullNode(
       else:
         data
     node.eventBus.reorgQueue.emit(eventData)
+  proc onFastConfirmation(data: FastConfirmationInfoObject) =
+    node.eventBus.fastConfirmationQueue.emit(data)
   proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
     let optimistic = node.dag.is_optimistic(BlockId(
       root: data.message.beacon_block_root,
@@ -828,6 +830,7 @@ proc initFullNode(
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
+  dag.setFastConfirmationCb(onFastConfirmation)
   dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
@@ -867,7 +870,8 @@ proc initFullNode(
                                                 node.eventBus.columnSidecarFullQueue,
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
-                                                node.validatorCustody)
+                                                node.validatorCustody,
+                                                node.network)
   node.router = router
 
   await node.addValidators()
@@ -1921,7 +1925,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if slot.is_epoch:
     node.dynamicFeeRecipientsStore[].pruneOldMappings(slot.epoch)
 
-    # Clear the preferences bucket for the epoch that just ended
     if slot.epoch > 0:
       let justEnded = slot.epoch - Epoch(1)
       node.processor.seenProposerPreferences[justEnded.uint64 mod 2].reset()

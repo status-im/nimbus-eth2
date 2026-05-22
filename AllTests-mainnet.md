@@ -808,6 +808,11 @@ AllTests-mainnet
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
+## Gossip validation - Gloas
+```diff
++ validateBeaconBlock - finalized head execution parent                                      OK
++ validateBeaconBlock - mismatched execution parent                                          OK
+```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
