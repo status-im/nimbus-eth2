@@ -773,21 +773,21 @@ proc getBlobsV2*(
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError], raw: true).} =
   mixin getBlobsV2
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
-    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  template kzg_commitments(): auto =
+    when blck is gloas.SignedBeaconBlock:
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    else:
+      blck.message.body.blob_kzg_commitments
 
-    m.elConnections
-      .mapIt(
-        it.getBlobsV2(
-          blck.message.body.blob_kzg_commitments.mapIt(
-            kzg_commitment_to_versioned_hash(it)
-          )
-        )
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+  m.elConnections
+    .mapIt(
+      it.getBlobsV2(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
       )
-      .firstOrCancel(deadline)
+    )
+    .firstOrCancel(deadline)
 
 proc getBlobsV2*(
     m: ELManager, kzg_commitments: KzgCommitments
