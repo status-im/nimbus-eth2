@@ -212,7 +212,7 @@ restapi-test:
 		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 0 )) \
 		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 2 )) \
 		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 3 )) \
-		--resttest-delay 30 \
+		--resttest-delay 2 \
 		--kill-old-processes
 
 SIGNER_TYPE := nimbus

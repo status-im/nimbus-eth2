@@ -7,7 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-import std/sets, chronos, chronicles
+import std/[hashes, sets], chronos, chronicles
 import ssz_serialization/types
 import
   ../spec/[forks, network, peerdas_helpers, column_map],
@@ -70,11 +70,19 @@ type
       columnId: DataColumnIdentifier):
       Opt[ref fulu.DataColumnSidecar] {.gcsafe, raises: [].}
 
+  GloasDataColumnLoaderFn = proc(
+      columnId: DataColumnIdentifier):
+      Opt[ref gloas.DataColumnSidecar] {.gcsafe, raises: [].}
+
   InhibitFn = proc: bool {.gcsafe, raises: [].}
 
   DataColumnResponseRecord* = object
     block_root*: Eth2Digest
     sidecar*: ref fulu.DataColumnSidecar
+
+  GloasDataColumnResponseRecord* = object
+    block_root*: Eth2Digest
+    sidecar*: ref gloas.DataColumnSidecar
 
   RequestManager* = object
     network*: Eth2Node
@@ -84,11 +92,13 @@ type
     quarantine: ref Quarantine
     envelopeQuarantine: ref EnvelopeQuarantine
     dataColumnQuarantine: ref ColumnQuarantine
+    gloasColumnQuarantine: ref GloasColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
     envelopeVerifier: EnvelopeVerifierFn
     envelopeLoader: EnvelopeLoaderFn
     dataColumnLoader: DataColumnLoaderFn
+    gloasDataColumnLoader: GloasDataColumnLoaderFn
     blockLoopFuture: Future[void].Raising([CancelledError])
     envelopeLoopFuture: Future[void].Raising([CancelledError])
     dataColumnLoopFuture: Future[void].Raising([CancelledError])
@@ -99,6 +109,19 @@ func shortLog*(x: seq[Eth2Digest]): string =
 func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
+func shortLog*(x: HashSet[DataColumnsByRootIdentifier]): string =
+  var pieces: seq[string]
+  for it in x:
+    pieces.add(shortLog(it.block_root) & "/" & it.indices.mapIt($it).join(","))
+  "[" & pieces.join(", ") & "]"
+
+func hash*(x: DataColumnsByRootIdentifier): Hash =
+  var h: Hash = 0
+  h = h !& hash(x.block_root.data)
+  for idx in x.indices:
+    h = h !& hash(uint64(idx))
+  !$h
+
 func init*(T: type RequestManager, network: Eth2Node,
               vcus: ValidatorCustodyRef,
               denebEpoch: Epoch,
@@ -107,11 +130,14 @@ func init*(T: type RequestManager, network: Eth2Node,
               quarantine: ref Quarantine,
               envelopeQuarantine: ref EnvelopeQuarantine,
               dataColumnQuarantine: ref ColumnQuarantine,
+              gloasColumnQuarantine: ref GloasColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
               envelopeVerifier: EnvelopeVerifierFn,
               envelopeLoader: EnvelopeLoaderFn,
-              dataColumnLoader: DataColumnLoaderFn = nil): RequestManager =
+              dataColumnLoader: DataColumnLoaderFn = nil,
+              gloasDataColumnLoader: GloasDataColumnLoaderFn = nil
+              ): RequestManager =
   RequestManager(
     network: network,
     vcus: vcus,
@@ -120,11 +146,13 @@ func init*(T: type RequestManager, network: Eth2Node,
     quarantine: quarantine,
     envelopeQuarantine: envelopeQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
     envelopeVerifier: envelopeVerifier,
     envelopeLoader: envelopeLoader,
-    dataColumnLoader: dataColumnLoader)
+    dataColumnLoader: dataColumnLoader,
+    gloasDataColumnLoader: gloasDataColumnLoader)
 
 func checkResponse(roots: openArray[Eth2Digest],
                    blocks: openArray[ref ForkedSignedBeaconBlock]): bool =
@@ -147,10 +175,12 @@ func checkResponse(
   ## Ensure the response contains only the requested envelopes.
   envelopes.allIt(it[].message.beacon_block_root in roots)
 
-func cmpColumnIndex(x: ColumnIndex, y: ref fulu.DataColumnSidecar): int =
+func cmpColumnIndex(x: ColumnIndex,
+                    y: ref fulu.DataColumnSidecar |
+                       ref gloas.DataColumnSidecar): int =
   cmp(x, y[].index)
 
-func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
+func checkColumnResponse(idList: HashSet[DataColumnsByRootIdentifier],
                          columns: openArray[ref fulu.DataColumnSidecar]):
                          Opt[seq[DataColumnResponseRecord]] =
   var colRec: seq[DataColumnResponseRecord]
@@ -168,6 +198,26 @@ func checkColumnResponse(idList: seq[DataColumnsByRootIdentifier],
           return Opt.none(seq[DataColumnResponseRecord])
         colRec.add(DataColumnResponseRecord(block_root: block_root,
                                             sidecar: colresp))
+  Opt.some(colRec)
+
+func checkGloasColumnResponse(
+    idList: HashSet[DataColumnsByRootIdentifier],
+    columns: openArray[ref gloas.DataColumnSidecar]
+): Opt[seq[GloasDataColumnResponseRecord]] =
+  var colRec: seq[GloasDataColumnResponseRecord]
+  for colresp in columns:
+    let block_root = colresp[].beacon_block_root
+    var matched = false
+    for id in idList:
+      if id.block_root == block_root:
+        if binarySearch(id.indices.asSeq, colresp, cmpColumnIndex) == -1:
+          return static(Opt.none(seq[GloasDataColumnResponseRecord]))
+        matched = true
+        colRec.add(GloasDataColumnResponseRecord(
+          block_root: block_root, sidecar: colresp))
+        break
+    if not matched:
+      return Opt.none(seq[GloasDataColumnResponseRecord])
   Opt.some(colRec)
 
 proc requestBlocksByRoot(rman: RequestManager, items: seq[Eth2Digest]) {.async: (raises: [CancelledError]).} =
@@ -303,7 +353,8 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
     if not(isNil(peer)):
       self.network.peerPool.release(peer)
 
-func cmpSidecarIndexes(x, y: ref fulu.DataColumnSidecar): int =
+func cmpSidecarIndexes(x, y: ref fulu.DataColumnSidecar |
+                             ref gloas.DataColumnSidecar): int =
   cmp(x[].index, y[].index)
 
 proc checkPeerCustody(rman: RequestManager,
@@ -384,9 +435,23 @@ func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
       overlap = rman.vcus.getMap().countIt(it in remoteCustodyColumns)
     overlap > (len(rman.vcus.getMap()) div 2)
 
-proc fetchDataColumnsFromNetwork(rman: RequestManager,
-                                 colIdList: seq[DataColumnsByRootIdentifier])
-                                 {.async: (raises: [CancelledError]).} =
+func filterByIntersection(
+    colIdList: HashSet[DataColumnsByRootIdentifier],
+    intersection: DataColumnIndices): seq[DataColumnsByRootIdentifier] =
+  var res: seq[DataColumnsByRootIdentifier]
+  for it in colIdList:
+    let entry = DataColumnsByRootIdentifier(
+      block_root: it.block_root,
+      indices: DataColumnIndices(
+        filterIt(it.indices.asSeq, it in intersection)))
+    if entry.indices.len > 0:
+      res.add entry
+  res
+
+template fetchDataColumnsFromNetworkImpl(
+    rman: RequestManager,
+    colIdList: HashSet[DataColumnsByRootIdentifier],
+    requestProc, responseChecker, columnQuarantine: untyped) =
   var peer: Peer
   peer = await rman.network.peerPool.acquire(
     filter = {Incoming, Outgoing},
@@ -403,12 +468,7 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       debug "Peer has no usable custody overlap",
         peer = peer
       return
-    let intColIdList = colIdList
-      .mapIt(DataColumnsByRootIdentifier(
-        block_root: it.block_root,
-        indices: DataColumnIndices(
-          filterIt(it.indices.asSeq, it in intersection))))
-      .filterIt(it.indices.len > 0)
+    let intColIdList = filterByIntersection(colIdList, intersection)
     if intColIdList.len == 0:
       debug "No intersecting custody columns to request",
         peer = peer,
@@ -422,13 +482,13 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
       var n = 0
       for id in intColIdList: n += id.indices.len
       n
-    let columns = await dataColumnSidecarsByRoot(
+    let columns = await requestProc(
       peer, DataColumnsByRootIdentifierList intColIdList,
       maxResponseItems = expectedColumnCount)
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)
-      let records = checkColumnResponse(colIdList, ucolumns).valueOr:
+      let records = responseChecker(colIdList, ucolumns).valueOr:
         debug "Response to columns by root is not a subset",
           peer = peer,
           columns = shortLog(colIdList),
@@ -440,14 +500,13 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
           peer = peer,
           column_sidecars = shortLog(col.sidecar[]),
           peer_score = peer.getScore()
-        rman.dataColumnQuarantine[].put(col.block_root, col.sidecar)
+        columnQuarantine[].put(col.block_root, col.sidecar)
       var curRoot: Eth2Digest
       for col in records:
         if col.block_root != curRoot:
           curRoot = col.block_root
           if (let o = rman.quarantine[].popSidecarless(curRoot); o.isSome):
-            let col = o.unsafeGet()
-            discard await rman.blockVerifier(col, false)
+            discard await rman.blockVerifier(o.unsafeGet(), false)
     else:
       debug "Data columns by root request failed or peer missing custody columns",
         peer = peer,
@@ -457,6 +516,21 @@ proc fetchDataColumnsFromNetwork(rman: RequestManager,
   finally:
     if not isNil(peer):
       rman.network.peerPool.release(peer)
+
+proc fetchFuluDataColumns(
+    rman: RequestManager, colIdList: HashSet[DataColumnsByRootIdentifier]
+    ) {.async: (raises: [CancelledError]).} =
+  fetchDataColumnsFromNetworkImpl(
+    rman, colIdList,
+    dataColumnSidecarsByRoot, checkColumnResponse, rman.dataColumnQuarantine)
+
+proc fetchGloasDataColumns(
+    rman: RequestManager, colIdList: HashSet[DataColumnsByRootIdentifier]
+    ) {.async: (raises: [CancelledError]).} =
+  fetchDataColumnsFromNetworkImpl(
+    rman, colIdList,
+    dataColumnSidecarsByRootGloas, checkGloasColumnResponse,
+    rman.gloasColumnQuarantine)
 
 proc requestManagerBlockLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
@@ -574,7 +648,8 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
       envelopes = shortLog(blockRoots),
       sync_speed = speed(start, finish)
 
-proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifier] =
+proc getMissingDataColumns(rman: RequestManager):
+    tuple[fulu, gloas: HashSet[DataColumnsByRootIdentifier]] =
   let
     wallTime = rman.getBeaconTime()
     wallSlot = wallTime.slotOrZero(rman.network.cfg.timeParams)
@@ -583,42 +658,55 @@ proc getMissingDataColumns(rman: RequestManager): seq[DataColumnsByRootIdentifie
   const waitDur = TimeDiff(nanoseconds: DATA_COLUMN_GOSSIP_WAIT_TIME_NS)
 
   var
-    fetches: seq[DataColumnsByRootIdentifier]
+    fuluFetches: HashSet[DataColumnsByRootIdentifier]
+    gloasFetches: HashSet[DataColumnsByRootIdentifier]
     ready: seq[Eth2Digest]
 
   for columnless in rman.quarantine[].peekSidecarless():
     withBlck(columnless):
-      when consensusFork >= ConsensusFork.Fulu and consensusFork < ConsensusFork.Gloas:
-        debugGloasComment "handle correctly for gloas"
+      when consensusFork >= ConsensusFork.Fulu:
         # granting data columns a chance to arrive over gossip
         if forkyBlck.message.slot == wallSlot and delay < waitDur:
           debug "Not handling missing data columns early in slot"
           continue
 
-        let
-          commitmentsCount = len(forkyBlck.message.body.blob_kzg_commitments)
-          ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
-            columnless.root)
-
-        if len(ident.indices) > 0 and ident notin fetches:
-          fetches.add(ident)
-        else:
-          if commitmentsCount == 0:
-            # this is a programming error it should not occur.
+        when consensusFork >= ConsensusFork.Gloas:
+          let
+            commitmentsCount = len(
+              forkyBlck.message.body.signed_execution_payload_bid
+                       .message.blob_kzg_commitments)
+            ident = rman.gloasColumnQuarantine[].fetchMissingSidecars(
+              columnless.root)
+          if len(ident.indices) > 0:
+            gloasFetches.incl(ident)
+          elif commitmentsCount == 0:
             warn "missing column handler found columnless block with all data columns",
-                 blk = columnless.root,
-                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+                 blk = columnless.root, commitments = commitmentsCount
             ready.add(columnless.root)
           else:
             debug "requested column indices are no longer relevant",
-                 blk = columnless.root,
-                 commitments = len(forkyBlck.message.body.blob_kzg_commitments)
+                 blk = columnless.root, commitments = commitmentsCount
+        else:
+          let
+            commitmentsCount =
+              len(forkyBlck.message.body.blob_kzg_commitments)
+            ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
+              columnless.root)
+          if len(ident.indices) > 0:
+            fuluFetches.incl(ident)
+          elif commitmentsCount == 0:
+            warn "missing column handler found columnless block with all data columns",
+                 blk = columnless.root, commitments = commitmentsCount
+            ready.add(columnless.root)
+          else:
+            debug "requested column indices are no longer relevant",
+                 blk = columnless.root, commitments = commitmentsCount
 
   for root in ready:
     let columnless = rman.quarantine[].popSidecarless(root).valueOr:
       continue
     discard rman.blockVerifier(columnless, false)
-  fetches
+  (fuluFetches, gloasFetches)
 
 proc requestManagerDataColumnLoop(
     rman: RequestManager) {.async: (raises: [CancelledError]).} =
@@ -628,14 +716,16 @@ proc requestManagerDataColumnLoop(
     if rman.inhibit():
       continue
 
-    let missingColumnIds = rman.getMissingDataColumns()
-    if missingColumnIds.len == 0:
+    let (missingFulu, missingGloas) = rman.getMissingDataColumns()
+    if missingFulu.len == 0 and missingGloas.len == 0:
       continue
 
-    var columnIds: seq[DataColumnsByRootIdentifier]
-    if rman.dataColumnLoader == nil:
-      columnIds = missingColumnIds
-    else:
+    var
+      fuluColumnIds: HashSet[DataColumnsByRootIdentifier]
+      gloasColumnIds: HashSet[DataColumnsByRootIdentifier]
+
+    template processBucket(missingColumnIds, fetchOutput,
+                           columnLoader, columnQuarantine: untyped) =
       var
         blockRoots: seq[Eth2Digest]
         curRoot: Eth2Digest
@@ -646,17 +736,14 @@ proc requestManagerDataColumnLoop(
             blockRoots.add curRoot
         for index in columnId.indices:
           let loaderElem = DataColumnIdentifier(
-            block_root: columnId.block_root,
-            index: index)
-          let data_column_sidecar = rman.dataColumnLoader(loaderElem).valueOr:
-            if columnId notin columnIds:
-              columnIds.add columnId
+            block_root: columnId.block_root, index: index)
+          let data_column_sidecar = columnLoader(loaderElem).valueOr:
+            fetchOutput.incl columnId
             if blockRoots.len > 0 and blockRoots[^1] == curRoot:
-              # A data column is missing, remove from list of fully available data columns
               discard blockRoots.pop()
             continue
           debug "Loaded orphaned data columns from storage", columnId
-          rman.dataColumnQuarantine[].put(curRoot, data_column_sidecar)
+          columnQuarantine[].put(curRoot, data_column_sidecar)
       var verifiers = newSeqOfCap[
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
@@ -672,26 +759,51 @@ proc requestManagerDataColumnLoop(
           futs.add verifier.cancelAndWait()
         await noCancel allFutures(futs)
         raise exc
-    if columnIds.len > 0:
-      debug "Requesting detected missing data columns", columns = shortLog(columnIds)
-      let start = SyncMoment.now(0)
-      let workerCount =
+
+    if rman.dataColumnLoader == nil:
+      fuluColumnIds = missingFulu
+    else:
+      processBucket(missingFulu, fuluColumnIds,
+                    rman.dataColumnLoader, rman.dataColumnQuarantine)
+
+    if rman.gloasDataColumnLoader == nil:
+      gloasColumnIds = missingGloas
+    else:
+      processBucket(missingGloas, gloasColumnIds,
+                    rman.gloasDataColumnLoader, rman.gloasColumnQuarantine)
+
+    if fuluColumnIds.len == 0 and gloasColumnIds.len == 0:
+      continue
+
+    let
+      start = SyncMoment.now(0)
+      workerCount =
         if lenu64(rman.vcus.getMap()) >=
             rman.network.cfg.NUMBER_OF_CUSTODY_GROUPS:
           PARALLEL_DATA_COLUMNS_SUPER
         else:
           PARALLEL_DATA_COLUMNS
-      var workers =
-        newSeq[Future[void].Raising([CancelledError])](workerCount)
-      for i in 0..<workerCount:
-        workers[i] = rman.fetchDataColumnsFromNetwork(columnIds)
 
-      await allFutures(workers)
-      let finish = SyncMoment.now(uint64(len(columnIds)))
+    var workers: seq[Future[void].Raising([CancelledError])]
+    if fuluColumnIds.len > 0:
+      debug "Requesting detected missing fulu data columns",
+        columns = shortLog(fuluColumnIds)
+      for _ in 0 ..< workerCount:
+        workers.add rman.fetchFuluDataColumns(fuluColumnIds)
+    if gloasColumnIds.len > 0:
+      debug "Requesting detected missing gloas data columns",
+        columns = shortLog(gloasColumnIds)
+      for _ in 0 ..< workerCount:
+        workers.add rman.fetchGloasDataColumns(gloasColumnIds)
 
-      debug "Request manager data column tick",
-            data_columns_count = len(columnIds),
-            sync_speed = speed(start, finish)
+    await allFutures(workers)
+    let finish = SyncMoment.now(
+      uint64(len(fuluColumnIds) + len(gloasColumnIds)))
+
+    debug "Request manager data column tick",
+          fulu_count = len(fuluColumnIds),
+          gloas_count = len(gloasColumnIds),
+          sync_speed = speed(start, finish)
 
 proc start*(rman: var RequestManager) =
   ## Start Request Manager's loop.
