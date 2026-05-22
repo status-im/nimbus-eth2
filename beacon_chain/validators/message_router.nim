@@ -80,10 +80,11 @@ proc setupPartialColumnForwarding*(router: ref MessageRouter) =
   router[].processor[].onFullColumnAssembled = proc(
       subnet_id: uint64, sidecar: fulu.DataColumnSidecar
   ) {.gcsafe, raises: [].} =
+    let sidecarRef = newClone(sidecar)
     proc forward() {.async: (raises: []).} =
       try:
         discard await router[].network.broadcastDataColumnSidecar(
-          subnet_id, sidecar)
+          subnet_id, sidecarRef)
       except CancelledError:
         discard
     asyncSpawn forward()
@@ -351,7 +352,7 @@ proc routeSignedBeaconBlock*(
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
     blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
-    someSidecarsOpt: seq[fulu.DataColumnSidecar],
+    someSidecarsOpt: fulu.DataColumnSidecars,
     partialSidecars: seq[fulu.PartialDataColumnSidecar],
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =

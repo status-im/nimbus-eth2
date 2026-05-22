@@ -2526,7 +2526,8 @@ proc installMessageValidators(node: BeaconNode) =
                 ): ValidationResult =
                   toValidationResult(
                     node.processor[].processDataColumnSidecar(
-                      MsgSource.gossip, dataColumnSidecar, subnet_id)))
+                      MsgSource.gossip, newClone(dataColumnSidecar),
+                      subnet_id)))
 
         when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
           # blob_sidecar_{subnet_id}
