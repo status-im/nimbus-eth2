@@ -276,13 +276,21 @@ iterator eras*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): EraPath =
   except OSError: # On windows only ...
     discard
 
+proc getEraFile*(
+    _: type EraFile,
+    cfg: RuntimeConfig,
+    eraDir: string,
+    era: Era
+): Opt[EraPath] =
+  ## Find the file at specific era in the given directory.
+  for e in EraFile.eras(cfg, eraDir):
+    if e.era == era:
+      return Opt.some(e)
+  Opt.none(EraPath)
+
 proc genesis*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =
   ## Find the genesis era file (era 0) in the given directory.
-  for e in EraFile.eras(cfg, eraDir):
-    if e.era == 0:
-      return Opt.some(e)
-
-  Opt.none(EraPath)
+  EraFile.getEraFile(cfg, eraDir, Era(0))
 
 proc latest*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =
   ## Find the most recent era file in the given directory, if any.
@@ -363,7 +371,7 @@ proc getBlockSSZ*(
 proc getBlock*(
     db: EraDB, historical_roots: openArray[Eth2Digest],
     historical_summaries: openArray[HistoricalSummary], slot: Slot,
-    root: Opt[Eth2Digest], T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
+    root: Opt[Eth2Digest], T: type SomeForkySignedBeaconBlock): Opt[T] =
   var bytes: seq[byte]
   ? db.getBlockSSZ(
     historical_roots, historical_summaries, slot, bytes).mapConvertErr(void)
@@ -417,6 +425,31 @@ proc getState*(
     ok()
   except CatchableError as exc:
     err(exc.msg)
+
+proc getHeadBlockId*(db: EraDB, eraPath: EraPath): Result[Opt[BlockId], string] =
+  let handle = ? EraFile.open(eraPath.path)
+
+  var
+    bytes: seq[byte]
+    slot = handle[].blockIdx.startSlot + lenu64(handle[].blockIdx.offsets) - 1
+
+  while true:
+    ? getBlockSSZ(handle, slot, bytes)
+    if len(bytes) > 0:
+      break
+    if slot == handle[].blockIdx.startSlot:
+      break
+    slot = slot - 1
+
+  if len(bytes) == 0:
+    return ok(Opt.none(BlockId))
+
+  let blck =
+    try:
+      newClone(readSszForkedSignedBeaconBlock(db.cfg, bytes))
+    except CatchableError as exc:
+      return err("Unable to deserialize the block: " & exc.msg)
+  ok(Opt.some(BlockId(slot: blck[].slot, root: blck[].root)))
 
 type
   PartialBeaconState = object

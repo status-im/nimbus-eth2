@@ -362,7 +362,12 @@ proc startPeer(
 
 func getFrontfillSlot(overseer: SyncOverseerRef2): Slot =
   let dag = overseer.consensusManager.dag
-  max(dag.frontfill.get(BlockId()).slot, dag.horizon)
+
+  if overseer.eraBid.isSome():
+    max(max(dag.frontfill.get(BlockId()).slot, dag.horizon),
+      overseer.eraBid.get().slot + 1)
+  else:
+    max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
 func getLastAddedBackfillSlot(overseer: SyncOverseerRef2): Slot =
   let dag = overseer.consensusManager.dag
@@ -562,21 +567,29 @@ proc createQueues(
             else:
               Opt.some(default(seq[ref fulu.DataColumnSidecar]))
 
-        (await overseer.blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, cres,
-          maybeFinalized = maybeFinalized))
+        let dag = overseer.consensusManager.dag
+        if cres.isSome() and overseer.eraBid.isSome() and
+           dag.needsBackfill() and
+           (forkyBlck.message.slot <= dag.backfill.slot) and
+           (forkyBlck.message.slot < overseer.eraBid.get().slot):
+          # In case if sidecars present, we are in backfill mode and block's
+          # slot is already present in ERA files, we going to verify sidecars
+          # only and store sidecars in database.
+          overseer.blockProcessor.addBackfillSidecars(forkyBlck, cres.get())
+        else:
+          (await overseer.blockProcessor.addBlock(
+            MsgSource.sync, forkyBlck, cres,
+            maybeFinalized = maybeFinalized))
       else:
         raiseAssert "Unsupported fork"
 
   let
-    localHead = dag.finalizedHead.slot
     backfillSlot = overseer.getLastAddedBackfillSlot()
-    frontfillSlot = overseer.getFrontfillSlot()
 
   overseer.fqueue =
     SyncQueue.init(
       Peer, BlockCompleteness, SyncQueueKind.Forward,
-      localHead, checkpoint.epoch.start_slot(),
+      dag.finalizedHead.slot, checkpoint.epoch.start_slot(),
       uint64(overseer.blocksChunkSize),
       ConcurrentRequestsCount,
       RepeatingFailuresCount,
@@ -598,7 +611,7 @@ proc createQueues(
     if dag.needsBackfill():
       SyncQueue.init(
         Peer, BlockCompleteness, SyncQueueKind.Backward,
-        backfillSlot, frontfillSlot,
+        backfillSlot, overseer.getFrontfillSlot(),
         uint64(overseer.blocksChunkSize),
         ConcurrentRequestsCount,
         RepeatingFailuresCount,
@@ -1716,6 +1729,53 @@ proc doRangeSyncStep(
     overseer.tbsqueue(direction).push(request)
     raise exc
 
+proc peekBackfillRange(
+    overseer: SyncOverseerRef2,
+    srange: SyncRange
+): seq[ref ForkedSignedBeaconBlock] =
+  var
+    res: seq[ref ForkedSignedBeaconBlock]
+    bids = newSeq[BlockId](int(srange.count))
+
+  let
+    dag = overseer.consensusManager.dag
+    endIndex = int(srange.count) - 1
+    startIndex =
+      dag.getBlockRange(srange.slot, bids.toOpenArray(0, endIndex))
+
+  for i in startIndex .. endIndex:
+    withConsensusFork(dag.cfg.consensusForkAtEpoch(bids[i].slot.epoch())):
+      when consensusFork == ConsensusFork.Fulu:
+        let blck = dag.getBlock(bids[i], consensusFork.SignedBeaconBlock)
+        if blck.isNone():
+          continue
+        res.add(newClone ForkedSignedBeaconBlock.init(blck.get()))
+      else:
+        raiseAssert "Unsupported fork"
+  res
+
+proc peekRange(
+    overseer: SyncOverseerRef2,
+    direction: SyncQueueKind,
+    srange: SyncRange
+): seq[ref ForkedSignedBeaconBlock] =
+  if direction == SyncQueueKind.Forward:
+    return overseer.tsbuffer(direction).peekRange(srange)
+  if overseer.eraBid.isNone():
+    return overseer.tsbuffer(direction).peekRange(srange)
+  let
+    eraBid = overseer.eraBid.get()
+    notEraSlot = eraBid.slot + 1
+  if srange > notEraSlot:
+    return overseer.tsbuffer(direction).peekRange(srange)
+  if srange < notEraSlot:
+    return overseer.peekBackfillRange(srange)
+  let
+    (eraRange, netRange) = srange.split(notEraSlot)
+    eraBlocks = overseer.peekBackfillRange(eraRange)
+    netBlocks = overseer.tsbuffer(direction).peekRange(netRange)
+  eraBlocks & netBlocks
+
 proc doRangeSidecarsStep(
     overseer: SyncOverseerRef2,
     peer: Peer,
@@ -1812,8 +1872,7 @@ proc doRangeSidecarsStep(
       SyncPushResponse()
     of ConsensusFork.Fulu:
       try:
-        var
-          blocks = overseer.tsbuffer(direction).peekRange(request.data)
+        var blocks = overseer.peekRange(direction, request.data)
 
         let
           custodyMap = overseer.validatorCustody.getMap()
@@ -2366,6 +2425,11 @@ proc timeMonitoringLoop(
               "not available"
             else:
               $res.get()
+        eraBid =
+          if overseer.eraBid.isSome():
+            shortLog(overseer.eraBid.get())
+          else:
+            "not available"
 
       overseer.statusMessages[0] =
         if overseer.finalizedDistance.isNone():
@@ -2397,6 +2461,7 @@ proc timeMonitoringLoop(
         last_seen_head = overseer.getLastSeenHeadLog(),
         last_seen_finalized = overseer.getLastSeenFinalizedHeadLog(),
         finalized_distance = finalizedDistance,
+        era_bid = eraBid,
         backfill_distance = backfillDistance,
         column_horizon = overseer.getColumnsHorizon().start_slot(),
         sdag_peer_entries_count = len(overseer.sdag.peers),
@@ -2871,7 +2936,49 @@ proc mainLoop*(
     overseer.updatePeerStatus(peer)
     entry.peerLoopFut = overseer.startPeer(peer)
 
+proc initEraInformation(overseer: SyncOverseerRef2) =
+  let
+    dag = overseer.consensusManager.dag
+    eraDir = overseer.config.eraDir()
+
+  logScope:
+    era_dir = eraDir
+
+  var
+    lastEra: Era
+    bid: Opt[BlockId]
+    eraFile = EraFile.latest(dag.cfg, eraDir).valueOr:
+      debug "ERA files are not available", era_dir = eraDir
+      return
+
+  let latestEra = eraFile.era
+
+  while true:
+    bid = dag.era.getHeadBlockId(eraFile).valueOr:
+      warn "Unable to obtain block information from era file",
+        reason = error, era = eraFile.era, era_path = eraFile.path
+      return
+    if bid.isSome():
+      break
+    if eraFile.era == Era(0):
+      break
+
+    let era = eraFile.era - 1
+    eraFile = EraFile.getEraFile(dag.cfg, eraDir, era).valueOr:
+      debug "Some ERA files are not available", era = era
+      return
+    lastEra = era
+
+  if bid.isSome():
+    debug "Latest ERA head has been found",
+      latest_block_id = shortLog(bid.get())
+    overseer.eraBid = Opt.some(bid.get())
+  else:
+    warn "Unable to find latest ERA head",
+      latest_era = latestEra, last_era = lastEra
+
 proc start*(overseer: SyncOverseerRef2) =
+  overseer.initEraInformation()
   overseer.loopFuture = overseer.mainLoop()
 
 proc stop*(overseer: SyncOverseerRef2) {.async: (raises: []).} =

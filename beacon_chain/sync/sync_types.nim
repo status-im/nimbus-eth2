@@ -86,6 +86,7 @@ type
     lastSeenHead*: Opt[BlockId]
     statusMessages*: array[2, string]
     sdag*: SyncDag[Peer, PeerId]
+    eraBid*: Opt[BlockId]
 
   SyncOverseerRef* = ref SyncOverseer
 

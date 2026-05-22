@@ -346,7 +346,7 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
 
 proc getBlock*(
     dag: ChainDAGRef, bid: BlockId,
-    T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
+    T: type SomeForkySignedBeaconBlock): Opt[T] =
   dag.db.getBlock(bid.root, T) or
     getBlock(
       dag.era, dag.headState.historical_roots.asSeq,
