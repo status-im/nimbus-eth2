@@ -737,6 +737,14 @@ proc initFullNode(
         Opt.some data_column_sidecar
       else:
         Opt.none(ref fulu.DataColumnSidecar)
+    rmanGloasDataColumnLoader = proc(
+        columnId: DataColumnIdentifier): Opt[ref gloas.DataColumnSidecar] =
+      var data_column_sidecar = gloas.DataColumnSidecar.new()
+      if dag.db.getDataColumnSidecar(
+          columnId.block_root, columnId.index, data_column_sidecar[]):
+        Opt.some data_column_sidecar
+      else:
+        Opt.none(ref gloas.DataColumnSidecar)
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -787,9 +795,10 @@ proc initFullNode(
       node.network, validatorCustody,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
-      quarantine, envelopeQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      quarantine, envelopeQuarantine,
+      dataColumnQuarantine, gloasColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanEnvelopeVerifier, rmanEnvelopeLoader,
-      rmanDataColumnLoader)
+      rmanDataColumnLoader, rmanGloasDataColumnLoader)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
