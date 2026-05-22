@@ -1034,8 +1034,8 @@ type
 
     keymanagerPort* {.
       desc: "Listening port for the REST keymanager API"
-      defaultValue: defaultEth2RestPort
-      defaultValueDesc: $defaultEth2RestPortDesc
+      defaultValue: defaultVcKeymanagerPort
+      defaultValueDesc: $defaultVcKeymanagerPortDesc
       name: "keymanager-port" .}: Port
 
     keymanagerAddress* {.

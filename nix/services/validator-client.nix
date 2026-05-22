@@ -100,7 +100,7 @@ in {
 
               keymanager-port = mkOption {
                 type = types.port;
-                default = 5052;
+                default = 5062;
                 description = "Listening port for the REST keymanager API";
               };
 
