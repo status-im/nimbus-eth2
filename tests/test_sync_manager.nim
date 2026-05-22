@@ -154,6 +154,9 @@ func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
     fut
   verify
 
+func compareRange(a: SyncRange, b: Slice[Slot]): bool =
+  (a.start_slot() == b.a) and (a.last_slot() == b.b)
+
 proc setupVerifier(
   skind: SyncQueueKind,
   sc: openArray[tuple[slots: Slice[Slot], code: Opt[VerifierError]]]
@@ -2126,6 +2129,74 @@ suite "SyncManager test suite":
           for srange in vector[4]:
             let request = sq.pop(maxSlot, peer)
             check cmp(request, srange)
+
+    asyncTest "[SyncQueue#" & $kind & "] partial ranges test":
+      let
+        TestVectors = [
+          (
+            (Slot(0), Slot(64), Slot(0)),
+            (Slot(64), Slot(0), Slot(64)),
+            [(Slot(0) .. Slot(64), Opt.none(VerifierError))],
+            @[Slot(0) .. Slot(31), Slot(32) .. Slot(63), Slot(64) .. Slot(64)],
+            @[Slot(33) .. Slot(64), Slot(1) .. Slot(32), Slot(0) .. Slot(0)]
+          ),
+          (
+            (Slot(64), Slot(128), Slot(64)),
+            (Slot(128), Slot(64), Slot(128)),
+            [(Slot(64) .. Slot(128), Opt.none(VerifierError))],
+            @[Slot(64) .. Slot(95), Slot(96) .. Slot(127), Slot(128) .. Slot(128)],
+            @[Slot(97) .. Slot(128), Slot(65) .. Slot(96), Slot(64) .. Slot(64)]
+          ),
+          (
+            (Slot(57), Slot(129), Slot(57)),
+            (Slot(129), Slot(61), Slot(129)),
+            [(Slot(57) .. Slot(64), Opt.none(VerifierError))],
+            @[Slot(57) .. Slot(88), Slot(89) .. Slot(120), Slot(121) .. Slot(129)],
+            @[Slot(98) .. Slot(129), Slot(66) .. Slot(97), Slot(61) .. Slot(65)]
+          )
+        ]
+      for vector in TestVectors:
+        let
+          verifier = setupVerifier(kind, vector[2])
+          sq =
+            case kind
+            of SyncQueueKind.Forward:
+              SyncQueue.init(SomeTPeer, BlockCompleteness, kind,
+                             vector[0][0], vector[0][1],
+                             32'u64, # 32 slots per request
+                             4, # 4 concurrent requests
+                             2, # 2 failures allowed
+                             getStaticSlotCb(vector[0][2]),
+                             verifier.collector,
+                             testforkAtEpoch)
+            of SyncQueueKind.Backward:
+              SyncQueue.init(SomeTPeer, BlockCompleteness, kind,
+                             vector[1][0], vector[1][1],
+                             32'u64, # 32 slots per request
+                             4, # 4 concurrent requests
+                             2, # 2 failures allowed
+                             getStaticSlotCb(vector[1][2]),
+                             verifier.collector,
+                             testforkAtEpoch)
+          peer = SomeTPeer.init("1")
+          r1 = sq.pop(Slot(256), peer)
+          r2 = sq.pop(Slot(256), peer)
+          r3 = sq.pop(Slot(256), peer)
+          r4 = sq.pop(Slot(256), peer)
+
+        case kind
+        of SyncQueueKind.Forward:
+          check:
+            compareRange(r1.data, vector[3][0]) == true
+            compareRange(r2.data, vector[3][1]) == true
+            compareRange(r3.data, vector[3][2]) == true
+            r4.isEmpty() == true
+        of SyncQueueKind.Backward:
+          check:
+            compareRange(r1.data, vector[4][0]) == true
+            compareRange(r2.data, vector[4][1]) == true
+            compareRange(r3.data, vector[4][2]) == true
+            r4.isEmpty() == true
 
   asyncTest "[SyncQueue#Forward] Missing parent and exponential rewind " &
             "[3 peers] test":
