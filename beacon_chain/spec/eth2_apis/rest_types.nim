@@ -61,7 +61,8 @@ type
     SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate,
     ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
-    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage
+    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage,
+    FastConfirmation
 
 
   EventTopics* = set[EventTopic]

@@ -60,6 +60,7 @@ type
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
+    fastConfirmationQueue*: AsyncEventQueue[FastConfirmationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
@@ -213,6 +214,8 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[ref fulu.DataColumnSidecar](),
     finalQueue:
       newAsyncEventQueue[FinalizationInfoObject](),
+    fastConfirmationQueue:
+      newAsyncEventQueue[FastConfirmationInfoObject](),
     reorgQueue:
       newAsyncEventQueue[ReorgInfoObject](),
     contribQueue:

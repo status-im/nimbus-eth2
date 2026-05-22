@@ -93,6 +93,7 @@ RestJson.useDefaultSerializationFor(
   EventExecutionPayloadGossipObject,
   EventExecutionPayloadAvailableObject,
   ExecutionRequests,
+  FastConfirmationInfoObject,
   FinalizationInfoObject,
   Fork,
   FuluSignedBlockContents,

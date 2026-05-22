@@ -528,8 +528,8 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
     if self.inhibit():
       continue
 
-    let missingBlockRoots = self.envelopeQuarantine[]
-      .checkMissing(SYNC_MAX_REQUESTED_PAYLOADS)
+    let missingBlockRoots = self.envelopeQuarantine[].checkMissing(
+      SYNC_MAX_REQUESTED_PAYLOADS).mapIt(it.root)
     if missingBlockRoots.len() == 0:
       continue
 
