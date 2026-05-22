@@ -2444,10 +2444,8 @@ func headExecutionValid*(head: BlockRef, headPayload: BlockRef): bool =
   ## of synced which is unreliable.
   if head == headPayload:
     head.executionValid
-  elif not head.parent.isNil:
-    head.parent.executionValid
   else:
-    false
+    not head.parent.isNil and head.parent.executionValid
 
 func headExecutionValid*(
     dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
@@ -2465,7 +2463,6 @@ func payloadStatusFull*(
   ## A helper function for getting the status of whether or not to build/extend
   ## on the head payload, as the payload selected by fork choice is stored in
   ## DAG.
-
   (
     # For either genesis or pre-Gloas block, we should always build on them.
     head.slot == GENESIS_SLOT or
