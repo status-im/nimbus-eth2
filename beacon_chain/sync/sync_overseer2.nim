@@ -688,12 +688,8 @@ proc updateQueues(
     if not(isNil(overseer.bqueue)):
       if not(overseer.bqueue.running()) and not(overseer.bsqueue.running()):
         let
-          startSlot = dag.backfill.slot
-          lastBlocksSlot =
-            if dag.horizon >= startSlot:
-              startSlot
-            else:
-              dag.horizon
+          startSlot = overseer.getLastAddedBackfillSlot()
+          lastBlocksSlot = overseer.getFrontfillSlot()
           lastSidecarsSlot = overseer.getBackfillSidecarFinalSlot()
           old_backward_blocks_queue = shortLog(overseer.bqueue)
           old_backward_sidecars_queue = shortLog(overseer.bsqueue)
@@ -864,7 +860,13 @@ func backfillDistance*(
   if dag.backfill.slot <= dag.horizon:
     0'u64
   else:
-    dag.backfill.slot - dag.horizon
+    if overseer.eraBid.isSome():
+      if dag.backfill.slot <= overseer.eraBid.get().slot:
+        0'u64
+      else:
+        dag.backfill.slot - overseer.eraBid.get().slot
+    else:
+      dag.backfill.slot - dag.horizon
 
 proc networkSyncDistance*(
     overseer: SyncOverseerRef2
