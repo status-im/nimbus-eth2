@@ -1113,7 +1113,7 @@ proc getPhase0Block(
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
 
-proc getBlock*[X: ForkyTrustedSignedBeaconBlock](
+proc getBlock*[X: SomeForkySignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: typedesc[X]): Opt[T] =
   # We only store blocks that we trust in the database
   const consensusFork = T.kind

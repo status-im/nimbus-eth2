@@ -460,8 +460,18 @@ proc fillCompleteness[M](
   if missingMap.isSome():
     criteria.missingMap = missingMap.get()
 
+func init*(t: typedesc[SyncRange], start_slot, last_slot: Slot): SyncRange =
+  if last_slot < start_slot:
+    SyncRange(slot: last_slot, count: (start_slot - last_slot) + 1)
+  else:
+    SyncRange(slot: start_slot, count: (last_slot - start_slot) + 1)
+
 func init*(t: typedesc[SyncRange], slot: Slot, count: uint64): SyncRange =
-  SyncRange(slot: slot, count: count)
+  if uint64(slot) + count < uint64(slot):
+    # `uint64` overflow, so we create range which is limited by FAR_FUTURE_SLOT.
+    SyncRange.init(slot, FAR_FUTURE_SLOT)
+  else:
+    SyncRange(slot: slot, count: count)
 
 func init(t: typedesc[SyncProcessError],
           kind: VerifierError): SyncProcessError =
@@ -664,9 +674,24 @@ func contains*(srange: SyncRange, slot: Slot): bool {.inline.} =
   else:
     (slot >= srange.slot) and (slot < (srange.slot + srange.count))
 
+func `<`*(a: SyncRange, b: Slot): bool {.inline.} =
+  ## Returns `true` if all slots in range `a` are smaller than slot `b`.
+  (a.start_slot() < b) and (a.last_slot() < b)
+
 func `<`*(a, b: SyncRange): bool {.inline.} =
   ## Returns `true` if range `a` is below of range `b`.
-  (a.slot < b.slot) and (a.slot + a.count - 1 < b.slot)
+  (a.start_slot() < b.start_slot()) and (a.last_slot() < b.start_slot())
+
+func split*(a: SyncRange, b: Slot): tuple[left: SyncRange, right: SyncRange] =
+  doAssert(b in a, "Slot should be inside the range")
+  let
+    left = SyncRange.init(a.start_slot(), b)
+    right =
+      if b + 1 < b:
+        SyncRange.init(b, 0'u64)
+      else:
+        SyncRange.init(b + 1, a.last_slot())
+  (left, right)
 
 func `==`*(a, b: SyncRange): bool {.inline.} =
   (a.slot == b.slot) and (a.count == b.count)
