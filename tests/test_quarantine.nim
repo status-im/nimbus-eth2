@@ -454,6 +454,31 @@ suite "ColumnQuarantine data structure test suite " & preset():
     bq.remove(broot2)
     check len(bq) == 0
 
+  test "popSidecars tolerates partial custody at DA threshold [node]":
+    const custodyColumns =
+      (0 ..< (NUMBER_OF_COLUMNS div 2 + 32)).mapIt(it.ColumnIndex)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
+    let broot = genBlockRoot(1)
+
+    # Populate exactly half the column space — the DA threshold — at
+    # the first half of custody indices, leaving the rest of custody
+    # Empty.
+    var present: seq[ref fulu.DataColumnSidecar]
+    for i in 0 ..< (NUMBER_OF_COLUMNS div 2):
+      let sc = newClone(genFuluDataColumnSidecar(
+        index = int(custodyColumns[i]), slot = 1, proposer_index = 5))
+      bq.put(broot, sc)
+      present.add(sc)
+
+    check len(bq) == NUMBER_OF_COLUMNS div 2
+    let res = bq.popSidecars(broot)
+    check:
+      res.isOk()
+      # Populated subset is returned; Empty custody slots are silently
+      # skipped instead of crashing the node.
+      res.get().len == NUMBER_OF_COLUMNS div 2
+      compareSidecars(res.get(), present) == true
+
   test "put()/fetchMissingSidecars/remove test [node]":
     let
       custodyColumns =
@@ -2151,6 +2176,26 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     bq.remove(broot1)
     bq.remove(broot2)
     check len(bq) == 0
+
+  test "popSidecars tolerates partial custody at DA threshold [node]":
+    const custodyColumns =
+      (0 ..< (NUMBER_OF_COLUMNS div 2 + 32)).mapIt(it.ColumnIndex)
+    var bq = GloasColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
+    let broot = genBlockRoot(1)
+
+    var present: seq[ref gloas.DataColumnSidecar]
+    for i in 0 ..< (NUMBER_OF_COLUMNS div 2):
+      let sc = newClone(genGloasDataColumnSidecar(
+        index = int(custodyColumns[i]), slot = 1))
+      bq.put(broot, sc)
+      present.add(sc)
+
+    check len(bq) == NUMBER_OF_COLUMNS div 2
+    let res = bq.popSidecars(broot)
+    check:
+      res.isOk()
+      res.get().len == NUMBER_OF_COLUMNS div 2
+      compareSidecars(res.get(), present) == true
 
   test "put()/fetchMissingSidecars/remove test [node]":
     let
