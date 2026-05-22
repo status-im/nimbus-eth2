@@ -159,15 +159,16 @@ proc attemptGetBlobs*(
         return
       self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
 
-      var flat_proof = newSeqOfCap[kzg.KzgProof](
-        blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
+      var
+        blobs = newSeqOfCap[kzg.KzgBlob](blobsEl.len)
+        flat_proof = newSeqOfCap[kzg.KzgProof](
+          blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
       for item in blobsEl:
+        blobs.add kzg.KzgBlob(bytes: item.blob.data)
         for proof in item.proofs:
           flat_proof.add kzg.KzgProof(bytes: proof.data)
       let recovered_columns = assemble_data_column_sidecars(
-        forkyBlck,
-        blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-        flat_proof)
+        forkyBlck, blobs, flat_proof)
 
       # Redistribute every reconstructed column to its subnet before any
       # custody-based filtering — peers on subnets we don't custody still
@@ -177,11 +178,9 @@ proc attemptGetBlobs*(
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
       # make use of it.
-      let custodyMap = self.validatorCustody.getMap()
-      var batch = newSeqOfCap[ref fulu.DataColumnSidecar](len(custodyMap))
-      for col in recovered_columns:
-        if col[].index in custodyMap:
-          batch.add col
+      let
+        custodyMap = self.validatorCustody.getMap()
+        batch = recovered_columns.filterIt(it[].index in custodyMap)
 
       if batch.len == 0:
         return
@@ -231,15 +230,16 @@ proc attemptGetBlobs*(
     return
   self.recordEngineGetBlobs(blck.message.slot, hit = true)
 
-  var flat_proof = newSeqOfCap[kzg.KzgProof](
-    blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
+  var
+    blobs = newSeqOfCap[kzg.KzgBlob](blobsEl.len)
+    flat_proof = newSeqOfCap[kzg.KzgProof](
+      blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
   for item in blobsEl:
+    blobs.add kzg.KzgBlob(bytes: item.blob.data)
     for proof in item.proofs:
       flat_proof.add kzg.KzgProof(bytes: proof.data)
   let recovered_columns = assemble_data_column_sidecars(
-    blck,
-    blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-    flat_proof)
+    blck, blobs, flat_proof)
 
   # Redistribute every reconstructed column to its subnet before any
   # custody-based filtering — peers on subnets we don't custody still
@@ -300,9 +300,12 @@ proc attemptGetBlobsFromColumn*(
     return
   self.recordEngineGetBlobs(slot, hit = true)
 
-  var flat_proof = newSeqOfCap[kzg.KzgProof](
-    blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
+  var
+    blobs = newSeqOfCap[kzg.KzgBlob](blobsEl.len)
+    flat_proof = newSeqOfCap[kzg.KzgProof](
+      blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
   for item in blobsEl:
+    blobs.add kzg.KzgBlob(bytes: item.blob.data)
     for proof in item.proofs:
       flat_proof.add kzg.KzgProof(bytes: proof.data)
 
@@ -310,8 +313,7 @@ proc attemptGetBlobsFromColumn*(
     sidecar[].signed_block_header,
     sidecar[].kzg_commitments,
     sidecar[].kzg_commitments_inclusion_proof,
-    blobsEl.mapIt(kzg.KzgBlob(bytes: it.blob.data)),
-    flat_proof)
+    blobs, flat_proof)
 
   # Redistribute reconstructed columns to their subnets. Skip the trigger
   # column: it already reached us via gossip and was published by its
@@ -320,11 +322,9 @@ proc attemptGetBlobsFromColumn*(
   await self.redistributeColumns(
     recovered_columns, skipIndex = Opt.some(sidecar[].index))
 
-  let custodyMap = self.validatorCustody.getMap()
-  var batch = newSeqOfCap[ref fulu.DataColumnSidecar](len(custodyMap))
-  for col in recovered_columns:
-    if col.index in custodyMap:
-      batch.add newClone(col)
+  let
+    custodyMap = self.validatorCustody.getMap()
+    batch = recovered_columns.filterIt(it[].index in custodyMap)
 
   if batch.len == 0:
     return
