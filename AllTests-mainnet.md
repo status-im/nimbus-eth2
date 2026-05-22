@@ -202,6 +202,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -786,6 +787,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
