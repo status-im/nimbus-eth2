@@ -498,10 +498,10 @@ func debugOrphansJsonDump*(q: var Quarantine): string =
 
 func debugMissingJsonDump*(q: var Quarantine): string =
   var res: seq[Eth2Digest]
-  for k, v in q.missing.mpairs():
+  for k, v in q.missing.items.mpairs():
     res.add(k)
-  "{\"count\":" & $len(q.missing) &
-    ",\"max_missing_items\":" & $MaxMissingItems &
+  "{\"count\":" & $len(q.missing.items) &
+    ",\"max_missing_items\":" & $q.missing.maxCapacity &
     ",\"items\":[" &
     res.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
 
