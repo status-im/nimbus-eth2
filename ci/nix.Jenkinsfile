@@ -6,7 +6,9 @@
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
-library 'status-jenkins-lib@v1.9.41'
+library 'status-jenkins-lib@v1.9.45'
+
+def result = ''
 
 pipeline {
   agent {
@@ -23,6 +25,11 @@ pipeline {
       name: 'VERBOSITY',
       description: 'Value for the V make flag to increase log verbosity',
       choices: [0, 1, 2]
+    )
+    choice(
+      name: 'NIX_TARGET',
+      description: 'Nix flake target to build',
+      choices: ['beacon_node', 'validator_client']
     )
   }
 
@@ -44,15 +51,33 @@ pipeline {
   }
 
   stages {
-    stage('Beacon Node') {
+    stage('Build') {
       steps { script {
-        nix.flake('beacon_node')
+        def gitRef = env.BRANCH_NAME ==~ /PR-\d+/
+          ? "refs/pull/${env.BRANCH_NAME.replace('PR-', '')}/head"
+          : env.BRANCH_NAME
+    
+        result = nix.flake(params.NIX_TARGET, [
+            path: "git+https://github.com/status-im/nimbus-eth2?ref=${gitRef}&submodules=1",
+            noWriteLockFile: true,
+        ])
       } }
     }
 
     stage('Version check') {
       steps { script {
-        sh 'result/bin/nimbus_beacon_node --version'
+        sh "${result}/bin/nimbus_${params.NIX_TARGET} --version"
+      } }
+    }
+
+    stage('Push to Nix cache') {
+      when {
+        expression {
+          env.JOB_NAME.toLowerCase().contains('nightly')
+        }
+      }
+      steps { script {
+        nix.copyToCache(derivations: [result])
       } }
     }
 

@@ -1058,6 +1058,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
+            if blobs.len !=
+                forkyBlck.message.body.blob_kzg_commitments.len:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
+            if kzg_proofs.len != blobs.len * fulu.CELLS_PER_EXT_BLOB:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
               kzg_proofs.mapIt(kzg.KzgProof(it)))
@@ -1604,11 +1611,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
 
-    var data_columns: seq[fulu.DataColumnSidecar]
+    var data_columns: fulu.DataColumnSidecars
     for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
-      var dataColumnSidecar = new fulu.DataColumnSidecar
+      let dataColumnSidecar = new fulu.DataColumnSidecar
       if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
-        data_columns.add dataColumnSidecar[]
+        data_columns.add dataColumnSidecar
 
     let data = recover_blobs_from_data_columns(data_columns)
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)

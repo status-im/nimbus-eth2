@@ -1053,7 +1053,7 @@ proc doMakeEth2Request(
   finally:
     await stream.closeWithEOF()
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type,
     timeout: Duration
@@ -1066,7 +1066,7 @@ proc makeEth2Request(
     doMakeEth2Request(
       peer, protocolId, requestBytes, ResponseMsg, 1.Limit, timeout)
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type, maxResponseItems: Limit,
     timeout: Duration
@@ -2910,22 +2910,24 @@ proc broadcastBlobSidecar*(
   node.broadcast(topic, blob)
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: fulu.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref fulu.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.signed_block_header.message.slot.epoch
+    contextEpoch = data_column[].signed_block_header.message.slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: gloas.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref gloas.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.slot.epoch
+    contextEpoch = data_column[].slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

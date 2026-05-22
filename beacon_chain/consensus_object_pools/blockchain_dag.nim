@@ -2070,8 +2070,10 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     dag.deleteLightClientData(bs.blck.bid)
 
     dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
-    discard dag.db.delBlock(
-      dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
+    let fork = dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch)
+    discard dag.db.delBlock(fork, bs.blck.root)
+    if fork >= ConsensusFork.Gloas:
+      discard dag.db.delExecutionPayloadEnvelope(bs.blck.root)
 
 proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## This prunes the block DAG
@@ -2378,6 +2380,8 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
           # blocks beyond that point but we have no efficient way of detecting
           # that.
           break
+        if fork >= ConsensusFork.Gloas:
+          discard dag.db.delExecutionPayloadEnvelope(bid.root)
 
         # eaSlot would be the earliest slot for which we can reliably
         # serve a block (and sidecars if it's within the DA retention window)

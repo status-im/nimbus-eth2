@@ -556,11 +556,14 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
   let
-    f = EraFile.open(conf.eraFile).valueOr:
-      echo error
+    era = Era.fromEraFile(cfg, io2.splitPath(conf.eraFile).tail).valueOr:
+      echo conf.eraFile & ": name does not match {network}-{era:05d}-{root}.era"
+      quit 1
+    f = EraFile.open(conf.eraFile, era).valueOr:
+      echo conf.eraFile & ": " & error
       quit 1
     root = f.verify(cfg).valueOr:
-      echo error
+      echo conf.eraFile & ": " & error
       quit 1
   echo root
 

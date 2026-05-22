@@ -456,6 +456,7 @@ func init*(
     withdrawals: sink seq[capella.Withdrawal],
     consensusHead: Eth2Digest,
     slot: Slot,
+    targetGasLimit: uint64,
 ): T =
   T(
     timestamp: Quantity timestamp,
@@ -464,6 +465,7 @@ func init*(
     withdrawals: withdrawals.toEngineWithdrawals(),
     parentBeaconBlockRoot: consensusHead.to(Hash32),
     slotNumber: Quantity(slot),
+    targetGasLimit: Quantity(targetGasLimit),
   )
 
 func init(
