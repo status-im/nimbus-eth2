@@ -2755,6 +2755,7 @@ proc updateHeadExecutionPayload*(
 
   logScope:
     blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
+    builderIdx = signedEnvelope.message.builder_index
     slot = signedEnvelope.slot
     head = shortLog(dag.head)
     headPayload = shortLog(headPayload)
