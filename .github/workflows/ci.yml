@@ -196,9 +196,19 @@ jobs:
         run: |
           scripts/setup_scenarios.sh fixturesCache
 
-      - name: Run tests
+      - name: Build KZG tests
         run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
+          ${make_cmd} -j ${ncpu} V=2 NIM_COMMIT=${{ matrix.branch }} build_test_fixture_kzg
+
+      - name: Run KZG tests
+        run: |
+          count=200
+          for i in $(seq $count); do
+            echo 'RUNNING: build/test_fixture_kzg'
+            build/test_fixture_kzg \
+              --xml:build/test_fixture_kzg.xml \
+              --console --output-level=VERBOSE
+          done
 
       # The upload creates a combined report that gets posted as a comment on the PR
       # https://github.com/EnricoMi/publish-unit-test-result-action

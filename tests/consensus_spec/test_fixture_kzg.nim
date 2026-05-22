@@ -384,7 +384,9 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       # check recovered cells and proofs
       # assuming columns are sorted
       var tp = Taskpool.new()
+      echo "RCAKPP - valid - BEFORE waitFor tp.recover_cells_and_proofs_parallel(colInput)"
       let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
+      echo "RCAKPP - valid - BEFORE waitFor tp.recover_cells_and_proofs_parallel(colInput)"
       check v.isOk
       let val = v.get
       for i in 0..<val.len:
@@ -399,6 +401,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
     let
       validData = loadCellsAndKzgProofsValidCases(suitePath)
       validRowCount = validData[validData.len - 1].row_index + 1
+
 
     for kind, path in walkDir(suitePath, relative = true, checkDir = true):
       let invalidData = loadToJson(os_ops.readFile(suitePath/path/"data.yaml"))[0]
@@ -454,12 +457,15 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
 
       # check error
       var tp = Taskpool.new()
+      echo "RCAKPP - invalid - BEFORE waitFor tp.recover_cells_and_proofs_parallel(colInput)"
       let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
+      echo "RCAKPP - invalid - AFTER waitFor tp.recover_cells_and_proofs_parallel(colInput)"
       check v.isErr
 
 var suiteName = "EF - KZG"
 
 suite suiteName:
+  echo "START: ", suiteName
   const suitePath = SszTestsDir/"general"/"deneb"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
@@ -499,10 +505,12 @@ suite suiteName:
     let testsDir = suitePath/"compute_blob_kzg_proof"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runComputeBlobKzgProofTest(suiteName, testsDir, testsDir / path)
+  echo "END: ", suiteName
 
 suiteName = "EF - KZG - PeerDAS"
 
 suite suiteName:
+  echo "START: ", suiteName
   const suitePath = SszTestsDir/"general"/"fulu"/"kzg"
 
   # TODO also check that the only direct subdirectory of each is kzg-mainnet
@@ -538,5 +546,6 @@ suite suiteName:
     let testsDir = suitePath/"verify_cell_kzg_proof_batch"/"kzg-mainnet"
     for kind, path in walkDir(testsDir, relative = true, checkDir = true):
       runVerifyCellKzgProofBatchTest(suiteName, testsDir, testsDir/path)
+  echo "END: ", suiteName
 
 doAssert freeTrustedSetup().isOk

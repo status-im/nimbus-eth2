@@ -363,6 +363,15 @@ FORCE_BUILD_ALONE_ALL_TESTS_DEPS :=
 endif
 force_build_alone_all_tests: | $(FORCE_BUILD_ALONE_ALL_TESTS_DEPS)
 
+# Temporary target for debugging GH runner test timeout issues.
+build_test_fixture_kzg: | build deps
+	scripts/setup_scenarios.sh
+	MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+		test_fixture_kzg \
+		tests/consensus_spec/test_fixture_kzg.nim \
+		$(NIM_PARAMS) $(TEST_MODULES_FLAGS)
+	echo -e "\nRunning build/test_fixture_kzg\n"; \
+
 all_tests: | build deps nimbus_signing_node force_build_alone_all_tests
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
