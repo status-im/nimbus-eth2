@@ -246,11 +246,9 @@ proc attemptGetBlobs*(
   # need them.
   await self.redistributeColumns(recovered_columns)
 
-  let custodyMap = self.validatorCustody.getMap()
-  var batch = newSeqOfCap[ref gloas.DataColumnSidecar](len(custodyMap))
-  for col in recovered_columns:
-    if col[].index in custodyMap:
-      batch.add col
+  let
+    custodyMap = self.validatorCustody.getMap()
+    batch = recovered_columns.filterIt(it[].index in custodyMap)
 
   if batch.len == 0:
     return
