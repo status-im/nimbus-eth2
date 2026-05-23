@@ -151,6 +151,7 @@ in {
     systemd.services.nimbus-validator-client = {
       enable = true;
       serviceConfig = {
+        LimitNOFILE = 16384;
         DynamicUser = true;
 
         # Hardening measures
@@ -163,6 +164,7 @@ in {
         MemoryDenyWriteExecute = "true";
 
         Restart = "on-failure";
+        RestartPreventExitStatus = "129";
         ExecStart = ''
           ${cfg.package}/bin/nimbus_validator_client \
             --data-dir=${cfg.settings.data-dir} \
@@ -170,6 +172,8 @@ in {
             ${escapeShellArgs cfg.extraArgs}
         '';
       };
+      wants = ["network-online.target"];
+      after = ["network-online.target"];
       wantedBy = ["multi-user.target"];
     };
   };
