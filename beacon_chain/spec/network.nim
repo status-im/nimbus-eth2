@@ -50,6 +50,8 @@ const
   # This is not part of the spec! But it's port which Lighthouse uses
   defaultEth2RestPort* = 5052
   defaultEth2RestPortDesc* = $defaultEth2RestPort
+  defaultVcKeymanagerPort* = 5062
+  defaultVcKeymanagerPortDesc* = $defaultVcKeymanagerPort
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
