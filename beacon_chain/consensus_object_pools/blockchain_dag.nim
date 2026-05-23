@@ -2432,7 +2432,54 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   dag.loadExecutionAndParentBlockHash(blck)[0]
 
-func headExecutionValid*(head: BlockRef, headPayload: BlockRef): bool =
+proc getExecutionParent*(
+    dag: ChainDAGRef, parentRef: BlockRef,
+    parentBlockHash: Eth2Digest): Opt[BlockRef] =
+   # Find parent block by execution parent block hash. In the worst case
+   # scenario, we might need to navigate up to the finalized head.
+   #
+   # Example of the worst case scenario
+   #
+   # Slot   Beacon block        Execution payload
+   # -----  ------------------  -----------------------------------------------
+   #   1    [ root: 0xAA..01 ]  [ block_hash: 0xEE..01, parent_hash: 0xEE..00 ]
+   #   2    [ root: 0xAA..02 ]  [ block_hash: 0xEE..02, parent_hash: 0xEE..01 ]
+   #   3    [ root: 0xAA..03 ]  [ block_hash: 0xEE..03, parent_hash: 0xEE..01 ]
+   #   4    [ root: 0xAA..04 ]  [ block_hash: 0xEE..04, parent_hash: 0xEE..01 ]
+   #   5    [ root: 0xAA..05 ]  [ block_hash: 0xEE..05, parent_hash: 0xEE..01 ]
+   #   6    [ root: 0xAA..06 ]  [ block_hash: 0xEE..06, parent_hash: 0xEE..01 ]
+   #   7    [ root: 0xAA..07 ]  [ block_hash: 0xEE..07, parent_hash: 0xEE..01 ]
+   #   8    [ root: 0xAA..08 ]  [ block_hash: 0xEE..08, parent_hash: 0xEE..01 ]
+   #
+   # Result: for the execution parent of the slot 8 Block, the slot 1 Block
+   # should be returned.
+
+  var
+    cur = parentRef
+    i = 0'u64
+    found = false
+
+  debugGloasComment("revisit the max depth of ancestors, see the example above")
+  while i < SLOTS_PER_EPOCH:
+    let pBhash = ?dag.loadExecutionBlockHash(cur)
+    if pBhash == parentBlockHash:
+      found = true
+      break
+    if isNil(cur.parent):
+      break
+    cur = cur.parent
+    inc i
+
+  if found:
+    Opt.some(cur)
+  else:
+    debug "Execution parent not found after the max depth",
+      parentRef = shortLog(parentRef),
+      parentBlockHash = shortLog(parentBlockHash)
+    Opt.none(BlockRef)
+
+proc headExecutionValid*(
+    dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
   ## Since Gloas, execution validity of block is only known when we received the
   ## envelope. In general, it would be execution invalid if the envelope is
   ## invalid or missing (i.e. it has never been seen).
@@ -2442,18 +2489,19 @@ func headExecutionValid*(head: BlockRef, headPayload: BlockRef): bool =
   ##
   ## Validity result is purely based on head block as headPayload could be out
   ## of synced which is unreliable.
-  if head == headPayload:
-    head.executionValid
-  else:
-    not head.parent.isNil and head.parent.executionValid
 
-func headExecutionValid*(
-    dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
-  ## Helper function for the routes between Gloas and pre-Gloas.
-  if dag.cfg.consensusForkAtEpoch(head.slot.epoch) >= ConsensusFork.Gloas:
-    headExecutionValid(head, headPayload)
-  else:
-    head.executionValid
+  if dag.cfg.consensusForkAtEpoch(head.slot.epoch) < ConsensusFork.Gloas or
+      head == headPayload:
+    return head.executionValid
+
+  let
+    parentBlockHash = dag.loadExecutionAndParentBlockHash(
+        head).parentHash.valueOr:
+      return false
+    executionParent = dag.getExecutionParent(
+        head.parent, parentBlockHash).valueOr:
+      return false
+  executionParent.executionValid
 
 func payloadStatusFull*(
     dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
