@@ -2435,24 +2435,25 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] 
 proc getExecutionParent*(
     dag: ChainDAGRef, parentRef: BlockRef,
     parentBlockHash: Eth2Digest): Opt[BlockRef] =
-   # Find parent block by execution parent block hash. In the worst case
-   # scenario, we might need to navigate up to the finalized head.
-   #
-   # Example of the worst case scenario
-   #
-   # Slot   Beacon block        Execution payload
-   # -----  ------------------  -----------------------------------------------
-   #   1    [ root: 0xAA..01 ]  [ block_hash: 0xEE..01, parent_hash: 0xEE..00 ]
-   #   2    [ root: 0xAA..02 ]  [ block_hash: 0xEE..02, parent_hash: 0xEE..01 ]
-   #   3    [ root: 0xAA..03 ]  [ block_hash: 0xEE..03, parent_hash: 0xEE..01 ]
-   #   4    [ root: 0xAA..04 ]  [ block_hash: 0xEE..04, parent_hash: 0xEE..01 ]
-   #   5    [ root: 0xAA..05 ]  [ block_hash: 0xEE..05, parent_hash: 0xEE..01 ]
-   #   6    [ root: 0xAA..06 ]  [ block_hash: 0xEE..06, parent_hash: 0xEE..01 ]
-   #   7    [ root: 0xAA..07 ]  [ block_hash: 0xEE..07, parent_hash: 0xEE..01 ]
-   #   8    [ root: 0xAA..08 ]  [ block_hash: 0xEE..08, parent_hash: 0xEE..01 ]
-   #
-   # Result: for the execution parent of the slot 8 Block, the slot 1 Block
-   # should be returned.
+  ## Find parent block by execution parent block hash. In the worst case
+  ## scenario that if all blocks built on EMPTY payload, we might need to
+  ## navigate up to the finalized head.
+  ##
+  ## Example of the worst case scenario
+  ##
+  ## Slot  Beacon block      Execution payload
+  ## ----  ----------------  -------------------------------------------
+  ##   1   [ root: 0xA..1 ]  [ block_hash: 0xE..1, parent_hash: 0xE..0 ]
+  ##   2   [ root: 0xA..2 ]  [ block_hash: 0xE..2, parent_hash: 0xE..1 ]
+  ##   3   [ root: 0xA..3 ]  [ block_hash: 0xE..3, parent_hash: 0xE..1 ]
+  ##   4   [ root: 0xA..4 ]  [ block_hash: 0xE..4, parent_hash: 0xE..1 ]
+  ##   5   [ root: 0xA..5 ]  [ block_hash: 0xE..5, parent_hash: 0xE..1 ]
+  ##   6   [ root: 0xA..6 ]  [ block_hash: 0xE..6, parent_hash: 0xE..1 ]
+  ##   7   [ root: 0xA..7 ]  [ block_hash: 0xE..7, parent_hash: 0xE..1 ]
+  ##   8   [ root: 0xA..8 ]  [ block_hash: 0xE..8, parent_hash: 0xE..1 ]
+  ##
+  ## In this example, the execution parent of the slot 8 Block would be the slot
+  ## 1 Block.
 
   var
     cur = parentRef
