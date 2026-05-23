@@ -133,7 +133,8 @@ proc doRequest(
 ): Future[LightClientUpdatesByRangeResponse] {.async: (raises: [ResponseError, CancelledError]).} =
   let (startPeriod, count) = key
   doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
-  let response = await peer.lightClientUpdatesByRange(startPeriod, count)
+  let response = await peer.lightClientUpdatesByRange(
+    startPeriod, count, maxResponseItems = count.int)
   if response.isOk:
     let e = distinctBase(response.get)
       .checkLightClientUpdates(startPeriod, count)

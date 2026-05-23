@@ -111,6 +111,7 @@ AllTests-mainnet
 ## Beacon validators test suite
 ```diff
 + builderBetterBid(builderBoostFactor) test                                                  OK
++ builderBetterBid(localBlockValueBoost) with Gwei-to-Wei conversion                         OK
 ```
 ## Blinded block conversions
 ```diff
@@ -201,6 +202,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -677,7 +679,9 @@ AllTests-mainnet
 ```diff
 + Add missing                                                                                OK
 + Add orphan                                                                                 OK
++ Add unviable                                                                               OK
 + Clean up orphans                                                                           OK
++ Has orphan                                                                                 OK
 + Pop orphan                                                                                 OK
 ```
 ## Eth2 specific discovery tests
@@ -783,6 +787,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -804,6 +809,11 @@ AllTests-mainnet
 ```diff
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
+```
+## Gossip validation - Gloas
+```diff
++ validateBeaconBlock - finalized head execution parent                                      OK
++ validateBeaconBlock - mismatched execution parent                                          OK
 ```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
@@ -929,6 +939,11 @@ AllTests-mainnet
 + execution payload envelope signatures                                                      OK
 + payload attestation message signatures                                                     OK
 + proposer preferences message signatures                                                    OK
+```
+## Missing Table
+```diff
++ Add and delete missing                                                                     OK
++ Check missing with exponential backoff                                                     OK
 ```
 ## Network metadata
 ```diff

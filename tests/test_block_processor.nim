@@ -80,7 +80,7 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init(cfg))
       dataColumnQuarantine = newClone(ColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
-      envelopeQuarantine = newClone(EnvelopeQuarantine())
+      envelopeQuarantine = newClone(EnvelopeQuarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker = default(ActionTracker)
@@ -300,13 +300,12 @@ suite "Block processor" & preset():
         let dataColumnSidecars = assemble_data_column_sidecars(
           engineBlock.blck, @[kzgBlob], cellsAndProofs.proofs.mapIt(kzg.KzgProof(it))
         )
-        let dsRef = dataColumnSidecars.mapIt(newClone(it))
 
         # Process the block with data columns
         let res = await processor.addBlock(
           MsgSource.gossip,
           engineBlock.blck,
-          Opt.some(dsRef)
+          Opt.some(dataColumnSidecars)
         )
 
         check:
@@ -372,7 +371,7 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Block stored but envelope not available, should be in missing list
-          engineBlock.blck.root in envelopeQuarantine[].checkMissing(32)
+          FetchRecord(root: engineBlock.blck.root) in envelopeQuarantine[].checkMissing(32)
 
   asyncTest "Gloas block pops pre-arrived envelope from quarantine" & preset():
     # Envelope arrives before its block (orphan envelope).
@@ -403,7 +402,7 @@ suite "Block processor" & preset():
             )
           )
         )
-        envelopeQuarantine[].addOrphan(envelope)
+        envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
 
         let res = await processor.addBlock(
           MsgSource.gossip, engineBlock.blck, noSidecars)
@@ -412,7 +411,8 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Envelope was popped, not marked as orphan
-          engineBlock.blck.root notin envelopeQuarantine[].orphans
+          (engineBlock.blck.root, BUILDER_INDEX_SELF_BUILD) notin
+            envelopeQuarantine[].orphans
 
   asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
     # Multiple blocks stored optimistically, each marks its envelope as missing.
@@ -445,8 +445,8 @@ suite "Block processor" & preset():
     # Both envelopes should be missing
     let missing = envelopeQuarantine[].checkMissing(32)
     check:
-      b1.root in missing
-      b2.root in missing
+      FetchRecord(root: b1.root) in missing
+      FetchRecord(root: b2.root) in missing
 
   asyncTest "Gloas reverse order blocks with missing parent" & preset():
     # Block N+1 arrives before block N. Block N+1 goes to
