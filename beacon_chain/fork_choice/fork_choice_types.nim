@@ -154,14 +154,13 @@ type
     current_root*: Eth2Digest
     next_root*: Eth2Digest
     slot*: Slot
-    next_epoch*: Epoch
-    next_slot*: Slot
     payload_present*: bool
     next_payload_present*: bool
-  
+
   PtcVotes* = object
     voted*: BitArray[int(PTC_SIZE)]
-    value*: BitArray[int(PTC_SIZE)]
+    payload_present*: BitArray[int(PTC_SIZE)]
+    data_available*: BitArray[int(PTC_SIZE)]
 
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
@@ -184,7 +183,6 @@ type
     # Additional state tracking for Gloas
     execution_payload_states*: HashSet[Eth2Digest]
     ptc_vote*: Table[Eth2Digest, PtcVotes]
-    ptc_data_availability_vote*: Table[Eth2Digest, PtcVotes]
     block_timeliness*: Table[Eth2Digest, array[2, bool]]
     timely_proposer_blocks*: Table[(Slot, uint64), seq[Eth2Digest]]
 
@@ -215,8 +213,6 @@ func shortLog*(vote: VoteTracker): auto =
     slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
-    next_epoch: vote.next_epoch,
-    next_slot: vote.next_slot,
     payload_present: vote.payload_present,
     next_payload_present: vote.next_payload_present
   )

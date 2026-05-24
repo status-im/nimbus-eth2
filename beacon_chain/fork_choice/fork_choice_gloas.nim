@@ -72,23 +72,19 @@ proc on_payload_attestation_message*(
 
       var votes = self.backend.ptc_vote.mgetOrPut(
         beacon_block_root, default(PtcVotes))
-      var da_votes = self.backend.ptc_data_availability_vote.mgetOrPut(
-        beacon_block_root, default(PtcVotes))
 
       for ptc_index in ptc_indices:
         votes.voted.setBit(ptc_index)
         if ptc_message.data.payload_present:
-          votes.value.setBit(ptc_index)
+          votes.payload_present.setBit(ptc_index)
         else:
-          votes.value.clearBit(ptc_index)
-        da_votes.voted.setBit(ptc_index)
+          votes.payload_present.clearBit(ptc_index)
         if ptc_message.data.blob_data_available:
-          da_votes.value.setBit(ptc_index)
+          votes.data_available.setBit(ptc_index)
         else:
-          da_votes.value.clearBit(ptc_index)
+          votes.data_available.clearBit(ptc_index)
 
       self.backend.ptc_vote[beacon_block_root] = votes
-      self.backend.ptc_data_availability_vote[beacon_block_root] = da_votes
 
       trace "Recorded PTC vote",
         validator_index,
@@ -244,4 +240,5 @@ proc on_execution_payload*(
                                 blockRoot: beacon_block_root)
 
   self.backend.execution_payload_states.incl(beacon_block_root)
+  ? self.backend.proto_array.onPayloadVerified(beacon_block_root)
   ok()

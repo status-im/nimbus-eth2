@@ -102,10 +102,9 @@ func process_attestation(
 
   if slot.epoch >= cfg.GLOAS_FORK_EPOCH:
     # slot based tracking with payload preference
-    if slot > vote.next_slot or vote.next_root.isZero:
+    if slot > vote.slot or vote.next_root.isZero:
       vote.next_root = block_root
-      vote.next_slot = slot
-      vote.next_epoch = slot.epoch
+      vote.slot = slot
       vote.next_payload_present = payload_present
 
       trace "Integrating Gloas vote in fork choice",
@@ -517,7 +516,6 @@ proc process_block*(
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-notify_ptc_messages
   when typeof(blck).kind >= ConsensusFork.Gloas:
     self.backend.ptc_vote[blckRef.root] = default(PtcVotes)
-    self.backend.ptc_data_availability_vote[blckRef.root] = default(PtcVotes)
 
     for payload_attestation in blck.body.payload_attestations:
       let
@@ -526,8 +524,6 @@ proc process_block*(
       var
         votes = self.backend.ptc_vote.mgetOrPut(
           blockRoot, default(PtcVotes))
-        daVotes = self.backend.ptc_data_availability_vote.mgetOrPut(
-          blockRoot, default(PtcVotes))
         i = 0
       withState(dag.headState):
         when consensusFork >= ConsensusFork.Gloas:
@@ -535,13 +531,11 @@ proc process_block*(
             if payload_attestation.aggregation_bits[i]:
               votes.voted.setBit(i)
               if attData.payload_present:
-                votes.value.setBit(i)
-              daVotes.voted.setBit(i)
+                votes.payload_present.setBit(i)
               if attData.blob_data_available:
-                daVotes.value.setBit(i)
+                votes.data_available.setBit(i)
             inc i
       self.backend.ptc_vote[blockRoot] = votes
-      self.backend.ptc_data_availability_vote[blockRoot] = daVotes
 
   ok()
   

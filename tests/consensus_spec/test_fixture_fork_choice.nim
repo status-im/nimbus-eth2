@@ -139,9 +139,9 @@ proc initialLoad(
     var allTrue: PtcVotes
     for i in 0 ..< int(PTC_SIZE):
       allTrue.voted.setBit(i)
-      allTrue.value.setBit(i)
+      allTrue.payload_present.setBit(i)
+      allTrue.data_available.setBit(i)
     fkChoice.backend.ptc_vote[anchorRoot] = allTrue
-    fkChoice.backend.ptc_data_availability_vote[anchorRoot] = allTrue
     fkChoice.backend.block_timeliness[anchorRoot] = [true, true]
 
     # Set anchor block's bidBlockHash so child blocks can compute
@@ -439,18 +439,17 @@ proc stepChecks(
          check == "payload_data_availability_vote":
       let
         blockRoot = Eth2Digest.fromHex(val["block_root"].getStr())
-        votes =
-          if check == "payload_timeliness_vote":
-            fkChoice.backend.ptc_vote.getOrDefault(blockRoot)
-          else:
-            fkChoice.backend.ptc_data_availability_vote.getOrDefault(blockRoot)
+        votes = fkChoice.backend.ptc_vote.getOrDefault(blockRoot)
       var i = 0
       for v in val["votes"].items:
         if v.kind == JNull:
           doAssert not votes.voted[i]
         else:
           doAssert votes.voted[i]
-          doAssert votes.value[i] == v.getBool()
+          if check == "payload_timeliness_vote":
+            doAssert votes.payload_present[i] == v.getBool()
+          else:
+            doAssert votes.data_available[i] == v.getBool()
         inc i
     else:
       raiseAssert "Unsupported check '" & $check & "'"
