@@ -1399,7 +1399,6 @@ proc eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
   string config.eraDirFlag.get(OutDir(config.dataDir / "era"))
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
@@ -1416,9 +1415,7 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     else: fail()
   else:
     fail()
-{.pop.}
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletFile should be used only in the right context"
@@ -1435,7 +1432,6 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     else: fail()
   else:
     fail()
-{.pop.}
 
 func databaseDir*(dataDir: OutDir): string =
   dataDir / "db"

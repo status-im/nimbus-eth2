@@ -398,7 +398,7 @@ rm -rf "${DATA_DIR}/pids/*"
 mkdir -p "${DATA_DIR}/pids" "${DATA_DIR}/logs"
 
 scripts/makedir.sh "${DATA_DIR}"
-echo x > "${DATA_DIR}/keymanager-token"
+echo testToken > "${DATA_DIR}/keymanager-token"
 
 JWT_FILE="${DATA_DIR}/jwtsecret"
 echo "Generating JWT file '$JWT_FILE'..."

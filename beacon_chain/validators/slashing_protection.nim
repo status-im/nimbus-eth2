@@ -36,12 +36,6 @@ export chronicles
 #
 # We assume that in case of backward compatible changes
 # The new version will use different tables.
-#
-# During transition period, we allow using multiple
-# slashing protection implementations to validate
-# the behavior of the new implementation.
-#
-# Note: this will increase disk IO.
 
 type
   SlashProtDBMode* = enum
@@ -68,7 +62,7 @@ proc init*(
   ## This is for Beacon Node usage
   ## Handles DB version migration
 
-  doAssert modes.card >= 1, "No slashing protection mode chosen. Choose a v1, a v2 or v1 and v2 slashing DB mode."
+  doAssert modes.card >= 1, "No slashing protection mode chosen. Choose a slashing DB mode."
   doAssert not(
     kCompleteArchive in modes and
     kLowWatermark in modes), "Mode(s): " & $modes & ". Choose only one of V2 DB modes."
@@ -208,36 +202,6 @@ template withContext*(db: SlashingProtectionDB, body: untyped): untyped =
 
 # DB maintenance
 # --------------------------------------------
-# private for now
-
-proc pruneBlocks*(
-       db: SlashingProtectionDB,
-       validator: ValidatorPubKey,
-       newMinSlot: Slot) =
-  ## Prune all blocks from a validator before the specified newMinSlot
-  ## This is intended for interchange import to ensure
-  ## that in case of a gap, we don't allow signing in that gap.
-  ##
-  ## Note: DB v1 does not support pruning
-
-  # {.error: "This is a backend specific proc".}
-  fatal "This is a backend specific proc"
-  quit 1
-
-proc pruneAttestations*(
-       db: SlashingProtectionDB,
-       validator: ValidatorPubKey,
-       newMinSourceEpoch: int64,
-       newMinTargetEpoch: int64) =
-  ## Prune all blocks from a validator before the specified newMinSlot
-  ## This is intended for interchange import to ensure
-  ## that in case of a gap, we don't allow signing in that gap.
-  ##
-  ## Note: DB v1 does not support pruning
-
-  # {.error: "This is a backend specific proc".}
-  fatal "This is a backend specific proc"
-  quit 1
 
 proc pruneAfterFinalization*(
        db: SlashingProtectionDB,
@@ -267,11 +231,6 @@ proc pruneAfterFinalization*(
 #
 # That builds on a DB backend inclSPDIR and toSPDIR
 # SPDIR being a common Intermediate Representation
-
-proc registerSyntheticAttestation*(db: SlashingProtectionDB,
-       validator: ValidatorPubKey,
-       source, target: Epoch) =
-  db.db_v2.registerSyntheticAttestation(validator, source, target)
 
 proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus =
   db.db_v2.inclSPDIR(spdir)
