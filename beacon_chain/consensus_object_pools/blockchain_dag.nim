@@ -2455,6 +2455,9 @@ proc getExecutionParent*(
   ## In this example, the execution parent of the slot 8 Block would be the slot
   ## 1 Block.
 
+  if isNil(parentRef):
+    return Opt.none(BlockRef)
+
   var cur = parentRef
 
   debugGloasComment("revisit the max depth of ancestors, see the example above")
