@@ -365,7 +365,7 @@ func getFrontfillSlot(overseer: SyncOverseerRef2): Slot =
 
   if overseer.eraBid.isSome():
     max(max(dag.frontfill.get(BlockId()).slot, dag.horizon),
-      overseer.eraBid.get().slot + 1)
+      overseer.eraBid.get().slot + 2)
   else:
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
@@ -420,11 +420,17 @@ proc getBackfillSidecarFinalSlot(overseer: SyncOverseerRef2): Slot =
   if consensusFork < ConsensusFork.Fulu:
     return min(backfillSlot, (dag.cfg.FULU_FORK_EPOCH).start_slot)
 
-  let horizon = overseer.getSidecarsHorizon(consensusFork)
-  if dag.finalizedHead.slot < horizon:
-    min(backfillSlot, GENESIS_SLOT)
-  else:
-    min(backfillSlot, dag.finalizedHead.slot - horizon)
+  let
+    horizon = overseer.getSidecarsHorizon(consensusFork)
+    slot =
+      if dag.finalizedHead.slot < horizon:
+        min(backfillSlot, GENESIS_SLOT)
+      else:
+        min(backfillSlot, dag.finalizedHead.slot - horizon)
+  # Because we do not have any markers for backfilled sidecars, there is no way
+  # to track which sidecars are being stored in database, so if ERA files are
+  # present we backfill only up to ERA files head.
+  max(slot, overseer.getFrontfillSlot())
 
 template isBackward(direction: SyncQueueKind): bool =
   direction == SyncQueueKind.Backward
@@ -2242,6 +2248,8 @@ proc startPeer(
             if not(overseer.pool.checkPeerScore(peer)):
               break
 
+      if dag.needsBackfill() or overseer.bsqueue.running():
+        if overseer.wallSyncDistance() <= SyncDeviationSlotsCount:
           if not(
             await overseer.doRangeSidecarsStep(peer, SyncQueueKind.Backward)):
             break
