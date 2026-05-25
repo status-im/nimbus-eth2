@@ -268,7 +268,7 @@ proc updateHead(
     updateFastConfirm = false) =
   var quarantine = Quarantine.init(dag.cfg)
   let
-    newHeadRoot = fkChoice[].get_head(dag, time).get().root
+    newHeadRoot = fkChoice[].get_head(dag, time).get()
     newHead = dag.getBlockRef(newHeadRoot).get()
   if updateFastConfirm:
     doAssert fkChoice[].will_select_head(dag, newHead, time).isOk
@@ -382,8 +382,7 @@ proc stepChecks(
       doAssert slot == time.slotOrZero(dag.timeParams)
     elif check == "head":
       let headNode = fkChoice[].get_head(dag, time).get()
-      let headRoot = headNode.root
-      let headRef = dag.getBlockRef(headRoot).get()
+      let headRef = dag.getBlockRef(headNode).get()
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "justified_checkpoint":
@@ -422,8 +421,13 @@ proc stepChecks(
       doAssert fkChoice.backend.confirmed.root ==
         Eth2Digest.fromHex(val.getStr())
     elif check == "head_payload_status":
-      let headNode = fkChoice[].get_head(dag, time).get()
-      doAssert headNode.payloadStatus == PayloadStatus(val.getInt())
+      let headRoot = fkChoice[].get_head(dag, time).get()
+      let payloadStatus =
+        if headRoot in fkChoice.backend.proto_array.fullBlockIndices:
+          PAYLOAD_STATUS_FULL
+        else:
+          PAYLOAD_STATUS_EMPTY
+      doAssert payloadStatus == PayloadStatus(val.getInt())
     elif check == "payload_timeliness_vote" or
          check == "payload_data_availability_vote":
       let

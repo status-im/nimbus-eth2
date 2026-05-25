@@ -274,7 +274,7 @@ proc reconfirm_fcr(
     else:
       self.checkpoints.proposer_boost_root
   fcr.current_slot_head =
-    (? fcr.find_head(current_slot, self.checkpoints, reconfirmBoostRoot)).root
+    (? fcr.find_head(current_slot, self.checkpoints, reconfirmBoostRoot))
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
     confirmed = fcr.observed_justified_block_id
