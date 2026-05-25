@@ -551,17 +551,14 @@ func infinity*(T: type ValidatorSig): T =
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
-  var
-    pubkey: blscurve.PublicKey
+func keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
+  var pubkey: blscurve.PublicKey
   let bytes = rng.generate(array[32, byte])
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
-{.pop.}
 
-proc secretShareId(x: uint32) : blscurve.ID =
+func secretShareId(x: uint32): blscurve.ID =
   let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]
   blscurve.ID.fromUint32(bytes)
 
@@ -583,7 +580,7 @@ func generateSecretShares*(sk: ValidatorPrivKey,
     let share = SecretShare(key: ValidatorPrivKey(secret), id: numericShareId)
     shares.add(share)
 
-  return ok shares
+  ok shares
 
 func toSignatureShare*(sig: CookedSig, id: uint32): SignatureShare =
   result.sign = blscurve.Signature(sig)
@@ -604,4 +601,4 @@ proc confirmShares*(pubKey: ValidatorPubKey,
     let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id);
     signs.add(signature)
   let recovered = signs.recoverSignature()
-  return pubKey.blsVerify(confirmationData, recovered)
+  pubKey.blsVerify(confirmationData, recovered)

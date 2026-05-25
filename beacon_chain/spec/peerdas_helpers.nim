@@ -293,26 +293,11 @@ proc recover_cells_and_proofs_parallel*(
       inc spawned
 
   # ---- CRITICAL: Complete all spawned tasks before returning ----
-  while true:
-    for t in tasks.mitems():
-      if t.ok.isSpawned() and t.ok.isReady():
-        # Always consume ok
-        hadError = not t.ok.sync() or hadError
-        t.ok.reset()
-
-    if tasks.anyIt(it.ok.isSpawned):
-      try:
-        await wait
-      except CatchableError:
-        # Waiting for a signal should never fail, but if it does anyway we have
-        # to make sure that the tasks are all finished to retain memory safety
-        for t in tasks.mitems():
-          if t.ok.isSpawned():
-            if not t.ok.sync():
-              hadError = true
-      wait = tsp.wait()
-    else:
-      break
+  for t in tasks.mitems():
+    # Always consume ok
+    if t.ok.isSpawned():
+      hadError = not t.ok.sync() or hadError
+      t.ok.reset()
 
   if hadError:
     return err("Data column reconstruction failed")
