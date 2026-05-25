@@ -774,7 +774,7 @@ proc getBlobsV2*(
   mixin getBlobsV2
 
   template kzg_commitments(): auto =
-    when blck is gloas.SignedBeaconBlock:
+    when typeof(blck).kind >= ConsensusFork.Gloas:
       blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
     else:
       blck.message.body.blob_kzg_commitments
@@ -808,26 +808,26 @@ proc getBlobsV2*(
     .firstOrCancel(deadline)
 
 proc getBlobsV3*(
-    m: ELManager, blck: fulu.SignedBeaconBlock
+    m: ELManager, blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.
     async: (raises: [CancelledError], raw: true)
 .} =
   mixin getBlobsV3
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
-    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
-    m.elConnections
-      .mapIt(
-        it.getBlobsV3(
-          blck.message.body.blob_kzg_commitments.mapIt(
-            kzg_commitment_to_versioned_hash(it)
-          )
-        )
+  template kzg_commitments(): auto =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    else:
+      blck.message.body.blob_kzg_commitments
+
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  m.elConnections
+    .mapIt(
+      it.getBlobsV3(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
       )
-      .firstOrCancel(deadline)
+    )
+    .firstOrCancel(deadline)
 
 template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
   if m.elConnections.len == 0:
