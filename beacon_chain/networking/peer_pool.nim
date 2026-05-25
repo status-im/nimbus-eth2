@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/[tables, heapqueue, algorithm, sequtils, typetraits]
 import chronos
@@ -259,7 +259,7 @@ proc shortLogSpace*[A, B](pool: PeerPool[A, B]): string =
 proc shortLogCurrent*[A, B](pool: PeerPool[A, B]): string =
   $pool.curIncPeersCount & "/" & $pool.curOutPeersCount
 
-proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
+proc checkPeerScore[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
   ## Returns ``true`` if peer passing score check.
   if not(isNil(pool.scoreCheck)):
     pool.scoreCheck(peer)
@@ -358,7 +358,7 @@ proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
   pool.changeEvent.fire()
   pool.peerCountChanged()
 
-proc checkPeer*[A, B](pool: PeerPool[A, B], peer: A): PeerStatus {.inline.} =
+proc checkPeer[A, B](pool: PeerPool[A, B], peer: A): PeerStatus {.inline.} =
   ## Checks if peer could be added to PeerPool, e.g. it has:
   ##
   ## * Positive value of peer's score - (PeerStatus.LowScoreError)
@@ -414,16 +414,6 @@ proc addPeerNoWait*[A, B](
         PeerStatus.Success
       else:
         PeerStatus.NoSpaceError
-
-proc waitForEmptySpace*[A, B](
-    pool: PeerPool[A, B],
-    peerType: PeerType
-) {.async: (raises: [CancelledError]).} =
-  ## This procedure will block until ``pool`` will have an empty space for peer
-  ## of type ``peerType``.
-  while pool.lenSpace({peerType}) == 0:
-    await pool.changeEvent.wait()
-    pool.changeEvent.clear()
 
 proc addPeer*[A, B](
     pool: PeerPool[A, B],
@@ -587,11 +577,6 @@ proc release*[A, B](pool: PeerPool[A, B], peer: A) =
       pool.resort(pool.sorted)
       pool.changeEvent.fire()
 
-proc release*[A, B](pool: PeerPool[A, B], peers: openArray[A]) =
-  ## Release array of peers ``peers`` back to PeerPool ``pool``.
-  for item in peers:
-    pool.release(item)
-
 proc acquire*[A, B](
     pool: PeerPool[A, B],
     number: int,
@@ -618,71 +603,6 @@ proc acquire*[A, B](
       pool.release(item)
     peers.setLen(0)
     raise exc
-  peers
-
-proc acquire*[A, B](
-    pool: PeerPool[A, B],
-    number: int,
-    filter: set[PeerType],
-    customFilter: PeerCustomFilterCallback[A]
-): Future[seq[A]] {.async: (raises: [CancelledError]).} =
-  ## Acquire ``number`` number of peers from PeerPool ``pool``, which match the
-  ## filter ``filter`` and custom filter ``customFilter``. This procedure will
-  ## wait for ``number`` of peers which satisfy filter will become available
-  ## and acquired.
-  doAssert(filter != {}, "Filter must not be empty")
-  var peers: seq[A]
-  try:
-    if number > 0:
-      while true:
-        if len(peers) >= number:
-          break
-        if pool.lenAvailable(filter, customFilter) == 0:
-          await pool.changeEvent.wait()
-          pool.changeEvent.clear()
-        else:
-          peers.add(pool.acquireItemImpl(filter, customFilter))
-  except CancelledError as exc:
-    # If we got cancelled, we need to return all the acquired peers back to
-    # pool.
-    for item in peers:
-      pool.release(item)
-    peers.setLen(0)
-    raise exc
-  peers
-
-proc acquireNoWait*[A, B](
-    pool: PeerPool[A, B],
-    number: int,
-    filter = {PeerType.Incoming, PeerType.Outgoing}
-): seq[A] =
-  ## Acquire ``number`` number of peers from PeerPool ``pool``, which match the
-  ## filter ``filter``. This procedure does not wait for peers, it will raise
-  ## `PeerPoolError` if peers matching the filters are not available.
-  doAssert(filter != {}, "Filter must not be empty")
-  var peers: seq[A]
-  if pool.lenAvailable(filter) < number:
-    raise newException(PeerPoolError, "Not enough peers in pool")
-  for i in 0 ..< number:
-    peers.add(pool.acquireItemImpl(filter))
-  peers
-
-proc acquireNoWait*[A, B](
-    pool: PeerPool[A, B],
-    number: int,
-    filter: set[PeerType],
-    customFilter: PeerCustomFilterCallback[A]
-): seq[A] =
-  ## Acquire ``number`` number of peers from PeerPool ``pool``, which match the
-  ## filter ``filter`` and custom filter ``filter``. This procedure does not
-  ## wait for peers, it will raise `PeerPoolError` if peers matching the
-  ## filters are not available.
-  doAssert(filter != {}, "Filter must not be empty")
-  var peers: seq[A]
-  if pool.lenAvailable(filter, customFilter) < number:
-    raise newException(PeerPoolError, "Not enough peers in pool")
-  for i in 0 ..< number:
-    peers.add(pool.acquireItemImpl(filter, customFilter))
   peers
 
 proc acquireIncomingPeer*[A, B](
