@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sets, tables],
+  std/tables,
   # Status
   results,
   chronicles,
@@ -130,8 +130,6 @@ type
     invalid*: bool
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
-    parentPayloadStatus*: PayloadStatus
-    bidBlockHash*: Eth2Digest  ## ExecutionPayloadBid.block_hash for this block
     proposerIndex*: uint64
 
   BalanceCheckpoint* = object
@@ -180,8 +178,6 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
-    # Additional state tracking for Gloas
-    execution_payload_states*: HashSet[Eth2Digest]
     ptc_vote*: Table[Eth2Digest, PtcVotes]
     block_timeliness*: Table[Eth2Digest, array[2, bool]]
     timely_proposer_blocks*: Table[(Slot, uint64), seq[Eth2Digest]]
@@ -198,15 +194,6 @@ type
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
     queuedAttestations*: seq[QueuedAttestation]
-
-# New Fork choice types for Gloas
-# ----------------------------------------------------------------------
-
-type
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/fork-choice.md#custom-types
-  ForkChoiceNode* = object
-    root*: Eth2Digest
-    payloadStatus*: PayloadStatus
 
 func shortLog*(vote: VoteTracker): auto =
   (

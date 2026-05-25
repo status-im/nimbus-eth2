@@ -340,7 +340,6 @@ func onBlock*(
     checkpoints: FinalityCheckpoints,
     unrealized = Opt.none(FinalityCheckpoints),
     parent_payload_status = PAYLOAD_STATUS_PENDING,
-    bidBlockHash = static(default(Eth2Digest)),
     proposerIndex = 0'u64): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
@@ -377,8 +376,6 @@ func onBlock*(
     invalid: false,
     bestChild: Opt.none(int),
     bestDescendant: Opt.none(int),
-    parentPayloadStatus: parent_payload_status,
-    bidBlockHash: bidBlockHash,
     proposerIndex: proposerIndex)
 
   self.indices[node.bid.root] = nodeLogicalIdx
@@ -423,7 +420,7 @@ func onPayloadVerified*(
 
   ok()
 
-func findHead*(self: var ProtoArray, head: var ForkChoiceNode): FcResult[void] =
+func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
   ## ️ Warning
@@ -455,12 +452,7 @@ func findHead*(self: var ProtoArray, head: var ForkChoiceNode): FcResult[void] =
       headRoot: justifiedNode.bid.root,
       headCheckpoints: justifiedNode.checkpoints)
 
-  let payloadStatus =
-    if self.fullBlockIndices.getOrDefault(bestNode.bid.root, -1) == bestDescendantIdx:
-      PAYLOAD_STATUS_FULL
-    else:
-      PAYLOAD_STATUS_EMPTY
-  head = ForkChoiceNode(root: bestNode.bid.root, payloadStatus: payloadStatus)
+  head = bestNode.bid.root
   ok()
 
 func prune*(

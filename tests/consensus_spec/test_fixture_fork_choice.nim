@@ -144,17 +144,6 @@ proc initialLoad(
     fkChoice.backend.ptc_vote[anchorRoot] = allTrue
     fkChoice.backend.block_timeliness[anchorRoot] = [true, true]
 
-    # Set anchor block's bidBlockHash so child blocks can compute
-    # parentPayloadStatus correctly via get_parent_payload_status
-    let anchorBlock = dag.getForkedBlock(dag.finalizedHead.blck.bid)
-    if anchorBlock.isSome:
-      withBlck(anchorBlock.get()):
-        when typeof(forkyBlck.message).kind >= ConsensusFork.Gloas:
-          let anchorNode = fkChoice[].getNode(anchorRoot)
-          if anchorNode != nil:
-            anchorNode.bidBlockHash =
-              forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
-
   (dag, fkChoice)
 
 proc loadOps(

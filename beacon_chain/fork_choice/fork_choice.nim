@@ -49,7 +49,7 @@ func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
     checkpoints: Checkpoints,
-    proposerBoostRoot: Eth2Digest): FcResult[ForkChoiceNode]
+    proposerBoostRoot: Eth2Digest): FcResult[Eth2Digest]
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -380,7 +380,7 @@ proc on_attestation*(
   # If attesting for a full node, the payload must be known
   if dag.isGloasEnabled(attestation_slot) and
       attestation_committee_index == CommitteeIndex(1) and
-      beacon_block_root notin self.backend.execution_payload_states:
+      beacon_block_root notin self.backend.proto_array.fullBlockIndices:
     return ok()
 
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
@@ -421,11 +421,10 @@ func process_block*(
     checkpoints: FinalityCheckpoints,
     unrealized = Opt.none(FinalityCheckpoints),
     parent_payload_status = PAYLOAD_STATUS_PENDING,
-    bidBlockHash = static(default(Eth2Digest)),
     proposerIndex = 0'u64): FcResult[void] =
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status,
-    bidBlockHash, proposerIndex)
+    proposerIndex)
 
 proc process_block*(
     self: var ForkChoice,
@@ -469,20 +468,12 @@ proc process_block*(
   # realize new finality info
   let blkProposerIndex = blck.proposer_index
 
-  # Compute parentPayloadStatus per spec's get_parent_payload_status:
-  # compare block's parent_block_hash against parent's bid block_hash
-  var
-    parentPayloadStatus = PAYLOAD_STATUS_EMPTY
-    blkBidBlockHash: Eth2Digest
+  var parentPayloadStatus = PAYLOAD_STATUS_EMPTY
   when typeof(blck).kind >= ConsensusFork.Gloas:
-    blkBidBlockHash = blck.body.signed_execution_payload_bid.message.block_hash
-    let parentNode = self.getNode(blck.parent_root)
-    if parentNode != nil and
+    let (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(blckRef.parent)
+    if parentBlockHash.isSome and
         blck.body.signed_execution_payload_bid.message.parent_block_hash ==
-          parentNode.bidBlockHash:
-      parentPayloadStatus = PAYLOAD_STATUS_FULL
-  else:
-    if blck.parent_root in self.backend.execution_payload_states:
+          parentBlockHash.get():
       parentPayloadStatus = PAYLOAD_STATUS_FULL
 
   let unrealized_is_better =
@@ -496,20 +487,17 @@ proc process_block*(
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root, unrealized,
         parent_payload_status = parentPayloadStatus,
-        bidBlockHash = blkBidBlockHash,
         proposerIndex = blkProposerIndex)
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
         epochRef.checkpoints, Opt.some unrealized,
         parent_payload_status = parentPayloadStatus,
-        bidBlockHash = blkBidBlockHash,
         proposerIndex = blkProposerIndex)  # Realized in `on_tick`
   else:
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints,
       parent_payload_status = parentPayloadStatus,
-      bidBlockHash = blkBidBlockHash,
       proposerIndex = blkProposerIndex)
 
   # Notify the store about payload_attestations in the block
@@ -543,7 +531,7 @@ func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
     checkpoints: Checkpoints,
-    proposerBoostRoot: Eth2Digest): FcResult[ForkChoiceNode] =
+    proposerBoostRoot: Eth2Digest): FcResult[Eth2Digest] =
   ## Returns the new blockchain head
 
   # Apply score changes
@@ -565,21 +553,21 @@ func find_head(
   self.balances = checkpoints.justified.balances
 
   # Find the best block
-  var new_head{.noinit.}: ForkChoiceNode
+  var new_head{.noinit.}: Eth2Digest
   ? self.proto_array.findHead(new_head)
 
   trace "Fork choice requested",
     current_slot, checkpoints = FinalityCheckpoints(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
-    fork_choice_head = shortLog(new_head.root)
+    fork_choice_head = shortLog(new_head)
   ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
-    wallTime: BeaconTime): FcResult[ForkChoiceNode] =
+    wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
 
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)

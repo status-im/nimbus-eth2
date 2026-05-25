@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[tables, sets],
+  std/tables,
   # Status libraries
   results, chronicles,
   # Internal
@@ -239,6 +239,5 @@ proc on_execution_payload*(
     return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
                                 blockRoot: beacon_block_root)
 
-  self.backend.execution_payload_states.incl(beacon_block_root)
   ? self.backend.proto_array.onPayloadVerified(beacon_block_root)
   ok()
