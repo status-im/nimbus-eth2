@@ -177,6 +177,7 @@ func makeExecutionPayloadForSigning*(
 
   # Add withdrawals before computing hash (hash needs to include them)
   when consensusFork >= ConsensusFork.Gloas:
+    payload.slot_number = state.slot
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state).withdrawals)
   elif consensusFork >= ConsensusFork.Capella:
@@ -261,7 +262,7 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
         nonce: 0.AccountNonce,
         gasLimit: 21000.GasInt,
         maxPriorityFeePerGas: 1.GasInt,
-        maxFeePerGas: base_fee.truncate(uint64).GasInt,
+        maxFeePerGas: payload.base_fee_per_gas.truncate(uint64).GasInt,
         to: Opt.some(default(eth_types.Address)),
         versionedHashes: versionedHashes,
         maxFeePerBlobGas: 1.u256
@@ -276,7 +277,11 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
     doAssert blobsBundle.commitments.len == 0
 
   # Add withdrawals before computing hash (hash needs to include them)
-  when consensusFork >= ConsensusFork.Capella:
+  when consensusFork >= ConsensusFork.Gloas:
+    payload.slot_number = state.slot
+    payload.withdrawals =
+      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state).withdrawals)
+  elif consensusFork >= ConsensusFork.Capella:
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
@@ -479,13 +484,7 @@ proc addTestEngineBlockWithBlobs*(
       )
 
     eps =
-      when consensusFork >= ConsensusFork.Gloas:
-        var gloasEps = default(gloas.ExecutionPayloadForSigning)
-        gloasEps.executionPayload.parent_hash = state.data.latest_block_hash
-        gloasEps.executionPayload.block_hash = eth2digest(
-          state.data.slot.uint64.toBytesBE())
-        gloasEps
-      elif consensusFork >= ConsensusFork.Bellatrix:
+      when consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadWithNonEmptyBlobsForSigning(
             cfg, consensusFork, state.data, blobsBundle)
