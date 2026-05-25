@@ -2455,29 +2455,21 @@ proc getExecutionParent*(
   ## In this example, the execution parent of the slot 8 Block would be the slot
   ## 1 Block.
 
-  var
-    cur = parentRef
-    i = 0'u64
-    found = false
+  var cur = parentRef
 
   debugGloasComment("revisit the max depth of ancestors, see the example above")
-  while i < SLOTS_PER_EPOCH:
+  for _ in 0'u64 ..< SLOTS_PER_EPOCH:
     let pBhash = ?dag.loadExecutionBlockHash(cur)
     if pBhash == parentBlockHash:
-      found = true
-      break
+      return Opt.some(cur)
     if isNil(cur.parent):
       break
     cur = cur.parent
-    inc i
 
-  if found:
-    Opt.some(cur)
-  else:
-    debug "Execution parent not found after the max depth",
-      parentRef = shortLog(parentRef),
-      parentBlockHash = shortLog(parentBlockHash)
-    Opt.none(BlockRef)
+  debug "Execution parent not found",
+    parentRef = shortLog(parentRef),
+    parentBlockHash = shortLog(parentBlockHash)
+  Opt.none(BlockRef)
 
 proc headExecutionValid*(
     dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
