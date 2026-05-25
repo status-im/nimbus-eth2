@@ -184,10 +184,6 @@ type
     checkpoints*: Checkpoints
     queuedAttestations*: seq[QueuedAttestation]
 
-  ForkChoiceNode* = object
-    root*: Eth2Digest
-    payloadStatus*: PayloadStatus
-
 func shortLog*(vote: VoteTracker): auto =
   (
     slot: vote.slot,
