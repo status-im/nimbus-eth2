@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sets, tables],
+  std/tables,
   # Status
   results,
   chronicles,
@@ -122,8 +122,6 @@ type
     invalid*: bool
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
-    parentPayloadStatus*: PayloadStatus
-    bidBlockHash*: Eth2Digest
     proposerIndex*: uint64
 
   BalanceCheckpoint* = object
@@ -172,7 +170,6 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
-    execution_payload_states*: HashSet[Eth2Digest]
     ptc_vote*: Table[Eth2Digest, PtcVotes]
     block_timeliness*: Table[Eth2Digest, array[2, bool]]
 
