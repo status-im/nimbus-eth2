@@ -28,12 +28,9 @@ import
   ./[testblockutil, testdbutil, testutil]
 
 from chronos/unittest2/asynctests import asyncTest
-from ../beacon_chain/consensus_object_pools/attestation_pool import
-  AttestationPool, init
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker
-from ../beacon_chain/validators/keystore_management import KeymanagerHost
 
 from std/strutils import rsplit
 
