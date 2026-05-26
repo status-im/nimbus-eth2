@@ -165,7 +165,6 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
-    block_timeliness*: Table[Eth2Digest, array[2, bool]]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]
