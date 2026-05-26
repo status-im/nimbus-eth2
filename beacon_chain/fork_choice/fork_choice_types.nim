@@ -147,11 +147,6 @@ type
     payload_present*: bool
     next_payload_present*: bool
 
-  PtcVotes* = object
-    voted*: BitArray[int(PTC_SIZE)]
-    payload_present*: BitArray[int(PTC_SIZE)]
-    data_available*: BitArray[int(PTC_SIZE)]
-
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
     # The `assigned_slots` (`fast_confirmation.nim`) are based on `dag.head`
@@ -170,7 +165,6 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
-    ptc_vote*: Table[Eth2Digest, PtcVotes]
     block_timeliness*: Table[Eth2Digest, array[2, bool]]
 
   QueuedAttestation* = object
