@@ -168,7 +168,7 @@ type
       ## on the next block proposal for building payload on either the current
       ## head (parent) or the parent of the current head (grandparent).
       ##
-      ## Uses only since Gloas.
+      ## Used only since Gloas.
       ##
       ## In the usual scenarios it should point to either`dag.head` or
       ## `dag.head.parent`. It would be nil at the beginning of Gloas fork,
