@@ -449,7 +449,8 @@ suite "Block processor" & preset():
 
         # Pick column index 0 for the round-trip test
         let colIdx = ColumnIndex(0)
-        discard pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
+        let entry = pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
+        check entry == pcq.getEntry(blockRoot, colIdx).get()
         pcq.addCells(blockRoot, colIdx, partialSidecars[0])
 
         check:
@@ -598,7 +599,8 @@ suite "Block processor" & preset():
         var reassembled: seq[fulu.DataColumnSidecar]
         for i in 0 ..< partialSidecars.len:
           let colIdx = ColumnIndex(i)
-          discard pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
+          let entry = pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
+          check entry == pcq.getEntry(blockRoot, colIdx).get()
           pcq.addCells(blockRoot, colIdx, partialSidecars[i])
           let assembled = pcq.assembleDataColumnSidecar(blockRoot, colIdx)
           check assembled.isSome()
