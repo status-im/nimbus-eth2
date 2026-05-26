@@ -335,8 +335,7 @@ func onBlock*(
     bid: BlockId,
     parent: Eth2Digest,
     checkpoints: FinalityCheckpoints,
-    unrealized = Opt.none(FinalityCheckpoints),
-    proposerIndex = 0'u64): FcResult[void] =
+    unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -361,8 +360,7 @@ func onBlock*(
   let node = ProtoNode(
     bid: bid,
     parent: Opt.some(parentIdx),
-    checkpoints: checkpoints,
-    proposerIndex: proposerIndex)
+    checkpoints: checkpoints)
 
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node

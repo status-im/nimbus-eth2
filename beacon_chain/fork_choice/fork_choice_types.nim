@@ -122,7 +122,6 @@ type
     invalid*: bool
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
-    proposerIndex*: uint64
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
