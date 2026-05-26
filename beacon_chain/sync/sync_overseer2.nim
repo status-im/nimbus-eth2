@@ -136,10 +136,10 @@ func eraBorderSlot(overseer: SyncOverseerRef2): Opt[Slot] =
     let
       eraSlot = overseer.eraBid.get().slot
       borderSlot =
-        if eraSlot + 2 < eraSlot:
+        if eraSlot + 1 < eraSlot:
           FAR_FUTURE_SLOT
         else:
-          eraSlot + 2
+          eraSlot + 1
     return Opt.some(borderSlot)
   Opt.none(Slot)
 
@@ -876,6 +876,8 @@ func backfillDistance*(
     dag = overseer.consensusManager.dag
 
   if overseer.eraBid.isSome():
+    if dag.backfill.parent_root == overseer.eraBid.get().root:
+      return 0'u64
     let destSlot = overseer.eraBid.get().slot
     if dag.backfill.slot < destSlot:
       0'u64
@@ -2386,7 +2388,9 @@ proc timeMonitoringLoop(
 
   func backwardRemains(slot: Slot): uint64 =
     if overseer.eraBid.isSome():
-      let destSlot = overseer.eraBid.get().slot
+      if dag.backfill.parent_root == overseer.eraBid.get().root:
+        return 0'u64
+      let destSlot = overseer.eraBorderSlot.get()
       if slot < destSlot:
         return 0'u64
       slot - destSlot
@@ -2485,13 +2489,13 @@ proc timeMonitoringLoop(
         wall_slot = overseer.beaconClock.currentSlot(),
         head = shortLog(dag.head),
         tail = shortLog(dag.tail),
+        era_bid = eraBid,
+        backfill_slot = dag.backfill.slot,
+        backfill_parent_root = shortLog(dag.backfill.parent_root),
         finalized = shortLog(dag.headState.finalized_checkpoint),
         last_seen_head = overseer.getLastSeenHeadLog(),
         last_seen_finalized = overseer.getLastSeenFinalizedHeadLog(),
         finalized_distance = finalizedDistance,
-        era_bid = eraBid,
-        backfill_slot = dag.backfill.slot,
-        backfill_parent_root = shortLog(dag.backfill.parent_root),
         backfill_distance = backfillDistance,
         column_horizon = overseer.getColumnsHorizon().start_slot(),
         sdag_peer_entries_count = len(overseer.sdag.peers),
