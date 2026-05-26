@@ -131,6 +131,18 @@ proc getEaSlotLog(peer: Peer): string =
     return "<n/a>"
   $res
 
+func eraBorderSlot(overseer: SyncOverseerRef2): Opt[Slot] =
+  if overseer.eraBid.isSome():
+    let
+      eraSlot = overseer.eraBid.get().slot
+      borderSlot =
+        if eraSlot + 2 < eraSlot:
+          FAR_FUTURE_SLOT
+        else:
+          eraSlot + 2
+    return Opt.some(borderSlot)
+  Opt.none(Slot)
+
 func isGenesis(checkpoint: Checkpoint): bool =
   (checkpoint.epoch == GenesisCheckpoint.epoch) and
     (checkpoint.root == GenesisCheckpoint.root)
@@ -365,7 +377,7 @@ func getFrontfillSlot(overseer: SyncOverseerRef2): Slot =
 
   if overseer.eraBid.isSome():
     max(max(dag.frontfill.get(BlockId()).slot, dag.horizon),
-      overseer.eraBid.get().slot + 2)
+      overseer.eraBorderSlot().get())
   else:
     max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
@@ -867,10 +879,11 @@ func backfillDistance*(
     0'u64
   else:
     if overseer.eraBid.isSome():
-      if dag.backfill.slot <= overseer.eraBid.get().slot:
+      let borderSlot = overseer.eraBorderSlot().get()
+      if dag.backfill.slot <= borderSlot:
         0'u64
       else:
-        dag.backfill.slot - overseer.eraBid.get().slot
+        dag.backfill.slot - borderSlot
     else:
       dag.backfill.slot - dag.horizon
 
@@ -1772,8 +1785,7 @@ proc peekRange(
   if overseer.eraBid.isNone():
     return overseer.tsbuffer(direction).peekRange(srange)
   let
-    eraBid = overseer.eraBid.get()
-    notEraSlot = eraBid.slot + 1
+    notEraSlot = overseer.eraBorderSlot().get()
   if srange > notEraSlot:
     return overseer.tsbuffer(direction).peekRange(srange)
   if srange < notEraSlot:
@@ -2374,9 +2386,15 @@ proc timeMonitoringLoop(
     checkpointSlot - slot
 
   func backwardRemains(slot: Slot): uint64 =
-    if slot < dag.horizon():
-      return 0'u64
-    slot - dag.horizon()
+    if overseer.eraBid.isSome():
+      let eraBorderSlot = overseer.eraBorderSlot().get()
+      if slot < eraBorderSlot:
+        return 0'u64
+      slot - eraBorderSlot
+    else:
+      if slot < dag.horizon():
+        return 0'u64
+      slot - dag.horizon()
 
   template forwardRemains(): uint64 = forwardRemains(dag.head.slot)
   template forwardTotal(): uint64 = forwardRemains(bootForwardSlot)
