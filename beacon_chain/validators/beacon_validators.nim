@@ -48,7 +48,7 @@ from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
 from ../consensus_object_pools/execution_payload_pool import
-  getHighestBidForSlotAndParent
+  getHighestBidForSlotAndParent, payloadAvailability
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -583,10 +583,14 @@ proc proposeBlockAux(
 
   when fork >= ConsensusFork.Gloas:
     let
-      executionHead = proposalExecutionHead(
-        state[].forky(fork).data)
-      poolBid = node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
-        slot, executionHead)
+      executionHead = proposalExecutionHead(state[].forky(fork).data)
+      payloadAvailability = node.dag.payloadAvailability(head, executionHead)
+      poolBid =
+        if payloadAvailability.isSome:
+          node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
+            slot, head.root, payloadAvailability.unsafeGet)
+        else:
+          Opt.none gloas.SignedExecutionPayloadBid
       localBlockValueBoost =
         BoostFactor.init(node.config.localBlockValueBoost)
       usePoolBid =
