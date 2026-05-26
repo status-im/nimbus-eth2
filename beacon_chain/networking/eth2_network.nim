@@ -3013,21 +3013,31 @@ proc handlePartialColumnRPC*(
     node: Eth2Node,
     peer: PeerId,
     rpc: PartialMessageExtensionRPC
-): Opt[tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar]] =
+): Opt[tuple[
+    subnetId: uint64,
+    blockRoot: Eth2Digest,
+    pdc: fulu.PartialDataColumnSidecar]] =
   ## Decode and validate an incoming PartialMessageExtensionRPC into a
-  ## (subnet_id, PartialDataColumnSidecar) pair. Returns Opt.none on
-  ## metadata-only updates or decoding failures.
+  ## (subnet_id, blockRoot, PartialDataColumnSidecar) tuple. The blockRoot
+  ## is parsed from the gossipsub group id and used by the validator to
+  ## REJECT header/group-id mismatches. Returns Opt.none on metadata-only
+  ## updates or decoding failures.
+  type R = tuple[
+    subnetId: uint64,
+    blockRoot: Eth2Digest,
+    pdc: fulu.PartialDataColumnSidecar]
+
   if rpc.partialMessage.len == 0:
-    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+    return Opt.none(R)
 
   let blockRoot = parseGroupId(rpc.groupID).valueOr:
     debug "Invalid partial column RPC groupId", error, peer
-    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+    return Opt.none(R)
 
   let subnetId = parseSubnetIdFromTopic(rpc.topicID).valueOr:
     debug "Failed to parse subnet_id from partial column RPC topic",
       topic = rpc.topicID, peer
-    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+    return Opt.none(R)
 
   var pdc: fulu.PartialDataColumnSidecar
   try:
@@ -3035,9 +3045,9 @@ proc handlePartialColumnRPC*(
   except SerializationError as e:
     debug "Failed to decode partial data column from extension RPC",
       error = e.msg, peer
-    return Opt.none(tuple[subnetId: uint64, pdc: fulu.PartialDataColumnSidecar])
+    return Opt.none(R)
 
-  Opt.some((subnetId: subnetId, pdc: pdc))
+  Opt.some((subnetId: subnetId, blockRoot: blockRoot, pdc: pdc))
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

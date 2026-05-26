@@ -188,6 +188,34 @@ func hasCellReceived*(
 
 # --- Cell ingestion and assembly ---
 
+func cellsConsistent*(
+    quarantine: var PartialColumnQuarantine,
+    blockRoot: Eth2Digest,
+    columnIndex: ColumnIndex,
+    sidecar: fulu.PartialDataColumnSidecar): bool =
+  ## For every cell in `sidecar` whose blob index is already populated locally,
+  ## the cell and proof bytes must equal the stored copy. Returns false on the
+  ## first mismatch; true when no entry exists yet or all overlaps agree.
+  let key = PartialColumnKey(blockRoot: blockRoot, columnIndex: columnIndex)
+  let entry = quarantine.entries.get(key).valueOr:
+    return true
+
+  var cellIdx = 0
+  for blobIdx in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
+    if sidecar.cells_present_bitmap[Natural(blobIdx)]:
+      if cellIdx < sidecar.partial_column.len and
+         cellIdx < sidecar.kzg_proofs.len and
+         blobIdx < entry.cellsReceived.len and
+         entry.cellsReceived[blobIdx]:
+        if entry.cells[blobIdx].isSome and
+            entry.cells[blobIdx].get != sidecar.partial_column[cellIdx]:
+          return false
+        if entry.proofs[blobIdx].isSome and
+            entry.proofs[blobIdx].get != sidecar.kzg_proofs[cellIdx]:
+          return false
+      cellIdx.inc
+  true
+
 func addCells*(
     quarantine: var PartialColumnQuarantine,
     blockRoot: Eth2Digest,
@@ -203,11 +231,11 @@ func addCells*(
   var cellIdx = 0
   for blobIdx in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
     if sidecar.cells_present_bitmap[Natural(blobIdx)]:
-      if cellIdx < sidecar.partial_columns.len and
+      if cellIdx < sidecar.partial_column.len and
          cellIdx < sidecar.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len:
         entry.cellsReceived.setBit(blobIdx)
-        entry.cells[blobIdx] = Opt.some(sidecar.partial_columns[cellIdx])
+        entry.cells[blobIdx] = Opt.some(sidecar.partial_column[cellIdx])
         entry.proofs[blobIdx] = Opt.some(sidecar.kzg_proofs[cellIdx])
       cellIdx.inc
 

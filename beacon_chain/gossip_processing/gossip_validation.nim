@@ -672,13 +672,14 @@ proc validatePartialDataColumnSidecar*(
     dataColumnQuarantine: ref ColumnQuarantine,
     partialColumnQuarantine: ref PartialColumnQuarantine,
     p_data_column_sidecar: fulu.PartialDataColumnSidecar,
-    wallTime: BeaconTime, subnet_id: uint64):
+    wallTime: BeaconTime, subnet_id: uint64,
+    group_block_root: Eth2Digest):
     Result[void, ValidationError] =
 
   # === For all partial messages ===
 
   let hasHeader = p_data_column_sidecar.header.len > 0
-  let hasCells = p_data_column_sidecar.partial_columns.len > 0
+  let hasCells = p_data_column_sidecar.partial_column.len > 0
 
   # [REJECT] A header and/or cells are present in the message
   # (it is not semantically empty).
@@ -686,11 +687,17 @@ proc validatePartialDataColumnSidecar*(
     return dag.checkedReject(
       "PartialDataColumnSidecar: message is semantically empty")
 
-  # [REJECT] There are the same number of cells and proofs in the message.
-  if p_data_column_sidecar.partial_columns.len !=
-      p_data_column_sidecar.kzg_proofs.len:
+  # [REJECT] There are the same number of cells and proofs in the message
+  # and this number is equal the number of 1s in the cells_present_bitmap.
+  var bitmapOnes = 0
+  for i in 0.Natural ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.Natural:
+    if p_data_column_sidecar.cells_present_bitmap[i]:
+      inc bitmapOnes
+  if p_data_column_sidecar.partial_column.len !=
+        p_data_column_sidecar.kzg_proofs.len or
+      p_data_column_sidecar.partial_column.len != bitmapOnes:
     return dag.checkedReject(
-      "PartialDataColumnSidecar: cells and proofs count mismatch")
+      "PartialDataColumnSidecar: cells, proofs, and bitmap popcount mismatch")
 
   static: doAssert DATA_COLUMN_SIDECAR_SUBNET_COUNT == NUMBER_OF_COLUMNS
   let column_index = ColumnIndex(subnet_id)
@@ -706,6 +713,21 @@ proc validatePartialDataColumnSidecar*(
       return dag.checkedReject(
         "PartialDataColumnSidecar: header's kzg_commitments list is empty")
 
+    # [REJECT] The hash of the block header in `signed_block_header` MUST be
+    # the same one identified by the partial message's group id.
+    if hash_tree_root(block_header) != group_block_root:
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: header root mismatches gossipsub group id")
+
+    # [REJECT] The cells present bitmap length is equal to the number of KZG
+    # commitments in the `PartialDataColumnHeader`. (Enforced here as "no
+    # cell-present bits beyond kzg_commitments.len" while
+    # cells_present_bitmap is a fixed-width Bitvector instead of a Bitlist.)
+    for i in header.kzg_commitments.len ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.int:
+      if p_data_column_sidecar.cells_present_bitmap[Natural(i)]:
+        return dag.checkedReject(
+          "PartialDataColumnSidecar: cell-present bit set beyond kzg_commitments")
+
     # [IGNORE] The header is not from a future slot (with a
     # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
     # block_header.slot <= current_slot (a client MAY queue future headers
@@ -720,8 +742,6 @@ proc validatePartialDataColumnSidecar*(
     if not (block_header.slot > dag.finalizedHead.slot):
       return errIgnore("PartialDataColumnSidecar: slot already finalized")
 
-    # [REJECT] The hash of the block header in signed_block_header MUST be
-    # the same one identified by the partial message's group id.
     let block_root = hash_tree_root(block_header)
 
     # [REJECT] If a valid header was previously received, the received header
@@ -848,6 +868,13 @@ proc validatePartialDataColumnSidecar*(
     if not (header.signed_block_header.message.slot > dag.finalizedHead.slot):
       return errIgnore(
         "PartialDataColumnSidecar: corresponding header slot already finalized")
+
+    # [REJECT] For cells the receiver already has, The sidecar's cell and
+    # proof data are equal to the local copy.
+    if not partialColumnQuarantine[].cellsConsistent(
+        block_root, column_index, p_data_column_sidecar):
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: cell data conflicts with stored cell")
 
     # [REJECT] The sidecar's cell and proof data is valid as verified by
     # verify_partial_data_column_sidecar_kzg_proofs(sidecar,

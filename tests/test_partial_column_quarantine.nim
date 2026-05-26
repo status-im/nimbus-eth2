@@ -53,7 +53,7 @@ func genPartialDataColumnSidecar(
     proofs.add(gen[KzgProof](startCellId + i))
   fulu.PartialDataColumnSidecar(
     cells_present_bitmap: bitmap,
-    partial_columns: DataColumn.init(cells),
+    partial_column: DataColumn.init(cells),
     kzg_proofs: deneb.KzgProofs.init(proofs))
 
 suite "Partial Column Quarantine":
@@ -646,6 +646,99 @@ suite "Partial Column Quarantine":
       not quarantine.hasCellReceived(root, ColumnIndex(0), 2)
       not quarantine.hasCellReceived(root, ColumnIndex(1), 0)
       quarantine.hasCellReceived(root, ColumnIndex(1), 2)
+
+  # --- cellsConsistent ---
+
+  test "cellsConsistent returns true when no entry exists":
+    var quarantine = PartialColumnQuarantine.init()
+    let sidecar = genPartialDataColumnSidecar([0, 2], startCellId = 1)
+    check quarantine.cellsConsistent(genDigest(99), ColumnIndex(0), sidecar)
+
+  test "cellsConsistent returns true when bitmaps do not overlap":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 4)
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([0, 1], startCellId = 100))
+
+    # Incoming sidecar covers different blob indices
+    let incoming = genPartialDataColumnSidecar([2, 3], startCellId = 200)
+    check quarantine.cellsConsistent(root, colIdx, incoming)
+
+  test "cellsConsistent returns true on overlap when cells and proofs match":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 4)
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([1, 3], startCellId = 50))
+
+    # Incoming sidecar repeats blob 1 with the same cell+proof bytes
+    var bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    bitmap[Natural(1)] = true
+    let incoming = fulu.PartialDataColumnSidecar(
+      cells_present_bitmap: bitmap,
+      partial_column: DataColumn.init(@[gen[KzgCell](50)]),
+      kzg_proofs: deneb.KzgProofs.init(@[gen[KzgProof](50)]))
+    check quarantine.cellsConsistent(root, colIdx, incoming)
+
+  test "cellsConsistent returns false on overlap when cell differs":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 4)
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([1], startCellId = 50))
+
+    # Incoming sidecar for blob 1 with a different cell
+    var bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    bitmap[Natural(1)] = true
+    let incoming = fulu.PartialDataColumnSidecar(
+      cells_present_bitmap: bitmap,
+      partial_column: DataColumn.init(@[gen[KzgCell](99)]),
+      kzg_proofs: deneb.KzgProofs.init(@[gen[KzgProof](50)]))
+    check not quarantine.cellsConsistent(root, colIdx, incoming)
+
+  test "cellsConsistent returns false on overlap when proof differs":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+    discard quarantine.getOrCreateEntry(root, colIdx, numBlobs = 4)
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([1], startCellId = 50))
+
+    # Incoming sidecar for blob 1 with the same cell but different proof
+    var bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    bitmap[Natural(1)] = true
+    let incoming = fulu.PartialDataColumnSidecar(
+      cells_present_bitmap: bitmap,
+      partial_column: DataColumn.init(@[gen[KzgCell](50)]),
+      kzg_proofs: deneb.KzgProofs.init(@[gen[KzgProof](99)]))
+    check not quarantine.cellsConsistent(root, colIdx, incoming)
+
+  test "cellsConsistent ignores blob indices without locally stored data":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+    # Mark blob 0 as received but leave cells[0] / proofs[0] as None
+    var cellBits = BitSeq.init(3)
+    cellBits.setBit(0)
+    quarantine.putEntry(root, colIdx, PartialColumnEntry(
+      headerValidated: true,
+      cellsReceived: cellBits,
+      cells: newSeq[Opt[KzgCell]](3),
+      proofs: newSeq[Opt[KzgProof]](3)))
+
+    # Incoming claims blob 0 with arbitrary bytes -- still considered consistent
+    # because the local copy is unset
+    let incoming = genPartialDataColumnSidecar([0], startCellId = 77)
+    check quarantine.cellsConsistent(root, colIdx, incoming)
 
   # --- isComplete ---
 

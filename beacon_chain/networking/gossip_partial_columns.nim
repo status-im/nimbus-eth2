@@ -162,7 +162,7 @@ proc materializeParts*(
   # Determine which cells the peer needs (they request) that we have
   var
     bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    cells = newSeqOfCap[KzgCell](m.sidecar.partial_columns.len)
+    cells = newSeqOfCap[KzgCell](m.sidecar.partial_column.len)
     proofs = newSeqOfCap[KzgProof](m.sidecar.kzg_proofs.len)
     ourIdx = 0  # index into our sparse arrays
 
@@ -174,7 +174,7 @@ proc materializeParts*(
       if peerWants or peerDoesntHave:
         # Peer needs this cell -- include it
         bitmap[i] = true
-        cells.add(m.sidecar.partial_columns[ourIdx])
+        cells.add(m.sidecar.partial_column[ourIdx])
         proofs.add(m.sidecar.kzg_proofs[ourIdx])
       ourIdx.inc
 
@@ -183,7 +183,7 @@ proc materializeParts*(
 
   let response = fulu.PartialDataColumnSidecar(
     cells_present_bitmap: bitmap,
-    partial_columns: DataColumn.init(cells),
+    partial_column: DataColumn.init(cells),
     kzg_proofs: deneb.KzgProofs.init(proofs),
     # Don't include header in materialized parts -- it's sent separately
   )

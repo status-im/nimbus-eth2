@@ -144,9 +144,7 @@ AllTests-mainnet
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
 + Partial column quarantine round-trip assembly [Preset: mainnet]                            OK
-+ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
-+ Process Fulu block via partial-assembled data columns [Preset: mainnet]                    OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
 + Process a block from each fork (without blobs) [Preset: mainnet]                           OK
@@ -805,6 +803,31 @@ AllTests-mainnet
 ```diff
 + Gossip fork transition                                                                     OK
 ```
+## Gossip partial columns
+```diff
++ decodePartsMetadata rejects malformed bytes                                                OK
++ encodePartsMetadata / decodePartsMetadata round-trip                                       OK
++ makeGroupId produces version byte + block root                                             OK
++ materializeParts forwards decode errors                                                    OK
++ materializeParts response omits header                                                     OK
++ materializeParts returns empty PartsData when peer has everything                          OK
++ materializeParts returns only cells the peer needs                                         OK
++ materializeParts with empty metadata returns the full sidecar                              OK
++ newDataColumnPartialMessage exposes groupId from blockRoot                                 OK
++ parseGroupId rejects unsupported version byte                                              OK
++ parseGroupId rejects wrong length                                                          OK
++ parseGroupId round-trips makeGroupId                                                       OK
++ partsMetadata reflects the sidecar's cells_present_bitmap                                  OK
++ unionPartsMetadata ORs available bits                                                      OK
++ unionPartsMetadata ORs requests bits when not available                                    OK
++ unionPartsMetadata clears requests for bits that became available                          OK
++ unionPartsMetadata fails on malformed input                                                OK
++ unionPartsMetadata is idempotent                                                           OK
++ validatePartialMessageRPC accepts a well-formed RPC                                        OK
++ validatePartialMessageRPC accepts metadata-only RPC                                        OK
++ validatePartialMessageRPC rejects unsupported groupID version                              OK
++ validatePartialMessageRPC rejects wrong groupID length                                     OK
+```
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Empty committee when no committee for slot                                                 OK
@@ -1023,6 +1046,12 @@ AllTests-mainnet
 + assembleDataColumnSidecar returns none when header not validated                           OK
 + assembleDataColumnSidecar with cells added incrementally                                   OK
 + assembleDataColumnSidecar with markCellReceived (data overload)                            OK
++ cellsConsistent ignores blob indices without locally stored data                           OK
++ cellsConsistent returns false on overlap when cell differs                                 OK
++ cellsConsistent returns false on overlap when proof differs                                OK
++ cellsConsistent returns true on overlap when cells and proofs match                        OK
++ cellsConsistent returns true when bitmaps do not overlap                                   OK
++ cellsConsistent returns true when no entry exists                                          OK
 + getOrCreateEntry creates new entry                                                         OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
 + getOrCreateEntry reflects header validation status                                         OK

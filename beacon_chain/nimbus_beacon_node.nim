@@ -903,9 +903,9 @@ proc initFullNode(
       if decoded.isNone():
         return  # Metadata-only update or decode failure
 
-      let (subnetId, pdc) = decoded.get()
+      let (subnetId, blockRoot, pdc) = decoded.get()
       let v = node.processor[].processPartialDataColumnSidecar(
-        MsgSource.gossip, pdc, subnetId)
+        MsgSource.gossip, pdc, subnetId, blockRoot)
       if v.isErr():
         debug "Partial column from extension RPC failed validation",
           error = v.error, peer, subnetId
@@ -1387,7 +1387,6 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     node.network.subscribe(
       topic, basicParams(),
       requestsPartial = node.config.partialColumns)
-    node.network.subscribe(topic, basicParams())
     custody.add(i)
   node.lastColumnCustodyIndices = custody
 

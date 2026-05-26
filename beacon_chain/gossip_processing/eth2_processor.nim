@@ -421,7 +421,7 @@ proc processBlobSidecar*(
 proc processPartialDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
     p_data_column_sidecar: fulu.PartialDataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+    subnet_id: uint64, group_block_root: Eth2Digest): ValidationRes =
 
   let hasHeader = p_data_column_sidecar.header.len > 0
 
@@ -453,7 +453,7 @@ proc processPartialDataColumnSidecar*(
         self.dag.validatePartialDataColumnSidecar(
           self.quarantine, self.dataColumnQuarantine,
           self.partialColumnQuarantine,
-          p_data_column_sidecar, wallTime, subnet_id)
+          p_data_column_sidecar, wallTime, subnet_id, group_block_root)
 
     partial_data_column_sidecar_validation_duration.observe(
       (Moment.now() - validationStart).toFloatSeconds())
@@ -535,7 +535,7 @@ proc processPartialDataColumnSidecar*(
         self.dag.validatePartialDataColumnSidecar(
           self.quarantine, self.dataColumnQuarantine,
           self.partialColumnQuarantine,
-          p_data_column_sidecar, wallTime, subnet_id)
+          p_data_column_sidecar, wallTime, subnet_id, group_block_root)
 
     partial_data_column_sidecar_validation_duration.observe(
       (Moment.now() - validationStart).toFloatSeconds())

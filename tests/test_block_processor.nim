@@ -381,7 +381,7 @@ suite "Block processor" & preset():
           # One partial sidecar per column (CELLS_PER_EXT_BLOB columns)
           partialSidecars.len > 0
           # Each sidecar should have 1 cell (1 blob)
-          partialSidecars[0].partial_columns.len == 1
+          partialSidecars[0].partial_column.len == 1
           partialSidecars[0].kzg_proofs.len == 1
           # Bitmap should have bit 0 set (blob index 0)
           partialSidecars[0].cells_present_bitmap[0] == true
@@ -440,7 +440,7 @@ suite "Block processor" & preset():
           kzg_commitments: engineBlock.blck.message.body.blob_kzg_commitments,
           signed_block_header: signed_beacon_block_header)
         engineBlock.blck.message.body.build_proof(
-          KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
+          KZG_COMMITMENTS_GINDEX,
           pHeader.kzg_commitments_inclusion_proof).expect("Valid gindex")
 
         # Use quarantine to ingest partials and reassemble
@@ -588,7 +588,7 @@ suite "Block processor" & preset():
           kzg_commitments: engineBlock.blck.message.body.blob_kzg_commitments,
           signed_block_header: signed_beacon_block_header)
         engineBlock.blck.message.body.build_proof(
-          KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH_GINDEX.GeneralizedIndex,
+          KZG_COMMITMENTS_GINDEX,
           pHeader.kzg_commitments_inclusion_proof).expect("Valid gindex")
 
         # Use quarantine to reassemble all columns from partials
