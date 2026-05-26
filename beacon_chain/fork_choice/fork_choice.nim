@@ -17,7 +17,7 @@ import
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
-  ../consensus_object_pools/blockchain_dag,
+  ../consensus_object_pools/[spec_cache, blockchain_dag],
   "."/[fork_choice_types, proto_array, fast_confirmation, fork_choice_gloas]
 
 from std/sequtils import keepItIf
@@ -420,11 +420,9 @@ func process_block*(
     parent_root: Eth2Digest,
     checkpoints: FinalityCheckpoints,
     unrealized = Opt.none(FinalityCheckpoints),
-    parent_payload_status = PAYLOAD_STATUS_PENDING,
-    proposerIndex = 0'u64): FcResult[void] =
+    parent_payload_status = PAYLOAD_STATUS_PENDING): FcResult[void] =
   self.proto_array.onBlock(
-    bid, parent_root, checkpoints, unrealized, parent_payload_status,
-    proposerIndex)
+    bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
 proc process_block*(
     self: var ForkChoice,
@@ -465,8 +463,6 @@ proc process_block*(
 
   # If block is from a prior epoch, pull up the post-state to next epoch to
   # realize new finality info
-  let blkProposerIndex = blck.proposer_index
-
   var parentPayloadStatus = PAYLOAD_STATUS_EMPTY
   when typeof(blck).kind >= ConsensusFork.Gloas:
     let (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(blckRef.parent)
@@ -485,19 +481,16 @@ proc process_block*(
       ? self.update_checkpoints(dag, unrealized, slot)
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root, unrealized,
-        parent_payload_status = parentPayloadStatus,
-        proposerIndex = blkProposerIndex)
+        parent_payload_status = parentPayloadStatus)
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
         epochRef.checkpoints, Opt.some unrealized,
-        parent_payload_status = parentPayloadStatus,
-        proposerIndex = blkProposerIndex)  # Realized in `on_tick`
+        parent_payload_status = parentPayloadStatus)  # Realized in `on_tick`
   else:
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints,
-      parent_payload_status = parentPayloadStatus,
-      proposerIndex = blkProposerIndex)
+      parent_payload_status = parentPayloadStatus)
 
   ok()
   

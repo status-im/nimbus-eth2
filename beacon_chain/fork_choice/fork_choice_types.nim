@@ -130,7 +130,6 @@ type
     invalid*: bool
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
-    proposerIndex*: uint64
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
@@ -173,7 +172,7 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
-    timely_proposer_blocks*: Table[(Slot, uint64), seq[Eth2Digest]]
+    timely_proposer_blocks*: Table[Slot, seq[(uint64, Eth2Digest)]]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]

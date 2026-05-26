@@ -90,7 +90,7 @@ proc record_block_timeliness*(
 
   if ptc_timely:
     self.backend.timely_proposer_blocks.mgetOrPut(
-      (blck_slot, proposerIndex), @[]).add(root)
+      blck_slot, @[]).add((proposerIndex, root))
 
   is_timely
 
@@ -164,10 +164,17 @@ proc should_apply_proposer_boost*(
   if not self.is_head_weak(parent_node.bid.root, dag):
     return true
 
-  let key = (parent_node.bid.slot, parent_node.proposerIndex)
-  let roots = self.backend.timely_proposer_blocks.getOrDefault(key)
-  for root in roots:
-    if root != parent_node.bid.root:
+  let entries = self.backend.timely_proposer_blocks.getOrDefault(
+    parent_node.bid.slot)
+  var parentProposer = high(uint64)
+  for (proposer, root) in entries:
+    if root == parent_node.bid.root:
+      parentProposer = proposer
+      break
+  if parentProposer == high(uint64):
+    return true
+  for (proposer, root) in entries:
+    if proposer == parentProposer and root != parent_node.bid.root:
       return false
 
   true
