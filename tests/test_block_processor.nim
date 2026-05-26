@@ -20,14 +20,9 @@ import
     peerdas_helpers, state_transition],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-<<<<<<< HEAD
-    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, envelope_quarantine,
+    attestation_pool, blockchain_dag, block_quarantine, block_clearance,
+    column_quarantine, consensus_manager, envelope_quarantine,
     partial_column_quarantine,
-=======
-    blockchain_dag, block_quarantine, block_clearance, column_quarantine,
-    consensus_manager, envelope_quarantine
->>>>>>> dc71cf782a4e1fb82ad274a8568748dcec94eff8
   ],
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
