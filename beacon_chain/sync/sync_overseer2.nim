@@ -876,13 +876,7 @@ func backfillDistance*(
     dag = overseer.consensusManager.dag
 
   if overseer.eraBid.isSome():
-    let destSlot =
-      if overseer.eraBid.get().slot == FAR_FUTURE_SLOT:
-        FAR_FUTURE_SLOT
-      else:
-        # This is final position for dag.backfill.slot, to be able to load
-        # and handle ERA files properly.
-        overseer.eraBid.get().slot + 1
+    let destSlot = overseer.eraBid.get().slot
     if dag.backfill.slot < destSlot:
       0'u64
     else:
@@ -1790,8 +1784,7 @@ proc peekRange(
     return overseer.tsbuffer(direction).peekRange(srange)
   if overseer.eraBid.isNone():
     return overseer.tsbuffer(direction).peekRange(srange)
-  let
-    notEraSlot = overseer.eraBorderSlot().get()
+  let notEraSlot = overseer.eraBorderSlot().get()
   if srange > notEraSlot:
     return overseer.tsbuffer(direction).peekRange(srange)
   if srange < notEraSlot:
@@ -2393,11 +2386,7 @@ proc timeMonitoringLoop(
 
   func backwardRemains(slot: Slot): uint64 =
     if overseer.eraBid.isSome():
-      let destSlot =
-        if overseer.eraBid.get().slot == FAR_FUTURE_SLOT:
-          overseer.eraBid.get().slot
-        else:
-          overseer.eraBid.get().slot + 1
+      let destSlot = overseer.eraBid.get().slot
       if slot < destSlot:
         return 0'u64
       slot - destSlot
@@ -2495,11 +2484,14 @@ proc timeMonitoringLoop(
       debug "Overseer debug statistics",
         wall_slot = overseer.beaconClock.currentSlot(),
         head = shortLog(dag.head),
+        tail = shortLog(dag.tail),
         finalized = shortLog(dag.headState.finalized_checkpoint),
         last_seen_head = overseer.getLastSeenHeadLog(),
         last_seen_finalized = overseer.getLastSeenFinalizedHeadLog(),
         finalized_distance = finalizedDistance,
         era_bid = eraBid,
+        backfill_slot = dag.backfill.slot,
+        backfill_parent_root = shortLog(dag.backfill.parent_root),
         backfill_distance = backfillDistance,
         column_horizon = overseer.getColumnsHorizon().start_slot(),
         sdag_peer_entries_count = len(overseer.sdag.peers),
