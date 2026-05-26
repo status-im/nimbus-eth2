@@ -142,57 +142,11 @@ type
     of BadProposalKind.DatabaseError:
       message*: string
 
-func `==`*(a, b: BadVote): bool =
-  ## Comparison operator.
-  ## Used implictily by Result when comparing the
-  ## result of multiple DB versions
-  if a.kind != b.kind:
-    false
-  else:
-    case a.kind
-    of DoubleVote:
-      a.existingAttestation == b.existingAttestation
-    of SurroundVote:
-      (a.existingAttestationRoot == b.existingAttestationRoot) and
-        (a.sourceExisting == b.sourceExisting) and
-        (a.targetExisting == b.targetExisting) and
-        (a.sourceSlashable == b.sourceSlashable) and
-        (a.targetSlashable == b.targetSlashable)
-    of TargetPrecedesSource:
-      true
-    of MinSourceViolation:
-      (a.minSource == b.minSource) and
-        (a.candidateSource == b.candidateSource)
-    of MinTargetViolation:
-      (a.minTarget == b.minTarget) and
-        (a.candidateTarget == b.candidateTarget)
-    of BadVoteKind.DatabaseError:
-      true
-
 template `==`*(a, b: PubKey0x): bool =
   PubKeyBytes(a) == PubKeyBytes(b)
 
 template `<`*(a, b: PubKey0x): bool =
   PubKeyBytes(a) < PubKeyBytes(b)
-
-template cmp*(a, b: PubKey0x): bool =
-  cmp(PubKeyBytes(a), PubKeyBytes(b))
-
-func `==`*(a, b: BadProposal): bool =
-  ## Comparison operator.
-  ## Used implictily by Result when comparing the
-  ## result of multiple DB versions
-  ##
-  ## Except that V1 doesn't support low-watermark...
-  if a.kind != b.kind:
-    false
-  elif a.kind == DoubleProposal:
-    a.existingBlock == b.existingBlock
-  elif a.kind == MinSlotViolation:
-    a.minSlot == b.minSlot and
-      a.candidateSlot == b.candidateSlot
-  else: # Unreachable
-    false
 
 # Serialization
 # --------------------------------------------
