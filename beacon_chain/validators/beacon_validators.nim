@@ -657,7 +657,7 @@ proc proposeBlockAux(
   elif fork == ConsensusFork.Fulu:
     let
       blobs = engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it))
-      proofs = @(engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+      proofs = engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it))
       sidecarsOpt = signedBlock.assemble_data_column_sidecars(blobs, proofs)
       partialSidecarsWithHeader =
         if node.config.partialColumns:
