@@ -39,7 +39,7 @@ from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
 from ../../beacon_chain/spec/validator import
   get_committee_index_one
-from ../../beacon_chain/spec/beaconstate import latest_block_root
+from ../../beacon_chain/spec/beaconstate import latest_block_root, get_ptc
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
@@ -99,6 +99,11 @@ type
     of opChecks:
       checks: JsonNode
 
+  LocalPtcVotes = object
+    voted: BitArray[int PTC_SIZE]
+    payload_present: BitArray[int PTC_SIZE]
+    data_available: BitArray[int PTC_SIZE]
+
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
@@ -131,11 +136,6 @@ proc initialLoad(
     fkChoice = newClone(ForkChoice.init(
       cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
       dag.getFinalizedEpochRef(), dag.finalizedHead.blck))
-
-  if StateType.kind >= ConsensusFork.Gloas:
-    let anchorRoot = dag.finalizedHead.blck.root
-
-    fkChoice.backend.block_timeliness[anchorRoot] = [true, true]
 
   (dag, fkChoice)
 
@@ -366,7 +366,8 @@ proc stepChecks(
     checks: JsonNode,
     dag: ChainDAGRef,
     fkChoice: ref ForkChoice,
-    time: BeaconTime) {.raises: [KeyError].} =
+    time: BeaconTime,
+    ptcVotes: Table[Eth2Digest, LocalPtcVotes]) {.raises: [KeyError].} =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
     if check == "time":
@@ -423,7 +424,20 @@ proc stepChecks(
       doAssert payloadStatus == PayloadStatus(val.getInt())
     elif check == "payload_timeliness_vote" or
          check == "payload_data_availability_vote":
-      discard
+      let
+        blockRoot = Eth2Digest.fromHex(val["block_root"].getStr())
+        votes = ptcVotes.getOrDefault(blockRoot)
+      var i = 0
+      for v in val["votes"].items:
+        if v.kind == JNull:
+          doAssert not votes.voted[i]
+        else:
+          doAssert votes.voted[i]
+          if check == "payload_timeliness_vote":
+            doAssert votes.payload_present[i] == v.getBool()
+          else:
+            doAssert votes.data_available[i] == v.getBool()
+        inc i
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
@@ -443,6 +457,16 @@ proc doRunTest(
     steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
   var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
+  var ptcVotes: Table[Eth2Digest, LocalPtcVotes]
+
+  if fork >= ConsensusFork.Gloas:
+    let anchorRoot = stores.dag.finalizedHead.blck.root
+    var allTrue: LocalPtcVotes
+    for i in 0 ..< int(PTC_SIZE):
+      allTrue.voted.setBit(i)
+      allTrue.payload_present.setBit(i)
+      allTrue.data_available.setBit(i)
+    ptcVotes[anchorRoot] = allTrue
 
   let state = newClone(stores.dag.headState)
   var stateCache = StateCache()
@@ -476,6 +500,17 @@ proc doRunTest(
           verifier, state[], stateCache,
           forkyBlck, step.blobData, step.columnsValid, time, invalidatedHashes)
         doAssert status.isOk == step.valid
+        when typeof(forkyBlck.message).kind >= ConsensusFork.Gloas:
+          if status.isOk:
+            for pa in forkyBlck.message.body.payload_attestations:
+              let blockRoot = pa.data.beacon_block_root
+              var votes = ptcVotes.getOrDefault(blockRoot)
+              for i in 0 ..< int(PTC_SIZE):
+                if pa.aggregation_bits[i]:
+                  votes.voted.setBit(i)
+                  votes.payload_present[i] = pa.data.payload_present
+                  votes.data_available[i] = pa.data.blob_data_available
+              ptcVotes[blockRoot] = votes
     of opOnPhase0AttesterSlashing:
       let indices = check_attester_slashing(
         state[], step.phase0AttesterSlashing, flags = {})
@@ -501,8 +536,27 @@ proc doRunTest(
       let status = stores.fkChoice[].on_payload_attestation_message(
         stores.dag, step.payloadAttestation)
       doAssert status.isOk == step.valid
+      if status.isOk:
+        let
+          blockRoot = step.payloadAttestation.data.beacon_block_root
+          slot = step.payloadAttestation.data.slot
+          validatorIdx = ValidatorIndex(step.payloadAttestation.validator_index)
+        withState(stores.dag.headState):
+          when consensusFork >= ConsensusFork.Gloas:
+            var
+              votes = ptcVotes.getOrDefault(blockRoot)
+              i = 0
+            for vidx in get_ptc(forkyState.data, slot):
+              if vidx == validatorIdx:
+                votes.voted.setBit(i)
+                votes.payload_present[i] =
+                  step.payloadAttestation.data.payload_present
+                votes.data_available[i] =
+                  step.payloadAttestation.data.blob_data_available
+              inc i
+            ptcVotes[blockRoot] = votes
     of opChecks:
-      stepChecks(step.checks, stores.dag, stores.fkChoice, time)
+      stepChecks(step.checks, stores.dag, stores.fkChoice, time, ptcVotes)
     else:
       raiseAssert "Unsupported"
 

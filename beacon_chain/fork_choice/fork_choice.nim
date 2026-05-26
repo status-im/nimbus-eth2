@@ -453,13 +453,12 @@ proc process_block*(
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
-  # Record block timeliness
-  self.record_block_timeliness(
-    dag, blck.slot, blckRef.root, typeof(blck).kind, blck.proposer_index)
-
-  # Add proposer score boost if the block is timely
-  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  self.update_proposer_boost_root(dag, blckRef, blck, slot)
+  # Record block timeliness and add proposer score boost if timely
+  let
+    is_timely = self.record_block_timeliness(
+      dag, blck.slot, blckRef.root, typeof(blck).kind, blck.proposer_index)
+    slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  self.update_proposer_boost_root(dag, blckRef, blck, slot, is_timely)
 
   # Update checkpoints in store if necessary
   ? self.update_checkpoints(dag, epochRef.checkpoints, slot)

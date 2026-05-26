@@ -79,39 +79,32 @@ proc record_block_timeliness*(
     self: var ForkChoice, dag: ChainDAGRef,
     blck_slot: Slot, root: Eth2Digest,
     consensusFork: ConsensusFork,
-    proposerIndex: uint64) =
+    proposerIndex: uint64): bool =
   let
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
     is_current_slot = current_slot == blck_slot
+    is_timely = is_current_slot and self.checkpoints.time <
+      current_slot.attestation_deadline(dag.timeParams, consensusFork)
     ptc_timely = is_current_slot and self.checkpoints.time <
       current_slot.payload_attestation_deadline(dag.timeParams)
-
-  self.backend.block_timeliness[root] = [
-    is_current_slot and self.checkpoints.time <
-      current_slot.attestation_deadline(dag.timeParams, consensusFork),
-    ptc_timely]
 
   if ptc_timely:
     self.backend.timely_proposer_blocks.mgetOrPut(
       (blck_slot, proposerIndex), @[]).add(root)
 
+  is_timely
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/fork-choice.md#update_proposer_boost_root
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root*(
     self: var ForkChoice, dag: ChainDAGRef,
-    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
+    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
+    current_slot: Slot, is_timely: bool) =
 
   template is_first_block: bool =
     self.checkpoints.proposer_boost_root == ZERO_HASH
 
-  let is_timely = self.backend.block_timeliness.getOrDefault(
-    blckRef.root, [false, false])[ATTESTATION_TIMELINESS_INDEX]
-
-  # Add proposer score boost if the block is the first timely block
-  # for this slot, with the same proposer as the canonical chain.
   if is_timely and is_first_block:
-    # Only apply boost if the block's proposer matches the expected proposer
-    # on the canonical chain (head advanced to current slot).
     let expectedProposer = dag.getProposer(dag.head, current_slot)
     if expectedProposer.isSome and
         blck.proposer_index == expectedProposer.get().uint64:
