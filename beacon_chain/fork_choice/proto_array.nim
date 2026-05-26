@@ -443,6 +443,7 @@ func prune*(
     let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
     self.unrealized.del nodeLogicalIdx
     self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
+    self.fullBlockIndices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
 
   # Drop all nodes prior to finalization.
   # This is done in-place with `moveMem` to avoid costly reallocations.
