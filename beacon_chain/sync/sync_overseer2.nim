@@ -875,15 +875,21 @@ func backfillDistance*(
   let
     dag = overseer.consensusManager.dag
 
-  if dag.backfill.slot <= dag.horizon:
-    0'u64
-  else:
-    if overseer.eraBid.isSome():
-      let borderSlot = overseer.eraBorderSlot().get()
-      if dag.backfill.slot <= borderSlot:
-        0'u64
+  if overseer.eraBid.isSome():
+    let destSlot =
+      if overseer.eraBid.get().slot == FAR_FUTURE_SLOT:
+        FAR_FUTURE_SLOT
       else:
-        dag.backfill.slot - borderSlot
+        # This is final position for dag.backfill.slot, to be able to load
+        # and handle ERA files properly.
+        overseer.eraBid.get().slot + 1
+    if dag.backfill.slot < destSlot:
+      0'u64
+    else:
+      dag.backfill.slot - destSlot
+  else:
+    if dag.backfill.slot <= dag.horizon:
+      0'u64
     else:
       dag.backfill.slot - dag.horizon
 
@@ -2387,10 +2393,14 @@ proc timeMonitoringLoop(
 
   func backwardRemains(slot: Slot): uint64 =
     if overseer.eraBid.isSome():
-      let eraBorderSlot = overseer.eraBorderSlot().get()
-      if slot < eraBorderSlot:
+      let destSlot =
+        if overseer.eraBid.get().slot == FAR_FUTURE_SLOT:
+          overseer.eraBid.get().slot
+        else:
+          overseer.eraBid.get().slot + 1
+      if slot < destSlot:
         return 0'u64
-      slot - eraBorderSlot
+      slot - destSlot
     else:
       if slot < dag.horizon():
         return 0'u64
