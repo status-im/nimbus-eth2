@@ -59,34 +59,16 @@ proc on_payload_attestation_message*(
               signature: ptc_message.signature)):
           return err ForkChoiceError(kind: fcPtcInvalidSignature)
 
-      var
-        ptc_indices: seq[int]
-        i = 0
+      var isMember = false
       for vidx in get_ptc(forkyState.data, slot):
         if vidx == validator_index:
-          ptc_indices.add(i)
-        inc i
+          isMember = true
+          break
 
-      if ptc_indices.len == 0:
+      if not isMember:
         return err ForkChoiceError(kind: fcPtcNotMember)
 
-      var votes = self.backend.ptc_vote.mgetOrPut(
-        beacon_block_root, default(PtcVotes))
-
-      for ptc_index in ptc_indices:
-        votes.voted.setBit(ptc_index)
-        if ptc_message.data.payload_present:
-          votes.payload_present.setBit(ptc_index)
-        else:
-          votes.payload_present.clearBit(ptc_index)
-        if ptc_message.data.blob_data_available:
-          votes.data_available.setBit(ptc_index)
-        else:
-          votes.data_available.clearBit(ptc_index)
-
-      self.backend.ptc_vote[beacon_block_root] = votes
-
-      trace "Recorded PTC vote",
+      trace "Validated PTC vote",
         validator_index,
         payload_present = ptc_message.data.payload_present,
         blob_data_available = ptc_message.data.blob_data_available

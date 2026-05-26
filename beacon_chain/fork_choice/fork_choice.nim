@@ -17,7 +17,7 @@ import
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
-  ../consensus_object_pools/[spec_cache, blockchain_dag],
+  ../consensus_object_pools/blockchain_dag,
   "."/[fork_choice_types, proto_array, fast_confirmation, fork_choice_gloas]
 
 from std/sequtils import keepItIf
@@ -499,31 +499,6 @@ proc process_block*(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints,
       parent_payload_status = parentPayloadStatus,
       proposerIndex = blkProposerIndex)
-
-  # Notify the store about payload_attestations in the block
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-notify_ptc_messages
-  when typeof(blck).kind >= ConsensusFork.Gloas:
-    self.backend.ptc_vote[blckRef.root] = default(PtcVotes)
-
-    for payload_attestation in blck.body.payload_attestations:
-      let
-        attData = payload_attestation.data
-        blockRoot = attData.beacon_block_root
-      var
-        votes = self.backend.ptc_vote.mgetOrPut(
-          blockRoot, default(PtcVotes))
-        i = 0
-      withState(dag.headState):
-        when consensusFork >= ConsensusFork.Gloas:
-          for vidx in get_ptc(forkyState.data, attData.slot):
-            if payload_attestation.aggregation_bits[i]:
-              votes.voted.setBit(i)
-              if attData.payload_present:
-                votes.payload_present.setBit(i)
-              if attData.blob_data_available:
-                votes.data_available.setBit(i)
-            inc i
-      self.backend.ptc_vote[blockRoot] = votes
 
   ok()
   
