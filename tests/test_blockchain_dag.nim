@@ -32,6 +32,7 @@ const
   nilPhase0Callback = OnBlockAdded[ConsensusFork.Phase0](nil)
   nilAltairCallback = OnBlockAdded[ConsensusFork.Altair](nil)
   nilBellatrixCallback = OnBlockAdded[ConsensusFork.Bellatrix](nil)
+  nilGloasCallback = OnBlockAdded[ConsensusFork.Gloas](nil)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -2142,3 +2143,93 @@ suite "Fast confirmation" & preset():
     for valIdx in 0 ..< balance_source.balances.len:
       let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
       check slots.len == 2
+
+suite "Gloas fork helpers":
+  setup:
+    let
+      rng = HmacDrbgContext.new()
+      cfg = block:
+        var cfg = defaultRuntimeConfig
+        cfg.ALTAIR_FORK_EPOCH = Epoch(0)
+        cfg.BELLATRIX_FORK_EPOCH = Epoch(0)
+        cfg.CAPELLA_FORK_EPOCH = Epoch(0)
+        cfg.DENEB_FORK_EPOCH = Epoch(0)
+        cfg.ELECTRA_FORK_EPOCH = Epoch(0)
+        cfg.FULU_FORK_EPOCH = Epoch(0)
+        cfg.GLOAS_FORK_EPOCH = Epoch(1)
+        cfg
+    var
+      db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      taskpool = Taskpool.new()
+      verifier = BatchVerifier.init(rng, taskpool)
+      quarantine = Quarantine.init(dag.cfg)
+      cache = StateCache()
+      info = ForkedEpochInfo()
+
+  test "Get execution parent":
+    let state = assignClone(dag.clearanceState)
+    process_slots(
+      cfg, state[], cfg.GLOAS_FORK_EPOCH.start_slot,
+      cache, info, {}).expect("gloas slot")
+
+    withState(dag.clearanceState):
+      when consensusFork == ConsensusFork.Gloas:
+        const slotCount = SLOTS_PER_EPOCH div 4'u64
+        # Slot 0 - 7, build on FULL Payload
+        for i in 0'u64 ..< slotCount:
+          process_slots(
+            cfg, state[], cfg.GLOAS_FORK_EPOCH.start_slot + i,
+            cache, info, {}).expect("next slot")
+
+          let
+            b = addTestEngineBlock(
+              cfg, consensusFork, state[].gloasData, cache)
+            bRef = block:
+              let res = dag.addHeadBlockWithParent(
+                verifier, b.blck, dag.head,
+                OptimisticStatus.valid, nilGloasCallback)
+              check res.isOk()
+              dag.updateHead(res.get(), quarantine, @[])
+              res.get()
+          block:
+            let res = dag.addHeadExecutionPayload(
+              b.blck, b.envelope)
+            check res.isOk()
+            dag.updateHeadExecutionPayload(res.get(), b.envelope)
+
+          check:
+            dag.headState.gloasData.data.latest_block_hash ==
+              b.envelope.message.payload.block_hash
+            Opt.some(bRef.parent) == dag.getExecutionParent(
+              bRef.parent,
+              b.envelope.message.payload.parent_hash)
+
+        # Slot 8 - 15, build on EMPTY Payload
+        let payloadParent = dag.head
+        for i in 0'u64 ..< slotCount:
+          assign(state[], dag.headState)
+          process_slots(
+            cfg, state[], payloadParent.slot + i,
+            cache, info, {}).expect("next slot")
+
+          let
+            b = addTestEngineBlock(
+              cfg, consensusFork, state[].gloasData, cache)
+            bRef = block:
+              let res = dag.addHeadBlockWithParent(
+                verifier, b.blck, dag.head,
+                OptimisticStatus.valid, nilGloasCallback)
+              check res.isOk()
+              dag.updateHead(res.get(), quarantine, @[])
+              res.get()
+
+          # Check if the latest block hash is equal to that of the
+          # payloadParent, means that Payload is built on EMPTY
+          check:
+            dag.headState.gloasData.data.latest_block_hash ==
+              dag.loadExecutionBlockHash(payloadParent).get()
+            Opt.some(payloadParent) == dag.getExecutionParent(
+              bRef.parent,
+              b.envelope.message.payload.parent_hash)

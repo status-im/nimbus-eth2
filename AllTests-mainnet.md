@@ -763,6 +763,10 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gloas fork helpers
+```diff
++ Get execution parent                                                                       OK
+```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
 + Empty in-memory scenario test [node]                                                       OK
