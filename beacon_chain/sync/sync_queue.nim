@@ -959,7 +959,7 @@ func getNextRange*[M, N](sq: SyncQueue[M, N]): Opt[SyncRange] =
           return Opt.none(SyncRange)
         lastRange.slot
       else:
-        if sq.inpSlot <= sq.finalSlot:
+        if (sq.inpSlot < sq.finalSlot) or (sq.inpSlot == GENESIS_SLOT):
           return Opt.none(SyncRange)
         sq.inpSlot + 1
     if startSlot < sq.finalSlot:

@@ -2564,6 +2564,34 @@ suite "SyncManager test suite":
 
     await noCancel wait(verifier.verifier, 2.seconds)
 
+  asyncTest "[SyncQueue#Backward] partial range real-case test":
+    let
+      scenario = [
+        (Slot(3129344) .. Slot(3133504), Opt.none(VerifierError))
+      ]
+      verifier = setupVerifier(SyncQueueKind.Backward, scenario)
+      queue = SyncQueue.init(SomeTPeer, BlockCompleteness,
+                             SyncQueueKind.Backward,
+                             Slot(3133504), Slot(3129344),
+                             32'u64, 5000, 3,
+                             getStaticSlotCb(Slot(3133504)),
+                             verifier.collector, testforkAtEpoch)
+      peer = SomeTPeer.init("1")
+
+    var requests: seq[SyncRequest[SomeTPeer]]
+    while true:
+      let request = queue.pop(Slot(3200000), peer)
+      if request.isEmpty():
+        break
+      requests.add(request)
+      discard await queue.push(request, createChain(request.data))
+
+    check:
+      compareRange(requests[^1].data, Slot(3129344)..Slot(3129344)) == true
+
+    await noCancel wait(verifier.verifier, 2.seconds)
+
+
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()
     block:
