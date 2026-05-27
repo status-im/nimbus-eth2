@@ -362,13 +362,17 @@ proc addTestEngineBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
+    execution_requests =
+      when consensusFork >= ConsensusFork.Electra:
+        decodePayloadRequests(eps).expect("execution requests")
+      else:
+        default(ExecutionRequests)
+
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
 
     signed_execution_payload_bid =
       when consensusFork >= ConsensusFork.Heze:
-        let er_root = hash_tree_root(
-          decodePayloadRequests(eps).expect("execution requests"))
         heze.SignedExecutionPayloadBid(
           message: heze.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
@@ -378,12 +382,10 @@ proc addTestEngineBlock*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: er_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
-        let er_root = hash_tree_root(
-          decodePayloadRequests(eps).expect("execution requests"))
         gloas.SignedExecutionPayloadBid(
           message: gloas.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
@@ -393,7 +395,7 @@ proc addTestEngineBlock*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: er_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),
@@ -502,10 +504,14 @@ proc addTestEngineBlockWithBlobs*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
+    execution_requests =
+      when consensusFork >= ConsensusFork.Electra:
+        decodePayloadRequests(eps).expect("execution requests")
+      else:
+        default(ExecutionRequests)
+
     signed_execution_payload_bid =
       when consensusFork >= ConsensusFork.Heze:
-        let er_root = hash_tree_root(
-          decodePayloadRequests(eps).expect("execution requests"))
         heze.SignedExecutionPayloadBid(
           message: heze.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
@@ -515,12 +521,10 @@ proc addTestEngineBlockWithBlobs*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: er_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
-        let er_root = hash_tree_root(
-          decodePayloadRequests(eps).expect("execution requests"))
         gloas.SignedExecutionPayloadBid(
           message: gloas.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
@@ -530,7 +534,7 @@ proc addTestEngineBlockWithBlobs*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: er_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),
