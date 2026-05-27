@@ -384,6 +384,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       # check recovered cells and proofs
       # assuming columns are sorted
       var tp = Taskpool.new()
+      defer: tp.shutdown()
       let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isOk
       let val = v.get
@@ -454,6 +455,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
 
       # check error
       var tp = Taskpool.new()
+      defer: tp.shutdown()
       let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isErr
 
