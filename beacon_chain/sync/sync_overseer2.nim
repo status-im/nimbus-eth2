@@ -1666,7 +1666,8 @@ proc doRangeSyncStep(
     direction = direction
 
   if request.isEmpty():
-    debug "Empty request received from blocks queue"
+    debug "Empty request received from blocks queue",
+      reason = request.reason
     return true
 
   if direction.isBackward() and peerEntry.minBackBlockSlot.isSome():
