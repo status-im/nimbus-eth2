@@ -338,7 +338,8 @@ func onBlock*(
     bid: BlockId,
     parent: Eth2Digest,
     checkpoints: FinalityCheckpoints,
-    unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
+    unrealized = Opt.none(FinalityCheckpoints),
+    parent_payload_status = PAYLOAD_STATUS_PENDING): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -351,12 +352,18 @@ func onBlock*(
   if bid.root in self.indices:
     return ok()
 
-  let parentIdx = self.find(parent)
-  if parentIdx < 0:
+  let baseParentIdx = self.find(parent)
+  if baseParentIdx < 0:
     return err ForkChoiceError(
       kind: fcUnknownParent,
       childRoot: bid.root,
       parentRoot: parent)
+
+  let parentIdx =
+    if parent_payload_status == PAYLOAD_STATUS_FULL:
+      self.fullBlockIndices.getOrDefault(parent, baseParentIdx)
+    else:
+      baseParentIdx
 
   let nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
 
@@ -523,6 +530,33 @@ func maybeUpdateBestChildAndDescendant(
           elif not childLeadsToViableHead and bestChildLeadsToViableHead:
             # The best child leads to a viable head, but the child doesn't
             noChange
+          elif child.bid.root == bestChild.bid.root
+            # Pick the sibling with more attestation weight, and if tied, prefer FULL.
+            # But proposer boost shouldn't influence this choice since boost applies to
+            # the block itself
+            let childisFull = self.blockFullIndices =
+              self.fullBlockIndices.getOrDefault(
+                child.bid.root, -1) == childIdx
+            var
+              childEffective = child.weight
+              bestEffective = bestChild.weight
+            if  (not self.previousProposerBoostRoot.isZero) and
+                self.previousProposerBoostRoot == child.bid.root:
+              let boost = self.previousProposerBoostScore.int64:
+                if not childIsFull:
+                  childEffective -= boost
+                else:
+                  bestEffecive -= boost
+                if childEffective == bestEffective:
+                  if childIsFull:
+                    changeToChild
+                  else:
+                    noChange
+                elif childEffective > bestEffective:
+                  changeToChild
+                else:
+                  noChange
+     
           elif child.weight == bestChild.weight:
             # Tie-breaker of equal weights by root
             if child.bid.root.tiebreak(bestChild.bid.root):
