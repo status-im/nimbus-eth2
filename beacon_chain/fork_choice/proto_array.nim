@@ -530,11 +530,11 @@ func maybeUpdateBestChildAndDescendant(
           elif not childLeadsToViableHead and bestChildLeadsToViableHead:
             # The best child leads to a viable head, but the child doesn't
             noChange
-          elif child.bid.root == bestChild.bid.root
+          elif child.bid.root == bestChild.bid.root:
             # Pick the sibling with more attestation weight, and if tied, prefer FULL.
             # But proposer boost shouldn't influence this choice since boost applies to
             # the block itself
-            let childisFull = self.blockFullIndices =
+            let childisFull =
               self.fullBlockIndices.getOrDefault(
                 child.bid.root, -1) == childIdx
             var
@@ -542,20 +542,20 @@ func maybeUpdateBestChildAndDescendant(
               bestEffective = bestChild.weight
             if  (not self.previousProposerBoostRoot.isZero) and
                 self.previousProposerBoostRoot == child.bid.root:
-              let boost = self.previousProposerBoostScore.int64:
-                if not childIsFull:
-                  childEffective -= boost
-                else:
-                  bestEffecive -= boost
-                if childEffective == bestEffective:
-                  if childIsFull:
-                    changeToChild
-                  else:
-                    noChange
-                elif childEffective > bestEffective:
-                  changeToChild
-                else:
-                  noChange
+              let boost = self.previousProposerBoostScore.int64
+              if not childIsFull:
+                childEffective -= boost
+              else:
+                bestEffective -= boost
+            if childEffective == bestEffective:
+              if childIsFull:
+                changeToChild
+              else:
+                noChange
+            elif childEffective > bestEffective:
+              changeToChild
+            else:
+              noChange
 
           elif child.weight == bestChild.weight:
             # Tie-breaker of equal weights by root
