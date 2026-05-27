@@ -186,13 +186,7 @@ proc attemptGetBlobs*(
           self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
           return
 
-        var allPresent = true
-        for item in blobsV3:
-          if item.isNone:
-            allPresent = false
-            break
-
-        if not allPresent:
+        if blobsV3.anyIt(it.isNone):
           self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
 
           let numBlobs = kzg_commitments_count()
@@ -201,13 +195,12 @@ proc attemptGetBlobs*(
             cellProofsOpt = newSeq[Opt[kzg.KzgProof]](
               numBlobs * fulu_preset.CELLS_PER_EXT_BLOB)
           for i in 0 ..< numBlobs:
-            if blobsV3[i].isSome:
-              let v = blobsV3[i].get
-              blobsOpt[i] = Opt.some(kzg.KzgBlob(bytes: v.blob.data))
+            blobsV3[i].isErrOr:
+              blobsOpt[i] = Opt.some(kzg.KzgBlob(bytes: value.blob.data))
               for j in 0 ..< fulu_preset.CELLS_PER_EXT_BLOB:
                 cellProofsOpt[
                     i * fulu_preset.CELLS_PER_EXT_BLOB + j] =
-                  Opt.some(kzg.KzgProof(bytes: v.proofs[j].data))
+                  Opt.some(kzg.KzgProof(bytes: value.proofs[j].data))
 
           let (header, partialSidecars) =
             assemble_partial_data_column_sidecars(
@@ -224,13 +217,10 @@ proc attemptGetBlobs*(
               forkyBlck.root, ColumnIndex(columnIndex),
               partialSidecars[columnIndex])
 
-          var presentCount = 0
-          for item in blobsV3:
-            if item.isSome: inc presentCount
           debug "Added partial data columns from EL blobpool to quarantine",
             root = forkyBlck.root,
             slot = forkyBlck.message.slot,
-            present = presentCount,
+            present = blobsV3.countIt(it.isSome),
             total = blobsV3.len
           return
 
