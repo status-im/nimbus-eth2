@@ -38,6 +38,7 @@ type Index = fork_choice_types.Index
 func compute_deltas(
     deltas: var openArray[Delta],
     indices: Table[Eth2Digest, Index],
+    fullBlockIndices: Table[Eth2Digest, Index],
     indices_offset: Index,
     votes: var openArray[VoteTracker],
     old_balances: openArray[ForkChoiceBalance],
@@ -46,7 +47,8 @@ func compute_deltas(
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
-    checkpoints: Checkpoints): FcResult[Eth2Digest]
+    checkpoints: Checkpoints,
+    proposerBoostRoot: Eth2Digest): FcResult[Eth2Digest]
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -247,7 +249,8 @@ proc reconfirm_fcr(
   self.update_unrealized_justified(dag)
 
   # Restart confirmation chain if necessary
-  fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints)
+  fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints,
+                                          self.checkpoints.proposer_boost_root)
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
     confirmed = fcr.observed_justified_block_id
@@ -382,8 +385,10 @@ func process_block*(
     bid: BlockId,
     parent_root: Eth2Digest,
     checkpoints: FinalityCheckpoints,
-    unrealized = Opt.none(FinalityCheckpoints)): FcResult[void] =
-  self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
+    unrealized = Opt.none(FinalityCheckpoints),
+    parent_payload_status = PAYLOAD_STATUS_PENDING): FcResult[void] =
+  self.proto_array.onBlock(
+    bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root(
@@ -468,13 +473,15 @@ proc process_block*(
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
-    checkpoints: Checkpoints): FcResult[Eth2Digest] =
+    checkpoints: Checkpoints,
+    proposerBoostRoot: Eth2Digest): FcResult[Eth2Digest] =
   ## Returns the new blockchain head
 
   # Apply score changes
   var deltas = newSeq[Delta](self.proto_array.indices.len)
   ? deltas.compute_deltas(
     indices = self.proto_array.indices,
+    fullBlockIndices = self.proto_array.fullBlockIndices,
     indices_offset = self.proto_array.nodes.offset,
     votes = self.votes,
     old_balances = self.balances,
@@ -485,7 +492,7 @@ func find_head(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
     checkpoints.justified.total_active_balance,
-    checkpoints.proposer_boost_root)
+    proposerBoostRoot)
   self.balances = checkpoints.justified.balances
 
   # Find the best block
@@ -506,7 +513,7 @@ proc get_head*(
   ? self.update_time(dag, wallTime)
   self.backend.find_head(
     self.checkpoints.time.slotOrZero(dag.timeParams),
-    self.checkpoints)
+    self.checkpoints, self.checkpoints.proposer_boost_root)
 
 proc advance_fcr(
     self: var ForkChoice, dag: ChainDAGRef, blckRef: BlockRef,
@@ -596,6 +603,7 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
 func compute_deltas(
     deltas: var openArray[Delta],
     indices: Table[Eth2Digest, Index],
+    fullBlockIndices: Table[Eth2Digest, Index],
     indices_offset: Index,
     votes: var openArray[VoteTracker],
     old_balances: openArray[ForkChoiceBalance],

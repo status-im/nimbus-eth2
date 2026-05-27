@@ -556,7 +556,7 @@ func maybeUpdateBestChildAndDescendant(
                   changeToChild
                 else:
                   noChange
-     
+
           elif child.weight == bestChild.weight:
             # Tie-breaker of equal weights by root
             if child.bid.root.tiebreak(bestChild.bid.root):
