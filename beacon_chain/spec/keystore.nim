@@ -1228,14 +1228,6 @@ func decryptNetKeystore*(nkeystore: NetKeystore,
   else:
     err $status
 
-func decryptNetKeystore*(nkeystore: JsonString,
-                         password: KeystorePass): KsResult[lcrypto.PrivateKey] =
-  try:
-    let keystore = parseNetKeystore(string nkeystore)
-    return decryptNetKeystore(keystore, password)
-  except SerializationError as exc:
-    return err(exc.formatMsg("<keystore>"))
-
 func generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
   rng.generateBytes(keyLen)
 
