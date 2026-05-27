@@ -201,8 +201,8 @@ func applyScoreChanges*(
   #    updating if the current node should become the best-child
   # 4. If required, update the parent's best-descendant with the current node
   #    or its best-descendant
-  doAssert self.indices.len == self.nodes.len # By construction
-  if deltas.len != self.indices.len:
+  doAssert self.indices.len + self.fullBlockIndices.len == self.nodes.len # By construction
+  if deltas.len != self.nodes.len:
     return err ForkChoiceError(
       kind: fcInvalidDeltaLen,
       deltasLen: deltas.len,
@@ -242,8 +242,10 @@ func applyScoreChanges*(
     if not node.invalid:
       # If we find the node for which the proposer boost was previously applied,
       # decrease the delta by the previous score amount.
+      let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
       if  (not self.previousProposerBoostRoot.isZero) and
-          self.previousProposerBoostRoot == node.bid.root:
+          self.previousProposerBoostRoot == node.bid.root and 
+          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
             if  nodeDelta < 0 and
                 nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
               return err ForkChoiceError(
@@ -255,7 +257,8 @@ func applyScoreChanges*(
       # the delta by the new score amount.
       #
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
-      if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
+      if  (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root and
+          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
         proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
         if  nodeDelta >= 0 and
             high(Delta) - nodeDelta < proposerBoostScore.int64:
