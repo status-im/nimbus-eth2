@@ -227,9 +227,14 @@ suite "Block processor" & preset():
           let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         else:
           let sidecarsOpt = noSidecars
-        discard await processor.addBlock(
+        check (await processor.addBlock(
           MsgSource.gossip, b0.blck, sidecarsOpt
-        )
+        )).isOk()
+
+        when consensusFork == ConsensusFork.Gloas:
+          check (await processor.addPayload(
+            b0.blck, b0.envelope, Opt.none(gloas.DataColumnSidecars)
+          )).isOk()
 
   asyncTest "Process Deneb block without blob sidecars" & preset():
     # Advance to Deneb fork
