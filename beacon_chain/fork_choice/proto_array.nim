@@ -430,16 +430,25 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justifiedRoot)
-  let
-    justifiedNode = self.nodes[justifiedIdx].valueOr:
-      return err ForkChoiceError(
-        kind: fcInvalidJustifiedIndex,
-        index: justifiedIdx)
-    bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
-    bestNode = self.nodes[bestDescendantIdx].valueOr:
-      return err ForkChoiceError(
-        kind: fcInvalidBestDescendant,
-        index: bestDescendantIdx)
+  let justifiedNode = self.nodes[justifiedIdx].valueOr:
+    return err ForkChoiceError(
+      kind: fcInvalidJustifiedIndex,
+      index: justifiedIdx)
+
+  # If the justified EMPTY node has no descendants (children parented to
+  # FULL), use the FULL sibling's bestDescendant instead.
+  var bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
+  if bestDescendantIdx == justifiedIdx:
+    let fullIdx = self.fullBlockIndices.getOrDefault(justifiedRoot, -1)
+    if fullIdx >= 0:
+      let fullNode = self.nodes[fullIdx]
+      if fullNode.isSome:
+        bestDescendantIdx = fullNode.get.bestDescendant.get(fullIdx)
+
+  let bestNode = self.nodes[bestDescendantIdx].valueOr:
+    return err ForkChoiceError(
+      kind: fcInvalidBestDescendant,
+      index: bestDescendantIdx)
 
   # Perform a sanity check to ensure the node can be head
   if not self.nodeIsViableForHead(bestNode, bestDescendantIdx):
@@ -530,12 +539,26 @@ func maybeUpdateBestChildAndDescendant(
     childLeadsToViableHead =
       ? self.nodeLeadsToViableHead(child, childIdx)
 
+    # FULL nodes may or may not have real children depending on timing.
+    # If FULL has children (bestChild set), its bestDescendant is maintained
+    # by Loop 2. Otherwise descendants live under EMPTY — use EMPTY's.
+    childIsFull =
+      self.fullBlockIndices.getOrDefault(child.bid.root, -1) == childIdx
+    effectiveBestDescendant = block:
+      if childIsFull and child.bestChild.isNone:
+        let emptyIdx = self.indices.getOrDefault(child.bid.root, -1)
+        if emptyIdx >= 0:
+          let en = self.nodes[emptyIdx]
+          if en.isSome: en.get.bestDescendant
+          else: child.bestDescendant
+        else: child.bestDescendant
+      else: child.bestDescendant
+
     # Aliases to the 3 possible (bestChild, bestDescendant) tuples
     changeToNone = (Opt.none(Index), Opt.none(Index))
     changeToChild = (
         Opt.some(childIdx),
-        # Nim `options` module doesn't implement option `or`
-        if child.bestDescendant.isSome(): child.bestDescendant
+        if effectiveBestDescendant.isSome(): effectiveBestDescendant
         else: Opt.some(childIdx)
       )
     noChange = (parent.bestChild, parent.bestDescendant)
@@ -567,33 +590,14 @@ func maybeUpdateBestChildAndDescendant(
             # The best child leads to a viable head, but the child doesn't
             noChange
           elif child.bid.root == bestChild.bid.root:
-            # EMPTY/FULL siblings: neutralize proposer boost for comparison
-            # Per spec, boost vote has slot <= block.slot so it does not
-            # support EMPTY or FULL via is_supporting_vote
-            var childEffective = child.weight
-            var bestEffective = bestChild.weight
-            if (not self.previousProposerBoostRoot.isZero) and
-                self.previousProposerBoostRoot == child.bid.root:
-              let boost = self.previousProposerBoostScore.int64
-              let childIsFull =
-                self.fullBlockIndices.getOrDefault(
-                  child.bid.root, -1) == childIdx
-              if not childIsFull:
-                childEffective -= boost
-              else:
-                bestEffective -= boost
-            if childEffective == bestEffective:
-              let childIsFull =
-                self.fullBlockIndices.getOrDefault(
-                  child.bid.root, -1) == childIdx
-              if childIsFull:
-                changeToChild
-              else:
-                noChange
-            elif childEffective > bestEffective:
+            if childIsFull:
               changeToChild
             else:
-              noChange
+              # EMPTY is child, FULL is bestChild. FULL wins tiebreaker,
+              # but refresh bestDescendant from EMPTY's current chain.
+              (parent.bestChild,
+               if child.bestDescendant.isSome(): child.bestDescendant
+               else: parent.bestDescendant)
           elif child.weight == bestChild.weight:
             if child.bid.root.tiebreak(bestChild.bid.root):
               changeToChild
