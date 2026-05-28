@@ -20,7 +20,6 @@ import
     beaconstate, helpers, keystore, forks, signatures, state_transition, validator]
 
 from ../beacon_chain/spec/state_transition_block import kzg_commitment_to_versioned_hash
-from ../beacon_chain/validators/block_payloads import decodePayloadRequests
 from ../beacon_chain/spec/datatypes/electra import ExecutionRequests
 
 from ../beacon_chain/spec/datatypes/deneb import
@@ -362,11 +361,11 @@ proc addTestEngineBlock*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
-    execution_requests =
-      when consensusFork >= ConsensusFork.Electra:
-        decodePayloadRequests(eps).expect("execution requests")
+    execution_requests_root =
+      when consensusFork >= ConsensusFork.Gloas:
+        hash_tree_root(default(ExecutionRequests))
       else:
-        default(ExecutionRequests)
+        ZERO_HASH
 
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
@@ -382,7 +381,7 @@ proc addTestEngineBlock*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: hash_tree_root(execution_requests),
+            execution_requests_root: execution_requests_root,
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
@@ -395,7 +394,7 @@ proc addTestEngineBlock*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: hash_tree_root(execution_requests),
+            execution_requests_root: execution_requests_root,
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),
@@ -504,11 +503,11 @@ proc addTestEngineBlockWithBlobs*(
       else:
         default(bellatrix.ExecutionPayloadForSigning)
 
-    execution_requests =
-      when consensusFork >= ConsensusFork.Electra:
-        decodePayloadRequests(eps).expect("execution requests")
+    execution_requests_root =
+      when consensusFork >= ConsensusFork.Gloas:
+        hash_tree_root(default(ExecutionRequests))
       else:
-        default(ExecutionRequests)
+        ZERO_HASH
 
     signed_execution_payload_bid =
       when consensusFork >= ConsensusFork.Heze:
@@ -521,7 +520,7 @@ proc addTestEngineBlockWithBlobs*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: hash_tree_root(execution_requests),
+            execution_requests_root: execution_requests_root,
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
@@ -534,7 +533,7 @@ proc addTestEngineBlockWithBlobs*(
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: hash_tree_root(execution_requests),
+            execution_requests_root: execution_requests_root,
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),
