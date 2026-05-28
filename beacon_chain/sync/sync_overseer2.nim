@@ -136,10 +136,10 @@ func eraBorderSlot(overseer: SyncOverseerRef2): Opt[Slot] =
     let
       eraSlot = overseer.eraBid.get().slot
       borderSlot =
-        if eraSlot + 2 < eraSlot:
+        if eraSlot + 1 < eraSlot:
           FAR_FUTURE_SLOT
         else:
-          eraSlot + 2
+          eraSlot + 1
     return Opt.some(borderSlot)
   Opt.none(Slot)
 
