@@ -1365,7 +1365,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     let finalized = db.finalizedBlocks.get(db.finalizedBlocks.high.get()).expect(
       "tail at least")
     if finalized != dag.finalizedHead.blck.root:
-      error "Head does not lead to finalized block, database corrupt?",
+      fatal "Head does not lead to finalized block, database corrupt?",
         head = shortLog(head), finalizedHead = shortLog(dag.finalizedHead),
         tail = shortLog(dag.tail), finalized = shortLog(finalized)
       quit 1
@@ -1430,7 +1430,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
-          bid, backfillSlot
+          bid, backfill = shortLog(dag.backfill),
+          finalizedHead = shortLog(dag.finalizedHead), tail = shortLog(dag.tail),
+          frontfill = dag.frontfillBlocks.len
         quit 1
 
       # In BeaconState.block_roots, empty slots are filled with the root of
