@@ -91,6 +91,8 @@
           ncli         = build ["ncli"]               null;
           ncli_db      = build ["ncli_db"]            null;
 
+          notSelf = self;
+
           inherit (pkgs) go-ethereum;
           default = beacon_node;
         }
