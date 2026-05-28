@@ -2144,7 +2144,7 @@ suite "Fast confirmation" & preset():
       let slots = toSeq(balance_source.assigned_slots(valIdx.ValidatorIndex))
       check slots.len == 2
 
-suite "Gloas fork helpers":
+suite "Gloas block validity":
   setup:
     let
       rng = HmacDrbgContext.new()
@@ -2155,8 +2155,8 @@ suite "Gloas fork helpers":
         cfg.CAPELLA_FORK_EPOCH = Epoch(0)
         cfg.DENEB_FORK_EPOCH = Epoch(0)
         cfg.ELECTRA_FORK_EPOCH = Epoch(0)
-        cfg.FULU_FORK_EPOCH = Epoch(0)
-        cfg.GLOAS_FORK_EPOCH = Epoch(1)
+        cfg.FULU_FORK_EPOCH = Epoch(1)
+        cfg.GLOAS_FORK_EPOCH = Epoch(2)
         cfg
     var
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
@@ -2168,7 +2168,7 @@ suite "Gloas fork helpers":
       cache = StateCache()
       info = ForkedEpochInfo()
 
-  test "Get execution parent":
+  test "Execution parent and valid":
     let state = assignClone(dag.clearanceState)
     process_slots(
       cfg, state[], cfg.GLOAS_FORK_EPOCH.start_slot,
@@ -2202,9 +2202,12 @@ suite "Gloas fork helpers":
           check:
             dag.headState.gloasData.data.latest_block_hash ==
               b.envelope.message.payload.block_hash
-            Opt.some(bRef.parent) == dag.getExecutionParent(
+            Opt.some(bRef.parent) == dag.executionParent(
               bRef.parent,
               b.envelope.message.payload.parent_hash)
+            Opt.some(bRef.parent) == bRef.executionParent
+            bRef.executionValid
+            bRef.executionOrParentValid
 
         # Slot 8 - 15, build on EMPTY Payload
         let payloadParent = dag.head
@@ -2230,6 +2233,9 @@ suite "Gloas fork helpers":
           check:
             dag.headState.gloasData.data.latest_block_hash ==
               dag.loadExecutionBlockHash(payloadParent).get()
-            Opt.some(payloadParent) == dag.getExecutionParent(
+            Opt.some(payloadParent) == dag.executionParent(
               bRef.parent,
               b.envelope.message.payload.parent_hash)
+            Opt.some(payloadParent) == bRef.executionParent
+            not bRef.executionValid
+            bRef.executionOrParentValid

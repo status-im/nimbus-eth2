@@ -428,7 +428,7 @@ template validateBeaconBlockGloas(
   let executionParent = block:
     let parentRef = dag.getBlockRef(bid.parent_block_root).valueOr:
       return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-    dag.getExecutionParent(parentRef, bid.parent_block_hash).valueOr:
+    dag.executionParent(parentRef, bid.parent_block_hash).valueOr:
       return errIgnore("validateBeaconBlockGloas: invalid execution parent")
 
   # - [IGNORE] The block's parent execution payload (defined by

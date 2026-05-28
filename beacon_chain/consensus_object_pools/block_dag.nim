@@ -244,8 +244,37 @@ func shortLog*(v: BlockSlot): string =
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
 
+func executionParent*(blck: BlockRef): Opt[BlockRef] =
+  result = Opt.none(BlockRef)
+  if isNil(blck.parent) or
+      blck.executionParentHash.isNone() or
+      # executionParentHash of pre-Gloas blocks is zero
+      blck.executionParentHash.unsafeGet().isZero():
+    return
+
+  var cur = blck.parent
+  debugGloasComment("revisit the max depth of ancestors")
+  for _ in 0 ..< SLOTS_PER_EPOCH:
+    if cur.executionBlockHash.isNone() or
+        cur.executionBlockHash.unsafeGet().isZero():
+      return
+    if cur.executionBlockHash.unsafeGet() ==
+        blck.executionParentHash.unsafeGet():
+      return Opt.some(cur)
+
 func executionValid*(blck: BlockRef): bool =
   blck.optimisticStatus == OptimisticStatus.valid
+
+func executionOrParentValid*(blck: BlockRef): bool =
+  ## Fallback to its execution parent if blck is not exeuction valid. This helps
+  ## to recover validator duties if the head since Gloas doesn't receive the
+  ## valid execution payload.
+
+  if blck.executionValid:
+    return true
+  let parent = blck.executionParent.valueOr:
+    return false
+  parent.executionValid
 
 proc markExecutionValid*(blck: BlockRef, valid: bool) =
   ## Mark a block as having a valid or invalid excecution payload

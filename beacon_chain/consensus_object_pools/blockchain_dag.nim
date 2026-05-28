@@ -2432,7 +2432,7 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   dag.loadExecutionAndParentBlockHash(blck)[0]
 
-proc getExecutionParent*(
+proc executionParent*(
     dag: ChainDAGRef, parentRef: BlockRef,
     parentBlockHash: Eth2Digest): Opt[BlockRef] =
   ## Find parent block by execution parent block hash. In the worst case
@@ -2455,12 +2455,12 @@ proc getExecutionParent*(
   ## In this example, the execution parent of the slot 8 Block would be the slot
   ## 1 Block.
 
+  result = Opt.none(BlockRef)
   if isNil(parentRef):
-    return Opt.none(BlockRef)
+    return
 
   var cur = parentRef
-
-  debugGloasComment("revisit the max depth of ancestors, see the example above")
+  debugGloasComment("revisit the max depth of ancestors")
   for _ in 0'u64 ..< SLOTS_PER_EPOCH:
     let pBhash = ?dag.loadExecutionBlockHash(cur)
     if pBhash == parentBlockHash:
@@ -2468,36 +2468,6 @@ proc getExecutionParent*(
     if isNil(cur.parent):
       break
     cur = cur.parent
-
-  debug "Execution parent not found",
-    parentRef = shortLog(parentRef),
-    parentBlockHash = shortLog(parentBlockHash)
-  Opt.none(BlockRef)
-
-proc headExecutionValid*(
-    dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
-  ## Since Gloas, execution validity of block is only known when we received the
-  ## envelope. In general, it would be execution invalid if the envelope is
-  ## invalid or missing (i.e. it has never been seen).
-  ##
-  ## Fork choice will decide whether or not to extend the head payload. In case
-  ## of not extending the payload, we should check `head.parent` instead.
-  ##
-  ## Validity result is purely based on head block as headPayload could be out
-  ## of synced which is unreliable.
-
-  if dag.cfg.consensusForkAtEpoch(head.slot.epoch) < ConsensusFork.Gloas or
-      head == headPayload:
-    return head.executionValid
-
-  let
-    parentBlockHash = dag.loadExecutionAndParentBlockHash(
-        head).parentHash.valueOr:
-      return false
-    executionParent = dag.getExecutionParent(
-        head.parent, parentBlockHash).valueOr:
-      return false
-  executionParent.executionValid
 
 func payloadStatusFull*(
     dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
