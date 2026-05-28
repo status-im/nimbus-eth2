@@ -139,7 +139,7 @@ func builderBetterBid*(
   of BoostFactorKind.Builder:
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
 
-func decodePayloadRequests(
+func decodePayloadRequests*(
     eps:
       electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
       gloas.ExecutionPayloadForSigning

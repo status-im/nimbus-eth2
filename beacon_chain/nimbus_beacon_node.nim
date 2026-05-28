@@ -18,7 +18,8 @@ import
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
     blockchain_list, column_quarantine, envelope_quarantine,
-    execution_payload_pool, payload_attestation_pool],
+    execution_payload_pool, partial_column_quarantine,
+    payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -597,6 +598,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
 
   validatorCustody.setQuarantine(dataColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
@@ -880,6 +882,8 @@ proc initFullNode(
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
                                                 gloasColumnQuarantine,
+                                                partialColumnQuarantine,
+                                                config.partialColumns,
                                                 node.validatorCustody,
                                                 node.network)
   node.router = router
