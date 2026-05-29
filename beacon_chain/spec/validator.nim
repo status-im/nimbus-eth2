@@ -572,6 +572,7 @@ func get_beacon_proposer_indices*(
     # [Modified in Gloas:EIP8045]
     let proposers = compute_proposer_indices(
       state, epoch, seed, indices.filterIt(not state.validators[it].slashed))
+    proposers.mapIt(Opt.some(it))
   else:
     compute_proposer_indices(state, epoch, seed, indices)
 
