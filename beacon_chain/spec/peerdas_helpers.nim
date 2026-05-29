@@ -529,7 +529,7 @@ proc assemble_partial_data_column_sidecars*(
   for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
     sidecars.add fulu.PartialDataColumnSidecar(
       cells_present_bitmap: bitmaps[columnIndex],
-      partial_columns: DataColumn.init(columns[columnIndex]),
+      partial_column: DataColumn.init(columns[columnIndex]),
       kzg_proofs: deneb.KzgProofs.init(columnProofs[columnIndex]))
 
   (header, sidecars)
