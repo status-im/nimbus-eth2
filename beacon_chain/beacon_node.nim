@@ -10,7 +10,7 @@
 # Everything needed to run a full Beacon Node
 
 import
-  std/osproc,
+  std/[osproc, sets],
 
   # Nimble packages
   chronos, presto,
@@ -60,6 +60,7 @@ type
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
+    fastConfirmationQueue*: AsyncEventQueue[FastConfirmationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
@@ -129,6 +130,7 @@ type
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
     lastColumnCustodyIndices*: seq[CustodyIndex]
+    sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     shutdownEvent*: AsyncEvent
 
 # TODO https://github.com/status-im/nim-stew/pull/258
@@ -213,6 +215,8 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[ref fulu.DataColumnSidecar](),
     finalQueue:
       newAsyncEventQueue[FinalizationInfoObject](),
+    fastConfirmationQueue:
+      newAsyncEventQueue[FastConfirmationInfoObject](),
     reorgQueue:
       newAsyncEventQueue[ReorgInfoObject](),
     contribQueue:

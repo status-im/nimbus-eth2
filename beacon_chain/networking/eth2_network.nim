@@ -1053,7 +1053,7 @@ proc doMakeEth2Request(
   finally:
     await stream.closeWithEOF()
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type,
     timeout: Duration
@@ -1066,7 +1066,7 @@ proc makeEth2Request(
     doMakeEth2Request(
       peer, protocolId, requestBytes, ResponseMsg, 1.Limit, timeout)
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type, maxResponseItems: Limit,
     timeout: Duration

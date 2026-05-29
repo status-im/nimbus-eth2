@@ -8,15 +8,9 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronos, presto/client, chronicles,
-  ".."/".."/validators/slashing_protection_common,
-  ".."/[helpers, forks, keystore, eth2_ssz_serialization],
-  "."/[rest_types, rest_common, eth2_rest_serialization]
-
-from ../mev/bellatrix_mev import SignedBlindedBeaconBlock
-from ../mev/capella_mev import SignedBlindedBeaconBlock
-from ../mev/deneb_mev import SignedBlindedBeaconBlock
-from ../datatypes/gloas import SignedExecutionPayloadEnvelope
+  chronos, presto/client,
+  ../[forks, eth2_ssz_serialization],
+  ./[rest_types, rest_common, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -245,58 +239,6 @@ proc publishSszBlockV2*(
     broadcast_validation,
     blck,
     restContentType = $OctetStreamMediaType,
-    extraHeaders = @[("eth-consensus-version", consensus)])
-
-proc publishBlindedBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: bellatrix_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: electra_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: fulu_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishSszBlindedBlock*(
-    client: RestClientRef,
-    blck: ForkySignedBeaconBlock
-): Future[RestPlainResponse] {.
-   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
-                    RestCommunicationError], raw: true).} =
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-  let consensus = typeof(blck).kind.toString()
-  client.publishBlindedBlock(
-    blck, restContentType = $OctetStreamMediaType,
     extraHeaders = @[("eth-consensus-version", consensus)])
 
 proc publishBlindedBlockV2*(

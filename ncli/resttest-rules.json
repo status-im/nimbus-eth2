@@ -2976,7 +2976,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -2991,7 +2991,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3006,7 +3006,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3021,7 +3021,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3331,7 +3331,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3346,7 +3346,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3361,7 +3361,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3376,7 +3376,7 @@
       "status": {"operator": "equals", "value": "200"},
       "headers": [
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
-        {"key": "Eth-Consensus-Version", "value": ["electra"], "operator": "oneof"}
+        {"key": "Eth-Consensus-Version", "value": ["fulu"], "operator": "oneof"}
       ],
       "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
     }
@@ -3619,7 +3619,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=0",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
@@ -3631,7 +3631,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551615",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
@@ -3643,7 +3643,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551616",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3655,7 +3655,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=word",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3667,7 +3667,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?committee_index=0",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
@@ -3679,7 +3679,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?committee_index=18446744073709551615",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3691,7 +3691,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?committee_index=18446744073709551616",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3703,7 +3703,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?committee_index=word",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3715,7 +3715,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=0&committee_index=0",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
@@ -3727,7 +3727,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=word&committee_index=word",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3739,7 +3739,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551615&committee_index=18446744073709551615",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3751,7 +3751,7 @@
     "topics": ["beacon", "pool_attestations_electra"],
     "request": {
       "url": "/eth/v2/beacon/pool/attestations?slot=18446744073709551616&committee_index=18446744073709551616",
-      "headers": {"Eth-Consensus-Version": "electra", "Accept": "application/json"}
+      "headers": {"Eth-Consensus-Version": "fulu", "Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"},
@@ -3778,7 +3778,7 @@
     },
     "response": {
       "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["electra"], "operator": "oneof"}],
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}, {"key": "eth-consensus-version", "value": ["fulu"], "operator": "oneof"}],
       "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}]}]
     }
   },

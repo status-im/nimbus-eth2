@@ -53,6 +53,8 @@ type
     proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
     proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
+  OnFastConfirmationCallback* =
+    proc(data: FastConfirmationInfoObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
@@ -250,6 +252,8 @@ type
       ## On head changed callback
     onReorgHappened*: OnReorgCallback
       ## On beacon chain reorganization
+    onFastConfirmation*: OnFastConfirmationCallback
+      ## On fast confirmation callback
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
     onEnvelopeAdded*: OnExecutionPayloadCallback
@@ -340,6 +344,10 @@ type
     epoch*: Epoch
     optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
 
+  FastConfirmationInfoObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+
   EventBeaconBlockObject* = object
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
@@ -427,6 +435,10 @@ template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
 
+template setFastConfirmationCb*(
+    dag: ChainDAGRef, cb: OnFastConfirmationCallback) =
+  dag.onFastConfirmation = cb
+
 template setEnvelopeCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeAdded = cb
 
@@ -496,9 +508,15 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
     epoch: epoch
   )
 
-func init*(t: typedesc[EventBeaconBlockObject],
-           v: ForkedTrustedSignedBeaconBlock,
-           optimistic: Opt[bool]): EventBeaconBlockObject =
+func init*(
+    t: typedesc[FastConfirmationInfoObject],
+    bid: BlockId): FastConfirmationInfoObject =
+  FastConfirmationInfoObject(slot: bid.slot, block_root: bid.root)
+
+func init*(
+    t: typedesc[EventBeaconBlockObject],
+    v: ForkedTrustedSignedBeaconBlock,
+    optimistic: Opt[bool]): EventBeaconBlockObject =
   withBlck(v):
     EventBeaconBlockObject(
       slot: forkyBlck.message.slot,

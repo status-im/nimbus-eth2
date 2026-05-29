@@ -362,3 +362,16 @@ func removeEntry*[K, H](
   ## Remove a specific (block_id, column_index) entry.
   let key = PartialColumnKey[K](blockId: blockId, columnIndex: columnIndex)
   quarantine.entries.del(key)
+
+func pruneForBlock*(
+    quarantine: var PartialColumnQuarantine,
+    blockRoot: Eth2Digest) =
+  ## Drop the validated header and every per-column entry for `blockRoot`.
+  ## Called once full DataColumnSidecars for the block have been promoted
+  ## into the normal column quarantine — the accumulated partial cells are
+  ## now redundant and would otherwise sit in the LRUs until eviction.
+  quarantine.headers.del(blockRoot)
+  for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
+    let key = PartialColumnKey(
+      blockRoot: blockRoot, columnIndex: ColumnIndex(columnIndex))
+    quarantine.entries.del(key)
