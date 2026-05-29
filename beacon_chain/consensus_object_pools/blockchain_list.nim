@@ -46,15 +46,6 @@ proc init*(T: type ChainListRef, directory: string): ChainListRef =
         Opt.some(res.get())
   ChainListRef(path: directory, handle: handle)
 
-proc init*(T: type ChainListRef, directory: string,
-           slot: Slot): Result[ChainListRef, string] =
-  let
-    flags = {ChainFileFlag.Repair, ChainFileFlag.OpenAlways}
-    filename = directory.chainFilePath()
-    handle = ? ChainFileHandle.init(filename, flags)
-    offset {.used.} = ? seekForSlot(handle, slot)
-  ok(ChainListRef(path: directory, handle: Opt.some(handle)))
-
 proc seekForSlot*(clist: ChainListRef, slot: Slot): Result[void, string] =
   if clist.handle.isNone():
     let

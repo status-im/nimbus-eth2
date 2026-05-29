@@ -2200,15 +2200,6 @@ template syncCommitteeParticipants*(
     subcommitteeIdx: SyncSubcommitteeIndex): seq[ValidatorIndex] =
   toSeq(syncSubcommittee(dag.syncCommitteeParticipants(slot), subcommitteeIdx))
 
-iterator syncCommitteeParticipants*(
-    dag: ChainDAGRef,
-    slot: Slot,
-    subcommitteeIdx: SyncSubcommitteeIndex,
-    aggregationBits: SyncCommitteeAggregationBits): ValidatorIndex =
-  for pos, valIdx in dag.syncCommitteeParticipants(slot, subcommitteeIdx):
-    if pos < aggregationBits.bits and aggregationBits[pos]:
-      yield valIdx
-
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead.toBlockSlotId().expect("not nil")
 
