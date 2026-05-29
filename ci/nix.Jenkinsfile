@@ -51,16 +51,15 @@ pipeline {
   }
 
   stages {
+    stage('Lockfile check') {
+      steps { script {
+        sh 'nix flake lock --no-update-lock-file'
+      } }
+    }
+
     stage('Build') {
       steps { script {
-        def gitRef = env.BRANCH_NAME ==~ /PR-\d+/
-          ? "refs/pull/${env.BRANCH_NAME.replace('PR-', '')}/head"
-          : env.BRANCH_NAME
-    
-        result = nix.flake(params.NIX_TARGET, [
-            path: "git+https://github.com/status-im/nimbus-eth2?ref=${gitRef}&submodules=1",
-            noWriteLockFile: true,
-        ])
+        result = nix.flake(params.NIX_TARGET)
       } }
     }
 
