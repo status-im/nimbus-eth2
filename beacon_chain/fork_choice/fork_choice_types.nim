@@ -120,6 +120,7 @@ type
     unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
+    emptyPreferredRoot*: Eth2Digest
 
   ProtoNode* = object
     bid*: BlockId
@@ -154,6 +155,10 @@ type
     payload_present*: bool
     next_payload_present*: bool
 
+  PtcVoteTally* = object
+    present*: BitArray[int PTC_SIZE]
+    available*: BitArray[int PTC_SIZE]
+
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
     # The `assigned_slots` (`fast_confirmation.nim`) are based on `dag.head`
@@ -173,6 +178,7 @@ type
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
     timely_proposer_blocks*: Table[Slot, seq[(uint64, Eth2Digest)]]
+    ptcVotes*: Table[Eth2Digest, PtcVoteTally]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]
@@ -196,6 +202,14 @@ func shortLog*(vote: VoteTracker): auto =
 
 chronicles.formatIt VoteTracker: it.shortLog
 chronicles.formatIt ForkChoiceError: $it
+
+func countPresent*(tally: PtcVoteTally): int =
+  for i in 0 ..< tally.present.len:
+    if tally.present[i]: inc result
+
+func countAvailable*(tally: PtcVoteTally): int =
+  for i in 0 ..< tally.available.len:
+    if tally.available[i]: inc result
 
 func extend*[T](s: var seq[T], minLen: int) =
   ## Extend a sequence so that it can contains at least `minLen` elements.

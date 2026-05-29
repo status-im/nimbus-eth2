@@ -99,11 +99,6 @@ type
     of opChecks:
       checks: JsonNode
 
-  LocalPtcVotes = object
-    voted: BitArray[int PTC_SIZE]
-    payload_present: BitArray[int PTC_SIZE]
-    data_available: BitArray[int PTC_SIZE]
-
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
@@ -367,7 +362,7 @@ proc stepChecks(
     dag: ChainDAGRef,
     fkChoice: ref ForkChoice,
     time: BeaconTime,
-    ptcVotes: Table[Eth2Digest, LocalPtcVotes]) {.raises: [KeyError].} =
+    voted: Table[Eth2Digest, BitArray[int PTC_SIZE]]) {.raises: [KeyError].} =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
     if check == "time":
@@ -426,17 +421,18 @@ proc stepChecks(
          check == "payload_data_availability_vote":
       let
         blockRoot = Eth2Digest.fromHex(val["block_root"].getStr())
-        votes = ptcVotes.getOrDefault(blockRoot)
+        votedBits = voted.getOrDefault(blockRoot)
+        tally = fkChoice.backend.ptcVotes.getOrDefault(blockRoot)
       var i = 0
       for v in val["votes"].items:
         if v.kind == JNull:
-          doAssert not votes.voted[i]
+          doAssert not votedBits[i]
         else:
-          doAssert votes.voted[i]
+          doAssert votedBits[i]
           if check == "payload_timeliness_vote":
-            doAssert votes.payload_present[i] == v.getBool()
+            doAssert tally.present[i] == v.getBool()
           else:
-            doAssert votes.data_available[i] == v.getBool()
+            doAssert tally.available[i] == v.getBool()
         inc i
     else:
       raiseAssert "Unsupported check '" & $check & "'"
@@ -457,16 +453,7 @@ proc doRunTest(
     steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
   var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
-  var ptcVotes: Table[Eth2Digest, LocalPtcVotes]
-
-  if fork >= ConsensusFork.Gloas:
-    let anchorRoot = stores.dag.finalizedHead.blck.root
-    var allTrue: LocalPtcVotes
-    for i in 0 ..< int(PTC_SIZE):
-      allTrue.voted.setBit(i)
-      allTrue.payload_present.setBit(i)
-      allTrue.data_available.setBit(i)
-    ptcVotes[anchorRoot] = allTrue
+  var voted: Table[Eth2Digest, BitArray[int PTC_SIZE]]
 
   let state = newClone(stores.dag.headState)
   var stateCache = StateCache()
@@ -504,13 +491,11 @@ proc doRunTest(
           if status.isOk:
             for pa in forkyBlck.message.body.payload_attestations:
               let blockRoot = pa.data.beacon_block_root
-              var votes = ptcVotes.getOrDefault(blockRoot)
+              var votedBits = voted.getOrDefault(blockRoot)
               for i in 0 ..< int(PTC_SIZE):
                 if pa.aggregation_bits[i]:
-                  votes.voted.setBit(i)
-                  votes.payload_present[i] = pa.data.payload_present
-                  votes.data_available[i] = pa.data.blob_data_available
-              ptcVotes[blockRoot] = votes
+                  votedBits.setBit(i)
+              voted[blockRoot] = votedBits
     of opOnPhase0AttesterSlashing:
       let indices = check_attester_slashing(
         state[], step.phase0AttesterSlashing, flags = {})
@@ -544,19 +529,15 @@ proc doRunTest(
         withState(stores.dag.headState):
           when consensusFork >= ConsensusFork.Gloas:
             var
-              votes = ptcVotes.getOrDefault(blockRoot)
+              votedBits = voted.getOrDefault(blockRoot)
               i = 0
             for vidx in get_ptc(forkyState.data, slot):
               if vidx == validatorIdx:
-                votes.voted.setBit(i)
-                votes.payload_present[i] =
-                  step.payloadAttestation.data.payload_present
-                votes.data_available[i] =
-                  step.payloadAttestation.data.blob_data_available
+                votedBits.setBit(i)
               inc i
-            ptcVotes[blockRoot] = votes
+            voted[blockRoot] = votedBits
     of opChecks:
-      stepChecks(step.checks, stores.dag, stores.fkChoice, time, ptcVotes)
+      stepChecks(step.checks, stores.dag, stores.fkChoice, time, voted)
     else:
       raiseAssert "Unsupported"
 

@@ -16,11 +16,8 @@ import
   ../spec/[beaconstate, helpers, state_transition_block],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
-  ../consensus_object_pools/blockchain_dag,
+  ../consensus_object_pools/[blockchain_dag, spec_cache],
   "."/[fork_choice_types, proto_array]
-
-func isGloasEnabled*(dag: ChainDAGRef, slot: Slot): bool =
-  slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-on_payload_attestation_message
 proc on_payload_attestation_message*(
@@ -33,7 +30,7 @@ proc on_payload_attestation_message*(
     slot = ptc_message.data.slot
     validator_index = ValidatorIndex(ptc_message.validator_index)
 
-  if not dag.isGloasEnabled(slot):
+  if slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return ok()
 
   if beacon_block_root notin self.backend.proto_array.indices:
@@ -44,6 +41,7 @@ proc on_payload_attestation_message*(
   if slot != blockSlot:
     return ok()
 
+  var ptcIndices: seq[int]
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       if not is_from_block:
@@ -59,22 +57,32 @@ proc on_payload_attestation_message*(
               signature: ptc_message.signature)):
           return err ForkChoiceError(kind: fcPtcInvalidSignature)
 
-      var isMember = false
+      var ptcIndex = 0
       for vidx in get_ptc(forkyState.data, slot):
         if vidx == validator_index:
-          isMember = true
-          break
+          ptcIndices.add ptcIndex
+        inc ptcIndex
 
-      if not isMember:
+      if ptcIndices.len == 0:
         return err ForkChoiceError(kind: fcPtcNotMember)
 
       trace "Validated PTC vote",
         validator_index,
+        ptc_positions = ptcIndices.len,
         payload_present = ptc_message.data.payload_present,
         blob_data_available = ptc_message.data.blob_data_available
+
+  for ptcIndex in ptcIndices:
+    self.backend.ptcVotes.mgetOrPut(
+      beacon_block_root, PtcVoteTally()).present[ptcIndex] =
+        ptc_message.data.payload_present
+    self.backend.ptcVotes.mgetOrPut(
+      beacon_block_root, PtcVoteTally()).available[ptcIndex] =
+        ptc_message.data.blob_data_available
+
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-record_block_timeliness
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#modified-record_block_timeliness
 proc record_block_timeliness*(
     self: var ForkChoice, dag: ChainDAGRef,
     blck_slot: Slot, root: Eth2Digest,
@@ -94,8 +102,8 @@ proc record_block_timeliness*(
 
   is_timely
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/phase0/fork-choice.md#update_proposer_boost_root
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/phase0/fork-choice.md#update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root*(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
@@ -125,8 +133,8 @@ template getNode*(
   else:
     self.getPhysicalNode(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-is_head_weak
-func is_head_weak(
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#modified-is_head_weak
+proc is_head_weak(
     self: var ForkChoice, head_root: Eth2Digest,
     dag: ChainDAGRef): bool =
   let
@@ -138,9 +146,29 @@ func is_head_weak(
   if proto_node == nil:
     return true
 
-  proto_node.weight.Gwei < reorg_threshold
+  var head_weight = proto_node.weight.Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
+  # Also count the effective balance of equivocating validators (vote disabled
+  # via `vote.slot == FAR_FUTURE_SLOT`) in the head slot's committees, so the
+  # weight is monotonic in observed attestations.
+  let headBlck = dag.getBlockRef(head_root)
+  if headBlck.isSome:
+    let shuffling =
+      dag.getShufflingRef(headBlck.get, proto_node.bid.slot.epoch, true)
+    if shuffling.isSome:
+      let shufflingRef = shuffling.get
+      template balances: untyped = self.checkpoints.justified.balances
+      for committee_index in get_committee_indices(shufflingRef):
+        for _, val in shufflingRef.get_beacon_committee(
+            proto_node.bid.slot, committee_index):
+          if val < self.backend.votes.lenu64 and
+              self.backend.votes[val].slot == FAR_FUTURE_SLOT and
+              val < balances.lenu64:
+            head_weight += balances[val].effective_balance
+
+  head_weight < reorg_threshold
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost*(
     self: var ForkChoice, dag: ChainDAGRef): bool =
   let proposer_root = self.checkpoints.proposer_boost_root
@@ -164,22 +192,25 @@ proc should_apply_proposer_boost*(
   if not self.is_head_weak(parent_node.bid.root, dag):
     return true
 
+  # `parent.proposer_index` is the deterministic proposer for its slot.
+  let parentBlck = dag.getBlockRef(parent_node.bid.root)
+  if parentBlck.isNone:
+    return true
+  let parentProposer = dag.getProposer(
+      parentBlck.get, parent_node.bid.slot).valueOr:
+    return true
+
   let entries = self.backend.timely_proposer_blocks.getOrDefault(
     parent_node.bid.slot)
-  var parentProposer = high(uint64)
   for (proposer, root) in entries:
-    if root == parent_node.bid.root:
-      parentProposer = proposer
-      break
-  if parentProposer == high(uint64):
-    return true
-  for (proposer, root) in entries:
-    if proposer == parentProposer and root != parent_node.bid.root:
+    if proposer == parentProposer.uint64 and root != parent_node.bid.root:
       return false
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
+# The spec's `is_data_available` precondition is enforced by the caller
+# (`block_processor.storePayload` via `verifySidecars`) before this is invoked.
 proc on_execution_payload*(
     self: var ForkChoice, dag: ChainDAGRef,
     signedEnvelope: SignedExecutionPayloadEnvelope): FcResult[void] =
@@ -188,7 +219,7 @@ proc on_execution_payload*(
     beacon_block_root = envelope.beacon_block_root
     current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
 
-  if not dag.isGloasEnabled(current_slot):
+  if current_slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return ok()
 
   if beacon_block_root notin self.backend.proto_array.indices:

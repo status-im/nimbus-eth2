@@ -55,7 +55,7 @@ template unsafeGet*[K, V](table: Table[K, V], key: K): V =
   except KeyError as exc:
     raiseAssert(exc.msg)
 
-func `[]`(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
+func `[]`*(nodes: ProtoNodes, idx: Index): Opt[ProtoNode] =
   ## Retrieve a ProtoNode at "Index"
   if idx < nodes.offset:
     return Opt.none(ProtoNode)
@@ -186,7 +186,8 @@ func applyScoreChanges*(
     currentSlot: Slot,
     checkpoints: FinalityCheckpoints,
     justifiedTotalActiveBalance: Gwei,
-    proposerBoostRoot: Eth2Digest): FcResult[void] =
+    proposerBoostRoot: Eth2Digest,
+    emptyPreferredRoot: Eth2Digest = ZERO_HASH): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   #
@@ -216,6 +217,7 @@ func applyScoreChanges*(
     checkpoints.finalized.root == self.checkpoints.finalized.root or
     self.checkpoints.finalized.epoch == GENESIS_EPOCH
   self.checkpoints = checkpoints
+  self.emptyPreferredRoot = emptyPreferredRoot
 
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
@@ -539,17 +541,16 @@ func maybeUpdateBestChildAndDescendant(
     childLeadsToViableHead =
       ? self.nodeLeadsToViableHead(child, childIdx)
 
-    # FULL nodes may or may not have real children depending on timing.
-    # If FULL has children (bestChild set), its bestDescendant is maintained
-    # by Loop 2. Otherwise descendants live under EMPTY — use EMPTY's.
+    # FULL nodes may not have real children — new blocks parent to EMPTY.
+    # If FULL has no bestChild, use EMPTY sibling's bestDescendant instead.
     childIsFull =
       self.fullBlockIndices.getOrDefault(child.bid.root, -1) == childIdx
     effectiveBestDescendant = block:
-      if childIsFull and child.bestChild.isNone:
-        let emptyIdx = self.indices.getOrDefault(child.bid.root, -1)
-        if emptyIdx >= 0:
-          let en = self.nodes[emptyIdx]
-          if en.isSome: en.get.bestDescendant
+      if child.bestChild.isNone and childIsFull:
+        let siblingIdx = self.indices.getOrDefault(child.bid.root, -1)
+        if siblingIdx >= 0:
+          let sn = self.nodes[siblingIdx]
+          if sn.isSome: sn.get.bestDescendant
           else: child.bestDescendant
         else: child.bestDescendant
       else: child.bestDescendant
@@ -590,11 +591,14 @@ func maybeUpdateBestChildAndDescendant(
             # The best child leads to a viable head, but the child doesn't
             noChange
           elif child.bid.root == bestChild.bid.root:
-            if childIsFull:
+            # emptyPreferredRoot is the previous slot's block, matched per spec
+            # get_payload_status_tiebreaker via `slot + 1 == currentSlot`.
+            let fullPreferred =
+              child.bid.slot + 1 != self.currentSlot or
+              child.bid.root != self.emptyPreferredRoot
+            if childIsFull == fullPreferred:
               changeToChild
             else:
-              # EMPTY is child, FULL is bestChild. FULL wins tiebreaker,
-              # but refresh bestDescendant from EMPTY's current chain.
               (parent.bestChild,
                if child.bestDescendant.isSome(): child.bestDescendant
                else: parent.bestDescendant)

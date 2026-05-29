@@ -268,7 +268,7 @@ proc reconfirm_fcr(
 
   # Restart confirmation chain if necessary
   let reconfirmBoostRoot =
-    if dag.isGloasEnabled(current_slot) and
+    if current_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
         not self.should_apply_proposer_boost(dag):
       ZERO_HASH
     else:
@@ -378,7 +378,7 @@ proc on_attestation*(
   
   # [New in Gloas:EIP7732]
   # If attesting for a full node, the payload must be known
-  if dag.isGloasEnabled(attestation_slot) and
+  if attestation_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
       attestation_committee_index == CommitteeIndex(1) and
       beacon_block_root notin self.backend.proto_array.fullBlockIndices:
     return ok()
@@ -443,10 +443,29 @@ proc process_block*(
 
   for attestation in blck.body.attestations:
     if attestation.data.beacon_block_root in self.backend:
-      for vidx in dag.get_attesting_indices(attestation):
-        self.backend.process_attestation(
-          vidx, attestation.data.beacon_block_root, attestation.data.slot,
-          false, dag.cfg)
+      when typeof(blck).kind >= ConsensusFork.Electra:
+        let payloadPresent =
+          get_committee_index_one(attestation.committee_bits) ==
+            Opt.some(CommitteeIndex(1))
+        for vidx in dag.get_attesting_indices(attestation):
+          self.backend.process_attestation(
+            vidx, attestation.data.beacon_block_root, attestation.data.slot,
+            payloadPresent, dag.cfg)
+      else:
+        for vidx in dag.get_attesting_indices(attestation):
+          self.backend.process_attestation(
+            vidx, attestation.data.beacon_block_root, attestation.data.slot,
+            false, dag.cfg)
+
+  when typeof(blck).kind >= ConsensusFork.Gloas:
+    for pa in blck.body.payload_attestations:
+      let root = pa.data.beacon_block_root
+      for i in 0 ..< pa.aggregation_bits.len:
+        if pa.aggregation_bits[i]:
+          self.backend.ptcVotes.mgetOrPut(root, PtcVoteTally()).present[i] =
+            pa.data.payload_present
+          self.backend.ptcVotes.mgetOrPut(root, PtcVoteTally()).available[i] =
+            pa.data.blob_data_available
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
@@ -510,13 +529,44 @@ func find_head(
     votes = self.votes,
     old_balances = self.balances,
     new_balances = checkpoints.justified.balances)
+  # should_extend_payload: determine if EMPTY should be preferred over FULL
+  # for the boosted block's parent root at the current slot
+  var emptyPreferredRoot = ZERO_HASH
+  if not proposerBoostRoot.isZero:
+    let boostIdx = self.proto_array.indices.getOrDefault(proposerBoostRoot, -1)
+    if boostIdx >= 0:
+      let boostNode = self.proto_array.nodes[boostIdx]
+      if boostNode.isSome and boostNode.get.parent.isSome:
+        let parentNode =
+          self.proto_array.nodes[boostNode.get.parent.get]
+        if parentNode.isSome:
+          let
+            parentRoot = parentNode.get.bid.root
+            fullParentIdx = self.proto_array.fullBlockIndices.getOrDefault(
+              parentRoot, -1)
+            payloadVerified = fullParentIdx >= 0
+            parentIsFull =
+              boostNode.get.parent.get == fullParentIdx
+          if not payloadVerified:
+            emptyPreferredRoot = parentRoot
+          elif not parentIsFull:
+            let
+              tally = self.ptcVotes.getOrDefault(parentRoot)
+              timely =
+                tally.countPresent.uint64 > PAYLOAD_TIMELY_THRESHOLD
+              available =
+                tally.countAvailable.uint64 > DATA_AVAILABILITY_TIMELY_THRESHOLD
+            if not (timely and available):
+              emptyPreferredRoot = parentRoot
+
   ? self.proto_array.applyScoreChanges(
     deltas, current_slot,
     FinalityCheckpoints(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
     checkpoints.justified.total_active_balance,
-    proposerBoostRoot)
+    proposerBoostRoot,
+    emptyPreferredRoot)
   self.balances = checkpoints.justified.balances
 
   # Find the best block
@@ -531,7 +581,7 @@ func find_head(
   ok(new_head)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/fork-choice.md#get_head
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/fork-choice.md#modified-get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -539,7 +589,7 @@ proc get_head*(
 
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   let boostRoot =
-    if dag.isGloasEnabled(current_slot) and
+    if current_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
         not self.should_apply_proposer_boost(dag):
       ZERO_HASH
     else:
@@ -613,6 +663,24 @@ proc prune(
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
     self.update_confirmed(dag, self.to_block_id(checkpoints.finalized), "prune")
+
+  let finalizedSlot =
+    self.proto_array.slot(checkpoints.finalized.root).valueOr:
+      return ok()
+  var staleSlots: seq[Slot]
+  for slot in self.timely_proposer_blocks.keys:
+    if slot < finalizedSlot:
+      staleSlots.add slot
+  for slot in staleSlots:
+    self.timely_proposer_blocks.del slot
+
+  var staleRoots: seq[Eth2Digest]
+  for root in self.ptcVotes.keys:
+    if root notin self.proto_array.indices:
+      staleRoots.add root
+  for root in staleRoots:
+    self.ptcVotes.del root
+
   ok()
 
 proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =

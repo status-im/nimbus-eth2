@@ -960,6 +960,11 @@ proc processPayloadAttestationMessage*(
   discard self.payloadAttestationPool[].addPayloadAttestation(
     payload_attestation_message, wallTime)
 
+  let fcRes = self.attestationPool[].forkChoice.on_payload_attestation_message(
+    self.dag, payload_attestation_message)
+  if fcRes.isErr:
+    debug "on_payload_attestation_message failed", error = fcRes.error
+
   trace "Payload attestation validated"
   return ok()
 
