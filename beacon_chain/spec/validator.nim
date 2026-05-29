@@ -11,7 +11,7 @@
 import
   std/algorithm,
   "."/[crypto, helpers]
-from std/sequtils import mapIt
+from std/sequtils import filterIt, mapIt
 from std/math import `^`
 export helpers
 
@@ -569,8 +569,9 @@ func get_beacon_proposer_indices*(
 
   debugGloasComment "temporary workaround for Gloas"
   when typeof(state).kind >= ConsensusFork.Gloas:
-    let proposers = compute_proposer_indices(state, epoch, seed, indices)
-    proposers.mapIt(Opt.some(it))
+    # [Modified in Gloas:EIP8045]
+    let proposers = compute_proposer_indices(
+      state, epoch, seed, indices.filterIt(not state.validators[it].slashed))
   else:
     compute_proposer_indices(state, epoch, seed, indices)
 
