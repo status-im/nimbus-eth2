@@ -11,7 +11,7 @@
 import
   std/algorithm,
   "."/[crypto, helpers]
-from std/sequtils import filterIt, mapIt
+from std/sequtils import mapIt
 from std/math import `^`
 export helpers
 
@@ -564,16 +564,20 @@ func get_beacon_proposer_indices*(
     state: ForkyBeaconState, epoch: Epoch
 ): seq[Opt[ValidatorIndex]] =
   ## Return the proposer indices for the given `epoch`.
-  let indices = get_active_validator_indices(state, epoch)
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
 
   debugGloasComment "temporary workaround for Gloas"
   when typeof(state).kind >= ConsensusFork.Gloas:
-    # [Modified in Gloas:EIP8045]
-    let proposers = compute_proposer_indices(
-      state, epoch, seed, indices.filterIt(not state.validators[it].slashed))
+    # [Modified in Gloas:EIP8045] Build the active-and-unslashed candidate
+    # set in a single pass, avoiding a second copy of the active indices.
+    var indices = newSeqOfCap[ValidatorIndex](state.validators.len)
+    for vidx in get_active_validator_indices(state, epoch):
+      if not state.validators[vidx].slashed:
+        indices.add vidx
+    let proposers = compute_proposer_indices(state, epoch, seed, indices)
     proposers.mapIt(Opt.some(it))
   else:
+    let indices = get_active_validator_indices(state, epoch)
     compute_proposer_indices(state, epoch, seed, indices)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
