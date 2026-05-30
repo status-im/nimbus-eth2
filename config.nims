@@ -32,17 +32,18 @@ if defined(release) and not defined(disableLTO):
   # some warnings by hand.
   switch("passL", "-Wno-stringop-overflow -Wno-stringop-overread")
 
-  # lto_incremental available as of Nim 1.6.14 / https://github.com/nim-lang/Nim/pull/21679
-  switch("define", "lto_incremental")
-
-  # According to early measurements, this helped make LTO make better choices -
-  # it probably needs to be re-tested for newer GCC versions..
-  put("gcc.options.always", get("gcc.options.always") & " -finline-limit=100000")
-  put("gcc.options.linker", get("gcc.options.linker") & " -finline-limit=100000")
-
-  if defined(macosx):
-    # https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-flto
-    put("clang.options.linker", get("clang.options.linker") & " -Wl,-object_path_lto," & nimCachePath & "/lto")
+  if defined(macosx): # Clang
+    switch("passC", "-flto=thin")
+    switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
+  elif defined(linux):
+    switch("passC", "-flto=auto")
+    switch("passL", "-flto=auto")
+    switch("passC", "-finline-limit=100000")
+    switch("passL", "-finline-limit=100000")
+  else:
+    # On windows, LTO needs more love and attention so "gcc-ar" and "gcc-ranlib" are
+    # used for static libraries.
+    discard
 
 # Hidden visibility allows for better position-independent codegen - it also
 # resolves a build issue in BLST where otherwise private symbols would require
@@ -132,6 +133,7 @@ switch("passL", "-fno-omit-frame-pointer")
 --define:nimTypeNames
 
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
+switch("define", "withoutPCRE")
 
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
