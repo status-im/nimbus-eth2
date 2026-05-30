@@ -331,10 +331,11 @@ proc assemble_data_column_sidecars*(
     proofs = newSeq[ProofBytes](blobs.len)
 
   for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+    computeCells(blobs[i]).isErrOr:
+      cells[i] = value
+      let proofElem = addr proofs[i]
+      staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+        assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
     var
@@ -387,10 +388,11 @@ proc assemble_data_column_sidecars*(
     proofs = newSeq[ProofBytes](blobs.len)
 
   for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+    computeCells(blobs[i]).isErrOr:
+      cells[i] = value
+      let proofElem = addr proofs[i]
+      staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+        assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   let inclusion_proof =
     blck.body.build_proof(KZG_COMMITMENTS_GINDEX).expect("Valid gindex")
@@ -435,10 +437,11 @@ proc assemble_data_column_sidecars*(
     proofs = newSeq[ProofBytes](blobs.len)
 
   for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+    computeCells(blobs[i]).isErrOr:
+      cells[i] = value
+      let proofElem = addr proofs[i]
+      staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+        assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   template beacon_block_root: untyped = signed_beacon_block.root
 
@@ -516,14 +519,13 @@ proc assemble_partial_data_column_sidecars*(
   for rowIndex in 0 ..< blobs.len:
     let blob = blobs[rowIndex].valueOr:
       continue
-    let rowCells = computeCells(blob).valueOr:
-      continue
-    for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-      let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
-        continue
-      bitmaps[columnIndex][Natural(rowIndex)] = true
-      columns[columnIndex].add(rowCells[columnIndex])
-      columnProofs[columnIndex].add(proof)
+    computeCells(blob).isErrOr:
+      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
+          continue
+        bitmaps[columnIndex][Natural(rowIndex)] = true
+        columns[columnIndex].add(value[columnIndex])
+        columnProofs[columnIndex].add(proof)
 
   var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
   for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
@@ -551,13 +553,13 @@ proc assemble_partial_data_column_sidecars*(
     columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
 
   for rowIndex in 0 ..< blobs.len:
-    let rowCells = computeCells(blobs[rowIndex]).get
-    for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-      let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
-        continue
-      bitmaps[columnIndex][Natural(rowIndex)] = true
-      columns[columnIndex].add(rowCells[columnIndex])
-      columnProofs[columnIndex].add(proof)
+    computeCells(blobs[rowIndex]).isErrOr:
+      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
+          continue
+        bitmaps[columnIndex][Natural(rowIndex)] = true
+        columns[columnIndex].add(value[columnIndex])
+        columnProofs[columnIndex].add(proof)
 
   var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
   for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:

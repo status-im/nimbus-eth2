@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[sequtils, sets],
+  std/sets,
 
   # Status libraries
   chronicles,
@@ -27,6 +27,9 @@ import
   ../spec/[column_map, forks, helpers, network, peerdas_helpers],
   ../sync/validator_custody,
   ./el_manager
+
+from std/sequtils import anyIt, countIt, filterIt
+from stew/assign2 import assign
 
 declareCounter beacon_engine_getblobs_requests_total,
   "Total engine_getBlobs invocations issued by the sidecarless retrieval service"
@@ -225,13 +228,12 @@ proc attemptGetBlobs*(
           return
 
         self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
-        blobs = newSeqOfCap[kzg.KzgBlob](blobsV3.len)
+        blobs.setLen(blobsV3.len)
         flat_proof = newSeqOfCap[kzg.KzgProof](
           blobsV3.len * fulu_preset.CELLS_PER_EXT_BLOB)
-        for item in blobsV3:
-          let v = item.get
-          blobs.add kzg.KzgBlob(bytes: v.blob.data)
-          for proof in v.proofs:
+        for i, item in blobsV3:
+          assign(blobs[i].bytes, item.value.blob.data)
+          for proof in item.value.proofs:
             flat_proof.add kzg.KzgProof(bytes: proof.data)
       else:
         let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
@@ -243,11 +245,11 @@ proc attemptGetBlobs*(
           return
         self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
 
-        blobs = newSeqOfCap[kzg.KzgBlob](blobsEl.len)
+        blobs.setLen(blobsEl.len)
         flat_proof = newSeqOfCap[kzg.KzgProof](
           blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
-        for item in blobsEl:
-          blobs.add kzg.KzgBlob(bytes: item.blob.data)
+        for i, item in blobsEl:
+          assign(blobs[i].bytes, item.blob.data)
           for proof in item.proofs:
             flat_proof.add kzg.KzgProof(bytes: proof.data)
 
