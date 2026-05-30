@@ -478,7 +478,7 @@ func find_head(
   ## Returns the new blockchain head
 
   # Apply score changes
-  var deltas = newSeq[Delta](self.proto_array.indices.len)
+  var deltas = newSeq[Delta](self.proto_array.nodes.len)
   ? deltas.compute_deltas(
     indices = self.proto_array.indices,
     fullBlockIndices = self.proto_array.fullBlockIndices,

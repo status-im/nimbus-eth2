@@ -382,6 +382,38 @@ func onBlock*(
 
   ok()
 
+func onPayloadVerified*(
+    self: var ProtoArray, root: Eth2Digest): FcResult[void] =
+  ## Register the FULL payload variant of a block once its execution payload
+  ## has been verified, as a sibling of the EMPTY/PENDING node sharing the same
+  ## parent. Subsequent blocks that build on the full parent attach here.
+  if root in self.fullBlockIndices:
+    return ok()
+
+  let blockIdx = self.find(root)
+  if blockIdx < 0:
+    return ok()
+
+  let blockNode = self.nodes[blockIdx].valueOr:
+    return ok()
+
+  let fullIdx = self.nodes.offset + self.nodes.buf.len
+  let fullNode = ProtoNode(
+    bid: blockNode.bid,
+    parent: blockNode.parent,
+    checkpoints: blockNode.checkpoints,
+    sharedFinalizedEpoch: blockNode.sharedFinalizedEpoch,
+    invalid: blockNode.invalid)
+
+  self.fullBlockIndices[root] = fullIdx
+  self.nodes.add fullNode
+
+  if blockNode.parent.isSome:
+    ? self.maybeUpdateBestChildAndDescendant(
+        blockNode.parent.unsafeGet, fullIdx)
+
+  ok()
+
 func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
@@ -394,16 +426,26 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
     return err ForkChoiceError(
       kind: fcJustifiedNodeUnknown,
       blockRoot: justifiedRoot)
-  let
-    justifiedNode = self.nodes[justifiedIdx].valueOr:
-      return err ForkChoiceError(
-        kind: fcInvalidJustifiedIndex,
-        index: justifiedIdx)
-    bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
-    bestNode = self.nodes[bestDescendantIdx].valueOr:
-      return err ForkChoiceError(
-        kind: fcInvalidBestDescendant,
-        index: bestDescendantIdx)
+  let justifiedNode = self.nodes[justifiedIdx].valueOr:
+    return err ForkChoiceError(
+      kind: fcInvalidJustifiedIndex,
+      index: justifiedIdx)
+
+  # If the justified EMPTY/PENDING node has no descendants, the chain continued
+  # on its FULL sibling (subsequent blocks built on the full payload); follow
+  # the FULL sibling's best-descendant instead.
+  var bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
+  if bestDescendantIdx == justifiedIdx:
+    let fullIdx = self.fullBlockIndices.getOrDefault(justifiedRoot, -1)
+    if fullIdx >= 0:
+      let fullNode = self.nodes[fullIdx]
+      if fullNode.isSome:
+        bestDescendantIdx = fullNode.get.bestDescendant.get(fullIdx)
+
+  let bestNode = self.nodes[bestDescendantIdx].valueOr:
+    return err ForkChoiceError(
+      kind: fcInvalidBestDescendant,
+      index: bestDescendantIdx)
 
   # Perform a sanity check to ensure the node can be head
   if not self.nodeIsViableForHead(bestNode, bestDescendantIdx):
