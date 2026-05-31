@@ -54,6 +54,8 @@ func genesisTestRuntimeConfig*(consensusFork: ConsensusFork): RuntimeConfig =
     res.FULU_FORK_EPOCH = GENESIS_EPOCH
   if consensusFork >= ConsensusFork.Gloas:
     res.GLOAS_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Heze:
+    res.HEZE_FORK_EPOCH = GENESIS_EPOCH
 
   res
 
