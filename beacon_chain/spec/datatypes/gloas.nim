@@ -85,7 +85,7 @@ type
   # [Modified in Gloas] Compared to Fulu, the `header` field is removed
   # (peers now key on `PartialDataColumnGroupID` out-of-band)
   PartialDataColumnSidecar* = object
-    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    cells_present_bitmap*: fulu.CellsPresentBits
     partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     kzg_proofs*: deneb.KzgProofs
 

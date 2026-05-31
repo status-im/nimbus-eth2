@@ -21,7 +21,7 @@ import
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
-from std/sequtils import anyIt, mapIt, repeat, toSeq
+from std/sequtils import anyIt, mapIt, newSeqWith, repeat, toSeq
 from stew/staticfor import staticFor
 
 type
@@ -511,8 +511,8 @@ proc assemble_partial_data_column_sidecars*(
   # are computed exactly once and discarded before the next — the full
   # row-by-column cell matrix never needs to be resident.
   var
-    bitmaps = newSeq[BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]](
-      CELLS_PER_EXT_BLOB)
+    bitmaps = newSeqWith(
+      CELLS_PER_EXT_BLOB, fulu.CellsPresentBits.init(blobs.len))
     columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
     columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
 
@@ -547,8 +547,8 @@ proc assemble_partial_data_column_sidecars*(
   # computed exactly once and discarded before the next — `computeCells` is
   # expensive and the full row-by-column matrix never needs to be resident.
   var
-    bitmaps = newSeq[BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]](
-      CELLS_PER_EXT_BLOB)
+    bitmaps = newSeqWith(
+      CELLS_PER_EXT_BLOB, fulu.CellsPresentBits.init(blobs.len))
     columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
     columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
 
@@ -579,8 +579,7 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
 
   # Get the blob indices from the bitmap
   var blobIndices = newSeqOfCap[int](sidecar.partial_column.len)
-  for i in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
-    # BitArray's [] / []= accessors require a Natural (non-negative integer)
+  for i in 0 ..< sidecar.cells_present_bitmap.len:
     if sidecar.cells_present_bitmap[Natural(i)]:
       blobIndices.add(i)
 

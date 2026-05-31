@@ -115,9 +115,11 @@ type
 
   PartialDataColumnHeaders* = seq[ref PartialDataColumnHeader]
 
+  CellsPresentBits* = BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnsidecar
   PartialDataColumnSidecar* = object
-    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    cells_present_bitmap*: CellsPresentBits
     partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     kzg_proofs*: deneb.KzgProofs
     # Optional header, only sent on eager pushes

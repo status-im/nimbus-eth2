@@ -195,9 +195,9 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           of "PartialDataColumnHeader":
-            checkSSZ(PartialDataColumnHeader, path, hash)
+            checkSSZ(fulu.PartialDataColumnHeader, path, hash)
           of "PartialDataColumnSidecar":
-            checkSSZ(PartialDataColumnSidecar, path, hash)
+            checkSSZ(fulu.PartialDataColumnSidecar, path, hash)
           of "PartialDataColumnPartsMetadata":
             debugGloasComment "Skipping PartialDataColumn tests for now"
           else:

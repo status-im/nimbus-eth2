@@ -53,7 +53,8 @@ func genPartialDataColumnSidecar(
   ## Build a Fulu PartialDataColumnSidecar with cells at the given blob
   ## indices. Cell/proof payloads are deterministic from startCellId.
   var
-    bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    bitmap = fulu.CellsPresentBits.init(
+      if blobIndices.len == 0: 0 else: max(blobIndices) + 1)
     cells = newSeqOfCap[KzgCell](blobIndices.len)
     proofs = newSeqOfCap[KzgProof](blobIndices.len)
   for i, blobIdx in blobIndices:
@@ -84,7 +85,8 @@ func genGloasPartialDataColumnSidecar(
   ## Build a Gloas PartialDataColumnSidecar (singular `partial_column`,
   ## no `header` field).
   var
-    bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    bitmap = fulu.CellsPresentBits.init(
+      if blobIndices.len == 0: 0 else: max(blobIndices) + 1)
     cells = newSeqOfCap[KzgCell](blobIndices.len)
     proofs = newSeqOfCap[KzgProof](blobIndices.len)
   for i, blobIdx in blobIndices:

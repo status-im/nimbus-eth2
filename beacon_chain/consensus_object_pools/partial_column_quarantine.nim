@@ -19,7 +19,7 @@ import
 # - Gloas: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md
 
 from ../spec/datatypes/fulu import
-  ColumnIndex, DataColumn, MAX_BLOB_COMMITMENTS_PER_BLOCK
+  ColumnIndex, DataColumn
 
 from ../spec/datatypes/deneb import KzgCommitments, KzgProofs
 
@@ -245,7 +245,7 @@ func addCells*[K, H; S: AnyPartialDataColumnSidecar](
 
   template s: untyped = sidecar[]
   var cellIdx = 0
-  for blobIdx in 0 ..< int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
+  for blobIdx in 0 ..< s.cells_present_bitmap.len:
     if s.cells_present_bitmap[Natural(blobIdx)]:
       if cellIdx < s.partial_column.len and
          cellIdx < s.kzg_proofs.len and
