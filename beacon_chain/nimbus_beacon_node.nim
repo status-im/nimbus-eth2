@@ -598,7 +598,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
-    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
+    partialColumnQuarantine = newClone(FuluPartialColumnQuarantine.init())
 
   validatorCustody.setQuarantine(dataColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)

@@ -364,14 +364,17 @@ func removeEntry*[K, H](
   quarantine.entries.del(key)
 
 func pruneForBlock*(
-    quarantine: var PartialColumnQuarantine,
+    quarantine: var FuluPartialColumnQuarantine,
     blockRoot: Eth2Digest) =
   ## Drop the validated header and every per-column entry for `blockRoot`.
   ## Called once full DataColumnSidecars for the block have been promoted
   ## into the normal column quarantine — the accumulated partial cells are
   ## now redundant and would otherwise sit in the LRUs until eviction.
+  ##
+  ## Fulu-only: the Fulu quarantine is keyed by block root. Gloas keys on
+  ## `PartialDataColumnGroupID`, so it cannot be pruned by root alone.
   quarantine.headers.del(blockRoot)
   for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
-    let key = PartialColumnKey(
-      blockRoot: blockRoot, columnIndex: ColumnIndex(columnIndex))
+    let key = PartialColumnKey[Eth2Digest](
+      blockId: blockRoot, columnIndex: ColumnIndex(columnIndex))
     quarantine.entries.del(key)
