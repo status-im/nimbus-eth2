@@ -28,22 +28,31 @@ switch("nimcache", nimCachePath)
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
 # With LTO enabled, optimization flags should be passed to both compiler and linker!
 if defined(release) and not defined(disableLTO):
-  # "-w" is not passed to the compiler during linking, so we need to disable
-  # some warnings by hand.
-  switch("passL", "-Wno-stringop-overflow -Wno-stringop-overread")
+  # TODO https://github.com/nim-lang/Nim/issues/25847
+  # https://github.com/nim-lang/Nim/blob/bfeb3146d1638b39f69007a4ae5a23e23ae4e5ef/config/nim.cfg#L331
+  template extend(name, value) = put(name, get(name) & value)
 
-  if defined(macosx): # Clang
-    switch("passC", "-flto=thin")
-    switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
-  elif defined(linux):
-    switch("passC", "-flto=auto")
-    switch("passL", "-flto=auto")
-    switch("passC", "-finline-limit=100000")
-    switch("passL", "-finline-limit=100000")
-  else:
-    # On windows, LTO needs more love and attention so "gcc-ar" and "gcc-ranlib" are
-    # used for static libraries.
-    discard
+  extend "vcc.options.always", " /GL /Gw /Gy"
+  extend "vcc.cpp.options.always", " /GL /Gw /Gy"
+  extend "vcc.options.linker", " /link /LTCG:incremental"
+  extend "vcc.cpp.options.linker", " /link /LTCG:incremental"
+  extend "clang_cl.options.always", " -flto=thin"
+  extend "clang.cpp.options.always", " -flto=thin"
+  extend "clang.options.always", " -flto=thin"
+  extend "clang.cpp.options.always", " -flto=thin"
+  extend "clang.options.linker", " -flto=thin"
+  extend "clang.cpp.options.linker", " -flto=thin"
+  extend "icl.options.always", " /Qipo"
+  extend "icl.cpp.options.always", " /Qipo"
+  extend "gcc.options.always", " -flto=auto -finline-limit=100000"
+  extend "gcc.cpp.options.always", " -flto=auto -finline-limit=100000"
+  extend "gcc.options.linker", " -flto=auto -Wno-stringop-overflow -Wno-stringop-overread -finline-limit=100000"  # https://github.com/nim-lang/Nim/issues/21595
+  extend "gcc.cpp.options.linker", " -flto=auto -Wno-stringop-overflow -Wno-stringop-overread -finline-limit=100000"
+
+  if defined(macosx):
+    # https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-flto
+    extend "clang.options.linker", " -Wl,-object_path_lto," & nimCachePath & "/lto"
+    extend "clang.cpp.options.linker", " -Wl,-object_path_lto," & nimCachePath & "/lto"
 
 # Hidden visibility allows for better position-independent codegen - it also
 # resolves a build issue in BLST where otherwise private symbols would require
