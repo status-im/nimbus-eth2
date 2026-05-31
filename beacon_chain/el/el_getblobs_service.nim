@@ -28,6 +28,7 @@ import
   ../sync/validator_custody,
   ./el_manager
 
+from std/enumerate import enumerate
 from std/sequtils import anyIt, countIt, filterIt
 from stew/assign2 import assign
 
@@ -231,7 +232,9 @@ proc attemptGetBlobs*(
         blobs.setLen(blobsV3.len)
         flat_proof = newSeqOfCap[kzg.KzgProof](
           blobsV3.len * fulu_preset.CELLS_PER_EXT_BLOB)
-        for i, item in blobsV3:
+        # TODO https://github.com/nim-lang/Nim/issues/25848 means that
+        # enumerate(...) is required for lent to trigger
+        for i, item in enumerate(blobsV3):
           assign(blobs[i].bytes, item.value.blob.data)
           for proof in item.value.proofs:
             flat_proof.add kzg.KzgProof(bytes: proof.data)
@@ -248,7 +251,9 @@ proc attemptGetBlobs*(
         blobs.setLen(blobsEl.len)
         flat_proof = newSeqOfCap[kzg.KzgProof](
           blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
-        for i, item in blobsEl:
+        # TODO https://github.com/nim-lang/Nim/issues/25848 means that
+        # enumerate(...) is required for lent to trigger
+        for i, item in enumerate(blobsEl):
           assign(blobs[i].bytes, item.blob.data)
           for proof in item.proofs:
             flat_proof.add kzg.KzgProof(bytes: proof.data)
