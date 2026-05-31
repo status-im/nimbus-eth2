@@ -464,6 +464,15 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   head = bestNode.bid.root
   ok()
 
+func remapIdx(idx: Opt[Index], oldToNew: Table[Index, Index]): Opt[Index] =
+  # Remap a logical node index through the prune survivor table; drops it if
+  # the referenced node did not survive.
+  if idx.isSome:
+    let n = oldToNew.getOrDefault(idx.unsafeGet, -1)
+    if n >= 0:
+      return Opt.some(n)
+  Opt.none(Index)
+
 func prune*(
     self: var ProtoArray,
     checkpoints: FinalityCheckpoints): FcResult[void] =
@@ -495,23 +504,50 @@ func prune*(
 
   trace "Pruning blocks from fork choice", checkpoints
 
-  let finalPhysicalIdx = finalizedIdx - self.nodes.offset
-  for nodePhysicalIdx in 0 ..< finalPhysicalIdx:
-    let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
-    self.unrealized.del nodeLogicalIdx
-    self.indices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
-    self.fullBlockIndices.del(self.nodes.buf[nodePhysicalIdx].bid.root)
+  # A block (and both its EMPTY and FULL variant nodes) survives iff its EMPTY
+  # node is the finalized block or one of its descendants, i.e.
+  # `indices[root] >= finalizedIdx`. We key on the EMPTY node's index — which is
+  # always kept in age order — rather than each node's physical position,
+  # because `onPayloadVerified` appends FULL nodes out of slot order and they
+  # can straddle the finalization boundary. A plain front-truncation would
+  # strand a pruned block's FULL node in the buffer while deleting its index
+  # entry, breaking `indices.len + fullBlockIndices.len == nodes.len`.
+  let newOffset = finalizedIdx
+  var
+    newBuf = newSeqOfCap[ProtoNode](self.nodes.buf.len)
+    oldToNew: Table[Index, Index]
+    isFull: seq[bool]
+  for physIdx in 0 ..< self.nodes.buf.len:
+    let
+      oldLogicalIdx = physIdx + self.nodes.offset
+      root = self.nodes.buf[physIdx].bid.root
+    if self.indices.getOrDefault(root, -1) >= finalizedIdx:
+      oldToNew[oldLogicalIdx] = newOffset + newBuf.len
+      isFull.add(self.fullBlockIndices.getOrDefault(root, -1) == oldLogicalIdx)
+      newBuf.add self.nodes.buf[physIdx]
 
-  # Drop all nodes prior to finalization.
-  # This is done in-place with `moveMem` to avoid costly reallocations.
-  static: doAssert ProtoNode.supportsCopyMem(), "ProtoNode must be a trivial type"
-  let tail = self.nodes.len - finalPhysicalIdx
-  # TODO: can we have an unallocated `self.nodes`? i.e. self.nodes[0] is nil
-  moveMem(self.nodes.buf[0].addr, self.nodes.buf[finalPhysicalIdx].addr, tail * sizeof(ProtoNode))
-  self.nodes.buf.setLen(tail)
+  # Rebuild the index tables, `unrealized`, and the parent/best-child/
+  # best-descendant links against the new logical indices of the survivors.
+  let oldUnrealized = self.unrealized
+  self.indices.clear()
+  self.fullBlockIndices.clear()
+  self.unrealized.clear()
+  for i in 0 ..< newBuf.len:
+    let newLogicalIdx = newOffset + i
+    newBuf[i].parent = remapIdx(newBuf[i].parent, oldToNew)
+    newBuf[i].bestChild = remapIdx(newBuf[i].bestChild, oldToNew)
+    newBuf[i].bestDescendant = remapIdx(newBuf[i].bestDescendant, oldToNew)
+    if isFull[i]:
+      self.fullBlockIndices[newBuf[i].bid.root] = newLogicalIdx
+    else:
+      self.indices[newBuf[i].bid.root] = newLogicalIdx
+  for oldLogicalIdx, cp in oldUnrealized:
+    let n = oldToNew.getOrDefault(oldLogicalIdx, -1)
+    if n >= 0:
+      self.unrealized[n] = cp
 
-  # update offset
-  self.nodes.offset = finalizedIdx
+  self.nodes.buf = newBuf
+  self.nodes.offset = newOffset
 
   ok()
 
