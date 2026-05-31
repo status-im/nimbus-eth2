@@ -66,8 +66,8 @@ if defined(limitStackUsage):
   # available on some GCC versions but not all - run with `-d:limitStackUsage`
   # and look for .su files in "./build/", "./nimcache/" or $TMPDIR that list the
   # stack size of each function.
-  switch("passC", "-fstack-usage -Werror=stack-usage=917504")
-  switch("passL", "-fstack-usage -Werror=stack-usage=917504")
+  switch("passC", "-fstack-usage -Werror=stack-usage=851968")
+  switch("passL", "-fstack-usage -Werror=stack-usage=851968")
   
   # QUIC does variable stack allocations
   put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
