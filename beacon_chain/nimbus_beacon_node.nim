@@ -2048,7 +2048,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         nextSlotCutoff = node.beaconClock.fromNow(
           nextSlot.start_beacon_time(node.dag.timeParams))
         head = node.dag.head # could be a new head compared to earlier
-        headPayload = node.dag.headPayload
 
       if nextSlotCutoff.inFuture and node.isSynced(head) and
           head.executionOrParentValid:

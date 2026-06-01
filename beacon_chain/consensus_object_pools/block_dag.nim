@@ -244,23 +244,28 @@ func shortLog*(v: BlockSlot): string =
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
 
-func executionParent*(blck: BlockRef): Opt[BlockRef] =
+proc executionParent*(blck: BlockRef): Opt[BlockRef] =
   result = Opt.none(BlockRef)
-  if isNil(blck.parent) or
-      blck.executionParentHash.isNone() or
-      # executionParentHash of pre-Gloas blocks is zero
-      blck.executionParentHash.unsafeGet().isZero():
+  if isNil(blck.parent) or blck.executionParentHash.isNone():
     return
+  if blck.executionParentHash.unsafeGet().isZero():
+    return
+      if blck.parent.slot == GENESIS_SLOT:
+        Opt.some(blck.parent)
+      else:
+        result
 
   var cur = blck.parent
   debugGloasComment("revisit the max depth of ancestors")
   for _ in 0 ..< SLOTS_PER_EPOCH:
-    if cur.executionBlockHash.isNone() or
-        cur.executionBlockHash.unsafeGet().isZero():
-      return
+    if cur.executionBlockHash.isNone():
+      break
     if cur.executionBlockHash.unsafeGet() ==
         blck.executionParentHash.unsafeGet():
       return Opt.some(cur)
+    if isNil(cur.parent):
+      break
+    cur = cur.parent
 
 func executionValid*(blck: BlockRef): bool =
   blck.optimisticStatus == OptimisticStatus.valid

@@ -168,7 +168,8 @@ type
       ## on the next block proposal for building payload on either the current
       ## head (parent) or the parent of the current head (grandparent).
       ##
-      ## Used only since Gloas.
+      ## Used only since Gloas. Always read values from the head instead of
+      ## headPayload. It is for deriving the should_extend_payload status.
       ##
       ## In the usual scenarios it should point to either`dag.head` or
       ## `dag.head.parent`. It would be nil at the beginning of Gloas fork,

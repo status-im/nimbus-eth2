@@ -2469,10 +2469,9 @@ proc executionParent*(
       break
     cur = cur.parent
 
-func payloadStatusFull*(
-    dag: ChainDAGRef, head: BlockRef, headPayload: BlockRef): bool =
+func shouldExtendPayload*(
+    dag: ChainDAGRef, head: BlockRef): bool =
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_extend_payload
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_build_on_full
   ##
   ## A helper function for getting the status of whether or not to build/extend
   ## on the head payload, as the payload selected by fork choice is stored in
@@ -2482,7 +2481,7 @@ func payloadStatusFull*(
     head.slot == GENESIS_SLOT or
     dag.cfg.consensusForkAtEpoch(head.slot.epoch) < ConsensusFork.Gloas or
     # The usual path since Gloas
-    head == headPayload
+    head == dag.headPayload
   )
 
 from std/packedsets import PackedSet, incl, items
