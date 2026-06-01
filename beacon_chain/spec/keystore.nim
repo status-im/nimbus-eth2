@@ -969,7 +969,6 @@ func decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
   let valid =
     case crypto.checksum.function
     of sha256Checksum:
-      template params: auto {.used.} = crypto.checksum.params
       template message: auto = crypto.checksum.message
       message == shaChecksum(decKey.toOpenArray(16, 31),
                              crypto.cipher.message.bytes)
@@ -1084,10 +1083,6 @@ func `==`*(a, b: Kdf): bool =
 func `==`*(a, b: Cipher): bool =
   # We do not care about `params` and `message` fields.
   a.function == b.function
-
-func `==`*(a, b: KeystoreCacheItem): bool =
-  (a.kdf == b.kdf) and (a.cipher == b.cipher) and
-  (a.decryptionKey == b.decryptionKey)
 
 func init*(t: typedesc[KeystoreCacheRef],
            expireTime = KeystoreCachePruningTime): KeystoreCacheRef =

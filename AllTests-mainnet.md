@@ -855,6 +855,10 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
+## Inclusion list [Preset: mainnet]
+```diff
++ get_inclusion_list_committee                                                               OK
+```
 ## Key splitting
 ```diff
 + k < n                                                                                      OK
@@ -942,6 +946,7 @@ AllTests-mainnet
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
++ inclusion list signatures                                                                  OK
 + payload attestation message signatures                                                     OK
 + proposer preferences message signatures                                                    OK
 ```

@@ -11,7 +11,6 @@
 import
   # Status libraries
   unittest2,
-  chronicles,
   # Internal
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, payload_attestation_pool, spec_cache],
@@ -329,7 +328,6 @@ suite "Payload attestation pool" & preset():
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         # Get PTC using StateCache version
-        var cache = StateCache()
         let stateCacheResults = collect(newSeq):
           for validator_index in get_ptc(forkyState.data, slot):
             validator_index

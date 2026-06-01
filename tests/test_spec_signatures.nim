@@ -253,6 +253,20 @@ suite "Message signatures":
       not verify_payload_attestation_message_signature(fork0, gvr0, data1, pubkey0, sig)
       not verify_payload_attestation_message_signature(fork0, gvr0, data0, pubkey1, sig)
 
+  test "inclusion list signatures":
+    let
+      msg0 = default(InclusionList)
+      msg1 = (var m = msg0; m.validator_index = 1; m)
+      sig = get_inclusion_list_signature(fork0, gvr0, msg0, privkey0).toValidatorSig
+
+    check:
+      verify_inclusion_list_signature(fork0, gvr0, msg0, pubkey0, sig)
+
+      not verify_inclusion_list_signature(fork1, gvr0, msg0, pubkey0, sig)
+      not verify_inclusion_list_signature(fork0, gvr1, msg0, pubkey0, sig)
+      not verify_inclusion_list_signature(fork0, gvr0, msg1, pubkey0, sig)
+      not verify_inclusion_list_signature(fork0, gvr0, msg0, pubkey1, sig)
+
   test "BLS to execution change signatures":
     let
       change0 = default(SignedBLSToExecutionChange)
