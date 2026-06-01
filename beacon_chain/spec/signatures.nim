@@ -530,3 +530,29 @@ proc verify_proposer_preferences_signature*(
   let signing_root = compute_proposer_preferences_signing_root(
     fork, genesis_validators_root, data)
   blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/heze/beacon-chain.md#new-is_valid_inclusion_list_signature
+func compute_inclusion_list_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: InclusionList): Eth2Digest =
+  let
+    epoch = msg.slot.epoch
+    domain = get_domain(
+      fork, DOMAIN_INCLUSION_LIST_COMMITTEE, epoch, genesis_validators_root)
+  compute_signing_root(msg, domain)
+
+func get_inclusion_list_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: InclusionList,
+    privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_inclusion_list_signing_root(
+    fork, genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
+
+proc verify_inclusion_list_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: InclusionList,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_inclusion_list_signing_root(
+    fork, genesis_validators_root, msg)
+  blsVerify(pubkey, signing_root.data, signature)

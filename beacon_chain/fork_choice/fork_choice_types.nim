@@ -108,6 +108,7 @@ type
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
+    fullBlockIndices*: Table[Eth2Digest, Index]
     unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
@@ -142,6 +143,8 @@ type
     current_root*: Eth2Digest
     next_root*: Eth2Digest
     slot*: Slot
+    payload_present*: bool
+    next_payload_present*: bool
 
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
@@ -166,6 +169,7 @@ type
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
     slot*: Slot
+    committee_index*: CommitteeIndex
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
@@ -177,6 +181,8 @@ func shortLog*(vote: VoteTracker): auto =
     slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
+    payload_present: vote.payload_present,
+    next_payload_present: vote.next_payload_present
   )
 
 chronicles.formatIt VoteTracker: it.shortLog

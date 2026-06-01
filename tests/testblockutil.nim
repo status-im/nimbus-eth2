@@ -20,6 +20,7 @@ import
     beaconstate, helpers, keystore, forks, signatures, state_transition, validator]
 
 from ../beacon_chain/spec/state_transition_block import kzg_commitment_to_versioned_hash
+from ../beacon_chain/validators/block_payloads import decodePayloadRequests
 from ../beacon_chain/spec/datatypes/electra import ExecutionRequests
 
 from ../beacon_chain/spec/datatypes/deneb import
@@ -49,6 +50,7 @@ type
 
   EngineBlock*[BB: ForkySignedBeaconBlock] = object
     blck*: BB
+    envelope*: SignedExecutionPayloadEnvelope
     blobsBundle*: BlobsBundle
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/tests/core/pyspec/eth2spec/test/helpers/keys.py
@@ -142,32 +144,44 @@ func makeExecutionPayloadForSigning*(
   ## requires execution state) - in Bellatrix, it _should_ be EL-valid as well!
 
   let
-    merged = is_merge_transition_complete(state)
-    latest = state.latest_execution_payload_header
     timestamp = cfg.timeParams.compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
-    base_fee =
+
+  var eps = default(consensusFork.ExecutionPayloadForSigning)
+  var payload = typeof(eps.executionPayload)(
+    fee_recipient: default(Eth1Address),
+    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
+    prev_randao: randao_mix,
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+  )
+
+  when consensusFork >= ConsensusFork.Gloas:
+    payload.parent_hash = state.latest_block_hash
+    payload.state_root = ZERO_HASH
+    payload.block_number = uint64(state.slot) + 1
+    payload.gas_limit = state.latest_execution_payload_bid.gas_limit
+    payload.base_fee_per_gas = EIP1559_INITIAL_BASE_FEE
+  else:
+    let
+      merged = is_merge_transition_complete(state)
+      latest = state.latest_execution_payload_header
+    payload.parent_hash = latest.block_hash
+    payload.state_root = latest.state_root
+    payload.block_number = latest.block_number + 1
+    payload.gas_limit = if merged: latest.gas_limit else: 30000000
+    payload.base_fee_per_gas =
       if merged:
         calcEip1599BaseFee(latest.gas_limit, latest.gas_used, latest.base_fee_per_gas)
       else:
         EIP1559_INITIAL_BASE_FEE
 
-  var eps = default(consensusFork.ExecutionPayloadForSigning)
-  var payload = typeof(eps.executionPayload)(
-    parent_hash: latest.block_hash,
-    fee_recipient: default(Eth1Address),
-    state_root: latest.state_root,
-    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
-    block_number: latest.block_number + 1,
-    prev_randao: randao_mix,
-    gas_limit: if merged: latest.gas_limit else: 30000000,
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: base_fee,
-  )
-
   # Add withdrawals before computing hash (hash needs to include them)
-  when consensusFork >= ConsensusFork.Capella:
+  when consensusFork >= ConsensusFork.Gloas:
+    payload.slot_number = state.slot
+    payload.withdrawals =
+      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state).withdrawals)
+  elif consensusFork >= ConsensusFork.Capella:
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
@@ -185,7 +199,7 @@ func makeExecutionPayloadForSigning*(
 
   eps.executionPayload = payload
 
-  when consensusFork == ConsensusFork.Fulu:
+  when consensusFork >= ConsensusFork.Fulu:
     eps.blobsBundle = fulu.BlobsBundle()
   elif consensusFork in ConsensusFork.Deneb..ConsensusFork.Electra:
     eps.blobsBundle = deneb.BlobsBundle()
@@ -203,29 +217,37 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
   ## requires execution state) - in Bellatrix, it _should_ be EL-valid as well!
 
   let
-    merged = is_merge_transition_complete(state)
-    latest = state.latest_execution_payload_header
     timestamp = cfg.timeParams.compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
-    base_fee =
+
+  var eps: consensusFork.ExecutionPayloadForSigning
+  var payload = typeof(eps.executionPayload)(
+    fee_recipient: default(Eth1Address),
+    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
+    prev_randao: randao_mix,
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+  )
+
+  when consensusFork >= ConsensusFork.Gloas:
+    payload.parent_hash = state.latest_block_hash
+    payload.state_root = ZERO_HASH
+    payload.block_number = uint64(state.slot) + 1
+    payload.gas_limit = state.latest_execution_payload_bid.gas_limit
+    payload.base_fee_per_gas = EIP1559_INITIAL_BASE_FEE
+  else:
+    let
+      merged = is_merge_transition_complete(state)
+      latest = state.latest_execution_payload_header
+    payload.parent_hash = latest.block_hash
+    payload.state_root = latest.state_root
+    payload.block_number = latest.block_number + 1
+    payload.gas_limit = if merged: latest.gas_limit else: 30000000
+    payload.base_fee_per_gas =
       if merged:
         calcEip1599BaseFee(latest.gas_limit, latest.gas_used, latest.base_fee_per_gas)
       else:
         EIP1559_INITIAL_BASE_FEE
-
-  var eps: consensusFork.ExecutionPayloadForSigning
-  var payload = typeof(eps.executionPayload)(
-    parent_hash: latest.block_hash,
-    fee_recipient: default(Eth1Address),
-    state_root: latest.state_root,
-    receipts_root: EMPTY_ROOT_HASH.asEth2Digest,
-    block_number: latest.block_number + 1,
-    prev_randao: randao_mix,
-    gas_limit: if merged: latest.gas_limit else: 30000000,
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: base_fee,
-  )
 
   # Add EIP-4844 transactions with versioned hashes for blob commitments
   when consensusFork >= ConsensusFork.Deneb:
@@ -241,7 +263,7 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
         nonce: 0.AccountNonce,
         gasLimit: 21000.GasInt,
         maxPriorityFeePerGas: 1.GasInt,
-        maxFeePerGas: base_fee.truncate(uint64).GasInt,
+        maxFeePerGas: payload.base_fee_per_gas.truncate(uint64).GasInt,
         to: Opt.some(default(eth_types.Address)),
         versionedHashes: versionedHashes,
         maxFeePerBlobGas: 1.u256
@@ -256,7 +278,11 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
     doAssert blobsBundle.commitments.len == 0
 
   # Add withdrawals before computing hash (hash needs to include them)
-  when consensusFork >= ConsensusFork.Capella:
+  when consensusFork >= ConsensusFork.Gloas:
+    payload.slot_number = state.slot
+    payload.withdrawals =
+      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state).withdrawals)
+  elif consensusFork >= ConsensusFork.Capella:
     payload.withdrawals =
       List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](get_expected_withdrawals(state))
 
@@ -327,13 +353,7 @@ proc addTestEngineBlock*(
       )
 
     eps =
-      when consensusFork >= ConsensusFork.Gloas:
-        var gloasEps = default(gloas.ExecutionPayloadForSigning)
-        gloasEps.executionPayload.parent_hash = state.data.latest_block_hash
-        gloasEps.executionPayload.block_hash = eth2digest(
-          state.data.slot.uint64.toBytesBE())
-        gloasEps
-      elif consensusFork >= ConsensusFork.Bellatrix:
+      when consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadForSigning(
             cfg, consensusFork, state.data, BlobsBundle())
@@ -341,6 +361,12 @@ proc addTestEngineBlock*(
           default(consensusFork.ExecutionPayloadForSigning)
       else:
         default(bellatrix.ExecutionPayloadForSigning)
+
+    execution_requests =
+      when consensusFork >= ConsensusFork.Electra:
+        decodePayloadRequests(eps).expect("execution requests")
+      else:
+        default(ExecutionRequests)
 
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
@@ -355,6 +381,8 @@ proc addTestEngineBlock*(
             parent_block_hash: state.data.latest_block_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            gas_limit: eps.executionPayload.gas_limit,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
@@ -366,6 +394,8 @@ proc addTestEngineBlock*(
             parent_block_hash: state.data.latest_block_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            gas_limit: eps.executionPayload.gas_limit,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),
@@ -394,10 +424,36 @@ proc addTestEngineBlock*(
       )
       .expect("block")
 
-  EngineBlock[consensusFork.SignedBeaconBlock](
-    blck: signBlock(
-      state.data.fork, state.data.genesis_validators_root, message, privKey, flags
+    blck = signBlock(
+      state.data.fork, state.data.genesis_validators_root,
+      message, privKey, flags
     )
+
+    envelope =
+      when consensusFork >= ConsensusFork.Gloas:
+        let msg = gloas.ExecutionPayloadEnvelope(
+          payload: eps.executionPayload,
+          execution_requests: default(ExecutionRequests),
+          builder_index: BUILDER_INDEX_SELF_BUILD,
+          beacon_block_root: blck.root,
+          parent_beacon_block_root: message.parent_root,
+        )
+        SignedExecutionPayloadEnvelope(
+          message: msg,
+          signature: get_execution_payload_envelope_signature(
+            state.data.fork,
+            state.data.genesis_validators_root,
+            state.data.slot.epoch,
+            msg,
+            privKey,
+          ).toValidatorSig(),
+        )
+      else:
+        default(SignedExecutionPayloadEnvelope)
+
+  EngineBlock[consensusFork.SignedBeaconBlock](
+    blck: blck,
+    envelope: envelope,
   )
 
 proc addTestEngineBlockWithBlobs*(
@@ -439,13 +495,7 @@ proc addTestEngineBlockWithBlobs*(
       )
 
     eps =
-      when consensusFork >= ConsensusFork.Gloas:
-        var gloasEps = default(gloas.ExecutionPayloadForSigning)
-        gloasEps.executionPayload.parent_hash = state.data.latest_block_hash
-        gloasEps.executionPayload.block_hash = eth2digest(
-          state.data.slot.uint64.toBytesBE())
-        gloasEps
-      elif consensusFork >= ConsensusFork.Bellatrix:
+      when consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadWithNonEmptyBlobsForSigning(
             cfg, consensusFork, state.data, blobsBundle)
@@ -453,6 +503,12 @@ proc addTestEngineBlockWithBlobs*(
           default(consensusFork.ExecutionPayloadForSigning)
       else:
         default(bellatrix.ExecutionPayloadForSigning)
+
+    execution_requests =
+      when consensusFork >= ConsensusFork.Electra:
+        decodePayloadRequests(eps).expect("execution requests")
+      else:
+        default(ExecutionRequests)
 
     signed_execution_payload_bid =
       when consensusFork >= ConsensusFork.Heze:
@@ -464,6 +520,8 @@ proc addTestEngineBlockWithBlobs*(
             parent_block_hash: state.data.latest_block_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            gas_limit: eps.executionPayload.gas_limit,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
@@ -475,6 +533,8 @@ proc addTestEngineBlockWithBlobs*(
             parent_block_hash: state.data.latest_block_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            gas_limit: eps.executionPayload.gas_limit,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),

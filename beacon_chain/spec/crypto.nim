@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # BLS signatures can be combined such that multiple signatures are aggregated.
 # Each time a new signature is added, the corresponding public key must be
@@ -118,14 +118,6 @@ func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   ValidatorPubKey(blob: pubKey.toRaw())
 
 func load*(v: ValidatorPubKey): Opt[CookedPubKey] =
-  ## Parse signature blob - this may fail
-  var val: blscurve.PublicKey
-  if fromBytes(val, v.blob):
-    Opt.some CookedPubKey(val)
-  else:
-    Opt.none CookedPubKey
-
-func load*(v: UncompressedPubKey): Opt[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
@@ -295,14 +287,6 @@ proc blsFastAggregateVerify*(
 
   fastAggregateVerify(unwrapped, message, blscurve.Signature(signature))
 
-func blsFastAggregateVerify*(
-       publicKeys: openArray[CookedPubKey],
-       message: openArray[byte],
-       signature: ValidatorSig
-     ): bool =
-  let parsedSig = signature.load()
-  parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
-
 proc blsFastAggregateVerify*(
        publicKeys: openArray[ValidatorPubKey],
        message: openArray[byte],
@@ -395,12 +379,6 @@ func toHex*(x: BlsCurveType): string =
 
 func toHex*(x: CookedPubKey): string =
   toHex(x.toPubKey())
-
-func `$`*(x: CookedPubKey): string =
-  $(x.toPubKey())
-
-func toValidatorSig*(x: TrustedSig): ValidatorSig =
-  ValidatorSig(blob: x.blob)
 
 func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())
@@ -527,20 +505,6 @@ func shortLog*(x: ValidatorPrivKey): string =
 # For confutils
 func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError].} =
   let v = T.fromHex(hex)
-  if v.isErr:
-    raise (ref ValueError)(msg: $v.error)
-  v[]
-
-# For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError].} =
-  let v = T.fromRaw(data)
-  if v.isErr:
-    raise (ref ValueError)(msg: $v.error)
-  v[]
-
-# For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError].} =
-  let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]

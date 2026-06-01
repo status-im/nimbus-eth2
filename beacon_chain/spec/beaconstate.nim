@@ -2359,6 +2359,24 @@ iterator get_ptc*(state: gloas.BeaconState | heze.BeaconState, slot: Slot):
   for idx in state.ptc_window[index]:
     yield ValidatorIndex(idx)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/heze/beacon-chain.md#new-get_inclusion_list_committee
+func get_inclusion_list_committee*(
+    state: heze.BeaconState, slot: Slot, cache: var StateCache):
+    array[int INCLUSION_LIST_COMMITTEE_SIZE, ValidatorIndex] =
+  ## Return the inclusion list committee for the given ``slot``, formed by
+  ## cycling through that slot's beacon committees.
+  let
+    epoch = epoch(slot)
+    committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
+  var indices: seq[ValidatorIndex]
+  for i in 0'u64 ..< committees_per_slot:
+    indices.add get_beacon_committee(state, slot, CommitteeIndex(i), cache)
+  doAssert indices.len > 0, "get_inclusion_list_committee: no active validators"
+  var res: array[int INCLUSION_LIST_COMMITTEE_SIZE, ValidatorIndex]
+  for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
+    res[i] = indices[i mod indices.len]
+  res
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/fork.md#new-initialize_ptc_window
 func initialize_ptc_window(
     state: var gloas.BeaconState, cache: var StateCache) =

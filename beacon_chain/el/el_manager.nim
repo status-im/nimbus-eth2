@@ -386,28 +386,20 @@ proc getPayload(
       limit = MAX_EXTRA_DATA_BYTES
     raise newException(CatchableError, "Execution payload extraData exceeds max size")
 
-  when compiles(payload.executionPayload.withdrawals):
-    when payload.executionPayload.withdrawals is Opt:
-      template maybeEmpty(v: Opt): untyped =
-        v.valueOr(@[])
-    else:
-      template maybeEmpty(v: auto): untyped =
-        v
-
-    if params.attributes.withdrawals != payload.executionPayload.withdrawals.maybeEmpty:
-      warn "Execution client returned unexpected payload withdrawals",
-        url = connection.engineUrl.url,
-        payloadId,
-        withdrawals_from_cl_len = params.attributes.withdrawals.len,
-        withdrawals_from_el_len = payload.executionPayload.withdrawals.maybeEmpty.len,
-        withdrawals_from_cl =
-          mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
-        withdrawals_from_el = mapIt(
-          payload.executionPayload.withdrawals.maybeEmpty, it.asConsensusWithdrawal
-        )
-      raise newException(
-        CatchableError, "Execution client returned mismatching withdrawals"
+  if params.attributes.withdrawals != payload.executionPayload.withdrawals:
+    warn "Execution client returned unexpected payload withdrawals",
+      url = connection.engineUrl.url,
+      payloadId,
+      withdrawals_from_cl_len = params.attributes.withdrawals.len,
+      withdrawals_from_el_len = payload.executionPayload.withdrawals.len,
+      withdrawals_from_cl =
+        mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
+      withdrawals_from_el = mapIt(
+        payload.executionPayload.withdrawals, it.asConsensusWithdrawal
       )
+    raise newException(
+      CatchableError, "Execution client returned mismatching withdrawals"
+    )
 
   payload
 

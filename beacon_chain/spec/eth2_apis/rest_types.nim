@@ -671,8 +671,6 @@ template withForkyBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyData: untyped {.inject, used.} = x.denebData
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.denebData.blobs
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
@@ -844,9 +842,6 @@ func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
 func init*(t: typedesc[StateIdent], v: Slot): StateIdent =
   StateIdent(kind: StateQueryKind.Slot, slot: v)
 
-func init*(t: typedesc[StateIdent], v: Eth2Digest): StateIdent =
-  StateIdent(kind: StateQueryKind.Root, root: v)
-
 func init*(t: typedesc[BlockIdent], v: BlockIdentType): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Named, value: v)
 
@@ -856,16 +851,8 @@ func init*(t: typedesc[BlockIdent], v: Slot): BlockIdent =
 func init*(t: typedesc[BlockIdent], v: Eth2Digest): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Root, root: v)
 
-func init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
-  ValidatorIdent(kind: ValidatorQueryKind.Index, index: RestValidatorIndex(v))
-
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
-
-func init*(t: typedesc[RestBlockInfo],
-           v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
-  withBlck(v):
-    RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: Gwei, status: string,
@@ -1119,16 +1106,9 @@ func init*(t: typedesc[RestSignedContributionAndProof],
     ),
     signature: signature)
 
-func len*(p: RestWithdrawalPrefix): int = sizeof(p)
-
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string): RestErrorMessage =
   RestErrorMessage(code: code, message: message)
-
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string, stacktrace: string): RestErrorMessage =
-  RestErrorMessage(code: code, message: message,
-                   stacktraces: Opt.some(@[stacktrace]))
 
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string, stacktrace: openArray[string]): RestErrorMessage =

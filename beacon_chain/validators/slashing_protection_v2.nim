@@ -1147,14 +1147,6 @@ proc registerAttestation*(
 
   ok()
 
-proc registerAttestation*(
-       db: SlashingProtectionDB_v2,
-       validator: ValidatorPubKey,
-       source, target: Epoch,
-       attestation_root: Eth2Digest): Result[void, BadVote] =
-  registerAttestation(
-    db, Opt.none(ValidatorIndex), validator, source, target, attestation_root)
-
 template withContext*(dbParam: SlashingProtectionDB_v2, body: untyped): untyped =
   let
     db = dbParam
