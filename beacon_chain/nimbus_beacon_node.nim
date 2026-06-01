@@ -602,10 +602,6 @@ proc initFullNode(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
     partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
-<<<<<<< agnxsh/pmes
-=======
-
->>>>>>> unstable
   validatorCustody.setQuarantine(dataColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
 
