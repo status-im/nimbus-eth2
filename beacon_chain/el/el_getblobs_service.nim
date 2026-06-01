@@ -48,7 +48,7 @@ type
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
-    partialColumnQuarantine*: ref FuluPartialColumnQuarantine
+    partialColumnQuarantine: ref FuluPartialColumnQuarantine
       # Sink for partial column cells reconstructed from a partial
       # engine_getBlobsV3 response on Fulu.
     partialColumns*: bool

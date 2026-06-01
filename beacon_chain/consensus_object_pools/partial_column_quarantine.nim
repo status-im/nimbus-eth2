@@ -82,7 +82,7 @@ type
   # Type class matching any fork's partial sidecar. Both variants share
   # the same cell-bearing fields (cells_present_bitmap, partial_column,
   # kzg_proofs) per spec.
-  AnyPartialDataColumnSidecar* =
+  AnyPartialDataColumnSidecar =
     fulu.PartialDataColumnSidecar | gloas.PartialDataColumnSidecar
 
 func hash*(gid: gloas.PartialDataColumnGroupID): Hash =
