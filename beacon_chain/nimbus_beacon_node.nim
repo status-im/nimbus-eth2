@@ -17,11 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-<<<<<<< agnxsh/pmes
-    blockchain_list,column_quarantine, envelope_quarantine,
-=======
     blockchain_list, column_quarantine, envelope_quarantine,
->>>>>>> unstable
     execution_payload_pool, partial_column_quarantine,
     payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,

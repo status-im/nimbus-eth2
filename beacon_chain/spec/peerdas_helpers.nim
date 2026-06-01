@@ -560,15 +560,10 @@ proc assemble_partial_data_column_sidecars*(
   var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
   for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
     sidecars.add fulu.PartialDataColumnSidecar(
-<<<<<<< agnxsh/pmes
-      cells_present_bitmap: bitmap,
-      partial_column: DataColumn.init(partialColumn),
-      kzg_proofs: deneb.KzgProofs.init(partialProofs))
-=======
+s: deneb.KzgProofs.init(partialProofs))
       cells_present_bitmap: bitmaps[columnIndex],
       partial_columns: DataColumn.init(columns[columnIndex]),
       kzg_proofs: deneb.KzgProofs.init(columnProofs[columnIndex]))
->>>>>>> unstable
 
   sidecars
 
