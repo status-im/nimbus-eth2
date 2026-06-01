@@ -137,6 +137,7 @@ func makeExecutionPayloadForSigning*(
     consensusFork: static ConsensusFork,
     state: ForkyBeaconState,
     blobsBundle: testblockutil.BlobsBundle,
+    shouldExtendPayload: bool,
 ): consensusFork.ExecutionPayloadForSigning =
   ## Construct an execution payload that is sufficiently valid to pass consensus
   ## validations (without necessarily making sense on the execution side, which
@@ -156,7 +157,11 @@ func makeExecutionPayloadForSigning*(
   )
 
   when consensusFork >= ConsensusFork.Gloas:
-    payload.parent_hash = state.latest_block_hash
+    payload.parent_hash =
+      if shouldExtendPayload:
+        state.latest_execution_payload_bid.block_hash
+      else:
+        state.latest_execution_payload_bid.parent_block_hash
     payload.state_root = ZERO_HASH
     payload.block_number = uint64(state.slot) + 1
     payload.gas_limit = state.latest_execution_payload_bid.gas_limit
@@ -210,6 +215,7 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
     consensusFork: static ConsensusFork,
     state: ForkyBeaconState,
     blobsBundle: testblockutil.BlobsBundle,
+    shouldExtendPayload: bool,
 ): consensusFork.ExecutionPayloadForSigning =
   ## Construct an execution payload that is sufficiently valid to pass consensus
   ## validations (without necessarily making sense on the execution side, which
@@ -229,7 +235,11 @@ func makeExecutionPayloadWithNonEmptyBlobsForSigning*(
   )
 
   when consensusFork >= ConsensusFork.Gloas:
-    payload.parent_hash = state.latest_block_hash
+    payload.parent_hash =
+      if shouldExtendPayload:
+        state.latest_execution_payload_bid.block_hash
+      else:
+        state.latest_execution_payload_bid.parent_block_hash
     payload.state_root = ZERO_HASH
     payload.block_number = uint64(state.slot) + 1
     payload.gas_limit = state.latest_execution_payload_bid.gas_limit
@@ -327,9 +337,12 @@ proc addTestEngineBlock*(
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
+    should_extend_payload: bool = true,
 ): EngineBlock[consensusFork.SignedBeaconBlock] =
   # Create and add a block to state - state will advance by one slot!
   let
+    gloasFlags =
+      if should_extend_payload: {skipApplyParentExecutionPayload} else: {}
     proposer_index = get_beacon_proposer_index(state.data, cache, state.data.slot)
       .expect("valid proposer index")
     privKey = MockPrivKeys[proposer_index]
@@ -351,21 +364,25 @@ proc addTestEngineBlock*(
         block_hash: eth1_data.block_hash,
       )
 
+    execution_requests = block:
+      let requests = default(ExecutionRequests)
+      when consensusFork >= ConsensusFork.Gloas:
+        if should_extend_payload:
+          apply_parent_execution_payload(
+            cfg, state.data, requests, cache
+          ).expect("apply_parent_execution_payload")
+      requests
+
     eps =
       when consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadForSigning(
-            cfg, consensusFork, state.data, BlobsBundle())
+            cfg, consensusFork, state.data, BlobsBundle(),
+            should_extend_payload)
         else:
           default(consensusFork.ExecutionPayloadForSigning)
       else:
         default(bellatrix.ExecutionPayloadForSigning)
-
-    execution_requests_root =
-      when consensusFork >= ConsensusFork.Gloas:
-        hash_tree_root(default(ExecutionRequests))
-      else:
-        ZERO_HASH
 
     attestations =
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
@@ -377,11 +394,11 @@ proc addTestEngineBlock*(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
-            parent_block_hash: state.data.latest_block_hash,
+            parent_block_hash: eps.executionPayload.parent_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: execution_requests_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
@@ -390,11 +407,11 @@ proc addTestEngineBlock*(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
-            parent_block_hash: state.data.latest_block_hash,
+            parent_block_hash: eps.executionPayload.parent_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: execution_requests_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),
@@ -416,8 +433,8 @@ proc addTestEngineBlock*(
         validator_changes,
         sync_aggregate,
         eps,
-        verificationFlags = {skipBlsValidation},
-        execution_requests = default(ExecutionRequests),
+        verificationFlags = {skipBlsValidation} + gloasFlags,
+        execution_requests = execution_requests,
         signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )
@@ -468,10 +485,13 @@ proc addTestEngineBlockWithBlobs*(
     sync_aggregate: SyncAggregate = SyncAggregate.init(),
     graffiti: GraffitiBytes = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
+    should_extend_payload: bool = true,
     cache: var StateCache,
 ): EngineBlock[consensusFork.SignedBeaconBlock] =
   # Create and add a block to state with blobs - state will advance by one slot!
   let
+    gloasFlags =
+      if should_extend_payload: {skipApplyParentExecutionPayload} else: {}
     proposer_index = get_beacon_proposer_index(state.data, cache, state.data.slot)
       .expect("valid proposer index")
     privKey = MockPrivKeys[proposer_index]
@@ -493,21 +513,25 @@ proc addTestEngineBlockWithBlobs*(
         block_hash: eth1_data.block_hash,
       )
 
+    execution_requests = block:
+      let requests = default(ExecutionRequests)
+      when consensusFork >= ConsensusFork.Gloas:
+        if should_extend_payload:
+          apply_parent_execution_payload(
+            cfg, state.data, requests, cache
+          ).expect("apply_parent_execution_payload")
+      requests
+
     eps =
       when consensusFork >= ConsensusFork.Bellatrix:
         if state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadWithNonEmptyBlobsForSigning(
-            cfg, consensusFork, state.data, blobsBundle)
+            cfg, consensusFork, state.data, blobsBundle,
+            should_extend_payload)
         else:
           default(consensusFork.ExecutionPayloadForSigning)
       else:
         default(bellatrix.ExecutionPayloadForSigning)
-
-    execution_requests_root =
-      when consensusFork >= ConsensusFork.Gloas:
-        hash_tree_root(default(ExecutionRequests))
-      else:
-        ZERO_HASH
 
     signed_execution_payload_bid =
       when consensusFork >= ConsensusFork.Heze:
@@ -516,11 +540,11 @@ proc addTestEngineBlockWithBlobs*(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
-            parent_block_hash: state.data.latest_block_hash,
+            parent_block_hash: eps.executionPayload.parent_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: execution_requests_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       elif consensusFork == ConsensusFork.Gloas:
@@ -529,11 +553,11 @@ proc addTestEngineBlockWithBlobs*(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
-            parent_block_hash: state.data.latest_block_hash,
+            parent_block_hash: eps.executionPayload.parent_hash,
             parent_block_root: state.latest_block_root,
             prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
             gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: execution_requests_root,
+            execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei,
           ),
           signature: ValidatorSig.infinity(),
@@ -557,8 +581,8 @@ proc addTestEngineBlockWithBlobs*(
         validator_changes,
         sync_aggregate,
         eps,
-        verificationFlags = {skipBlsValidation},
-        execution_requests = default(ExecutionRequests),
+        verificationFlags = {skipBlsValidation} + gloasFlags,
+        execution_requests = execution_requests,
         signed_execution_payload_bid = signed_execution_payload_bid,
         payload_attestations = @[]
       )

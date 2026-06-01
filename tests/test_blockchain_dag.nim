@@ -2155,8 +2155,8 @@ suite "Gloas block validity":
         cfg.CAPELLA_FORK_EPOCH = Epoch(0)
         cfg.DENEB_FORK_EPOCH = Epoch(0)
         cfg.ELECTRA_FORK_EPOCH = Epoch(0)
-        cfg.FULU_FORK_EPOCH = Epoch(1)
-        cfg.GLOAS_FORK_EPOCH = Epoch(2)
+        cfg.FULU_FORK_EPOCH = Epoch(0)
+        cfg.GLOAS_FORK_EPOCH = Epoch(1)
         cfg
     var
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
@@ -2170,72 +2170,67 @@ suite "Gloas block validity":
 
   test "Execution parent and valid":
     let state = assignClone(dag.clearanceState)
+    const
+      slotCount = 8
+      currentFork = ConsensusFork.Gloas
+
     process_slots(
       cfg, state[], cfg.GLOAS_FORK_EPOCH.start_slot,
-      cache, info, {}).expect("gloas slot")
+      cache, info, {}).expect("gloas fork")
 
-    withState(dag.clearanceState):
-      when consensusFork == ConsensusFork.Gloas:
-        const slotCount = SLOTS_PER_EPOCH div 4'u64
-        # Slot 0 - 7, build on FULL Payload
-        for i in 0'u64 ..< slotCount:
-          process_slots(
-            cfg, state[], cfg.GLOAS_FORK_EPOCH.start_slot + i,
-            cache, info, {}).expect("next slot")
+    # Slot 0 - 7, build on FULL Payload
+    for i in 0'u64 ..< slotCount:
+      process_slots(
+        cfg, state[], state[].slot + 1,
+        cache, info, {}).expect("next slot")
 
-          let
-            b = addTestEngineBlock(
-              cfg, consensusFork, state[].gloasData, cache)
-            bRef = block:
-              let res = dag.addHeadBlockWithParent(
-                verifier, b.blck, dag.head,
-                OptimisticStatus.valid, nilGloasCallback)
-              check res.isOk()
-              dag.updateHead(res.get(), quarantine, @[])
-              res.get()
-          block:
-            let res = dag.addHeadExecutionPayload(
-              b.blck, b.envelope)
-            check res.isOk()
-            dag.updateHeadExecutionPayload(res.get(), b.envelope)
+      let
+        b = addTestEngineBlock(
+          cfg, currentFork, state[].gloasData, cache)
+        bRef = block:
+          let res = dag.addHeadBlockWithParent(
+            verifier, b.blck, dag.head,
+            OptimisticStatus.notValidated, nilGloasCallback)
+          check res.isOk()
+          dag.updateHead(res.get(), quarantine, @[])
+          res.get()
+      # Mock that it is execution valid
+      bRef.markExecutionValid(true)
 
-          check:
-            dag.headState.gloasData.data.latest_block_hash ==
-              b.envelope.message.payload.block_hash
-            Opt.some(bRef.parent) == dag.executionParent(
-              bRef.parent,
-              b.envelope.message.payload.parent_hash)
-            Opt.some(bRef.parent) == bRef.executionParent
-            bRef.executionValid
-            bRef.executionOrParentValid
+      check:
+        Opt.some(bRef.parent) == dag.executionParent(
+          bRef.parent,
+          b.envelope.message.payload.parent_hash)
+        Opt.some(bRef.parent) == bRef.executionParent
+        bRef.executionValid
+        bRef.executionOrParentValid
+      if i == 0:
+        check bRef.parent.slot == GENESIS_SLOT
 
-        # Slot 8 - 15, build on EMPTY Payload
-        let payloadParent = dag.head
-        for i in 0'u64 ..< slotCount:
-          assign(state[], dag.headState)
-          process_slots(
-            cfg, state[], payloadParent.slot + i,
-            cache, info, {}).expect("next slot")
+    # Slot 8 - 15, build on EMPTY Payload
+    let payloadParent = dag.head.parent
+    for i in 0'u64 ..< slotCount:
+      assign(state[], dag.headState)
+      process_slots(
+        cfg, state[], state[].slot + 1,
+        cache, info, {}).expect("next slot")
 
-          let
-            b = addTestEngineBlock(
-              cfg, consensusFork, state[].gloasData, cache)
-            bRef = block:
-              let res = dag.addHeadBlockWithParent(
-                verifier, b.blck, dag.head,
-                OptimisticStatus.valid, nilGloasCallback)
-              check res.isOk()
-              dag.updateHead(res.get(), quarantine, @[])
-              res.get()
+      let
+        b = addTestEngineBlock(
+          cfg, currentFork, state[].gloasData, cache,
+          should_extend_payload = false)
+        bRef = block:
+          let res = dag.addHeadBlockWithParent(
+            verifier, b.blck, dag.head,
+            OptimisticStatus.notValidated, nilGloasCallback)
+          check res.isOk()
+          dag.updateHead(res.get(), quarantine, @[])
+          res.get()
 
-          # Check if the latest block hash is equal to that of the
-          # payloadParent, means that Payload is built on EMPTY
-          check:
-            dag.headState.gloasData.data.latest_block_hash ==
-              dag.loadExecutionBlockHash(payloadParent).get()
-            Opt.some(payloadParent) == dag.executionParent(
-              bRef.parent,
-              b.envelope.message.payload.parent_hash)
-            Opt.some(payloadParent) == bRef.executionParent
-            not bRef.executionValid
-            bRef.executionOrParentValid
+      check:
+        Opt.some(payloadParent) == dag.executionParent(
+          bRef.parent,
+          b.envelope.message.payload.parent_hash)
+        Opt.some(payloadParent) == bRef.executionParent
+        not bRef.executionValid
+        bRef.executionOrParentValid
