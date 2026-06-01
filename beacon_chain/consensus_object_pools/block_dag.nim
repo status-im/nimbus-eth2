@@ -248,12 +248,6 @@ proc executionParent*(blck: BlockRef): Opt[BlockRef] =
   result = Opt.none(BlockRef)
   if isNil(blck.parent) or blck.executionParentHash.isNone():
     return
-  if blck.executionParentHash.unsafeGet().isZero():
-    return
-      if blck.parent.slot == GENESIS_SLOT:
-        Opt.some(blck.parent)
-      else:
-        result
 
   var cur = blck.parent
   debugGloasComment("revisit the max depth of ancestors")
