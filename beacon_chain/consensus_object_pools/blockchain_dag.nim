@@ -2464,11 +2464,13 @@ proc executionParent*(
 
 func shouldExtendPayload*(
     dag: ChainDAGRef, head: BlockRef): bool =
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_extend_payload
-  ##
   ## A helper function for getting the status of whether or not to build/extend
   ## on the head payload, as the payload selected by fork choice is stored in
   ## DAG.
+  ##
+  ## Related fork choice helpers
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_build_on_full
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_extend_payload
   (
     # For either genesis or pre-Gloas block, we should always build on them.
     head.slot == GENESIS_SLOT or
