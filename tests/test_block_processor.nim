@@ -297,8 +297,9 @@ suite "Block processor" & preset():
         )
 
         # Create block with blobs
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache,
+          blobs_bundle = blobsBundle,
         )
 
         # Assemble data column sidecars
