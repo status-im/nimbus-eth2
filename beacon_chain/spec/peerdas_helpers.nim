@@ -561,14 +561,10 @@ proc assemble_partial_data_column_sidecars*(
         columns[columnIndex].add(value[columnIndex])
         columnProofs[columnIndex].add(proof)
 
-  var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
-  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-    sidecars.add fulu.PartialDataColumnSidecar(
-      cells_present_bitmap: bitmaps[columnIndex],
-      partial_column: DataColumn.init(columns[columnIndex]),
-      kzg_proofs: deneb.KzgProofs.init(columnProofs[columnIndex]))
-
-  sidecars
+  (0 ..< CELLS_PER_EXT_BLOB).mapIt(fulu.PartialDataColumnSidecar(
+    cells_present_bitmap: bitmaps[it],
+    partial_column: DataColumn.init(columns[it]),
+    kzg_proofs: deneb.KzgProofs.init(columnProofs[it])))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#verify_partial_data_column_sidecar_kzg_proofs
 proc verify_partial_data_column_sidecar_kzg_proofs*(
@@ -577,17 +573,16 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
     column_index: ColumnIndex): Result[void, cstring] =
   ## Verify the KZG proofs for partial data column sidecars.
 
-  # Get the blob indices from the bitmap
-  var blobIndices = newSeqOfCap[int](sidecar.partial_column.len)
+  # Collect the commitments for the blobs present in the bitmap
+  var commitments = newSeqOfCap[KzgCommitment](sidecar.partial_column.len)
   for i in 0 ..< sidecar.cells_present_bitmap.len:
     if sidecar.cells_present_bitmap[Natural(i)]:
-      blobIndices.add(i)
+      commitments.add all_commitments[i]
 
   # The cell index is the column index for all cells in this column
-  let cellIndices = repeat(CellIndex(column_index), blobIndices.len)
+  let cellIndices = repeat(CellIndex(column_index), commitments.len)
 
   # Batch verify that the cells match the corresponding commitments and proofs
-  let commitments = blobIndices.mapIt(all_commitments[it])
 
   let res = verifyCellKzgProofBatch(
       commitments, cellIndices, sidecar.partial_column.asSeq,
