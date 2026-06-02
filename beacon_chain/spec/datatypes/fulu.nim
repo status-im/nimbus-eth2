@@ -113,8 +113,6 @@ type
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
-  PartialDataColumnHeaders* = seq[ref PartialDataColumnHeader]
-
   CellsPresentBits* = BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnsidecar
@@ -124,8 +122,6 @@ type
     kzg_proofs*: deneb.KzgProofs
     # Optional header, only sent on eager pushes
     header*: List[PartialDataColumnHeader, 1]
-
-  PartialDataColumnSidecars* = seq[ref PartialDataColumnSidecar]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object

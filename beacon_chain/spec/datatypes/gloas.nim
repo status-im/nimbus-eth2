@@ -79,8 +79,6 @@ type
     slot*: Slot
     beacon_block_root*: Eth2Digest
 
-  PartialDataColumnGroupIDs* = seq[ref PartialDataColumnGroupID]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
   # [Modified in Gloas] Compared to Fulu, the `header` field is removed
   # (peers now key on `PartialDataColumnGroupID` out-of-band)
@@ -88,8 +86,6 @@ type
     cells_present_bitmap*: fulu.CellsPresentBits
     partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     kzg_proofs*: deneb.KzgProofs
-
-  PartialDataColumnSidecars* = seq[ref PartialDataColumnSidecar]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayload
   ExecutionPayload* = object
