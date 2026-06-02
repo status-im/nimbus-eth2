@@ -196,6 +196,7 @@ in {
     systemd.services.nimbus-beacon-node = {
       enable = true;
       serviceConfig = {
+        LimitNOFILE = 16384;
         DynamicUser = true;
 
         # Hardening measures
@@ -211,6 +212,7 @@ in {
         ];
 
         Restart = "on-failure";
+        RestartPreventExitStatus = "129 198";
         ExecStart = let
           jwtFlag = optionalString (cfg.settings.jwt-secret != null)
             "--jwt-secret=%d/jwt-secret";
@@ -220,8 +222,9 @@ in {
             ${escapeShellArgs cfg.extraArgs}
         '';
       };
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
-      requires = [ "network.target" ];
     };
   };
 }

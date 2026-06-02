@@ -202,6 +202,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -698,7 +699,8 @@ AllTests-mainnet
 + Duplicate detection - same builder same slot                                               OK
 + Empty pool returns none                                                                    OK
 + Highest bid selection - different builders                                                 OK
-+ Multiple bids for different parents same slot                                              OK
++ Multiple bids for different beacon parent roots same slot                                  OK
++ Multiple bids for different execution parent hashes same slot                              OK
 + Pruning removes old bids                                                                   OK
 + Track seen bids                                                                            OK
 ```
@@ -786,6 +788,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -807,6 +810,11 @@ AllTests-mainnet
 ```diff
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
+```
+## Gossip validation - Gloas
+```diff
++ validateBeaconBlock - finalized head execution parent                                      OK
++ validateBeaconBlock - mismatched execution parent                                          OK
 ```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
@@ -842,6 +850,10 @@ AllTests-mainnet
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+## Inclusion list [Preset: mainnet]
+```diff
++ get_inclusion_list_committee                                                               OK
 ```
 ## Key splitting
 ```diff
@@ -930,6 +942,7 @@ AllTests-mainnet
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
++ inclusion list signatures                                                                  OK
 + payload attestation message signatures                                                     OK
 + proposer preferences message signatures                                                    OK
 ```

@@ -17,9 +17,9 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blockchain_list, column_quarantine, column_reconstruction_backfiller,
-    envelope_quarantine,
-    execution_payload_pool, payload_attestation_pool],
+    blockchain_list, column_quarantine, envelope_quarantine,
+    execution_payload_pool, partial_column_quarantine,
+    payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -598,6 +598,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
 
   validatorCustody.setQuarantine(dataColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
@@ -738,6 +739,14 @@ proc initFullNode(
         Opt.some data_column_sidecar
       else:
         Opt.none(ref fulu.DataColumnSidecar)
+    rmanGloasDataColumnLoader = proc(
+        columnId: DataColumnIdentifier): Opt[ref gloas.DataColumnSidecar] =
+      var data_column_sidecar = gloas.DataColumnSidecar.new()
+      if dag.db.getDataColumnSidecar(
+          columnId.block_root, columnId.index, data_column_sidecar[]):
+        Opt.some data_column_sidecar
+      else:
+        Opt.none(ref gloas.DataColumnSidecar)
 
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -788,9 +797,10 @@ proc initFullNode(
       node.network, validatorCustody,
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
-      quarantine, envelopeQuarantine, dataColumnQuarantine, rmanBlockVerifier,
+      quarantine, envelopeQuarantine,
+      dataColumnQuarantine, gloasColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanEnvelopeVerifier, rmanEnvelopeLoader,
-      rmanDataColumnLoader)
+      rmanDataColumnLoader, rmanGloasDataColumnLoader)
 
   # As per EIP 7594, the BN is now categorised into a
   # `Fullnode` and a `Supernode`, the fullnodes custodies a
@@ -871,13 +881,18 @@ proc initFullNode(
                                                 node.eventBus.columnSidecarFullQueue,
                                                 node.blockProcessor,
                                                 node.dataColumnQuarantine,
-                                                node.validatorCustody)
+                                                gloasColumnQuarantine,
+                                                partialColumnQuarantine,
+                                                config.partialColumns,
+                                                node.validatorCustody,
+                                                node.network)
   node.columnReconstructionBackfiller =
     ColumnReconstructionBackfillerRef.new(
       node.dag,
       node.validatorCustody,
       node.beaconClock,
       node.batchVerifier[].taskpool)
+
   node.router = router
 
   await node.addValidators()
@@ -1841,7 +1856,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if slot.is_epoch:
     node.dynamicFeeRecipientsStore[].pruneOldMappings(slot.epoch)
 
-    # Clear the preferences bucket for the epoch that just ended
     if slot.epoch > 0:
       let justEnded = slot.epoch - Epoch(1)
       node.processor.seenProposerPreferences[justEnded.uint64 mod 2].reset()

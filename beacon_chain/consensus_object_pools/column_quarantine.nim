@@ -528,14 +528,19 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
             $sidecar.kind & "`")
         sidecars.add(sidecar.data)
   else:
+    let allowPartial = node[].value.count >= NUMBER_OF_COLUMNS div 2
     for cindex in quarantine.custodyMap:
-      let index = quarantine.getIndex(cindex)
-      doAssert(node[].value.sidecars[index].isLoaded(),
+      let sidecar = node[].value.sidecars[quarantine.getIndex(cindex)]
+      if allowPartial and sidecar.isEmpty():
+        continue
+      doAssert(sidecar.isLoaded(),
         "Record should only have loaded values, but it is `" &
-          $node[].value.sidecars[index].kind & "`")
-      sidecars.add(node[].value.sidecars[index].data)
+          $sidecar.kind & "`")
+      sidecars.add(sidecar.data)
 
-    doAssert(len(sidecars) == len(quarantine.custodyMap),
+    doAssert(
+      (allowPartial and len(sidecars) >= NUMBER_OF_COLUMNS div 2) or
+        len(sidecars) == len(quarantine.custodyMap),
       "Incorrect amount of sidecars in record for node - " & $len(sidecars))
 
   # popSidecars() should remove all the artifacts from the quarantine in both

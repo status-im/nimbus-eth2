@@ -155,10 +155,6 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-proc recoverCellsAndKzgProofsTask(cellIndices: openArray[CellIndex],
-                                  cells: openArray[Cell]): Result[CellsAndProofs, void] =
-  recoverCellsAndKzgProofs(cellIndices, cells).mapConvertErr(void)
-
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref fulu.DataColumnSidecar]):
@@ -210,7 +206,7 @@ proc recover_cells_and_proofs_parallel*(
     defer:
       discard tsp.fireSync()
 
-    res[] = recoverCellsAndKzgProofsTask(
+    res[] = recoverCellsAndKzgProofs(
       idxArr.toOpenArray(0, columnCount - 1),
       cellsArr.toOpenArray(0, columnCount - 1)).valueOr:
         return false
@@ -293,26 +289,11 @@ proc recover_cells_and_proofs_parallel*(
       inc spawned
 
   # ---- CRITICAL: Complete all spawned tasks before returning ----
-  while true:
-    for t in tasks.mitems():
-      if t.ok.isSpawned() and t.ok.isReady():
-        # Always consume ok
-        hadError = not t.ok.sync() or hadError
-        t.ok.reset()
-
-    if tasks.anyIt(it.ok.isSpawned):
-      try:
-        await wait
-      except CatchableError:
-        # Waiting for a signal should never fail, but if it does anyway we have
-        # to make sure that the tasks are all finished to retain memory safety
-        for t in tasks.mitems():
-          if t.ok.isSpawned():
-            if not t.ok.sync():
-              hadError = true
-      wait = tsp.wait()
-    else:
-      break
+  for t in tasks.mitems():
+    # Always consume ok
+    if t.ok.isSpawned():
+      hadError = not t.ok.sync() or hadError
+      t.ok.reset()
 
   if hadError:
     return err("Data column reconstruction failed")
@@ -346,10 +327,11 @@ proc assemble_data_column_sidecars*(
     proofs = newSeq[ProofBytes](blobs.len)
 
   for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+    computeCells(blobs[i]).isErrOr:
+      cells[i] = value
+      let proofElem = addr proofs[i]
+      staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+        assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
     var
@@ -379,6 +361,10 @@ proc assemble_data_column_sidecars*(
     signed_beacon_block.message.body.blob_kzg_commitments
   if kzg_commitments.len == 0:
     return sidecars
+  if blobs.len != kzg_commitments.len:
+    return sidecars
+  if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return sidecars
   let
     beacon_block_header =
       BeaconBlockHeader(
@@ -398,10 +384,11 @@ proc assemble_data_column_sidecars*(
     proofs = newSeq[ProofBytes](blobs.len)
 
   for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+    computeCells(blobs[i]).isErrOr:
+      cells[i] = value
+      let proofElem = addr proofs[i]
+      staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+        assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   let inclusion_proof =
     blck.body.build_proof(KZG_COMMITMENTS_GINDEX).expect("Valid gindex")
@@ -446,10 +433,11 @@ proc assemble_data_column_sidecars*(
     proofs = newSeq[ProofBytes](blobs.len)
 
   for i in 0 ..< blobs.len:
-    cells[i] = computeCells(blobs[i]).get
-    let proofElem = addr proofs[i]
-    staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
-      assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
+    computeCells(blobs[i]).isErrOr:
+      cells[i] = value
+      let proofElem = addr proofs[i]
+      staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
+        assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
   template beacon_block_root: untyped = signed_beacon_block.root
 
@@ -472,34 +460,109 @@ proc assemble_data_column_sidecars*(
   sidecars
 
 proc assemble_partial_data_column_sidecars*(
+    signed_beacon_block: fulu.SignedBeaconBlock,
+    blobs: seq[Opt[KzgBlob]],
+    cell_proofs: seq[Opt[KzgProof]]):
+      tuple[
+        header: fulu.PartialDataColumnHeader,
+        sidecars: seq[fulu.PartialDataColumnSidecar]] =
+  ## Variant used when some blobs may be entirely missing from the supplied
+  ## row set (e.g. partial response from engine_getBlobsV3). Rows whose
+  ## blob is None are skipped in every column's bitmap; for present rows,
+  ## an individual (row, column) cell is still dropped if its matching
+  ## `cell_proofs` slot is None.
+  ##
+  ## The validated header is returned alongside the per-column sidecars so
+  ## the caller can install it in the partial column quarantine in one
+  ## step. `cell_proofs.len` must equal `blobs.len * CELLS_PER_EXT_BLOB`
+  ## (None-pad missing rows); otherwise the sidecar list comes back empty.
+  template blck(): auto = signed_beacon_block.message
+  template kzg_commitments: untyped = blck.body.blob_kzg_commitments
+
+  let
+    beacon_block_header =
+      BeaconBlockHeader(
+        slot: blck.slot,
+        proposer_index: blck.proposer_index,
+        parent_root: blck.parent_root,
+        state_root: blck.state_root,
+        body_root: hash_tree_root(blck.body))
+    signed_beacon_block_header =
+      SignedBeaconBlockHeader(
+        message: beacon_block_header,
+        signature: signed_beacon_block.signature)
+    inclusion_proof =
+      blck.body.build_proof(KZG_COMMITMENTS_GINDEX).expect("Valid gindex")
+    header = fulu.PartialDataColumnHeader(
+      kzg_commitments: kzg_commitments,
+      signed_block_header: signed_beacon_block_header,
+      kzg_commitments_inclusion_proof: inclusion_proof)
+
+  if kzg_commitments.len == 0 or blobs.len != kzg_commitments.len or
+      blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK) or
+      cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return (header, static(default(seq[fulu.PartialDataColumnSidecar])))
+
+  # Accumulate per-column, iterating row-major so each present row's cells
+  # are computed exactly once and discarded before the next — the full
+  # row-by-column cell matrix never needs to be resident.
+  var
+    bitmaps = newSeq[BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]](
+      CELLS_PER_EXT_BLOB)
+    columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
+    columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
+
+  for rowIndex in 0 ..< blobs.len:
+    let blob = blobs[rowIndex].valueOr:
+      continue
+    computeCells(blob).isErrOr:
+      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
+          continue
+        bitmaps[columnIndex][Natural(rowIndex)] = true
+        columns[columnIndex].add(value[columnIndex])
+        columnProofs[columnIndex].add(proof)
+
+  var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
+  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+    sidecars.add fulu.PartialDataColumnSidecar(
+      cells_present_bitmap: bitmaps[columnIndex],
+      partial_columns: DataColumn.init(columns[columnIndex]),
+      kzg_proofs: deneb.KzgProofs.init(columnProofs[columnIndex]))
+
+  (header, sidecars)
+
+proc assemble_partial_data_column_sidecars*(
     blobs: seq[KzgBlob], cell_proofs: seq[Opt[KzgProof]]): seq[fulu.PartialDataColumnSidecar] =
   ## Returns a seq where element i corresponds to column index i.
+  if blobs.len == 0 or blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK) or
+      cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return static(default(seq[fulu.PartialDataColumnSidecar]))
+
+  # Accumulate per-column, iterating row-major so each row's cells are
+  # computed exactly once and discarded before the next — `computeCells` is
+  # expensive and the full row-by-column matrix never needs to be resident.
+  var
+    bitmaps = newSeq[BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]](
+      CELLS_PER_EXT_BLOB)
+    columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
+    columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
+
+  for rowIndex in 0 ..< blobs.len:
+    computeCells(blobs[rowIndex]).isErrOr:
+      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
+          continue
+        bitmaps[columnIndex][Natural(rowIndex)] = true
+        columns[columnIndex].add(value[columnIndex])
+        columnProofs[columnIndex].add(proof)
+
   var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
-
-  if blobs.len == 0 or blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK):
-    return sidecars
-  if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
-    return sidecars
-
-  let cells = blobs.mapIt(computeCells(it).get)
-
-  for columnIndex in 0..<CELLS_PER_EXT_BLOB:
-    var
-      bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-      partialColumn = newSeqOfCap[KzgCell](blobs.len)
-      partialProofs = newSeqOfCap[KzgProof](blobs.len)
-
-    for rowIndex in 0..<blobs.len:
-      let proofOpt = cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]
-      if proofOpt.isSome:
-        bitmap[Natural(rowIndex)] = true
-        partialColumn.add(cells[rowIndex][columnIndex])
-        partialProofs.add(proofOpt.get)
-
+  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
     sidecars.add fulu.PartialDataColumnSidecar(
-      cells_present_bitmap: bitmap,
-      partial_columns: DataColumn.init(partialColumn),
-      kzg_proofs: deneb.KzgProofs.init(partialProofs))
+      cells_present_bitmap: bitmaps[columnIndex],
+      partial_columns: DataColumn.init(columns[columnIndex]),
+      kzg_proofs: deneb.KzgProofs.init(columnProofs[columnIndex]))
 
   sidecars
 
