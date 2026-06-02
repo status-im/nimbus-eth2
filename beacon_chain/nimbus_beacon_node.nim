@@ -1042,7 +1042,7 @@ proc init*(
     nil
 
   let
-    netKeys = getPersistentNetKeys(rng[], config)
+    netKeys = getPersistentNetKeys(rng, config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
     network = createEth2Node(
@@ -2736,7 +2736,7 @@ proc doRunBeaconNode(
   else:
     node.run(nil)
 
-proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
+proc doRecord(config: BeaconNodeConf, rng: ref HmacDrbgContext) {.
     raises: [CatchableError].} =
   case config.recordCmd:
   of RecordCmd.create:
@@ -2834,7 +2834,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   of BNStartUpCmd.beaconNode: doRunBeaconNode(config, rng)
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
-  of BNStartUpCmd.record: doRecord(config, rng[])
+  of BNStartUpCmd.record: doRecord(config, rng)
   of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartUpCmd.trustedNodeSync:
