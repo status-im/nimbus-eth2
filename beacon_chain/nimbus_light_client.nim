@@ -83,7 +83,7 @@ proc main() {.noinline, raises: [CatchableError].} =
     genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
 
     rng = HmacDrbgContext.new()
-    netKeys = getRandomNetKeys(rng[])
+    netKeys = getRandomNetKeys(rng)
     network = createEth2Node(
       rng, config, netKeys, cfg, forkDigests, getBeaconTime, genesis_validators_root
     ).valueOr:
