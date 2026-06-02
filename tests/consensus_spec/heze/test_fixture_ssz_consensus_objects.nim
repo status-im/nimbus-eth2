@@ -31,8 +31,6 @@ from ../../../beacon_chain/spec/datatypes/bellatrix import PowBlock
 from ../../../beacon_chain/spec/datatypes/capella import
   BLSToExecutionChange, SignedBLSToExecutionChange, HistoricalSummary,
   Withdrawal
-from ../../../beacon_chain/spec/datatypes/deneb import
-  BlobIdentifier, BlobSidecar
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -126,8 +124,6 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "BeaconBlockBody": checkSSZ(heze.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(heze.BeaconState, path, hash)
-          of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
-          of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Builder": checkSSZ(Builder, path, hash)
           of "BuilderPendingPayment": checkSSZ(BuilderPendingPayment, path, hash)
@@ -156,8 +152,6 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "ExecutionRequests":
             checkSSZ(electra.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
-          of "ForkChoiceNode":
-            debugHezeComment "skipping ForkChoiceNode test for now"
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "InclusionList": checkSSZ(heze.InclusionList, path, hash)

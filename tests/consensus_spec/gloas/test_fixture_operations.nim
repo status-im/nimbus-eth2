@@ -33,7 +33,6 @@ const
   OpBlsToExecutionChangeDir   = OpDir/"bls_to_execution_change"
   OpConsolidationRequestDir   = OpDir/"consolidation_request"
   OpDepositRequestDir         = OpDir/"deposit_request"
-  OpDepositsDir               = OpDir/"deposit"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
   OpParentExecutionPayloadDir = OpDir/"parent_execution_payload"
   OpExecutionPayloadBidDir    = OpDir/"execution_payload_bid"
@@ -49,7 +48,7 @@ const
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
-  OpDepositsDir, OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
+  OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
   OpSyncAggregateDir, OpVoluntaryExitDir, OpVoluntaryExitChurnDir,
   OpWithdrawalsDir
@@ -173,18 +172,6 @@ suite baseDescription & "Consolidation Request " & preset():
     runTest[ConsolidationRequest, typeof applyConsolidationRequest](
       OpConsolidationRequestDir, suiteName, "Consolidation Request",
       "consolidation_request", applyConsolidationRequest, path)
-
-suite baseDescription & "Deposit " & preset():
-  func applyDeposit(
-      preState: var gloas.BeaconState, deposit: Deposit):
-      Result[void, cstring] =
-    process_deposit(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
-
-  for path in walkTests(OpDepositsDir):
-    runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
