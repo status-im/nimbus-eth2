@@ -155,10 +155,6 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
   ok(extended_matrix)
 
-proc recoverCellsAndKzgProofsTask(cellIndices: openArray[CellIndex],
-                                  cells: openArray[Cell]): Result[CellsAndProofs, void] =
-  recoverCellsAndKzgProofs(cellIndices, cells).mapConvertErr(void)
-
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref fulu.DataColumnSidecar]):
@@ -210,7 +206,7 @@ proc recover_cells_and_proofs_parallel*(
     defer:
       discard tsp.fireSync()
 
-    res[] = recoverCellsAndKzgProofsTask(
+    res[] = recoverCellsAndKzgProofs(
       idxArr.toOpenArray(0, columnCount - 1),
       cellsArr.toOpenArray(0, columnCount - 1)).valueOr:
         return false

@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -34,7 +34,6 @@ const
   OpBlsToExecutionChangeDir = OpDir/"bls_to_execution_change"
   OpConsolidationRequestDir = OpDir/"consolidation_request"
   OpDepositRequestDir       = OpDir/"deposit_request"
-  OpDepositsDir             = OpDir/"deposit"
   OpWithdrawalRequestDir    = OpDir/"withdrawal_request"
   OpExecutionPayloadDir     = OpDir/"execution_payload"
   OpProposerSlashingDir     = OpDir/"proposer_slashing"
@@ -44,13 +43,11 @@ const
 
   baseDescription = "EF - Fulu - Operations - "
 
-
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
-  OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
-  OpProposerSlashingDir, OpSyncAggregateDir, OpVoluntaryExitDir,
-  OpWithdrawalsDir])
+  OpWithdrawalRequestDir, OpExecutionPayloadDir, OpProposerSlashingDir,
+  OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir])
 
 doAssert toHashSet(
   mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) == testDirs
@@ -169,18 +166,6 @@ suite baseDescription & "Consolidation Request " & preset():
     runTest[ConsolidationRequest, typeof applyConsolidationRequest](
       OpConsolidationRequestDir, suiteName, "Consolidation Request",
       "consolidation_request", applyConsolidationRequest, path)
-
-suite baseDescription & "Deposit " & preset():
-  func applyDeposit(
-      preState: var fulu.BeaconState, deposit: Deposit):
-      Result[void, cstring] =
-    process_deposit(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
-
-  for path in walkTests(OpDepositsDir):
-    runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
 
 suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
