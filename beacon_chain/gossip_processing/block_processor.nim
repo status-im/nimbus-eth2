@@ -663,6 +663,8 @@ proc storeBlock(
 
   when consensusFork == ConsensusFork.Fulu:
     ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
+    debug "block_processor verifySidecars completed",
+      verifySidecarsDur = Moment.now() - newPayloadTick
 
   let blck =
     ?dag.addHeadBlockWithParent(

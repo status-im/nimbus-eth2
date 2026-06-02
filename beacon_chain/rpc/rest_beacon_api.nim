@@ -1680,8 +1680,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error)
     RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
-  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelopes/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
     let
       blockIdent = block_id.valueOr:
