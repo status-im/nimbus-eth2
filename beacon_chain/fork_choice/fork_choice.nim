@@ -785,6 +785,7 @@ when isMainModule:
       deltas = newSeqUninit[Delta](validator_count)
 
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
       old_balances: seq[ForkChoiceBalance]
       new_balances: seq[ForkChoiceBalance]
@@ -796,7 +797,7 @@ when isMainModule:
       new_balances.add 0.ForkChoiceBalance
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -817,6 +818,7 @@ when isMainModule:
       deltas = newSeqUninit[Delta](validator_count)
 
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
       old_balances: seq[ForkChoiceBalance]
       new_balances: seq[ForkChoiceBalance]
@@ -831,7 +833,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -858,6 +860,7 @@ when isMainModule:
       deltas = newSeqUninit[Delta](validator_count)
 
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
       old_balances: seq[ForkChoiceBalance]
       new_balances: seq[ForkChoiceBalance]
@@ -872,7 +875,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -896,6 +899,7 @@ when isMainModule:
       deltas = newSeqUninit[Delta](validator_count)
 
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
       old_balances: seq[ForkChoiceBalance]
       new_balances: seq[ForkChoiceBalance]
@@ -911,7 +915,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -936,6 +940,7 @@ when isMainModule:
 
     var
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
 
     # Add a block
@@ -961,7 +966,7 @@ when isMainModule:
       slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -986,6 +991,7 @@ when isMainModule:
       deltas = newSeqUninit[Delta](validator_count)
 
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
       old_balances: seq[ForkChoiceBalance]
       new_balances: seq[ForkChoiceBalance]
@@ -1001,7 +1007,7 @@ when isMainModule:
       new_balances.add NewBalance
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -1028,6 +1034,7 @@ when isMainModule:
 
     var
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
 
     # Add 2 blocks
@@ -1048,7 +1055,7 @@ when isMainModule:
         slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -1069,6 +1076,7 @@ when isMainModule:
 
     var
       indices: Table[Eth2Digest, Index]
+      fullBlockIndices: Table[Eth2Digest, Index]
       votes: seq[VoteTracker]
 
     # Add 2 blocks
@@ -1089,7 +1097,7 @@ when isMainModule:
         slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, initTable[Eth2Digest, Index](), indices_offset = 0,
+      indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err

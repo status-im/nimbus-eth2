@@ -934,8 +934,14 @@ proc processExecutionPayloadBid*(
     signedBid, wallTime)
   if v.isOk():
     debug "Execution payload bid validated"
-    self.executionPayloadBidPool[].addBid(signedBid, wallTime)
+
+    let payloadAvailability = v.get
+
+    self.executionPayloadBidPool[].addBid(
+      signedBid, payloadAvailability, wallTime)
+
     beacon_execution_payload_bids_received.inc()
+
     ok()
   else:
     debug "Dropping execution payload bid", reason = $v.error

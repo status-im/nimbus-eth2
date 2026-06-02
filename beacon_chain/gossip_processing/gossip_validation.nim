@@ -2055,7 +2055,7 @@ proc validateExecutionPayloadBid*(
     seenProposerPreferences:
       var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
-    wallTime: BeaconTime): Result[void, ValidationError] =
+    wallTime: BeaconTime): Result[PayloadAvailability, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
 
   withState(dag.headState):
@@ -2080,10 +2080,20 @@ proc validateExecutionPayloadBid*(
         return errIgnore(
           "ExecutionPayloadBid: already seen bid from this builder for this slot")
 
-      # [IGNORE] This bid is the highest value bid seen for the corresponding
-      # slot and the given parent block hash
-      let highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
-        bid.slot, bid.parent_block_hash)
+      # [IGNORE] bid.parent_block_hash is the block hash of a known execution
+      # payload in fork choice
+      let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
+        return errIgnore(
+          "ExecutionPayloadBid: parent block root not found in fork choice")
+
+      # [IGNORE] this bid is the highest value bid seen for the tuple
+      # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`.
+      let
+        payloadAvailability =
+          dag.payloadAvailability(parentBlck, bid.parent_block_hash).valueOr:
+            return errIgnore("ExecutionPayloadBid: parent block hash unknown")
+        highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
+          bid.slot, bid.parent_block_root, payloadAvailability)
       if highestBid.isSome() and highestBid.get().message.value > bid.value:
         return errIgnore(
           "ExecutionPayloadBid: not the highest value bid for this slot and parent")
@@ -2093,22 +2103,6 @@ proc validateExecutionPayloadBid*(
           forkyState.data, bid.builder_index.BuilderIndex, bid.value):
         return errIgnore(
           "ExecutionPayloadBid: insufficient builder balance")
-
-      # [IGNORE] bid.parent_block_hash is the block hash of a known execution
-      # payload in fork choice
-      let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore("ExecutionPayloadBid: parent block root not found in fork choice")
-
-      try:
-        let parentExecHash = dag.loadExecutionBlockHash(parentBlck).valueOr:
-          return errIgnore("Bid: parent has no execution payload")
-
-        # Verify the bid references the correct execution payload
-        if parentExecHash != bid.parent_block_hash:
-          return dag.checkedReject(
-            "Bid: parent_block_hash doesn't match parent beacon block")
-      except KeyError:
-        return errIgnore("Bid: error loading parent execution hash")
 
       let seenPref = block:
         let
@@ -2168,11 +2162,11 @@ proc validateExecutionPayloadBid*(
           signed_execution_payload_bid.signature):
         return dag.checkedReject(
           "ExecutionPayloadBid: invalid signature")
-    else:
-      return dag.checkedReject(
-        "ExecutionPayloadBid: only valid for Gloas fork or later")
 
-  ok()
+      ok payloadAvailability
+    else:
+      dag.checkedReject(
+        "ExecutionPayloadBid: only valid for Gloas fork or later")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/p2p-interface.md#payload_attestation_message
 proc validatePayloadAttestationMessage*(

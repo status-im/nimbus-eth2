@@ -14,28 +14,27 @@ import
   chronos,
   taskpools,
   # Internal
-  ../beacon_chain/[beacon_clock],
+  ../beacon_chain/beacon_clock,
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     envelope_quarantine, sync_committee_msg_pool],
-  ../beacon_chain/spec/datatypes/[phase0, altair, gloas],
-  ../beacon_chain/spec/[
-    beaconstate, state_transition, helpers, network, validator],
+  ../beacon_chain/spec/[state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import count, toSeq
 from ./testbcutil import addHeadBlock
+from ../beacon_chain/spec/beaconstate import dependent_root, latest_block_root
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
     # pool[].prune(dag) # We test without att_1_0 pool / fork choice pruning
 
-proc signProposerPreferences(
+func signProposerPreferences(
     dag: ChainDAGRef, prefs: ProposerPreferences,
     privkey: ValidatorPrivKey): SignedProposerPreferences =
   let
@@ -523,9 +522,9 @@ suite "Proposer preferences validation " & preset():
             break
         # wrongValidator just needs to differ from the scheduled proposer at
         # proposerSlot; other slots don't matter for is_valid_proposal_slot.
-        wrongValidator = proposerIndex + 1
+        wrongValidator = proposer_index + 1
         if forkyState.data.proposer_lookahead.item(
-            proposerSlot - startSlot) == wrongValidator:
+            proposer_slot - startSlot) == wrongValidator:
           wrongValidator += 1
     check proposerFound
 
@@ -537,7 +536,7 @@ suite "Proposer preferences validation " & preset():
         fee_recipient: default(ExecutionAddress),
         target_gas_limit: 30_000_000)
       signed = signProposerPreferences(
-        dag, prefs, MockPrivKeys[proposerIndex.ValidatorIndex])
+        dag, prefs, MockPrivKeys[proposer_index.ValidatorIndex])
       wallTime = dag.head.slot.start_beacon_time(dag.cfg.timeParams)
 
   test "validateProposerPreferences - happy case":
@@ -550,16 +549,16 @@ suite "Proposer preferences validation " & preset():
       validateProposerPreferences(dag, seen, signed, wallTime).isErr
 
   test "validateProposerPreferences - proposal_slot already passed":
-    let past = (proposerSlot + 1).start_beacon_time(dag.cfg.timeParams)
+    let past = (proposer_slot + 1).start_beacon_time(dag.cfg.timeParams)
     # Still within current/next epoch window, but wallTime >= proposal_slot.
     check:
       validateProposerPreferences(dag, seen, signed, past).isErr
 
   test "validateProposerPreferences - proposal_slot outside current/next epoch":
     var msg = prefs
-    msg.proposal_slot = proposerSlot + SLOTS_PER_EPOCH * 3
+    msg.proposal_slot = proposer_slot + SLOTS_PER_EPOCH * 3
     let farAhead = signProposerPreferences(
-      dag, msg, MockPrivKeys[proposerIndex.ValidatorIndex])
+      dag, msg, MockPrivKeys[proposer_index.ValidatorIndex])
     check:
       validateProposerPreferences(dag, seen, farAhead, wallTime).isErr
 
