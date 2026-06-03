@@ -32,6 +32,7 @@ requires(
   "nimcrypto",
   "normalize",
   "presto",
+  "protobuf_serialization",
   "secp256k1",
   "serialization",
   "snappy",

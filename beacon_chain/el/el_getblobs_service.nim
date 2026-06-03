@@ -48,10 +48,9 @@ type
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
-    partialColumnQuarantine*: ref PartialColumnQuarantine
+    partialColumnQuarantine: ref FuluPartialColumnQuarantine
       # Sink for partial column cells reconstructed from a partial
-      # engine_getBlobsV3 response on Fulu. Only populated when
-      # `partialColumns` is enabled.
+      # engine_getBlobsV3 response on Fulu.
     partialColumns*: bool
       # Mirrors `--debug-partial-columns`: when true the Fulu path issues
       # `engine_getBlobsV3` and routes partial responses into the partial
@@ -78,7 +77,7 @@ proc new*(
     blockProcessor: ref BlockProcessor,
     dataColumnQuarantine: ref ColumnQuarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
-    partialColumnQuarantine: ref PartialColumnQuarantine,
+    partialColumnQuarantine: ref FuluPartialColumnQuarantine,
     partialColumns: bool,
     validatorCustody: ValidatorCustodyRef,
     network: Eth2Node
@@ -213,13 +212,13 @@ proc attemptGetBlobs*(
             return
 
           self.partialColumnQuarantine[].putPartialHeader(
-            forkyBlck.root, header)
+            forkyBlck.root, newClone(header))
           for columnIndex in 0 ..< partialSidecars.len:
             discard self.partialColumnQuarantine[].getOrCreateEntry(
               forkyBlck.root, ColumnIndex(columnIndex), numBlobs)
             self.partialColumnQuarantine[].addCells(
               forkyBlck.root, ColumnIndex(columnIndex),
-              partialSidecars[columnIndex])
+              newClone(partialSidecars[columnIndex]))
 
           debug "Added partial data columns from EL blobpool to quarantine",
             root = forkyBlck.root,

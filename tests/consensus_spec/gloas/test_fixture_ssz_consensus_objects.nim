@@ -214,8 +214,11 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
-          of "PartialDataColumnGroupID", "PartialDataColumnPartsMetadata",
-             "PartialDataColumnSidecar":
+          of "PartialDataColumnGroupID":
+            checkSSZ(gloas.PartialDataColumnGroupID, path, hash)
+          of "PartialDataColumnSidecar":
+            checkSSZ(gloas.PartialDataColumnSidecar, path, hash)
+          of "PartialDataColumnPartsMetadata":
             debugGloasComment "Skipping PartialDataColumn tests for now"
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
