@@ -160,6 +160,10 @@ proc recover_cells_and_proofs_parallel*(
     dataColumns: seq[ref fulu.DataColumnSidecar]):
     Future[Result[seq[CellsAndProofs], cstring]] {.async: (raises: []).} =
   ## Recover blobs from data column sidecars in parallel.
+  ## Only the `index`/`column` fields are consumed, which both the Fulu and
+  ## Gloas sidecar layouts share; callers holding Gloas sidecars adapt them to
+  ## this concrete Fulu input (kept concrete because the taskpool `spawn` below
+  ## cannot be instantiated from a generic context).
   ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
   ## - Checks timeout before every spawn operation.

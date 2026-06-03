@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/sets,
+  std/[sequtils, sets],
   chronicles,
   chronos,
   taskpools,
@@ -16,7 +16,7 @@ import
   metrics,
   ssz_serialization/[proofs, types],
   ../spec/[forks, helpers, peerdas_helpers],
-  ../spec/datatypes/fulu,
+  ../spec/datatypes/[fulu, gloas],
   ../sync/validator_custody,
   ../beacon_chain_db,
   ../beacon_clock,
@@ -122,7 +122,7 @@ proc syncBitmap(self: ColumnReconstructionBackfillerRef) =
     if drop >= self.slotStates.len:
       self.slotStates.setLen(0)
     else:
-      self.slotStates.delete(0, drop - 1)
+      self.slotStates.delete(0 .. drop - 1)
     self.bitmapStartSlot = retentionStart
 
 func slotIdx(self: ColumnReconstructionBackfillerRef, slot: Slot): int =
@@ -161,34 +161,46 @@ proc pickNextSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
 
 proc countExistingColumns(
     db: BeaconChainDB,
+    consensusFork: ConsensusFork,
     blockRoot: Eth2Digest
 ): HashSet[uint64] =
   var present: HashSet[uint64]
   for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
-    if db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot, i):
+    # Columns are stored in a per-fork table, so the right fork must be
+    # consulted: Fulu sidecars live in `fulu_columns`, Gloas in `gloas_columns`.
+    let found =
+      case consensusFork
+      of ConsensusFork.Fulu:
+        db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot, i)
+      of ConsensusFork.Gloas:
+        db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot, i)
+      else:
+        false
+    if found:
       present.incl(i)
   present
 
-proc loadExistingColumns(
+proc loadExistingColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     db: BeaconChainDB,
     blockRoot: Eth2Digest,
     indices: HashSet[uint64]
-): seq[ref fulu.DataColumnSidecar] =
-  var columns = newSeqOfCap[ref fulu.DataColumnSidecar](indices.len)
+): seq[ref T] =
+  var columns = newSeqOfCap[ref T](indices.len)
   for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
     if i notin indices:
       continue
-    let colData = new fulu.DataColumnSidecar
+    let colData = new T
     if db.getDataColumnSidecar(blockRoot, i, colData[]):
       columns.add(colData)
   columns
 
-proc reconstructAndStore(
+proc reconstructAndStore[
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: ColumnReconstructionBackfillerRef,
     slot: Slot,
     blockRoot: Eth2Digest,
     have: HashSet[uint64],
-    columns: seq[ref fulu.DataColumnSidecar]
+    columns: seq[ref T]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Run the parallel cell+proof recovery and persist every column the
   ## caller did not already have. Returns true on full success.
@@ -196,8 +208,18 @@ proc reconstructAndStore(
   beacon_column_reconstruction_backfill_slot.set(int64(slot))
 
   let startTime = Moment.now()
+  # `recover_cells_and_proofs_parallel` is concrete over Fulu sidecars (its
+  # taskpool `spawn` can't be instantiated generically). Recovery only reads
+  # `index`/`column`, so adapt Gloas sidecars to that shape; Fulu ones pass
+  # through unchanged.
+  let recoverInput =
+    when T is fulu.DataColumnSidecar:
+      columns
+    else:
+      columns.mapIt((ref fulu.DataColumnSidecar)(
+        index: it[].index, column: it[].column))
   let recovered = (await recover_cells_and_proofs_parallel(
-      self.taskpool, columns)).valueOr:
+      self.taskpool, recoverInput)).valueOr:
     beacon_column_reconstruction_failures_total.inc()
     debug "Column reconstruction failed",
       slot, blockRoot, haveCount = columns.len, reason = error
@@ -207,8 +229,7 @@ proc reconstructAndStore(
     recoveredTime = Moment.now()
     rowCount = recovered.len
 
-  var reconstructed = newSeqOfCap[ref fulu.DataColumnSidecar](
-    NUMBER_OF_COLUMNS - columns.len)
+  var reconstructed = newSeqOfCap[ref T](NUMBER_OF_COLUMNS - columns.len)
   for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
     if i in have:
       continue
@@ -218,14 +239,25 @@ proc reconstructAndStore(
     for j in 0 ..< rowCount:
       cells[j] = recovered[j].cells[i]
       proofs[j] = recovered[j].proofs[i]
-    reconstructed.add (ref fulu.DataColumnSidecar)(
-      index: ColumnIndex(i),
-      column: DataColumn.init(cells),
-      kzg_commitments: columns[0][].kzg_commitments,
-      kzg_proofs: deneb.KzgProofs.init(proofs),
-      signed_block_header: columns[0][].signed_block_header,
-      kzg_commitments_inclusion_proof:
-        columns[0][].kzg_commitments_inclusion_proof)
+    # Per-block constants (commitments/header/proof for Fulu,
+    # slot/beacon_block_root for Gloas) are identical across every column of a
+    # block, so they're copied from any sidecar we already hold.
+    when T is gloas.DataColumnSidecar:
+      reconstructed.add (ref gloas.DataColumnSidecar)(
+        index: ColumnIndex(i),
+        column: DataColumn.init(cells),
+        kzg_proofs: deneb.KzgProofs.init(proofs),
+        slot: columns[0][].slot,
+        beacon_block_root: columns[0][].beacon_block_root)
+    else:
+      reconstructed.add (ref fulu.DataColumnSidecar)(
+        index: ColumnIndex(i),
+        column: DataColumn.init(cells),
+        kzg_commitments: columns[0][].kzg_commitments,
+        kzg_proofs: deneb.KzgProofs.init(proofs),
+        signed_block_header: columns[0][].signed_block_header,
+        kzg_commitments_inclusion_proof:
+          columns[0][].kzg_commitments_inclusion_proof)
 
   self.dag.db.putDataColumnSidecars(reconstructed)
   beacon_column_reconstruction_success_total.inc()
@@ -238,10 +270,32 @@ proc reconstructAndStore(
     storeTime = Moment.now() - recoveredTime
   true
 
+proc reconstructSlot[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+    self: ColumnReconstructionBackfillerRef,
+    slot: Slot,
+    blockRoot: Eth2Digest,
+    have: HashSet[uint64],
+    _: typedesc[T]
+): Future[SlotRecon] {.async: (raises: [CancelledError]).} =
+  ## Load the columns we hold, recover the rest and persist them. Returns the
+  ## resulting slot state: `Full` on success, `TooFew` if columns were pruned
+  ## out from under us between the count and the load, or `Unknown` on a
+  ## recoverable failure (so a later pass retries once more columns arrive).
+  let columns = loadExistingColumns[T](self.dag.db, blockRoot, have)
+  if columns.len < ColumnsRequiredForReconstruction:
+    return TooFew
+  if await self.reconstructAndStore(slot, blockRoot, have, columns):
+    Full
+  else:
+    Unknown
+
 proc processSlot(
     self: ColumnReconstructionBackfillerRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
-  if self.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Fulu:
+  let blockFork = self.dag.cfg.consensusForkAtEpoch(slot.epoch)
+  # Data columns currently only exist for Fulu and Gloas; pre-Fulu slots carry
+  # none and later forks (Heze+) don't yet have a column store wired up.
+  if blockFork notin {ConsensusFork.Fulu, ConsensusFork.Gloas}:
     self.markSlot(slot, NoColumns)
     return
 
@@ -257,7 +311,7 @@ proc processSlot(
     return
 
   let blockRoot = bsi.bid.root
-  let have = countExistingColumns(self.dag.db, blockRoot)
+  let have = countExistingColumns(self.dag.db, blockFork, blockRoot)
   let count = have.len
 
   if count.uint64 == NUMBER_OF_COLUMNS:
@@ -272,7 +326,11 @@ proc processSlot(
       return
     var blockHadBlobs = false
     withBlck(forked):
-      when consensusFork >= ConsensusFork.Fulu:
+      when consensusFork >= ConsensusFork.Gloas:
+        # [Modified in Gloas:EIP7732] commitments live under the payload bid.
+        blockHadBlobs = forkyBlck.message.body
+          .signed_execution_payload_bid.message.blob_kzg_commitments.len > 0
+      elif consensusFork >= ConsensusFork.Fulu:
         blockHadBlobs = forkyBlck.message.body.blob_kzg_commitments.len > 0
     if not blockHadBlobs:
       self.markSlot(slot, NoColumns)
@@ -284,16 +342,15 @@ proc processSlot(
     self.markSlot(slot, TooFew)
     return
 
-  let columns = loadExistingColumns(self.dag.db, blockRoot, have)
-  if columns.len < ColumnsRequiredForReconstruction:
-    # Columns pruned out from under us between the count and the load.
-    self.markSlot(slot, TooFew)
-    return
-
-  if await self.reconstructAndStore(slot, blockRoot, have, columns):
-    self.markSlot(slot, Full)
-  # On failure we leave the slot as `Unknown` so a later pass can retry
-  # once more columns have arrived.
+  # On reconstruction failure `reconstructSlot` returns `Unknown`, leaving the
+  # slot eligible for a later retry.
+  let state =
+    case blockFork
+    of ConsensusFork.Gloas:
+      await self.reconstructSlot(slot, blockRoot, have, gloas.DataColumnSidecar)
+    else:
+      await self.reconstructSlot(slot, blockRoot, have, fulu.DataColumnSidecar)
+  self.markSlot(slot, state)
 
 proc run*(
     self: ColumnReconstructionBackfillerRef) {.async: (raises: []).} =

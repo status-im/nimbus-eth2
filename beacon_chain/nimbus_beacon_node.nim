@@ -17,15 +17,15 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blockchain_list, column_quarantine, envelope_quarantine,
-    execution_payload_pool, partial_column_quarantine,
+    blockchain_list, column_quarantine, column_reconstruction_backfiller,
+    envelope_quarantine, execution_payload_pool, partial_column_quarantine,
     payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./el/el_getblobs_service,
   ./spec/[
-    engine_authentication, weak_subjectivity, peerdas_helpers, column_map],
+    engine_authentication, weak_subjectivity, column_map],
   ./sync/[
     sync_protocol, light_client_protocol, sync_overseer, validator_custody],
   ./validators/[keystore_management, beacon_validators],
