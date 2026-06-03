@@ -577,19 +577,12 @@ func maybeUpdateBestChildAndDescendant(
     childLeadsToViableHead =
       ? self.nodeLeadsToViableHead(child, childIdx)
 
-    # FULL nodes may not have real children — new blocks parent to EMPTY.
-    # If FULL has no bestChild, use EMPTY sibling's bestDescendant instead.
+    # A block's EMPTY and FULL nodes fork the descendant tree: a block that
+    # built on EMPTY is not a descendant of FULL (and vice versa). A childless
+    # node's best-descendant is itself.
     childIsFull =
       self.fullBlockIndices.getOrDefault(child.bid.root, -1) == childIdx
-    effectiveBestDescendant = block:
-      if child.bestChild.isNone and childIsFull:
-        let siblingIdx = self.indices.getOrDefault(child.bid.root, -1)
-        if siblingIdx >= 0:
-          let sn = self.nodes[siblingIdx]
-          if sn.isSome: sn.get.bestDescendant
-          else: child.bestDescendant
-        else: child.bestDescendant
-      else: child.bestDescendant
+    effectiveBestDescendant = child.bestDescendant
 
     # Aliases to the 3 possible (bestChild, bestDescendant) tuples
     changeToNone = (Opt.none(Index), Opt.none(Index))
@@ -627,17 +620,23 @@ func maybeUpdateBestChildAndDescendant(
             # The best child leads to a viable head, but the child doesn't
             noChange
           elif child.bid.root == bestChild.bid.root:
-            # emptyPreferredRoot is the previous slot's block, matched per spec
-            # get_payload_status_tiebreaker via `slot + 1 == currentSlot`.
-            let fullPreferred =
-              child.bid.slot + 1 != self.currentSlot or
-              child.bid.root != self.emptyPreferredRoot
-            if childIsFull == fullPreferred:
+            let
+              isPrevSlot = child.bid.slot + 1 == self.currentSlot
+              childWeight = if isPrevSlot: 0'i64 else: child.weight
+              bestWeight = if isPrevSlot: 0'i64 else: bestChild.weight
+            template statusTiebreak(isFull: bool): int =
+              if isPrevSlot:
+                if isFull:
+                  (if child.bid.root != self.emptyPreferredRoot: 2 else: 0)
+                else: 1
+              else:
+                (if isFull: 1 else: 0)
+            if childWeight != bestWeight:
+              if childWeight > bestWeight: changeToChild else: noChange
+            elif statusTiebreak(childIsFull) > statusTiebreak(not childIsFull):
               changeToChild
             else:
-              (parent.bestChild,
-               if child.bestDescendant.isSome(): child.bestDescendant
-               else: parent.bestDescendant)
+              noChange
           elif child.weight == bestChild.weight:
             if child.bid.root.tiebreak(bestChild.bid.root):
               changeToChild
