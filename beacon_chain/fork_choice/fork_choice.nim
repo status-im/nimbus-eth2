@@ -121,7 +121,8 @@ func process_attestation(
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-proc process_attestation_queue(self: var ForkChoice, slot: Slot, dag: ChainDAGRef) =
+proc process_attestation_queue(
+    self: var ForkChoice, slot: Slot, dag: ChainDAGRef) =
   # Spec:
   # Attestations can only affect the fork choice of subsequent slots.
   # Delay consideration in the fork choice until their slot is in the past.
