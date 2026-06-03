@@ -459,10 +459,10 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
   ok()
 
 func remapIdx(idx: Opt[Index], oldToNew: Table[Index, Index]): Opt[Index] =
-  # Remap a logical node index through the prune survivor table; drops it if
-  # the referenced node did not survive.
-  if idx.isSome:
-    let n = oldToNew.getOrDefault(idx.unsafeGet, -1)
+  # Remap a logical node index through the prune survivor
+  # table; drops it if the referenced node did not survive.
+  idx.isErrOr:
+    let n = oldToNew.getOrDefault(value, -1)
     if n >= 0:
       return Opt.some(n)
   Opt.none(Index)
