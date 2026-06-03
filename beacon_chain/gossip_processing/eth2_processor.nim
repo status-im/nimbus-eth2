@@ -441,7 +441,8 @@ proc processDataColumnSidecar*(
     data_column_sidecar_delay.observe(delay.toFloatSeconds())
     return v
 
-  self.dataColumnQuarantine[].put(block_root, dataColumnSidecar)
+  self.dataColumnQuarantine[].put(
+    block_root, dataColumnSidecar, verified = true)
 
   if block_root in self.quarantine[].sidecarless:
     let cres = self.dataColumnQuarantine[].popSidecars(block_root)
@@ -492,7 +493,7 @@ proc processDataColumnSidecar*(
     return v
 
   self.gloasColumnQuarantine[].put(
-    dataColumnSidecar[].beacon_block_root, dataColumnSidecar)
+    dataColumnSidecar[].beacon_block_root, dataColumnSidecar, verified = true)
   self.blockProcessor.enqueuePayload(dataColumnSidecar[].beacon_block_root)
 
   data_column_sidecars_received.inc()

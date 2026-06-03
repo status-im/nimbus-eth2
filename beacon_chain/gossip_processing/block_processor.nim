@@ -14,7 +14,7 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt
+from std/sequtils import anyIt, filterIt
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead
 from ../consensus_object_pools/blockchain_dag import
@@ -29,7 +29,8 @@ from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/column_quarantine import
-  ColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot
+  ColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot,
+  popPendingVerify
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
   delOrphan, popOrphan, remove
@@ -191,21 +192,17 @@ proc verifySidecars(
     envelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, VerifierError] =
-  if sidecarsOpt.isSome:
-    let columns = sidecarsOpt.get()
+  sidecarsOpt.isErrOr:
     template bid(): auto =
       signedBlock.message.body.signed_execution_payload_bid
-    template kzgCommits(): auto =
-      bid.message.blob_kzg_commitments.asSeq
-    if columns.len > 0 and kzgCommits.len > 0:
-      let r = verify_data_column_sidecar_kzg_proofs(
-        columns, bid.message.blob_kzg_commitments)
-      if r.isErr():
+    template kzgCommits: auto = bid.message.blob_kzg_commitments
+    if value.len > 0 and kzgCommits.len > 0:
+      verify_data_column_sidecar_kzg_proofs(value, kzgCommits).isOkOr:
         debug "data column validation failed",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature),
-          msg = r.error()
+          msg = error
         return err(VerifierError.Invalid)
   ok()
 
@@ -214,17 +211,14 @@ proc verifySidecars(
     envelope: NoEnvelope,
     sidecarsOpt: Opt[fulu.DataColumnSidecars],
 ): Result[void, VerifierError] =
-  if sidecarsOpt.isSome:
-    let columns = sidecarsOpt.get()
-    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-    if columns.len > 0 and kzgCommits.len > 0:
-      let r = verify_data_column_sidecar_kzg_proofs(columns)
-      if r.isErr():
+  sidecarsOpt.isErrOr:
+    if value.len > 0 and signedBlock.message.body.blob_kzg_commitments.len > 0:
+      verify_data_column_sidecar_kzg_proofs(value).isOkOr:
         debug "data column validation failed",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature),
-          msg = r.error()
+          msg = error
         return err(VerifierError.Invalid)
   ok()
 
@@ -669,7 +663,15 @@ proc storeBlock(
   let newPayloadTick = Moment.now()
 
   when consensusFork == ConsensusFork.Fulu:
-    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
+    # Only request manager-sourced columns arrive unverified; getBlobsV2/V3/V4
+    # and CL gossip are both either trusted or verified.
+    let pendingVerify =
+      self.dataColumnQuarantine[].popPendingVerify(signedBlock.root)
+    if not pendingVerify.empty:
+      sidecarsOpt.isErrOr:
+        let toVerify = value.filterIt(it[].index in pendingVerify)
+        if toVerify.len > 0:
+          ?verifySidecars(signedBlock, noEnvelope, Opt.some(toVerify))
     debug "block_processor verifySidecars completed",
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
@@ -863,7 +865,8 @@ proc addBlock*(
 
       when sidecarsOpt is Opt[fulu.DataColumnSidecars]:
         if sidecarsOpt.isSome:
-          self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
+          self.dataColumnQuarantine[].put(
+            blockRoot, sidecarsOpt.get, verified = false)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
         # In Gloas, block is enqueued with NoSidecar so we need not to care
         # about quarantine.
@@ -1011,7 +1014,8 @@ proc addPayload*(
       self.envelopeQuarantine[].addOrphan(
         self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
       if sidecarsOpt.isSome():
-        self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
+        self.gloasColumnQuarantine[].put(
+          signedBlock.root, sidecarsOpt.get(), verified = false)
     of VerifierError.Invalid, VerifierError.UnviableFork:
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
