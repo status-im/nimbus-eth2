@@ -164,6 +164,7 @@ func unload[A](holder: var SidecarHolder[A]): ref A =
     slot: holder.slot,
     index: holder.index,
     proposer_index: holder.proposer_index,
+    verified: holder.verified,
   )
   res
 
@@ -389,6 +390,7 @@ func load[A](holder: var SidecarHolder[A], sidecar: ref A) =
     slot: holder.slot,
     index: holder.index,
     proposer_index: holder.proposer_index,
+    verified: holder.verified,
     data: sidecar
   )
 

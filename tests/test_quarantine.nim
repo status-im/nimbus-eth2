@@ -1109,6 +1109,61 @@ suite "ColumnQuarantine data structure test suite " & preset():
       lenDisk(bq) == 0
       quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == 0
 
+  test "verified flag survives database unload/load [node]":
+    let
+      custodyColumns =
+        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+
+    var
+      bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 2, nil)
+      sidecars: seq[tuple[sidecar: ref fulu.DataColumnSidecar,
+                          blockRoot: Eth2Digest]]
+
+    let maxSidecars = int(NUMBER_OF_COLUMNS * SLOTS_PER_EPOCH) * 3
+    for i in 0 ..< maxSidecars:
+      let
+        index = i mod len(custodyColumns)
+        slot = i div len(custodyColumns) + 100
+        blockRoot = genBlockRoot(slot)
+        sidecar = newClone(
+          genFuluDataColumnSidecar(index = int(custodyColumns[index]),
+                                   slot, proposer_index = i))
+      sidecars.add((sidecar, blockRoot))
+
+    # Fill the in-memory quarantine to capacity with `verified` sidecars.
+    for item in sidecars:
+      bq.put(item.blockRoot, item.sidecar, verified = true)
+
+    check:
+      lenMemory(bq) == maxSidecars
+      lenDisk(bq) == 0
+
+    # Adding one more sidecar overfills memory and forces the oldest node
+    # (`genBlockRoot(100)`, holding all custody columns of the first block) to
+    # be offloaded to disk.
+    let
+      extra = newClone(
+        genFuluDataColumnSidecar(index = int(custodyColumns[0]), slot = 10000,
+                                 proposer_index = 1000000))
+      extraRoot = genBlockRoot(10000)
+    bq.put(extraRoot, extra, verified = true)
+
+    let offloadedRoot = genBlockRoot(100)
+    check:
+      lenDisk(bq) == len(custodyColumns)
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
+        len(custodyColumns)
+
+    # Popping reloads the offloaded columns from disk. Because the `verified`
+    # flag is now carried through the unload/load cycle, none of them should be
+    # queued for re-verification.
+    let dres = bq.popSidecars(offloadedRoot)
+    check:
+      dres.isOk()
+      dres.get().len == len(custodyColumns)
+      lenDisk(bq) == 0
+      bq.popPendingVerify(offloadedRoot).empty() == true
+
   test "database and memory overfill protection and pruning test [node]":
     let
       custodyColumns =
