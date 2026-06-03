@@ -1784,8 +1784,6 @@ proc pruneDataColumns(node: BeaconNode, slot: Slot) =
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
   # next slot
-  # Column reconstruction now runs as a standalone background service
-  # (`column_reconstruction_backfiller`) and is no longer driven from here.
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
