@@ -210,6 +210,7 @@ AllTests-mainnet
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test                  OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test             OK
++ verified flag survives database unload/load [node]                                         OK
 ```
 ## Combined scenarios [Beacon Node] [Preset: mainnet]
 ```diff
