@@ -476,7 +476,7 @@ proc addAttestation*(
 
   pool.addForkChoiceVotes(
     attestation.data.slot, attesting_indices, attestation.data.beacon_block_root,
-    CommitteeIndex(committee_index), wallTime,
+    CommitteeIndex(attestation.data.index), wallTime,
   )
 
   # There does not seem to be an SSE stream event corresponding to Attestation,

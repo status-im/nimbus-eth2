@@ -102,21 +102,39 @@ proc record_block_timeliness*(
 
   is_timely
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/phase0/fork-choice.md#update_proposer_boost_root
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/fork-choice.md#modified-get_dependent_root
+func get_dependent_root(
+    dag: ChainDAGRef, root: Eth2Digest, current_slot: Slot): Eth2Digest =
+  let epoch = current_slot.epoch
+  if epoch <= MIN_SEED_LOOKAHEAD:
+    # Genesis block parent
+    return ZERO_HASH
+  let blckRef = dag.getBlockRef(root).valueOr:
+    return ZERO_HASH
+  let dependent_slot =
+    start_slot(Epoch(epoch.uint64 - MIN_SEED_LOOKAHEAD)) - 1
+  let ancestor = blckRef.get_ancestor(dependent_slot)
+  if ancestor.isNil:
+    return ZERO_HASH
+  ancestor.root
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/phase0/fork-choice.md#update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 proc update_proposer_boost_root*(
     self: var ForkChoice, dag: ChainDAGRef,
-    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
+    blckRef: BlockRef, head_root: Eth2Digest,
     current_slot: Slot, is_timely: bool) =
 
   template is_first_block: bool =
     self.checkpoints.proposer_boost_root == ZERO_HASH
 
-  if is_timely and is_first_block:
-    let expectedProposer = dag.getProposer(dag.head, current_slot)
-    if expectedProposer.isSome and
-        blck.proposer_index == expectedProposer.get().uint64:
-      self.checkpoints.proposer_boost_root = blckRef.root
+  # Add proposer score boost if the block is timely, not conflicting with an
+  # existing block, with the same dependent root as the canonical chain head.
+  let is_same_dependent_root =
+    get_dependent_root(dag, blckRef.root, current_slot) ==
+    get_dependent_root(dag, head_root, current_slot)
+  if is_timely and is_first_block and is_same_dependent_root:
+    self.checkpoints.proposer_boost_root = blckRef.root
 
 template getPhysicalNode*(
     self: var ForkChoice, logicalIdx: int): ptr ProtoNode =

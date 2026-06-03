@@ -37,8 +37,6 @@ from ../../beacon_chain/spec/peerdas_helpers import
 from ../../beacon_chain/spec/state_transition import noRollback
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
-from ../../beacon_chain/spec/validator import
-  get_committee_index_one
 from ../../beacon_chain/spec/beaconstate import latest_block_root, get_ptc
 
 block:
@@ -477,7 +475,7 @@ proc doRunTest(
         stores.dag, step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
         toSeq(stores.dag.get_attesting_indices(step.electraAtt)),
-        get_committee_index_one(step.electraAtt.committee_bits).valueOr(CommitteeIndex(0)),
+        CommitteeIndex(step.electraAtt.data.index),
         time)
       doAssert status.isOk == step.valid
     of opOnBlock:

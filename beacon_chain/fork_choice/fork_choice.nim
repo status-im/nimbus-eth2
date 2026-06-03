@@ -376,12 +376,18 @@ proc on_attestation*(
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
   
-  # [New in Gloas:EIP7732]
-  # If attesting for a full node, the payload must be known
-  if attestation_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
-      attestation_committee_index == CommitteeIndex(1) and
-      beacon_block_root notin self.backend.proto_array.fullBlockIndices:
-    return ok()
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/fork-choice.md#modified-validate_on_attestation
+  if attestation_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH:
+    let index = attestation_committee_index.uint64
+    if index notin [0'u64, 1'u64]:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    let block_slot = self.backend.proto_array.slot(beacon_block_root)
+    if block_slot.isSome and block_slot.get == attestation_slot and index != 0:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    # If attesting for a full node, the payload must be known
+    if index == 1 and
+        beacon_block_root notin self.backend.proto_array.fullBlockIndices:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
 
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
     for validator_index in attesting_indices:
@@ -444,9 +450,7 @@ proc process_block*(
   for attestation in blck.body.attestations:
     if attestation.data.beacon_block_root in self.backend:
       when typeof(blck).kind >= ConsensusFork.Electra:
-        let payloadPresent =
-          get_committee_index_one(attestation.committee_bits) ==
-            Opt.some(CommitteeIndex(1))
+        let payloadPresent = attestation.data.index == 1
         for vidx in dag.get_attesting_indices(attestation):
           self.backend.process_attestation(
             vidx, attestation.data.beacon_block_root, attestation.data.slot,
@@ -475,7 +479,7 @@ proc process_block*(
     is_timely = self.record_block_timeliness(
       dag, blck.slot, blckRef.root, typeof(blck).kind, blck.proposer_index)
     slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  self.update_proposer_boost_root(dag, blckRef, blck, slot, is_timely)
+  self.update_proposer_boost_root(dag, blckRef, dag.head.root, slot, is_timely)
 
   # Update checkpoints in store if necessary
   ? self.update_checkpoints(dag, epochRef.checkpoints, slot)

@@ -59,6 +59,7 @@ type
     fcPtcInvalidSlot
     fcPtcInvalidSignature
     fcPtcNotMember
+    fcInvalidAttestation
 
   Index* = int
   Delta* = int64
@@ -76,7 +77,8 @@ type
        fcPtcBlockUnknown,
        fcPtcInvalidSlot,
        fcPtcInvalidSignature,
-       fcPtcNotMember:
+       fcPtcNotMember,
+       fcInvalidAttestation:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
