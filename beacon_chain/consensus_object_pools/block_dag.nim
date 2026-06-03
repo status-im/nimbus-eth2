@@ -249,19 +249,18 @@ func shortLog*(v: BlockSlot): string =
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
 
-proc executionParent*(blck: BlockRef): Opt[BlockRef] =
+func executionParent*(blck: BlockRef): Opt[BlockRef] =
   result = Opt.none(BlockRef)
   if isNil(blck.parent) or blck.executionParentHash.isNone():
     return
-
-  var cur = blck.parent
 
   # Parent hash of pre-Gloas blocks is zero but it could be built on the
   # genesis. Either cases, the execution parent should be same as the block
   # parent.
   if blck.executionParentHash.unsafeGet().isZero():
-    return Opt.some(cur)
+    return Opt.some(blck.parent)
 
+  var cur = blck.parent
   debugGloasComment("revisit the max depth of ancestors")
   for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
     if cur.executionBlockHash.isNone():
