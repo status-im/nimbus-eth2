@@ -2179,7 +2179,7 @@ suite "Gloas block validity":
       cache, info, {}).expect("gloas fork")
 
     # Slot 0 - 7, build on FULL Payload
-    for i in 0'u64 ..< slotCount:
+    for i in 0 ..< slotCount:
       process_slots(
         cfg, state[], state[].slot + 1,
         cache, info, {}).expect("next slot")
@@ -2203,13 +2203,12 @@ suite "Gloas block validity":
           b.envelope.message.payload.parent_hash)
         Opt.some(bRef.parent) == bRef.executionParent
         bRef.executionValid
-        bRef.executionOrParentValid
       if i == 0:
         check bRef.parent.slot == GENESIS_SLOT
 
     # Slot 8 - 15, build on EMPTY Payload
     let payloadParent = dag.head.parent
-    for i in 0'u64 ..< slotCount:
+    for i in 0 ..< slotCount:
       assign(state[], dag.headState)
       process_slots(
         cfg, state[], state[].slot + 1,
@@ -2232,5 +2231,4 @@ suite "Gloas block validity":
           bRef.parent,
           b.envelope.message.payload.parent_hash)
         Opt.some(payloadParent) == bRef.executionParent
-        not bRef.executionValid
-        bRef.executionOrParentValid
+        bRef.executionValid

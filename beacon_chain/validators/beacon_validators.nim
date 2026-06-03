@@ -1513,7 +1513,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
     return
 
-  elif not head.executionOrParentValid:
+  elif not head.executionValid:
     info "Execution client not in sync; skipping validator duties for now",
       slot, headSlot = head.slot
 

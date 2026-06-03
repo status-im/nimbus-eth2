@@ -2454,7 +2454,7 @@ proc executionParent*(
 
   var cur = parentRef
   debugGloasComment("revisit the max depth of ancestors")
-  for _ in 0'u64 ..< SLOTS_PER_EPOCH:
+  for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
     let pBhash = ?dag.loadExecutionBlockHash(cur)
     if pBhash == parentBlockHash:
       return Opt.some(cur)
