@@ -15,7 +15,7 @@ import
   kzg4844/kzg,
   metrics,
   ssz_serialization/[proofs, types],
-  ../spec/[forks, helpers, peerdas_helpers],
+  ../spec/[forks, helpers, peerdas_helpers, column_map],
   ../spec/datatypes/[fulu, gloas],
   ../sync/validator_custody,
   ../beacon_chain_db,
@@ -35,6 +35,10 @@ declareCounter beacon_column_reconstruction_failures_total,
 
 declareGauge beacon_column_reconstruction_backfill_slot,
   "Slot most recently selected for reconstruction by the backfiller service"
+
+declareGauge beacon_column_reconstruction_earliest_available_slot,
+  "Earliest slot from which the full column matrix can be served, as extended " &
+  "by the reconstruction backfiller"
 
 const
   # Spec: a node "SHOULD reconstruct the full data matrix" once it holds
@@ -159,6 +163,66 @@ proc pickNextSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
     s = s - 1
   Opt.none(Slot)
 
+func isFullyServable(state: SlotRecon): bool =
+  ## A slot can be served with the complete column matrix when every column is
+  ## present (`Full`) or when it legitimately carries none — an empty slot or a
+  ## block with zero blob commitments (`NoColumns`). `TooFew`/`Unknown` slots
+  ## cannot (yet) be served in full and therefore break the continuous trail.
+  state in {Full, NoColumns}
+
+func headContiguousBottom(self: ColumnReconstructionBackfillerRef): Slot =
+  ## Lowest slot of the unbroken run of fully-servable slots ending at the
+  ## head. The continuous "we hold all NUMBER_OF_COLUMNS columns" period is
+  ## therefore `[result..head]`. Returns `head + 1` when even the head isn't
+  ## servable yet (empty run).
+  let head = self.dag.head.slot
+  if self.slotStates.len == 0 or head < self.bitmapStartSlot:
+    return head + 1
+  var bottom = head + 1
+  while bottom > self.bitmapStartSlot:
+    let idx = self.slotIdx(bottom - 1)
+    if idx < 0 or idx >= self.slotStates.len:
+      break
+    if not self.slotStates[idx].isFullyServable:
+      break
+    bottom = bottom - 1
+  bottom
+
+proc updateEarliestAvailableSlot(self: ColumnReconstructionBackfillerRef) =
+  ## Keep `dag.eaSlot` at the bottom of the unbroken run of fully-servable
+  ## slots ending at the head, so that `[eaSlot..head]` always denotes a
+  ## continuous period over which we hold the full `NUMBER_OF_COLUMNS` matrix.
+  ##
+  ## Reconstruction fills the matrix head-first; as the unbroken run grows
+  ## downward we lower `eaSlot` so peers learn of the longer servable history.
+  ## We anchor the walk *at the head* (not at the current `eaSlot`) so we never
+  ## extend the advertised window across a still-unfilled gap, and we only ever
+  ## lower it — a momentarily un-inspected tip, or columns still arriving for
+  ## the current slot, must not retract history we have already guaranteed.
+  if self.slotStates.len == 0:
+    return
+  let bottom = self.headContiguousBottom()
+  if bottom < self.dag.eaSlot:
+    self.dag.eaSlot = bottom
+    beacon_column_reconstruction_earliest_available_slot.set(int64(bottom))
+    debug "Extended earliest available slot to reconstructed trail",
+      eaSlot = bottom, head = self.dag.head.slot
+
+proc retryTrailBlocker(self: ColumnReconstructionBackfillerRef) =
+  ## The slot just below the head-contiguous run is what stops `eaSlot` from
+  ## descending. If it is only `TooFew` (has some columns but fewer than the
+  ## `ColumnsRequiredForReconstruction` threshold) re-arm it as `Unknown` so a
+  ## later pass re-counts it: columns arriving via gossip/sync since we last
+  ## looked may have pushed it over the threshold, letting the continuous
+  ## period — and `eaSlot` — extend further. A genuinely under-filled slot
+  ## simply settles back to `TooFew`, at the cost of one re-count per idle tick.
+  let bottom = self.headContiguousBottom()
+  if bottom <= self.bitmapStartSlot:
+    return
+  let idx = self.slotIdx(bottom - 1)
+  if idx >= 0 and idx < self.slotStates.len and self.slotStates[idx] == TooFew:
+    self.slotStates[idx] = Unknown
+
 proc countExistingColumns(
     db: BeaconChainDB,
     consensusFork: ConsensusFork,
@@ -262,7 +326,7 @@ proc reconstructAndStore[
   self.dag.db.putDataColumnSidecars(reconstructed)
   beacon_column_reconstruction_success_total.inc()
 
-  debug "Backfilled reconstructed columns",
+  debug "Stored reconstructed columns",
     slot, blockRoot,
     haveCount = columns.len,
     addedCount = reconstructed.len,
@@ -357,22 +421,30 @@ proc run*(
   debug "Column reconstruction backfiller started"
   try:
     while true:
-      # Reconstruction is only a duty of nodes that aim to hold the full
-      # (or full half) column matrix. For limited-custody nodes there is
-      # no point burning CPU here.
-      if not (self.validatorCustody.isSupernode() or
-              self.validatorCustody.isLightSupernode()):
+      # Reconstruction is only possible once we custody at least half the
+      # matrix, so it's only a duty of nodes currently holding that many
+      # columns — i.e. a (light)supernode. Custody is dynamic: a node out of
+      # sync drops to limited custody, so re-check every pass and idle (rather
+      # than terminate) whenever our inferred custody falls below the
+      # reconstruction threshold, resuming once it climbs back.
+      if self.validatorCustody.getMap().len < ColumnsRequiredForReconstruction:
         await sleepAsync(IdleSleepDuration)
         continue
 
       self.syncBitmap()
+      self.updateEarliestAvailableSlot()
 
       let target = self.pickNextSlot()
       if target.isNone():
+        # No un-inspected slots remain. If the continuous trail from the head
+        # is held up by a slot that's merely short on columns, re-arm it so the
+        # next pass can pick up any columns that have since arrived.
+        self.retryTrailBlocker()
         await sleepAsync(IdleSleepDuration)
         continue
 
       await self.processSlot(target.get())
+      self.updateEarliestAvailableSlot()
       await sleepAsync(WorkYieldDuration)
   except CancelledError:
     discard
