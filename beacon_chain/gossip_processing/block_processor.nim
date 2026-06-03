@@ -382,6 +382,7 @@ proc addBlock*(
   sidecarsOpt: SomeOptSidecars,
   maybeFinalized = false,
   validationDur = Duration(),
+  fromGossip = false,
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
 proc enqueueBlock*(
@@ -405,7 +406,12 @@ proc enqueueBlock*(
   # don't care. However, because this acts as an unbounded queue, they have to
   # be careful not to enqueue too many blocks or we'll run out of memory -
   # `addBlock` should be used where managing backpressure is appropriate.
-  discard self.addBlock(src, blck, sidecarsOpt, maybeFinalized, validationDur)
+  #
+  # As such, `enqueueBlock` is the entry point for gossip processing; blocks
+  # from sync/request managers reach `addBlock` directly.
+  discard self.addBlock(
+    src, blck, sidecarsOpt, maybeFinalized, validationDur,
+    fromGossip = src == MsgSource.gossip)
 
 proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
   ## Enqueue the blocks that are no longer orphans as a result of `parent` being
@@ -585,6 +591,7 @@ proc storeBlock(
     maybeFinalized: bool,
     queueTick: Moment,
     validationDur: Duration,
+    fromGossip: bool,
 ): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
@@ -675,6 +682,7 @@ proc storeBlock(
       parent,
       optimisticStatus,
       onBlockAdded(dag, consensusFork, src, wallTime, ap, vm),
+      fromGossip,
     )
 
   # Even if the EL is not responding, we'll only try once every now and then
@@ -749,6 +757,7 @@ proc addBlock*(
     sidecarsOpt: SomeOptSidecars,
     maybeFinalized = false,
     validationDur = Duration(),
+    fromGossip = false
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## Enqueue a Gossip-validated block for consensus verification - only one
   ## block at a time gets processed
@@ -815,7 +824,7 @@ proc addBlock*(
 
           await self.storeBlock(
             src, wallTime, blck, sidecarsOpt, maybeFinalized,
-            queueTick, validationDur)
+            queueTick, validationDur, fromGossip)
         finally:
           quarantine[].clearProcessing()
 
