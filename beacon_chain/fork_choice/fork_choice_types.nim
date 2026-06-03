@@ -55,6 +55,7 @@ type
     fcPruningFromOutdatedFinalizedRoot
     fcUnknownBlockIdAtSlot
     fcUnknownShufflingRef
+    fcInvalidAttestation
 
   Index* = int
   Delta* = int64
@@ -68,7 +69,8 @@ type
        fcPreviousHeadUnknown,
        fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick:
+    of fcInconsistentTick,
+       fcInvalidAttestation:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,

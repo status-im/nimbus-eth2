@@ -384,13 +384,15 @@ proc doRunTest(
     of opOnPhase0Attestation:
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.phase0Att.data.slot, step.phase0Att.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)), time)
+        toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)),
+        CommitteeIndex(step.phase0Att.data.index), time)
       doAssert status.isOk == step.valid
     of opOnElectraAttestation:
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.electraAtt)), time)
+        toSeq(stores.dag.get_attesting_indices(step.electraAtt)),
+        CommitteeIndex(step.electraAtt.data.index), time)
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
