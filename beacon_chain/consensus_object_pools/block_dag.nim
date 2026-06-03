@@ -257,7 +257,7 @@ proc executionParent*(blck: BlockRef): Opt[BlockRef] =
   var cur = blck.parent
 
   # Parent hash of pre-Gloas blocks is zero but it could be built on the
-  # genesis. Either cases, the execution parent should be the same as block
+  # genesis. Either cases, the execution parent should be same as the block
   # parent.
   if blck.executionParentHash.unsafeGet().isZero():
     return Opt.some(cur)
