@@ -2168,7 +2168,7 @@ suite "Gloas block validity":
       cache = StateCache()
       info = ForkedEpochInfo()
 
-  test "Execution parent and valid":
+  test "Execution valid":
     let state = assignClone(dag.clearanceState)
     const
       slotCount = 8

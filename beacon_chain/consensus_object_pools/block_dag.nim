@@ -255,6 +255,13 @@ proc executionParent*(blck: BlockRef): Opt[BlockRef] =
     return
 
   var cur = blck.parent
+
+  # Parent hash of pre-Gloas blocks is zero but it could be built on the
+  # genesis. Either cases, the execution parent should be same as the block
+  # parent.
+  if blck.executionParentHash.unsafeGet().isZero():
+    return Opt.some(cur)
+
   debugGloasComment("revisit the max depth of ancestors")
   for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
     if cur.executionBlockHash.isNone():

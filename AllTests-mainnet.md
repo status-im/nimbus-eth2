@@ -767,7 +767,7 @@ AllTests-mainnet
 ```
 ## Gloas block validity
 ```diff
-+ Execution parent and valid                                                                 OK
++ Execution valid                                                                            OK
 ```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
