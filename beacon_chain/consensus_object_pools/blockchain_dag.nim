@@ -1291,7 +1291,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         if headPayloadRef.isSome():
           dag.headPayload = headPayloadRef.get()
         else:
-          debug "Head payload may be finalized or in different fork",
+          info "Head payload may be finalized or in different fork",
             head = shortLog(headRef),
             headPayloadRoot = shortLog(headPayloadRoot.get())
 
@@ -2448,9 +2448,14 @@ proc executionParent*(
   ## In this example, the execution parent of the slot 8 Block would be the slot
   ## 1 Block.
 
-  result = Opt.none(BlockRef)
   if isNil(parentRef):
-    return
+    return Opt.none(BlockRef)
+
+  # When parent block hash is zero, it could be either genesis or pre-Gloas
+  # block. The execution parent should be same as the block parent.
+  let parentHash = ?dag.loadExecutionAndParentBlockHash(parentRef).parentHash
+  if parentHash.isZero():
+    return Opt.some(parentRef)
 
   var cur = parentRef
   debugGloasComment("revisit the max depth of ancestors")
@@ -2461,6 +2466,7 @@ proc executionParent*(
     if isNil(cur.parent):
       break
     cur = cur.parent
+  Opt.none(BlockRef)
 
 func shouldExtendPayload*(
     dag: ChainDAGRef, head: BlockRef): bool =
@@ -2469,8 +2475,8 @@ func shouldExtendPayload*(
   ## DAG.
   ##
   ## Related fork choice helpers
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_build_on_full
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-should_extend_payload
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_build_on_full
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
   (
     # For either genesis or pre-Gloas block, we should always build on them.
     head.slot == GENESIS_SLOT or
