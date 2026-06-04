@@ -17,10 +17,10 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[spec_cache, blockchain_dag],
-  "."/[fork_choice_types, proto_array, fast_confirmation]
+  "."/[fork_choice_types, proto_array, fast_confirmation, fork_choice_epbs]
 
 from std/sequtils import keepItIf
-export results, fork_choice_types
+export results, fork_choice_types, fork_choice_epbs
 export proto_array.len
 
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -480,6 +480,16 @@ proc process_block*(
             vidx, attestation.data.beacon_block_root, attestation.data.slot,
             false, dag.cfg)
 
+  when typeof(blck).kind >= ConsensusFork.Gloas:
+    for pa in blck.body.payload_attestations:
+      let root = pa.data.beacon_block_root
+      for i in 0 ..< pa.aggregation_bits.len:
+        if pa.aggregation_bits[i]:
+          self.backend.ptcVotes.mgetOrPut(root, PtcVoteTally()).present[i] =
+            pa.data.payload_present
+          self.backend.ptcVotes.mgetOrPut(root, PtcVoteTally()).available[i] =
+            pa.data.blob_data_available
+
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
@@ -623,6 +633,14 @@ proc prune(
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
     self.update_confirmed(dag, self.to_block_id(checkpoints.finalized), "prune")
+
+  var staleRoots: seq[Eth2Digest]
+  for root in self.ptcVotes.keys:
+    if root notin self.proto_array.indices:
+      staleRoots.add root
+  for root in staleRoots:
+    self.ptcVotes.del root
+
   ok()
 
 proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
