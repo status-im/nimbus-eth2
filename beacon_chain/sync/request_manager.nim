@@ -500,7 +500,7 @@ template fetchDataColumnsFromNetworkImpl(
           peer = peer,
           column_sidecars = shortLog(col.sidecar[]),
           peer_score = peer.getScore()
-        columnQuarantine[].put(col.block_root, col.sidecar)
+        columnQuarantine[].put(col.block_root, col.sidecar, verified = false)
       var curRoot: Eth2Digest
       for col in records:
         if col.block_root != curRoot:
@@ -743,7 +743,7 @@ proc requestManagerDataColumnLoop(
               discard blockRoots.pop()
             continue
           debug "Loaded orphaned data columns from storage", columnId
-          columnQuarantine[].put(curRoot, data_column_sidecar)
+          columnQuarantine[].put(curRoot, data_column_sidecar, verified = false)
       var verifiers = newSeqOfCap[
         Future[Result[void, VerifierError]]
           .Raising([CancelledError])](blockRoots.len)
