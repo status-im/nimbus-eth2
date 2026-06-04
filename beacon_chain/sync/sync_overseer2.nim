@@ -2020,6 +2020,8 @@ proc doRangeSidecarsStep(
                 peer.updateScore(PeerScoreMissingValues)
                 debug "Received non-complete data column sidecars range",
                   reason = $error, columns_count = len(data),
+                  map = shortLog(intersectMap),
+                  blocks = shortLog(blocks),
                   columns = shortLog(grouped)
                 overseer.tssqueue(direction).push(request)
                 return false
