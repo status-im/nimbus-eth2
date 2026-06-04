@@ -250,9 +250,8 @@ func shortLog*(v: BlockSlot): string =
     shortLog(v.blck) & "@" & $v.slot
 
 func executionParent*(blck: BlockRef): Opt[BlockRef] =
-  result = Opt.none(BlockRef)
   if isNil(blck.parent) or blck.executionParentHash.isNone():
-    return
+    return Opt.none(BlockRef)
 
   # Parent hash of pre-Gloas blocks is zero but it could be built on the
   # genesis. Either way, the execution parent should be same as the block
@@ -271,6 +270,7 @@ func executionParent*(blck: BlockRef): Opt[BlockRef] =
     if isNil(cur.parent):
       break
     cur = cur.parent
+  Opt.none(BlockRef)
 
 func executionValid*(blck: BlockRef): bool =
   if blck.optimisticStatus == OptimisticStatus.valid:
