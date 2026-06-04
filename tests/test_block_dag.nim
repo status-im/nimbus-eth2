@@ -53,6 +53,42 @@ suite "BlockRef and helpers":
       s4.get_ancestor(Slot(3)) == s2
       s4.get_ancestor(Slot(4)) == s4
 
+  test "executionParent sanity":
+    let
+      h0 = Eth2Digest.fromHex("0xE000000000000000000000000000000000000000000000000000000000000000")
+      h1 = Eth2Digest.fromHex("0xE000000000000000000000000000000000000000000000000000000000000001")
+      h2 = Eth2Digest.fromHex("0xE000000000000000000000000000000000000000000000000000000000000002")
+      h3 = Eth2Digest.fromHex("0xE000000000000000000000000000000000000000000000000000000000000003")
+      h4 = Eth2Digest.fromHex("0xE000000000000000000000000000000000000000000000000000000000000004")
+
+      # Genesis
+      genesis = BlockRef(bid: BlockId(slot: Slot(0)))
+      # Pre-Gloas
+      f1 = BlockRef(bid: BlockId(slot: Slot(1)), parent: genesis,
+        executionParentHash: Opt.some(ZERO_HASH), executionBlockHash: Opt.some(h0))
+      f2 = BlockRef(bid: BlockId(slot: Slot(2)), parent: f1,
+        executionParentHash: Opt.some(ZERO_HASH), executionBlockHash: Opt.some(h1))
+      # Gloas
+      g1 = BlockRef(bid: BlockId(slot: Slot(32)), parent: genesis,
+        executionParentHash: Opt.some(ZERO_HASH))
+      g2 = BlockRef(bid: BlockId(slot: Slot(33)), parent: f1,
+        executionParentHash: Opt.some(h0), executionBlockHash: Opt.some(h2))
+      g3 = BlockRef(bid: BlockId(slot: Slot(34)), parent: g2,
+        executionParentHash: Opt.some(h0), executionBlockHash: Opt.some(h3))
+      g4 = BlockRef(bid: BlockId(slot: Slot(35)), parent: g3,
+        executionParentHash: Opt.some(h2), executionBlockHash: Opt.some(h4))
+      g5 = BlockRef(bid: BlockId(slot: Slot(36)), parent: g4,
+        executionParentHash: Opt.some(h4))
+
+    check:
+      f1.executionParent == Opt.some(genesis)
+      f2.executionParent == Opt.some(f1)
+      g1.executionParent == Opt.some(genesis)
+      g2.executionParent == Opt.some(f1)
+      g3.executionParent == Opt.some(f1)
+      g4.executionParent == Opt.some(g2)
+      g5.executionParent == Opt.some(g4)
+
 suite "BlockSlot and helpers":
   test "atSlot sanity":
     let
