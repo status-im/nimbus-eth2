@@ -122,7 +122,7 @@ func process_attestation(
         new_vote = shortLog(vote)
 
 proc process_attestation_queue(
-    self: var ForkChoice, slot: Slot, dag: ChainDAGRef) =
+    self: var ForkChoice, slot: Slot, cfg: RuntimeConfig) =
   # Spec:
   # Attestations can only affect the fork choice of subsequent slots.
   # Delay consideration in the fork choice until their slot is in the past.
@@ -132,7 +132,7 @@ proc process_attestation_queue(
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
           validator_index, it.block_root, it.slot,
-          it.committee_index == CommitteeIndex(1), dag.cfg)
+          it.committee_index == CommitteeIndex(1), cfg)
       false
     else:
       true
@@ -255,7 +255,7 @@ proc reconfirm_fcr(
 
   # Reconfirm with previous balance source after attestations
   # from past slots have been applied
-  self.process_attestation_queue(current_slot, dag)
+  self.process_attestation_queue(current_slot, dag.cfg)
   if ? fcr.should_revert_confirmed_on_new_epoch(
       dag, confirmed, current_slot, diag):
     reason = "epoch"
@@ -353,7 +353,7 @@ proc update_time*(
       ? self.on_tick(dag, time)
 
     if preSlot != postSlot:
-      self.process_attestation_queue(postSlot, dag)
+      self.process_attestation_queue(postSlot, dag.cfg)
 
   ok()
 
