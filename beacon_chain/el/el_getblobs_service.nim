@@ -285,7 +285,7 @@ proc attemptGetBlobs*(
         root = forkyBlck.root,
         slot = forkyBlck.message.slot,
         batch_len = batch.len
-      self.dataColumnQuarantine[].put(forkyBlck.root, batch)
+      self.dataColumnQuarantine[].put(forkyBlck.root, batch, verified = true)
       # Any partial-cell state for this block is now superseded by the full
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
@@ -350,7 +350,7 @@ proc attemptGetBlobs*(
     root = blck.root,
     slot = blck.message.slot,
     batch_len = batch.len
-  self.gloasColumnQuarantine[].put(blck.root, batch)
+  self.gloasColumnQuarantine[].put(blck.root, batch, verified = true)
 
   # If the envelope is already orphaned waiting on sidecars, re-enqueuing the
   # payload will pop it and continue processing; otherwise this just marks
@@ -426,7 +426,7 @@ proc attemptGetBlobsFromColumn*(
     root = block_root,
     slot = slot,
     batch_len = batch.len
-  self.dataColumnQuarantine[].put(block_root, batch)
+  self.dataColumnQuarantine[].put(block_root, batch, verified = true)
   # Any partial-cell state for this block is now superseded by the full
   # column sidecars we just installed.
   self.partialColumnQuarantine[].pruneForBlock(block_root)
