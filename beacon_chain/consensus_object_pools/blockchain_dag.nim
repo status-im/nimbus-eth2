@@ -1281,20 +1281,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.head = headRef
     dag.heads = @[headRef]
 
-    # Set the head payload on startup. As only the fork of the head is restored,
-    # the head payload ref could be nil if it is in a different fork. It is fine
-    # as the next proposal would not extend the payload by default.
-    if dag.cfg.consensusForkAtEpoch(headRef.slot.epoch()) >= ConsensusFork.Gloas:
-      let headPayloadRoot = dag.db.getHeadPayload()
-      if headPayloadRoot.isSome():
-        let headPayloadRef = dag.getBlockRef(headPayloadRoot.get())
-        if headPayloadRef.isSome():
-          dag.headPayload = headPayloadRef.get()
-        else:
-          info "Head payload may be finalized or in different fork",
-            head = shortLog(headRef),
-            headPayloadRoot = shortLog(headPayloadRoot.get())
-
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Altair:
         dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
@@ -2781,7 +2767,6 @@ proc updateHeadExecutionPayload*(
     return
 
   dag.headPayload = headPayload
-  dag.db.putHeadPayload(headPayload.root)
   debugGloasComment("update finalized head here? but envelope may not be guaranteed")
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
