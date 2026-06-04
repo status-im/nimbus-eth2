@@ -369,7 +369,7 @@ proc on_attestation*(
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/fork-choice.md#modified-validate_on_attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-validate_on_attestation
   if attestation_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH:
     let index = attestation_committee_index.uint64
     if index notin [0'u64, 1'u64]:
