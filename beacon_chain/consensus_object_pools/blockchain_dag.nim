@@ -1584,16 +1584,10 @@ proc init*(
       if bid.slot > backfillSlot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
-        let finBlock =
-          if db.finalizedBlocks.get(bid.slot).isNone():
-            "none"
-          else:
-            shortLog(db.finalizedBlocks.get(bid.slot).get())
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
           bid, backfill = shortLog(dag.backfill),
           finalizedHead = shortLog(dag.finalizedHead), tail = shortLog(dag.tail),
-          frontfill = dag.frontfillBlocks.len,
-          finalizedBlock = finBlock
+          frontfill = dag.frontfillBlocks.len
         quit 1
 
       # In BeaconState.block_roots, empty slots are filled with the root of
