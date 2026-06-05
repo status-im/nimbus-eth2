@@ -849,7 +849,7 @@ proc process_operations(
   const consensusFork = typeof(state).kind
 
   when consensusFork >= ConsensusFork.Fulu:
-    let req_deposits = 0'u64
+    const req_deposits = 0'u64
   elif consensusFork >= ConsensusFork.Electra:
     # Disable former deposit mechanism once all prior deposits are processed
     let
