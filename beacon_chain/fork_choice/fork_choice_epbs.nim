@@ -13,11 +13,44 @@ import
   # Status libraries
   results, chronicles,
   # Internal
-  ../spec/[beaconstate, helpers, state_transition_block],
+  ../spec/[beaconstate, helpers],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[blockchain_dag, spec_cache],
   "."/[fork_choice_types, proto_array]
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
+proc is_head_weak(
+    self: var ForkChoice, head_root: Eth2Digest, dag: ChainDAGRef): bool =
+  let
+    total = self.checkpoints.justified.total_active_balance
+    reorg_threshold =
+      (total div SLOTS_PER_EPOCH) * dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD div 100
+
+  let proto_node = self.backend.proto_array.node(head_root).valueOr:
+    return true
+
+  var head_weight = proto_node.weight.Gwei
+
+  # Also count effective balance of equivocating validators (vote disabled via
+  # `vote.slot == FAR_FUTURE_SLOT`) in the head slot's committees, so the weight
+  # is monotonic in observed attestations.
+  let headBlck = dag.getBlockRef(head_root)
+  if headBlck.isSome:
+    let shuffling =
+      dag.getShufflingRef(headBlck.get, proto_node.bid.slot.epoch, true)
+    if shuffling.isSome:
+      let shufflingRef = shuffling.get
+      template balances: untyped = self.checkpoints.justified.balances
+      for committee_index in get_committee_indices(shufflingRef):
+        for _, val in shufflingRef.get_beacon_committee(
+            proto_node.bid.slot, committee_index):
+          if val < self.backend.votes.lenu64 and
+              self.backend.votes[val].slot == FAR_FUTURE_SLOT and
+              val < balances.lenu64:
+            head_weight += balances[val].effective_balance
+
+  head_weight < reorg_threshold
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost*(
@@ -26,26 +59,24 @@ proc should_apply_proposer_boost*(
   if proposer_root.isZero:
     return false
 
-  let block_node = self.backend.proto_array.getNode(proposer_root)
-  if block_node == nil: return false
+  let block_node = self.backend.proto_array.node(proposer_root).valueOr:
+    return false
   if block_node.parent.isNone: return true
-  let parent_node =
-    self.backend.proto_array.getPhysicalNode(block_node.parent.get())
-  if parent_node == nil: return true
+  let parent_node = self.backend.proto_array.node(block_node.parent.get()).valueOr:
+    return true
 
   let slot = block_node.bid.slot
 
-  # Apply boost if the parent is not from the previous slot
+  # Apply proposer boost if `parent` is not from the previous slot
   if parent_node.bid.slot + 1 < slot:
     return true
 
-  # Apply boost if the parent is not weak
+  # Apply proposer boost if `parent` is not weak
   if not self.is_head_weak(parent_node.bid.root, dag):
     return true
 
-  # Parent is weak and from the previous slot: withhold boost if its proposer
-  # has a PTC-timely equivocating sibling at the parent's slot. (Same slot does
-  # not imply same proposer across forks, so the proposer is checked.)
+  # If `parent` is weak and from the previous slot, apply proposer boost if
+  # there are no early equivocations
   let parentBlck = dag.getBlockRef(parent_node.bid.root)
   if parentBlck.isNone:
     return true
@@ -68,19 +99,26 @@ proc should_apply_proposer_boost*(
 proc on_payload_attestation_message*(
     self: var ForkChoice,
     dag: ChainDAGRef,
-    ptc_message: PayloadAttestationMessage,
+    validator_index: uint64,
+    data: PayloadAttestationData,
     is_from_block: bool = false): FcResult[void] =
+  ## Run ``on_payload_attestation_message`` upon receiving a new ``ptc_message`` from
+  ## either within a block or directly on the wire.
   let
-    beacon_block_root = ptc_message.data.beacon_block_root
-    slot = ptc_message.data.slot
-    validator_index = ValidatorIndex(ptc_message.validator_index)
+    beacon_block_root = data.beacon_block_root
+    slot = data.slot
+    valIdx = ValidatorIndex(validator_index)
 
   if slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return ok()
 
+  # PTC attestation must be for a known block. If block is unknown, delay
+  # consideration until the block is found
   if beacon_block_root notin self.backend.proto_array.indices:
     return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
+  # PTC votes can only change the vote for their assigned beacon block, return
+  # early otherwise
   let blockSlot = self.backend.proto_array.slot(beacon_block_root).valueOr:
     return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
   if slot != blockSlot:
@@ -89,50 +127,45 @@ proc on_payload_attestation_message*(
   var ptcIndices: seq[int]
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      if not is_from_block:
-        if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
-          return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
-        if not is_valid_indexed_payload_attestation(
-            forkyState.data,
-            IndexedPayloadAttestation(
-              attesting_indices:
-                List[uint64, Limit PTC_SIZE].init(
-                  @[ptc_message.validator_index]),
-              data: ptc_message.data,
-              signature: ptc_message.signature)):
-          return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
+      # Check that it's for the current slot if it is coming from the wire
+      if not is_from_block and
+          slot != self.checkpoints.time.slotOrZero(dag.timeParams):
+        return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
+      # Get all positions of the attester in the PTC
       var ptcIndex = 0
       for vidx in get_ptc(forkyState.data, slot):
-        if vidx == validator_index:
+        if vidx == valIdx:
           ptcIndices.add ptcIndex
         inc ptcIndex
 
+      # Check that the attester is from the PTC
       if ptcIndices.len == 0:
         return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
       trace "Validated PTC vote",
         validator_index,
         ptc_positions = ptcIndices.len,
-        payload_present = ptc_message.data.payload_present,
-        blob_data_available = ptc_message.data.blob_data_available
+        payload_present = data.payload_present,
+        blob_data_available = data.blob_data_available
 
+  # Update the votes for the block
   for ptcIndex in ptcIndices:
     self.backend.ptcVotes.mgetOrPut(
       beacon_block_root, PtcVoteTally()).present[ptcIndex] =
-        ptc_message.data.payload_present
+        data.payload_present
     self.backend.ptcVotes.mgetOrPut(
       beacon_block_root, PtcVoteTally()).available[ptcIndex] =
-        ptc_message.data.blob_data_available
+        data.blob_data_available
 
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
-# The spec's `is_data_available` precondition is enforced by the caller
-# (`block_processor.storePayload` via `verifySidecars`) before this is invoked.
 proc on_execution_payload*(
     self: var ForkChoice, dag: ChainDAGRef,
     signedEnvelope: SignedExecutionPayloadEnvelope): FcResult[void] =
+  ## Run ``on_execution_payload_envelope`` upon receiving a new execution
+  ## payload envelope.
   template envelope: auto = signedEnvelope.message
   let
     beacon_block_root = envelope.beacon_block_root
@@ -141,35 +174,11 @@ proc on_execution_payload*(
   if current_slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return ok()
 
+  # The corresponding beacon block root needs to be known
   if beacon_block_root notin self.backend.proto_array.indices:
     return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
                                 blockRoot: beacon_block_root)
 
-  # Verify the execution payload envelope using the state after the block,
-  # not dag.headState which may still be at the parent.
-  let blck = dag.getBlockRef(beacon_block_root).valueOr:
-    return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
-                                blockRoot: beacon_block_root)
-  let bsi = blck.bid.atSlot()
-  dag.withUpdatedState(dag.epochRefState, bsi):
-    withState(updatedState):
-      when consensusFork >= ConsensusFork.Gloas:
-        let verifyResult = dag.timeParams.verify_execution_payload_envelope(
-            dag.forkAtEpoch(envelope.payload.slot_number.epoch),
-            forkyState, signedEnvelope,
-            dag.genesis_validators_root)
-        if verifyResult.isErr:
-          debug "Execution payload envelope verification failed",
-            error = verifyResult.error,
-            beacon_block_root = shortLog(beacon_block_root),
-            stateSlot = forkyState.data.slot
-          return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
-                                      blockRoot: beacon_block_root)
-  do:
-    debug "Unable to load state for envelope verification",
-      beacon_block_root = shortLog(beacon_block_root)
-    return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
-                                blockRoot: beacon_block_root)
-
+  # Add execution payload envelope to the store
   ? self.backend.proto_array.onPayloadVerified(beacon_block_root)
   ok()

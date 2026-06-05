@@ -110,17 +110,11 @@ func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
     unrealized_justified:
       self.unrealized.getOrDefault(idx, checkpoints).justified)
 
-template getPhysicalNode*(
-    self: var ProtoArray, logicalIdx: Index): ptr ProtoNode =
-  let physicalIdx = logicalIdx - self.nodes.offset
-  if physicalIdx >= 0 and physicalIdx < self.nodes.buf.len:
-    addr self.nodes.buf[physicalIdx]
-  else: nil
+func node*(self: ProtoArray, idx: Index): Opt[ProtoNode] =
+  self.nodes[idx]
 
-template getNode*(self: var ProtoArray, root: Eth2Digest): ptr ProtoNode =
-  let idx = self.indices.getOrDefault(root, -1)
-  if idx < 0: nil
-  else: self.getPhysicalNode(idx)
+func node*(self: ProtoArray, root: Eth2Digest): Opt[ProtoNode] =
+  self.nodes[self.find(root)]
 
 # Forward declarations
 # ----------------------------------------------------------------------

@@ -474,40 +474,6 @@ proc update_proposer_boost_root(
   if is_timely and is_first_block and is_same_dependent_root:
     self.checkpoints.proposer_boost_root = blckRef.root
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
-proc is_head_weak(
-    self: var ForkChoice, head_root: Eth2Digest, dag: ChainDAGRef): bool =
-  let
-    total = self.checkpoints.justified.total_active_balance
-    reorg_threshold =
-      (total div SLOTS_PER_EPOCH) * dag.cfg.REORG_HEAD_WEIGHT_THRESHOLD div 100
-
-  let proto_node = self.backend.proto_array.getNode(head_root)
-  if proto_node == nil:
-    return true
-
-  var head_weight = proto_node.weight.Gwei
-
-  # Also count effective balance of equivocating validators (vote disabled via
-  # `vote.slot == FAR_FUTURE_SLOT`) in the head slot's committees, so the weight
-  # is monotonic in observed attestations.
-  let headBlck = dag.getBlockRef(head_root)
-  if headBlck.isSome:
-    let shuffling =
-      dag.getShufflingRef(headBlck.get, proto_node.bid.slot.epoch, true)
-    if shuffling.isSome:
-      let shufflingRef = shuffling.get
-      template balances: untyped = self.checkpoints.justified.balances
-      for committee_index in get_committee_indices(shufflingRef):
-        for _, val in shufflingRef.get_beacon_committee(
-            proto_node.bid.slot, committee_index):
-          if val < self.backend.votes.lenu64 and
-              self.backend.votes[val].slot == FAR_FUTURE_SLOT and
-              val < balances.lenu64:
-            head_weight += balances[val].effective_balance
-
-  head_weight < reorg_threshold
-
 proc process_block*(
     self: var ForkChoice,
     dag: ChainDAGRef,
@@ -694,19 +660,17 @@ proc prune(
   if self.confirmed.root notin self.proto_array:
     self.update_confirmed(dag, self.to_block_id(checkpoints.finalized), "prune")
 
+  # Drop per-block fork-choice state for blocks no longer in the proto-array.
   var staleRoots: seq[Eth2Digest]
-  for root in self.ptcVotes.keys:
-    if root notin self.proto_array.indices:
-      staleRoots.add root
-  for root in staleRoots:
-    self.ptcVotes.del root
-
-  staleRoots.setLen(0)
-  for root in self.block_timeliness.keys:
-    if root notin self.proto_array.indices:
-      staleRoots.add root
-  for root in staleRoots:
-    self.block_timeliness.del root
+  template pruneStale(tbl: untyped) =
+    staleRoots.setLen(0)
+    for root in tbl.keys:
+      if root notin self.proto_array.indices:
+        staleRoots.add root
+    for root in staleRoots:
+      tbl.del root
+  pruneStale(self.ptcVotes)
+  pruneStale(self.block_timeliness)
 
   ok()
 

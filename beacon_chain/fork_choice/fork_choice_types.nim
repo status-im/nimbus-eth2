@@ -23,8 +23,7 @@ from ../consensus_object_pools/block_pools_types import
 export results, base
 
 const
-  # `block_timeliness` array indices
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#constants
   ATTESTATION_TIMELINESS_INDEX* = 0
   PTC_TIMELINESS_INDEX* = 1
 
