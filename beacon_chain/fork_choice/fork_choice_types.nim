@@ -22,6 +22,12 @@ from ../consensus_object_pools/block_pools_types import
 
 export results, base
 
+const
+  # `block_timeliness` array indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md
+  ATTESTATION_TIMELINESS_INDEX* = 0
+  PTC_TIMELINESS_INDEX* = 1
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
@@ -71,7 +77,7 @@ type
        fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
     of fcInconsistentTick,
-       fcInvalidAttestation:
+       fcInvalidAttestation,
        fcInvalidPayloadAttestation:
       discard
     of fcInvalidNodeIndex,
@@ -174,6 +180,7 @@ type
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
     ptcVotes*: Table[Eth2Digest, PtcVoteTally]
+    block_timeliness*: Table[Eth2Digest, array[2, bool]]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]
