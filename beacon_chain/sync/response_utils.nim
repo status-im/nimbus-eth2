@@ -216,8 +216,6 @@ func validateBlocks*(
           if record.block_root != forkyBlck.root:
             break
           inc(sindex)
-        if sindex == 0:
-          return err("First block in range missing data column sidecars")
       else:
         return err("Found block with incorrect fork")
 
