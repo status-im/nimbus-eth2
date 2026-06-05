@@ -14,7 +14,7 @@ import
   ../../beacon_chain/spec/[state_transition, forks],
   ./os_ops
 
-from std/sequtils import toSeq
+from std/sequtils import countIt
 from std/streams import close, openFileStream
 from ../testutil import preset, suite, test
 from ./fixtures_utils import SszTestsDir, loadBlock, parseTest
@@ -51,7 +51,7 @@ proc runTest(
 
     # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
     # so purely lexicographic sorting wouldn't sort properly.
-    let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
+    let numBlocks = walkPattern(testPath/"blocks_*.ssz_snappy").countIt(true)
     for i in 0 ..< numBlocks:
       if i <= fork_block:
         let
