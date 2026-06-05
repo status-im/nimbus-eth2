@@ -1232,7 +1232,11 @@ proc apply_parent_execution_payload*(
         sortValidatorBuckets(state.builders.asSeq)
       else:
         nil
-  var pending_validators = get_pending_validators(cfg, state)
+  var pending_validators =
+    if requests.deposits.len > 0:
+      get_pending_validators(cfg, state)
+    else:
+      (static(default(HashSet[ValidatorPubKey])))
   for op in requests.deposits:
     ? process_deposit_request(cfg, state, bsv[], bsb[], pending_validators, op, {})
   for op in requests.withdrawals:
