@@ -58,8 +58,7 @@ proc runTest(
           blck = loadBlock(
             testPath/"blocks_" & $i & ".ssz_snappy", AnteBeaconBlock.kind)
           res = state_transition(
-            cfg, fhPreState[], blck, cache, info,
-            flags = {skipStateRootValidation}, noRollback)
+            cfg, fhPreState[], blck, cache, info, {}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
         # the .expect() already handles the validaty check.
@@ -69,8 +68,7 @@ proc runTest(
           blck = loadBlock(
             testPath/"blocks_" & $i & ".ssz_snappy", PostBeaconBlock.kind)
           res = state_transition(
-            cfg, fhPreState[], blck, cache, info,
-            flags = {skipStateRootValidation}, noRollback)
+            cfg, fhPreState[], blck, cache, info, {}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
         # the .expect() already handles the validaty check.

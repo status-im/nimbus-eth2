@@ -404,16 +404,18 @@ proc process_deposit*(
 
   apply_deposit(cfg, state, bucketSortedValidators, deposit.data, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/beacon-chain.md#new-process_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_deposit_request
 func process_deposit_request*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState),
     deposit_request: DepositRequest,
     flags: UpdateFlags): Result[void, cstring] =
-  # Set deposit request start index
-  if state.deposit_requests_start_index ==
-      UNSET_DEPOSIT_REQUESTS_START_INDEX:
-    state.deposit_requests_start_index = deposit_request.index
+  when state is electra.BeaconState:
+    # Set deposit request start index
+    if state.deposit_requests_start_index ==
+        UNSET_DEPOSIT_REQUESTS_START_INDEX:
+      state.deposit_requests_start_index = deposit_request.index
 
   # Create pending deposit
   if state.pending_deposits.add(PendingDeposit(
@@ -832,10 +834,11 @@ type
     proposer_slashings*: Gwei
     attester_slashings*: Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/beacon-chain.md#operations
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/capella/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/electra/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/capella/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody,
@@ -845,7 +848,9 @@ proc process_operations(
   # deposits
   const consensusFork = typeof(state).kind
 
-  when consensusFork >= ConsensusFork.Electra:
+  when consensusFork >= ConsensusFork.Fulu:
+    let req_deposits = 0'u64
+  elif consensusFork >= ConsensusFork.Electra:
     # Disable former deposit mechanism once all prior deposits are processed
     let
       eth1_deposit_index_limit =
