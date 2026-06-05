@@ -1001,6 +1001,10 @@ proc storePayload(
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
 
+  # Both the envelope and its data columns are now persisted - wake up any PTC
+  # member waiting to send its payload attestation
+  self.consensusManager.checkExpectedEnvelope(blck.root)
+
   ok(blck)
 
 proc addPayload*(
