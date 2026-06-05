@@ -508,51 +508,6 @@ proc is_head_weak(
 
   head_weight < reorg_threshold
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
-proc should_apply_proposer_boost*(
-    self: var ForkChoice, dag: ChainDAGRef): bool =
-  let proposer_root = self.checkpoints.proposer_boost_root
-  if proposer_root.isZero:
-    return false
-
-  let block_node = self.backend.proto_array.getNode(proposer_root)
-  if block_node == nil: return false
-  if block_node.parent.isNone: return true
-  let parent_node =
-    self.backend.proto_array.getPhysicalNode(block_node.parent.get())
-  if parent_node == nil: return true
-
-  let slot = block_node.bid.slot
-
-  # Apply boost if the parent is not from the previous slot
-  if parent_node.bid.slot + 1 < slot:
-    return true
-
-  # Apply boost if the parent is not weak
-  if not self.is_head_weak(parent_node.bid.root, dag):
-    return true
-
-  # Parent is weak and from the previous slot: withhold boost if its proposer
-  # has a PTC-timely equivocating sibling at the parent's slot. (Same slot does
-  # not imply same proposer across forks, so the proposer is checked.)
-  let parentBlck = dag.getBlockRef(parent_node.bid.root)
-  if parentBlck.isNone:
-    return true
-  let parentProposer = dag.getProposer(
-      parentBlck.get, parent_node.bid.slot).valueOr:
-    return true
-
-  for root, timeliness in self.backend.block_timeliness:
-    if not timeliness[PTC_TIMELINESS_INDEX]: continue
-    if root == parent_node.bid.root: continue
-    let candBlck = dag.getBlockRef(root).valueOr: continue
-    if candBlck.slot != parent_node.bid.slot: continue
-    let candProposer = dag.getProposer(candBlck, candBlck.slot).valueOr: continue
-    if candProposer.uint64 == parentProposer.uint64:
-      return false
-
-  true
-
 proc process_block*(
     self: var ForkChoice,
     dag: ChainDAGRef,
