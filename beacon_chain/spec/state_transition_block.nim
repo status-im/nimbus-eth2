@@ -314,18 +314,24 @@ from ".."/validator_bucket_sort import
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-is_pending_validator
 func get_pending_validators*(
-    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState):
-    HashSet[ValidatorPubKey] =
-  ## Return the set of pubkeys with a valid pending deposit signature in the queue.
+    cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
+    pubkeys: HashSet[ValidatorPubKey]): HashSet[ValidatorPubKey] =
+  ## Return the subset of `pubkeys` with a valid pending deposit signature in the
+  ## queue.
+  ##
+  ## Restricted to processed deposit requests to avoid unnecessary BLS verifies.
+  if pubkeys.len == 0:
+    return static(default(HashSet[ValidatorPubKey]))
   var res: HashSet[ValidatorPubKey]
   for pending_deposit in state.pending_deposits:
-    if verify_deposit_signature(
-        cfg.GENESIS_FORK_VERSION,
-        DepositData(
-          pubkey: pending_deposit.pubkey,
-          withdrawal_credentials: pending_deposit.withdrawal_credentials,
-          amount: pending_deposit.amount,
-          signature: pending_deposit.signature)):
+    if  pending_deposit.pubkey in pubkeys and
+        pending_deposit.pubkey notin res and verify_deposit_signature(
+          cfg.GENESIS_FORK_VERSION,
+          DepositData(
+            pubkey: pending_deposit.pubkey,
+            withdrawal_credentials: pending_deposit.withdrawal_credentials,
+            amount: pending_deposit.amount,
+            signature: pending_deposit.signature)):
       res.incl(pending_deposit.pubkey)
   res
 
@@ -1232,11 +1238,12 @@ proc apply_parent_execution_payload*(
         sortValidatorBuckets(state.builders.asSeq)
       else:
         nil
+  var requested_deposit_pubkeys =
+    initHashSet[ValidatorPubKey](requests.deposits.len)
+  for op in requests.deposits:
+    requested_deposit_pubkeys.incl op.pubkey
   var pending_validators =
-    if requests.deposits.len > 0:
-      get_pending_validators(cfg, state)
-    else:
-      (static(default(HashSet[ValidatorPubKey])))
+    get_pending_validators(cfg, state, requested_deposit_pubkeys)
   for op in requests.deposits:
     ? process_deposit_request(cfg, state, bsv[], bsb[], pending_validators, op, {})
   for op in requests.withdrawals:
