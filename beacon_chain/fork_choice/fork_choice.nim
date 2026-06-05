@@ -378,9 +378,10 @@ proc on_attestation*(
     if block_slot.isSome and block_slot.get == attestation_slot and index != 0:
       return err ForkChoiceError(kind: fcInvalidAttestation)
     # If attesting for a full node, the payload must be known
-    if index == 1 and
-        beacon_block_root notin self.backend.proto_array.fullBlockIndices:
-      return err ForkChoiceError(kind: fcInvalidAttestation)
+    debugGloasComment "temporarily disabled"
+    # if index == 1 and
+    #     beacon_block_root notin self.backend.proto_array.fullBlockIndices:
+    #   return err ForkChoiceError(kind: fcInvalidAttestation)
 
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
     for validator_index in attesting_indices:
