@@ -26,6 +26,9 @@ proc is_head_weak(
 
   var head_weight = proto_node.weight.Gwei
 
+  if head_root == self.backend.proto_array.previousProposerBoostRoot:
+    head_weight -= self.backend.proto_array.previousProposerBoostScore
+
   # Compute head weight including equivocations
   dag.getBlockRef(head_root).isErrOr:
     dag.getShufflingRef(value, proto_node.bid.slot.epoch, true).isErrOr:
