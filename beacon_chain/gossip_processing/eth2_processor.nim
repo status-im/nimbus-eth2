@@ -300,6 +300,7 @@ proc processSignedBeaconBlock*(
       else:
         self.dataColumnQuarantine[].popSidecars(signedBlock.root)
     if sidecarsOpt.isNone():
+      self.blockProcessor[].startExecutionValidity(signedBlock, wallTime)
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
   elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:

@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronicles, chronos, metrics,
+  chronicles, chronos, metrics, minilru,
   ../spec/[forks, helpers_el, signatures, signatures_batch, column_map,
            peerdas_helpers],
   ../sszdump
@@ -115,6 +115,13 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
+    earlyExecValidity: ExecValidityLru
+      ## newPayload started upon gossip validation, while waiting for Fulu
+      ## column data availability
+
+  ExecValidityLru =
+    LruCache[Eth2Digest, Future[Opt[OptimisticStatus]].Raising([CancelledError])]
+
   NoSidecars* = typeof(())
   SomeOptSidecars =
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
@@ -152,7 +159,8 @@ proc new*(T: type BlockProcessor,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: batchVerifier[]
+    verifier: batchVerifier[],
+    earlyExecValidity: ExecValidityLru.init(8)
   )
 
 # Sync callbacks
@@ -372,6 +380,30 @@ proc getExecutionValidity(
       blck = shortLog(blck)
 
   Opt.some(optimisticStatus)
+
+func nextSlotDeadline(wallTime: BeaconTime, dag: ChainDAGRef): Duration =
+  ## Time from `wallTime` until ~1s before the next slot, for newPayload deadline
+  let slotTime =
+    (wallTime.slotOrZero(dag.timeParams) + 1).start_beacon_time(dag.timeParams) -
+      chronos.seconds(1)
+  if slotTime <= wallTime:
+    chronos.seconds(0)
+  else:
+    chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+
+proc startExecutionValidity*(
+    self: var BlockProcessor,
+    signedBlock: fulu.SignedBeaconBlock, wallTime: BeaconTime) =
+  if signedBlock.root in self.earlyExecValidity:
+    return
+
+  let dag = self.consensusManager.dag
+  self.earlyExecValidity.put(
+    signedBlock.root,
+    self.consensusManager.elManager.getExecutionValidity(
+      signedBlock, noEnvelope,
+      deadline = sleepAsync(nextSlotDeadline(wallTime, dag)),
+      retry = not dag.is_optimistic(dag.head.bid)))
 
 proc addBlock*(
   self: ref BlockProcessor,
@@ -602,15 +634,7 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadlineTime =
-      block:
-        let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
-        if slotTime <= wallTime:
-          chronos.seconds(0)
-        else:
-          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
-    deadline = sleepAsync(deadlineTime)
+    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   if signedBlock.root in self.invalidBlockRoots:
     warn "Block root treated as invalid via config",
@@ -647,8 +671,16 @@ proc storeBlock(
         elif consensusFork >= ConsensusFork.Bellatrix:
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
-          await self.consensusManager.elManager.getExecutionValidity(
-            signedBlock, noEnvelope, deadline, shouldRetry())
+          when consensusFork == ConsensusFork.Fulu:
+            let cached = self.earlyExecValidity.pop(signedBlock.root)
+            if cached.isSome:
+              await cached.get()
+            else:
+              await self.consensusManager.elManager.getExecutionValidity(
+                signedBlock, noEnvelope, deadline, shouldRetry())
+          else:
+            await self.consensusManager.elManager.getExecutionValidity(
+              signedBlock, noEnvelope, deadline, shouldRetry())
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 
@@ -939,15 +971,7 @@ proc storePayload(
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadlineTime =
-      block:
-        let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
-        if slotTime <= wallTime:
-          chronos.seconds(0)
-        else:
-          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
-    deadline = sleepAsync(deadlineTime)
+    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   let
     optimisticStatusRes =
