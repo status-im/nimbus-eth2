@@ -595,11 +595,9 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
       "The Checksum value should have sub-fields named " &
       "'function', 'params', and 'message'")
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
-{.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Cipher) =
   var
@@ -636,11 +634,9 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
       "The Cipher value should have sub-fields named " &
       "'function', 'params', and 'message'")
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
-{.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Kdf) =
   var
@@ -675,11 +671,9 @@ template readValueImpl(r: var JsonReader, value: var Kdf) =
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
-{.pop.}
 
 func readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
   static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
@@ -975,7 +969,6 @@ func decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
   let valid =
     case crypto.checksum.function
     of sha256Checksum:
-      template params: auto {.used.} = crypto.checksum.params
       template message: auto = crypto.checksum.message
       message == shaChecksum(decKey.toOpenArray(16, 31),
                              crypto.cipher.message.bytes)
@@ -1068,7 +1061,6 @@ func getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
 func `==`*(a, b: KdfSaltKey): bool {.borrow.}
 func hash*(salt: KdfSaltKey): Hash {.borrow.}
 
-{.push warning[ProveField]:off.}
 func `==`*(a, b: Kdf): bool =
   # We do not care about `message` field.
   if a.function != b.function:
@@ -1087,15 +1079,10 @@ func `==`*(a, b: Kdf): bool =
     (aparams.p == bparams.p) and (aparams.r == bparams.r) and
     (len(seq[byte](aparams.salt)) > 0) and
     (seq[byte](aparams.salt) == seq[byte](bparams.salt))
-{.pop.}
 
 func `==`*(a, b: Cipher): bool =
   # We do not care about `params` and `message` fields.
   a.function == b.function
-
-func `==`*(a, b: KeystoreCacheItem): bool =
-  (a.kdf == b.kdf) and (a.cipher == b.cipher) and
-  (a.decryptionKey == b.decryptionKey)
 
 func init*(t: typedesc[KeystoreCacheRef],
            expireTime = KeystoreCachePruningTime): KeystoreCacheRef =
@@ -1235,14 +1222,6 @@ func decryptNetKeystore*(nkeystore: NetKeystore,
       err "Invalid key"
   else:
     err $status
-
-func decryptNetKeystore*(nkeystore: JsonString,
-                         password: KeystorePass): KsResult[lcrypto.PrivateKey] =
-  try:
-    let keystore = parseNetKeystore(string nkeystore)
-    return decryptNetKeystore(keystore, password)
-  except SerializationError as exc:
-    return err(exc.formatMsg("<keystore>"))
 
 func generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
   rng.generateBytes(keyLen)

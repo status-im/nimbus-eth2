@@ -152,6 +152,7 @@ in {
     systemd.services.nimbus-validator-client = {
       enable = true;
       serviceConfig = {
+        LimitNOFILE = 16384;
         DynamicUser = true;
 
         # Hardening measures
@@ -167,6 +168,7 @@ in {
         ];
 
         Restart = "on-failure";
+        RestartPreventExitStatus = "129";
         ExecStart = let
           keymanagerTokenFlag = optionalString (cfg.settings.keymanager-token-file != null)
             "--keymanager-token-file=%d/keymanager-token-file";
@@ -177,6 +179,8 @@ in {
             ${escapeShellArgs cfg.extraArgs}
         '';
       };
+      wants = ["network-online.target"];
+      after = ["network-online.target"];
       wantedBy = ["multi-user.target"];
     };
   };

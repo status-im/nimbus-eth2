@@ -36,6 +36,7 @@ type
     index: uint64
     proposer_index: uint64
     slot: Slot
+    verified: bool
     case kind: SidecarHolderKind
     of SidecarHolderKind.Empty:
       discard
@@ -62,6 +63,7 @@ type
     custodyMap*: ColumnMap
     lastMemoryNode: DoublyLinkedNode[RootTableRecord[A]]
     roots: Table[Eth2Digest, DoublyLinkedNode[RootTableRecord[A]]]
+    pendingVerify: Table[Eth2Digest, ColumnMap]
     list: DoublyLinkedList[RootTableRecord[A]]
     indexMap: seq[int]
     db: QuarantineDB
@@ -162,6 +164,7 @@ func unload[A](holder: var SidecarHolder[A]): ref A =
     slot: holder.slot,
     index: holder.index,
     proposer_index: holder.proposer_index,
+    verified: holder.verified,
   )
   res
 
@@ -294,7 +297,8 @@ proc moveToFront[A, B](
 proc put*[A, B](
     q: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    sidecars: openArray[ref A]
+    sidecars: openArray[ref A],
+    verified: bool
 ) =
   # Note: Sidecars with indices that are not in the current column custody set
   # are IGNORED.
@@ -338,6 +342,7 @@ proc put*[A, B](
           slot: sidecar[].slot(),
           index: uint64(sidecar[].index),
           proposer_index: sidecar[].proposer_index(),
+          verified: verified,
           data: sidecar)
 
   q.memSidecarsCount += newSidecarsCount
@@ -361,9 +366,10 @@ proc put*[A, B](
 proc put*[A, B](
     q: var SidecarQuarantine[A, B],
     blockRoot: Eth2Digest,
-    sidecar: ref A
+    sidecar: ref A,
+    verified: bool
 ) =
-  q.put(blockRoot, [sidecar])
+  q.put(blockRoot, [sidecar], verified)
 
 proc remove*[A, B](
     q: var SidecarQuarantine[A, B],
@@ -384,6 +390,7 @@ func load[A](holder: var SidecarHolder[A], sidecar: ref A) =
     slot: holder.slot,
     index: holder.index,
     proposer_index: holder.proposer_index,
+    verified: holder.verified,
     data: sidecar
   )
 
@@ -517,7 +524,11 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     # Quarantine unloaded some blobs to disk, we should load it back.
     quarantine.loadRoot(blockRoot, node[].value)
 
+  const isFulu = A is fulu.DataColumnSidecar
+
   var sidecars: seq[ref A]
+  when isFulu:
+    var unverified: ColumnMap
   if supernode:
     # When supernode - we pop all sidecars.
     for sidecar in node[].value.sidecars:
@@ -527,6 +538,9 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
           "Record should only have loaded values, but it is `" &
             $sidecar.kind & "`")
         sidecars.add(sidecar.data)
+        when isFulu:
+          if not sidecar.verified:
+            unverified.incl(ColumnIndex(sidecar.index))
   else:
     let allowPartial = node[].value.count >= NUMBER_OF_COLUMNS div 2
     for cindex in quarantine.custodyMap:
@@ -537,6 +551,9 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
         "Record should only have loaded values, but it is `" &
           $sidecar.kind & "`")
       sidecars.add(sidecar.data)
+      when isFulu:
+        if not sidecar.verified:
+          unverified.incl(ColumnIndex(sidecar.index))
 
     doAssert(
       (allowPartial and len(sidecars) >= NUMBER_OF_COLUMNS div 2) or
@@ -547,7 +564,20 @@ proc popSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
   # memory and disk.
   quarantine.removeNode(node, databaseCount)
 
+  # Gloas and newer forks verify columns separately
+  when A is fulu.DataColumnSidecar:
+    if not unverified.empty:
+      quarantine.pendingVerify[blockRoot] = unverified
+
   Opt.some(sidecars)
+
+func popPendingVerify*(
+    quarantine: var ColumnQuarantine,
+    blockRoot: Eth2Digest
+): ColumnMap =
+  var res: ColumnMap
+  discard quarantine.pendingVerify.pop(blockRoot, res)
+  res
 
 func fetchMissingSidecars*[A: SomeDataColumnSidecar, B: OnDataColumnSidecarCallback](
     quarantine: SidecarQuarantine[A, B],

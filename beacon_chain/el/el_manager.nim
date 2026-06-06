@@ -386,28 +386,20 @@ proc getPayload(
       limit = MAX_EXTRA_DATA_BYTES
     raise newException(CatchableError, "Execution payload extraData exceeds max size")
 
-  when compiles(payload.executionPayload.withdrawals):
-    when payload.executionPayload.withdrawals is Opt:
-      template maybeEmpty(v: Opt): untyped =
-        v.valueOr(@[])
-    else:
-      template maybeEmpty(v: auto): untyped =
-        v
-
-    if params.attributes.withdrawals != payload.executionPayload.withdrawals.maybeEmpty:
-      warn "Execution client returned unexpected payload withdrawals",
-        url = connection.engineUrl.url,
-        payloadId,
-        withdrawals_from_cl_len = params.attributes.withdrawals.len,
-        withdrawals_from_el_len = payload.executionPayload.withdrawals.maybeEmpty.len,
-        withdrawals_from_cl =
-          mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
-        withdrawals_from_el = mapIt(
-          payload.executionPayload.withdrawals.maybeEmpty, it.asConsensusWithdrawal
-        )
-      raise newException(
-        CatchableError, "Execution client returned mismatching withdrawals"
+  if params.attributes.withdrawals != payload.executionPayload.withdrawals:
+    warn "Execution client returned unexpected payload withdrawals",
+      url = connection.engineUrl.url,
+      payloadId,
+      withdrawals_from_cl_len = params.attributes.withdrawals.len,
+      withdrawals_from_el_len = payload.executionPayload.withdrawals.len,
+      withdrawals_from_cl =
+        mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
+      withdrawals_from_el = mapIt(
+        payload.executionPayload.withdrawals, it.asConsensusWithdrawal
       )
+    raise newException(
+      CatchableError, "Execution client returned mismatching withdrawals"
+    )
 
   payload
 
@@ -773,21 +765,21 @@ proc getBlobsV2*(
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError], raw: true).} =
   mixin getBlobsV2
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
-    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  template kzg_commitments(): auto =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    else:
+      blck.message.body.blob_kzg_commitments
 
-    m.elConnections
-      .mapIt(
-        it.getBlobsV2(
-          blck.message.body.blob_kzg_commitments.mapIt(
-            kzg_commitment_to_versioned_hash(it)
-          )
-        )
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+  m.elConnections
+    .mapIt(
+      it.getBlobsV2(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
       )
-      .firstOrCancel(deadline)
+    )
+    .firstOrCancel(deadline)
 
 proc getBlobsV2*(
     m: ELManager, kzg_commitments: deneb.KzgCommitments
@@ -808,26 +800,26 @@ proc getBlobsV2*(
     .firstOrCancel(deadline)
 
 proc getBlobsV3*(
-    m: ELManager, blck: fulu.SignedBeaconBlock
+    m: ELManager, blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.
     async: (raises: [CancelledError], raw: true)
 .} =
   mixin getBlobsV3
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
-    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
-    m.elConnections
-      .mapIt(
-        it.getBlobsV3(
-          blck.message.body.blob_kzg_commitments.mapIt(
-            kzg_commitment_to_versioned_hash(it)
-          )
-        )
+  template kzg_commitments(): auto =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    else:
+      blck.message.body.blob_kzg_commitments
+
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  m.elConnections
+    .mapIt(
+      it.getBlobsV3(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
       )
-      .firstOrCancel(deadline)
+    )
+    .firstOrCancel(deadline)
 
 template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
   if m.elConnections.len == 0:

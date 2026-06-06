@@ -671,8 +671,6 @@ template withForkyBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyData: untyped {.inject, used.} = x.denebData
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.denebData.blobs
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
@@ -844,9 +842,6 @@ func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
 func init*(t: typedesc[StateIdent], v: Slot): StateIdent =
   StateIdent(kind: StateQueryKind.Slot, slot: v)
 
-func init*(t: typedesc[StateIdent], v: Eth2Digest): StateIdent =
-  StateIdent(kind: StateQueryKind.Root, root: v)
-
 func init*(t: typedesc[BlockIdent], v: BlockIdentType): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Named, value: v)
 
@@ -856,16 +851,8 @@ func init*(t: typedesc[BlockIdent], v: Slot): BlockIdent =
 func init*(t: typedesc[BlockIdent], v: Eth2Digest): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Root, root: v)
 
-func init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
-  ValidatorIdent(kind: ValidatorQueryKind.Index, index: RestValidatorIndex(v))
-
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
-
-func init*(t: typedesc[RestBlockInfo],
-           v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
-  withBlck(v):
-    RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: Gwei, status: string,
@@ -913,7 +900,7 @@ func init*(
     t: typedesc[Web3SignerRequest],
     fork: Fork,
     genesis_validators_root: Eth2Digest,
-    data: electra.AggregateAndProof,
+    data: electra.AggregateAndProof | gloas.AggregateAndProof,
     signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
 ): Web3SignerRequest =
   Web3SignerRequest(
@@ -924,23 +911,6 @@ func init*(
     signingRoot: signingRoot,
     forkedAggregateAndProof:
       ForkedAggregateAndProof.init(data, typeof(data).kind)
-  )
-
-func init*(
-    t: typedesc[Web3SignerRequest],
-    fork: Fork,
-    genesis_validators_root: Eth2Digest,
-    data: gloas.AggregateAndProof,
-    signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
-): Web3SignerRequest =
-  Web3SignerRequest(
-    kind: Web3SignerRequestKind.AggregateAndProofV2,
-    forkInfo: Opt.some(Web3SignerForkInfo(
-      fork: fork, genesis_validators_root: genesis_validators_root
-    )),
-    signingRoot: signingRoot,
-    forkedAggregateAndProof:
-      ForkedAggregateAndProof.init(data, ConsensusFork.Gloas)
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
@@ -1136,16 +1106,9 @@ func init*(t: typedesc[RestSignedContributionAndProof],
     ),
     signature: signature)
 
-func len*(p: RestWithdrawalPrefix): int = sizeof(p)
-
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string): RestErrorMessage =
   RestErrorMessage(code: code, message: message)
-
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string, stacktrace: string): RestErrorMessage =
-  RestErrorMessage(code: code, message: message,
-                   stacktraces: Opt.some(@[stacktrace]))
 
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string, stacktrace: openArray[string]): RestErrorMessage =
@@ -1252,7 +1215,7 @@ template historical_summaries_gindex*(
     kind: static HistoricalSummariesFork): GeneralizedIndex =
   case kind
   of HistoricalSummariesFork.Gloas:
-    get_generalized_index(gloas.BeaconState, "historical_summaries")
+    HISTORICAL_SUMMARIES_GINDEX_GLOAS
   of HistoricalSummariesFork.Electra:
     HISTORICAL_SUMMARIES_GINDEX_ELECTRA
   of HistoricalSummariesFork.Capella:
@@ -1269,27 +1232,21 @@ template getHistoricalSummariesResponse*(
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
-    historical_summaries: GetHistoricalSummariesV1Response,
-): T =
-    ForkedHistoricalSummariesWithProof(
-      kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries
-    )
+    historical_summaries: GetHistoricalSummariesV1Response): T =
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries)
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
-    historical_summaries: GetHistoricalSummariesV1ResponseElectra,
-): T =
-    ForkedHistoricalSummariesWithProof(
-      kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
-    )
+    historical_summaries: GetHistoricalSummariesV1ResponseElectra): T =
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Electra, electraData: historical_summaries)
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
-    historical_summaries: GetHistoricalSummariesV1ResponseGloas,
-): T =
-    ForkedHistoricalSummariesWithProof(
-      kind: HistoricalSummariesFork.Gloas, gloasData: historical_summaries
-    )
+    historical_summaries: GetHistoricalSummariesV1ResponseGloas): T =
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Gloas, gloasData: historical_summaries)
 
 func historicalSummariesForkAtConsensusFork*(
     consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =

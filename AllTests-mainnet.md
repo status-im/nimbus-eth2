@@ -210,6 +210,7 @@ AllTests-mainnet
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test                  OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test             OK
++ verified flag survives database unload/load [node]                                         OK
 ```
 ## Combined scenarios [Beacon Node] [Preset: mainnet]
 ```diff
@@ -699,7 +700,8 @@ AllTests-mainnet
 + Duplicate detection - same builder same slot                                               OK
 + Empty pool returns none                                                                    OK
 + Highest bid selection - different builders                                                 OK
-+ Multiple bids for different parents same slot                                              OK
++ Multiple bids for different beacon parent roots same slot                                  OK
++ Multiple bids for different execution parent hashes same slot                              OK
 + Pruning removes old bids                                                                   OK
 + Track seen bids                                                                            OK
 ```
@@ -850,6 +852,10 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
+## Inclusion list [Preset: mainnet]
+```diff
++ get_inclusion_list_committee                                                               OK
+```
 ## Key splitting
 ```diff
 + k < n                                                                                      OK
@@ -937,6 +943,7 @@ AllTests-mainnet
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
++ inclusion list signatures                                                                  OK
 + payload attestation message signatures                                                     OK
 + proposer preferences message signatures                                                    OK
 ```
@@ -978,7 +985,7 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
-## Partial Column Quarantine
+## Partial Column Quarantine (Fulu)
 ```diff
 + Assemble multiple columns for the same block independently                                 OK
 + Cell tracking is per-column                                                                OK
@@ -1033,6 +1040,19 @@ AllTests-mainnet
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
+```
+## Partial Column Quarantine (Gloas)
+```diff
++ Group IDs with same root but different slots are distinct keys                             OK
++ GroupID hash and equality                                                                  OK
++ Header LRU eviction (gloas, keyed by GroupID)                                              OK
++ Init creates empty quarantine                                                              OK
++ Remove header (group id) does not remove entries (gloas)                                   OK
++ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
++ assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
++ getOrCreateEntry reflects gloas group-id validation                                        OK
++ isComplete and assembleDataColumnSidecar (gloas)                                           OK
++ putPartialGroupID stores group id under itself                                             OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff

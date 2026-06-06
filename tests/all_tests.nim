@@ -37,6 +37,7 @@ import # Unit test
   ./test_gossip_validation,
   ./test_helpers,
   ./test_honest_validator,
+  ./test_inclusion_list,
   ./test_keystore,
   ./test_keystore_management,
   ./test_key_splitting,

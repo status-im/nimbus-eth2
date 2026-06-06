@@ -535,7 +535,8 @@ template kind*(
       gloas.SigVerifiedBeaconBlockBody |
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
-      gloas.TrustedSignedBeaconBlock]): ConsensusFork =
+      gloas.TrustedSignedBeaconBlock |
+      gloas.AggregateAndProof]): ConsensusFork =
   ConsensusFork.Gloas
 
 template kind*(

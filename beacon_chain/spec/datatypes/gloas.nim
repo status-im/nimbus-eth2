@@ -47,6 +47,7 @@ type
   AttestingIndices* = seq[uint64]
   Transaction* = ByteSeq
   BlockAccessList* = ByteSeq
+  CellsPresentBits* = BitSeq
   DepositRequests* = seq[DepositRequest]
   WithdrawalRequests* = seq[WithdrawalRequest]
   ConsolidationRequests* = seq[ConsolidationRequest]
@@ -89,6 +90,25 @@ type
     index*: ColumnIndex
     slot*: Slot
     kzg_commitments*: KzgCommitments
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
+  # [New in Gloas] Replaces the role of Fulu's PartialDataColumnHeader: it
+  # carries the per-block metadata (slot + beacon_block_root) needed to
+  # assemble a Gloas `DataColumnSidecar` from accumulated partial cells.
+  PartialDataColumnGroupID* = object
+    slot*: Slot
+    beacon_block_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+  # [Modified in Gloas] Compared to Fulu, the `header` field is removed
+  # (peers now key on `PartialDataColumnGroupID` out-of-band)
+  PartialDataColumnSidecar* = object
+    # [Modified in Gloas:EIP7688]
+    cells_present_bitmap*: CellsPresentBits
+    # [Modified in Gloas:EIP7688]
+    partial_column*: seq[KzgCell]
+    # [Modified in Gloas:EIP7688]
+    kzg_proofs*: KzgProofs
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayload
   ExecutionPayload* {.sszActiveFields: [
