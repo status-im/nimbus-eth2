@@ -17,7 +17,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[spec_cache, blockchain_dag],
-  "."/[fork_choice_types, proto_array, fast_confirmation, fork_choice_epbs]
+  ./[fork_choice_types, proto_array, fast_confirmation, fork_choice_epbs]
 
 from std/sequtils import keepItIf
 export results, fork_choice_types, fork_choice_epbs
@@ -426,20 +426,20 @@ func process_block*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-record_block_timeliness
 proc record_block_timeliness(
-    self: var ForkChoice, dag: ChainDAGRef,
+    self: var ForkChoice, timeParams: TimeParams,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
   const consensusFork = typeof(blck).kind
   let isCurrentSlot = current_slot == blck.slot
   let ptcTimely =
     when consensusFork >= ConsensusFork.Gloas:
       isCurrentSlot and self.checkpoints.time <
-        blck.slot.payload_attestation_deadline(dag.timeParams)
+        blck.slot.payload_attestation_deadline(timeParams)
     else:
       false
   self.backend.block_timeliness[blckRef.root] = [
     # ATTESTATION_TIMELINESS_INDEX
     isCurrentSlot and self.checkpoints.time <
-      blck.slot.attestation_deadline(dag.timeParams, consensusFork),
+      blck.slot.attestation_deadline(timeParams, consensusFork),
     # PTC_TIMELINESS_INDEX
     ptcTimely]
 
@@ -507,20 +507,19 @@ proc process_block*(
 
   when typeof(blck).kind >= ConsensusFork.Gloas:
     for pa in blck.body.payload_attestations:
-      let root = pa.data.beacon_block_root
+      let tally = addr self.backend.ptcVotes.mgetOrPut(
+        pa.data.beacon_block_root, PtcVoteTally())
       for i in 0 ..< pa.aggregation_bits.len:
         if pa.aggregation_bits[i]:
-          self.backend.ptcVotes.mgetOrPut(root, PtcVoteTally()).present[i] =
-            pa.data.payload_present
-          self.backend.ptcVotes.mgetOrPut(root, PtcVoteTally()).available[i] =
-            pa.data.blob_data_available
+          tally.present[i] = pa.data.payload_present
+          tally.available[i] = pa.data.blob_data_available
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  self.record_block_timeliness(dag, blckRef, blck, slot)
+  self.record_block_timeliness(dag.timeParams, blckRef, blck, slot)
   self.update_proposer_boost_root(dag, blckRef, slot)
 
   # Update checkpoints in store if necessary
