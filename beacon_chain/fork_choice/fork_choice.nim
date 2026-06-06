@@ -425,7 +425,7 @@ func process_block*(
     bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-record_block_timeliness
-proc record_block_timeliness(
+func record_block_timeliness(
     self: var ForkChoice, timeParams: TimeParams,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
   const consensusFork = typeof(blck).kind
@@ -455,7 +455,7 @@ func get_dependent_root(
   dependent.bid.root
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
-proc update_proposer_boost_root(
+func update_proposer_boost_root(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, current_slot: Slot) =
   template is_first_block: bool =
