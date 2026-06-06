@@ -15,6 +15,7 @@ import
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(
     self: var ForkChoice, head_root: Eth2Digest, dag: ChainDAGRef): bool =
+  # Calculate weight threshold for weak head
   let
     total = self.checkpoints.justified.total_active_balance
     reorg_threshold =
@@ -25,9 +26,7 @@ proc is_head_weak(
 
   var head_weight = proto_node.weight.Gwei
 
-  # Also count effective balance of equivocating validators (vote disabled via
-  # `vote.slot == FAR_FUTURE_SLOT`) in the head slot's committees, so the weight
-  # is monotonic in observed attestations.
+  # Compute head weight including equivocations
   dag.getBlockRef(head_root).isErrOr:
     dag.getShufflingRef(value, proto_node.bid.slot.epoch, true).isErrOr:
       template balances: untyped = self.checkpoints.justified.balances
@@ -128,29 +127,27 @@ proc on_payload_attestation_message*(
           slot != self.checkpoints.time.slotOrZero(dag.timeParams):
         return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
-      # Get all positions of the attester in the PTC
-      var ptc_indices: seq[int]
+      # The signature is verified before fork choice sees the message: in gossip
+      # validation for wire messages, and in `process_payload_attestation` for 
+      # in-block ones. So we fill the votes inline rather than after a check.
+      var tally: ptr PtcVoteTally
       for ptc_index, vidx in enumerate(
           get_ptc(forkyState.data, shufflingRef, slot)):
         if vidx == valIdx:
-          ptc_indices.add ptc_index
+          if tally.isNil:
+            tally = addr self.backend.ptcVotes.mgetOrPut(
+              beacon_block_root, PtcVoteTally())
+          tally.present[ptc_index] = data.payload_present
+          tally.available[ptc_index] = data.blob_data_available
 
       # Check that the attester is from the PTC
-      if ptc_indices.len == 0:
+      if tally.isNil:
         return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
       trace "Validated PTC vote",
         validator_index,
-        ptc_positions = ptc_indices.len,
         payload_present = data.payload_present,
         blob_data_available = data.blob_data_available
-
-      # Update the votes for the block
-      let tally = addr self.backend.ptcVotes.mgetOrPut(
-        beacon_block_root, PtcVoteTally())
-      for ptc_index in ptc_indices:
-        tally.present[ptc_index] = data.payload_present
-        tally.available[ptc_index] = data.blob_data_available
 
   ok()
 
