@@ -36,6 +36,8 @@ from ../../beacon_chain/spec/peerdas_helpers import
   verify_data_column_sidecar_kzg_proofs
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
+from ../../beacon_chain/spec/beaconstate import
+  is_valid_indexed_payload_attestation
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
@@ -490,9 +492,19 @@ proc doRunTest(
       doAssert ok == step.valid
     of opOnPayloadAttestation:
       let pa = step.payloadAttestation
-      let status = stores.fkChoice[].on_payload_attestation_message(
-        stores.dag, pa.validator_index, pa.data, pa.signature)
-      doAssert status.isOk == step.valid
+      # This suite has no gossip layer, so mirror the signature check gossip
+      # does before recording.
+      var valid = false
+      withState(stores.dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          if is_valid_indexed_payload_attestation(forkyState.data,
+              IndexedPayloadAttestation(
+                attesting_indices:
+                  List[uint64, Limit PTC_SIZE].init(@[pa.validator_index]),
+                data: pa.data, signature: pa.signature)):
+            valid = stores.fkChoice[].on_payload_attestation_message(
+              stores.dag, pa.validator_index, pa.data).isOk
+      doAssert valid == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:

@@ -12,7 +12,7 @@ import
   ../consensus_object_pools/[blockchain_dag, spec_cache],
   ./[fork_choice_types, proto_array]
 
-from ../spec/beaconstate import get_ptc, is_valid_indexed_payload_attestation
+from ../spec/beaconstate import get_ptc
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(
@@ -92,11 +92,9 @@ proc on_payload_attestation_message*(
     self: var ForkChoice,
     dag: ChainDAGRef,
     validator_index: uint64,
-    data: PayloadAttestationData,
-    signature: ValidatorSig,
-    is_from_block: bool = false): FcResult[void] =
-  ## Run ``on_payload_attestation_message`` upon receiving a new ``ptc_message`` from
-  ## either within a block or directly on the wire.
+    data: PayloadAttestationData): FcResult[void] =
+  ## Run ``on_payload_attestation_message`` upon receiving a new ``ptc_message``
+  ## from either within a block or directly on the wire.
   template beacon_block_root: untyped = data.beacon_block_root
   let
     slot = data.slot
@@ -117,54 +115,37 @@ proc on_payload_attestation_message*(
   if slot != blockSlot:
     return ok()
 
-  # The spec reads the PTC from `state = store.block_states[beacon_block_root]`.
-  # `ptc_window` is committed state, so load the attested block's post-state and
-  # read it there rather than recomputing the committee.
-  let blockRef = dag.getBlockRef(beacon_block_root).valueOr:
-    return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
-  dag.withUpdatedState(dag.epochRefState, blockRef.bid.atSlot()):
-    withState(updatedState):
-      when consensusFork >= ConsensusFork.Gloas:
-        # Get all positions of the attester in the PTC
-        var ptc_indices: seq[int]
-        for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
-          if vidx == valIdx:
-            ptc_indices.add ptc_index
+  withState(dag.headState):
+    when consensusFork >= ConsensusFork.Gloas:
+      # Get all positions of the attester in the PTC
+      var ptc_indices: seq[int]
+      for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
+        if vidx == valIdx:
+          ptc_indices.add ptc_index
 
-        # Check that the attester is from the PTC
-        if ptc_indices.len == 0:
-          return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
+      # Check that the attester is from the PTC
+      if ptc_indices.len == 0:
+        return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
-        # Verify the signature and check that its for the current slot if it is
-        # coming from the wire
-        if not is_from_block:
-          # Check that the attestation is for the current slot
-          if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
-            return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
-          # Verify the signature
-          if not is_valid_indexed_payload_attestation(
-              forkyState.data,
-              IndexedPayloadAttestation(
-                attesting_indices:
-                  List[uint64, Limit PTC_SIZE].init(@[validator_index]),
-                data: data,
-                signature: signature)):
-            return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
+      # Check that the attestation is for the current slot.
+      if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
+        return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
-        # Update the votes for the block
-        let tally = addr self.backend.ptcVotes.mgetOrPut(
-          beacon_block_root, PtcVoteTally())
-        for ptc_index in ptc_indices:
-          tally.present[ptc_index] = data.payload_present
-          tally.available[ptc_index] = data.blob_data_available
+      # Verify the signature
+      # The signature is verified upstream in `validatePayloadAttestationMessage`
+      # (gossip), so it is not repeated here.
 
-        trace "Validated PTC vote",
-          validator_index,
-          payload_present = data.payload_present,
-          blob_data_available = data.blob_data_available
-  do:
-    return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
+      # Update the votes for the block
+      let tally = addr self.backend.ptcVotes.mgetOrPut(
+        beacon_block_root, PtcVoteTally())
+      for ptc_index in ptc_indices:
+        tally.present[ptc_index] = data.payload_present
+        tally.available[ptc_index] = data.blob_data_available
 
+      trace "Recorded PTC vote",
+        validator_index,
+        payload_present = data.payload_present,
+        blob_data_available = data.blob_data_available
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
