@@ -243,18 +243,6 @@ type
     of ConsensusFork.Gloas:     gloasData*:     electra.Attestation
     of ConsensusFork.Heze:      hezeData*:      electra.Attestation
 
-  ForkedAggregateAndProof* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.AggregateAndProof
-    of ConsensusFork.Altair:    altairData*:    phase0.AggregateAndProof
-    of ConsensusFork.Bellatrix: bellatrixData*: phase0.AggregateAndProof
-    of ConsensusFork.Capella:   capellaData*:   phase0.AggregateAndProof
-    of ConsensusFork.Deneb:     denebData*:     phase0.AggregateAndProof
-    of ConsensusFork.Electra:   electraData*:   electra.AggregateAndProof
-    of ConsensusFork.Fulu:      fuluData*:      electra.AggregateAndProof
-    of ConsensusFork.Gloas:     gloasData*:     electra.AggregateAndProof
-    of ConsensusFork.Heze:      hezeData*:      electra.AggregateAndProof
-
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
@@ -1517,46 +1505,6 @@ template withAttestation*(a: ForkedAttestation, body: untyped): untyped =
     template forkyAttestation: untyped {.inject.} = a.phase0Data
     body
 
-template withAggregateAndProof*(a: ForkedAggregateAndProof,
-                                body: untyped): untyped =
-  case a.kind
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyProof: untyped {.inject.} = a.hezeData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyProof: untyped {.inject.} = a.gloasData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyProof: untyped {.inject.} = a.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyProof: untyped {.inject.} = a.electraData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyProof: untyped {.inject.} = a.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyProof: untyped {.inject.} = a.capellaData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyProof: untyped {.inject.} = a.bellatrixData
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyProof: untyped {.inject.} = a.altairData
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyProof: untyped {.inject.} = a.phase0Data
-    body
-
 func toBeaconBlockHeader*(
     blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock):
     BeaconBlockHeader =
@@ -2011,22 +1959,6 @@ template init*(T: type ForkedAttestation,
     ForkedAttestation(kind: ConsensusFork.Gloas, gloasData: attestation)
   of ConsensusFork.Heze:
     ForkedAttestation(kind: ConsensusFork.Heze, hezeData: attestation)
-
-template init*(T: type ForkedAggregateAndProof,
-               proof: electra.AggregateAndProof,
-               fork: ConsensusFork): T =
-  case fork
-  of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-    raiseAssert $fork &
-      " fork should not be used for this type of aggregate and proof"
-  of ConsensusFork.Electra:
-    ForkedAggregateAndProof(kind: ConsensusFork.Electra, electraData: proof)
-  of ConsensusFork.Fulu:
-    ForkedAggregateAndProof(kind: ConsensusFork.Fulu, fuluData: proof)
-  of ConsensusFork.Gloas:
-    ForkedAggregateAndProof(kind: ConsensusFork.Gloas, gloasData: proof)
-  of ConsensusFork.Heze:
-    ForkedAggregateAndProof(kind: ConsensusFork.Heze, hezeData: proof)
 
 func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
   when typeof(eps).kind >= ConsensusFork.Deneb:

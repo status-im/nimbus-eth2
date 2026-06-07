@@ -1108,12 +1108,7 @@ AllTests-mainnet
 + RestErrorMessage writer tests                                                              OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (ALTAIR)                                     OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (BELLATRIX)                                  OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (CAPELLA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (DENEB)                                      OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (PHASE 0)                                    OK
 + remote signing example AGGREGATION_SLOT                                                    OK
 + remote signing example ATTESTATION                                                         OK
 + remote signing example BLOCK_V2 (BELLATRIX)                                                OK
