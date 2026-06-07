@@ -13,7 +13,7 @@ import
   stew/assign2,
   chronicles,
   ../extras,
-  "."/[
+  ./[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
