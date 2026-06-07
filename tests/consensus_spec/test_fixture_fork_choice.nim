@@ -478,7 +478,7 @@ proc doRunTest(
       invalidatedHashes[step.invalidatedHash] = step.latestValidHash
     of opOnExecutionPayload:
       let envBlockRoot = step.executionPayload.message.beacon_block_root
-      var ok = false
+      var valid = false
       if envBlockRoot in gloasBlocks:
         withBlck(gloasBlocks[envBlockRoot]):
           when consensusFork == ConsensusFork.Gloas:
@@ -488,8 +488,8 @@ proc doRunTest(
               doAssert stores.fkChoice[].on_execution_payload(
                 stores.dag.cfg, stores.dag.timeParams,
                 step.executionPayload).isOk
-            ok = addRes.isOk
-      doAssert ok == step.valid
+            valid = addRes.isOk
+      doAssert valid == step.valid
     of opOnPayloadAttestation:
       let pa = step.payloadAttestation
       # This suite has no gossip layer, so mirror the signature check gossip
@@ -497,10 +497,11 @@ proc doRunTest(
       var valid = false
       withState(stores.dag.headState):
         when consensusFork >= ConsensusFork.Gloas:
+          var attesting_indices: List[uint64, Limit PTC_SIZE]
+          discard attesting_indices.add(pa.validator_index)
           if is_valid_indexed_payload_attestation(forkyState.data,
               IndexedPayloadAttestation(
-                attesting_indices:
-                  List[uint64, Limit PTC_SIZE].init(@[pa.validator_index]),
+                attesting_indices: attesting_indices,
                 data: pa.data, signature: pa.signature)):
             valid = stores.fkChoice[].on_payload_attestation_message(
               stores.dag, pa.validator_index, pa.data).isOk

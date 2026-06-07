@@ -115,32 +115,26 @@ proc on_payload_attestation_message*(
   if slot != blockSlot:
     return ok()
 
+  # Check that the attestation is for the current slot. The signature is verified
+  # upstream in `validatePayloadAttestationMessage` (gossip).
+  if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
+    return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
+
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      # Get all positions of the attester in the PTC
-      var ptc_indices: seq[int]
+      # Update the votes for the block
+      var tally: ptr PtcVoteTally
       for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
         if vidx == valIdx:
-          ptc_indices.add ptc_index
+          if tally.isNil:
+            tally = addr self.backend.ptcVotes.mgetOrPut(
+              beacon_block_root, PtcVoteTally())
+          tally.present[ptc_index] = data.payload_present
+          tally.available[ptc_index] = data.blob_data_available
 
       # Check that the attester is from the PTC
-      if ptc_indices.len == 0:
+      if tally.isNil:
         return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
-
-      # Check that the attestation is for the current slot.
-      if slot != self.checkpoints.time.slotOrZero(dag.timeParams):
-        return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
-
-      # Verify the signature
-      # The signature is verified upstream in `validatePayloadAttestationMessage`
-      # (gossip), so it is not repeated here.
-
-      # Update the votes for the block
-      let tally = addr self.backend.ptcVotes.mgetOrPut(
-        beacon_block_root, PtcVoteTally())
-      for ptc_index in ptc_indices:
-        tally.present[ptc_index] = data.payload_present
-        tally.available[ptc_index] = data.blob_data_available
 
       trace "Recorded PTC vote",
         validator_index,
