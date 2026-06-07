@@ -2200,13 +2200,15 @@ proc validatePayloadAttestationMessage*(
   # [REJECT] The message's block `data.beacon_block_root` passes validation.
   # Should have been validatied by getNBlockRef above
 
+  let vidx = ValidatorIndex.init(payload_attestation_message.validator_index).valueOr:
+    return dag.checkedReject(
+      "PayloadAttestationMessage: invalid validator index")
+
   # [REJECT] The message's validator index is within the payload committee in
   # `get_ptc(state, data.slot)`. The `state` is the head state corresponding to
   # processing the block up to the current slot as determined by fork choice
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      let vidx = ValidatorIndex(payload_attestation_message.validator_index)
-
       var present = false
       for idx in get_ptc(forkyState.data, data.slot):
         if idx == vidx:
@@ -2224,10 +2226,9 @@ proc validatePayloadAttestationMessage*(
   # to the validator's public key.
   if checkSignature:
     let
-      validator_index = ValidatorIndex(payload_attestation_message.validator_index)
-      senderPubKey = dag.validatorKey(validator_index).valueOr:
+      senderPubKey = dag.validatorKey(vidx).valueOr:
         return dag.checkedReject(
-          "PayPayloadAttesatationMessage: invalid validator index")
+          "PayloadAttestationMessage: invalid validator index")
       fork = dag.forkAtEpoch(data.slot.epoch)
 
     let deferredCrypto = batchCrypto.schedulePayloadAttestationCheck(

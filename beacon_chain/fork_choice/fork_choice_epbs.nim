@@ -96,9 +96,9 @@ proc on_payload_attestation_message*(
   ## Run ``on_payload_attestation_message`` upon receiving a new ``ptc_message``
   ## from either within a block or directly on the wire.
   template beacon_block_root: untyped = data.beacon_block_root
-  let
-    slot = data.slot
-    valIdx = ValidatorIndex(validator_index)
+  let slot = data.slot
+  let valIdx = ValidatorIndex.init(validator_index).valueOr:
+    return err ForkChoiceError(kind: fcInvalidPayloadAttestation)
 
   if slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return ok()
