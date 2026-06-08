@@ -473,8 +473,8 @@ type
       aggregateAndProof* {.
         serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.AggregateAndProofV2:
-      forkedAggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
+      aggregateAndProofV2* {.
+        serializedFieldName: "aggregate_and_proof".}: electra.AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -909,8 +909,7 @@ func init*(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    forkedAggregateAndProof:
-      ForkedAggregateAndProof.init(data, typeof(data).kind)
+    aggregateAndProofV2: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

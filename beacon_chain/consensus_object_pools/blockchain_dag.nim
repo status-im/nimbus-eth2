@@ -688,9 +688,6 @@ func init*(
       key: dag.epochKey(state.latest_block_id, epoch).expect(
         "Valid epoch ancestor when processing state"),
 
-      eth1_data: state.eth1_data,
-      eth1_deposit_index: state.eth1_deposit_index,
-
       checkpoints: FinalityCheckpoints(
         justified: state.current_justified_checkpoint,
         finalized: state.finalized_checkpoint),

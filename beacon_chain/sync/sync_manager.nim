@@ -281,7 +281,7 @@ proc getSyncBlockData[A, B](
         peer_speed = sr.item.netKbps(),
         index = index,
         blocks_count = len(blocks),
-        blocks_map = getShortMap(sr, blocks.toSeq()),
+        blocks_map = getShortMap(sr, blocks.asSeq()),
         sync_ident = man.ident,
         topics = "syncman"
 

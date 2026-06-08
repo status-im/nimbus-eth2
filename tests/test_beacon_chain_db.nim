@@ -16,7 +16,7 @@ import
   ./[testutil, teststateutil]
 
 from std/algorithm import sort
-from std/sequtils import allIt, toSeq
+from std/sequtils import allIt, countIt
 from snappy import encodeFramed, uncompressedLenFramed
 from ../beacon_chain/consensus_object_pools/block_pools_types import
   ChainDAGRef
@@ -301,25 +301,25 @@ suite "Beacon chain DB" & preset():
       a2 = withDigest(
         (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root))
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 0
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 0
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 0
     doAssert db.getBeaconBlockSummary(a2.root).isNone()
 
     db.putBlock(a2)
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 1
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 0
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 1
     doAssert db.getBeaconBlockSummary(a2.root).get().slot == a2.message.slot
 
     db.putBlock(a1)
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 2
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 0
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 2
 
     db.putBlock(a0)
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 1
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 3
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 1
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 3
 
   test "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
