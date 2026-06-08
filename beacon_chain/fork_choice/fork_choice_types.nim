@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status
   results,
   chronicles,
@@ -21,11 +21,6 @@ from ../consensus_object_pools/block_pools_types import
   BlockRef, EpochRef, ForkChoiceBalance
 
 export results, base
-
-const
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#constants
-  ATTESTATION_TIMELINESS_INDEX* = 0
-  PTC_TIMELINESS_INDEX* = 1
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -178,8 +173,8 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
-    ptcVotes*: Table[Eth2Digest, PtcVoteTally]
-    block_timeliness*: Table[Eth2Digest, array[2, bool]]
+    ptc_votes*: Table[Eth2Digest, PtcVoteTally]
+    timely_proposer_blocks*: HashSet[Eth2Digest]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]

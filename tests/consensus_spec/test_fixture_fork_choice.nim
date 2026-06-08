@@ -392,7 +392,7 @@ proc stepChecks(
          check == "payload_data_availability_vote":
       # `votes` is ordered by PTC position; a `null` position cast no vote, so
       # its bit stays unset, same observable value as a recorded `false`.
-      let tally = fkChoice.backend.ptcVotes.getOrDefault(
+      let tally = fkChoice.backend.ptc_votes.getOrDefault(
         Eth2Digest.fromHex(val["block_root"].getStr()))
       var i = 0
       for v in val["votes"].items:

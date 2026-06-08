@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/enumerate,
+  std/[enumerate, sets],
   ../consensus_object_pools/[blockchain_dag, spec_cache],
   ./[fork_choice_types, proto_array]
 
@@ -76,8 +76,7 @@ proc should_apply_proposer_boost*(
       parentBlck, parent_node.bid.slot).valueOr:
     return true
 
-  for root, timeliness in self.backend.block_timeliness:
-    if not timeliness[PTC_TIMELINESS_INDEX]: continue
+  for root in self.backend.timely_proposer_blocks:
     if root == parent_node.bid.root: continue
     let candBlck = dag.getBlockRef(root).valueOr: continue
     if candBlck.slot != parent_node.bid.slot: continue
@@ -127,7 +126,7 @@ proc on_payload_attestation_message*(
       for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
         if vidx == valIdx:
           if tally.isNil:
-            tally = addr self.backend.ptcVotes.mgetOrPut(
+            tally = addr self.backend.ptc_votes.mgetOrPut(
               beacon_block_root, PtcVoteTally())
           tally.present[ptc_index] = data.payload_present
           tally.available[ptc_index] = data.blob_data_available
