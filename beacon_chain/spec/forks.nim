@@ -1688,16 +1688,16 @@ static:
         else:
           discard  # Light client data does not track execution data
 
-func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
+func getForkSchedule*(cfg: RuntimeConfig): array[9, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
   ## This procedure is used by HTTP REST framework and validator client.
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
-  debugHezeComment "add hezeFork to getForkSchedule"
   static: doAssert high(ConsensusFork) == ConsensusFork.Heze
   [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork(), cfg.capellaFork(),
-   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork(), cfg.gloasFork()]
+   cfg.denebFork(), cfg.electraFork(), cfg.fuluFork(), cfg.gloasFork(),
+   cfg.hezeFork()]
 
 type
   # The first few fields of a state, shared across all forks
