@@ -50,10 +50,6 @@ declareCounter execution_payload_envelopes_received,
   "Number of valid execution payload envelope processed by this node"
 declareCounter execution_payload_envelopes_dropped,
   "Number of invalid execution payload envelope dropped by this node", labels = ["reason"]
-declareCounter blob_sidecars_received,
-  "Number of valid blobs processed by this node"
-declareCounter blob_sidecars_dropped,
-  "Number of invalid blobs dropped by this node", labels = ["reason"]
 declareCounter data_column_sidecars_received,
   "Number of valid data columns processed by this node"
 declareCounter data_column_sidecars_dropped,
@@ -107,9 +103,6 @@ declareHistogram beacon_block_delay,
 
 declareHistogram execution_payload_envelope_delay,
   "Time(s) between slot start and execution payload envelope reception", buckets = delayBuckets
-
-declareHistogram blob_sidecar_delay,
-  "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
 
 declareHistogram data_column_sidecar_delay,
   "Time(s) betweeen slot start and data column sidecar reception",
@@ -359,42 +352,6 @@ proc processExecutionPayloadEnvelope*(
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())
 
   ok()
-
-proc processBlobSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId): ValidationRes =
-  template block_header: untyped = blobSidecar.signed_block_header.message
-
-  let
-    wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
-
-  logScope:
-    blob = shortLog(blobSidecar)
-    wallSlot
-
-  if not afterGenesis:
-    notice "Blob before genesis"
-    return errIgnore("Blob before genesis")
-
-  # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime -
-    block_header.slot.start_beacon_time(self.dag.timeParams)
-  debug "Blob received", delay
-
-  let v =
-    self.dag.validateBlobSidecar(self.quarantine,
-                                 blobSidecar, wallTime, subnet_id)
-
-  if v.isErr():
-    debug "Dropping blob", error = v.error()
-    blob_sidecars_dropped.inc(1, [$v.error[0]])
-    return v
-
-  blob_sidecars_received.inc()
-  blob_sidecar_delay.observe(delay.toFloatSeconds())
-
-  v
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
