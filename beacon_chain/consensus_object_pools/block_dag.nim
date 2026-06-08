@@ -256,7 +256,7 @@ func executionParent*(blck: BlockRef): Opt[BlockRef] =
   # Parent hash of pre-Gloas blocks is zero but it could be built on the
   # genesis. Either way, the execution parent should be same as the block
   # parent.
-  if blck.executionParentHash.unsafeGet().isZero():
+  if blck.executionParentHash.get().isZero():
     return Opt.some(blck.parent)
 
   var cur = blck.parent
@@ -264,8 +264,7 @@ func executionParent*(blck: BlockRef): Opt[BlockRef] =
   for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
     if cur.executionBlockHash.isNone():
       break
-    if cur.executionBlockHash.unsafeGet() ==
-        blck.executionParentHash.unsafeGet():
+    if cur.executionBlockHash.get() == blck.executionParentHash.get():
       return Opt.some(cur)
     if isNil(cur.parent):
       break
