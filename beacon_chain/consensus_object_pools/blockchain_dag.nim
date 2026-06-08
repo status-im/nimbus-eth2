@@ -2434,15 +2434,17 @@ proc executionParent*(
   if isNil(parentRef):
     return Opt.none(BlockRef)
 
-  # When parent block hash is zero, it could be either genesis or pre-Gloas
-  # block. The execution parent should be same as the block parent.
-  let parentHash = ?dag.loadExecutionAndParentBlockHash(parentRef).parentHash
-  if parentHash.isZero():
-    return Opt.some(parentRef)
+  let
+    parentHash = ?dag.loadExecutionAndParentBlockHash(parentRef).parentHash
+
+    # When parent block hash is zero, it could be either genesis or pre-Gloas
+    # block. We limit the search to exactly 1 ancestor for these cases to
+    # strictly check over hashes.
+    maxDepth = if parentHash.isZero(): 1 else: EXECUTION_PARENT_MAX_DEPTH
 
   var cur = parentRef
   debugGloasComment("revisit the max depth of ancestors")
-  for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
+  for _ in 0 ..< maxDepth:
     let pBhash = ?dag.loadExecutionBlockHash(cur)
     if pBhash == parentBlockHash:
       return Opt.some(cur)
