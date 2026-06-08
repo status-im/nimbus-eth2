@@ -92,21 +92,37 @@ proc init*(
 
 func process_attestation(
     self: var ForkChoiceBackend,
-    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot) =
+    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot,
+    payload_present: bool, cfg: RuntimeConfig) =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-  if vote.slot != FAR_FUTURE_SLOT:
-    if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
+
+  if slot.epoch >= cfg.GLOAS_FORK_EPOCH:
+    # slot based tracking with payload preference
+    if slot > vote.slot or vote.next_root.isZero:
       vote.next_root = block_root
       vote.slot = slot
+      vote.next_payload_present = payload_present
+
+      trace "Integrating Gloas vote in fork choice",
+        validator_index = validator_index,
+        slot = slot,
+        payload_present = payload_present,
+        new_vote = shortLog(vote)
+  else:
+    if vote.slot != FAR_FUTURE_SLOT:
+      if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
+        vote.next_root = block_root
+        vote.slot = slot
 
       trace "Integrating vote in fork choice",
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
+proc process_attestation_queue(
+    self: var ForkChoice, slot: Slot, cfg: RuntimeConfig) =
   # Spec:
   # Attestations can only affect the fork choice of subsequent slots.
   # Delay consideration in the fork choice until their slot is in the past.
@@ -115,7 +131,8 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
     if it.slot < slot:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, it.block_root, it.slot)
+          validator_index, it.block_root, it.slot,
+          it.committee_index == CommitteeIndex(1), cfg)
       false
     else:
       true
@@ -238,7 +255,7 @@ proc reconfirm_fcr(
 
   # Reconfirm with previous balance source after attestations
   # from past slots have been applied
-  self.process_attestation_queue(current_slot)
+  self.process_attestation_queue(current_slot, dag.cfg)
   if ? fcr.should_revert_confirmed_on_new_epoch(
       dag, confirmed, current_slot, diag):
     reason = "epoch"
@@ -336,7 +353,7 @@ proc update_time*(
       ? self.on_tick(dag, time)
 
     if preSlot != postSlot:
-      self.process_attestation_queue(postSlot)
+      self.process_attestation_queue(postSlot, dag.cfg)
 
   ok()
 
@@ -347,15 +364,31 @@ proc on_attestation*(
     attestation_slot: Slot,
     beacon_block_root: Eth2Digest,
     attesting_indices: openArray[ValidatorIndex],
+    attestation_committee_index: CommitteeIndex,
     wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-validate_on_attestation
+  if attestation_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH:
+    let index = attestation_committee_index.uint64
+    if index notin [0'u64, 1'u64]:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    let block_slot = self.backend.proto_array.slot(beacon_block_root)
+    if block_slot.isSome and block_slot.get == attestation_slot and index != 0:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    # If attesting for a full node, the payload must be known
+    debugGloasComment "temporarily disabled"
+    # if index == 1 and
+    #     beacon_block_root notin self.backend.proto_array.fullBlockIndices:
+    #   return err ForkChoiceError(kind: fcInvalidAttestation)
 
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index, beacon_block_root, attestation_slot)
+        validator_index, beacon_block_root, attestation_slot,
+        attestation_committee_index == CommitteeIndex(1), dag.cfg)
   else:
     # Spec:
     # Attestations can only affect the fork choice of subsequent slots.
@@ -363,6 +396,7 @@ proc on_attestation*(
     self.queuedAttestations.add QueuedAttestation(
       attesting_indices: @attesting_indices,
       block_root: beacon_block_root,
+      committee_index: attestation_committee_index,
       slot: attestation_slot)
   ok()
 
@@ -434,9 +468,17 @@ proc process_block*(
 
   for attestation in blck.body.attestations:
     if attestation.data.beacon_block_root in self.backend:
-      for vidx in dag.get_attesting_indices(attestation):
-        self.backend.process_attestation(
-          vidx, attestation.data.beacon_block_root, attestation.data.slot)
+      when typeof(blck).kind >= ConsensusFork.Gloas:
+        let payloadPresent = attestation.data.index == 1
+        for vidx in dag.get_attesting_indices(attestation):
+          self.backend.process_attestation(
+            vidx, attestation.data.beacon_block_root, attestation.data.slot,
+            payloadPresent, dag.cfg)
+      else:
+        for vidx in dag.get_attesting_indices(attestation):
+          self.backend.process_attestation(
+            vidx, attestation.data.beacon_block_root, attestation.data.slot,
+            false, dag.cfg)
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
@@ -669,7 +711,7 @@ func compute_deltas(
 
       if vote.slot != FAR_FUTURE_SLOT and not vote.next_root.isZero:
         if vote.next_root in indices:
-          let index = resolveIndex(vote.next_root, vote.payload_present)
+          let index = resolveIndex(vote.next_root, vote.next_payload_present)
           if index >= deltas.len:
             return err ForkChoiceError(
               kind: fcInvalidNodeDelta,

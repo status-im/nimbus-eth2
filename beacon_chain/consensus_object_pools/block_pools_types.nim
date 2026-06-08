@@ -295,9 +295,6 @@ type
   EpochRef* = ref object
     key*: EpochKey
 
-    eth1_data*: Eth1Data
-    eth1_deposit_index*: uint64
-
     checkpoints*: FinalityCheckpoints
 
     beacon_proposers*: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]

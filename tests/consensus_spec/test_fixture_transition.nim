@@ -14,7 +14,7 @@ import
   ../../beacon_chain/spec/[state_transition, forks],
   ./os_ops
 
-from std/sequtils import toSeq
+from std/sequtils import countIt
 from std/streams import close, openFileStream
 from ../testutil import preset, suite, test
 from ./fixtures_utils import SszTestsDir, loadBlock, parseTest
@@ -51,15 +51,14 @@ proc runTest(
 
     # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
     # so purely lexicographic sorting wouldn't sort properly.
-    let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
+    let numBlocks = walkPattern(testPath/"blocks_*.ssz_snappy").countIt(true)
     for i in 0 ..< numBlocks:
       if i <= fork_block:
         let
           blck = loadBlock(
             testPath/"blocks_" & $i & ".ssz_snappy", AnteBeaconBlock.kind)
           res = state_transition(
-            cfg, fhPreState[], blck, cache, info,
-            flags = {skipStateRootValidation}, noRollback)
+            cfg, fhPreState[], blck, cache, info, {}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
         # the .expect() already handles the validaty check.
@@ -69,8 +68,7 @@ proc runTest(
           blck = loadBlock(
             testPath/"blocks_" & $i & ".ssz_snappy", PostBeaconBlock.kind)
           res = state_transition(
-            cfg, fhPreState[], blck, cache, info,
-            flags = {skipStateRootValidation}, noRollback)
+            cfg, fhPreState[], blck, cache, info, {}, noRollback)
 
         # The return value is the block rewards, which aren't tested here;
         # the .expect() already handles the validaty check.
@@ -81,11 +79,6 @@ proc runTest(
     when false:
       reportDiff(fhPreState.data, postState)
     doAssert fhPreState[].root == postState[].hash_tree_root()
-
-from ../../beacon_chain/spec/datatypes/phase0 import
-  BeaconState, SignedBeaconBlock
-from ../../beacon_chain/spec/datatypes/altair import
-  BeaconState, SignedBeaconBlock
 
 suite "EF - Altair - Transition " & preset():
   const TransitionDir =
@@ -100,9 +93,6 @@ suite "EF - Altair - Transition " & preset():
       altair.SignedBeaconBlock, cfg, "EF - Altair - Transition", TransitionDir,
       suiteName, path, transitionInfo.fork_block)
 
-from ../../beacon_chain/spec/datatypes/bellatrix import
-  BeaconState, SignedBeaconBlock
-
 suite "EF - Bellatrix - Transition " & preset():
   const TransitionDir =
     SszTestsDir/const_preset/"bellatrix"/"transition"/"core"/"pyspec_tests"
@@ -115,9 +105,6 @@ suite "EF - Bellatrix - Transition " & preset():
       altair.BeaconState, bellatrix.BeaconState, altair.SignedBeaconBlock,
       bellatrix.SignedBeaconBlock, cfg, "EF - Bellatrix - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
-
-from ../../beacon_chain/spec/datatypes/capella import
-  BeaconState, SignedBeaconBlock
 
 suite "EF - Capella - Transition " & preset():
   const TransitionDir =
@@ -132,9 +119,6 @@ suite "EF - Capella - Transition " & preset():
       capella.SignedBeaconBlock, cfg, "EF - Capella - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
 
-from ../../beacon_chain/spec/datatypes/deneb import
-  BeaconState, SignedBeaconBlock
-
 suite "EF - Deneb - Transition " & preset():
   const TransitionDir =
     SszTestsDir/const_preset/"deneb"/"transition"/"core"/"pyspec_tests"
@@ -147,9 +131,6 @@ suite "EF - Deneb - Transition " & preset():
       capella.BeaconState, deneb.BeaconState, capella.SignedBeaconBlock,
       deneb.SignedBeaconBlock, cfg, "EF - Deneb - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
-
-from ../../beacon_chain/spec/datatypes/electra import
-  BeaconState, SignedBeaconBlock
 
 suite "EF - Electra - Transition " & preset():
   const TransitionDir =
@@ -164,9 +145,6 @@ suite "EF - Electra - Transition " & preset():
       electra.SignedBeaconBlock, cfg, "EF - Electra - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
 
-from ../../beacon_chain/spec/datatypes/fulu import
-  BeaconState, SignedBeaconBlock
-
 suite "EF - Fulu - Transition " & preset():
   const TransitionDir =
     SszTestsDir/const_preset/"fulu"/"transition"/"core"/"pyspec_tests"
@@ -180,9 +158,6 @@ suite "EF - Fulu - Transition " & preset():
       fulu.SignedBeaconBlock, cfg, "EF - Fulu - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
 
-from ../../beacon_chain/spec/datatypes/gloas import
-  BeaconState, SignedBeaconBlock
-
 suite "EF - Gloas - Transition " & preset():
   const TransitionDir =
     SszTestsDir/const_preset/"gloas"/"transition"/"core"/"pyspec_tests"
@@ -195,9 +170,6 @@ suite "EF - Gloas - Transition " & preset():
       fulu.BeaconState, gloas.BeaconState, fulu.SignedBeaconBlock,
       gloas.SignedBeaconBlock, cfg, "EF - Gloas - Transition",
       TransitionDir, suiteName, path, transitionInfo.fork_block)
-
-from ../../beacon_chain/spec/datatypes/heze import
-  BeaconState, SignedBeaconBlock
 
 suite "EF - Heze - Transition " & preset():
   const TransitionDir =

@@ -55,6 +55,7 @@ type
     fcPruningFromOutdatedFinalizedRoot
     fcUnknownBlockIdAtSlot
     fcUnknownShufflingRef
+    fcInvalidAttestation
 
   Index* = int
   Delta* = int64
@@ -68,7 +69,8 @@ type
        fcPreviousHeadUnknown,
        fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick:
+    of fcInconsistentTick,
+       fcInvalidAttestation:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
@@ -112,6 +114,7 @@ type
     unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
+    emptyPreferredRoot*: Eth2Digest
 
   ProtoNode* = object
     bid*: BlockId

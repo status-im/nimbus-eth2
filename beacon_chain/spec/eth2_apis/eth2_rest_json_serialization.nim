@@ -716,27 +716,6 @@ proc readValue*[T: SomeForkedLightClientObject](
     else:
       r.raiseUnexpectedValue("Unsupported fork " & $v.version)
 
-type VersionedAggregateAndProof = VersionedData
-proc readValue*(r: var RestJsonReader, value: var ForkedAggregateAndProof) {.reader.} =
-  let v = r.readValue(VersionedAggregateAndProof)
-
-  if value.kind != v.version:
-    value = ForkedAggregateAndProof(kind: v.version)
-
-  try:
-    withAggregateAndProof(value):
-      forkyProof = RestJson.decode(string(v.data), typeof(forkyProof))
-  except SerializationError as exc:
-    r.raiseUnexpectedValue(
-      &"""Incorrect {v.version} aggregated attestation format, [{exc.formatMsg("ForkedAggregateAndProof")}]"""
-    )
-
-proc writeValue*(w: var RestJsonWriter, proof: ForkedAggregateAndProof) {.writer.} =
-  w.writeObject:
-    w.writeField("version", proof.kind.toString())
-    withAggregateAndProof(proof):
-      w.writeField("data", forkyProof)
-
 proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
   w.writeObject:
     w.writeField("type", value.kind)
@@ -752,7 +731,9 @@ proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
       w.writeField("aggregate_and_proof", value.aggregateAndProof)
     of Web3SignerRequestKind.AggregateAndProofV2:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
-      w.writeField("aggregate_and_proof", value.forkedAggregateAndProof)
+      w.writeField("aggregate_and_proof", VersionedData(
+        version: ConsensusFork.Electra,
+        data: JsonString(RestJson.encode(value.aggregateAndProofV2))))
     of Web3SignerRequestKind.Attestation:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
       w.writeField("attestation", value.attestation)
@@ -838,14 +819,19 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
         aggregateAndProof: aggregate_and_proof,
       )
     of Web3SignerRequestKind.AggregateAndProofV2:
-      let aggregate_and_proof = RestJson.decode(
-        string expectedField(aggregate_and_proof), ForkedAggregateAndProof
+      let versioned = RestJson.decode(
+        string expectedField(aggregate_and_proof), VersionedData
       )
+      if versioned.version < ConsensusFork.Electra:
+        r.raiseUnexpectedValue(
+          "Unsupported AGGREGATE_AND_PROOF_V2 version: " &
+          versioned.version.toString())
       Web3SignerRequest(
         kind: Web3SignerRequestKind.AggregateAndProofV2,
         forkInfo: expectedForkInfo,
         signingRoot: v.signingRoot,
-        forkedAggregateAndProof: aggregate_and_proof,
+        aggregateAndProofV2: RestJson.decode(
+          string(versioned.data), electra.AggregateAndProof),
       )
     of Web3SignerRequestKind.Attestation:
       Web3SignerRequest(

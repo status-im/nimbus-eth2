@@ -1,17 +1,19 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/[sequtils, strutils, tables],
+  std/tables,
   stew/[base10, byteutils],
   ../forks
 
+from std/sequtils import filterIt, mapIt, toSeq
+from std/strutils import join, toUpperAscii
 from ./rest_types import VCRuntimeConfig
 
 export forks, tables, rest_types
@@ -42,9 +44,6 @@ func getOrDefault*(info: VCRuntimeConfig, name: string,
       return defaultValue
   Base10.decode(uint64, numstr).valueOr:
     return defaultValue
-
-func getOrDefault*(info: VCRuntimeConfig, name: string, default: Epoch): Epoch =
-  Epoch(info.getOrDefault(name, uint64(default)))
 
 func getForkVersion(
     info: VCRuntimeConfig,
@@ -108,7 +107,7 @@ func getConsensusForkConfig*(
     config[fork] = ForkConfigItem(version: forkVersion, epoch: forkEpoch)
     presence.incl(fork)
 
-  let forks = ConsensusFork.toSeq()
+  const forks = ConsensusFork.toSeq()
   if len(presence) != (int(high(ConsensusFork)) + 1):
     let missingForks = forks.filterIt(it notin presence)
     return err(
