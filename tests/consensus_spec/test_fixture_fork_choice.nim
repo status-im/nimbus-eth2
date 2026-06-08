@@ -567,12 +567,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         let basePath = testsPath/path/"pyspec_tests"
         if kind != pcDir:
           continue
-        # The Gloas/ePBS fork-choice handlers wired so far cover the execution
-        # payload envelope and PTC message categories; the remaining categories
-        # depend on EMPTY/FULL head selection that is not yet wired here.
-        if testsPath.contains("gloas") and path notin [
-            "on_execution_payload_envelope", "on_payload_attestation_message"]:
-          continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
           runTest(suiteName, basePath/path, fork, rng, taskpool)
 

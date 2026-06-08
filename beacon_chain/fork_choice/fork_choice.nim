@@ -378,10 +378,9 @@ proc on_attestation*(
     if block_slot.isSome and block_slot.get == attestation_slot and index != 0:
       return err ForkChoiceError(kind: fcInvalidAttestation)
     # If attesting for a full node, the payload must be known
-    debugGloasComment "temporarily disabled"
-    # if index == 1 and
-    #     beacon_block_root notin self.backend.proto_array.fullBlockIndices:
-    #   return err ForkChoiceError(kind: fcInvalidAttestation)
+    if index == 1 and
+        beacon_block_root notin self.backend.proto_array.fullBlockIndices:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
 
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
     for validator_index in attesting_indices:
@@ -522,6 +521,14 @@ proc process_block*(
 
   # If block is from a prior epoch, pull up the post-state to next epoch to
   # realize new finality info
+  var parentPayloadStatus = PAYLOAD_STATUS_EMPTY
+  when typeof(blck).kind >= ConsensusFork.Gloas:
+    let (parentBlockHash, _) = dag.loadExecutionAndParentBlockHash(blckRef.parent)
+    if parentBlockHash.isSome and
+        blck.body.signed_execution_payload_bid.message.parent_block_hash ==
+          parentBlockHash.get():
+      parentPayloadStatus = PAYLOAD_STATUS_FULL
+
   let unrealized_is_better =
     unrealized.justified.epoch > epochRef.checkpoints.justified.epoch or
     unrealized.finalized.epoch > epochRef.checkpoints.finalized.epoch
@@ -531,14 +538,17 @@ proc process_block*(
         blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
       ? self.update_checkpoints(dag, unrealized, slot)
       ? process_block(
-        self.backend, blckRef.bid, blck.parent_root, unrealized)
+        self.backend, blckRef.bid, blck.parent_root, unrealized,
+        parent_payload_status = parentPayloadStatus)
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
-        epochRef.checkpoints, Opt.some unrealized)  # Realized in `on_tick`
+        epochRef.checkpoints, Opt.some unrealized,
+        parent_payload_status = parentPayloadStatus)  # Realized in `on_tick`
   else:
     ? process_block(
-      self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
+      self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints,
+      parent_payload_status = parentPayloadStatus)
 
   ok()
 
@@ -558,13 +568,43 @@ func find_head(
     votes = self.votes,
     old_balances = self.balances,
     new_balances = checkpoints.justified.balances)
+
+  # should_extend_payload: prefer the boosted block's parent EMPTY variant when
+  # its payload is unverified, or verified but not PTC-timely and data-available.
+  var emptyPreferredRoot = ZERO_HASH
+  block maybeEmptyPreferred:
+    if proposerBoostRoot.isZero:
+      break maybeEmptyPreferred
+    let boostNode = self.proto_array.node(proposerBoostRoot).valueOr:
+      break maybeEmptyPreferred
+    let parentIdx = boostNode.parent.valueOr:
+      break maybeEmptyPreferred
+    let parentNode = self.proto_array.node(parentIdx).valueOr:
+      break maybeEmptyPreferred
+    let
+      parentRoot = parentNode.bid.root
+      fullParentIdx =
+        self.proto_array.fullBlockIndices.getOrDefault(parentRoot, -1)
+    if fullParentIdx < 0:
+      emptyPreferredRoot = parentRoot
+    elif parentIdx != fullParentIdx:
+      let tally = self.ptc_votes.getOrDefault(parentRoot)
+      var present, available = 0'u64
+      for i in 0 ..< tally.present.len:
+        if tally.present[i]: inc present
+        if tally.available[i]: inc available
+      if not (present > PAYLOAD_TIMELY_THRESHOLD and
+              available > DATA_AVAILABILITY_TIMELY_THRESHOLD):
+        emptyPreferredRoot = parentRoot
+
   ? self.proto_array.applyScoreChanges(
     deltas, current_slot,
     FinalityCheckpoints(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
     checkpoints.justified.total_active_balance,
-    proposerBoostRoot)
+    proposerBoostRoot,
+    emptyPreferredRoot)
   self.balances = checkpoints.justified.balances
 
   # Find the best block
@@ -583,9 +623,14 @@ proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[Eth2Digest] =
   ? self.update_time(dag, wallTime)
-  self.backend.find_head(
-    self.checkpoints.time.slotOrZero(dag.timeParams),
-    self.checkpoints, self.checkpoints.proposer_boost_root)
+  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+  let boostRoot =
+    if current_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
+        not self.should_apply_proposer_boost(dag):
+      ZERO_HASH
+    else:
+      self.checkpoints.proposer_boost_root
+  self.backend.find_head(current_slot, self.checkpoints, boostRoot)
 
 proc advance_fcr(
     self: var ForkChoice, dag: ChainDAGRef, blckRef: BlockRef,
