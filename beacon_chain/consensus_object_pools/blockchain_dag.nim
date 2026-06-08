@@ -2408,6 +2408,51 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   dag.loadExecutionAndParentBlockHash(blck)[0]
 
+proc executionParent*(
+    dag: ChainDAGRef, parentRef: BlockRef,
+    parentBlockHash: Eth2Digest): Opt[BlockRef] =
+  ## Find parent block by execution parent block hash. In the worst case
+  ## scenario that if all blocks built on EMPTY payload, we might need to
+  ## navigate up to the finalized head.
+  ##
+  ## Example of the worst case scenario
+  ##
+  ## Slot  Beacon block      Execution payload
+  ## ----  ----------------  -------------------------------------------
+  ##   1   [ root: 0xA..1 ]  [ block_hash: 0xE..1, parent_hash: 0xE..0 ]
+  ##   2   [ root: 0xA..2 ]  [ block_hash: 0xE..2, parent_hash: 0xE..1 ]
+  ##   3   [ root: 0xA..3 ]  [ block_hash: 0xE..3, parent_hash: 0xE..1 ]
+  ##   4   [ root: 0xA..4 ]  [ block_hash: 0xE..4, parent_hash: 0xE..1 ]
+  ##   5   [ root: 0xA..5 ]  [ block_hash: 0xE..5, parent_hash: 0xE..1 ]
+  ##   6   [ root: 0xA..6 ]  [ block_hash: 0xE..6, parent_hash: 0xE..1 ]
+  ##   7   [ root: 0xA..7 ]  [ block_hash: 0xE..7, parent_hash: 0xE..1 ]
+  ##   8   [ root: 0xA..8 ]  [ block_hash: 0xE..8, parent_hash: 0xE..1 ]
+  ##
+  ## In this example, the execution parent of the slot 8 Block would be the slot
+  ## 1 Block.
+
+  if isNil(parentRef):
+    return Opt.none(BlockRef)
+
+  let
+    parentHash = ?dag.loadExecutionAndParentBlockHash(parentRef).parentHash
+
+    # When parent block hash is zero, it could be either genesis or pre-Gloas
+    # block. We limit the search to exactly 1 ancestor for these cases to
+    # strictly check over hashes.
+    maxDepth = if parentHash.isZero(): 1 else: EXECUTION_PARENT_MAX_DEPTH
+
+  var cur = parentRef
+  debugGloasComment("revisit the max depth of ancestors")
+  for _ in 0 ..< maxDepth:
+    let pBhash = ?dag.loadExecutionBlockHash(cur)
+    if pBhash == parentBlockHash:
+      return Opt.some(cur)
+    if isNil(cur.parent):
+      break
+    cur = cur.parent
+  Opt.none(BlockRef)
+
 from std/packedsets import PackedSet, incl, items
 
 func getBlsToExecutionChangeStatuses(

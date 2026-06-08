@@ -56,7 +56,7 @@ type
       ## has advanced without blocks
 
 const
-  EXECUTION_PARENT_MAX_DEPTH = 1 shl 4
+  EXECUTION_PARENT_MAX_DEPTH* = 1 shl 4
     ## Set to 16 as the max depth of ancestors on searching the execution
     ## parent.
 

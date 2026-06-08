@@ -409,25 +409,10 @@ template validateBeaconBlockGloas(
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
   let executionParent = block:
-    var
-      cur = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-      i = 0
-      found = false
-
-    while i < 2:
-      let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
-        return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-      if pBhash == bid.parent_block_hash:
-        found = true
-        break
-      if isNil(cur.parent):
-        break
-      cur = cur.parent
-      inc i
-    if not found:
+    let parentRef = dag.getBlockRef(bid.parent_block_root).valueOr:
+      return errIgnore("validateBeaconBlockGloas: parent not yet seen")
+    dag.executionParent(parentRef, bid.parent_block_hash).valueOr:
       return errIgnore("validateBeaconBlockGloas: invalid execution parent")
-    cur
 
   # - [IGNORE] The block's parent execution payload (defined by
   #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
