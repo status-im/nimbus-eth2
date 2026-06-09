@@ -1163,6 +1163,8 @@ proc doPeerUpdateStatus(
 
   logScope:
     peer = peer
+    head = shortLog(dag.head)
+    finalized = shortLog(dag.headState.finalized_checkpoint)
 
   if peerStatusAge < statusPeriod:
     # Peer's status information is still relevant
@@ -2470,7 +2472,9 @@ proc timeMonitoringLoop(
         if overseer.finalizedDistance.isNone():
           "[initializing]"
         else:
-          if overseer.finalizedDistance().get() > 0'u64:
+          # We use here `1` instead of `0` to avoid noise which happen when
+          # other clients finalize earlier or before we do.
+          if overseer.finalizedDistance().get() > 1'u64:
             forwardPerf.formatString()
           else:
             "[finished]"
