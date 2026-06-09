@@ -11,7 +11,7 @@ import
   stew/bitops2,
   ../spec/datatypes/fulu
 
-from std/sequtils import mapIt
+from std/sequtils import mapIt, toSeq
 from std/strutils import join
 
 static:
