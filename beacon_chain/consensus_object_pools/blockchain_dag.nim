@@ -1236,24 +1236,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
-    # The execution block root gets filled in as needed. Nonfinalized Bellatrix
-    # and later blocks are loaded as optimistic, which gets adjusted that first
-    # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
-    # marked as `VALID`.
-    let newRef =
-      if cfg.consensusForkAtEpoch(blck.summary.slot.epoch) >= ConsensusFork.Bellatrix:
-        BlockRef.init(
-          blck.root,
-          Opt.none Eth2Digest,
-          Opt.none Eth2Digest,
-          OptimisticStatus.notValidated,
-          blck.summary.slot,
-        )
-      else:
-        BlockRef.init(
-          blck.root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
-          OptimisticStatus.valid, blck.summary.slot
-        )
+    let newRef = BlockRef.init(dag.cfg, blck.root, blck.summary.slot)
 
     if headRef == nil:
       headRef = newRef
