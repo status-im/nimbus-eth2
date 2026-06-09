@@ -302,7 +302,8 @@ proc storeBackfillBlock(
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../el/el_manager import ELManager, DeadlineFuture, newPayload
-from ../consensus_object_pools/attestation_pool import AttestationPool, addForkChoice
+from ../consensus_object_pools/attestation_pool import
+  AttestationPool, addForkChoice, on_execution_payload
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 proc newExecutionPayload*(
@@ -1002,9 +1003,13 @@ proc storePayload(
   if not isNil(dag.onEnvelopeAvailable):
     dag.onEnvelopeAvailable(signedEnvelope)
 
-  # The execution payload has added to the clearance state successfully, so try
-  # adding to the current state.
   let previousExecutionValid = dag.head.executionValid
+
+  # Notify fork choice so it materializes the block's FULL node.
+  self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
+      dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
+    warn "on_execution_payload failed", error,
+      blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")
