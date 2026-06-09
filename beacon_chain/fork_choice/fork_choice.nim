@@ -121,6 +121,25 @@ func process_attestation(
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-validate_on_attestation
+func validate_on_attestation(
+    self: ForkChoice, cfg: RuntimeConfig, beacon_block_root: Eth2Digest,
+    attestation_slot: Slot, committee_index: CommitteeIndex): FcResult[void] =
+  if attestation_slot.epoch >= cfg.GLOAS_FORK_EPOCH:
+    let index = committee_index.uint64
+    # [New in Gloas:EIP7732]
+    if index notin [0'u64, 1'u64]:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    let block_slot = self.backend.proto_array.slot(beacon_block_root)
+    if block_slot.isSome and block_slot.get == attestation_slot and index != 0:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    # [New in Gloas:EIP7732]
+    # If attesting for a full node, the payload must be known
+    if index == 1 and
+        beacon_block_root notin self.backend.proto_array.fullBlockIndices:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+  ok()
+
 proc process_attestation_queue(
     self: var ForkChoice, slot: Slot, cfg: RuntimeConfig) =
   # Spec:
@@ -129,10 +148,13 @@ proc process_attestation_queue(
   let startTick = Moment.now()
   self.queuedAttestations.keepItIf:
     if it.slot < slot:
-      for validator_index in it.attesting_indices:
-        self.backend.process_attestation(
-          validator_index, it.block_root, it.slot,
-          it.committee_index == CommitteeIndex(1), cfg)
+      # Validate now that the slot is in the past; drop on failure either way.
+      if self.validate_on_attestation(
+          cfg, it.block_root, it.slot, it.committee_index).isOk:
+        for validator_index in it.attesting_indices:
+          self.backend.process_attestation(
+            validator_index, it.block_root, it.slot,
+            it.committee_index == CommitteeIndex(1), cfg)
       false
     else:
       true
@@ -369,20 +391,12 @@ proc on_attestation*(
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-validate_on_attestation
-  if attestation_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH:
-    let index = attestation_committee_index.uint64
-    if index notin [0'u64, 1'u64]:
-      return err ForkChoiceError(kind: fcInvalidAttestation)
-    let block_slot = self.backend.proto_array.slot(beacon_block_root)
-    if block_slot.isSome and block_slot.get == attestation_slot and index != 0:
-      return err ForkChoiceError(kind: fcInvalidAttestation)
-    # If attesting for a full node, the payload must be known
-    if index == 1 and
-        beacon_block_root notin self.backend.proto_array.fullBlockIndices:
-      return err ForkChoiceError(kind: fcInvalidAttestation)
-
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
+    # Validate at apply-time; future/current votes are queued and
+    # validated when their slot passes, by which point the block's
+    # FULL node has had time to materialize.
+    ? self.validate_on_attestation(
+        dag.cfg, beacon_block_root, attestation_slot, attestation_committee_index)
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
