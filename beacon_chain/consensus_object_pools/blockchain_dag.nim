@@ -1438,10 +1438,16 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     #      regular syncing instead of waiting for backfill.
     for bid in dag.era.getBlockIds(
         historical_roots, historical_summaries, Slot(0), Eth2Digest()):
-      # If backfill has not yet started, the backfill slot itself also needs
-      # to be served from era files. Checkpoint sync starts from state only
-      if bid.slot > backfillSlot or
-          (bid.slot == backfillSlot and bid.root != dag.tail.root):
+      # We perform this check to avoid situation, where the database history is
+      # not connected to the ERA files blocks. Connection check performed lower
+      # in the code via ``bid.root == dag.backfill.parent_root``.
+      # This check SHOULD not fail in any other cases, such as:
+      # 1) The last slot of ERA files is greater than the lowest known slot in
+      #    the database (dag.backfill.slot).
+      # 2) The last slot of ERA files is lower than or equal to the lowest known
+      #    slot in database (dag.backfill.slot).
+      # 3) The node was started immediately after checkpoint sync.
+      if bid.slot > backfillSlot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",

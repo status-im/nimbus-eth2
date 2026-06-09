@@ -261,7 +261,13 @@ proc processSignedBeaconBlock*(
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
-  debug "Block received", delay
+  let bid = BlockId(root: signedBlock.root, slot: signedBlock.message.slot)
+  debug "Block received",
+    bid = shortLog(bid),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signedBlock.signature),
+    wallSlot,
+    delay
 
   self.dag.validateBeaconBlock(
       self.quarantine, self.envelopeQuarantine, signedBlock,
