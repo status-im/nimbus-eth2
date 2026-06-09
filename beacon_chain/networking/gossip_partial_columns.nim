@@ -140,7 +140,11 @@ proc partsMetadata*(m: DataColumnPartialMessage): PartsMetadata =
   ## Returns metadata indicating which cells are available in this partial
   ## message.
   var metadata: fulu.PartialDataColumnPartsMetadata
-  metadata.available = m.sidecar.cells_present_bitmap
+  # cells_present_bitmap is a variable-length BitList; copy the present bits
+  # into the fixed-width metadata bitmap.
+  for i in 0 ..< m.sidecar.cells_present_bitmap.len:
+    if m.sidecar.cells_present_bitmap[Natural(i)]:
+      metadata.available[i] = true
   # We don't set requests here -- this describes what we *have*
   encodePartsMetadata(metadata)
 
@@ -161,19 +165,19 @@ proc materializeParts*(
 
   # Determine which cells the peer needs (they request) that we have
   var
-    bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    bitmap = CellsPresentBits.init(m.sidecar.cells_present_bitmap.len)
     cells = newSeqOfCap[KzgCell](m.sidecar.partial_column.len)
     proofs = newSeqOfCap[KzgProof](m.sidecar.kzg_proofs.len)
     ourIdx = 0  # index into our sparse arrays
 
-  for i in 0.Natural ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.Natural:
-    if m.sidecar.cells_present_bitmap[i]:
+  for i in 0 ..< m.sidecar.cells_present_bitmap.len:
+    if m.sidecar.cells_present_bitmap[Natural(i)]:
       # We have this cell
       let peerWants = peerMeta.requests[i]
       let peerDoesntHave = not peerMeta.available[i]
       if peerWants or peerDoesntHave:
         # Peer needs this cell -- include it
-        bitmap[i] = true
+        bitmap[Natural(i)] = true
         cells.add(m.sidecar.partial_column[ourIdx])
         proofs.add(m.sidecar.kzg_proofs[ourIdx])
       ourIdx.inc

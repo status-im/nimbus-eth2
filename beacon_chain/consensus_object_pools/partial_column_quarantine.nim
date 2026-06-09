@@ -231,6 +231,35 @@ func hasCellReceived*[K, H](
 
 # --- Cell ingestion and assembly ---
 
+func cellsConsistent*[K, H; S: AnyPartialDataColumnSidecar](
+    quarantine: var PartialColumnQuarantine[K, H],
+    blockId: K,
+    columnIndex: ColumnIndex,
+    sidecar: S): bool =
+  ## For every cell in `sidecar` whose blob index is already populated
+  ## locally, the cell and proof bytes must equal the stored copy. Returns
+  ## false on the first mismatch; true when no entry exists yet or all
+  ## overlaps agree.
+  let key = PartialColumnKey[K](blockId: blockId, columnIndex: columnIndex)
+  let entry = quarantine.entries.get(key).valueOr:
+    return true
+
+  var cellIdx = 0
+  for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
+    if sidecar.cells_present_bitmap[Natural(blobIdx)]:
+      if cellIdx < sidecar.partial_column.len and
+         cellIdx < sidecar.kzg_proofs.len and
+         blobIdx < entry.cellsReceived.len and
+         entry.cellsReceived[blobIdx]:
+        if entry.cells[blobIdx].isSome and
+            entry.cells[blobIdx].get != sidecar.partial_column[cellIdx]:
+          return false
+        if entry.proofs[blobIdx].isSome and
+            entry.proofs[blobIdx].get != sidecar.kzg_proofs[cellIdx]:
+          return false
+      cellIdx.inc
+  true
+
 func addCells*[K, H; S: AnyPartialDataColumnSidecar](
     quarantine: var PartialColumnQuarantine[K, H],
     blockId: K,

@@ -477,7 +477,7 @@ template validateBeaconBlockGloas(
 proc validatePartialDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     dataColumnQuarantine: ref ColumnQuarantine,
-    partialColumnQuarantine: ref PartialColumnQuarantine,
+    partialColumnQuarantine: ref FuluPartialColumnQuarantine,
     p_data_column_sidecar: fulu.PartialDataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64,
     group_block_root: Eth2Digest):
@@ -497,8 +497,8 @@ proc validatePartialDataColumnSidecar*(
   # [REJECT] There are the same number of cells and proofs in the message
   # and this number is equal the number of 1s in the cells_present_bitmap.
   var bitmapOnes = 0
-  for i in 0.Natural ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.Natural:
-    if p_data_column_sidecar.cells_present_bitmap[i]:
+  for i in 0 ..< p_data_column_sidecar.cells_present_bitmap.len:
+    if p_data_column_sidecar.cells_present_bitmap[Natural(i)]:
       inc bitmapOnes
   if p_data_column_sidecar.partial_column.len !=
         p_data_column_sidecar.kzg_proofs.len or
@@ -527,13 +527,10 @@ proc validatePartialDataColumnSidecar*(
         "PartialDataColumnSidecar: header root mismatches gossipsub group id")
 
     # [REJECT] The cells present bitmap length is equal to the number of KZG
-    # commitments in the `PartialDataColumnHeader`. (Enforced here as "no
-    # cell-present bits beyond kzg_commitments.len" while
-    # cells_present_bitmap is a fixed-width Bitvector instead of a Bitlist.)
-    for i in header.kzg_commitments.len ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.int:
-      if p_data_column_sidecar.cells_present_bitmap[Natural(i)]:
-        return dag.checkedReject(
-          "PartialDataColumnSidecar: cell-present bit set beyond kzg_commitments")
+    # commitments in the `PartialDataColumnHeader`.
+    if p_data_column_sidecar.cells_present_bitmap.len != header.kzg_commitments.len:
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: cells_present_bitmap length mismatches kzg_commitments")
 
     # [IGNORE] The header is not from a future slot (with a
     # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
@@ -634,7 +631,7 @@ proc validatePartialDataColumnSidecar*(
       (block_root, header.signed_block_header.signature), ())
 
     # Store the validated header so it can be reused across all subnets.
-    partialColumnQuarantine[].putPartialHeader(block_root, header)
+    partialColumnQuarantine[].putPartialHeader(block_root, newClone(header))
 
   # === For verifying the cells in a partial message ===
 

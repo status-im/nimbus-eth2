@@ -180,7 +180,7 @@ type
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
     dataColumnQuarantine*: ref ColumnQuarantine
-    partialColumnQuarantine*: ref PartialColumnQuarantine
+    partialColumnQuarantine*: ref FuluPartialColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
@@ -217,7 +217,7 @@ proc new*(T: type Eth2Processor,
           payloadAttestationPool: ref PayloadAttestationPool,
           quarantine: ref Quarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
-          partialColumnQuarantine: ref PartialColumnQuarantine,
+          partialColumnQuarantine: ref FuluPartialColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
@@ -434,7 +434,7 @@ proc processPartialDataColumnSidecar*(
 
     # Add the cells from this partial message into the partial column quarantine
     self.partialColumnQuarantine[].addCells(
-      block_root, column_index, p_data_column_sidecar)
+      block_root, column_index, newClone(p_data_column_sidecar))
 
     debug "Partial data column validated, cells added to partial column quarantine"
 
@@ -445,7 +445,8 @@ proc processPartialDataColumnSidecar*(
       if assembled.isSome():
         debug "Partial columns assembled into full data column sidecar"
         let fullSidecar = assembled.get()
-        self.dataColumnQuarantine[].put(block_root, newClone(fullSidecar))
+        self.dataColumnQuarantine[].put(
+          block_root, newClone(fullSidecar), verified = true)
 
         # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#forwarding
         # Forward the full sidecar to non-partial peers for backwards compat.

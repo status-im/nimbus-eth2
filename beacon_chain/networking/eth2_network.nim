@@ -2545,7 +2545,7 @@ proc createEth2Node*(
       # parts of a message rather than the whole.
       when config is BeaconNodeConf:
         if config.partialColumns:
-          p.partialMessageExtensionConfig = some(
+          p.partialMessageExtensionConfig = Opt.some(
             makePartialMessageExtensionConfig(
               proc(peer: PeerId, rpc: PartialMessageExtensionRPC)
                   {.gcsafe, raises: [].} =
