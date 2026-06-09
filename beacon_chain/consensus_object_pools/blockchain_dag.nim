@@ -1133,7 +1133,7 @@ proc applyBlock(
 proc genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
   dag.headState.genesis_validators_root
 
-proc registerHead*(dag: ChainDAGRef, headRef: BlockRef, persistToDb = true) =
+proc registerHead*(dag: ChainDAGRef, headRef: BlockRef) =
   var foundHead: bool
   for head in dag.heads.mitems():
     if head.isAncestorOf(headRef):
@@ -1142,6 +1142,96 @@ proc registerHead*(dag: ChainDAGRef, headRef: BlockRef, persistToDb = true) =
       break
   if not foundHead:
     dag.heads.add(headRef)
+
+proc loadHead(
+    dag: ChainDAGRef, headRoot: Eth2Digest, finalizedSlot: Slot
+): Result[BlockRef, string] =
+  template tmpState: var ForkedHashedBeaconState =
+    dag.headState
+
+  let head = dag.db.getBlockId(headRoot).valueOr:
+    return err "head block id, database corrupt?"
+
+  var
+    headRef, curRef: BlockRef
+
+    # When starting from a checkpoint with an empty block, we'll store the state
+    # "ahead" of the head slot - this slot would be considered finalized
+    slot = max(head.slot, (dag.tail.slot.epoch + 1).start_slot)
+    foundHeadState = false
+    headBlocks: seq[BlockRef]
+
+  # Load head -> finalized, or all summaries in case the finalized block table
+  # hasn't been written yet
+  for blck in dag.db.getAncestorSummaries(headRoot):
+    let newRef = BlockRef.init(dag.cfg, blck.root, blck.summary.slot)
+
+    if headRef == nil:
+      headRef = newRef
+
+    if curRef != nil:
+      link(newRef, curRef)
+
+    curRef = newRef
+
+    dag.forkBlocks.incl(KeyedBlockRef.init(curRef))
+
+    if not foundHeadState:
+      foundHeadState = dag.db.getState(
+        dag.cfg, blck.root, blck.summary.slot .. slot, tmpState, noRollback)
+      slot = blck.summary.slot
+
+      if not foundHeadState:
+        # When the database has been written with a pre-fork version of the
+        # software, it may happen that blocks produced using an "unforked"
+        # chain get written to the database - we need to skip such blocks
+        # when loading the database with a fork-compatible version
+        if containsBlock(dag.cfg, dag.db, curRef.slot, curRef.root):
+          headBlocks.add curRef
+        else:
+          if headBlocks.len > 0:
+            fatal "Missing a block to create head state, database corrupt?",
+              curRef = shortLog(curRef)
+            quit 1
+          # Without the block data we can't form a state for this root, so
+          # we'll need to move the head back
+          headRef = nil
+          dag.forkBlocks.excl(KeyedBlockRef.init(curRef))
+
+    if curRef.slot <= finalizedSlot:
+      # Only non-finalized slots get a `BlockRef`
+      break
+
+  if curRef == nil:
+    return err "getAncestorSummaries did not yield any results"
+
+  if headRef == nil:
+    headRef = curRef
+
+  if not foundHeadState:
+    if not dag.getStateByParent(curRef.bid, tmpState):
+      fatal "Could not load head state, database corrupt?",
+        head = shortLog(head), tail = shortLog(dag.tail)
+      quit 1
+
+  # EpochRef needs an epoch boundary state
+  assign(dag.epochRefState, tmpState)
+
+  var
+    cache: StateCache
+    info: ForkedEpochInfo
+
+  for i in countdown(headBlocks.high, 0):
+    dag.applyBlock(
+        tmpState, headBlocks[i].bid, cache, info, dag.updateFlags).isOkOr:
+      while headRef != curRef:
+        dag.forkBlocks.excl(KeyedBlockRef.init(headRef))
+        headRef = headRef.parent
+      dag.forkBlocks.excl(KeyedBlockRef.init(headRef))
+      return err "head blocks should apply"
+
+  dag.registerHead(headRef)
+  ok headRef
 
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
   # Delete state and mapping for a particular block+slot
@@ -1191,7 +1281,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     tail = db.getBlockId(tailRoot).expect(
       "tail block summary in database, database corrupt?")
     headRoot = db.getHeadBlock().expect("head root, database corrupt?")
-    head = db.getBlockId(headRoot).expect("head block id, database corrupt?")
 
     # Have to be careful with this instance, it is not yet fully initialized so
     # as to avoid having to allocate a separate "init" state
@@ -1219,88 +1308,21 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     )
     loadTick = Moment.now()
 
-  var
-    headRef, curRef: BlockRef
-
-    # When starting from a checkpoint with an empty block, we'll store the state
-    # "ahead" of the head slot - this slot would be considered finalized
-    slot = max(head.slot, (tail.slot.epoch + 1).start_slot)
-    # To know the finalized checkpoint of the head, we need to recreate its
-    # state - the tail is implicitly finalized, and if we have a finalized block
-    # table, that provides another hint
-    finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
-    cache: StateCache
-    foundHeadState = false
-    headBlocks: seq[BlockRef]
-
-  # Load head -> finalized, or all summaries in case the finalized block table
-  # hasn't been written yet
-  for blck in db.getAncestorSummaries(head.root):
-    let newRef = BlockRef.init(dag.cfg, blck.root, blck.summary.slot)
-
-    if headRef == nil:
-      headRef = newRef
-
-    if curRef != nil:
-      link(newRef, curRef)
-
-    curRef = newRef
-
-    dag.forkBlocks.incl(KeyedBlockRef.init(curRef))
-
-    if not foundHeadState:
-      foundHeadState = db.getState(
-        cfg, blck.root, blck.summary.slot..slot, dag.headState, noRollback)
-      slot = blck.summary.slot
-
-      if not foundHeadState:
-        # When the database has been written with a pre-fork version of the
-        # software, it may happen that blocks produced using an "unforked"
-        # chain get written to the database - we need to skip such blocks
-        # when loading the database with a fork-compatible version
-        if containsBlock(cfg, db, curRef.slot, curRef.root):
-          headBlocks.add curRef
-        else:
-          if headBlocks.len > 0:
-            fatal "Missing block needed to create head state, database corrupt?",
-              curRef = shortLog(curRef)
-            quit 1
-          # Without the block data we can't form a state for this root, so
-          # we'll need to move the head back
-          headRef = nil
-          dag.forkBlocks.excl(KeyedBlockRef.init(curRef))
-
-    if curRef.slot <= finalizedSlot:
-      # Only non-finalized slots get a `BlockRef`
-      break
+  # To know the finalized checkpoint of the head, we need to recreate its
+  # state - the tail is implicitly finalized, and if we have a finalized block
+  # table, that provides another hint
+  var finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
+  dag.head = dag.loadHead(headRoot, finalizedSlot).valueOr:
+    fatal "Error while loading head from database", reason = error, headRoot
+    quit 1
 
   let summariesTick = Moment.now()
 
-  if not foundHeadState:
-    if not dag.getStateByParent(curRef.bid, dag.headState):
-      fatal "Could not load head state, database corrupt?",
-        head = shortLog(head), tail = shortLog(dag.tail)
-      quit 1
-
+  var cache: StateCache
   block:
-    # EpochRef needs an epoch boundary state
-    assign(dag.epochRefState, dag.headState)
-
-    var info: ForkedEpochInfo
-
-    for i in countdown(headBlocks.len() - 1, 0):
-      dag.applyBlock(
-        dag.headState, headBlocks[i].bid, cache,
-        info, dag.updateFlags).expect("head blocks should apply")
-
-    dag.head = headRef
-    dag.heads = @[headRef]
-
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Altair:
         dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
-
-    assign(dag.clearanceState, dag.headState)
 
     if dag.headState.latest_block_root == tail.root:
       # In case we started from a checkpoint with an empty slot
@@ -1415,6 +1437,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   beacon_safe_slot.set(dag.finalizedHead.blck.bid.slot.toGaugeValue)
 
   let finalizedTick = Moment.now()
+
+  assign(dag.clearanceState, dag.headState)
 
   if dag.backfill.slot > GENESIS_SLOT:  # Try frontfill from era files
     let backfillSlot = dag.backfill.slot - 1
