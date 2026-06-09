@@ -2380,6 +2380,7 @@ proc newBeaconSwitch(
     sb = sb
     .withPrivateKey(seckey)
     .withAddresses(addresses, enableWildcardResolver = true)
+    .withIdentifyPusher(false)
     .withRng(newBearSslRng(rng))
     .withNoise()
     .withMaxConnections(config.maxPeers)
