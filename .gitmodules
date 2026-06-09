@@ -246,6 +246,8 @@
 [submodule "vendor/nim-boringssl"]
 	path = vendor/nim-boringssl
 	url = https://github.com/vacp2p/nim-boringssl.git
+	branch = master
 [submodule "vendor/dnsclient.nim"]
 	path = vendor/dnsclient.nim
 	url = https://github.com/ba0f3/dnsclient.nim.git
+	branch = master
