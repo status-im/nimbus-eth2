@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[strutils, sequtils],
@@ -613,8 +613,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           enr_cgc: enrField,
           meta_cgc: metField,
           cgc: int(cgc),
-          columns: columnMap.mapIt(int(it)).toSeq(),
-          intersection: intersectMap.mapIt(int(it)).toSeq(),
+          columns: columnMap.mapIt(int(it)),
+          intersection: intersectMap.mapIt(int(it)),
           agent: $peer.getRemoteAgent(),
           agent_full:
             node.network.switch.peerStore[AgentBook][peer.peerId],
@@ -640,7 +640,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         supernode_peers_count: RestNumeric(supernodePeers),
         incoming_peers_count: RestNumeric(incomingPeers),
         outgoing_peers_count: RestNumeric(outgoingPeers),
-        custody_map: localMap.mapIt(int(it)).toSeq(),
+        custody_map: localMap.mapIt(int(it)),
         columns_count: RestNumeric(len(localMap)),
         counts: counts,
         fill_rate: fillRate,

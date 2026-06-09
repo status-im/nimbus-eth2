@@ -53,14 +53,8 @@ in stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  env = {
-    # Disable CPU optimizations that make binary not portable.
-    NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
-    # Avoid errors about missing user home.
-    NIMBLE_DIR = "/tmp";
-    # Avoid Nim cache permission errors.
-    XDG_CACHE_HOME = "/tmp";
-  };
+  # Disable CPU optimizations that make binary not portable.
+  env.NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
@@ -69,6 +63,13 @@ in stdenv.mkDerivation rec {
     # Define highest available log level.
     "LOG_LEVEL=${highestLogLevel}"
   ];
+
+  # Avoid Nim cache permission errors.
+  configurePhase = ''
+    export XDG_CACHE_HOME="$TMPDIR/.cache"
+    export NIMBLE_DIR="$TMPDIR/.nimble"
+    export NIMCACHE="$TMPDIR/nimcache"
+  '';
 
   patchPhase = ''
     patchShebangs scripts vendor/nimbus-build-system/scripts

@@ -688,9 +688,6 @@ func init*(
       key: dag.epochKey(state.latest_block_id, epoch).expect(
         "Valid epoch ancestor when processing state"),
 
-      eth1_data: state.eth1_data,
-      eth1_deposit_index: state.eth1_deposit_index,
-
       checkpoints: FinalityCheckpoints(
         justified: state.current_justified_checkpoint,
         finalized: state.finalized_checkpoint),
@@ -1136,6 +1133,41 @@ proc applyBlock(
 proc genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
   dag.headState.genesis_validators_root
 
+proc registerHead*(dag: ChainDAGRef, headRef: BlockRef, persistToDb = true) =
+  var foundHead: bool
+  for head in dag.heads.mitems():
+    if head.isAncestorOf(headRef):
+      head = headRef
+      foundHead = true
+      break
+  if not foundHead:
+    dag.heads.add(headRef)
+
+proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
+  # Delete state and mapping for a particular block+slot
+  if not dag.isStateCheckpoint(bsi):
+    return # We only ever save epoch states
+
+  if (let root = dag.db.getStateRoot(bsi.bid.root, bsi.slot); root.isSome()):
+    dag.db.withManyWrites:
+      dag.db.delStateRoot(bsi.bid.root, bsi.slot)
+      dag.db.delState(
+        dag.cfg.consensusForkAtEpoch(bsi.slot.epoch), root.get())
+
+proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
+  # TODO: should we move that disk I/O to `onSlotEnd`
+  dag.delState(bs.toBlockSlotId().expect("not nil"))
+
+  if bs.isProposed():
+    # Update light client data
+    dag.deleteLightClientData(bs.blck.bid)
+
+    dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
+    let fork = dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch)
+    discard dag.db.delBlock(fork, bs.blck.root)
+    if fork >= ConsensusFork.Gloas:
+      discard dag.db.delExecutionPayloadEnvelope(bs.blck.root)
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            eraPath = ".",
@@ -1204,24 +1236,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
-    # The execution block root gets filled in as needed. Nonfinalized Bellatrix
-    # and later blocks are loaded as optimistic, which gets adjusted that first
-    # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
-    # marked as `VALID`.
-    let newRef =
-      if cfg.consensusForkAtEpoch(blck.summary.slot.epoch) >= ConsensusFork.Bellatrix:
-        BlockRef.init(
-          blck.root,
-          Opt.none Eth2Digest,
-          Opt.none Eth2Digest,
-          OptimisticStatus.notValidated,
-          blck.summary.slot,
-        )
-      else:
-        BlockRef.init(
-          blck.root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
-          OptimisticStatus.valid, blck.summary.slot
-        )
+    let newRef = BlockRef.init(dag.cfg, blck.root, blck.summary.slot)
 
     if headRef == nil:
       headRef = newRef
@@ -1315,7 +1330,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#testing
   if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
-      tail = dag.tail, headRef, stateFork, configFork
+      tail = dag.tail, headRef = shortLog(dag.head), stateFork, configFork
     quit 1
 
   # Need to load state to find genesis validators root, before loading era db
@@ -1324,7 +1339,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # We used an interim finalizedHead while loading the head state above - now
   # that we have loaded the dag up to the finalized slot, we can also set
   # finalizedHead to its real value
-  dag.finalizedHead = headRef.atSlot(finalizedSlot)
+  dag.finalizedHead = dag.head.atSlot(finalizedSlot)
   dag.lastPrunePoint = dag.finalizedHead.toBlockSlotId().expect("not nil")
 
   doAssert dag.finalizedHead.blck != nil,
@@ -1366,7 +1381,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       "tail at least")
     if finalized != dag.finalizedHead.blck.root:
       fatal "Head does not lead to finalized block, database corrupt?",
-        head = shortLog(head), finalizedHead = shortLog(dag.finalizedHead),
+        head = shortLog(dag.head), finalizedHead = shortLog(dag.finalizedHead),
         tail = shortLog(dag.tail), finalized = shortLog(finalized)
       quit 1
 
@@ -2051,31 +2066,6 @@ proc updateState*(
       replayDur
 
   true
-
-proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
-  # Delete state and mapping for a particular block+slot
-  if not dag.isStateCheckpoint(bsi):
-    return # We only ever save epoch states
-
-  if (let root = dag.db.getStateRoot(bsi.bid.root, bsi.slot); root.isSome()):
-    dag.db.withManyWrites:
-      dag.db.delStateRoot(bsi.bid.root, bsi.slot)
-      dag.db.delState(
-        dag.cfg.consensusForkAtEpoch(bsi.slot.epoch), root.get())
-
-proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
-  # TODO: should we move that disk I/O to `onSlotEnd`
-  dag.delState(bs.toBlockSlotId().expect("not nil"))
-
-  if bs.isProposed():
-    # Update light client data
-    dag.deleteLightClientData(bs.blck.bid)
-
-    dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
-    let fork = dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch)
-    discard dag.db.delBlock(fork, bs.blck.root)
-    if fork >= ConsensusFork.Gloas:
-      discard dag.db.delExecutionPayloadEnvelope(bs.blck.root)
 
 proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## This prunes the block DAG

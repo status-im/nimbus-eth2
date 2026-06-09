@@ -210,10 +210,10 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
 proc addForkChoiceVotes(
     pool: var AttestationPool, slot: Slot,
     attesting_indices: openArray[ValidatorIndex], block_root: Eth2Digest,
-    wallTime: BeaconTime) =
+    committee_index: CommitteeIndex, wallTime: BeaconTime) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
-    pool.dag, slot, block_root, attesting_indices, wallTime);
+    pool.dag, slot, block_root, attesting_indices, committee_index, wallTime);
     v.isErr):
       # This indicates that the fork choice and the chain dag are out of sync -
       # this is most likely the result of a bug, but we'll try to keep going -
@@ -476,7 +476,7 @@ proc addAttestation*(
 
   pool.addForkChoiceVotes(
     attestation.data.slot, attesting_indices, attestation.data.beacon_block_root,
-    wallTime,
+    CommitteeIndex(attestation.data.index), wallTime,
   )
 
   # There does not seem to be an SSE stream event corresponding to Attestation,
@@ -891,10 +891,8 @@ proc getBeaconHead*(
           .get(ZERO_HASH)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/fork_choice/safe-block.md#get_safe_execution_block_hash
-    # Use the justified checkpoint root as the safe block reported to the
-    # execution client via `engine_forkchoiceUpdated`.
-    safeBlock = pool.dag.getBlockRef(
-      pool.forkChoice.checkpoints.justified.checkpoint.root)
+    safeBlockRoot = pool.forkChoice.retrieve_fast_confirmed_root()
+    safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionBlockHash =
       if safeBlock.isErr:
         # If finality already advanced beyond the current safe block,

@@ -1081,7 +1081,7 @@ suite "get_ancestor_support_by_slot":
         3.Epoch.start_slot + 5,
         2.Epoch.start_slot + 1,
         1.Epoch.start_slot + 7]
-      toSeq(dst.assigned_slots(1.ValidatorIndex)).len == 0
+      dst.assigned_slots(1.ValidatorIndex).countIt(true) == 0
 
 suite "get_current_target_info":
   func makeValidator(eb: Gwei, slashed = false, active = true): Validator =

@@ -212,6 +212,7 @@ AllTests-mainnet
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test                  OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test             OK
++ verified flag survives database unload/load [node]                                         OK
 ```
 ## Combined scenarios [Beacon Node] [Preset: mainnet]
 ```diff
@@ -1011,7 +1012,7 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
-## Partial Column Quarantine
+## Partial Column Quarantine (Fulu)
 ```diff
 + Assemble multiple columns for the same block independently                                 OK
 + Cell tracking is per-column                                                                OK
@@ -1073,6 +1074,19 @@ AllTests-mainnet
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
 ```
+## Partial Column Quarantine (Gloas)
+```diff
++ Group IDs with same root but different slots are distinct keys                             OK
++ GroupID hash and equality                                                                  OK
++ Header LRU eviction (gloas, keyed by GroupID)                                              OK
++ Init creates empty quarantine                                                              OK
++ Remove header (group id) does not remove entries (gloas)                                   OK
++ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
++ assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
++ getOrCreateEntry reflects gloas group-id validation                                        OK
++ isComplete and assembleDataColumnSidecar (gloas)                                           OK
++ putPartialGroupID stores group id under itself                                             OK
+```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
 + Can add and retrieve payload attestations [Preset: mainnet]                                OK
@@ -1127,12 +1141,7 @@ AllTests-mainnet
 + RestErrorMessage writer tests                                                              OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (ALTAIR)                                     OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (BELLATRIX)                                  OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (CAPELLA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (DENEB)                                      OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (PHASE 0)                                    OK
 + remote signing example AGGREGATION_SLOT                                                    OK
 + remote signing example ATTESTATION                                                         OK
 + remote signing example BLOCK_V2 (BELLATRIX)                                                OK

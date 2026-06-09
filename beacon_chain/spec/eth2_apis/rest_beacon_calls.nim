@@ -415,10 +415,10 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
 
 proc getExecutionPayloadEnvelopePlain*(block_id: BlockIdent): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/execution_payload_envelope/{block_id}",
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes/{block_id}",
      accept: preferSSZ,
      meth: MethodGet.}
-  ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
+  ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
 
 proc getExecutionPayloadEnvelope*(
     client: RestClientRef, block_id: BlockIdent):
