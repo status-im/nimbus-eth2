@@ -965,7 +965,7 @@ proc verifyBlock(
           if res.isErr() and (res.error == VerifierError.MissingParent):
             # In this case block will be stored in quarantine, so we need to
             # preserve columns in column quarantine.
-            overseer.columnQuarantine[].put(forkyBlck.root, cres.get())
+            overseer.columnQuarantine[].put(forkyBlck.root, cres.get(), false)
           res
         else:
           overseer.blockQuarantine[].addSidecarless(forkyBlck)
@@ -1553,7 +1553,7 @@ proc doRootSidecarsSyncStep(
           return false
 
   for record in records:
-    overseer.columnQuarantine[].put(record.block_root, record.sidecar)
+    overseer.columnQuarantine[].put(record.block_root, record.sidecar, false)
 
   if len(records) == 0:
     peer.updateScore(PeerScoreNoValues)
@@ -2035,7 +2035,8 @@ proc doRangeSidecarsStep(
             return false
 
           for record in grouped:
-            overseer.columnQuarantine[].put(record.block_root, record.sidecar)
+            overseer.columnQuarantine[].put(
+              record.block_root, record.sidecar, false)
 
           peer.updateScore(PeerScoreGoodValues)
 
