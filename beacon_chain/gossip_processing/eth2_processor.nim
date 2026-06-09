@@ -261,9 +261,9 @@ proc processSignedBeaconBlock*(
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
-  let bid = BlockId(root: signedBlock.root, slot: signedBlock.message.slot)
   debug "Block received",
-    bid = shortLog(bid),
+    bid = shortLog(
+      BlockId(root: signedBlock.root, slot: signedBlock.message.slot)),
     blck = shortLog(signedBlock.message),
     signature = shortLog(signedBlock.signature),
     wallSlot,
