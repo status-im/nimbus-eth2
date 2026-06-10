@@ -60,11 +60,6 @@ func shortLog(optblkid: Opt[BlockId]): string =
   else:
     shortLog(optblkid.get())
 
-template cleanupList(a: untyped) =
-  for mitem in a.mitems():
-    mitem = nil
-  a.reset()
-
 template cleanupRecordsList(a: untyped) =
   for mitem in a.mitems():
     mitem.sidecar = nil
@@ -80,19 +75,8 @@ func shortLog(digests: openArray[Eth2Digest]): string =
 func shortLog(data: array[2, int]): string =
   $data[0] & "/" & $data[1]
 
-func shortLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
-  "[" & blocks.mapIt(
-    "(slot:" & $it[].slot() & ",root: " & shortLog(it[].root) & ")").
-    join(",") & "]"
-
 func shortLog(bids: openArray[BlockId]): string =
   "[" & bids.mapIt(shortLog(it)).join(",") & "]"
-
-func shortLog(blobs: Opt[seq[ref BlobSidecar]]): string =
-  if blobs.isNone():
-    "<missing blobs>"
-  else:
-    $len(blobs.get())
 
 func shortLog(cols: Opt[seq[ref fulu.DataColumnSidecar]]): string =
   if cols.isNone():
@@ -260,7 +244,7 @@ proc getColumnsDistribution(overseer: SyncOverseerRef2): ColumnsDistribution =
 
 func getMissingColumnsLog(
     overseer: SyncOverseerRef2,
-    blocks: openArray[ref ForkedSignedBeaconBlock]
+    items: openArray[SyncResponseItem]
 ): (string, string) =
   var
     res: seq[string]
@@ -269,8 +253,8 @@ func getMissingColumnsLog(
 
   let blocksColumnsCount = float(len(overseer.validatorCustody.getMap()))
 
-  for blck in blocks:
-    withBlck(blck[]):
+  for item in items:
+    withBlck(item.signedBlock[]):
       when consensusFork == ConsensusFork.Fulu:
         if len(forkyBlck.message.body.blob_kzg_commitments) > 0:
           let map =
@@ -326,6 +310,8 @@ func getSidecarsHorizon(
   if fork < ConsensusFork.Fulu:
     raiseAssert "Incorrect fork"
   elif fork == ConsensusFork.Fulu:
+    dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
+  elif fork == ConsensusFork.Gloas:
     dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
   else:
     raiseAssert "Unsupported fork"
@@ -507,12 +493,11 @@ proc createQueues(
       direction: static SyncQueueKind
   ): untyped =
     proc `procName`(
-        signedBlock: ref ForkedSignedBeaconBlock,
+        item: SyncResponseItem,
         maybeFinalized: bool
     ): Future[Result[void, VerifierError]] {.
       async: (raises: [CancelledError]).} =
-      doAssert(not(isNil(signedBlock)), "Block reference should not be nil")
-      withBlck(signedBlock[]):
+      withBlck(item.signedBlock[]):
         when consensusFork < ConsensusFork.Fulu:
           (await overseer.blockProcessor.addBlock(
             MsgSource.sync, forkyBlck, noSidecars,
@@ -522,9 +507,9 @@ proc createQueues(
             # TODO (cheatfate): templates does not support `var` arguments.
             let res =
               when direction == SyncQueueKind.Forward:
-                overseer.fblockBuffer.add(signedBlock)
+                overseer.fblockBuffer.add(item)
               elif direction == SyncQueueKind.Backward:
-                overseer.bblockBuffer.add(signedBlock)
+                overseer.bblockBuffer.add(item)
             if res.isOk():
               debug "Block buffered",
                 fork = consensusFork,
@@ -552,11 +537,10 @@ proc createQueues(
   declareBlockVerifier(backwardBlockVerifier, SyncQueueKind.Backward)
 
   proc sidecarsVerifier(
-      signedBlock: ref ForkedSignedBeaconBlock,
+      item: SyncResponseItem,
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-    doAssert(not(isNil(signedBlock)), "Block reference should not be nil")
-    withBlck(signedBlock[]):
+    withBlck(item.signedBlock[]):
       when consensusFork < ConsensusFork.Fulu:
         raiseAssert "Incorrect block consensus fork"
       elif consensusFork == ConsensusFork.Fulu:
@@ -573,10 +557,10 @@ proc createQueues(
                 if res.isNone():
                   debug "Block verification failed, because sidecars missing",
                     fork = consensusFork,
-                    block_root = signedBlock[].root,
+                    block_root = item.root,
                     blck = shortLog(forkyBlck),
                     missing_sidecars =
-                      overseer.getMissingIndicesLog(signedBlock),
+                      overseer.getMissingIndicesLog(item.signedBlock),
                     verifier = "sidecar"
                   return err(VerifierError.MissingSidecars)
                 res
@@ -1054,13 +1038,13 @@ func cleanMissingSidecarsRoots(entry: SyncDagEntryRef) =
     entry.flags.excl(DagEntryFlag.MissingSidecars)
 
 func getBlock(
-    blocks: openArray[ref ForkedSignedBeaconBlock],
+    items: openArray[SyncResponseItem],
     root: Eth2Digest,
     slot: Slot
 ): ref ForkedSignedBeaconBlock =
-  for blck in blocks:
-    if (blck[].root == root) and (blck[].slot == slot):
-      return blck
+  for item in items:
+    if (item.root == root) and (item.slot == slot):
+      return item.signedBlock
   nil
 
 proc doPeerPause(
@@ -1697,31 +1681,32 @@ proc doRangeSyncStep(
             else:
               peer.updateScore(PeerScoreNoValues)
               return false
+      items = blocks.toSeq().toResponse()
 
     debug "Received blocks range on request",
-      blocks_count = len(blocks),
-      blocks_map = getShortMap(request, blocks.toSeq())
+      blocks_count = len(items),
+      blocks_map = getShortMap(request, items)
 
-    checkResponse(request.data, blocks.asSeq()).isOkOr:
+    checkResponse(request.data, items).isOkOr:
       debug "Incorrect range of blocks received",
-        blocks_count = len(blocks),
-        blocks_map = getShortMap(request, blocks.toSeq()), reason = $error
+        blocks_count = len(items),
+        blocks_map = getShortMap(request, items), reason = $error
       peer.updateScore(PeerScoreBadResponse)
       overseer.tbsqueue(direction).push(request)
       return false
 
     debug "Sending blocks range to processor",
-      blocks_count = len(blocks),
-      blocks_map = getShortMap(request, blocks.asSeq())
+      blocks_count = len(items),
+      blocks_map = getShortMap(request, items)
 
     let resp =
       await overseer.tbsqueue(direction).push(
-        request, blocks.asSeq(), maybeFinalized = true)
+        request, items, maybeFinalized = true)
 
     debug "Blocks queue response",
       code = resp.code, count = resp.count, blck = shortLog(resp.blck),
-      blocks_count = len(blocks),
-      blocks_map = getShortMap(request, blocks.asSeq()),
+      blocks_count = len(items),
+      blocks_map = getShortMap(request, items),
       block_buffer = shortLog(overseer.tsbuffer(direction)),
       blocks_queue = shortLog(overseer.tbsqueue(direction)),
       sidecars_queue = shortLog(overseer.tbsqueue(direction))
@@ -1758,9 +1743,9 @@ proc doRangeSyncStep(
 proc peekBackfillRange(
     overseer: SyncOverseerRef2,
     srange: SyncRange
-): seq[ref ForkedSignedBeaconBlock] =
+): seq[SyncResponseItem] =
   var
-    res: seq[ref ForkedSignedBeaconBlock]
+    res: seq[SyncResponseItem]
     bids = newSeq[BlockId](int(srange.count))
 
   let
@@ -1775,7 +1760,9 @@ proc peekBackfillRange(
         let blck = dag.getBlock(bids[i], consensusFork.SignedBeaconBlock)
         if blck.isNone():
           continue
-        res.add(newClone ForkedSignedBeaconBlock.init(blck.get()))
+        res.add(
+          SyncResponseItem.init(
+            newClone ForkedSignedBeaconBlock.init(blck.get()), nil))
       else:
         raiseAssert "Unsupported fork"
   res
@@ -1784,7 +1771,7 @@ proc peekRange(
     overseer: SyncOverseerRef2,
     direction: SyncQueueKind,
     srange: SyncRange
-): seq[ref ForkedSignedBeaconBlock] =
+): seq[SyncResponseItem] =
   if direction == SyncQueueKind.Forward:
     return overseer.tsbuffer(direction).peekRange(srange)
   if overseer.eraBid.isNone():
@@ -1896,7 +1883,8 @@ proc doRangeSidecarsStep(
       SyncPushResponse()
     of ConsensusFork.Fulu:
       try:
-        var blocks = overseer.peekRange(direction, request.data)
+        # blocks
+        var items = overseer.peekRange(direction, request.data)
 
         let
           custodyMap = overseer.validatorCustody.getMap()
@@ -1904,8 +1892,9 @@ proc doRangeSidecarsStep(
           intersectMap = custodyMap and peerMap
 
         defer:
-          # Preemptively cleanup blocks range on exit
-          cleanupList(blocks)
+          # Preemptively cleanup items range on exit
+          for mitem in items.mitems():
+            mitem = default(SyncResponseItem)
 
         # Here we perform check if remote peer has compatible columns or not.
         if len(intersectMap) == 0:
@@ -1920,16 +1909,16 @@ proc doRangeSidecarsStep(
           return true
 
         let (columnsNeeded, columnsHave) =
-          if len(blocks) > 0:
+          if len(items) > 0:
             # Here we perform check if remote peer can provide columns that we
             # do not have already.
             var
               res1 = false
               res2 = false
-            for blck in blocks:
+            for item in items:
               let
                 missingMap =
-                  withBlck(blck[]):
+                  withBlck(item.signedBlock[]):
                     when consensusFork == ConsensusFork.Fulu:
                       if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
                         ColumnMap()
@@ -1953,7 +1942,7 @@ proc doRangeSidecarsStep(
             (false, false)
 
         let (missingCount, missingLog) =
-          overseer.getMissingColumnsLog(blocks)
+          overseer.getMissingColumnsLog(items)
 
         debug "Peer columns compatibility",
            custody_map = shortLog(custodyMap),
@@ -1962,7 +1951,7 @@ proc doRangeSidecarsStep(
            missing_count = missingCount,
            missing_log = missingLog
 
-        if (len(blocks) > 0) and (columnsNeeded and not(columnsHave)):
+        if (len(items) > 0) and (columnsNeeded and not(columnsHave)):
           debug "Peer has compatible columns that we already have",
             custody_map = shortLog(custodyMap),
             peer_map = shortLog(peerMap),
@@ -1972,7 +1961,7 @@ proc doRangeSidecarsStep(
           overseer.tssqueue(direction).push(request)
           return true
 
-        if (len(blocks) == 0) or (columnsNeeded and columnsHave):
+        if (len(items) == 0) or (columnsNeeded and columnsHave):
           # We only download sidecars if we miss it and peer have it.
           let
             data =
@@ -2018,12 +2007,12 @@ proc doRangeSidecarsStep(
           # Early detection of empty response.
           let
             (sindex, bcount) =
-              validateBlocks(blocks, grouped, intersectMap).valueOr:
+              validateBlocks(items, grouped, intersectMap).valueOr:
                 peer.updateScore(PeerScoreMissingValues)
                 debug "Received non-complete data column sidecars range",
                   reason = $error, columns_count = len(data),
                   map = shortLog(intersectMap),
-                  blocks = shortLog(blocks),
+                  blocks = shortLog(items),
                   columns = shortLog(grouped)
                 overseer.tssqueue(direction).push(request)
                 return false
@@ -2042,7 +2031,7 @@ proc doRangeSidecarsStep(
 
           peer.updateScore(PeerScoreGoodValues)
 
-          if (len(blocks) == 0) and (len(grouped) > 0):
+          if (len(items) == 0) and (len(grouped) > 0):
             # Case when we have no blocks, but a lot of blobs.
             debug "Received columns range which do not have corresponding " &
                   "blocks range"
@@ -2060,21 +2049,21 @@ proc doRangeSidecarsStep(
 
         debug "Sending sidecars range to processor",
           peer_map = shortLog(peerMap),
-          blocks_count = len(blocks),
-          blocks_map = getShortMap(request, blocks)
+          blocks_count = len(items),
+          blocks_map = getShortMap(request, items)
 
         let res = await overseer.tssqueue(direction).push(
-          request, blocks, maybeFinalized = true)
+          request, items, maybeFinalized = true)
 
         debug "Sidecars queue response",
           code = res.code, count = res.count, blck = shortLog(res.blck),
           peer_map = shortLog(peerMap),
-          blocks_count = len(blocks),
-          blocks_map = getShortMap(request, blocks)
+          blocks_count = len(items),
+          blocks_map = getShortMap(request, items)
 
         if res.code == SyncProcessError.MissingSidecars:
           let
-            blck = getBlock(blocks, res.blck.get().root, res.blck.get().slot)
+            blck = getBlock(items, res.blck.get().root, res.blck.get().slot)
           doAssert(not(isNil(blck)), "Should not be nil")
           debug "Sidecars range still missing items",
             blck = slimLog(blck[]),
@@ -2087,8 +2076,8 @@ proc doRangeSidecarsStep(
           if res.code in [SyncProcessError.Invalid,
                           SyncProcessError.UnviableFork,
                           SyncProcessError.NoRelevant]:
-            for signed in blocks:
-              overseer.columnQuarantine[].remove(signed[].root)
+            for item in items:
+              overseer.columnQuarantine[].remove(item.signedBlock[].root)
         res
 
       except CancelledError as exc:

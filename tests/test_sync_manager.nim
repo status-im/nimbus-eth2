@@ -67,19 +67,19 @@ func testforkAtEpoch(epoch: Epoch): ConsensusFork =
 
 type
   BlockEntry = object
-    blck*: ForkedSignedBeaconBlock
+    ritem*: SyncResponseItem
     resfut*: Future[Result[void, VerifierError]]
 
   FuluColumnData = object
     block_root*: Eth2Digest
     map: ColumnMap
 
-func createChain(slots: Slice[Slot]): seq[ref ForkedSignedBeaconBlock] =
-  var res = newSeqOfCap[ref ForkedSignedBeaconBlock](len(slots))
+func createChain(slots: Slice[Slot]): seq[SyncResponseItem] =
+  var res = newSeqOfCap[SyncResponseItem](len(slots))
   for slot in slots:
     let item = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
     item[].denebData.message.slot = slot
-    res.add(item)
+    res.add(SyncResponseItem.init(item, nil))
   res
 
 func createDigest(data: int): Eth2Digest =
@@ -91,22 +91,22 @@ func createDigest(data: int): Eth2Digest =
 func createFuluChain(
     slots: Slice[Slot],
     map: ColumnMap
-): tuple[blocks: seq[ref ForkedSignedBeaconBlock],
+): tuple[blocks: seq[SyncResponseItem],
          columns: seq[FuluColumnData]] =
   var
-    res1 = newSeqOfCap[ref ForkedSignedBeaconBlock](len(slots))
+    res1 = newSeqOfCap[SyncResponseItem](len(slots))
     res2 = newSeqOfCap[FuluColumnData](len(slots))
   for slot in slots:
     let item = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Fulu)
     item[].fuluData.message.slot = slot
     item[].fuluData.root = createDigest(int(slot))
-    res1.add(item)
+    res1.add(SyncResponseItem.init(item, nil))
     res2.add(FuluColumnData(block_root: item[].fuluData.root, map: map))
   (res1, res2)
 
-func createChain(slots: openArray[Slot]): seq[ref ForkedSignedBeaconBlock] =
+func createChain(slots: openArray[Slot]): seq[SyncResponseItem] =
   var
-    res: seq[ref ForkedSignedBeaconBlock]
+    res: seq[SyncResponseItem]
     root = 0
 
   for slot in slots:
@@ -121,16 +121,16 @@ func createChain(slots: openArray[Slot]): seq[ref ForkedSignedBeaconBlock] =
       inc(root)
       item[].denebData.root = createDigest(root)
       item[].denebData.message.parent_root = createDigest(prev_root)
-    res.add(item)
+    res.add(SyncResponseItem.init(item, nil))
   res
 
-proc createChain(srange: SyncRange): seq[ref ForkedSignedBeaconBlock] =
+proc createChain(srange: SyncRange): seq[SyncResponseItem] =
   createChain(srange.slot .. (srange.slot + srange.count - 1))
 
 proc createFuluChain(
     request: SyncRequest[SomeTPeer],
     map: ColumnMap
-): tuple[blocks: seq[ref ForkedSignedBeaconBlock],
+): tuple[blocks: seq[SyncResponseItem],
          columns: seq[FuluColumnData]] =
   let srange = request.data
   createFuluChain(srange.slot .. (srange.slot + srange.count - 1), map)
@@ -141,14 +141,14 @@ func cmp(request: SyncRequest[SomeTPeer], srange: Slice[Slot]): bool =
 
 func collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   proc verify(
-      signedBlock: ref ForkedSignedBeaconBlock,
+      ritem: SyncResponseItem,
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.
     async: (raises: [CancelledError], raw: true).} =
     let fut =
       Future[Result[void, VerifierError]].Raising([CancelledError]).init()
     try:
-      queue.addLastNoWait(BlockEntry(blck: signedBlock[], resfut: fut))
+      queue.addLastNoWait(BlockEntry(ritem: ritem, resfut: fut))
     except CatchableError as exc:
       raiseAssert exc.msg
     fut
@@ -173,7 +173,7 @@ proc setupVerifier(
     b.resfut.complete(Result[void, VerifierError].err(e))
   template verifyBlock(i, e, s, v: untyped): untyped =
     let item = await queue.popFirst()
-    if item.blck.slot == s:
+    if item.ritem.slot == s:
       if e.code.isSome():
         item.fail(e.code.get())
       else:
@@ -181,7 +181,7 @@ proc setupVerifier(
     else:
       raiseAssert "Verifier got block from incorrect slot, " &
                   "expected " & $s & ", got " &
-                  $item.blck.slot & ", position [" &
+                  $item.ritem.slot & ", position [" &
                   $i & ", " & $s & "]"
     inc(v)
 
@@ -219,11 +219,11 @@ proc setupColumnsVerifier(
     b.resfut.complete(Result[void, VerifierError].err(e))
   template verifyBlock(i, e, s, v: untyped): untyped =
     let item = await queue.popFirst()
-    if item.blck.slot == s:
+    if item.ritem.slot == s:
       if e.code.isSome():
         item.fail(e.code.get())
       else:
-        let bmap = quarantine.getOrDefault(item.blck.root)
+        let bmap = quarantine.getOrDefault(item.ritem.root)
         if (bmap and scenarioMap) == scenarioMap:
           item.done()
         else:
@@ -231,20 +231,20 @@ proc setupColumnsVerifier(
     else:
       raiseAssert "Verifier got block from incorrect slot, " &
                   "expected " & $s & ", got " &
-                  $item.blck.slot & ", position [" &
+                  $item.ritem.slot & ", position [" &
                   $i & ", " & $s & "]"
     inc(v)
 
   func collector2(queue: AsyncQueue[BlockEntry]): BlockVerifier =
     proc verify(
-        signedBlock: ref ForkedSignedBeaconBlock,
+        ritem: SyncResponseItem,
         maybeFinalized: bool
     ): Future[Result[void, VerifierError]] {.
       async: (raises: [CancelledError], raw: true).} =
       let fut =
         Future[Result[void, VerifierError]].Raising([CancelledError]).init()
       try:
-        queue.addLastNoWait(BlockEntry(blck: signedBlock[], resfut: fut))
+        queue.addLastNoWait(BlockEntry(ritem: ritem, resfut: fut))
       except CatchableError as exc:
         raiseAssert exc.msg
       fut
@@ -1022,7 +1022,7 @@ suite "SyncManager test suite":
     asyncTest "[SyncQueue#" & $kind & "] Empty responses should not " &
               "advance queue until other peers will not confirm [3 peers] " &
               "test":
-      var emptyResponse: seq[ref ForkedSignedBeaconBlock]
+      var emptyResponse: seq[SyncResponseItem]
 
       let
         scenario =
@@ -1165,7 +1165,7 @@ suite "SyncManager test suite":
 
     asyncTest "[SyncQueue#" & $kind & "] Empty responses should not " &
               "be accounted [3 peers] test":
-      var emptyResponse: seq[ref ForkedSignedBeaconBlock]
+      var emptyResponse: seq[SyncResponseItem]
       let
         scenario =
           case kind
@@ -1573,7 +1573,7 @@ suite "SyncManager test suite":
       proc push(
           sq: SyncQueue[SomeTPeer, ColumnCompleteness],
           sr: SyncRequest[SomeTPeer],
-          data: seq[ref ForkedSignedBeaconBlock],
+          data: seq[SyncResponseItem],
           columns: seq[FuluColumnData]
       ): Future[SyncPushResponse] {.
           async: (raises: [CancelledError], raw: true).} =
@@ -1814,7 +1814,7 @@ suite "SyncManager test suite":
       proc push(
           sq: SyncQueue[SomeTPeer, ColumnCompleteness],
           sr: SyncRequest[SomeTPeer],
-          data: seq[ref ForkedSignedBeaconBlock],
+          data: seq[SyncResponseItem],
           columns: seq[FuluColumnData]
       ): Future[SyncPushResponse] {.
           async: (raises: [CancelledError], raw: true).} =
@@ -2252,9 +2252,9 @@ suite "SyncManager test suite":
         re1 = sq.pop(Slot(159), peer1)
         re2 = sq.pop(Slot(159), peer2)
         re3 = sq.pop(Slot(159), peer3)
-        de1 = default(seq[ref ForkedSignedBeaconBlock])
-        de2 = default(seq[ref ForkedSignedBeaconBlock])
-        de3 = default(seq[ref ForkedSignedBeaconBlock])
+        de1 = default(seq[SyncResponseItem])
+        de2 = default(seq[SyncResponseItem])
+        de3 = default(seq[SyncResponseItem])
         fe1 = sq.push(re1, de1)
         fe2 = sq.push(re2, de2)
         fe3 = sq.push(re3, de3)
@@ -2284,9 +2284,9 @@ suite "SyncManager test suite":
         re1 = sq.pop(Slot(159), peer1)
         re2 = sq.pop(Slot(159), peer2)
         re3 = sq.pop(Slot(159), peer3)
-        de1 = default(seq[ref ForkedSignedBeaconBlock])
-        de2 = default(seq[ref ForkedSignedBeaconBlock])
-        de3 = default(seq[ref ForkedSignedBeaconBlock])
+        de1 = default(seq[SyncResponseItem])
+        de2 = default(seq[SyncResponseItem])
+        de3 = default(seq[SyncResponseItem])
         fe1 = sq.push(re1, de1)
         fe2 = sq.push(re2, de2)
         fe3 = sq.push(re3, de3)
@@ -2316,9 +2316,9 @@ suite "SyncManager test suite":
         re1 = sq.pop(Slot(159), peer1)
         re2 = sq.pop(Slot(159), peer2)
         re3 = sq.pop(Slot(159), peer3)
-        de1 = default(seq[ref ForkedSignedBeaconBlock])
-        de2 = default(seq[ref ForkedSignedBeaconBlock])
-        de3 = default(seq[ref ForkedSignedBeaconBlock])
+        de1 = default(seq[SyncResponseItem])
+        de2 = default(seq[SyncResponseItem])
+        de3 = default(seq[SyncResponseItem])
         fe1 = sq.push(re1, de1)
         fe2 = sq.push(re2, de2)
         fe3 = sq.push(re3, de3)
@@ -2420,9 +2420,9 @@ suite "SyncManager test suite":
         re1 = sq.pop(Slot(159), peer1)
         re2 = sq.pop(Slot(159), peer2)
         re3 = sq.pop(Slot(159), peer3)
-        de1 = default(seq[ref ForkedSignedBeaconBlock])
-        de2 = default(seq[ref ForkedSignedBeaconBlock])
-        de3 = default(seq[ref ForkedSignedBeaconBlock])
+        de1 = default(seq[SyncResponseItem])
+        de2 = default(seq[SyncResponseItem])
+        de3 = default(seq[SyncResponseItem])
         fe1 = sq.push(re1, de1)
         fe2 = sq.push(re2, de2)
         fe3 = sq.push(re3, de3)
@@ -2469,9 +2469,9 @@ suite "SyncManager test suite":
         re1 = sq.pop(Slot(159), peer1)
         re2 = sq.pop(Slot(159), peer2)
         re3 = sq.pop(Slot(159), peer3)
-        de1 = default(seq[ref ForkedSignedBeaconBlock])
-        de2 = default(seq[ref ForkedSignedBeaconBlock])
-        de3 = default(seq[ref ForkedSignedBeaconBlock])
+        de1 = default(seq[SyncResponseItem])
+        de2 = default(seq[SyncResponseItem])
+        de3 = default(seq[SyncResponseItem])
         fe1 = sq.push(re1, de1)
         fe2 = sq.push(re2, de2)
         fe3 = sq.push(re3, de3)
@@ -2518,9 +2518,9 @@ suite "SyncManager test suite":
         re1 = sq.pop(Slot(159), peer1)
         re2 = sq.pop(Slot(159), peer2)
         re3 = sq.pop(Slot(159), peer3)
-        de1 = default(seq[ref ForkedSignedBeaconBlock])
-        de2 = default(seq[ref ForkedSignedBeaconBlock])
-        de3 = default(seq[ref ForkedSignedBeaconBlock])
+        de1 = default(seq[SyncResponseItem])
+        de2 = default(seq[SyncResponseItem])
+        de3 = default(seq[SyncResponseItem])
         fe1 = sq.push(re1, de1)
         fe2 = sq.push(re2, de2)
         fe3 = sq.push(re3, de3)
@@ -2682,7 +2682,7 @@ suite "SyncManager test suite":
   test "[SyncQueue] hasEndGap() test":
     let
       chain1 = createChain(Slot(1) .. Slot(1))
-      chain2 = newSeq[ref ForkedSignedBeaconBlock]()
+      chain2 = newSeq[SyncResponseItem]()
 
     for counter in countdown(32'u64, 2'u64):
       let
@@ -2792,11 +2792,11 @@ suite "SyncManager test suite":
       chain3 = createChain(@[Slot(11), Slot(12), Slot(13), Slot(14)])
       chain4 = createChain(@[Slot(11), Slot(12), Slot(13), Slot(14)])
 
-    withBlck(chain2[1][]):
+    withBlck(chain2[1].signedBlock[]):
       forkyBlck.message.parent_root = Eth2Digest()
-    withBlck(chain3[2][]):
+    withBlck(chain3[2].signedBlock[]):
       forkyBlck.message.parent_root = Eth2Digest()
-    withBlck(chain4[3][]):
+    withBlck(chain4[3].signedBlock[]):
       forkyBlck.message.parent_root = Eth2Digest()
 
     check:

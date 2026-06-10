@@ -12,7 +12,7 @@ import
   unittest2,
   ../beacon_chain/spec/datatypes/constants,
   ../beacon_chain/spec/forks,
-  ../beacon_chain/sync/[block_buffer, sync_queue]
+  ../beacon_chain/sync/[block_buffer, sync_queue, sync_response]
 
 type
   SlotRange = object
@@ -37,11 +37,12 @@ proc createRoot(i: int): Eth2Digest =
 proc createBlock(
     slot: Slot,
     root, parent_root: Eth2Digest
-): ref ForkedSignedBeaconBlock =
-  newClone ForkedSignedBeaconBlock.init(
-    deneb.SignedBeaconBlock(
-      message: deneb.BeaconBlock(slot: slot, parent_root: parent_root),
-      root: root))
+): SyncResponseItem =
+  SyncResponseItem.init(
+    newClone ForkedSignedBeaconBlock.init(
+      deneb.SignedBeaconBlock(
+        message: deneb.BeaconBlock(slot: slot, parent_root: parent_root),
+        root: root)), nil)
 
 suite "BlocksRangeBuffer test suite":
   test "Add and query blocks test [forward]":
@@ -56,27 +57,27 @@ suite "BlocksRangeBuffer test suite":
     for vector in TestChain:
       check buffer.add(createBlock(vector[0], vector[1], vector[2])).isOk()
     for slot in SlotRange.init(Slot(1923330), Slot(1923339)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      isNil(buffer[GENESIS_SLOT]) == true
-      isNil(buffer[Slot(1923340)]) == false
-      buffer[Slot(1923340)][].slot == Slot(1923340)
-      isNil(buffer[Slot(1923341)]) == false
-      buffer[Slot(1923341)][].slot == Slot(1923341)
-      isNil(buffer[Slot(1923342)]) == false
-      buffer[Slot(1923342)][].slot == Slot(1923342)
-      isNil(buffer[Slot(1923343)]) == true
-      isNil(buffer[Slot(1923344)]) == true
-      isNil(buffer[Slot(1923345)]) == false
-      buffer[Slot(1923345)][].slot == Slot(1923345)
-      isNil(buffer[Slot(1923346)]) == true
-      isNil(buffer[Slot(1923347)]) == true
-      isNil(buffer[Slot(1923348)]) == true
-      isNil(buffer[Slot(1923349)]) == true
-      isNil(buffer[Slot(1923350)]) == false
-      buffer[Slot(1923350)][].slot == Slot(1923350)
-      isNil(buffer[Slot(1923351)]) == true
-      isNil(buffer[FAR_FUTURE_SLOT]) == true
+      buffer[GENESIS_SLOT].isNone() == true
+      buffer[Slot(1923340)].isNone() == false
+      buffer[Slot(1923340)].get().signedBlock[].slot == Slot(1923340)
+      buffer[Slot(1923341)].isNone() == false
+      buffer[Slot(1923341)].get().signedBlock[].slot == Slot(1923341)
+      buffer[Slot(1923342)].isNone() == false
+      buffer[Slot(1923342)].get().signedBlock[].slot == Slot(1923342)
+      buffer[Slot(1923343)].isNone() == true
+      buffer[Slot(1923344)].isNone() == true
+      buffer[Slot(1923345)].isNone() == false
+      buffer[Slot(1923345)].get().signedBlock[].slot == Slot(1923345)
+      buffer[Slot(1923346)].isNone() == true
+      buffer[Slot(1923347)].isNone() == true
+      buffer[Slot(1923348)].isNone() == true
+      buffer[Slot(1923349)].isNone() == true
+      buffer[Slot(1923350)].isNone() == false
+      buffer[Slot(1923350)].get().signedBlock[].slot == Slot(1923350)
+      buffer[Slot(1923351)].isNone() == true
+      buffer[FAR_FUTURE_SLOT].isNone() == true
 
   test "Add and query blocks test [backward]":
     var buffer = BlocksRangeBuffer.init(SyncQueueKind.Backward)
@@ -91,27 +92,27 @@ suite "BlocksRangeBuffer test suite":
       let res = buffer.add(createBlock(vector[0], vector[1], vector[2]))
       check res.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923341)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      isNil(buffer[FAR_FUTURE_SLOT]) == true
-      isNil(buffer[Slot(1923340)]) == false
-      buffer[Slot(1923340)][].slot == Slot(1923340)
-      isNil(buffer[Slot(1923339)]) == false
-      buffer[Slot(1923339)][].slot == Slot(1923339)
-      isNil(buffer[Slot(1923338)]) == false
-      buffer[Slot(1923338)][].slot == Slot(1923338)
-      isNil(buffer[Slot(1923337)]) == true
-      isNil(buffer[Slot(1923336)]) == true
-      isNil(buffer[Slot(1923335)]) == false
-      buffer[Slot(1923335)][].slot == Slot(1923335)
-      isNil(buffer[Slot(1923334)]) == true
-      isNil(buffer[Slot(1923333)]) == true
-      isNil(buffer[Slot(1923332)]) == true
-      isNil(buffer[Slot(1923331)]) == true
-      isNil(buffer[Slot(1923330)]) == false
-      buffer[Slot(1923330)][].slot == Slot(1923330)
-      isNil(buffer[Slot(1923329)]) == true
-      isNil(buffer[GENESIS_SLOT]) == true
+      buffer[FAR_FUTURE_SLOT].isNone() == true
+      buffer[Slot(1923340)].isNone() == false
+      buffer[Slot(1923340)].get().signedBlock[].slot == Slot(1923340)
+      buffer[Slot(1923339)].isNone() == false
+      buffer[Slot(1923339)].get().signedBlock[].slot == Slot(1923339)
+      buffer[Slot(1923338)].isNone() == false
+      buffer[Slot(1923338)].get().signedBlock[].slot == Slot(1923338)
+      buffer[Slot(1923337)].isNone() == true
+      buffer[Slot(1923336)].isNone() == true
+      buffer[Slot(1923335)].isNone() == false
+      buffer[Slot(1923335)].get().signedBlock[].slot == Slot(1923335)
+      buffer[Slot(1923334)].isNone() == true
+      buffer[Slot(1923333)].isNone() == true
+      buffer[Slot(1923332)].isNone() == true
+      buffer[Slot(1923331)].isNone() == true
+      buffer[Slot(1923330)].isNone() == false
+      buffer[Slot(1923330)].get().signedBlock[].slot == Slot(1923330)
+      buffer[Slot(1923329)].isNone() == true
+      buffer[GENESIS_SLOT].isNone() == true
 
   test "Block insertion test [forward]":
     var buffer = BlocksRangeBuffer.init(SyncQueueKind.Forward)
@@ -138,7 +139,7 @@ suite "BlocksRangeBuffer test suite":
       buffer.add(createBlock(Slot(1923350), createRoot(7), createRoot(4)))
     check:
       r2.isOk() == true
-      buffer[Slot(1923350)][].root == createRoot(7)
+      buffer[Slot(1923350)].get().signedBlock[].root == createRoot(7)
       len(buffer) == 11
 
     let r3 =
@@ -151,8 +152,8 @@ suite "BlocksRangeBuffer test suite":
       buffer.add(createBlock(Slot(1923349), createRoot(8), createRoot(4)))
     check:
       r4.isOk() == true
-      isNil(buffer[Slot(1923350)]) == true
-      buffer[Slot(1923349)][].root == createRoot(8)
+      buffer[Slot(1923350)].isNone() == true
+      buffer[Slot(1923349)].get().signedBlock[].root == createRoot(8)
       len(buffer) == 10
 
     let r5 =
@@ -165,99 +166,99 @@ suite "BlocksRangeBuffer test suite":
       buffer.add(createBlock(Slot(1923346), createRoot(9), createRoot(4)))
     check r6.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923347)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923346)][].root == createRoot(9)
+      buffer[Slot(1923346)].get().signedBlock[].root == createRoot(9)
       len(buffer) == 7
 
     let r7 =
       buffer.add(createBlock(Slot(1923345), createRoot(10), createRoot(3)))
     check r7.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923346)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923345)][].root == createRoot(10)
+      buffer[Slot(1923345)].get().signedBlock[].root == createRoot(10)
       len(buffer) == 6
 
     let r8 =
       buffer.add(createBlock(Slot(1923345), createRoot(11), createRoot(3)))
     check r8.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923346)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923345)][].root == createRoot(11)
+      buffer[Slot(1923345)].get().signedBlock[].root == createRoot(11)
       len(buffer) == 6
 
     let r9 =
       buffer.add(createBlock(Slot(1923344), createRoot(12), createRoot(3)))
     check r9.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923345)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923344)][].root == createRoot(12)
+      buffer[Slot(1923344)].get().signedBlock[].root == createRoot(12)
       len(buffer) == 5
 
     let r10 =
       buffer.add(createBlock(Slot(1923343), createRoot(13), createRoot(3)))
     check r10.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923344)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923343)][].root == createRoot(13)
+      buffer[Slot(1923343)].get().signedBlock[].root == createRoot(13)
       len(buffer) == 4
 
     let r11 =
       buffer.add(createBlock(Slot(1923342), createRoot(14), createRoot(2)))
     check r11.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923343)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923342)][].root == createRoot(14)
+      buffer[Slot(1923342)].get().signedBlock[].root == createRoot(14)
       len(buffer) == 3
 
     let r12 =
       buffer.add(createBlock(Slot(1923341), createRoot(15), createRoot(1)))
     check r12.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923342)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923341)][].root == createRoot(15)
+      buffer[Slot(1923341)].get().signedBlock[].root == createRoot(15)
       len(buffer) == 2
 
     let r13 =
       buffer.add(createBlock(Slot(1923340), createRoot(16), createRoot(0)))
     check r13.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923341)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923340)][].root == createRoot(16)
+      buffer[Slot(1923340)].get().signedBlock[].root == createRoot(16)
       len(buffer) == 1
 
     let r14 =
       buffer.add(createBlock(Slot(1923339), createRoot(17), createRoot(0)))
     check r14.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923340)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923339)][].root == createRoot(17)
+      buffer[Slot(1923339)].get().signedBlock[].root == createRoot(17)
       len(buffer) == 1
 
     let r15 =
       buffer.add(createBlock(Slot(1923335), createRoot(18), createRoot(0)))
     check r15.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923336)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923335)][].root == createRoot(18)
+      buffer[Slot(1923335)].get().signedBlock[].root == createRoot(18)
       len(buffer) == 1
 
     let r16 =
       buffer.add(createBlock(Slot(1923330), createRoot(19), createRoot(0)))
     check r16.isOk() == true
     for slot in SlotRange.init(Slot(1923350), Slot(1923331)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923330)][].root == createRoot(19)
+      buffer[Slot(1923330)].get().signedBlock[].root == createRoot(19)
       len(buffer) == 1
 
     let r17 =
@@ -265,7 +266,7 @@ suite "BlocksRangeBuffer test suite":
     check:
       r17.isOk()
       len(buffer) == 1
-      buffer[Slot(1923329)][].root == createRoot(20)
+      buffer[Slot(1923329)].get().signedBlock[].root == createRoot(20)
 
   test "Block insertion test [backward]":
     var buffer = BlocksRangeBuffer.init(SyncQueueKind.Backward)
@@ -292,7 +293,7 @@ suite "BlocksRangeBuffer test suite":
       buffer.add(createBlock(Slot(1923330), createRoot(1), createRoot(10)))
     check:
       r2.isOk() == true
-      buffer[Slot(1923330)][].root == createRoot(1)
+      buffer[Slot(1923330)].get().signedBlock[].root == createRoot(1)
       len(buffer) == 11
 
     let r3 =
@@ -305,8 +306,8 @@ suite "BlocksRangeBuffer test suite":
       buffer.add(createBlock(Slot(1923331), createRoot(1), createRoot(11)))
     check:
       r4.isOk() == true
-      isNil(buffer[Slot(1923330)]) == true
-      buffer[Slot(1923331)][].root == createRoot(1)
+      buffer[Slot(1923330)].isNone() == true
+      buffer[Slot(1923331)].get().signedBlock[].root == createRoot(1)
       len(buffer) == 10
 
     let r5 =
@@ -319,99 +320,99 @@ suite "BlocksRangeBuffer test suite":
       buffer.add(createBlock(Slot(1923334), createRoot(1), createRoot(12)))
     check r6.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923333)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923334)][].root == createRoot(1)
+      buffer[Slot(1923334)].get().signedBlock[].root == createRoot(1)
       len(buffer) == 7
 
     let r7 =
       buffer.add(createBlock(Slot(1923335), createRoot(2), createRoot(13)))
     check r7.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923334)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923335)][].root == createRoot(2)
+      buffer[Slot(1923335)].get().signedBlock[].root == createRoot(2)
       len(buffer) == 6
 
     let r8 =
       buffer.add(createBlock(Slot(1923335), createRoot(2), createRoot(14)))
     check r8.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923334)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923335)][].root == createRoot(2)
+      buffer[Slot(1923335)].get().signedBlock[].root == createRoot(2)
       len(buffer) == 6
 
     let r9 =
       buffer.add(createBlock(Slot(1923336), createRoot(2), createRoot(15)))
     check r9.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923335)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923336)][].root == createRoot(2)
+      buffer[Slot(1923336)].get().signedBlock[].root == createRoot(2)
       len(buffer) == 5
 
     let r10 =
       buffer.add(createBlock(Slot(1923337), createRoot(2), createRoot(16)))
     check r10.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923336)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923337)][].root == createRoot(2)
+      buffer[Slot(1923337)].get().signedBlock[].root == createRoot(2)
       len(buffer) == 4
 
     let r11 =
       buffer.add(createBlock(Slot(1923338), createRoot(3), createRoot(17)))
     check r11.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923337)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923338)][].root == createRoot(3)
+      buffer[Slot(1923338)].get().signedBlock[].root == createRoot(3)
       len(buffer) == 3
 
     let r12 =
       buffer.add(createBlock(Slot(1923339), createRoot(4), createRoot(18)))
     check r12.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923338)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923339)][].root == createRoot(4)
+      buffer[Slot(1923339)].get().signedBlock[].root == createRoot(4)
       len(buffer) == 2
 
     let r13 =
       buffer.add(createBlock(Slot(1923340), createRoot(16), createRoot(0)))
     check r13.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923339)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923340)][].root == createRoot(16)
+      buffer[Slot(1923340)].get().signedBlock[].root == createRoot(16)
       len(buffer) == 1
 
     let r14 =
       buffer.add(createBlock(Slot(1923341), createRoot(17), createRoot(0)))
     check r14.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923340)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923341)][].root == createRoot(17)
+      buffer[Slot(1923341)].get().signedBlock[].root == createRoot(17)
       len(buffer) == 1
 
     let r15 =
       buffer.add(createBlock(Slot(1923345), createRoot(18), createRoot(0)))
     check r15.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923344)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923345)][].root == createRoot(18)
+      buffer[Slot(1923345)].get().signedBlock[].root == createRoot(18)
       len(buffer) == 1
 
     let r16 =
       buffer.add(createBlock(Slot(1923350), createRoot(19), createRoot(0)))
     check r16.isOk() == true
     for slot in SlotRange.init(Slot(1923330), Slot(1923349)):
-      check isNil(buffer[slot]) == true
+      check buffer[slot].isNone() == true
     check:
-      buffer[Slot(1923350)][].root == createRoot(19)
+      buffer[Slot(1923350)].get().signedBlock[].root == createRoot(19)
       len(buffer) == 1
 
     let r17 =
@@ -419,7 +420,7 @@ suite "BlocksRangeBuffer test suite":
     check:
       r17.isOk()
       len(buffer) == 1
-      buffer[Slot(1923351)][].root == createRoot(20)
+      buffer[Slot(1923351)].get().signedBlock[].root == createRoot(20)
 
   test "Buffer advance test [forward]":
     var buffer = BlocksRangeBuffer.init(SyncQueueKind.Forward)
@@ -639,7 +640,7 @@ suite "BlocksRangeBuffer test suite":
         res = buffer.peekRange(SyncRange.init(vector[0], uint64(count)))
       check len(res) == vector[2]
       for i in 0 ..< len(vector[3]):
-        check res[i][].slot == vector[3][i]
+        check res[i].signedBlock[].slot == vector[3][i]
 
   test "Range peek test [backward]":
     var buffer = BlocksRangeBuffer.init(SyncQueueKind.Backward)
@@ -699,7 +700,7 @@ suite "BlocksRangeBuffer test suite":
         res = buffer.peekRange(SyncRange.init(vector[0], uint64(count)))
       check len(res) == vector[2]
       for i in 0 ..< len(vector[3]):
-        check res[i][].slot == vector[3][i]
+        check res[i].signedBlock[].slot == vector[3][i]
 
   test "Range peek real test cases [forward]":
     var
@@ -762,6 +763,6 @@ suite "BlocksRangeBuffer test suite":
         len(res2) == vector[2]
 
       for i in 0 ..< len(res1):
-        check res1[i][].slot == vector[3][i]
+        check res1[i].signedBlock[].slot == vector[3][i]
       for i in 0 ..< len(res2):
-        check res2[i][].slot == vector[3][i]
+        check res2[i].signedBlock[].slot == vector[3][i]
