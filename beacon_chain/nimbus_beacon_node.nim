@@ -114,7 +114,7 @@ proc fetchGenesisState(
     eraDir: string,
     genesisState = none(InputFile),
     genesisStateUrl = none(Uri),
-): Future[Opt[ref ForkedHashedBeaconState]] {.async: (raises: []).} =
+): Future[Opt[ref ForkedHashedBeaconState]] {.async: (raises: [CancelledError]).} =
   ## Load the genesis state from any of the given sources with a preference for
   ## local files (in the case that only an URL/digest pair is baked into the
   ## binary)
@@ -132,6 +132,8 @@ proc fetchGenesisState(
         info "Downloading genesis state",
           sourceUrl = $genesisStateUrl.get(metadata.genesis.url)
       ok await metadata.fetchGenesisState(genesisStateUrl)
+    except CancelledError as exc:
+      raise exc
     except CatchableError as err:
       error "Failed to obtain genesis state",
         source = metadata.genesis.sourceDesc, err = err.msg
