@@ -542,7 +542,8 @@ proc createQueues(
   ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
     withBlck(item.signedBlock[]):
       when consensusFork < ConsensusFork.Fulu:
-        raiseAssert "Incorrect block consensus fork"
+        await overseer.blockProcessor.addBlock(MsgSource.sync, forkyBlck,
+          noSidecars, maybeFinalized = maybeFinalized)
       elif consensusFork == ConsensusFork.Fulu:
         let
           commitmentsLen = len(forkyBlck.message.body.blob_kzg_commitments)
@@ -933,7 +934,8 @@ proc verifyBlock(
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   withBlck(signedBlock[]):
     when consensusFork < ConsensusFork.Fulu:
-      raiseAssert "Unsupported fork"
+      await overseer.blockProcessor.addBlock(
+        MsgSource.sync, forkyBlck, noSidecars, maybeFinalized = maybeFinalized)
     elif consensusFork == ConsensusFork.Fulu:
       if overseer.shouldGetColumns(forkyBlck.message.slot):
         let cres =
@@ -959,8 +961,7 @@ proc verifyBlock(
           MsgSource.sync, forkyBlck, Opt.none(fulu.DataColumnSidecars),
           maybeFinalized = maybeFinalized)
     else:
-      await overseer.blockProcessor.addBlock(
-        MsgSource.sync, forkyBlck, noSidecars, maybeFinalized = maybeFinalized)
+      raiseAssert "Unsupported fork"
 
 proc verifyBlock(
     overseer: SyncOverseerRef2,
