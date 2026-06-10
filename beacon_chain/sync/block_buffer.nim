@@ -13,32 +13,34 @@ import
   # Status libs
   results,
   ../consensus_object_pools/block_pools_types,
-  ../sync/sync_queue,
+  ./[sync_response, sync_queue],
   ../spec/forks
+
+export sync_response, sync_queue
 
 type
   BlocksRangeBuffer* = object
     direction: SyncQueueKind
-    blocks: seq[ref ForkedSignedBeaconBlock]
+    items: seq[SyncResponseItem]
     roots: Table[Eth2Digest, ref ForkedSignedBeaconBlock]
     maxBufferSize: int
 
 func startSlot*(buffer: BlocksRangeBuffer): Slot =
-  buffer.blocks[0][].slot
+  buffer.items[0].slot
 
 func lastSlot*(buffer: BlocksRangeBuffer): Slot =
-  buffer.blocks[^1][].slot
+  buffer.items[^1].slot
 
-func startBlock*(buffer: BlocksRangeBuffer): ref ForkedSignedBeaconBlock =
-  buffer.blocks[0]
+func startItem*(buffer: BlocksRangeBuffer): SyncResponseItem =
+  buffer.items[0]
 
-func lastBlock*(buffer: BlocksRangeBuffer): ref ForkedSignedBeaconBlock =
-  buffer.blocks[^1]
+func lastItem*(buffer: BlocksRangeBuffer): SyncResponseItem =
+  buffer.items[^1]
 
 func shortLog*(buffer: BlocksRangeBuffer): string =
-  if len(buffer.blocks) == 0:
+  if len(buffer.items) == 0:
     return "[empty]"
-  "[" & $buffer.startSlot & ":" & $buffer.lastSlot & "]/" & $len(buffer.blocks)
+  "[" & $buffer.startSlot & ":" & $buffer.lastSlot & "]/" & $len(buffer.items)
 
 func getIndex(buffer: BlocksRangeBuffer, slot: Slot): Opt[int] =
   case buffer.direction
@@ -46,23 +48,23 @@ func getIndex(buffer: BlocksRangeBuffer, slot: Slot): Opt[int] =
     if (slot < buffer.startSlot):
       return Opt.none(int)
     let res = uint64(slot - buffer.startSlot)
-    if res >= lenu64(buffer.blocks):
+    if res >= lenu64(buffer.items):
       return Opt.none(int)
     # `int` conversion is safe here, because we compared `res` value with
-    # length of `blocks` sequence.
+    # length of `items` sequence.
     Opt.some(int(res))
   of SyncQueueKind.Backward:
     if (slot > buffer.startSlot):
       return Opt.none(int)
     let res = uint64(buffer.startSlot - slot)
-    if res >= lenu64(buffer.blocks):
+    if res >= lenu64(buffer.items):
       return Opt.none(int)
     # `int` conversion is safe here, because we compared `res` value with
-    # length of `blocks` sequence.
+    # length of `items` sequence.
     Opt.some(int(res))
 
 func toSlot(buffer: BlocksRangeBuffer, index: int): Opt[Slot] =
-  if (index < 0) or (index >= len(buffer.blocks)):
+  if (index < 0) or (index >= len(buffer.items)):
     return Opt.none(Slot)
   case buffer.direction
   of SyncQueueKind.Forward:
@@ -70,24 +72,24 @@ func toSlot(buffer: BlocksRangeBuffer, index: int): Opt[Slot] =
   of SyncQueueKind.Backward:
     Opt.some(buffer.startSlot - uint64(index))
 
-func `[]`*(
-    buffer: BlocksRangeBuffer,
-    root: Eth2Digest
-): ref ForkedSignedBeaconBlock =
-  buffer.roots.getOrDefault(root)
+# func `[]`*(
+#     buffer: BlocksRangeBuffer,
+#     root: Eth2Digest
+# ): ref ForkedSignedBeaconBlock =
+#   buffer.roots.getOrDefault(root)
 
 func `[]`*(
     buffer: BlocksRangeBuffer,
     slot: Slot
-): ref ForkedSignedBeaconBlock =
-  if len(buffer.blocks) == 0:
-    return nil
+): Opt[SyncResponseItem] =
+  if len(buffer.items) == 0:
+    return Opt.none(SyncResponseItem)
   let index = buffer.getIndex(slot).valueOr:
-    return nil
-  let blck = buffer.blocks[index]
-  if blck[].slot != slot:
-    return nil
-  blck
+    return Opt.none(SyncResponseItem)
+  let item = buffer.items[index]
+  if item.slot != slot:
+    return Opt.none(SyncResponseItem)
+  Opt.some(item)
 
 template isNew(buffer: BlocksRangeBuffer, s: Slot): bool =
   case buffer.direction
@@ -100,23 +102,23 @@ func fillGap(
     buffer: var BlocksRangeBuffer,
     slot: Slot
 ) =
-  let lastBlock = buffer.lastBlock
+  let lastItem = buffer.lastItem
   case buffer.direction
   of SyncQueueKind.Forward:
-    let count = int(slot - lastBlock[].slot) - 1
+    let count = int(slot - lastItem.slot) - 1
     for i in 0 ..< count:
-      buffer.blocks.add(lastBlock)
+      buffer.items.add(lastItem)
   of SyncQueueKind.Backward:
-    let count = int(lastBlock[].slot - slot) - 1
+    let count = int(lastItem.slot - slot) - 1
     for i in 0 ..< count:
-      buffer.blocks.add(lastBlock)
+      buffer.items.add(lastItem)
 
 func resetBuffer(buffer: var BlocksRangeBuffer, count: int) =
-  for index in count ..< len(buffer.blocks):
-    let blck = buffer.blocks[index]
-    buffer.roots.del(blck[].root)
-    buffer.blocks[index] = nil
-  buffer.blocks.setLen(count)
+  for index in count ..< len(buffer.items):
+    # let item = buffer.items[index]
+    # buffer.roots.del(blck[].root)
+    buffer.items[index] = default(SyncResponseItem)
+  buffer.items.setLen(count)
 
 func before(buffer: BlocksRangeBuffer, slota, slotb: Slot): bool =
   case buffer.direction
@@ -162,92 +164,90 @@ func checkRoots(
 
 proc add*(
     buffer: var BlocksRangeBuffer,
-    blck: ref ForkedSignedBeaconBlock
+    item: SyncResponseItem
 ): Result[void, VerifierError] =
-  doAssert(not(isNil(blck)), "Block should not be nil at this point!")
-
   let
     (blockSlot, blockRoot, blockParentRoot) =
-      withBlck(blck[]):
+      withBlck(item.signedBlock[]):
         (forkyBlck.message.slot, forkyBlck.root, forkyBlck.message.parent_root)
 
-  if len(buffer.blocks) == 0:
-    buffer.blocks.add(blck)
-    buffer.roots[blockRoot] = blck
+  if len(buffer.items) == 0:
+    buffer.items.add(item)
+    # buffer.roots[blockRoot] = blck
     return ok()
 
   if buffer.before(blockSlot, buffer.startSlot):
     buffer.resetBuffer(0)
-    buffer.blocks.add(blck)
-    buffer.roots[blockRoot] = blck
+    buffer.items.add(item)
+    # buffer.roots[blockRoot] = blck
     return ok()
 
   if buffer.isNew(blockSlot):
     # This is new block
-    let lastBlock = buffer.blocks[^1]
-    if not(buffer.checkRoots(blck, lastBlock)):
+    let lastItem = buffer.lastItem()
+    if not(buffer.checkRoots(item.signedBlock, lastItem.signedBlock)):
       return err(VerifierError.MissingParent)
     buffer.fillGap(blockSlot)
-    buffer.blocks.add(blck)
-    buffer.roots[blockRoot] = blck
+    buffer.items.add(item)
+    # buffer.roots[blockRoot] = blck
     ok()
   else:
     # Block replacement
     let
       index = buffer.getIndex(blockSlot).get()
-      innerBlock = buffer.blocks[index]
-    if (innerBlock[].slot == blockSlot) and (innerBlock[].root == blockRoot) and
-       (innerBlock[].parent_root == blockParentRoot):
+      innerItem = buffer.items[index]
+    if (innerItem.slot == blockSlot) and (innerItem.root == blockRoot) and
+       (innerItem.parent_root == blockParentRoot):
       return err(VerifierError.Duplicate)
     if index == 0:
       buffer.resetBuffer(0)
-      buffer.blocks.add(blck)
-      buffer.roots[blockRoot] = blck
+      buffer.items.add(item)
+      # buffer.roots[blockRoot] = blck
       return ok()
 
-    let prevBlock = buffer.blocks[index - 1]
-    if not(buffer.checkRoots(blck, prevBlock)):
+    let prevItem = buffer.items[index - 1]
+    if not(buffer.checkRoots(item.signedBlock, prevItem.signedBlock)):
       return err(VerifierError.MissingParent)
     buffer.resetBuffer(index)
-    buffer.blocks.add(blck)
-    buffer.roots[blockRoot] = blck
+    buffer.items.add(item)
+    # buffer.roots[blockRoot] = blck
     ok()
 
-iterator blocks(
+iterator items(
     buffer: BlocksRangeBuffer,
     index, count: int
-): ref ForkedSignedBeaconBlock =
+): SyncResponseItem =
   case buffer.direction
   of SyncQueueKind.Forward:
-    let lastIndex = min(len(buffer.blocks) - 1, index + count - 1)
+    let lastIndex = min(len(buffer.items) - 1, index + count - 1)
     for i in countup(index, lastIndex):
-      let blck = buffer.blocks[i]
-      if blck[].slot == buffer.toSlot(i).get():
-        yield blck
+      let item = buffer.items[i]
+      if item.slot == buffer.toSlot(i).get():
+        yield item
   of SyncQueueKind.Backward:
     let lastIndex = max(0, index - count + 1)
     for i in countdown(index, lastIndex):
-      if buffer.blocks[i][].slot == buffer.toSlot(i).get():
-        let blck = buffer.blocks[i]
-        if blck[].slot == buffer.toSlot(i).get():
-          yield blck
+      if buffer.items[i].slot == buffer.toSlot(i).get():
+        let item = buffer.items[i]
+        if item.slot == buffer.toSlot(i).get():
+          yield item
 
 func contains*(buffer: BlocksRangeBuffer, srange: SyncRange): bool =
   doAssert(srange.count > 0)
-  if len(buffer.blocks) == 0:
+  if len(buffer.items) == 0:
     return false
   if (srange.last_slot() < buffer.startSlot()) or
-    (srange.start_slot() > buffer.lastSlot()):
+     (srange.start_slot() > buffer.lastSlot()):
     return false
   true
 
 func peekRange*(
     buffer: BlocksRangeBuffer,
     srange: SyncRange
-): seq[ref ForkedSignedBeaconBlock] =
-  var res: seq[ref ForkedSignedBeaconBlock]
+): seq[SyncResponseItem] =
+  var res: seq[SyncResponseItem]
 
-  if len(buffer.blocks) == 0:
+  if len(buffer.items) == 0:
     return res
 
   let
@@ -284,13 +284,13 @@ func peekRange*(
     startIndex = buffer.getIndex(startSlot).valueOr:
       return res
 
-  for blck in buffer.blocks(startIndex, ecount):
+  for item in buffer.items(startIndex, ecount):
     if len(res) == 0:
-      res.add(blck)
+      res.add(item)
     else:
-      if res[^1] != blck:
-        res.add(blck)
-    if blck[].slot == lastSlot:
+      if res[^1] != item:
+        res.add(item)
+    if item.slot == lastSlot:
       break
   res
 
@@ -300,15 +300,15 @@ func getNonEmptyIndex(
     forward: bool
 ): Opt[int] =
   var res = ? buffer.getIndex(slot)
-  if buffer.blocks[res][].slot == slot:
+  if buffer.items[res].slot == slot:
     return Opt.some(res)
   if forward:
-    for index in countup(res, len(buffer.blocks) - 1):
-      if buffer.blocks[index][].slot == buffer.toSlot(index).get():
+    for index in countup(res, len(buffer.items) - 1):
+      if buffer.items[index].slot == buffer.toSlot(index).get():
         return Opt.some(index)
   else:
     for index in countdown(res, 0):
-      if buffer.blocks[index][].slot == buffer.toSlot(index).get():
+      if buffer.items[index].slot == buffer.toSlot(index).get():
         return Opt.some(index)
   Opt.none(int)
 
@@ -316,7 +316,7 @@ proc advance*(
     buffer: var BlocksRangeBuffer,
     slot: Slot
 ) =
-  if len(buffer.blocks) == 0:
+  if len(buffer.items) == 0:
     return
   if buffer.beforeOrEq(slot, buffer.startSlot):
     return
@@ -328,10 +328,10 @@ proc advance*(
     return
 
   var count = 0
-  for index in startIndex ..< len(buffer.blocks):
-    let blck = buffer.blocks[count]
-    buffer.roots.del(blck[].root)
-    buffer.blocks[count] = buffer.blocks[index]
+  for index in startIndex ..< len(buffer.items):
+    # let item = buffer.items[count]
+    # buffer.roots.del(item.root)
+    buffer.items[count] = buffer.items[index]
     inc(count)
   buffer.resetBuffer(count)
 
@@ -339,7 +339,7 @@ proc invalidate*(
     buffer: var BlocksRangeBuffer,
     slot: Slot
 ) =
-  if len(buffer.blocks) == 0:
+  if len(buffer.items) == 0:
     return
   if buffer.beforeOrEq(slot, buffer.startSlot):
     buffer.resetBuffer(0)
@@ -354,11 +354,11 @@ proc invalidate*(
   buffer.resetBuffer(startIndex + 1)
 
 func len*(buffer: BlocksRangeBuffer): int =
-  len(buffer.blocks)
+  len(buffer.items)
 
 func almostFull*(buffer: BlocksRangeBuffer): bool =
   # len(buffer.blocks) >= 2/3 * maxBufferSize
-  len(buffer.blocks) >= 2 * (buffer.maxBufferSize div 3)
+  len(buffer.items) >= 2 * (buffer.maxBufferSize div 3)
 
 func reset*(buffer: var BlocksRangeBuffer) =
   buffer.resetBuffer(0)

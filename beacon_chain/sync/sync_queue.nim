@@ -14,10 +14,11 @@ import
   ../spec/[helpers, forks, column_map],
   ../networking/[peer_pool, eth2_network],
   ../gossip_processing/block_processor,
-  ../consensus_object_pools/block_pools_types
+  ../consensus_object_pools/block_pools_types,
+  ./sync_response
 
 export base, phase0, altair, merge, chronos, chronicles, results,
-       block_pools_types, helpers
+       block_pools_types, helpers, sync_response
 
 type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
@@ -27,7 +28,7 @@ type
   LocalColumnMapCallback* = proc(): ColumnMap {.gcsafe, raises: [].}
   MissingMapCallback* = proc(root: Eth2Digest): ColumnMap {.gcsafe, raises: [].}
   BlockVerifier* =
-    proc(signedBlock: ref ForkedSignedBeaconBlock, maybeFinalized: bool):
+    proc(signedBlock: SyncResponseItem, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
   ForkAtEpochCallback* =
     proc(epoch: Epoch): ConsensusFork {.gcsafe, raises: [].}
@@ -196,14 +197,14 @@ proc shortLog*[M, N](sq: SyncQueue[M, N]): string =
         "[B:"
     start & $sq.startSlot & ":" & $sq.finalSlot & "@" & $sq.inpSlot & "]"
 
-func slimLog*(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
-  "[" & blocks.mapIt(
-    "(slot: " & $it[].slot() & ", root: " & shortLog(it[].root()) &
-    ", parent_root: " & shortLog(it[].parent_root()) & ")").join(",") & "]"
+# func slimLog*(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
+#   "[" & blocks.mapIt(
+#     "(slot: " & $it[].slot() & ", root: " & shortLog(it[].root()) &
+#     ", parent_root: " & shortLog(it[].parent_root()) & ")").join(",") & "]"
 
 func getShortMap*[T](
     req: SyncRequest[T],
-    data: openArray[ref ForkedSignedBeaconBlock]
+    data: openArray[SyncResponseItem]
 ): string =
   ## Returns all slot numbers in ``data`` as placement map.
   var
@@ -214,117 +215,17 @@ func getShortMap*[T](
   for i in 0 ..< req.data.count:
     if last < len(data):
       for k in last ..< len(data):
-        if slider == data[k][].slot:
+        if slider == data[k].slot:
           res.add('x')
           last = k + 1
           break
-        elif slider < data[k][].slot:
+        elif slider < data[k].slot:
           res.add('.')
           break
     else:
       res.add('.')
     slider = slider + 1
   res
-
-func getBlockBlobsMap*[T](
-    req: SyncRequest[T],
-    data: openArray[ref ForkedSignedBeaconBlock]
-): string =
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    last = 0
-
-  for i in 0 ..< req.data.count:
-    if last < len(data):
-      for k in last ..< len(data):
-        let (slot, count) =
-          withBlck(data[k][]):
-            when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-              (forkyBlck.message.slot,
-                len(forkyBlck.message.body.blob_kzg_commitments))
-            else:
-              (forkyBlck.message.slot, 0)
-        if slider == slot:
-          res.add($count)
-          last = k + 1
-          break
-        elif slider < slot:
-          res.add('.')
-          break
-    else:
-      res.add('.')
-    slider = slider + 1
-
-  res
-
-proc getShortMap*[T](
-    req: SyncRequest[T],
-    data: openArray[ref BlobSidecar]
-): string =
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    last = 0
-
-  for i in 0 ..< req.data.count:
-    if last < len(data):
-      var counter = 0
-      for k in last ..< len(data):
-        if slider < data[k][].signed_block_header.message.slot:
-          break
-        elif slider == data[k][].signed_block_header.message.slot:
-          inc(counter)
-      last = last + counter
-      if counter == 0:
-        res.add('.')
-      else:
-        res.add($counter)
-    else:
-      res.add('.')
-    slider = slider + 1
-  res
-
-proc getShortMap*[T](
-    req: SyncRequest[T],
-    blobs: openArray[BlobSidecars]
-): string =
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    notFirst = false
-
-  for i in 0 ..< int(req.data.count):
-    if i >= len(blobs):
-      res.add('.'.repeat(int(req.data.count) - len(res)))
-      return res
-
-    if len(blobs[i]) > 0:
-      let slot = blobs[i][0][].signed_block_header.message.slot
-      if not(notFirst):
-        doAssert(slot >= slider, "Incorrect slot number in blobs list")
-        let firstCount = int(slot - slider)
-        res.add('.'.repeat(firstCount))
-        res.add(Base10.toString(lenu64(blobs[i])))
-        slider = slot
-        notFirst = true
-      else:
-        if slot == slider:
-          res.add(Base10.toString(lenu64(blobs[i])))
-        else:
-          res.add('.')
-    else:
-      if notFirst: res.add('.')
-    if notFirst: inc(slider)
-  res
-
-proc getShortMap*[T](
-    req: SyncRequest[T],
-    data: Opt[seq[BlobSidecars]]
-): string =
-  if data.isNone():
-    return '.'.repeat(req.data.count)
-  getShortMap(req, data.get())
 
 func getShortMap*[T](
     req: SyncRequest[T],
@@ -705,12 +606,12 @@ func `==`*[T](a, b: SyncRequest[T]): bool {.inline.} =
 
 proc hasEndGap*[T](
     sr: SyncRequest[T],
-    data: openArray[ref ForkedSignedBeaconBlock]
+    data: openArray[SyncResponseItem]
 ): bool {.inline.} =
   ## Returns ``true`` if response chain of blocks has gap at the end.
   if len(data) == 0:
     return true
-  if data[^1][].slot != (sr.data.slot + sr.data.count - 1'u64):
+  if data[^1].slot != (sr.data.slot + sr.data.count - 1'u64):
     return true
   false
 
@@ -1147,17 +1048,17 @@ proc resetWait*[M, N](
   sq.resetQueue()
   sq.wakeupAndWaitWaiters()
 
-iterator blocks(
+iterator items(
     kind: SyncQueueKind,
-    blcks: openArray[ref ForkedSignedBeaconBlock],
-): ref ForkedSignedBeaconBlock =
+    items: openArray[SyncResponseItem],
+): SyncResponseItem =
   case kind
   of SyncQueueKind.Forward:
-    for i in countup(0, len(blcks) - 1):
-      yield blcks[i]
+    for i in countup(0, len(items) - 1):
+      yield items[i]
   of SyncQueueKind.Backward:
-    for i in countdown(len(blcks) - 1, 0):
-      yield blcks[i]
+    for i in countdown(len(items) - 1, 0):
+      yield items[i]
 
 proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
   ## Push multiple failed requests back to queue.
@@ -1182,7 +1083,7 @@ proc push*[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]) =
 proc process[M, N](
     sq: SyncQueue[M, N],
     sr: SyncRequest[M],
-    blcks: seq[ref ForkedSignedBeaconBlock],
+    ritems: seq[SyncResponseItem],
     maybeFinalized: bool
 ): Future[SyncProcessingResult] {.
   async: (raises: [CancelledError]).} =
@@ -1191,35 +1092,35 @@ proc process[M, N](
     unviableBlock: Opt[BlockId]
     dupBlock: Opt[BlockId]
 
-  if len(blcks) == 0:
+  if len(ritems) == 0:
     return SyncProcessingResult.init(SyncProcessError.Empty)
 
-  for blk in blocks(sq.kind, blcks):
-    let res = await sq.blockVerifier(blk, maybeFinalized)
+  for ritem in items(sq.kind, ritems):
+    let res = await sq.blockVerifier(ritem, maybeFinalized)
     if res.isOk():
-      slot = Opt.some(BlockId(slot: blk[].slot, root: blk[].root))
+      slot = Opt.some(ritem.toBlockId())
     else:
       case res.error()
       of VerifierError.MissingParent:
         if slot.isSome() or dupBlock.isSome():
           return SyncProcessingResult.init(
-            SyncProcessError.GoodAndMissingParent, blk[].slot, blk[].root)
+            SyncProcessError.GoodAndMissingParent, ritem.slot, ritem.root)
         else:
-          return SyncProcessingResult.init(res.error(), blk[].slot, blk[].root)
+          return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
       of VerifierError.Duplicate:
         # Keep going, happens naturally
         if dupBlock.isNone():
-          dupBlock = Opt.some(BlockId(slot: blk[].slot, root: blk[].root))
+          dupBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
       of VerifierError.MissingSidecars:
-        return SyncProcessingResult.init(res.error(), blk[].slot, blk[].root)
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
       of VerifierError.UnviableFork:
         # Keep going so as to register other unviable blocks with the
         # quarantine
         if unviableBlock.isNone():
           # Remember the first unviable block, so we can log it
-          unviableBlock = Opt.some(BlockId(slot: blk[].slot, root: blk[].root))
+          unviableBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
       of VerifierError.Invalid:
-        return SyncProcessingResult.init(res.error(), blk[].slot, blk[].root)
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
 
   if unviableBlock.isSome():
     return SyncProcessingResult.init(VerifierError.UnviableFork,
@@ -1242,7 +1143,7 @@ func isError(e: SyncProcessError): bool =
 
 proc getMissingMap*[M](
     sq: SyncQueue[M, ColumnCompleteness],
-    data: openArray[ref ForkedSignedBeaconBlock],
+    data: openArray[SyncResponseItem],
     startBid: Opt[BlockId]
 ): ColumnMap =
   var
@@ -1252,10 +1153,10 @@ proc getMissingMap*[M](
         false
       else:
         true
-  for blck in data:
-    if started or (startBid.isSome() and (blck[].root == startBid.get().root)):
+  for item in data:
+    if started or (startBid.isSome() and (item.root == startBid.get().root)):
       started = true
-      let map = sq.cbGetMissingMap(blck[].root)
+      let map = sq.cbGetMissingMap(item.root)
       res = res or map
   res
 
@@ -1265,7 +1166,7 @@ func isRelevant*[M, N](sq: SyncQueue[M, N], sr: SyncRequest[M]): bool =
 proc push*[M, N](
     sq: SyncQueue[M, N],
     sr: SyncRequest[M],
-    data: seq[ref ForkedSignedBeaconBlock],
+    data: seq[SyncResponseItem],
     maybeFinalized: bool = false,
     processingCb: ProcessingCallback = nil
 ): Future[SyncPushResponse] {.async: (raises: [CancelledError]).} =

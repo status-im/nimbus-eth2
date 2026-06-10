@@ -14,7 +14,7 @@ import std/[sequtils, strutils],
        ../consensus_object_pools/column_quarantine,
        ./sync_queue
 
-export results
+export results, sync_queue
 
 type
   SidecarType = fulu.DataColumnSidecar
@@ -105,15 +105,15 @@ func groupSidecars*(
   ok(grouped)
 
 func validateBlocks*(
-    blocks: openArray[ref ForkedSignedBeaconBlock],
+    items: openArray[SyncResponseItem],
     sidecars: openArray[DataColumnSidecarResponseRecord],
     map: ColumnMap
 ): Result[tuple[sidecars: int, blocks: int], cstring] =
   var
     sindex = 0
     bcount = 0
-  for blck in blocks:
-    withBlck(blck[]):
+  for item in items:
+    withBlck(item.signedBlock[]):
       when consensusFork == ConsensusFork.Fulu:
         let columnsCount = len(forkyBlck.message.body.blob_kzg_commitments)
         if columnsCount == 0:
@@ -131,30 +131,30 @@ func validateBlocks*(
 
 func checkResponse*(
     srange: SyncRange,
-    blocks: openArray[ref ForkedSignedBeaconBlock]
+    items: openArray[SyncResponseItem]
 ): Result[void, cstring] =
   ## This procedure checks peer's getBlockByRange() response.
-  if len(blocks) == 0:
+  if len(items) == 0:
     return ok()
 
-  if lenu64(blocks) > srange.count:
+  if lenu64(items) > srange.count:
     return err("Number of received blocks greater than number of requested")
 
   var
     slot = FAR_FUTURE_SLOT
     root: Eth2Digest
 
-  for blk in blocks:
-    let block_slot = blk[].slot()
+  for ritem in items:
+    let block_slot = ritem.slot
     if block_slot notin srange:
       return err("Some of the blocks are outside the requested range")
     if slot != FAR_FUTURE_SLOT:
       if slot >= block_slot:
         return err("Incorrect order or duplicate blocks found")
-      if blk[].parent_root() != root:
+      if ritem.parent_root() != root:
         return err("Incorrect order or chain of blocks, invalid parent_root")
-    root = blk[].root()
-    slot = blk[].slot()
+    root = ritem.root
+    slot = ritem.slot
   ok()
 
 func checkResponse*(
