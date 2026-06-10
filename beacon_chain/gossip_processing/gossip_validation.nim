@@ -2058,7 +2058,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
@@ -2092,18 +2092,17 @@ proc validateProposerPreferences*(
   # where state is the checkpoint state at the epoch
   # compute_epoch_at_slot(preferences.proposal_slot) - 1
   # and the root preferences.dependent_root.
-  # Spec requires the checkpoint state at dependent_root; we approximate
-  # with head state which should have the same proposer_lookahead when synced.
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      if not is_valid_proposal_slot(
-          forkyState.data, preferences.proposal_slot,
-          preferences.validator_index):
-        return dag.checkedReject(
-          "ProposerPreferences: not the proposer for proposal_slot")
-    else:
-      return errIgnore(
-        "ProposerPreferences: head state not yet at Gloas fork")
+  #
+  # Rather than replay that checkpoint state, compute the proposer from the
+  # shuffling anchored at the referenced dependent_root block.
+  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
+    return errIgnore("ProposerPreferences: dependent_root not in dag")
+  let proposer = dag.getProposer(
+      dependentRef, preferences.proposal_slot).valueOr:
+    return errIgnore("ProposerPreferences: unable to compute proposer")
+  if proposer.uint64 != preferences.validator_index:
+    return dag.checkedReject(
+      "ProposerPreferences: not the proposer for proposal_slot")
 
   # [IGNORE] The signed_proposer_preferences is the first valid message seen
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,
