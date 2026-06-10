@@ -1233,6 +1233,33 @@ proc loadHead(
   dag.registerHead(headRef)
   ok headRef
 
+proc updateFinalizedBlocks(dag: ChainDAGRef, withAncestors = false) =
+  var
+    newFinalized: seq[BlockId]
+    tmp = dag.finalizedHead.blck
+  while tmp.parent != nil:
+    newFinalized.add(tmp.bid)
+    if tmp != dag.finalizedHead.blck:
+      # The newly finalized block itself should remain in here so that fork
+      # choice still can find it via root
+      dag.forkBlocks.excl(KeyedBlockRef.init(tmp))
+
+    let p = tmp.parent
+    tmp.parent = nil # Reset all parent links to release memory
+    tmp = p
+  if tmp != dag.finalizedHead.blck:
+    dag.forkBlocks.excl(KeyedBlockRef.init(tmp))
+
+  if withAncestors:
+    for blck in dag.db.getAncestorSummaries(tmp.root):
+      if dag.db.finalizedBlocks.high.isSome and
+          blck.summary.slot <= dag.db.finalizedBlocks.high.get:
+        break
+
+      newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
+
+  dag.db.updateFinalizedBlocks(newFinalized)
+
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
   # Delete state and mapping for a particular block+slot
   if not dag.isStateCheckpoint(bsi):
@@ -1377,23 +1404,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         finHigh = db.finalizedBlocks.high,
         finalizedHead = shortLog(dag.finalizedHead)
 
-      var
-        newFinalized: seq[BlockId]
-        tmp = dag.finalizedHead.blck
-      while tmp.parent != nil:
-        newFinalized.add(tmp.bid)
-        let p = tmp.parent
-        tmp.parent = nil
-        tmp = p
-
-      for blck in db.getAncestorSummaries(tmp.root):
-        if db.finalizedBlocks.high.isSome and
-            blck.summary.slot <= db.finalizedBlocks.high.get:
-          break
-
-        newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
-
-      db.updateFinalizedBlocks(newFinalized)
+      dag.updateFinalizedBlocks(withAncestors = true)
 
   doAssert dag.finalizedHead.blck.parent == nil,
     "The finalized head is the last BlockRef with a parent"
@@ -2659,25 +2670,10 @@ proc updateHead*(
       finalized = shortLog(dag.headState.finalized_checkpoint)
     let oldFinalizedHead = dag.finalizedHead
 
-    block:
-      # Update `dag.finalizedBlocks` with all newly finalized blocks (those
-      # newer than the previous finalized head), then update `dag.finalizedHead`
-      var newFinalized: seq[BlockId]
-      var tmp = finalizedHead.blck
-      while not isNil(tmp) and tmp.slot >= dag.finalizedHead.slot:
-        newFinalized.add(tmp.bid)
-        if tmp != finalizedHead.blck:
-          # The newly finalized block itself should remain in here so that fork
-          # choice still can find it via root
-          dag.forkBlocks.excl(KeyedBlockRef.init(tmp))
-
-        let p = tmp.parent
-        tmp.parent = nil # Reset all parent links to release memory
-        tmp = p
-
-      dag.finalizedHead = finalizedHead
-
-      dag.db.updateFinalizedBlocks(newFinalized)
+    # Update `dag.db.finalizedBlocks` with all newly finalized blocks (those
+    # newer than the previous finalized head)
+    dag.finalizedHead = finalizedHead
+    dag.updateFinalizedBlocks()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should
