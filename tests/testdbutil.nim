@@ -8,6 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
+  std/sequtils,
   chronicles,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/consensus_object_pools/blockchain_dag,
@@ -88,3 +89,13 @@ proc getEarliestInvalidBlockRoot*(
     curBlck = curBlck.parent
 
   curBlck.root
+
+func forkBlocksMatchHeads*(dag: ChainDAGRef): bool =
+  var expected: HashSet[Eth2Digest]
+  for head in dag.heads:
+    var cur = head
+    while cur != nil and not expected.containsOrIncl(cur.root):
+      cur = cur.parent
+  if expected.len != dag.forkBlocks.len:
+    return false
+  expected.allIt dag.containsForkBlock(it)

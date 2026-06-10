@@ -437,7 +437,7 @@ proc doTrustedNodeSync*(
   let
     validatorMonitor = newClone(
       ValidatorMonitor.init(cfg, false, false))
-    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraPath = eraDir)
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraDir)
     backfillSlot = max(dag.backfill.slot, 1.Slot) - 1
     horizon = max(dag.horizon, dag.frontfill.valueOr(BlockId()).slot)
 

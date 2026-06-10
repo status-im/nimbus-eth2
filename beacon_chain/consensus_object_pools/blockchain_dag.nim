@@ -1144,8 +1144,8 @@ proc registerHead*(dag: ChainDAGRef, headRef: BlockRef) =
     dag.heads.add(headRef)
 
 proc loadHead(
-    dag: ChainDAGRef, headRoot: Eth2Digest, finalizedSlot: Slot
-): Result[BlockRef, string] =
+    dag: ChainDAGRef, headRoot: Eth2Digest, finalizedSlot: Slot,
+    invalidBlockRoots: openArray[Eth2Digest]): Result[BlockRef, string] =
   template tmpState: var ForkedHashedBeaconState =
     dag.headState
 
@@ -1163,6 +1163,7 @@ proc loadHead(
 
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
+  var isInvalid = false
   for blck in dag.db.getAncestorSummaries(headRoot):
     let newRef = BlockRef.init(dag.cfg, blck.root, blck.summary.slot)
 
@@ -1175,6 +1176,15 @@ proc loadHead(
     curRef = newRef
 
     dag.forkBlocks.incl(KeyedBlockRef.init(curRef))
+
+    isInvalid = curRef.slot > finalizedSlot and curRef.root in invalidBlockRoots
+    if isInvalid:
+      while headRef != nil:
+        dag.forkBlocks.excl(KeyedBlockRef.init(headRef))
+        headRef = headRef.parent
+      foundHeadState = false
+      headBlocks.reset()
+      continue
 
     if not foundHeadState:
       foundHeadState = dag.db.getState(
@@ -1202,6 +1212,8 @@ proc loadHead(
       # Only non-finalized slots get a `BlockRef`
       break
 
+  if isInvalid:
+    return err "Head block marked invalid (--debug-invalidate-block-root)"
   if curRef == nil:
     return err "getAncestorSummaries did not yield any results"
 
@@ -1258,13 +1270,14 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     if fork >= ConsensusFork.Gloas:
       discard dag.db.delExecutionPayloadEnvelope(bs.blck.root)
 
-proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
-           validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
-           eraPath = ".",
-           onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
-           onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
-           vanityLogs = default(VanityLogs),
-           lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
+proc init*(
+    T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
+    validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
+    eraPath = ".", invalidBlockRoots: openArray[Eth2Digest] = [],
+    onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
+    onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
+    vanityLogs = default(VanityLogs),
+    lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
   doAssert updateFlags - {strictVerification} == {},
     "Other flags not supported in ChainDAG"
 
@@ -1312,7 +1325,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # state - the tail is implicitly finalized, and if we have a finalized block
   # table, that provides another hint
   var finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
-  dag.head = dag.loadHead(headRoot, finalizedSlot).valueOr:
+  dag.head = dag.loadHead(headRoot, finalizedSlot, invalidBlockRoots).valueOr:
     fatal "Error while loading head from database", reason = error, headRoot
     quit 1
 
