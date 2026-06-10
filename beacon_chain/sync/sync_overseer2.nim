@@ -2539,7 +2539,7 @@ proc gossipMonitoringLoop(
         consensusFork = event.blck.kind
         (blockId, missingSidecars) =
           withBlck(event.blck):
-            when consensusFork < ConsensusFork.Electra:
+            when consensusFork < ConsensusFork.Fulu:
               (
                 BlockId(slot: forkyBlck.message.slot, root: forkyBlck.root),
                 true
