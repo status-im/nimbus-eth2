@@ -58,6 +58,9 @@ type
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
+template hash*(blck: BlockRef): Hash =
+  hash blck.root
+
 func init*(
     T: type BlockRef,
     root: Eth2Digest,
