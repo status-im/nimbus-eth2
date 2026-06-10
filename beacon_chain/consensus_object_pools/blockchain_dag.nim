@@ -1260,6 +1260,20 @@ proc updateFinalizedBlocks(dag: ChainDAGRef, withAncestors = false) =
 
   dag.db.updateFinalizedBlocks(newFinalized)
 
+proc collectOrphanedAncestors(
+    orphans: var HashSet[BlockId], dag: ChainDAGRef, headRoot: Eth2Digest) =
+  for blck in dag.db.getAncestorSummaries(headRoot):
+    if dag.getBlockRef(blck.root).isSome:
+      break
+    let bid = BlockId(root: blck.root, slot: blck.summary.slot)
+    if bid in orphans:
+      break
+    if dag.isFinalized(bid):
+      break
+    if not containsBlock(dag.cfg, dag.db, bid.slot, bid.root):
+      break
+    orphans.incl bid
+
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
   # Delete state and mapping for a particular block+slot
   if not dag.isStateCheckpoint(bsi):
@@ -1284,6 +1298,10 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     discard dag.db.delBlock(fork, bs.blck.root)
     if fork >= ConsensusFork.Gloas:
       discard dag.db.delExecutionPayloadEnvelope(bs.blck.root)
+
+proc pruneBlockId(dag: ChainDAGRef, bid: BlockId) =
+  dag.delState(BlockSlotId.init(bid, (bid.slot.epoch + 1).start_slot))
+  dag.pruneBlockSlot(BlockRef.init(dag.cfg, bid.root, bid.slot).atSlot())
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
@@ -1342,6 +1360,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   dag.head = dag.loadHead(headRoot, finalizedSlot).valueOr:
     fatal "Error while loading head from database", reason = error, headRoot
     quit 1
+  let hasOrphans = dag.head.root != headRoot
 
   let summariesTick = Moment.now()
 
@@ -1451,6 +1470,13 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   assign(dag.clearanceState, dag.headState)
 
+  if hasOrphans and not dag.db.db.readOnly:
+    db.withManyWrites:
+      var orphans: HashSet[BlockId]
+      orphans.collectOrphanedAncestors(dag, headRoot)
+      for bid in orphans:
+        dag.pruneBlockId(bid)
+      dag.db.putHeadBlock(dag.head.root)
   if dag.backfill.slot > GENESIS_SLOT:  # Try frontfill from era files
     let backfillSlot = dag.backfill.slot - 1
     dag.frontfillBlocks = newSeqOfCap[Eth2Digest](backfillSlot.int)
