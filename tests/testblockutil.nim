@@ -39,6 +39,9 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
+template graffiti*(input: string): GraffitiBytes =
+  GraffitiBytes.init(input)
+
 type
   BlobsBundle* = object
     # TODO the fulu BlobsBundle uses an ugly hack to get deneb compatibility

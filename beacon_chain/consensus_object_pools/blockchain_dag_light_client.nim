@@ -744,7 +744,6 @@ proc initLightClientDataForPeriod(
     dag.lcDataStore.db.sealPeriod(period)
   ok()
 
-
 proc loadHead(dag: ChainDAGRef, head: BlockRef): Opt[void] =
   ## Initialize light client data for a given head's non-finalized blocks.
   let tailSlot = dag.lcDataStore.cache.tailSlot
@@ -777,6 +776,8 @@ proc loadHead(dag: ChainDAGRef, head: BlockRef): Opt[void] =
     bid = head.bid
   while bid.slot > tailSlot:
     blocks.add bid
+    if bid in dag.lcDataStore.cache.data:
+      break
     bid = dag.existingParent(bid).valueOr:
       dag.handleUnexpectedLightClientError(bid.slot)
       result.err()
@@ -786,7 +787,12 @@ proc loadHead(dag: ChainDAGRef, head: BlockRef): Opt[void] =
 
   # Process blocks (reuses `dag.clearanceState`)
   var cache: StateCache
-  for i in countdown(blocks.high, 0):
+  let startIndex =
+    if blocks[^1] in dag.lcDataStore.cache.data:
+      blocks.high - 1
+    else:
+      blocks.high
+  for i in countdown(startIndex, 0):
     bid = blocks[i]
     if not dag.updateExistingState(
         dag.clearanceState, bid.atSlot(), save = false, cache):
@@ -850,8 +856,13 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       # Block availability, needed for `LightClientHeader.execution_branch`
       dag.backfill.slot))
 
-  dag.lcDataStore.cache.tailSlot = max(dag.head.slot, targetTailSlot)
-  if dag.head.slot < dag.lcDataStore.cache.tailSlot:
+  var maxHeadSlot = dag.head.slot
+  for additionalHead in dag.heads:
+    if additionalHead.slot > maxHeadSlot:
+      maxHeadSlot = additionalHead.slot
+
+  dag.lcDataStore.cache.tailSlot = max(maxHeadSlot, targetTailSlot)
+  if maxHeadSlot < dag.lcDataStore.cache.tailSlot:
     return
 
   # Import light client data for finalized period through finalized head
@@ -876,6 +887,9 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   # Import non-finalized light client data (reuses `dag.clearanceState`)
   if dag.loadHead(dag.head).isErr:
     res.err()
+  for additionalHead in dag.heads:
+    if dag.loadHead(additionalHead).isErr:
+      res.err()
 
   # Import initial `LightClientBootstrap`
   if dag.finalizedHead.slot >= dag.lcDataStore.cache.tailSlot:
