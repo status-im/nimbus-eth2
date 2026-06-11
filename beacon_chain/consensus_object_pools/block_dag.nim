@@ -56,12 +56,15 @@ type
       ## has advanced without blocks
 
 const
-  EXECUTION_PARENT_MAX_DEPTH = 1 shl 4
+  EXECUTION_PARENT_MAX_DEPTH* = 1 shl 4
     ## Set to 16 as the max depth of ancestors on searching the execution
     ## parent.
 
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
+
+template hash*(blck: BlockRef): Hash =
+  hash blck.root
 
 func init*(
     T: type BlockRef,
@@ -77,6 +80,22 @@ func init*(
     executionParentHash: executionParentHash,
     optimisticStatus: optimisticStatus,
   )
+
+func init*(
+    T: type BlockRef, cfg: RuntimeConfig,
+    root: Eth2Digest, slot: Slot): BlockRef =
+  # The execution block root gets filled in as needed. Nonfinalized Bellatrix
+  # and later blocks are loaded as optimistic, which gets adjusted that first
+  # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
+  # marked as `VALID`.
+  if cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Bellatrix:
+    BlockRef.init(
+      root, Opt.none Eth2Digest, Opt.none Eth2Digest,
+      OptimisticStatus.notValidated, slot)
+  else:
+    BlockRef.init(
+      root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
+      OptimisticStatus.valid, slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
@@ -256,7 +275,7 @@ func executionParent*(blck: BlockRef): Opt[BlockRef] =
   # Parent hash of pre-Gloas blocks is zero but it could be built on the
   # genesis. Either way, the execution parent should be same as the block
   # parent.
-  if blck.executionParentHash.unsafeGet().isZero():
+  if blck.executionParentHash.get().isZero():
     return Opt.some(blck.parent)
 
   var cur = blck.parent
@@ -264,8 +283,7 @@ func executionParent*(blck: BlockRef): Opt[BlockRef] =
   for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
     if cur.executionBlockHash.isNone():
       break
-    if cur.executionBlockHash.unsafeGet() ==
-        blck.executionParentHash.unsafeGet():
+    if cur.executionBlockHash.get() == blck.executionParentHash.get():
       return Opt.some(cur)
     if isNil(cur.parent):
       break

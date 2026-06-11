@@ -677,7 +677,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         warn "Failed to rename era file to its final name (Exception)",
           name, tmpName, error = e.msg
     else:
-      if (let e = io2.removeFile(name); e.isErr):
+      if (let e = io2.removeFile(tmpName); e.isErr):
         warn "Failed to clean up incomplete era file", tmpName, error = e.error
 
   printTimers(true, timers)

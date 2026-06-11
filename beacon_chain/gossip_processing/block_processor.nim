@@ -52,7 +52,7 @@ logScope: topics = "gossip_blocks"
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
-declareHistogram beacon_block_data_availability_delay,
+declareHistogram beacon_block_data_availability_delay_seconds,
   "Time(s) between slot start and the block becoming data-available (resolved)",
   buckets = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 16.0, Inf]
 
@@ -730,7 +730,7 @@ proc storeBlock(
   if fromGossip:
     let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
       dag.timeParams)
-    beacon_block_data_availability_delay.observe(daDelay.toFloatSeconds())
+    beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL

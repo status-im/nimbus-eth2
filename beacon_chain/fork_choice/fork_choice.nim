@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status libraries
   results, chronicles,
   # Internal
@@ -17,10 +17,10 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[spec_cache, blockchain_dag],
-  "."/[fork_choice_types, proto_array, fast_confirmation]
+  ./[fork_choice_types, proto_array, fast_confirmation, fork_choice_epbs]
 
 from std/sequtils import keepItIf
-export results, fork_choice_types
+export results, fork_choice_types, fork_choice_epbs
 export proto_array.len
 
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -424,30 +424,50 @@ func process_block*(
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
-proc update_proposer_boost_root(
-    self: var ForkChoice, dag: ChainDAGRef,
-    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-record_block_timeliness
+func record_block_timeliness(
+    self: var ForkChoice, timeParams: TimeParams,
+    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
+    current_slot: Slot): bool =
+  ## Record whether the block is PTC-timely (read by `should_apply_proposer_boost`)
+  ## and return whether it is attestation-timely (used by `update_proposer_boost_root`).
   const consensusFork = typeof(blck).kind
+  let isCurrentSlot = current_slot == blck.slot
 
+  when consensusFork >= ConsensusFork.Gloas:
+    if isCurrentSlot and self.checkpoints.time <
+        blck.slot.payload_attestation_deadline(timeParams):
+      self.backend.timely_proposer_blocks.incl blckRef.root
+
+  isCurrentSlot and self.checkpoints.time <
+    blck.slot.attestation_deadline(timeParams, consensusFork)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_dependent_root
+func get_dependent_root(
+    dag: ChainDAGRef, bid: BlockId, current_slot: Slot): Eth2Digest =
+  let epoch = current_slot.epoch
+  if epoch <= MIN_SEED_LOOKAHEAD:
+    return ZERO_HASH
+  # spec's `start_slot(epoch - MIN_SEED_LOOKAHEAD) - 1` == attester_dependent_slot
+  let dependent = dag.atSlot(bid, epoch.attester_dependent_slot).valueOr:
+    return ZERO_HASH
+  dependent.bid.root
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+func update_proposer_boost_root(
+    self: var ForkChoice, dag: ChainDAGRef,
+    blckRef: BlockRef, current_slot: Slot, is_timely: bool) =
   template is_first_block: bool =
     self.checkpoints.proposer_boost_root == ZERO_HASH
 
-  template attestation_threshold: BeaconTime =
-    current_slot.attestation_deadline(dag.timeParams, consensusFork)
+  template is_same_dependent_root: bool =
+    get_dependent_root(dag, blckRef.bid, current_slot) ==
+      get_dependent_root(dag, dag.head.bid, current_slot)
 
-  template is_timely: bool =
-    current_slot == blck.slot and
-    self.checkpoints.time < attestation_threshold
-
-  # Add proposer score boost if the block is the first timely block
-  # for this slot, with the same proposer as the canonical chain.
-  if is_timely and is_first_block:
-    # Only update if the proposer is the same as on the canonical chain
-    let expected_proposer = dag.getProposer(dag.head, current_slot).valueOr:
-      return
-    if blck.proposer_index == expected_proposer.uint64:
-      self.checkpoints.proposer_boost_root = blckRef.root
+  # Add proposer score boost if the block is timely, not conflicting with an
+  # existing boosted block, and shares the dependent root of the canonical head.
+  if is_timely and is_first_block and is_same_dependent_root:
+    self.checkpoints.proposer_boost_root = blckRef.root
 
 proc process_block*(
     self: var ForkChoice,
@@ -480,12 +500,22 @@ proc process_block*(
             vidx, attestation.data.beacon_block_root, attestation.data.slot,
             false, dag.cfg)
 
+  when typeof(blck).kind >= ConsensusFork.Gloas:
+    for pa in blck.body.payload_attestations:
+      let tally = addr self.backend.ptc_votes.mgetOrPut(
+        pa.data.beacon_block_root, PtcVoteTally())
+      for i in 0 ..< pa.aggregation_bits.len:
+        if pa.aggregation_bits[i]:
+          tally.present[i] = pa.data.payload_present
+          tally.available[i] = pa.data.blob_data_available
+
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  self.update_proposer_boost_root(dag, blckRef, blck, slot)
+  let isTimely = self.record_block_timeliness(dag.timeParams, blckRef, blck, slot)
+  self.update_proposer_boost_root(dag, blckRef, slot, isTimely)
 
   # Update checkpoints in store if necessary
   ? self.update_checkpoints(dag, epochRef.checkpoints, slot)
@@ -623,6 +653,22 @@ proc prune(
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
     self.update_confirmed(dag, self.to_block_id(checkpoints.finalized), "prune")
+
+  # Drop per-block fork-choice state for blocks no longer in the proto-array.
+  var staleRoots: seq[Eth2Digest]
+  for root in self.ptc_votes.keys:
+    if root notin self.proto_array.indices:
+      staleRoots.add root
+  for root in staleRoots:
+    self.ptc_votes.del root
+
+  staleRoots.setLen(0)
+  for root in self.timely_proposer_blocks:
+    if root notin self.proto_array.indices:
+      staleRoots.add root
+  for root in staleRoots:
+    self.timely_proposer_blocks.excl root
+
   ok()
 
 proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
