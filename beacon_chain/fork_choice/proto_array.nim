@@ -110,6 +110,12 @@ func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
     unrealized_justified:
       self.unrealized.getOrDefault(idx, checkpoints).justified)
 
+func node*(self: ProtoArray, idx: Index): Opt[ProtoNode] =
+  self.nodes[idx]
+
+func node*(self: ProtoArray, root: Eth2Digest): Opt[ProtoNode] =
+  self.nodes[self.find(root)]
+
 # Forward declarations
 # ----------------------------------------------------------------------
 

@@ -25,7 +25,8 @@ import
   ./fixtures_utils, ./os_ops
 
 from std/json import
-  JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
+  JsonNode, JsonNodeKind, getBool, getInt, getStr, hasKey, items, len, pairs,
+  `$`, `[]`
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
@@ -35,6 +36,8 @@ from ../../beacon_chain/spec/peerdas_helpers import
   verify_data_column_sidecar_kzg_proofs
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
+from ../../beacon_chain/spec/beaconstate import
+  is_valid_indexed_payload_attestation
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
@@ -56,6 +59,8 @@ type
     opOnPhase0AttesterSlashing
     opOnElectraAttesterSlashing
     opInvalidateHash
+    opOnExecutionPayload
+    opOnPayloadAttestation
     opChecks
 
   BlobData = object
@@ -85,6 +90,10 @@ type
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
+    of opOnExecutionPayload:
+      executionPayload: gloas.SignedExecutionPayloadEnvelope
+    of opOnPayloadAttestation:
+      payloadAttestation: gloas.PayloadAttestationMessage
     of opChecks:
       checks: JsonNode
 
@@ -195,6 +204,23 @@ proc loadOps(
           invalidatedHash: Eth2Digest.fromHex(step["block_hash"].getStr()),
           latestValidHash: Eth2Digest.fromHex(
             step["payload_status"]["latest_valid_hash"].getStr()))
+    elif step.hasKey"execution_payload":
+      let filename = step["execution_payload"].getStr()
+      result.add Operation(kind: opOnExecutionPayload,
+        executionPayload: parseTest(
+          path/filename & ".ssz_snappy", SSZ,
+          gloas.SignedExecutionPayloadEnvelope))
+    elif step.hasKey"payload_attestation" or
+         step.hasKey"payload_attestation_message":
+      let filename =
+        if step.hasKey"payload_attestation":
+          step["payload_attestation"].getStr()
+        else:
+          step["payload_attestation_message"].getStr()
+      result.add Operation(kind: opOnPayloadAttestation,
+        payloadAttestation: parseTest(
+          path/filename & ".ssz_snappy", SSZ,
+          gloas.PayloadAttestationMessage))
     elif step.hasKey"checks":
       result.add Operation(kind: opChecks,
         checks: step["checks"])
@@ -294,6 +320,13 @@ proc stepOnBlock(
       dag, epochRef, blckRef, unrealized, signedBlock.message, time)
     doAssert status.isOk()
 
+    # Save every post-block state to the DB so that a later `addHeadExecutionPayload`
+    # can `updateState` to it directly instead of replaying through blocks and
+    # hitting not-yet-revealed envelopes.
+    when consensusFork >= ConsensusFork.Gloas:
+      withState(dag.clearanceState):
+        dag.db.putState(forkyState)
+
     # 5. Update DAG with new head
     dag.updateHead(fkChoice, time)
 
@@ -315,6 +348,11 @@ proc stepChecks(
       let headRef = dag.getBlockRef(headRoot).get()
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())
+      if val.hasKey("payload_status"):
+        # PAYLOAD_STATUS_EMPTY=0, PAYLOAD_STATUS_FULL=1.
+        # The head is FULL iff a verified (FULL) node exists for its root.
+        let isFull = headRoot in fkChoice.backend.proto_array.fullBlockIndices
+        doAssert (if isFull: 1 else: 0) == val["payload_status"].getInt()
     elif check == "justified_checkpoint":
       let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
       let checkpointEpoch = fkChoice.checkpoints.justified.checkpoint.epoch
@@ -350,6 +388,20 @@ proc stepChecks(
     elif check == "confirmed_root":
       doAssert fkChoice.backend.confirmed.root ==
         Eth2Digest.fromHex(val.getStr())
+    elif check == "payload_timeliness_vote" or
+         check == "payload_data_availability_vote":
+      # `votes` is ordered by PTC position; a `null` position cast no vote, so
+      # its bit stays unset, same observable value as a recorded `false`.
+      let tally = fkChoice.backend.ptc_votes.getOrDefault(
+        Eth2Digest.fromHex(val["block_root"].getStr()))
+      var i = 0
+      for v in val["votes"].items:
+        let expected = v.kind != JNull and v.getBool()
+        if check == "payload_timeliness_vote":
+          doAssert tally.present[i] == expected
+        else:
+          doAssert tally.available[i] == expected
+        inc i
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
@@ -369,6 +421,10 @@ proc doRunTest(
     steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
   var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
+  # Keep the gloas signed blocks around so a later `execution_payload`
+  # step can verify its envelope against the matching block via
+  # `addHeadExecutionPayload`.
+  var gloasBlocks: Table[Eth2Digest, ForkedSignedBeaconBlock]
 
   let state = newClone(stores.dag.headState)
   var stateCache = StateCache()
@@ -401,6 +457,9 @@ proc doRunTest(
           verifier, state[], stateCache,
           forkyBlck, step.blobData, step.columnsValid, time, invalidatedHashes)
         doAssert status.isOk == step.valid
+        when typeof(forkyBlck.message).kind >= ConsensusFork.Gloas:
+          if status.isOk:
+            gloasBlocks[forkyBlck.root] = step.blck
     of opOnPhase0AttesterSlashing:
       let indices = check_attester_slashing(
         state[], step.phase0AttesterSlashing, flags = {})
@@ -417,6 +476,36 @@ proc doRunTest(
       doAssert indices.isOk == step.valid
     of opInvalidateHash:
       invalidatedHashes[step.invalidatedHash] = step.latestValidHash
+    of opOnExecutionPayload:
+      let envBlockRoot = step.executionPayload.message.beacon_block_root
+      var valid = false
+      if envBlockRoot in gloasBlocks:
+        withBlck(gloasBlocks[envBlockRoot]):
+          when consensusFork == ConsensusFork.Gloas:
+            let addRes = stores.dag.addHeadExecutionPayload(
+              forkyBlck, step.executionPayload)
+            if addRes.isOk:
+              doAssert stores.fkChoice[].on_execution_payload(
+                stores.dag.cfg, stores.dag.timeParams,
+                step.executionPayload).isOk
+            valid = addRes.isOk
+      doAssert valid == step.valid
+    of opOnPayloadAttestation:
+      let pa = step.payloadAttestation
+      # This suite has no gossip layer, so mirror the signature check gossip
+      # does before recording.
+      var valid = false
+      withState(stores.dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          var attesting_indices: List[uint64, Limit PTC_SIZE]
+          discard attesting_indices.add(pa.validator_index)
+          if is_valid_indexed_payload_attestation(forkyState.data,
+              IndexedPayloadAttestation(
+                attesting_indices: attesting_indices,
+                data: pa.data, signature: pa.signature)):
+            valid = stores.fkChoice[].on_payload_attestation_message(
+              stores.dag, pa.validator_index, pa.data).isOk
+      doAssert valid == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
@@ -470,8 +559,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if path.contains("eip7732") or path.contains("eip7805") or
-          path.contains("gloas") or path.contains("heze"):
+      if path.contains("heze"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
@@ -479,13 +567,13 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         let basePath = testsPath/path/"pyspec_tests"
         if kind != pcDir:
           continue
+        # The Gloas/ePBS fork-choice handlers wired so far cover the execution
+        # payload envelope and PTC message categories; the remaining categories
+        # depend on EMPTY/FULL head selection that is not yet wired here.
+        if testsPath.contains("gloas") and path notin [
+            "on_execution_payload_envelope", "on_payload_attestation_message"]:
+          continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
-          # TODO https://github.com/ethereum/consensus-specs/pull/4807 modifies
-          # proposer boost mechanics to depend on the canonical chain
-          if  path.contains("voting_source_beyond_two_epoch") or
-              path.contains("justified_update_not_realized_finality") or
-              path.contains("justified_update_always_if_better"):
-            continue
           runTest(suiteName, basePath/path, fork, rng, taskpool)
 
 fcSuite("ForkChoice", "fork_choice")

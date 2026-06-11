@@ -63,6 +63,9 @@ const
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
+template hash*(blck: BlockRef): Hash =
+  hash blck.root
+
 func init*(
     T: type BlockRef,
     root: Eth2Digest,
@@ -77,6 +80,22 @@ func init*(
     executionParentHash: executionParentHash,
     optimisticStatus: optimisticStatus,
   )
+
+func init*(
+    T: type BlockRef, cfg: RuntimeConfig,
+    root: Eth2Digest, slot: Slot): BlockRef =
+  # The execution block root gets filled in as needed. Nonfinalized Bellatrix
+  # and later blocks are loaded as optimistic, which gets adjusted that first
+  # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
+  # marked as `VALID`.
+  if cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Bellatrix:
+    BlockRef.init(
+      root, Opt.none Eth2Digest, Opt.none Eth2Digest,
+      OptimisticStatus.notValidated, slot)
+  else:
+    BlockRef.init(
+      root, Opt.some ZERO_HASH, Opt.some ZERO_HASH,
+      OptimisticStatus.valid, slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest, _: OptimisticStatus,
