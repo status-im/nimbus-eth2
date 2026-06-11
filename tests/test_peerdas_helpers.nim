@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2026 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,7 @@ import
   kzg4844/[kzg_abi, kzg],
   ./consensus_spec/[os_ops, fixtures_utils],
   ../beacon_chain/spec/[helpers, peerdas_helpers],
-  ../beacon_chain/spec/datatypes/[fulu, gloas, deneb]
+  ../beacon_chain/spec/datatypes/[deneb, fulu, gloas]
 
 from std/strutils import rsplit
 
@@ -29,9 +29,9 @@ block:
 # such that BLS modulus does not overflow
 const MAX_TOP_BYTE = 114
 
-proc createSampleKzgBlobs(n: int, seed: int): seq[KzgBlob] =
+func createSampleKzgBlobs(n: int, seed: int): seq[KzgBlob] =
   var
-    blobs: seq[KzgBlob] = @[]
+    blobs: seq[KzgBlob]
     # Initialize the PRNG with the given seed
     rng = initRand(seed)
   for blobIndex in 0..<n:
@@ -67,10 +67,11 @@ proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
     commitmentsSeq = newSeqOfCap[KzgCommitment](blobs.len)
 
   for i, blob in blobs:
-    let cp = computeCellsAndKzgProofs(blob).valueOr:
-      raiseAssert "computeCellsAndKzgProofs failed"
-    allCells[i] = cp.cells
-    allProofs[i] = cp.proofs
+    let cp = computeCellsAndKzgProofs(blob)
+    doAssert cp.isOk, "computeCellsAndKzgProofs failed"
+    cp.isErrOr:
+      allCells[i] = value.cells
+      allProofs[i] = value.proofs
     let c = blobToKzgCommitment(blob).valueOr:
       raiseAssert "blobToKzgCommitment failed"
     commitmentsSeq.add(c)

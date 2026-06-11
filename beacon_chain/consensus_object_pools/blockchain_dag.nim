@@ -1245,6 +1245,47 @@ proc loadHead(
   dag.registerHead(headRef)
   ok headRef
 
+proc updateFinalizedBlocks(dag: ChainDAGRef, withAncestors = false) =
+  var
+    newFinalized: seq[BlockId]
+    tmp = dag.finalizedHead.blck
+  while tmp.parent != nil:
+    newFinalized.add(tmp.bid)
+    if tmp != dag.finalizedHead.blck:
+      # The newly finalized block itself should remain in here so that fork
+      # choice still can find it via root
+      dag.forkBlocks.excl(KeyedBlockRef.init(tmp))
+
+    let p = tmp.parent
+    tmp.parent = nil # Reset all parent links to release memory
+    tmp = p
+  if tmp != dag.finalizedHead.blck:
+    dag.forkBlocks.excl(KeyedBlockRef.init(tmp))
+
+  if withAncestors:
+    for blck in dag.db.getAncestorSummaries(tmp.root):
+      if dag.db.finalizedBlocks.high.isSome and
+          blck.summary.slot <= dag.db.finalizedBlocks.high.get:
+        break
+
+      newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
+
+  dag.db.updateFinalizedBlocks(newFinalized)
+
+proc collectOrphanedAncestors(
+    orphans: var HashSet[BlockId], dag: ChainDAGRef, headRoot: Eth2Digest) =
+  for blck in dag.db.getAncestorSummaries(headRoot):
+    if dag.getBlockRef(blck.root).isSome:
+      break
+    let bid = BlockId(root: blck.root, slot: blck.summary.slot)
+    if bid in orphans:
+      break
+    if dag.isFinalized(bid):
+      break
+    if not containsBlock(dag.cfg, dag.db, bid.slot, bid.root):
+      break
+    orphans.incl bid
+
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
   # Delete state and mapping for a particular block+slot
   if not dag.isStateCheckpoint(bsi):
@@ -1269,6 +1310,10 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     discard dag.db.delBlock(fork, bs.blck.root)
     if fork >= ConsensusFork.Gloas:
       discard dag.db.delExecutionPayloadEnvelope(bs.blck.root)
+
+proc pruneBlockId(dag: ChainDAGRef, bid: BlockId) =
+  dag.delState(BlockSlotId.init(bid, (bid.slot.epoch + 1).start_slot))
+  dag.pruneBlockSlot(BlockRef.init(dag.cfg, bid.root, bid.slot).atSlot())
 
 proc init*(
     T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
@@ -1328,6 +1373,7 @@ proc init*(
   dag.head = dag.loadHead(headRoot, finalizedSlot, invalidBlockRoots).valueOr:
     fatal "Error while loading head from database", reason = error, headRoot
     quit 1
+  let hasOrphans = dag.head.root != headRoot
 
   let summariesTick = Moment.now()
 
@@ -1390,23 +1436,7 @@ proc init*(
         finHigh = db.finalizedBlocks.high,
         finalizedHead = shortLog(dag.finalizedHead)
 
-      var
-        newFinalized: seq[BlockId]
-        tmp = dag.finalizedHead.blck
-      while tmp.parent != nil:
-        newFinalized.add(tmp.bid)
-        let p = tmp.parent
-        tmp.parent = nil
-        tmp = p
-
-      for blck in db.getAncestorSummaries(tmp.root):
-        if db.finalizedBlocks.high.isSome and
-            blck.summary.slot <= db.finalizedBlocks.high.get:
-          break
-
-        newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
-
-      db.updateFinalizedBlocks(newFinalized)
+      dag.updateFinalizedBlocks(withAncestors = true)
 
   doAssert dag.finalizedHead.blck.parent == nil,
     "The finalized head is the last BlockRef with a parent"
@@ -1453,6 +1483,13 @@ proc init*(
 
   assign(dag.clearanceState, dag.headState)
 
+  if hasOrphans and not dag.db.db.readOnly:
+    db.withManyWrites:
+      var orphans: HashSet[BlockId]
+      orphans.collectOrphanedAncestors(dag, headRoot)
+      for bid in orphans:
+        dag.pruneBlockId(bid)
+      dag.db.putHeadBlock(dag.head.root)
   if dag.backfill.slot > GENESIS_SLOT:  # Try frontfill from era files
     let backfillSlot = dag.backfill.slot - 1
     dag.frontfillBlocks = newSeqOfCap[Eth2Digest](backfillSlot.int)
@@ -1475,10 +1512,16 @@ proc init*(
     #      regular syncing instead of waiting for backfill.
     for bid in dag.era.getBlockIds(
         historical_roots, historical_summaries, Slot(0), Eth2Digest()):
-      # If backfill has not yet started, the backfill slot itself also needs
-      # to be served from era files. Checkpoint sync starts from state only
-      if bid.slot > backfillSlot or
-          (bid.slot == backfillSlot and bid.root != dag.tail.root):
+      # We perform this check to avoid situation, where the database history is
+      # not connected to the ERA files blocks. Connection check performed lower
+      # in the code via ``bid.root == dag.backfill.parent_root``.
+      # This check SHOULD not fail in any other cases, such as:
+      # 1) The last slot of ERA files is greater than the lowest known slot in
+      #    the database (dag.backfill.slot).
+      # 2) The last slot of ERA files is lower than or equal to the lowest known
+      #    slot in database (dag.backfill.slot).
+      # 3) The node was started immediately after checkpoint sync.
+      if bid.slot > backfillSlot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
@@ -2438,6 +2481,51 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Opt[Eth2Digest] =
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Opt[Eth2Digest] =
   dag.loadExecutionAndParentBlockHash(blck)[0]
 
+proc executionParent*(
+    dag: ChainDAGRef, parentRef: BlockRef,
+    parentBlockHash: Eth2Digest): Opt[BlockRef] =
+  ## Find parent block by execution parent block hash. In the worst case
+  ## scenario that if all blocks built on EMPTY payload, we might need to
+  ## navigate up to the finalized head.
+  ##
+  ## Example of the worst case scenario
+  ##
+  ## Slot  Beacon block      Execution payload
+  ## ----  ----------------  -------------------------------------------
+  ##   1   [ root: 0xA..1 ]  [ block_hash: 0xE..1, parent_hash: 0xE..0 ]
+  ##   2   [ root: 0xA..2 ]  [ block_hash: 0xE..2, parent_hash: 0xE..1 ]
+  ##   3   [ root: 0xA..3 ]  [ block_hash: 0xE..3, parent_hash: 0xE..1 ]
+  ##   4   [ root: 0xA..4 ]  [ block_hash: 0xE..4, parent_hash: 0xE..1 ]
+  ##   5   [ root: 0xA..5 ]  [ block_hash: 0xE..5, parent_hash: 0xE..1 ]
+  ##   6   [ root: 0xA..6 ]  [ block_hash: 0xE..6, parent_hash: 0xE..1 ]
+  ##   7   [ root: 0xA..7 ]  [ block_hash: 0xE..7, parent_hash: 0xE..1 ]
+  ##   8   [ root: 0xA..8 ]  [ block_hash: 0xE..8, parent_hash: 0xE..1 ]
+  ##
+  ## In this example, the execution parent of the slot 8 Block would be the slot
+  ## 1 Block.
+
+  if isNil(parentRef):
+    return Opt.none(BlockRef)
+
+  let
+    parentHash = ?dag.loadExecutionAndParentBlockHash(parentRef).parentHash
+
+    # When parent block hash is zero, it could be either genesis or pre-Gloas
+    # block. We limit the search to exactly 1 ancestor for these cases to
+    # strictly check over hashes.
+    maxDepth = if parentHash.isZero(): 1 else: EXECUTION_PARENT_MAX_DEPTH
+
+  var cur = parentRef
+  debugGloasComment("revisit the max depth of ancestors")
+  for _ in 0 ..< maxDepth:
+    let pBhash = ?dag.loadExecutionBlockHash(cur)
+    if pBhash == parentBlockHash:
+      return Opt.some(cur)
+    if isNil(cur.parent):
+      break
+    cur = cur.parent
+  Opt.none(BlockRef)
+
 from std/packedsets import PackedSet, incl, items
 
 func getBlsToExecutionChangeStatuses(
@@ -2672,25 +2760,10 @@ proc updateHead*(
       finalized = shortLog(dag.headState.finalized_checkpoint)
     let oldFinalizedHead = dag.finalizedHead
 
-    block:
-      # Update `dag.finalizedBlocks` with all newly finalized blocks (those
-      # newer than the previous finalized head), then update `dag.finalizedHead`
-      var newFinalized: seq[BlockId]
-      var tmp = finalizedHead.blck
-      while not isNil(tmp) and tmp.slot >= dag.finalizedHead.slot:
-        newFinalized.add(tmp.bid)
-        if tmp != finalizedHead.blck:
-          # The newly finalized block itself should remain in here so that fork
-          # choice still can find it via root
-          dag.forkBlocks.excl(KeyedBlockRef.init(tmp))
-
-        let p = tmp.parent
-        tmp.parent = nil # Reset all parent links to release memory
-        tmp = p
-
-      dag.finalizedHead = finalizedHead
-
-      dag.db.updateFinalizedBlocks(newFinalized)
+    # Update `dag.db.finalizedBlocks` with all newly finalized blocks (those
+    # newer than the previous finalized head)
+    dag.finalizedHead = finalizedHead
+    dag.updateFinalizedBlocks()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should

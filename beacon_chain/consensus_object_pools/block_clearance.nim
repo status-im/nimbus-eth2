@@ -472,6 +472,10 @@ proc addBackfillBlock*(
 
   let putBlockTick = Moment.now
   debug "Block backfilled",
+    blockRoot = shortLog(signedBlock.root),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signedBlock.signature),
+    backfill = shortLog(dag.backfill),
     sigVerifyDur = sigVerifyTick - startTick,
     putBlockDur = putBlockTick - sigVerifyTick
 
