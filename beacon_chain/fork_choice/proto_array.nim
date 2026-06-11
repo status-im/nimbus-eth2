@@ -420,8 +420,10 @@ func onPayloadVerified*(
 
   ok()
 
-func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
+func findHead*(self: var ProtoArray, head: var Eth2Digest,
+               headIsFull: var bool): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
+  ## and reports whether the chosen head node is the block's FULL variant.
   ##
   ## ️ Warning
   ## The result may not be accurate if `onBlock` is not followed by
@@ -462,6 +464,8 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
       headCheckpoints: justifiedNode.checkpoints)
 
   head = bestNode.bid.root
+  headIsFull =
+    self.fullBlockIndices.getOrDefault(bestNode.bid.root, -1) == bestDescendantIdx
   ok()
 
 func remapIdx(idx: Opt[Index], oldToNew: Table[Index, Index]): Opt[Index] =
@@ -620,8 +624,20 @@ func maybeUpdateBestChildAndDescendant(
           elif child.bid.root == bestChild.bid.root:
             let
               isPrevSlot = child.bid.slot + 1 == self.currentSlot
-              childWeight = if isPrevSlot: 0'i64 else: child.weight
-              bestWeight = if isPrevSlot: 0'i64 else: bestChild.weight
+              # Proposer boost is block-level (spec is_supporting_vote:
+              # message.slot <= block.slot), so it must not bias the EMPTY vs
+              # FULL choice; it sits on the EMPTY node, so drop it from whichever
+              # of the two is EMPTY before comparing.
+              boost =
+                if child.bid.root == self.previousProposerBoostRoot:
+                  self.previousProposerBoostScore.int64
+                else: 0'i64
+              childWeight =
+                if isPrevSlot: 0'i64
+                else: child.weight - (if childIsFull: 0'i64 else: boost)
+              bestWeight =
+                if isPrevSlot: 0'i64
+                else: bestChild.weight - (if childIsFull: boost else: 0'i64)
             template statusTiebreak(isFull: bool): int =
               if isPrevSlot:
                 if isFull:

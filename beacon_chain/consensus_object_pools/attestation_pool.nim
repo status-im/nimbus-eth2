@@ -925,9 +925,10 @@ proc willSelectNewHead*(
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
+  let newHead = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
     error "Couldn't select head", err = error
     return Opt.none(BeaconHead)
+  let newHeadRoot = newHead.root
 
   let headBlock = pool.dag.getBlockRef(newHeadRoot).valueOr:
     # This should normally not happen, but if the chain dag and fork choice

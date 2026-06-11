@@ -239,7 +239,7 @@ proc updateHead(
     updateFastConfirm = false) =
   var quarantine = Quarantine.init(dag.cfg)
   let
-    newHeadRoot = fkChoice[].get_head(dag, time).get()
+    newHeadRoot = fkChoice[].get_head(dag, time).get().root
     newHead = dag.getBlockRef(newHeadRoot).get()
   if updateFastConfirm:
     doAssert fkChoice[].will_select_head(dag, newHead, time).isOk
@@ -344,15 +344,13 @@ proc stepChecks(
       let slot = fkChoice.checkpoints.time.slotOrZero(dag.timeParams)
       doAssert slot == time.slotOrZero(dag.timeParams)
     elif check == "head":
-      let headRoot = fkChoice[].get_head(dag, time).get()
-      let headRef = dag.getBlockRef(headRoot).get()
+      let head = fkChoice[].get_head(dag, time).get()
+      let headRef = dag.getBlockRef(head.root).get()
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())
       if val.hasKey("payload_status"):
         # PAYLOAD_STATUS_EMPTY=0, PAYLOAD_STATUS_FULL=1.
-        # The head is FULL iff a verified (FULL) node exists for its root.
-        let isFull = headRoot in fkChoice.backend.proto_array.fullBlockIndices
-        doAssert (if isFull: 1 else: 0) == val["payload_status"].getInt()
+        doAssert (if head.full: 1 else: 0) == val["payload_status"].getInt()
     elif check == "justified_checkpoint":
       let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
       let checkpointEpoch = fkChoice.checkpoints.justified.checkpoint.epoch

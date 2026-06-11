@@ -48,7 +48,7 @@ func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
     checkpoints: Checkpoints,
-    proposerBoostRoot: Eth2Digest): FcResult[Eth2Digest]
+    proposerBoostRoot: Eth2Digest): FcResult[tuple[root: Eth2Digest, full: bool]]
 
 # Fork choice routines
 # ----------------------------------------------------------------------
@@ -288,8 +288,8 @@ proc reconfirm_fcr(
   self.update_unrealized_justified(dag)
 
   # Restart confirmation chain if necessary
-  fcr.current_slot_head = ? fcr.find_head(current_slot, self.checkpoints,
-                                          self.checkpoints.proposer_boost_root)
+  fcr.current_slot_head = (? fcr.find_head(current_slot, self.checkpoints,
+                                           self.checkpoints.proposer_boost_root)).root
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
     confirmed = fcr.observed_justified_block_id
@@ -570,7 +570,8 @@ func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
     checkpoints: Checkpoints,
-    proposerBoostRoot: Eth2Digest): FcResult[Eth2Digest] =
+    proposerBoostRoot: Eth2Digest
+  ): FcResult[tuple[root: Eth2Digest, full: bool]] =
   ## Returns the new blockchain head
 
   # Apply score changes
@@ -602,13 +603,15 @@ func find_head(
     if fullParentIdx < 0:
       emptyPreferredRoot = parentRoot
     elif parentIdx != fullParentIdx:
-      let tally = self.ptc_votes.getOrDefault(parentRoot)
-      var present, available = 0'u64
-      for i in 0 ..< tally.present.len:
-        if tally.present[i]: inc present
-        if tally.available[i]: inc available
-      if not (present > PAYLOAD_TIMELY_THRESHOLD and
-              available > DATA_AVAILABILITY_TIMELY_THRESHOLD):
+      var timely = false
+      self.ptc_votes.withValue(parentRoot, tally):
+        var present, available = 0'u64
+        for i in 0 ..< tally[].present.len:
+          if tally[].present[i]: inc present
+          if tally[].available[i]: inc available
+        timely = present > PAYLOAD_TIMELY_THRESHOLD and
+                 available > DATA_AVAILABILITY_TIMELY_THRESHOLD
+      if not timely:
         emptyPreferredRoot = parentRoot
 
   ? self.proto_array.applyScoreChanges(
@@ -623,19 +626,21 @@ func find_head(
 
   # Find the best block
   var new_head{.noinit.}: Eth2Digest
-  ? self.proto_array.findHead(new_head)
+  var new_head_full: bool
+  ? self.proto_array.findHead(new_head, new_head_full)
 
   trace "Fork choice requested",
     current_slot, checkpoints = FinalityCheckpoints(
       justified: checkpoints.justified.checkpoint,
       finalized: checkpoints.finalized),
     fork_choice_head = shortLog(new_head)
-  ok(new_head)
+  ok((root: new_head, full: new_head_full))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
-    wallTime: BeaconTime): FcResult[Eth2Digest] =
+    wallTime: BeaconTime): FcResult[tuple[root: Eth2Digest, full: bool]] =
   ? self.update_time(dag, wallTime)
   let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   let boostRoot =
