@@ -1329,12 +1329,6 @@ proc doRootSyncStep(
 
   if len(roots) > len(blocks):
     # Number of requested roots is bigger than number of received blocks.
-    if len(roots) == 1:
-      restoreRoots()
-      debug "Empty response received for single root request",
-        blocks = slimLog(blocks.asSeq()), blocks_count = len(blocks)
-      peer.updateScore(PeerScoreBadResponse)
-      return false
     peerEntry.maxBlocksPerRequest.decreaseBlocksCount()
   else:
     let consensusFork = blocks[0][].kind
