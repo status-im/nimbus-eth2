@@ -928,7 +928,7 @@ proc selectOptimisticHead*(
   let newHead = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
     error "Couldn't select head", err = error
     return Opt.none(BeaconHead)
-  let newHeadRoot = newHead.root
+  template newHeadRoot: Eth2Digest = newHead.root
 
   let headBlock = pool.dag.getBlockRef(newHeadRoot).valueOr:
     # This should normally not happen, but if the chain dag and fork choice
