@@ -1117,10 +1117,7 @@ AllTests-mainnet
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
 + remote signing example AGGREGATION_SLOT                                                    OK
 + remote signing example ATTESTATION                                                         OK
-+ remote signing example BLOCK_V2 (BELLATRIX)                                                OK
-+ remote signing example BLOCK_V2 (CAPELLA)                                                  OK
-+ remote signing example BLOCK_V2 (DENEB)                                                    OK
-+ remote signing example BLOCK_V2 (ELECTRA)                                                  OK
++ remote signing example BLOCK_V2 (FULU)                                                     OK
 + remote signing example DEPOSIT                                                             OK
 + remote signing example RANDAO_REVEAL                                                       OK
 + remote signing example SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF                               OK
