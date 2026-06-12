@@ -499,7 +499,7 @@ suite "Proposer preferences validation " & preset():
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
-      seen: array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]]
+      seen: array[2, array[SLOTS_PER_EPOCH, seq[ProposerPreferences]]]
 
     # Pick an upcoming slot and its scheduled proposer from the head state's
     # proposer_lookahead.

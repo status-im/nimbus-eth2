@@ -1845,7 +1845,7 @@ proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     seenProposerPreferences:
-      var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
+      var array[2, array[SLOTS_PER_EPOCH, seq[ProposerPreferences]]],
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[PayloadAvailability, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
@@ -1907,12 +1907,12 @@ proc validateExecutionPayloadBid*(
         let
           seenBucket = uint64(bid.slot.epoch()) mod 2
           seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
-        var match: Opt[ProposerPreferences]
+        var matched: Opt[ProposerPreferences]
         for pref in seenProposerPreferences[seenBucket][seenKey]:
           if pref.dependent_root == bidDependentRoot:
-            match = Opt.some(pref)
+            matched = Opt.some(pref)
             break
-        match.valueOr:
+        matched.valueOr:
           return dag.checkedReject("ExecutionPayloadBid: matching preferences not seen")
 
       # [IGNORE]
