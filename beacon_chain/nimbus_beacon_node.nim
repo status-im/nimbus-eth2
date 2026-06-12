@@ -398,7 +398,8 @@ proc loadChainDag(
       if config.lightClientDataServe: onLightClientOptimisticUpdate
       else: nil
   dag = ChainDAGRef.init(
-    cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
+    cfg, db, validatorMonitor, chainDagFlags,
+    config.eraDir, config.invalidBlockRoots,
     vanityLogs = getVanityLogs(detectTTY(config.logFormat)),
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,

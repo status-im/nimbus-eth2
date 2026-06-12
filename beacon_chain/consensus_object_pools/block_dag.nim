@@ -294,7 +294,7 @@ func executionValid*(blck: BlockRef): bool =
   if blck.optimisticStatus == OptimisticStatus.valid:
     return true
 
-  # Fallback to its execution parent if blck is not exeuction valid.
+  # Fallback to its execution parent if blck is not valid.
   let parent = blck.executionParent.valueOr:
     return false
   parent.optimisticStatus == OptimisticStatus.valid

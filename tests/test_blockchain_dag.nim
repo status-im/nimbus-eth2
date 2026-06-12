@@ -2198,10 +2198,10 @@ suite "Gloas block validity":
       bRef.markExecutionValid(true)
 
       check:
+        Opt.some(bRef.parent) == bRef.executionParent
         Opt.some(bRef.parent) == dag.executionParent(
           bRef.parent,
           b.envelope.message.payload.parent_hash)
-        Opt.some(bRef.parent) == bRef.executionParent
         bRef.executionValid
       if i == 0:
         check bRef.parent.slot == GENESIS_SLOT
@@ -2227,8 +2227,8 @@ suite "Gloas block validity":
           res.get()
 
       check:
+        Opt.some(payloadParent) == bRef.executionParent
         Opt.some(payloadParent) == dag.executionParent(
           bRef.parent,
           b.envelope.message.payload.parent_hash)
-        Opt.some(payloadParent) == bRef.executionParent
         bRef.executionValid
