@@ -2824,7 +2824,7 @@ proc updateHeadExecutionPayload*(
     return
 
   dag.headPayload = headPayload
-  debugGloasComment("update finalized head here? but envelope may not be guaranteed")
+  debugGloasComment("update finalized head here?")
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   ## Lightweight check to see if it is likely that the given database has been
