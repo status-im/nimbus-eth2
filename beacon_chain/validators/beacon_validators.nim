@@ -412,8 +412,8 @@ proc proposeBlockAux(
 
     parentExecutionRequests = block:
       when fork >= ConsensusFork.Gloas:
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#executionpayload
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#parent-execution-requests
         if shouldExtendPayload:
           let
             parentId = state[].latest_block_id
