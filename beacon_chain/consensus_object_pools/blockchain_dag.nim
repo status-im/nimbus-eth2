@@ -502,6 +502,17 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_dependent_root
+func get_dependent_root*(
+    dag: ChainDAGRef, bid: BlockId, current_slot: Slot): Eth2Digest =
+  let epoch = current_slot.epoch
+  if epoch <= MIN_SEED_LOOKAHEAD:
+    return ZERO_HASH
+  # spec's `start_slot(epoch - MIN_SEED_LOOKAHEAD) - 1` == attester_dependent_slot
+  let dependent = dag.atSlot(bid, epoch.attester_dependent_slot).valueOr:
+    return ZERO_HASH
+  dependent.bid.root
+
 type LRUCache[I: static[int], T] = block_pools_types.LRUCache[I, T]
 func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
   if cache.timestamp == uint32.high:
