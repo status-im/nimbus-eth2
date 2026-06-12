@@ -1913,7 +1913,7 @@ proc validateExecutionPayloadBid*(
             match = Opt.some(pref)
             break
         match.valueOr:
-          return dag.checkedReject("ExecutionPayloadBid: preferences have not being seen")
+          return dag.checkedReject("ExecutionPayloadBid: matching preferences not seen")
 
       # [IGNORE]
       # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
