@@ -164,7 +164,7 @@ proc expectEnvelope*(self: var ConsensusManager, blockRoot: Eth2Digest):
   if self.dag.db.containsExecutionPayloadEnvelope(blockRoot):
     self.checkExpectedEnvelope(blockRoot)
 
-  return fut
+  fut
 
 func shouldSyncViaLightClient*(
     lightClientSlot, dagSlot, wallSlot: Slot): bool =
