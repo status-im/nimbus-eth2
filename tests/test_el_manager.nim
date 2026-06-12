@@ -9,7 +9,7 @@
 {.used.}
 
 import
-  std/[typetraits, net],
+  std/net,
   unittest2,
   chronos,
   chronicles,
@@ -21,6 +21,8 @@ import
   ../beacon_chain/networking/network_metadata,
   ./testutil
 
+from std/sequtils import allIt
+
 proc allocatePort(): Port {.raises: [TransportError].} =
   ## Allocate a free port by using a counter starting from an unused port range
   ## Each allocation increments the counter
@@ -31,31 +33,31 @@ proc allocatePort(): Port {.raises: [TransportError].} =
 
 # Mock execution client state for testing
 type
-  MockEngineState* = ref object
+  MockEngineState = ref object
     ## Tracks the state of a mock execution client for testing scenarios, mainly
     ## for the purpose of testing failure, timeout and error scenarios (rather
     ## than specific payload properties)
-    chainId*: UInt256
-    shouldFailNewPayload*: bool
-    shouldFailForkchoice*: bool
-    shouldFailGetPayload*: bool
-    shouldFailChainId*: bool
-    newPayloadCallCount*: int
-    newPayloadV5CallCount*: int
-    forkchoiceCallCount*: int
-    forkchoiceV4CallCount*: int
-    getPayloadCallCount*: int
-    getPayloadV6CallCount*: int
-    chainIdCallCount*: int
-    responseDelay*: Duration
-    blockNumber*: uint64
+    chainId: UInt256
+    shouldFailNewPayload: bool
+    shouldFailForkchoice: bool
+    shouldFailGetPayload: bool
+    shouldFailChainId: bool
+    newPayloadCallCount: int
+    newPayloadV5CallCount: int
+    forkchoiceCallCount: int
+    forkchoiceV4CallCount: int
+    getPayloadCallCount: int
+    getPayloadV6CallCount: int
+    chainIdCallCount: int
+    responseDelay: Duration
+    blockNumber: uint64
 
-  MockSetup* = ref object
+  MockSetup = ref object
     state: MockEngineState
     server: RpcHttpServer
     url: EngineApiUrl
 
-proc createMockEngineState*(
+func createMockEngineState(
     chainId: UInt256 = 1.u256, initialBlockNumber: uint64 = 1000
 ): MockEngineState =
   ## Create a new mock engine state with default or custom values
@@ -76,7 +78,7 @@ proc createMockEngineState*(
     blockNumber: initialBlockNumber,
   )
 
-proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
+func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
   ## Setup a mock execution engine API on the RPC server
   server.rpc("engine_newPayloadV4", EthJson) do(
     payload: ExecutionPayloadV3,
@@ -92,7 +94,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       raise
         (ref ApplicationError)(code: -32603, msg: "Internal error: newPayloadV4 failed")
 
-    return PayloadStatusV1(
+    PayloadStatusV1(
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
     )
 
@@ -110,7 +112,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       raise
         (ref ApplicationError)(code: -32603, msg: "Internal error: newPayloadV5 failed")
 
-    return PayloadStatusV1(
+    PayloadStatusV1(
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
     )
 
@@ -126,7 +128,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
         code: -32603, msg: "Internal error: forkchoiceUpdatedV3 failed"
       )
 
-    return ForkchoiceUpdatedResponse(
+    ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(
         status: PayloadExecutionStatus.valid,
         latestValidHash: Opt.some(fcState.headBlockHash),
@@ -150,7 +152,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
         code: -32603, msg: "Internal error: forkchoiceUpdatedV4 failed"
       )
 
-    return ForkchoiceUpdatedResponse(
+    ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(
         status: PayloadExecutionStatus.valid,
         latestValidHash: Opt.some(fcState.headBlockHash),
@@ -171,7 +173,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       raise
         (ref ApplicationError)(code: -32603, msg: "Internal error: getPayloadV4 failed")
 
-    return GetPayloadV4Response()
+    GetPayloadV4Response()
 
   server.rpc("engine_getPayloadV6", EthJson) do(payloadId: Bytes8) -> GetPayloadV6Response:
     inc state.getPayloadV6CallCount
@@ -182,7 +184,7 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
       raise
         (ref ApplicationError)(code: -32603, msg: "Internal error: getPayloadV6 failed")
 
-    return GetPayloadV6Response()
+    GetPayloadV6Response()
 
   server.rpc("eth_chainId", EthJson) do() -> UInt256:
     inc state.chainIdCallCount
@@ -194,9 +196,9 @@ proc setupMockEngineAPI*(server: RpcHttpServer, state: MockEngineState) =
         code: -32603, msg: "Internal error: chain id query failed"
       )
 
-    return state.chainId
+    state.chainId
 
-proc newMockRpcServer*(
+proc newMockRpcServer(
     state: MockEngineState, port: Port
 ): RpcHttpServer {.raises: [CatchableError].} =
   ## Create and start a new mock RPC server on the given port
@@ -208,9 +210,9 @@ proc newMockRpcServer*(
   )
 
   server.start()
-  return server
+  server
 
-proc createEngineApiUrl*(
+func createEngineApiUrl(
     port: Port, jwtSecret: Opt[JwtSharedKey] = Opt.none(JwtSharedKey)
 ): EngineApiUrl =
   let urlStr = "http://127.0.0.1:" & $port.uint16
@@ -229,6 +231,104 @@ proc mockSetup(): MockSetup {.raises: [CatchableError].}  =
 proc close(setup: MockSetup) =
   waitFor setup.server.stop()
   waitFor setup.server.closeWait()
+
+type
+  TcpProxy = ref object
+    server: StreamServer
+    target: TransportAddress
+    pipes: seq[StreamTransport]
+
+  WsMockSetup = ref object
+    state: MockEngineState
+    server: RpcWebSocketServer
+    proxy: TcpProxy
+    url: EngineApiUrl
+
+proc pipeData(src, dst: StreamTransport) {.async: (raises: []).} =
+  var buf: array[4096, byte]
+  try:
+    while true:
+      let n = await src.readOnce(addr buf[0], buf.len)
+      if n <= 0:
+        break
+      discard await dst.write(addr buf[0], n)
+  except TransportError:
+    discard # pipe ends when either side is closed/severed
+  except CancelledError:
+    discard
+  # Propagate the close to the other side of the pipe
+  await noCancel allFutures(src.closeWait(), dst.closeWait())
+
+proc startTcpProxy(target: TransportAddress): TcpProxy {.
+    raises: [TransportOsError].} =
+  let proxy = TcpProxy(target: target)
+
+  proc handler(server: StreamServer, client: StreamTransport) {.
+      async: (raises: []).} =
+    let upstream =
+      try:
+        await connect(proxy.target)
+      except TransportError:
+        await noCancel client.closeWait()
+        return
+      except CancelledError:
+        await noCancel client.closeWait()
+        return
+    proxy.pipes.add client
+    proxy.pipes.add upstream
+    asyncSpawn pipeData(client, upstream)
+    asyncSpawn pipeData(upstream, client)
+
+  proxy.server = createStreamServer(
+    static(initTAddress("127.0.0.1:0")), handler, {ServerFlags.ReuseAddr})
+  proxy.server.start()
+  proxy
+
+proc severConnections(proxy: TcpProxy) {.async: (raises: []).} =
+  for transp in move(proxy.pipes):
+    await noCancel transp.closeWait()
+
+proc wsMockSetup(): WsMockSetup {.raises: [TransportError, JsonRpcError].} =
+  let
+    state = createMockEngineState()
+    server = newRpcWebSocketServer("127.0.0.1", allocatePort())
+  setupMockEngineAPI(server, state)
+  server.start()
+
+  let proxy = startTcpProxy(server.localAddress())
+  WsMockSetup(
+    state: state, server: server, proxy: proxy,
+    url: EngineApiUrl.init(
+      "ws://127.0.0.1:" & $proxy.server.localAddress().port.uint16))
+
+proc close(setup: WsMockSetup) =
+  waitFor setup.proxy.severConnections()
+  try:
+    setup.proxy.server.stop()
+  except TransportOsError:
+    discard
+  waitFor setup.proxy.server.closeWait()
+  setup.server.stop()
+  waitFor setup.server.closeWait()
+
+proc fcuValid(
+    manager: ELManager, deadlineMs = 250
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let (status, _) = await manager.forkchoiceUpdated(
+    ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH),
+    Opt.none(PayloadAttributesV3),
+    sleepAsync(deadlineMs.milliseconds), false)
+  status == PayloadExecutionStatus.valid
+
+proc fcuValidEventually(
+    manager: ELManager
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let deadline = Moment.now() + 10.seconds
+  while Moment.now() < deadline:
+    if await manager.fcuValid():
+      return true
+    await sleepAsync(10.milliseconds)
+  false
 
 suite "EL Manager - Helpers":
   test "Rewrite URLs":
@@ -250,7 +350,7 @@ suite "EL Manager - Helpers":
 
       gethWsUrl == "ws://localhost:8545"
 
-proc createELManager*(
+func createELManager(
     engines: seq[EngineApiUrl], eth1Network: Opt[Eth1Network] = Opt.none(Eth1Network)
 ): ELManager =
   ELManager.new(engines, eth1Network)
@@ -790,3 +890,47 @@ suite "EL Manager - Multiple Engines":
       setup1.state.newPayloadCallCount == 1
       setup2.state.newPayloadCallCount > 1
       resp.isOk()
+
+suite "EL Manager - WebSocket reconnection":
+  setup:
+    let
+      setup = wsMockSetup()
+      manager = createELManager(@[setup.url])
+
+  teardown:
+    setup.close()
+
+  test "reconnects after EL restart (working connection)":
+    check (0 ..< 3).allIt(waitFor manager.fcuValid())
+    check setup.state.forkchoiceCallCount == 3
+
+    waitFor setup.proxy.severConnections()
+
+    # The connection degrades after `connectionStateChangeHysteresisThreshold`
+    # failed requests and is re-established
+    check:
+      waitFor manager.fcuValidEventually()
+      setup.state.forkchoiceCallCount > 3
+
+  test "reconnects after EL restart (degraded connection)":
+    check waitFor manager.fcuValid()
+
+    # The connection transitions to the Degraded state
+    setup.state.shouldFailForkchoice = true
+    for _ in 0 ..< connectionStateChangeHysteresisThreshold + 1:
+      discard waitFor manager.fcuValid()
+    check not manager.hasAnyWorkingConnection()
+
+    # The EL serves a few requests, but not enough to transition to a Working
+    # state, then restarts again
+    setup.state.shouldFailForkchoice = false
+    let healthyCalls = setup.state.forkchoiceCallCount
+    check (0 ..< 3).allIt(waitFor manager.fcuValid())
+    check setup.state.forkchoiceCallCount == healthyCalls + 3
+
+    waitFor setup.proxy.severConnections()
+
+    # The EL manager re-establishes a connection and resumes engine calls
+    check:
+      waitFor manager.fcuValidEventually()
+      setup.state.forkchoiceCallCount > healthyCalls + 3

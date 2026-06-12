@@ -651,6 +651,11 @@ AllTests-mainnet
 + getPayload with different forkchoiceUpdated attributes                                     OK
 + multiple sequential forkchoiceUpdated calls with payload attributes                        OK
 ```
+## EL Manager - WebSocket reconnection
+```diff
++ reconnects after EL restart (degraded connection)                                          OK
++ reconnects after EL restart (working connection)                                           OK
+```
 ## EL Manager - forkchoiceUpdated
 ```diff
 + forkchoiceUpdated basic call                                                               OK
