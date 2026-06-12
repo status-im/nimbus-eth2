@@ -744,6 +744,89 @@ proc initLightClientDataForPeriod(
     dag.lcDataStore.db.sealPeriod(period)
   ok()
 
+
+proc loadHead(dag: ChainDAGRef, head: BlockRef): Opt[void] =
+  ## Initialize light client data for a given head's non-finalized blocks.
+  let tailSlot = dag.lcDataStore.cache.tailSlot
+  if head.slot < tailSlot:
+    return ok()
+  result.ok()
+
+  proc isSyncAggregateCanonical(
+      dag: ChainDAGRef, state: ForkyHashedBeaconState,
+      sync_aggregate: TrustedSyncAggregate, signature_slot: Slot): bool =
+    if signature_slot > state.data.slot:
+      return false
+    let bid = dag.getBlockIdAtSlot(state, signature_slot).valueOr:
+      return false
+    if bid.slot != signature_slot:
+      return false
+    let bdata = dag.getForkedBlock(bid).valueOr:
+      return false
+    withBlck(bdata):
+      when consensusFork >= ConsensusFork.Altair:
+        forkyBlck.message.body.sync_aggregate == sync_aggregate
+      else:
+        false
+
+  # Build list of blocks to process.
+  # As it is slow to load states in descending order,
+  # build a reverse todo list to then process them in ascending order
+  var
+    blocks = newSeqOfCap[BlockId](head.slot - tailSlot + 1)
+    bid = head.bid
+  while bid.slot > tailSlot:
+    blocks.add bid
+    bid = dag.existingParent(bid).valueOr:
+      dag.handleUnexpectedLightClientError(bid.slot)
+      result.err()
+      break
+  if bid.slot == tailSlot:
+    blocks.add bid
+
+  # Process blocks (reuses `dag.clearanceState`)
+  var cache: StateCache
+  for i in countdown(blocks.high, 0):
+    bid = blocks[i]
+    if not dag.updateExistingState(
+        dag.clearanceState, bid.atSlot(), save = false, cache):
+      dag.handleUnexpectedLightClientError(bid.slot)
+      result.err()
+      continue
+    let bdata = dag.getExistingForkedBlock(bid).valueOr:
+      dag.handleUnexpectedLightClientError(bid.slot)
+      result.err()
+      continue
+    withStateAndBlck(dag.clearanceState, bdata):
+      when consensusFork >= ConsensusFork.Altair:
+        if i == blocks.high:
+          let
+            period = bid.slot.sync_committee_period
+            best = newClone dag.lcDataStore.db.getBestUpdate(period)
+          withForkyUpdate(best[]):
+            when lcDataFork > LightClientDataFork.None:
+              let
+                attestedSlot = forkyUpdate.attested_header.beacon.slot
+                signatureSlot = forkyUpdate.signature_slot
+              if attestedSlot.sync_committee_period != period or
+                  signatureSlot.sync_committee_period != period:
+                error "Invalid LC data cached", best = best[], period
+                best[].reset()
+              elif not dag.isSyncAggregateCanonical(
+                  forkyState,
+                  forkyUpdate.sync_aggregate.asTrusted(),  # From DB, is trusted
+                  forkyUpdate.signature_slot):
+                best[].reset()  # Cached data is too recent or from other branch
+              else:
+                discard  # Cached data is ancestor of `bid`
+          dag.cacheLightClientData(forkyState, forkyBlck,
+            current_period_best_update = best,
+            latest_signature_slot = GENESIS_SLOT)
+        else:
+          dag.createLightClientUpdate(
+            forkyState, forkyBlck, parentBid = blocks[i + 1])
+      else: raiseAssert "Unreachable"
+
 proc initLightClientDataCache*(dag: ChainDAGRef) =
   ## Initialize cached light client data
   if not dag.shouldImportLcData:
@@ -790,81 +873,9 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     importMode = dag.lcDataStore.importMode
   debug "Initializing cached LC data", res, targetTailSlot
 
-  proc isSyncAggregateCanonical(
-      dag: ChainDAGRef, state: ForkyHashedBeaconState,
-      sync_aggregate: TrustedSyncAggregate, signature_slot: Slot): bool =
-    if signature_slot > state.data.slot:
-      return false
-    let bid = dag.getBlockIdAtSlot(state, signature_slot).valueOr:
-      return false
-    if bid.slot != signature_slot:
-      return false
-    let bdata = dag.getForkedBlock(bid).valueOr:
-      return false
-    withBlck(bdata):
-      when consensusFork >= ConsensusFork.Altair:
-        forkyBlck.message.body.sync_aggregate == sync_aggregate
-      else:
-        false
-
-  # Build list of blocks to process.
-  # As it is slow to load states in descending order,
-  # build a reverse todo list to then process them in ascending order
-  let tailSlot = dag.lcDataStore.cache.tailSlot
-  var
-    blocks = newSeqOfCap[BlockId](dag.head.slot - tailSlot + 1)
-    bid = dag.head.bid
-  while bid.slot > tailSlot:
-    blocks.add bid
-    bid = dag.existingParent(bid).valueOr:
-      dag.handleUnexpectedLightClientError(bid.slot)
-      res.err()
-      break
-  if bid.slot == tailSlot:
-    blocks.add bid
-
-  # Process blocks (reuses `dag.headState`, but restores it to the current head)
-  var cache: StateCache
-  for i in countdown(blocks.high, blocks.low):
-    bid = blocks[i]
-    if not dag.updateExistingState(
-        dag.headState, bid.atSlot(), save = false, cache):
-      dag.handleUnexpectedLightClientError(bid.slot)
-      res.err()
-      continue
-    let bdata = dag.getExistingForkedBlock(bid).valueOr:
-      dag.handleUnexpectedLightClientError(bid.slot)
-      res.err()
-      continue
-    withStateAndBlck(dag.headState, bdata):
-      when consensusFork >= ConsensusFork.Altair:
-        if i == blocks.high:
-          let
-            period = bid.slot.sync_committee_period
-            best = newClone dag.lcDataStore.db.getBestUpdate(period)
-          withForkyUpdate(best[]):
-            when lcDataFork > LightClientDataFork.None:
-              let
-                attestedSlot = forkyUpdate.attested_header.beacon.slot
-                signatureSlot = forkyUpdate.signature_slot
-              if attestedSlot.sync_committee_period != period or
-                  signatureSlot.sync_committee_period != period:
-                error "Invalid LC data cached", best = best[], period
-                best[].reset()
-              elif not dag.isSyncAggregateCanonical(
-                  forkyState,
-                  forkyUpdate.sync_aggregate.asTrusted(),  # From DB, is trusted
-                  forkyUpdate.signature_slot):
-                best[].reset()  # Cached data is too recent or from other branch
-              else:
-                discard  # Cached data is ancestor of `bid`
-          dag.cacheLightClientData(forkyState, forkyBlck,
-            current_period_best_update = best,
-            latest_signature_slot = GENESIS_SLOT)
-        else:
-          dag.createLightClientUpdate(
-            forkyState, forkyBlck, parentBid = blocks[i + 1])
-      else: raiseAssert "Unreachable"
+  # Import non-finalized light client data (reuses `dag.clearanceState`)
+  if dag.loadHead(dag.head).isErr:
+    res.err()
 
   # Import initial `LightClientBootstrap`
   if dag.finalizedHead.slot >= dag.lcDataStore.cache.tailSlot:

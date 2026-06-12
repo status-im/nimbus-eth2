@@ -467,7 +467,7 @@ proc forkchoiceUpdated(
           payloadExecutionStatus = status
       true
     of OptimisticStatus.invalidated:
-      if head.blck.executionValid:
+      if head.blck.optimisticStatus == OptimisticStatus.valid:
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
         warn "Previously valid execution payload turned invalid during fork choice update - check execution client for faults and restart the beacon node",
           blck = head.blck,

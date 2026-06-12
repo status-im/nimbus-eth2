@@ -17,16 +17,6 @@
 # Must match the regex: [a-z0-9\-]
 CONFIG_NAME: 'minimal'
 
-# Transition
-# ---------------------------------------------------------------
-# 2**256-2**10 for testing minimal network
-# (overridden in launch_local_testnet.sh) TERMINAL_TOTAL_DIFFICULTY: 115792089237316195423570985008687907853269984665640564039457584007913129638912
-# By default, don't use these params
-TERMINAL_BLOCK_HASH: 0x0000000000000000000000000000000000000000000000000000000000000000
-TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: 18446744073709551615
-
-
-
 # Genesis
 # ---------------------------------------------------------------
 # [customized]
@@ -62,6 +52,9 @@ ELECTRA_FORK_VERSION: 0x05000001
 # Fulu
 FULU_FORK_VERSION: 0x06000001
 # (overridden in launch_local_testnet.sh) FULU_FORK_EPOCH: 18446744073709551615
+# Gloas
+GLOAS_FORK_VERSION: 0x07000001
+# (overridden in launch_local_testnet.sh) GLOAS_FORK_EPOCH: 18446744073709551615
 
 # Time parameters
 # ---------------------------------------------------------------
@@ -162,7 +155,6 @@ MAX_BLOBS_PER_BLOCK_ELECTRA: 9
 MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
 
 # Fulu
-NUMBER_OF_COLUMNS: 128
 NUMBER_OF_CUSTODY_GROUPS: 128
 DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128
 MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384
