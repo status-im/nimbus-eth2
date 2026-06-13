@@ -24,6 +24,7 @@ import
   ../beacon_clock,
   ./batch_validation
 
+from std/sequtils import findIt
 from libp2p/protocols/pubsub/errors import ValidationResult
 from ../consensus_object_pools/common_tools import
   is_gas_limit_target_compatible
@@ -1907,13 +1908,11 @@ proc validateExecutionPayloadBid*(
         let
           seenBucket = uint64(bid.slot.epoch()) mod 2
           seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
-        var matched: Opt[ProposerPreferences]
-        for pref in seenProposerPreferences[seenBucket][seenKey]:
-          if pref.dependent_root == bidDependentRoot:
-            matched = Opt.some(pref)
-            break
-        matched.valueOr:
+        template prefs: untyped = seenProposerPreferences[seenBucket][seenKey]
+        let idx = prefs.findIt(it.dependent_root == bidDependentRoot)
+        if idx < 0:
           return dag.checkedReject("ExecutionPayloadBid: matching preferences not seen")
+        prefs[idx]
 
       # [IGNORE]
       # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
