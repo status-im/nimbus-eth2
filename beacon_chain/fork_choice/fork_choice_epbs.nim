@@ -13,6 +13,21 @@ import
   ./[fork_choice_types, proto_array]
 
 from ../spec/beaconstate import get_ptc
+from ../spec/datatypes/gloas import
+  PAYLOAD_TIMELY_THRESHOLD, DATA_AVAILABILITY_TIMELY_THRESHOLD
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
+func should_extend_payload*(
+    self: var ForkChoiceBackend, root: Eth2Digest): bool =
+  if root notin self.proto_array.fullBlockIndices:
+    return false
+  var present, available = 0'u64
+  self.ptc_votes.withValue(root, tally):
+    for i in 0 ..< tally[].present.len:
+      if tally[].present[i]: inc present
+      if tally[].available[i]: inc available
+  present > PAYLOAD_TIMELY_THRESHOLD and
+    available > DATA_AVAILABILITY_TIMELY_THRESHOLD
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(

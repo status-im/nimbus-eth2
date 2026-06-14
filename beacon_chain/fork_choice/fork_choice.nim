@@ -600,19 +600,9 @@ func find_head(
       parentRoot = parentNode.bid.root
       fullParentIdx =
         self.proto_array.fullBlockIndices.getOrDefault(parentRoot, -1)
-    if fullParentIdx < 0:
+    if parentIdx != fullParentIdx and
+        not self.should_extend_payload(parentRoot):
       emptyPreferredRoot = parentRoot
-    elif parentIdx != fullParentIdx:
-      var timely = false
-      self.ptc_votes.withValue(parentRoot, tally):
-        var present, available = 0'u64
-        for i in 0 ..< tally[].present.len:
-          if tally[].present[i]: inc present
-          if tally[].available[i]: inc available
-        timely = present > PAYLOAD_TIMELY_THRESHOLD and
-                 available > DATA_AVAILABILITY_TIMELY_THRESHOLD
-      if not timely:
-        emptyPreferredRoot = parentRoot
 
   ? self.proto_array.applyScoreChanges(
     deltas, current_slot,
