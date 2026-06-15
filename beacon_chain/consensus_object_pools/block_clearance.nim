@@ -485,7 +485,7 @@ proc addHeadExecutionPayload*(
     dag: ChainDAGRef,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    onPayloadAdded: OnPayloadAdded,
+    onPayloadAdded: OnPayloadAdded = nil,
 ): Result[BlockRef, VerifierError] =
   ## Try adding the execution payload envelope to the head block, which should
   ## usually be invoked after the call of addHeadBlockWithParent()
