@@ -37,6 +37,7 @@ type Index = fork_choice_types.Index
 
 func compute_deltas(
     deltas: var openArray[Delta],
+    pendingDeltas: var openArray[Delta],
     indices: Table[Eth2Digest, Index],
     fullBlockIndices: Table[Eth2Digest, Index],
     indices_offset: Index,
@@ -105,6 +106,8 @@ func process_attestation(
       vote.next_root = block_root
       vote.slot = slot
       vote.next_payload_present = payload_present
+      let blockSlot = self.proto_array.slot(block_root).valueOr: slot
+      vote.next_pending = (not payload_present) and slot <= blockSlot
 
       trace "Integrating Gloas vote in fork choice",
         validator_index = validator_index,
@@ -566,6 +569,35 @@ proc process_block*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
+func should_extend_payload*(
+    self: var ForkChoiceBackend, root, proposer_boost_root: Eth2Digest): bool =
+  if root notin self.proto_array.fullBlockIndices:
+    return false
+  var present, available = 0'u64
+  self.ptc_votes.withValue(root, tally):
+    for i in 0 ..< tally[].present.len:
+      if tally[].present[i]: inc present
+      if tally[].available[i]: inc available
+  if present > PAYLOAD_TIMELY_THRESHOLD and
+      available > DATA_AVAILABILITY_TIMELY_THRESHOLD:
+    return true
+  if proposer_boost_root.isZero:
+    return true
+  let boostNode = self.proto_array.node(proposer_boost_root).valueOr:
+    return true
+  let parentIdx = boostNode.parent.valueOr:
+    return true
+  let parentNode = self.proto_array.node(parentIdx).valueOr:
+    return true
+  if parentNode.bid.root != root:
+    return true
+  parentIdx == self.proto_array.fullBlockIndices.getOrDefault(root, -1)
+
+func should_extend_payload*(self: var ForkChoice, root: Eth2Digest): bool =
+  self.backend.should_extend_payload(
+    root, self.checkpoints.proposer_boost_root)
+
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
@@ -575,8 +607,11 @@ func find_head(
   ## Returns the new blockchain head
 
   # Apply score changes
-  var deltas = newSeq[Delta](self.proto_array.nodes.len)
+  var
+    deltas = newSeq[Delta](self.proto_array.nodes.len)
+    pendingDeltas = newSeq[Delta](self.proto_array.nodes.len)
   ? deltas.compute_deltas(
+    pendingDeltas = pendingDeltas,
     indices = self.proto_array.indices,
     fullBlockIndices = self.proto_array.fullBlockIndices,
     indices_offset = self.proto_array.nodes.offset,
@@ -601,8 +636,14 @@ func find_head(
       fullParentIdx =
         self.proto_array.fullBlockIndices.getOrDefault(parentRoot, -1)
     if parentIdx != fullParentIdx and
-        not self.should_extend_payload(parentRoot):
+        not self.should_extend_payload(parentRoot, proposerBoostRoot):
       emptyPreferredRoot = parentRoot
+
+  # `compute_deltas` accumulated the same-slot (PENDING-only) vote weight into
+  # `pendingDeltas`;  so the EMPTY vs FULL tie-break can exclude it, per spec
+  # `is_supporting_vote` (`message.slot <= block.slot`).
+  for i in 0 ..< self.proto_array.nodes.buf.len:
+    self.proto_array.nodes.buf[i].pendingWeight += pendingDeltas[i]
 
   ? self.proto_array.applyScoreChanges(
     deltas, current_slot,
@@ -744,6 +785,7 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
 
 func compute_deltas(
     deltas: var openArray[Delta],
+    pendingDeltas: var openArray[Delta],
     indices: Table[Eth2Digest, Index],
     fullBlockIndices: Table[Eth2Digest, Index],
     indices_offset: Index,
@@ -790,7 +832,8 @@ func compute_deltas(
         0.Gwei
 
     if  vote.current_root != vote.next_root or old_balance != new_balance or
-        vote.payload_present != vote.next_payload_present:
+        vote.payload_present != vote.next_payload_present or
+        vote.current_pending != vote.next_pending:
       template resolveIndex(root: Eth2Digest, payloadPresent: bool): int =
         if payloadPresent and root in fullBlockIndices:
           fullBlockIndices.unsafeGet(root) - indices_offset
@@ -808,6 +851,10 @@ func compute_deltas(
         deltas[index] -= Delta old_balance
           # Note that delta can be negative
           # TODO: is int64 big enough?
+        # A pending vote's payload_present is false, so `index` is the EMPTY
+        # (base) node; keep `pendingWeight` in step with `weight`.
+        if vote.current_pending:
+          pendingDeltas[index] -= Delta old_balance
 
       if vote.slot != FAR_FUTURE_SLOT and not vote.next_root.isZero:
         if vote.next_root in indices:
@@ -819,9 +866,12 @@ func compute_deltas(
           deltas[index] += Delta new_balance
             # Note that delta can be negative
             # TODO: is int64 big enough?
+          if vote.next_pending:
+            pendingDeltas[index] += Delta new_balance
 
       vote.current_root = vote.next_root
       vote.payload_present = vote.next_payload_present
+      vote.current_pending = vote.next_pending
   return ok()
 
 # Sanity checks
@@ -845,6 +895,7 @@ when isMainModule:
     const validator_count = 16
     var
       deltas = newSeqUninit[Delta](validator_count)
+      pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
       fullBlockIndices: Table[Eth2Digest, Index]
@@ -859,7 +910,7 @@ when isMainModule:
       new_balances.add 0.ForkChoiceBalance
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -878,6 +929,7 @@ when isMainModule:
       validator_count = 16
     var
       deltas = newSeqUninit[Delta](validator_count)
+      pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
       fullBlockIndices: Table[Eth2Digest, Index]
@@ -895,7 +947,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -920,6 +972,7 @@ when isMainModule:
       validator_count = 16
     var
       deltas = newSeqUninit[Delta](validator_count)
+      pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
       fullBlockIndices: Table[Eth2Digest, Index]
@@ -937,7 +990,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -959,6 +1012,7 @@ when isMainModule:
       TotalDeltas = Delta(Balance.unslashed_balance * validator_count)
     var
       deltas = newSeqUninit[Delta](validator_count)
+      pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
       fullBlockIndices: Table[Eth2Digest, Index]
@@ -977,7 +1031,7 @@ when isMainModule:
       new_balances.add Balance
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -1009,7 +1063,9 @@ when isMainModule:
     indices[fakeHash(1)] = 0
 
     # 2 validators
-    var deltas = newSeqUninit[Delta](2)
+    var
+      deltas = newSeqUninit[Delta](2)
+      pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance, Balance]
       new_balances = @[Balance, Balance]
@@ -1028,7 +1084,7 @@ when isMainModule:
       slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -1051,6 +1107,7 @@ when isMainModule:
       TotalNewDeltas = Delta(NewBalance.unslashed_balance * validator_count)
     var
       deltas = newSeqUninit[Delta](validator_count)
+      pendingDeltas = newSeq[Delta](deltas.len)
 
       indices: Table[Eth2Digest, Index]
       fullBlockIndices: Table[Eth2Digest, Index]
@@ -1069,7 +1126,7 @@ when isMainModule:
       new_balances.add NewBalance
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -1104,7 +1161,9 @@ when isMainModule:
     indices[fakeHash(2)] = 1
 
     # 1 validator at the start, 2 at the end
-    var deltas = newSeqUninit[Delta](2)
+    var
+      deltas = newSeqUninit[Delta](2)
+      pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance]
       new_balances = @[Balance, Balance]
@@ -1117,7 +1176,7 @@ when isMainModule:
         slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err
@@ -1146,7 +1205,9 @@ when isMainModule:
     indices[fakeHash(2)] = 1
 
     # 2 validator at the start, 1 at the end
-    var deltas = newSeqUninit[Delta](2)
+    var
+      deltas = newSeqUninit[Delta](2)
+      pendingDeltas = newSeq[Delta](deltas.len)
     let
       old_balances = @[Balance, Balance]
       new_balances = @[Balance]
@@ -1159,7 +1220,7 @@ when isMainModule:
         slot: Slot(0))
 
     let err = deltas.compute_deltas(
-      indices, fullBlockIndices, indices_offset = 0,
+      pendingDeltas, indices, fullBlockIndices, indices_offset = 0,
       votes, old_balances, new_balances)
 
     doAssert err.isOk, "compute_deltas finished with error: " & $err

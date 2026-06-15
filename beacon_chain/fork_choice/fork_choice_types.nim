@@ -124,6 +124,7 @@ type
     checkpoints*: FinalityCheckpoints
     sharedFinalizedEpoch*: Epoch
     weight*: int64
+    pendingWeight*: int64
     invalid*: bool
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
@@ -150,6 +151,8 @@ type
     slot*: Slot
     payload_present*: bool
     next_payload_present*: bool
+    current_pending*: bool ##\
+    next_pending*: bool
 
   PtcVoteTally* = object
     present*: BitArray[int PTC_SIZE]

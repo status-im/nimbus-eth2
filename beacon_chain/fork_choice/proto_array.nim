@@ -466,6 +466,7 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest,
   head = bestNode.bid.root
   headIsFull =
     self.fullBlockIndices.getOrDefault(bestNode.bid.root, -1) == bestDescendantIdx
+
   ok()
 
 func remapIdx(idx: Opt[Index], oldToNew: Table[Index, Index]): Opt[Index] =
@@ -624,20 +625,19 @@ func maybeUpdateBestChildAndDescendant(
           elif child.bid.root == bestChild.bid.root:
             let
               isPrevSlot = child.bid.slot + 1 == self.currentSlot
-              # Proposer boost is block-level (spec is_supporting_vote:
-              # message.slot <= block.slot), so it must not bias the EMPTY vs
-              # FULL choice; it sits on the EMPTY node, so drop it from whichever
-              # of the two is EMPTY before comparing.
+              # drop proposer boost from the empty node before comparing `pendingWeight`
               boost =
                 if child.bid.root == self.previousProposerBoostRoot:
                   self.previousProposerBoostScore.int64
                 else: 0'i64
               childWeight =
                 if isPrevSlot: 0'i64
-                else: child.weight - (if childIsFull: 0'i64 else: boost)
+                else: child.weight - child.pendingWeight -
+                  (if childIsFull: 0'i64 else: boost)
               bestWeight =
                 if isPrevSlot: 0'i64
-                else: bestChild.weight - (if childIsFull: boost else: 0'i64)
+                else: bestChild.weight - bestChild.pendingWeight -
+                  (if childIsFull: boost else: 0'i64)
             template statusTiebreak(isFull: bool): int =
               if isPrevSlot:
                 if isFull:
