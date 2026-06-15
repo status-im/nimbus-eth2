@@ -399,8 +399,8 @@ suite "Block processor" & preset():
           blobs: @[kzgBlob.bytes]
         )
 
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache, blobs_bundle = blobsBundle
         )
 
         # Wrap cell proofs as Opt.some (proposer has all proofs)
@@ -439,8 +439,8 @@ suite "Block processor" & preset():
           blobs: @[kzgBlob.bytes]
         )
 
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache, blobs_bundle = blobsBundle
         )
 
         let blockRoot = engineBlock.blck.root
@@ -593,8 +593,8 @@ suite "Block processor" & preset():
           blobs: @[kzgBlob.bytes]
         )
 
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache, blobs_bundle = blobsBundle
         )
 
         let blockRoot = engineBlock.blck.root
