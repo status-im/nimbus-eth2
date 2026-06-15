@@ -331,6 +331,10 @@ type
     state: consensusFork.BeaconState, epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [].}
 
+  OnPayloadAdded*[consensusFork: static ConsensusFork] = proc(
+    blckRef: BlockRef,
+    envelope: TrustedSignedExecutionPayloadEnvelope) {.gcsafe, raises: [].}
+
   OnStateUpdated* = proc(
     slot: Slot): Result[void, VerifierError] {.gcsafe, raises: [].}
 

@@ -731,6 +731,10 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
+template asTrusted*(
+    x: SignedExecutionPayloadEnvelope): TrustedSignedExecutionPayloadEnvelope =
+  isomorphicCast[TrustedSignedExecutionPayloadEnvelope](x)
+
 # Helpers to frequently used values
 template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
 template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot

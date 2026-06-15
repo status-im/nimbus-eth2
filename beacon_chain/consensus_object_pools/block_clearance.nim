@@ -485,6 +485,7 @@ proc addHeadExecutionPayload*(
     dag: ChainDAGRef,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    onPayloadAdded: OnPayloadAdded,
 ): Result[BlockRef, VerifierError] =
   ## Try adding the execution payload envelope to the head block, which should
   ## usually be invoked after the call of addHeadBlockWithParent()
@@ -560,6 +561,9 @@ proc addHeadExecutionPayload*(
   # `on_execution_payload_envelope` handler
   if not isNil(dag.onEnvelopeAdded):
     dag.onEnvelopeAdded(signedEnvelope)
+
+  if not isNil(onPayloadAdded):
+    onPayloadAdded(blck, signedEnvelope.asTrusted())
 
   ok(blck)
 

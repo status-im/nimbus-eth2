@@ -24,7 +24,7 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
+  ChainDAGRef, EpochRef, OnBlockAdded, OnPayloadAdded, VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
@@ -533,6 +533,18 @@ proc onBlockAdded*(
           blck.message.slot, blck.root, state.current_sync_committee.pubkeys.data[i]
         )
 
+proc onPayloadAdded*(
+    dag: ChainDAGRef,
+    consensusFork: static ConsensusFork,
+): OnPayloadAdded[consensusFork] =
+  ## Actions to perform when a payload is successfully added to the DAG
+
+  return proc(
+      blckRef: BlockRef,
+      envelope: TrustedSignedExecutionPayloadEnvelope,
+  ) =
+    debugGloasComment("handlers, e.g. fork choice, attestations")
+
 proc verifyPayload(
     self: ref BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
@@ -1006,7 +1018,10 @@ proc storePayload(
 
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")
-  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+  const consensusFork = typeof(signedBlock).kind
+  let blck = ?addHeadExecutionPayload(
+    dag, signedBlock, signedEnvelope,
+    onPayloadAdded(dag, consensusFork))
 
   # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
   # execution_payload_available: The node has verified that the execution
