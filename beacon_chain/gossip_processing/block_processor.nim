@@ -535,8 +535,7 @@ proc onBlockAdded*(
 
 proc onPayloadAdded*(
     dag: ChainDAGRef,
-    consensusFork: static ConsensusFork,
-): OnPayloadAdded[consensusFork] =
+): OnPayloadAdded =
   ## Actions to perform when a payload is successfully added to the DAG
 
   return proc(
@@ -1021,7 +1020,7 @@ proc storePayload(
   const consensusFork = typeof(signedBlock).kind
   let blck = ?addHeadExecutionPayload(
     dag, signedBlock, signedEnvelope,
-    onPayloadAdded(dag, consensusFork))
+    onPayloadAdded(dag))
 
   # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
   # execution_payload_available: The node has verified that the execution
