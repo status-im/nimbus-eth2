@@ -753,7 +753,7 @@ proc storeBlock(
   # In the unhappy case, the head update kickstarts any pruning and cleanup work
   # which helps conserve resources, ie also a good thing to be doing just after
   # having added a block.
-  let previousExecutionValid = dag.head.executionValid
+  let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
   self.consensusManager[].updateHead(wallSlot)
 
   # After producing attestations, we might be asked to produce a block for the
@@ -1004,7 +1004,7 @@ proc storePayload(
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
-  let previousExecutionValid = dag.head.executionValid
+  let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
 
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")

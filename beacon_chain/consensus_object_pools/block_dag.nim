@@ -55,8 +55,16 @@ type
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
+const
+  EXECUTION_PARENT_MAX_DEPTH* = 1 shl 4
+    ## Set to 16 as the max depth of ancestors on searching the execution
+    ## parent.
+
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
+
+template hash*(blck: BlockRef): Hash =
+  hash blck.root
 
 func init*(
     T: type BlockRef,
@@ -260,8 +268,36 @@ func shortLog*(v: BlockSlot): string =
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
 
+func executionParent*(blck: BlockRef): Opt[BlockRef] =
+  if isNil(blck.parent) or blck.executionParentHash.isNone():
+    return Opt.none(BlockRef)
+
+  # Parent hash of pre-Gloas blocks is zero but it could be built on the
+  # genesis. Either way, the execution parent should be same as the block
+  # parent.
+  if blck.executionParentHash.get().isZero():
+    return Opt.some(blck.parent)
+
+  var cur = blck.parent
+  debugGloasComment("revisit the max depth of ancestors")
+  for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
+    if cur.executionBlockHash.isNone():
+      break
+    if cur.executionBlockHash.get() == blck.executionParentHash.get():
+      return Opt.some(cur)
+    if isNil(cur.parent):
+      break
+    cur = cur.parent
+  Opt.none(BlockRef)
+
 func executionValid*(blck: BlockRef): bool =
-  blck.optimisticStatus == OptimisticStatus.valid
+  if blck.optimisticStatus == OptimisticStatus.valid:
+    return true
+
+  # Fallback to its execution parent if blck is not valid.
+  let parent = blck.executionParent.valueOr:
+    return false
+  parent.optimisticStatus == OptimisticStatus.valid
 
 proc markExecutionValid*(blck: BlockRef, valid: bool) =
   ## Mark a block as having a valid or invalid excecution payload

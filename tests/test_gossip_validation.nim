@@ -521,7 +521,7 @@ suite "Proposer preferences validation " & preset():
             proposerFound = true
             break
         # wrongValidator just needs to differ from the scheduled proposer at
-        # proposerSlot; other slots don't matter for is_valid_proposal_slot.
+        # proposer_slot; that is the only slot the proposer check looks at.
         wrongValidator = proposer_index + 1
         if forkyState.data.proposer_lookahead.item(
             proposer_slot - startSlot) == wrongValidator:

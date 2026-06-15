@@ -17,16 +17,6 @@
 # Must match the regex: [a-z0-9\-]
 CONFIG_NAME: 'mainnet'
 
-# Transition
-# ---------------------------------------------------------------
-# Estimated on Sept 15, 2022
-# (overridden in launch_local_testnet.sh) TERMINAL_TOTAL_DIFFICULTY: 58750000000000000000000
-# By default, don't use these params
-TERMINAL_BLOCK_HASH: 0x0000000000000000000000000000000000000000000000000000000000000000
-TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: 18446744073709551615
-
-
-
 # Genesis
 # ---------------------------------------------------------------
 # `2**14` (= 16,384)
@@ -63,6 +53,9 @@ ELECTRA_FORK_VERSION: 0x05000000
 # Fulu
 FULU_FORK_VERSION: 0x06000000
 # (overridden in launch_local_testnet.sh) FULU_FORK_EPOCH: 18446744073709551615  # temporary stub
+# Gloas
+GLOAS_FORK_VERSION: 0x07000000
+# (overridden in launch_local_testnet.sh) GLOAS_FORK_EPOCH: 18446744073709551615  # temporary stub
 
 # Time parameters
 # ---------------------------------------------------------------
@@ -161,7 +154,6 @@ MAX_BLOBS_PER_BLOCK_ELECTRA: 9
 MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152
 
 # Fulu
-NUMBER_OF_COLUMNS: 128
 NUMBER_OF_CUSTODY_GROUPS: 128
 DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128
 MAX_REQUEST_DATA_COLUMN_SIDECARS: 16384

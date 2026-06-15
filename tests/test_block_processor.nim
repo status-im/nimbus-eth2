@@ -73,7 +73,7 @@ suite "Block processor" & preset():
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
       dataColumnQuarantine = newClone(ColumnQuarantine())
@@ -151,9 +151,9 @@ suite "Block processor" & preset():
       dag.heads.mapIt(it) == @[b2Get.get()]
 
     # check that init also reloads block graph
-    var
+    let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
-      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      dag2 = ChainDAGRef.init(cfg, db, validatorMonitor2, {})
 
     check:
       # ensure we loaded the correct head state
@@ -163,15 +163,16 @@ suite "Block processor" & preset():
       dag2.getBlockRef(b2.root).isSome()
       dag2.heads.len == 1
       dag2.heads[0].root == b2.root
+      dag2.forkBlocksMatchHeads()
 
   asyncTest "Invalidate block root" & preset():
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       processor = BlockProcessor.new(
-        false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, dataColumnQuarantine, gloasColumnQuarantine,
-        envelopeQuarantine, getTimeFn, invalidBlockRoots = @[b2.root])
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
 
     block:
       let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
@@ -198,6 +199,33 @@ suite "Block processor" & preset():
         res == Result[void, VerifierError].err VerifierError.Invalid
         dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
+
+  asyncTest "Invalidate existing block root" & preset():
+    let
+      processor = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn)
+
+      b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b3 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+    check:
+      (await processor.addBlock(MsgSource.gossip, b1, noSidecars)).isOk
+      (await processor.addBlock(MsgSource.gossip, b2, noSidecars)).isOk
+      (await processor.addBlock(MsgSource.gossip, b3, noSidecars)).isOk
+    dag.updateHead(dag.getBlockRef(b3.root).get(), quarantine[], [])
+
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+      dag2 = ChainDAGRef.init(
+        cfg, db, validatorMonitor2, {}, invalidBlockRoots = @[b2.root])
+    check:
+      dag2.getBlockRef(b1.root).isSome
+      dag2.getBlockRef(b2.root).isNone
+      dag2.getBlockRef(b3.root).isNone
+      dag2.head == dag2.getBlockRef(b1.root).get
+      dag2.forkBlocksMatchHeads()
 
   asyncTest "Process a block from each fork (without blobs)" & preset():
     let processor = BlockProcessor.new(
@@ -723,9 +751,9 @@ suite "Block processor" & preset():
     # Simulate node restart: reinitialize DAG from the same DB.
     # All in-memory state caches are dropped, forcing updateState to
     # replay through b1-b3 slots from disk.
-    var
+    let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
-      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      dag2 = ChainDAGRef.init(cfg, db, validatorMonitor2, {})
       quarantine2 = newClone(Quarantine.init(cfg))
       attestationPool2 = newClone(AttestationPool.init(dag2, quarantine2))
       consensusManager2 = ConsensusManager.new(
@@ -734,7 +762,6 @@ suite "Block processor" & preset():
         newClone(DynamicFeeRecipientsStore.init()),
         "", Opt.some default(Eth1Address), defaultGasLimit)
 
-    let
       state2 = newClone(dag2.headState)
       getTimeFn2 = proc(): BeaconTime =
         state2[].slot.start_beacon_time(cfg.timeParams)

@@ -421,25 +421,10 @@ template validateBeaconBlockGloas(
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
   let executionParent = block:
-    var
-      cur = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-      i = 0
-      found = false
-
-    while i < 2:
-      let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
-        return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-      if pBhash == bid.parent_block_hash:
-        found = true
-        break
-      if isNil(cur.parent):
-        break
-      cur = cur.parent
-      inc i
-    if not found:
+    let parentRef = dag.getBlockRef(bid.parent_block_root).valueOr:
+      return errIgnore("validateBeaconBlockGloas: parent not yet seen")
+    dag.executionParent(parentRef, bid.parent_block_hash).valueOr:
       return errIgnore("validateBeaconBlockGloas: invalid execution parent")
-    cur
 
   # - [IGNORE] The block's parent execution payload (defined by
   #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
@@ -2124,6 +2109,12 @@ proc validateExecutionPayloadBid*(
         return errIgnore(
           "ExecutionPayloadBid: parent block root not found in fork choice")
 
+      # [REJECT] The bid is for a higher slot than its parent block -- i.e.
+      # validate that `bid.slot` is greater than the slot of the block with root
+      # `bid.parent_block_root`.
+      if not (bid.slot > parentBlck.slot):
+        return errReject("ExecutionPayloadBid: slot not greater than parent's")
+
       # [IGNORE] this bid is the highest value bid seen for the tuple
       # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`.
       let
@@ -2161,17 +2152,10 @@ proc validateExecutionPayloadBid*(
           bid.gas_limit, seenPref.target_gas_limit):
         return errIgnore("ExecutionPayloadBid: gas limit not target-compatible")
 
-      # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
-      # block in fork choice
-      if dag.getBlockRef(bid.parent_block_root).isNone():
-        return errIgnore(
-          "ExecutionPayloadBid: parent block root not found in fork choice")
-
       # [IGNORE] bid.slot is the current slot or the next slot
       let currentSlot = wallTime.slotOrZero(dag.timeParams)
       if bid.slot != currentSlot and bid.slot != currentSlot + 1:
-        return errIgnore(
-          "ExecutionPayloadBid: slot not current or next slot")
+        return errIgnore("ExecutionPayloadBid: slot not current or next slot")
 
       # [REJECT] The length of KZG commitments is less than or equal to the
       # limitation defined in the consensus layer -- i.e. validate that
@@ -2289,7 +2273,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
@@ -2323,18 +2307,17 @@ proc validateProposerPreferences*(
   # where state is the checkpoint state at the epoch
   # compute_epoch_at_slot(preferences.proposal_slot) - 1
   # and the root preferences.dependent_root.
-  # Spec requires the checkpoint state at dependent_root; we approximate
-  # with head state which should have the same proposer_lookahead when synced.
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      if not is_valid_proposal_slot(
-          forkyState.data, preferences.proposal_slot,
-          preferences.validator_index):
-        return dag.checkedReject(
-          "ProposerPreferences: not the proposer for proposal_slot")
-    else:
-      return errIgnore(
-        "ProposerPreferences: head state not yet at Gloas fork")
+  #
+  # Rather than replay that checkpoint state, compute the proposer from the
+  # shuffling anchored at the referenced dependent_root block.
+  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
+    return errIgnore("ProposerPreferences: dependent_root not in dag")
+  let proposer = dag.getProposer(
+      dependentRef, preferences.proposal_slot).valueOr:
+    return errIgnore("ProposerPreferences: unable to compute proposer")
+  if proposer.uint64 != preferences.validator_index:
+    return dag.checkedReject(
+      "ProposerPreferences: not the proposer for proposal_slot")
 
   # [IGNORE] The signed_proposer_preferences is the first valid message seen
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,

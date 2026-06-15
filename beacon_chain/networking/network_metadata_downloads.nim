@@ -21,7 +21,8 @@ type
 
   DigestMismatchError* = object of CatchableError
 
-proc downloadFile(url: Uri): Future[seq[byte]] {.async.} =
+proc downloadFile(url: Uri): Future[seq[byte]] {.
+    async: (raises: [CancelledError, HttpError, HttpFetchError]).} =
   let httpSession = HttpSessionRef.new()
   defer:
     await httpSession.closeWait()
@@ -36,7 +37,9 @@ proc downloadFile(url: Uri): Future[seq[byte]] {.async.} =
 
 proc fetchGenesisState*(
     metadata: Eth2NetworkMetadata, genesisStateUrlOverride = none(Uri)
-): Future[ref ForkedHashedBeaconState] {.async.} =
+): Future[ref ForkedHashedBeaconState] {.
+    async: (raises: [CancelledError, HttpError, HttpFetchError,
+                     SerializationError, DigestMismatchError, IOError]).} =
   ## Fetch and parse the genesis beacon state from the configured source, which
   ## may include downloading it.
   case metadata.genesis.kind
@@ -69,7 +72,8 @@ proc fetchGenesisState*(
     state
   of UserSuppliedFile:
     var tmp: seq[byte]
-    io2.readFile(metadata.genesis.path, tmp).tryGet()
+    io2.readFile(metadata.genesis.path, tmp).isOkOr:
+      raise (ref IOError)(msg: error.ioErrorMsg())
 
     newClone(readSszForkedHashedBeaconState(metadata.cfg, tmp))
 
