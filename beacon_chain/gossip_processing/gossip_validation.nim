@@ -1939,6 +1939,18 @@ proc validateExecutionPayloadBid*(
       if not (bid.fee_recipient == seenPref.fee_recipient):
         return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
 
+      # Extra check to prevent unincludable bids from purging legitimate ones
+      # from the execution payload pool
+      # https://github.com/ethereum/consensus-specs/pull/5360
+      # [REJECT] bid.prev_randao is the correct RANDAO mix -- i.e.
+      # validate that bid.prev_randao ==
+      # get_randao_mix(parent_state, get_current_epoch(parent_state)).
+      let expectedPrevRandao = executionPayloadBidPool[]
+          .getPrevRandao(bid.slot, parentBlck.bid).valueOr:
+        return errIgnore("ExecutionPayloadBid: unknown RANDAO mix")
+      if not (bid.prev_randao == expectedPrevRandao):
+        return errReject("ExecutionPayloadBid: incorrect RANDAO mix")
+
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
       let builderPubkey =
