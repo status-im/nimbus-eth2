@@ -475,7 +475,7 @@ suite "Block processor" & preset():
           pHeader.kzg_commitments_inclusion_proof).expect("Valid gindex")
 
         # Use quarantine to ingest partials and reassemble
-        var pcq = PartialColumnQuarantine.init()
+        var pcq = FuluPartialColumnQuarantine.init()
         pcq.putPartialHeader(blockRoot, pHeader)
 
         # Pick column index 0 for the round-trip test
@@ -624,7 +624,7 @@ suite "Block processor" & preset():
           pHeader.kzg_commitments_inclusion_proof).expect("Valid gindex")
 
         # Use quarantine to reassemble all columns from partials
-        var pcq = PartialColumnQuarantine.init()
+        var pcq = FuluPartialColumnQuarantine.init()
         pcq.putPartialHeader(blockRoot, pHeader)
 
         var reassembled: seq[fulu.DataColumnSidecar]
