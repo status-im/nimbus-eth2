@@ -31,7 +31,7 @@ func genSidecar(
     blobIndices: openArray[int], startCellId: int = 0
 ): fulu.PartialDataColumnSidecar =
   var
-    bitmap: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    bitmap = fulu.CellsPresentBits.init(int(MAX_BLOB_COMMITMENTS_PER_BLOCK))
     cells = newSeqOfCap[KzgCell](blobIndices.len)
     proofs = newSeqOfCap[KzgProof](blobIndices.len)
   for i, blobIdx in blobIndices:
