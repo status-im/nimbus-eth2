@@ -1276,15 +1276,18 @@ proc apply_parent_execution_payload*(
 
   ok()
 
-# copy of datatypes/gloas.nim
-type SomeGloasBeaconBlock =
-  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
-proc process_execution_payload_bid*(
-    cfg: RuntimeConfig, state: var gloas.BeaconState,
-    blck: SomeGloasBeaconBlock): Result[void, cstring] =
-  template signed_bid: untyped = blck.body.signed_execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#signed-execution-payload-bid
+proc can_process_execution_payload_bid_impl[S, B](
+    cfg: RuntimeConfig, state: S, signed_bid: B, proposal_slot: Slot,
+    flags: UpdateFlags): Result[void, cstring] =
+  # To obtain signed_execution_payload_bid, a block proposer building a block
+  # on top of a state MUST take the following actions in order to construct the
+  # signed_execution_payload_bid field in BeaconBlockBody:
+  # - [...]
+  # - The signed_execution_payload_bid MUST satisfy the verification conditions
+  #   found in process_execution_payload_bid with the alias
+  #   bid = signed_execution_payload_bid.message
+  # - [...]
   template bid: untyped = signed_bid.message
   let
     builder_index = bid.builder_index
@@ -1305,9 +1308,10 @@ proc process_execution_payload_bid*(
     if not can_builder_cover_bid(state, builder_index.BuilderIndex, amount):
       return err("payload_bid: builder can't cover the bid")
     # Verify that the bid signature is valid
-    if not verify_execution_payload_bid_signature(
-        state.fork, state.genesis_validators_root, epoch, signed_bid.message,
-        state.builders.item(builder_index).pubkey, signed_bid.signature):
+    if skipBlsValidation notin flags and
+        not verify_execution_payload_bid_signature(
+          state.fork, state.genesis_validators_root, epoch, signed_bid.message,
+          state.builders.item(builder_index).pubkey, signed_bid.signature):
       return err("payload_bid: invalid bid signature")
 
   # Verify commitments are under limit
@@ -1316,15 +1320,50 @@ proc process_execution_payload_bid*(
     return err("process_execution_payload_bid: too many blob KZG commitments")
 
   # Verify that the bid is for the current slot
-  if bid.slot != blck.slot:
+  if bid.slot != proposal_slot or proposal_slot <= GENESIS_SLOT:
     return err("process_execution_payload_bid: bid slot mismatch")
   # Verify that the bid is for the right parent block
   if bid.parent_block_hash != state.latest_block_hash:
     return err("process_execution_payload_bid: parent block hash mismatch")
-  if bid.parent_block_root != blck.parent_root:
+  if bid.parent_block_root != state.get_block_root_at_slot(proposal_slot - 1):
     return err("process_execution_payload_bid: parent block root mismatch")
   if not (bid.prev_randao == get_randao_mix(state, epoch)):
     return err("process_execution_payload_bid: RANDAO mismatch")
+
+  ok()
+
+template can_process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: gloas.BeaconState,
+    signed_bid: gloas.SignedExecutionPayloadBid,
+    proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
+  debugGloasComment "proposal_slot only for spec tests of unreachable combos"
+  cfg.can_process_execution_payload_bid_impl(
+    state, signed_bid, proposal_slot, flags)
+
+template can_process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: heze.BeaconState,
+    signed_bid:
+      gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
+    proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
+  debugHezeComment "accept only heze.SignedExecutionPayloadBid"
+  cfg.can_process_execution_payload_bid_impl(
+    state, signed_bid, proposal_slot, flags)
+
+# copy of datatypes/gloas.nim
+type SomeGloasBeaconBlock =
+  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
+proc process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    blck: SomeGloasBeaconBlock): Result[void, cstring] =
+  template signed_bid: untyped = blck.body.signed_execution_payload_bid
+  template bid: untyped = signed_bid.message
+  let
+    builder_index = bid.builder_index
+    amount = bid.value
+
+  ? cfg.can_process_execution_payload_bid(state, signed_bid, blck.slot)
 
   # Record the pending payment if there is some payment
   if amount > 0.Gwei:
@@ -1374,7 +1413,7 @@ proc process_parent_execution_payload*(
   else:
     ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var heze.BeaconState,
     blck: SomeHezeBeaconBlock): Result[void, cstring] =
@@ -1383,42 +1422,8 @@ proc process_execution_payload_bid*(
   let
     builder_index = bid.builder_index
     amount = bid.value
-    epoch = get_current_epoch(state)
 
-  # For self-builds, amount must be zero regardless of withdrawal credential prefix
-  if builder_index == BUILDER_INDEX_SELF_BUILD:
-    if amount != 0.Gwei:
-      return err("process_execution_payload_bid: self-build must have zero amount")
-    if signed_bid.signature != ValidatorSig.infinity():
-      return err("process_execution_payload_bid: self-build signature must be infinity")
-  else:
-    # Verify that the builder is active
-    if not is_active_builder(state, builder_index.BuilderIndex):
-      return err("payload_bid: builder must be active")
-    # Verify that the builder has funds to cover the bid
-    if not can_builder_cover_bid(state, builder_index.BuilderIndex, amount):
-      return err("payload_bid: builder can't cover the bid")
-    # Verify that the bid signature is valid
-    if not verify_execution_payload_bid_signature(
-        state.fork, state.genesis_validators_root, epoch, signed_bid.message,
-        state.builders.item(builder_index).pubkey, signed_bid.signature):
-      return err("payload_bid: invalid bid signature")
-
-  # Verify commitments are under limit
-  let blob_params = cfg.get_blob_parameters(epoch)
-  if lenu64(bid.blob_kzg_commitments) > blob_params.MAX_BLOBS_PER_BLOCK:
-    return err("process_execution_payload_bid: too many blob KZG commitments")
-
-  # Verify that the bid is for the current slot
-  if bid.slot != blck.slot:
-    return err("process_execution_payload_bid: bid slot mismatch")
-  # Verify that the bid is for the right parent block
-  if bid.parent_block_hash != state.latest_block_hash:
-    return err("process_execution_payload_bid: parent block hash mismatch")
-  if bid.parent_block_root != blck.parent_root:
-    return err("process_execution_payload_bid: parent block root mismatch")
-  if not (bid.prev_randao == get_randao_mix(state, epoch)):
-    return err("process_execution_payload_bid: RANDAO mismatch")
+  ? cfg.can_process_execution_payload_bid(state, signed_bid, blck.slot)
 
   # Record the pending payment if there is some payment
   if amount > 0.Gwei:
