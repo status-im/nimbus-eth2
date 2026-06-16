@@ -1471,7 +1471,7 @@ proc containsExecutionPayloadEnvelope*(
   db.envelopes.contains(root.data).expectDb()
 
 proc containsDataColumnSidecar*(
-    db: BeaconChainDB, consensusFork: static ConsensusFork,
+    db: BeaconChainDB, consensusFork: ConsensusFork,
     root: Eth2Digest, index: ColumnIndex): bool =
   if db.columns[consensusFork] == nil:
     return false

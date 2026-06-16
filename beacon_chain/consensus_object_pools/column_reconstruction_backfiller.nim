@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[sequtils, sets],
+  std/[deques, sequtils],
   chronicles,
   chronos,
   taskpools,
@@ -16,7 +16,6 @@ import
   metrics,
   ssz_serialization/[proofs, types],
   ../spec/[forks, helpers, peerdas_helpers, column_map],
-  ../spec/datatypes/[fulu, gloas],
   ../sync/validator_custody,
   ../beacon_chain_db,
   ../beacon_clock,
@@ -42,7 +41,8 @@ declareGauge beacon_column_reconstruction_earliest_available_slot,
 
 const
   # Spec: a node "SHOULD reconstruct the full data matrix" once it holds
-  # 50%+ of the columns, i.e. NUMBER_OF_COLUMNS / 2 == 64 on mainnet.
+  # 50%+ of the columns, i.e. NUMBER_OF_COLUMNS / 2 == 64.
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/das-core.md#reconstruction-and-cross-seeding
   ColumnsRequiredForReconstruction = NUMBER_OF_COLUMNS div 2
 
   # Idle delay between bitmap re-scans when there's no slot pending
@@ -55,7 +55,7 @@ const
   WorkYieldDuration = chronos.milliseconds(50)
 
 type
-  SlotRecon = enum
+  SlotRecon {.pure.} = enum
     Unknown      ## Not yet inspected by the backfiller.
     NoColumns    ## Slot has no block, or the block has zero blob commitments.
     TooFew       ## Block has blobs but <64 columns present — cannot recover.
@@ -69,7 +69,7 @@ type
     # Sliding bitmap over [bitmapStartSlot..head]. Each entry is the
     # backfiller's last-known reconstruction status for that slot. Kept in
     # memory only — on restart we rebuild via a fresh backward scan.
-    slotStates: seq[SlotRecon]
+    slotStates: Deque[SlotRecon]
     bitmapStartSlot: Slot
 
   ColumnReconstructionBackfillerRef* = ref ColumnReconstructionBackfiller
@@ -105,7 +105,10 @@ func retentionStartSlot(self: ColumnReconstructionBackfillerRef): Slot =
 proc syncBitmap(self: ColumnReconstructionBackfillerRef) =
   ## Resize and slide the bitmap so it spans the current
   ## [retentionStart..head] window. New top entries are `Unknown`; entries
-  ## that fall behind the retention horizon are dropped.
+  ## that fall behind the retention horizon are dropped. A `Deque` is used so
+  ## both ends are amortised O(1): growth appends at the tail (head side) while
+  ## retention drops a prefix from the front, the latter being O(dropped) rather
+  ## than the O(len) of a `seq.delete`.
   let
     retentionStart = self.retentionStartSlot()
     head = self.dag.head.slot
@@ -113,20 +116,23 @@ proc syncBitmap(self: ColumnReconstructionBackfillerRef) =
   if self.bitmapStartSlot == FAR_FUTURE_SLOT:
     self.bitmapStartSlot = retentionStart
     if head >= retentionStart:
-      self.slotStates = newSeq[SlotRecon](int(head - retentionStart) + 1)
+      let initialLen = int(head - retentionStart) + 1
+      self.slotStates = initDeque[SlotRecon](initialLen)
+      for _ in 0 ..< initialLen:
+        self.slotStates.addLast(SlotRecon.Unknown)
     return
 
   if head >= self.bitmapStartSlot:
     let wanted = int(head - self.bitmapStartSlot) + 1
-    if wanted > self.slotStates.len:
-      self.slotStates.setLen(wanted)
+    while self.slotStates.len < wanted:
+      self.slotStates.addLast(SlotRecon.Unknown)
 
   if retentionStart > self.bitmapStartSlot:
     let drop = int(retentionStart - self.bitmapStartSlot)
     if drop >= self.slotStates.len:
-      self.slotStates.setLen(0)
+      self.slotStates.clear()
     else:
-      self.slotStates.delete(0 .. drop - 1)
+      self.slotStates.shrink(fromFirst = drop)
     self.bitmapStartSlot = retentionStart
 
 func slotIdx(self: ColumnReconstructionBackfillerRef, slot: Slot): int =
@@ -140,35 +146,12 @@ proc markSlot(
   if idx >= 0 and idx < self.slotStates.len:
     self.slotStates[idx] = state
 
-proc pickNextSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
-  ## Walk backward from head, returning the highest-slot entry whose state
-  ## is still `Unknown` (never inspected) or that we have re-marked as a
-  ## reconstruction candidate. `Full`/`NoColumns`/`TooFew` slots are
-  ## skipped — they have nothing for us to do.
-  if self.slotStates.len == 0:
-    return Opt.none(Slot)
-
-  let head = self.dag.head.slot
-  if head < self.bitmapStartSlot:
-    return Opt.none(Slot)
-
-  var s = head
-  while true:
-    let idx = self.slotIdx(s)
-    if idx >= 0 and idx < self.slotStates.len:
-      if self.slotStates[idx] == Unknown:
-        return Opt.some(s)
-    if s == self.bitmapStartSlot:
-      break
-    s = s - 1
-  Opt.none(Slot)
-
 func isFullyServable(state: SlotRecon): bool =
   ## A slot can be served with the complete column matrix when every column is
   ## present (`Full`) or when it legitimately carries none — an empty slot or a
   ## block with zero blob commitments (`NoColumns`). `TooFew`/`Unknown` slots
   ## cannot (yet) be served in full and therefore break the continuous trail.
-  state in {Full, NoColumns}
+  state in {SlotRecon.Full, SlotRecon.NoColumns}
 
 func headContiguousBottom(self: ColumnReconstructionBackfillerRef): Slot =
   ## Lowest slot of the unbroken run of fully-servable slots ending at the
@@ -208,53 +191,52 @@ proc updateEarliestAvailableSlot(self: ColumnReconstructionBackfillerRef) =
     debug "Extended earliest available slot to reconstructed trail",
       eaSlot = bottom, head = self.dag.head.slot
 
-proc retryTrailBlocker(self: ColumnReconstructionBackfillerRef) =
-  ## The slot just below the head-contiguous run is what stops `eaSlot` from
-  ## descending. If it is only `TooFew` (has some columns but fewer than the
-  ## `ColumnsRequiredForReconstruction` threshold) re-arm it as `Unknown` so a
-  ## later pass re-counts it: columns arriving via gossip/sync since we last
-  ## looked may have pushed it over the threshold, letting the continuous
-  ## period — and `eaSlot` — extend further. A genuinely under-filled slot
-  ## simply settles back to `TooFew`, at the cost of one re-count per idle tick.
-  let bottom = self.headContiguousBottom()
-  if bottom <= self.bitmapStartSlot:
+proc onColumnsStored*(
+    self: ColumnReconstructionBackfillerRef, slot: Slot) =
+  ## Event hook invoked when data columns are newly persisted for `slot`
+  ## (see `BlockProcessor.onDataColumnsStored`).
+  ##
+  ## Columns reach an *already-inspected* slot only via sync/req-resp: gossip
+  ## delivers columns solely for the current slot, in real time, and never
+  ## backfills history, so by the time we have descended to a slot and marked
+  ## it `TooFew` no further gossip will arrive for it. A timer-driven re-count
+  ## would therefore almost never coincide with an actual arrival. Instead we
+  ## re-arm precisely on the arrival: a slot previously found `TooFew` may now
+  ## hold enough columns to cross the `ColumnsRequiredForReconstruction`
+  ## threshold, so mark it `Unknown` for the next pass to re-count (and, if it
+  ## was the trail-blocker, let `eaSlot` extend further). Slots in any other
+  ## state are left untouched — `Full`/`NoColumns` need no redo and `Unknown`
+  ## is already queued.
+  if slot < self.bitmapStartSlot:
     return
-  let idx = self.slotIdx(bottom - 1)
-  if idx >= 0 and idx < self.slotStates.len and self.slotStates[idx] == TooFew:
-    self.slotStates[idx] = Unknown
+  let idx = self.slotIdx(slot)
+  if idx >= 0 and idx < self.slotStates.len and
+      self.slotStates[idx] == SlotRecon.TooFew:
+    self.slotStates[idx] = SlotRecon.Unknown
 
-proc countExistingColumns(
+proc existingColumns(
     db: BeaconChainDB,
     consensusFork: ConsensusFork,
     blockRoot: Eth2Digest
-): HashSet[uint64] =
-  var present: HashSet[uint64]
+): ColumnMap =
+  ## The set of columns currently persisted for `blockRoot`. Columns are stored
+  ## in a per-fork table keyed by fork, which `containsDataColumnSidecar`
+  ## already dispatches on, so no per-fork branching is needed here.
+  var present: ColumnMap
   for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
-    # Columns are stored in a per-fork table, so the right fork must be
-    # consulted: Fulu sidecars live in `fulu_columns`, Gloas in `gloas_columns`.
-    let found =
-      case consensusFork
-      of ConsensusFork.Fulu:
-        db.containsDataColumnSidecar(ConsensusFork.Fulu, blockRoot, i)
-      of ConsensusFork.Gloas:
-        db.containsDataColumnSidecar(ConsensusFork.Gloas, blockRoot, i)
-      else:
-        false
-    if found:
+    if db.containsDataColumnSidecar(consensusFork, blockRoot, i):
       present.incl(i)
   present
 
 proc loadExistingColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     db: BeaconChainDB,
     blockRoot: Eth2Digest,
-    indices: HashSet[uint64]
+    indices: ColumnMap
 ): seq[ref T] =
   var columns = newSeqOfCap[ref T](indices.len)
-  for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
-    if i notin indices:
-      continue
+  for i in indices:
     let colData = new T
-    if db.getDataColumnSidecar(blockRoot, i, colData[]):
+    if db.getDataColumnSidecar(blockRoot, uint64(i), colData[]):
       columns.add(colData)
   columns
 
@@ -263,7 +245,7 @@ proc reconstructAndStore[
     self: ColumnReconstructionBackfillerRef,
     slot: Slot,
     blockRoot: Eth2Digest,
-    have: HashSet[uint64],
+    have: ColumnMap,
     columns: seq[ref T]
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   ## Run the parallel cell+proof recovery and persist every column the
@@ -338,55 +320,60 @@ proc reconstructSlot[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: ColumnReconstructionBackfillerRef,
     slot: Slot,
     blockRoot: Eth2Digest,
-    have: HashSet[uint64],
+    have: ColumnMap,
     _: typedesc[T]
 ): Future[SlotRecon] {.async: (raises: [CancelledError]).} =
   ## Load the columns we hold, recover the rest and persist them. Returns the
   ## resulting slot state: `Full` on success, `TooFew` if columns were pruned
-  ## out from under us between the count and the load, or `Unknown` on a
+  ## out from under us between inspecting and loading them, or `Unknown` on a
   ## recoverable failure (so a later pass retries once more columns arrive).
   let columns = loadExistingColumns[T](self.dag.db, blockRoot, have)
   if columns.len < ColumnsRequiredForReconstruction:
-    return TooFew
+    return SlotRecon.TooFew
   if await self.reconstructAndStore(slot, blockRoot, have, columns):
-    Full
+    SlotRecon.Full
   else:
-    Unknown
+    SlotRecon.Unknown
 
 proc processSlot(
     self: ColumnReconstructionBackfillerRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
   let blockFork = self.dag.cfg.consensusForkAtEpoch(slot.epoch)
-  # Data columns currently only exist for Fulu and Gloas; pre-Fulu slots carry
-  # none and later forks (Heze+) don't yet have a column store wired up.
-  if blockFork notin {ConsensusFork.Fulu, ConsensusFork.Gloas}:
-    self.markSlot(slot, NoColumns)
+  # Data columns only exist from Fulu onward; pre-Fulu slots carry none.
+  if blockFork notin {ConsensusFork.Fulu, ConsensusFork.Gloas, ConsensusFork.Heze}:
+    self.markSlot(slot, SlotRecon.NoColumns)
     return
 
+  # Heze data columns are identical to Gloas's and share the Gloas column store
+  # (there is no separate Heze table), so use Gloas for every column operation.
+  # The block itself is still read as its actual fork further below.
+  let columnFork =
+    if blockFork == ConsensusFork.Heze: ConsensusFork.Gloas else: blockFork
+
   let bsi = self.dag.getBlockIdAtSlot(slot).valueOr:
-    self.markSlot(slot, NoColumns)
+    self.markSlot(slot, SlotRecon.NoColumns)
     return
 
   # `getBlockIdAtSlot` returns the most recent block at or before `slot`;
   # if that block is not the proposed block for this slot, the slot is
   # empty and there is nothing to reconstruct.
   if not bsi.isProposed():
-    self.markSlot(slot, NoColumns)
+    self.markSlot(slot, SlotRecon.NoColumns)
     return
 
   let blockRoot = bsi.bid.root
-  let have = countExistingColumns(self.dag.db, blockFork, blockRoot)
-  let count = have.len
+  let have = existingColumns(self.dag.db, columnFork, blockRoot)
 
-  if count.uint64 == NUMBER_OF_COLUMNS:
-    self.markSlot(slot, Full)
+  if have.lenu64 == NUMBER_OF_COLUMNS:
+    self.markSlot(slot, SlotRecon.Full)
     return
 
+  let count = have.len
   if count == 0:
     # Distinguish "block legitimately has zero blobs" from "we never
     # received any columns" — only the latter is a reconstruction miss.
     let forked = self.dag.getForkedBlock(bsi.bid).valueOr:
-      self.markSlot(slot, NoColumns)
+      self.markSlot(slot, SlotRecon.NoColumns)
       return
     var blockHadBlobs = false
     withBlck(forked):
@@ -397,24 +384,53 @@ proc processSlot(
       elif consensusFork >= ConsensusFork.Fulu:
         blockHadBlobs = forkyBlck.message.body.blob_kzg_commitments.len > 0
     if not blockHadBlobs:
-      self.markSlot(slot, NoColumns)
+      self.markSlot(slot, SlotRecon.NoColumns)
     else:
-      self.markSlot(slot, TooFew)
+      self.markSlot(slot, SlotRecon.TooFew)
     return
 
   if count < ColumnsRequiredForReconstruction:
-    self.markSlot(slot, TooFew)
+    self.markSlot(slot, SlotRecon.TooFew)
     return
 
   # On reconstruction failure `reconstructSlot` returns `Unknown`, leaving the
   # slot eligible for a later retry.
   let state =
-    case blockFork
+    case columnFork
     of ConsensusFork.Gloas:
+      # `columnFork` folds Gloas and every newer fork that shares the Gloas
+      # column format into this branch.
+      debugHezeComment "confirm Heze data columns stay identical to Gloas"
       await self.reconstructSlot(slot, blockRoot, have, gloas.DataColumnSidecar)
     else:
       await self.reconstructSlot(slot, blockRoot, have, fulu.DataColumnSidecar)
   self.markSlot(slot, state)
+
+proc frontierSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
+  ## The single slot whose reconstruction can extend `eaSlot`: the one
+  ## immediately below the head-anchored run of fully-servable slots. `eaSlot`
+  ## can only descend through a *contiguous* servable run from the head, so the
+  ## only useful work is at that frontier — reconstructing slots below it is
+  ## pointless, as they are guaranteed to stay behind `eaSlot` until the
+  ## frontier itself is filled. We therefore walk strictly backwards from the
+  ## head, one slot at a time, instead of sweeping the whole retention window.
+  ##
+  ## Returns `none` when the run already reaches the bottom of the bitmap, or
+  ## when the frontier slot has been inspected and found unrecoverable
+  ## (`TooFew`): rather than spin on it we idle until `onColumnsStored` re-arms
+  ## it as `Unknown` the moment more columns for it are persisted.
+  if self.slotStates.len == 0:
+    return Opt.none(Slot)
+  let bottom = self.headContiguousBottom()
+  if bottom <= self.bitmapStartSlot:
+    return Opt.none(Slot)
+  let
+    frontier = bottom - 1
+    idx = self.slotIdx(frontier)
+  if idx >= 0 and idx < self.slotStates.len and
+      self.slotStates[idx] == SlotRecon.Unknown:
+    return Opt.some(frontier)
+  Opt.none(Slot)
 
 proc run*(
     self: ColumnReconstructionBackfillerRef) {.async: (raises: []).} =
@@ -434,12 +450,12 @@ proc run*(
       self.syncBitmap()
       self.updateEarliestAvailableSlot()
 
-      let target = self.pickNextSlot()
+      let target = self.frontierSlot()
       if target.isNone():
-        # No un-inspected slots remain. If the continuous trail from the head
-        # is held up by a slot that's merely short on columns, re-arm it so the
-        # next pass can pick up any columns that have since arrived.
-        self.retryTrailBlocker()
+        # Either `eaSlot` already reaches as far back as we retain, or the
+        # frontier slot is blocked on too few columns. A blocker is re-armed by
+        # `onColumnsStored` the instant more columns are persisted for it, so
+        # there's nothing to retry on a timer here — just idle until then.
         await sleepAsync(IdleSleepDuration)
         continue
 

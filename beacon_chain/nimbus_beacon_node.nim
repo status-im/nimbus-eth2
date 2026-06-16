@@ -893,6 +893,14 @@ proc initFullNode(
       node.beaconClock,
       node.batchVerifier[].taskpool)
 
+  # Re-evaluate a slot for reconstruction exactly when columns are persisted
+  # for it (gossip for the current slot, sync for history) rather than polling.
+  block:
+    let backfiller = node.columnReconstructionBackfiller
+    blockProcessor.onDataColumnsStored =
+      proc(slot: Slot) {.gcsafe, raises: [].} =
+        backfiller.onColumnsStored(slot)
+
   node.router = router
 
   await node.addValidators()

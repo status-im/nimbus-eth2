@@ -98,6 +98,12 @@ type
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    onDataColumnsStored*: proc(slot: Slot) {.gcsafe, raises: [].}
+      ## Optional hook fired with the slot whose data columns were just
+      ## persisted (from gossip for the current slot, or sync for history).
+      ## The column reconstruction backfiller registers this to re-evaluate a
+      ## slot precisely when new columns arrive, rather than polling on a timer.
+
     # Quarantines
     # ----------------------------------------------------------------
     dataColumnQuarantine*: ref ColumnQuarantine
@@ -239,6 +245,14 @@ proc storeSidecars(
 ) =
   if sidecarsOpt.isSome():
     self.consensusManager.dag.db.putDataColumnSidecars(sidecarsOpt[])
+    if self.onDataColumnsStored != nil and sidecarsOpt[].len > 0:
+      let slot =
+        when sidecarsOpt is Opt[gloas.DataColumnSidecars]:
+          # [Modified in Gloas:EIP7732] carries `slot` directly.
+          sidecarsOpt[][0][].slot
+        else:
+          sidecarsOpt[][0][].signed_block_header.message.slot
+      self.onDataColumnsStored(slot)
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
   discard
