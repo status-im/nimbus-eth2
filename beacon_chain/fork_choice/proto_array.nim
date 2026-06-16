@@ -175,6 +175,10 @@ func realizePendingCheckpoints*(
         checkpoints = self.nodes.buf[physicalIdx].checkpoints,
         unrealized
       self.nodes.buf[physicalIdx].checkpoints = unrealized
+      let fullIdx = self.fullBlockIndices.getOrDefault(
+        self.nodes.buf[physicalIdx].bid.root, -1)
+      if fullIdx >= self.nodes.offset:
+        self.nodes.buf[fullIdx - self.nodes.offset].checkpoints = unrealized                                                                                                   
     result.justified.updateIfBetter(jIdx, unrealized.justified, idx)
     result.finalized.updateIfBetter(fIdx, unrealized.finalized, idx)
 
