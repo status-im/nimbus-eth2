@@ -476,13 +476,13 @@ suite "Block processor" & preset():
 
         # Use quarantine to ingest partials and reassemble
         var pcq = FuluPartialColumnQuarantine.init()
-        pcq.putPartialHeader(blockRoot, pHeader)
+        pcq.putPartialHeader(blockRoot, newClone(pHeader))
 
         # Pick column index 0 for the round-trip test
         let colIdx = ColumnIndex(0)
         let entry = pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
         check entry == pcq.getEntry(blockRoot, colIdx).get()
-        pcq.addCells(blockRoot, colIdx, partialSidecars[0])
+        pcq.addCells(blockRoot, colIdx, newClone(partialSidecars[0]))
 
         check:
           pcq.isComplete(blockRoot, colIdx)
@@ -625,14 +625,14 @@ suite "Block processor" & preset():
 
         # Use quarantine to reassemble all columns from partials
         var pcq = FuluPartialColumnQuarantine.init()
-        pcq.putPartialHeader(blockRoot, pHeader)
+        pcq.putPartialHeader(blockRoot, newClone(pHeader))
 
         var reassembled: seq[fulu.DataColumnSidecar]
         for i in 0 ..< partialSidecars.len:
           let colIdx = ColumnIndex(i)
           let entry = pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
           check entry == pcq.getEntry(blockRoot, colIdx).get()
-          pcq.addCells(blockRoot, colIdx, partialSidecars[i])
+          pcq.addCells(blockRoot, colIdx, newClone(partialSidecars[i]))
           let assembled = pcq.assembleDataColumnSidecar(blockRoot, colIdx)
           check assembled.isSome()
           reassembled.add(assembled.get())
