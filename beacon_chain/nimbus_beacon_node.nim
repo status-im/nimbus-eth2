@@ -890,7 +890,6 @@ proc initFullNode(
     ColumnReconstructionBackfillerRef.new(
       node.dag,
       node.validatorCustody,
-      node.beaconClock,
       node.batchVerifier[].taskpool)
 
   # Re-evaluate a slot for reconstruction exactly when columns are persisted

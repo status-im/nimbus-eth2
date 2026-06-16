@@ -64,7 +64,6 @@ type
   ColumnReconstructionBackfiller* = object
     dag: ChainDAGRef
     validatorCustody: ValidatorCustodyRef
-    beaconClock: BeaconClock
     taskpool: Taskpool
     # Sliding bitmap over [bitmapStartSlot..head]. Each entry is the
     # backfiller's last-known reconstruction status for that slot. Kept in
@@ -78,13 +77,11 @@ proc new*(
     t: typedesc[ColumnReconstructionBackfillerRef],
     dag: ChainDAGRef,
     validatorCustody: ValidatorCustodyRef,
-    beaconClock: BeaconClock,
     taskpool: Taskpool
 ): ColumnReconstructionBackfillerRef =
   ColumnReconstructionBackfillerRef(
     dag: dag,
     validatorCustody: validatorCustody,
-    beaconClock: beaconClock,
     taskpool: taskpool,
     bitmapStartSlot: FAR_FUTURE_SLOT)
 
