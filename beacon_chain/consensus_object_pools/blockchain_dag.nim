@@ -2538,7 +2538,7 @@ func shouldExtendPayload*(
   (
     # For either genesis or pre-Gloas block, we should always build on them.
     head.slot == GENESIS_SLOT or
-    dag.cfg.consensusForkAtEpoch(head.slot.epoch) < ConsensusFork.Gloas or
+    head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH or
     # The usual path since Gloas
     head == dag.headPayload
   )
