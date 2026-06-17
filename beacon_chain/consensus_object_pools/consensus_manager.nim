@@ -345,7 +345,11 @@ proc prepareNextSlot*(
         beaconHead = self.attestationPool[].getBeaconHead(head)
         executionHead =
           when consensusFork >= ConsensusFork.Gloas:
-            proposalExecutionHead(forkyState.data)
+            if dag.shouldExtendPayload(head):
+              proposalExecutionHead(forkyState.data)
+            else:
+              dag.loadExecutionAndParentBlockHash(head).parentHash.valueOr:
+                return
           else:
             dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
               return
