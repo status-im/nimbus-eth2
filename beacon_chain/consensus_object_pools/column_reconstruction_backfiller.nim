@@ -18,7 +18,6 @@ import
   ../spec/[forks, helpers, peerdas_helpers, column_map],
   ../sync/validator_custody,
   ../beacon_chain_db,
-  ../beacon_clock,
   ./blockchain_dag
 
 logScope: topics = "column_reconstruction_backfiller"
@@ -73,7 +72,7 @@ type
 
   ColumnReconstructionBackfillerRef* = ref ColumnReconstructionBackfiller
 
-proc new*(
+func new*(
     t: typedesc[ColumnReconstructionBackfillerRef],
     dag: ChainDAGRef,
     validatorCustody: ValidatorCustodyRef,
@@ -99,13 +98,10 @@ func retentionStartSlot(self: ColumnReconstructionBackfillerRef): Slot =
   else:
     max(headSlot - retentionSlots, fuluStartSlot)
 
-proc syncBitmap(self: ColumnReconstructionBackfillerRef) =
+func syncBitmap(self: ColumnReconstructionBackfillerRef) =
   ## Resize and slide the bitmap so it spans the current
   ## [retentionStart..head] window. New top entries are `Unknown`; entries
-  ## that fall behind the retention horizon are dropped. A `Deque` is used so
-  ## both ends are amortised O(1): growth appends at the tail (head side) while
-  ## retention drops a prefix from the front, the latter being O(dropped) rather
-  ## than the O(len) of a `seq.delete`.
+  ## that fall behind the retention horizon are dropped.
   let
     retentionStart = self.retentionStartSlot()
     head = self.dag.head.slot
@@ -135,7 +131,7 @@ proc syncBitmap(self: ColumnReconstructionBackfillerRef) =
 func slotIdx(self: ColumnReconstructionBackfillerRef, slot: Slot): int =
   int(slot - self.bitmapStartSlot)
 
-proc markSlot(
+func markSlot(
     self: ColumnReconstructionBackfillerRef, slot: Slot, state: SlotRecon) =
   if slot < self.bitmapStartSlot:
     return
@@ -188,7 +184,7 @@ proc updateEarliestAvailableSlot(self: ColumnReconstructionBackfillerRef) =
     debug "Extended earliest available slot to reconstructed trail",
       eaSlot = bottom, head = self.dag.head.slot
 
-proc onColumnsStored*(
+func onColumnsStored*(
     self: ColumnReconstructionBackfillerRef, slot: Slot) =
   ## Event hook invoked when data columns are newly persisted for `slot`
   ## (see `BlockProcessor.onDataColumnsStored`).
@@ -230,11 +226,13 @@ proc loadExistingColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     blockRoot: Eth2Digest,
     indices: ColumnMap
 ): seq[ref T] =
-  var columns = newSeqOfCap[ref T](indices.len)
+  var
+    columns = newSeqOfCap[ref T](indices.len)
+    colData = new T
   for i in indices:
-    let colData = new T
     if db.getDataColumnSidecar(blockRoot, uint64(i), colData[]):
       columns.add(colData)
+      colData = new T
   columns
 
 proc reconstructAndStore[
@@ -403,7 +401,7 @@ proc processSlot(
       await self.reconstructSlot(slot, blockRoot, have, fulu.DataColumnSidecar)
   self.markSlot(slot, state)
 
-proc frontierSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
+func frontierSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
   ## The single slot whose reconstruction can extend `eaSlot`: the one
   ## immediately below the head-anchored run of fully-servable slots. `eaSlot`
   ## can only descend through a *contiguous* servable run from the head, so the
