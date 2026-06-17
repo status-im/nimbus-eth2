@@ -18,6 +18,7 @@ import
   eth/common/eth_types,
   ../beacon_chain/el/[el_conf, el_manager],
   ../beacon_chain/spec/[digest, engine_authentication, forks],
+  ../beacon_chain/version,
   ../beacon_chain/networking/network_metadata,
   ./testutil
 
@@ -37,20 +38,23 @@ type
     ## Tracks the state of a mock execution client for testing scenarios, mainly
     ## for the purpose of testing failure, timeout and error scenarios (rather
     ## than specific payload properties)
-    chainId: UInt256
-    shouldFailNewPayload: bool
-    shouldFailForkchoice: bool
-    shouldFailGetPayload: bool
-    shouldFailChainId: bool
-    newPayloadCallCount: int
-    newPayloadV5CallCount: int
-    forkchoiceCallCount: int
-    forkchoiceV4CallCount: int
-    getPayloadCallCount: int
-    getPayloadV6CallCount: int
-    chainIdCallCount: int
-    responseDelay: Duration
-    blockNumber: uint64
+    chainId*: UInt256
+    shouldFailNewPayload*: bool
+    shouldFailForkchoice*: bool
+    shouldFailGetPayload*: bool
+    shouldFailChainId*: bool
+    shouldFailClientVersion*: bool
+    newPayloadCallCount*: int
+    newPayloadV5CallCount*: int
+    forkchoiceCallCount*: int
+    forkchoiceV4CallCount*: int
+    getPayloadCallCount*: int
+    getPayloadV6CallCount*: int
+    chainIdCallCount*: int
+    getClientVersionCallCount*: int
+    clientVersion*: ClientVersionV1
+    responseDelay*: Duration
+    blockNumber*: uint64
 
   MockSetup = ref object
     state: MockEngineState
@@ -67,6 +71,7 @@ func createMockEngineState(
     shouldFailForkchoice: false,
     shouldFailGetPayload: false,
     shouldFailChainId: false,
+    shouldFailClientVersion: false,
     newPayloadCallCount: 0,
     newPayloadV5CallCount: 0,
     getPayloadCallCount: 0,
@@ -74,6 +79,13 @@ func createMockEngineState(
     forkchoiceCallCount: 0,
     forkchoiceV4CallCount: 0,
     chainIdCallCount: 0,
+    getClientVersionCallCount: 0,
+    clientVersion: ClientVersionV1(
+      code: "GE",
+      name: "go-ethereum",
+      version: "v1.14.0",
+      commit: Bytes4([0x16'u8, 0x8d, 0xbe, 0xef]),
+    ),
     responseDelay: 0.milliseconds,
     blockNumber: initialBlockNumber,
   )
@@ -198,7 +210,21 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
     state.chainId
 
-proc newMockRpcServer(
+  server.rpc("engine_getClientVersionV1", EthJson) do(
+    version: ClientVersionV1
+  ) -> seq[ClientVersionV1]:
+    inc state.getClientVersionCallCount
+    if state.responseDelay > 0.milliseconds:
+      await sleepAsync(state.responseDelay)
+
+    if state.shouldFailClientVersion:
+      raise (ref ApplicationError)(
+        code: -32603, msg: "Internal error: client version query failed"
+      )
+
+    return @[state.clientVersion]
+
+proc newMockRpcServer*(
     state: MockEngineState, port: Port
 ): RpcHttpServer {.raises: [CatchableError].} =
   ## Create and start a new mock RPC server on the given port
@@ -350,10 +376,44 @@ suite "EL Manager - Helpers":
 
       gethWsUrl == "ws://localhost:8545"
 
-func createELManager(
+  test "client version graffiti includes EL and CL versions":
+    let graffiti = makeClientVersionGraffiti(
+      ClientVersionV1(
+        code: "GE",
+        name: "go-ethereum",
+        version: "v1.14.0",
+        commit: Bytes4([0x16'u8, 0x8d, 0xbe, 0xef]),
+      )
+    )
+
+    check $graffiti == "GE168dNB" & gitRevision[0 ..< 4]
+
+  test "client version graffiti ignores long semver versions":
+    let graffiti = makeClientVersionGraffiti(
+      ClientVersionV1(
+        code: "GE",
+        name: "go-ethereum",
+        version: "v1.14.0-super-long-version-string",
+        commit: Bytes4([0x16'u8, 0x8d, 0xbe, 0xef]),
+      )
+    )
+
+    check $graffiti == "GE168dNB" & gitRevision[0 ..< 4]
+
+proc createELManager*(
     engines: seq[EngineApiUrl], eth1Network: Opt[Eth1Network] = Opt.none(Eth1Network)
 ): ELManager =
   ELManager.new(engines, eth1Network)
+
+proc waitForGetClientVersionRequest(
+    state: MockEngineState
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  for _ in 0 ..< 50:
+    if state.getClientVersionCallCount > 0:
+      return true
+    await sleepAsync(50.milliseconds)
+
+  false
 
 suite "EL Manager - Async Operations":
   setup:
@@ -382,6 +442,32 @@ suite "EL Manager - Async Operations":
     manager.start()
 
     check manager.hasConnection()
+
+  test "ELManager exchanges client version":
+    let engineUrl = createEngineApiUrl(mockPort)
+    let manager = createELManager(@[engineUrl])
+    manager.start()
+
+    check waitFor waitForGetClientVersionRequest(mockState)
+
+    let version = manager.getClientVersion()
+    check:
+      mockState.getClientVersionCallCount == 1
+      version.isSome
+      version.get.code == "GE"
+      version.get.version == "v1.14.0"
+
+  test "ELManager ignores failed client version exchange":
+    mockState.shouldFailClientVersion = true
+    let engineUrl = createEngineApiUrl(mockPort)
+    let manager = createELManager(@[engineUrl])
+    manager.start()
+
+    check waitFor waitForGetClientVersionRequest(mockState)
+
+    check:
+      mockState.getClientVersionCallCount == 1
+      manager.getClientVersion().isNone
 
 suite "EL Manager - forkchoiceUpdated":
   setup:
