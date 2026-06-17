@@ -2781,7 +2781,9 @@ proc updateHead*(
     dag.pruneBlocksDAG()
 
     # Update light client data
+    let instrLcStart = Moment.now()
     dag.processFinalizationForLightClient(oldFinalizedHead)
+    let instrLcDone = Moment.now()
 
     # Send notification about new finalization point via callback.
     if not(isNil(dag.onFinHappened)):
@@ -2796,6 +2798,10 @@ proc updateHead*(
       let data = FinalizationInfoObject.init(
         dag.finalizedHead.blck.root, stateRoot, dag.finalizedHead.slot.epoch)
       dag.onFinHappened(dag, data)
+
+    debug "INSTRUMENTATION updateHead finalization split",
+      processFinalizationForLightClientDur = instrLcDone - instrLcStart,
+      onFinHappenedDur = Moment.now() - instrLcDone
 
 proc updateHeadExecutionPayload*(
     dag: ChainDAGRef, head: BlockRef,

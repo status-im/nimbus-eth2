@@ -198,12 +198,19 @@ proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized.
   # `willSelectNewHead` (part of `selectOptimisticHead`) required before this
+  let instrT0 = Moment.now()
   self.dag.updateHead(
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
+  let instrT1 = Moment.now()
   updateSafeBlockMetrics(
     self.attestationPool[].forkChoice.retrieve_fast_confirmed_bid)
+  let instrT2 = Moment.now()
   self.checkExpectedBlock()
+  debug "INSTRUMENTATION updateHead split",
+    dagUpdateHeadDur = instrT1 - instrT0,
+    safeBlockMetricsDur = instrT2 - instrT1,
+    checkExpectedBlockDur = Moment.now() - instrT2
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## Trigger fork choice and update the DAG with the new head block
@@ -502,10 +509,13 @@ proc updateExecutionHead*(
   defer:
     self.forkchoiceInflight = false
 
+  let instrGbhStart = Moment.now()
   var
     attempts = 0
     wallTime = getBeaconTimeFn()
     head = self.attestationPool[].getBeaconHead(self.dag.head)
+  debug "INSTRUMENTATION updateExecutionHead getBeaconHead",
+    getBeaconHeadDur = Moment.now() - instrGbhStart
 
   while not (await self.forkchoiceUpdated(
       head, wallTime.slotOrZero(self.dag.timeParams), deadline, retry)):
