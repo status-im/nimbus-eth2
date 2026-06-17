@@ -856,9 +856,14 @@ func compute_deltas(
         if vote.current_pending:
           pendingDeltas[index] -= Delta old_balance
 
+      # The FULL node can be created between a vote's addition and its removal,
+      # so persist the variant the addition resolved to and remove from the same.
+      var nextPayloadPresent = false
       if vote.slot != FAR_FUTURE_SLOT and not vote.next_root.isZero:
         if vote.next_root in indices:
-          let index = resolveIndex(vote.next_root, vote.next_payload_present)
+          nextPayloadPresent =
+            vote.next_payload_present and vote.next_root in fullBlockIndices
+          let index = resolveIndex(vote.next_root, nextPayloadPresent)
           if index >= deltas.len:
             return err ForkChoiceError(
               kind: fcInvalidNodeDelta,
@@ -870,7 +875,7 @@ func compute_deltas(
             pendingDeltas[index] += Delta new_balance
 
       vote.current_root = vote.next_root
-      vote.payload_present = vote.next_payload_present
+      vote.payload_present = nextPayloadPresent
       vote.current_pending = vote.next_pending
   return ok()
 
