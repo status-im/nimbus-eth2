@@ -933,6 +933,11 @@ proc getBeaconHead*(
     safeExecutionBlockHash: safeExecutionBlockHash,
     finalizedExecutionBlockHash: finalizedExecutionBlockHash)
 
+func shouldExtendPayload*(pool: var AttestationPool, head: BlockRef): bool =
+  head.slot == GENESIS_SLOT or
+  head.slot.epoch < pool.dag.cfg.GLOAS_FORK_EPOCH or
+  pool.forkChoice.should_extend_payload(head.root)
+
 proc willSelectNewHead*(
     pool: var AttestationPool,
     headBlock: BlockRef, wallTime: BeaconTime): Opt[void] =
