@@ -1532,7 +1532,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.updateValidators(forkyState.data.validators.asSeq())
 
   let newHead = await handleProposal(
-    node, head, node.dag.shouldExtendPayload(head), slot)
+    node, head, node.attestationPool[].shouldExtendPayload(head), slot)
   head = newHead
 
   # The latest point in time when we'll be sending out attestations

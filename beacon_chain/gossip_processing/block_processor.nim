@@ -1005,10 +1005,6 @@ proc storePayload(
   let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
 
   debugGloasComment("deadline")
-  debugGloasComment("should be decided by Fork Choice")
-  # TODO To be removed - Temporary call without import.
-  if blck.slot() >= dag.head.slot():
-    blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
 
   if optimisticStatusRes.isSome():
     await self.consensusManager.updateExecutionHead(
