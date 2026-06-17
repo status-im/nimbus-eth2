@@ -188,7 +188,7 @@ suite "Gossip partial columns":
       m = newDataColumnPartialMessage(
         genDigest(1), ColumnIndex(0), sidecar)
       parts = m.materializeParts(@[]).get()
-      roundTrip = SSZ.decode(seq[byte](parts), fulu.PartialDataColumnSidecar)
+      roundTrip = SSZ.decode(parts, fulu.PartialDataColumnSidecar)
     for i in 0.Natural ..< MAX_BLOB_COMMITMENTS_PER_BLOCK.Natural:
       check roundTrip.cells_present_bitmap[i] == sidecar.cells_present_bitmap[i]
     check:
@@ -205,7 +205,7 @@ suite "Gossip partial columns":
       peerMeta = encodePartsMetadata(metaWith(
         availableBits = [0], requestsBits = [2]))
       parts = m.materializeParts(peerMeta).get()
-      decoded = SSZ.decode(seq[byte](parts), fulu.PartialDataColumnSidecar)
+      decoded = SSZ.decode(parts, fulu.PartialDataColumnSidecar)
     check:
       decoded.cells_present_bitmap[Natural(2)]
       not decoded.cells_present_bitmap[Natural(0)]
@@ -223,7 +223,7 @@ suite "Gossip partial columns":
       peerMeta = encodePartsMetadata(metaWith(
         availableBits = [0, 1], requestsBits = []))
       parts = m.materializeParts(peerMeta).get()
-    check seq[byte](parts).len == 0
+    check parts.len == 0
 
   test "materializeParts response omits header":
     let
@@ -231,7 +231,7 @@ suite "Gossip partial columns":
       m = newDataColumnPartialMessage(
         genDigest(1), ColumnIndex(0), sidecar)
       parts = m.materializeParts(@[]).get()
-      decoded = SSZ.decode(seq[byte](parts), fulu.PartialDataColumnSidecar)
+      decoded = SSZ.decode(parts, fulu.PartialDataColumnSidecar)
     check decoded.header.len == 0
 
   test "materializeParts forwards decode errors":
