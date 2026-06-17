@@ -1878,6 +1878,12 @@ proc validateExecutionPayloadBid*(
         return errIgnore(
           "ExecutionPayloadBid: parent block root not found in fork choice")
 
+      # [REJECT] The bid is for a higher slot than its parent block -- i.e.
+      # validate that `bid.slot` is greater than the slot of the block with root
+      # `bid.parent_block_root`.
+      if not (bid.slot > parentBlck.slot):
+        return errReject("ExecutionPayloadBid: slot not greater than parent's")
+
       # [IGNORE] this bid is the highest value bid seen for the tuple
       # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`.
       let
@@ -1915,17 +1921,10 @@ proc validateExecutionPayloadBid*(
           bid.gas_limit, seenPref.target_gas_limit):
         return errIgnore("ExecutionPayloadBid: gas limit not target-compatible")
 
-      # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
-      # block in fork choice
-      if dag.getBlockRef(bid.parent_block_root).isNone():
-        return errIgnore(
-          "ExecutionPayloadBid: parent block root not found in fork choice")
-
       # [IGNORE] bid.slot is the current slot or the next slot
       let currentSlot = wallTime.slotOrZero(dag.timeParams)
       if bid.slot != currentSlot and bid.slot != currentSlot + 1:
-        return errIgnore(
-          "ExecutionPayloadBid: slot not current or next slot")
+        return errIgnore("ExecutionPayloadBid: slot not current or next slot")
 
       # [REJECT] The length of KZG commitments is less than or equal to the
       # limitation defined in the consensus layer -- i.e. validate that

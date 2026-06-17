@@ -133,15 +133,6 @@ type
     sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     shutdownEvent*: AsyncEvent
 
-# TODO https://github.com/status-im/nim-stew/pull/258
-template findIt*(s: openArray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
-
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.currentSlot
 

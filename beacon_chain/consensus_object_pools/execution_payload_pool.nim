@@ -55,6 +55,14 @@ proc payloadAvailability*(
   else:
     Opt.none PayloadAvailability
 
+func prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
+  var slotsToRemove: seq[Slot]
+  for slot in pool.slotBids.keys:
+    if slot < beforeSlot:
+      slotsToRemove.add(slot)
+  for slot in slotsToRemove:
+    pool.slotBids.del(slot)
+
 proc addBid*(
     pool: var ExecutionPayloadBidPool,
     signedBid: gloas.SignedExecutionPayloadBid,
@@ -66,6 +74,10 @@ proc addBid*(
     bid_slot = bid.slot
     builder_index = bid.builder_index
     bid_value = bid.value
+
+  # Bids expire after their slot has passed
+  pool.prune(beforeSlot =
+    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(pool.dag.timeParams))
 
   let slotData = addr pool.slotBids.mgetOrPut(bid.slot, default(SlotBids))
 
@@ -117,11 +129,3 @@ func hasSeenBidFromBuilder*(
     builderIndex: uint64): bool =
   let slotData = pool.slotBids.getOrDefault(slot)
   builderIndex in slotData.seenBuilders
-
-proc prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
-  var slotsToRemove: seq[Slot]
-  for slot in pool.slotBids.keys:
-    if slot < beforeSlot:
-      slotsToRemove.add(slot)
-  for slot in slotsToRemove:
-    pool.slotBids.del(slot)

@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, sequtils, strutils, algorithm, math, tables, macrocache],
+  std/[typetraits, os, math, tables, macrocache],
 
   # Status libs
   results,
@@ -26,11 +26,13 @@ import
   libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
-  ".."/[version, conf, beacon_clock, conf_light_client],
+  ../[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
   ../validators/keystore_management,
-  "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
-       libp2p_json_serialization, peer_pool, peer_scores]
+  ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
+     libp2p_json_serialization, peer_pool, peer_scores]
+
+from std/sequtils import countIt, filterIt, mapIt
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
@@ -235,7 +237,7 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
-  
+
   PeerAddrProto* {.pure.} = enum
     TCP
     UDP
@@ -1919,7 +1921,7 @@ proc new(T: type Eth2Node,
       {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
-        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)                                                   
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)
       },
     rng),
     discoveryEnabled: discovery,
@@ -2387,13 +2389,13 @@ proc newBeaconSwitch(
     .withAgentVersion(config.agentString)
     .withServices(@[service])
 
-    if config.tcpEnabled: 
+    if config.tcpEnabled:
       sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
              .withTcpTransport({ServerFlags.ReuseAddr})
 
     if config.quicEnabled:
       sb = sb.withQuicTransport()
-        
+
     ok sb.build()
   except LPError as exc:
     err(exc.msg)

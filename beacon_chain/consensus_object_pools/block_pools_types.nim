@@ -163,6 +163,19 @@ type
       ## The most recently known head, as chosen by fork choice; might be
       ## optimistic
 
+    headPayload*: BlockRef
+      ## The known payload head that is chosen by fork choice. It will be used
+      ## on the next block proposal for building payload on either the current
+      ## head (parent) or the parent of the current head (grandparent).
+      ##
+      ## Used only since Gloas. Always read values from the head instead of
+      ## headPayload. It is for deriving the should_extend_payload status.
+      ##
+      ## In the usual scenarios it should point to either`dag.head` or
+      ## `dag.head.parent`. It would be nil at the beginning of Gloas fork,
+      ## either Gloas genesis or upgrading from pre-Gloas. It would also be nil
+      ## if it is in a different fork from the head at node startup.
+
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
       ## dag.tail - when backfilling, we'll move backwards in time starting
