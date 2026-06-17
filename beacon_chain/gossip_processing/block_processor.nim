@@ -1152,11 +1152,18 @@ proc enqueuePayload*(self: ref BlockProcessor, blockRoot: Eth2Digest) =
 proc addBackfillSidecars*(
     self: ref BlockProcessor,
     signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock,
-    sidecars: fulu.DataColumnSidecars | gloas.DataColumnSidecars
+    sidecars: fulu.DataColumnSidecars | gloas.DataColumnSidecars,
+    envelope: Opt[SignedExecutionPayloadEnvelope]
 ): Result[void, VerifierError] =
   const consensusFork = typeof(signedBlock).kind
   when consensusFork == ConsensusFork.Fulu:
     ? verifySidecars(signedBlock, noEnvelope, Opt.some(sidecars))
+    self[].storeSidecars(Opt.some(sidecars))
+  elif consensusFork == ConsensusFork.Gloas:
+    if envelope.isNone():
+      ? verifySidecars(signedBlock, noEnvelope, Opt.some(sidecars))
+    else:
+      ? verifySidecars(signedBlock, envelope.get(), Opt.some(sidecars))
     self[].storeSidecars(Opt.some(sidecars))
   elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
     raiseAssert("Incorrect fork")

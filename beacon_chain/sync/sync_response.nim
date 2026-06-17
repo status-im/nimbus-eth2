@@ -41,6 +41,18 @@ func toResponse*(
 ): seq[SyncResponseItem] =
   a.mapIt(SyncResponseItem.init(it, nil))
 
+func toResponse*(
+    items: var seq[SyncResponseItem],
+    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+): int =
+  var count = 0
+  for envelope in envelopes:
+    for item in items.mitems():
+      if item.signedBlock[].root == envelope[].message.beacon_block_root:
+        item.signedPayloadEnvelope = envelope
+        inc(count)
+  count
+
 func `==`*(a, b: SyncResponseItem): bool =
   (cast[pointer](a.signedBlock) == cast[pointer](b.signedBlock)) and
     (cast[pointer](a.signedPayloadEnvelope) ==

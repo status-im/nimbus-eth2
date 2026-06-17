@@ -17,7 +17,7 @@ from std/sequtils import mapIt
 
 type
   DagEntryFlag* {.pure.} = enum
-    Local, Unviable, Finalized, Pending, MissingSidecars
+    Local, Unviable, Finalized, Pending, MissingSidecars, MissingEnvelope
 
   DagBlockSourceType* {.pure.} = enum
     Orphan, Sidecarless, Dag, Unviable
@@ -95,6 +95,7 @@ func fullLog*(s: set[DagEntryFlag], isHead, isFinalizedHead: bool): string =
   if DagEntryFlag.Unviable in s: res.add("unviable")
   if DagEntryFlag.Finalized in s: res.add("finalized")
   if DagEntryFlag.MissingSidecars in s: res.add("missing_sidecars")
+  if DagEntryFlag.MissingEnvelope in s: res.add("missing_envelope")
   if isHead: res.add("current_head")
   if isFinalizedHead: res.add("current_finalized_head")
   "[" & res.join(",") & "]"
@@ -213,6 +214,8 @@ proc shortLog*(a: set[DagEntryFlag]): string =
     res.add("F")
   if DagEntryFlag.MissingSidecars in a:
     res.add("M")
+  if DagEntryFlag.MissingEnvelope in a:
+    res.add("E")
   if DagEntryFlag.Unviable in a:
     res.add("U")
   res
@@ -239,6 +242,7 @@ proc getRootMap*[A, B](sdag: SyncDag[A, B], root: Eth2Digest): string =
 func getShortRootMap*[A, B](sdag: SyncDag[A, B], root: Eth2Digest): string =
   var
     missingSidecars = 0
+    missingEnvelope = 0
     pendingBlocks = 0
     count = 0
   let entry = sdag.roots.getOrDefault(root)
@@ -251,17 +255,22 @@ func getShortRootMap*[A, B](sdag: SyncDag[A, B], root: Eth2Digest): string =
     inc(pendingBlocks)
   if DagEntryFlag.MissingSidecars in entry.flags:
     inc(missingSidecars)
+  if DagEntryFlag.MissingEnvelope in entry.flags:
+    inc(missingEnvelope)
   for centry in entry.parents():
     if DagEntryFlag.Pending in centry.flags:
       inc(pendingBlocks)
     if DagEntryFlag.MissingSidecars in centry.flags:
       inc(missingSidecars)
+    if DagEntryFlag.MissingEnvelope in entry.flags:
+      inc(missingEnvelope)
     inc(count)
     res.add(getRootItem(centry.blockId.root, centry.blockId.slot, centry.flags))
     if DagEntryFlag.Finalized in centry.flags:
       break
   res[^1] & "..." & res[0] &
-  "[P:" & $pendingBlocks & "/M:" & $missingSidecars & " of " & $count & "]"
+  "[P:" & $pendingBlocks & "/M:" & $missingSidecars & "/E:" & $missingEnvelope &
+  " of " & $count & "]"
 
 proc updateRoot*[A, B](
     sdag: var SyncDag[A, B],
@@ -269,6 +278,7 @@ proc updateRoot*[A, B](
     slot: Slot,
     parent_root: Eth2Digest,
     sidecarsMissed: bool,
+    envelopeMissed: bool,
     src: DagBlockSourceType
 ): Opt[Eth2Digest] =
   let entry = sdag.roots.getOrDefault(root)
@@ -288,6 +298,8 @@ proc updateRoot*[A, B](
     entry.flags.excl(DagEntryFlag.Pending)
     if sidecarsMissed:
       entry.flags.incl(DagEntryFlag.MissingSidecars)
+    if envelopeMissed:
+      entry.flags.incl(DagEntryFlag.MissingEnvelope)
     entry.blockId.slot = slot
     entry.parent = parentEntry
     entry.source.incl(src)

@@ -54,6 +54,11 @@ type
     usefulPeers*: int
     uselessPeers*: int
 
+  PeerColumnData* = object
+    intersectMap: ColumnMap
+    missingCount: string
+    missingLog: string
+
 func shortLog(optblkid: Opt[BlockId]): string =
   if optblkid.isNone():
     "<n/a>"
@@ -262,6 +267,15 @@ func getMissingColumnsLog(
           res.add(shortLog(forkyBlck.root) & ":" & $map)
           missingCount += float(len(map))
           totalCount += blocksColumnsCount
+      elif consensusFork == ConsensusFork.Gloas:
+        if len(forkyBlck.message.body.signed_execution_payload_bid.
+               message.blob_kzg_commitments) > 0:
+          let map =
+            overseer.gloasColumnQuarantine[].getMissingColumnsMap(
+              forkyBlck.root)
+          res.add(shortLog(forkyBlck.root) & ":" & $map)
+          missingCount += float(len(map))
+          totalCount += blocksColumnsCount
       else:
         raiseAssert "Unsupported fork"
 
@@ -382,14 +396,22 @@ func getMissingIndicesLog(
     when consensusFork < ConsensusFork.Deneb:
       raiseAssert "Invalid fork"
     elif consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-      indexLog(default(seq[ColumnIndex]))
+      shortLog(default(ColumnMap))
     elif consensusFork == ConsensusFork.Fulu:
-      let indices =
+      let map =
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-          default(seq[ColumnIndex])
+          default(ColumnMap)
         else:
-          overseer.columnQuarantine[].getMissingSidecarIndices(forkyBlck.root)
-      indexLog(indices)
+          overseer.columnQuarantine[].getMissingColumnsMap(forkyBlck.root)
+      shortLog(map)
+    elif consensusFork == ConsensusFork.Gloas:
+      let map =
+        if len(forkyBlck.message.body.signed_execution_payload_bid.
+               message.blob_kzg_commitments) == 0:
+          default(ColumnMap)
+        else:
+          overseer.gloasColumnQuarantine[].getMissingColumnsMap(forkyBlck.root)
+      shortLog(map)
     else:
       raiseAssert "Unsupported fork"
 
@@ -530,6 +552,54 @@ proc createQueues(
                 MsgSource.sync, forkyBlck,
                 Opt.some(default(fulu.DataColumnSidecars)),
                 maybeFinalized = maybeFinalized))
+        elif consensusFork == ConsensusFork.Gloas:
+          if overseer.shouldGetColumns(forkyBlck.message.slot):
+            # TODO (cheatfate): templates does not support `var` arguments.
+            let res =
+              when direction == SyncQueueKind.Forward:
+                overseer.fblockBuffer.add(item)
+              elif direction == SyncQueueKind.Backward:
+                overseer.bblockBuffer.add(item)
+            if res.isOk():
+              let payloadLog =
+                if isNil(item.signedPayloadEnvelope):
+                  "not available"
+                else:
+                  shortLog(
+                    item.signedPayloadEnvelope[].message.beacon_block_root)
+              debug "Block and payload buffered",
+                fork = consensusFork,
+                block_root = forkyBlck.root,
+                blck = shortLog(forkyBlck),
+                payload = payloadLog,
+                verifier = "block"
+            res
+          else:
+            let
+              commitmentsLen =
+                len(forkyBlck.message.body.signed_execution_payload_bid.
+                  message.blob_kzg_commitments)
+              bres =
+                if commitmentsLen > 0:
+                  (await overseer.blockProcessor.addBlock(MsgSource.sync,
+                    forkyBlck, Opt.none(gloas.DataColumnSidecars),
+                    maybeFinalized = maybeFinalized))
+                else:
+                  (await overseer.blockProcessor.addBlock(MsgSource.sync,
+                    forkyBlck, Opt.some(default(gloas.DataColumnSidecars)),
+                    maybeFinalized = maybeFinalized))
+
+            if bres.isErr() or isNil(item.signedPayloadEnvelope):
+              return bres
+
+            if commitmentsLen > 0:
+              (await overseer.blockProcessor.addPayload(
+                forkyBlck, item.signedPayloadEnvelope[],
+                Opt.none(gloas.DataColumnSidecars)))
+            else:
+              (await overseer.blockProcessor.addPayload(
+                forkyBlck, item.signedPayloadEnvelope[],
+                Opt.some(default(gloas.DataColumnSidecars))))
         else:
           raiseAssert "Unsupported fork"
 
@@ -540,6 +610,7 @@ proc createQueues(
       item: SyncResponseItem,
       maybeFinalized: bool
   ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+    let dag = overseer.consensusManager.dag
     withBlck(item.signedBlock[]):
       when consensusFork < ConsensusFork.Fulu:
         await overseer.blockProcessor.addBlock(MsgSource.sync, forkyBlck,
@@ -551,10 +622,7 @@ proc createQueues(
             if commitmentsLen > 0:
               if overseer.shouldGetColumns(forkyBlck.message.slot):
                 let res =
-                  if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-                    Opt.some(default(fulu.DataColumnSidecars))
-                  else:
-                    overseer.columnQuarantine[].popSidecars(forkyBlck.root)
+                  overseer.columnQuarantine[].popSidecars(forkyBlck.root)
                 if res.isNone():
                   debug "Block verification failed, because sidecars missing",
                     fork = consensusFork,
@@ -570,7 +638,6 @@ proc createQueues(
             else:
               Opt.some(default(seq[ref fulu.DataColumnSidecar]))
 
-        let dag = overseer.consensusManager.dag
         if cres.isSome() and overseer.eraBid.isSome() and
            dag.needsBackfill() and
            (forkyBlck.message.slot <= dag.backfill.slot) and
@@ -578,7 +645,54 @@ proc createQueues(
           # In case if sidecars present, we are in backfill mode and block's
           # slot is already present in ERA files, we going to verify sidecars
           # only and store sidecars in database.
-          overseer.blockProcessor.addBackfillSidecars(forkyBlck, cres.get())
+          # TODO (cheatfate)
+          (await overseer.blockProcessor.addBlock(
+            MsgSource.sync, forkyBlck, cres,
+            maybeFinalized = maybeFinalized))
+          #overseer.blockProcessor.addBackfillSidecars(
+          #  forkyBlck, cres.get(), Opt.none(SignedExecutionPayloadEnvelope))
+        else:
+          (await overseer.blockProcessor.addBlock(
+            MsgSource.sync, forkyBlck, cres,
+            maybeFinalized = maybeFinalized))
+      elif consensusFork == ConsensusFork.Gloas:
+        let
+          commitmentsLen =
+            len(forkyBlck.message.body.signed_execution_payload_bid.
+                message.blob_kzg_commitments)
+          cres =
+            if commitmentsLen > 0:
+              if overseer.shouldGetColumns(forkyBlck.message.slot):
+                let res =
+                  overseer.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
+                if res.isNone():
+                  debug "Block verification failed, because sidecars missing",
+                    fork = consensusFork,
+                    block_root = item.root,
+                    blck = shortLog(forkyBlck),
+                    missing_sidecars =
+                      overseer.getMissingIndicesLog(item.signedBlock),
+                    verifier = "sidecar"
+                  return err(VerifierError.MissingSidecars)
+                res
+              else:
+                Opt.none(seq[ref gloas.DataColumnSidecar])
+            else:
+              Opt.some(default(seq[ref gloas.DataColumnSidecar]))
+
+        if cres.isSome() and overseer.eraBid.isSome() and
+           dag.needsBackfill() and
+           (forkyBlck.message.slot <= dag.backfill.slot) and
+           (forkyBlck.message.slot < overseer.eraBid.get().slot):
+          # In case if sidecars present, we are in backfill mode and block's
+          # slot is already present in ERA files, we going to verify sidecars
+          # only and store sidecars in database.
+          # TODO (cheatfate)
+          (await overseer.blockProcessor.addBlock(
+            MsgSource.sync, forkyBlck, cres,
+            maybeFinalized = maybeFinalized))
+          #overseer.blockProcessor.addBackfillSidecars(
+          #  forkyBlck, cres.get(), Opt.some(item.signedPayloadEnvelope[]))
         else:
           (await overseer.blockProcessor.addBlock(
             MsgSource.sync, forkyBlck, cres,
@@ -786,6 +900,7 @@ proc updatePeer(
     block_root: Eth2Digest,
     block_parent_root: Eth2Digest,
     sidecarsMissed: bool,
+    envelopeMissed: bool,
     src: DagBlockSourceType
 ) =
   let peerEntry = overseer.sdag.peers.getOrDefault(peerId)
@@ -795,7 +910,7 @@ proc updatePeer(
   let
     missingParentRoot =
       overseer.sdag.updateRoot(block_root, block_slot, block_parent_root,
-        sidecarsMissed, src)
+        sidecarsMissed, envelopeMissed, src)
 
   if missingParentRoot.isSome() and
      (missingParentRoot.get() != GenesisCheckpoint.root):
@@ -816,13 +931,15 @@ proc updatePeer(
     peerMustPresent: bool,
     blck: ref ForkedSignedBeaconBlock,
     missingSidecars: bool,
+    missingEnvelope: bool,
     src: DagBlockSourceType
 ) =
   let (slot, root, parentRoot) =
     withBlck(blck[]):
       (forkyBlck.message.slot, forkyBlck.root, forkyBlck.message.parent_root)
   overseer.updatePeer(
-    peerId, peerMustPresent, slot, root, parentRoot, missingSidecars, src)
+    peerId, peerMustPresent, slot, root, parentRoot, missingSidecars,
+    missingEnvelope, src)
 
 proc updatePeer(
     overseer: SyncOverseerRef2,
@@ -830,13 +947,15 @@ proc updatePeer(
     peerMustPresent: bool,
     blck: ForkedSignedBeaconBlock,
     missingSidecars: bool,
+    missingEnvelope: bool,
     src: DagBlockSourceType
 ) =
   let (slot, root, parentRoot) =
     withBlck(blck):
       (forkyBlck.message.slot, forkyBlck.root, forkyBlck.message.parent_root)
   overseer.updatePeer(
-    peerId, peerMustPresent, slot, root,  parentRoot, missingSidecars, src)
+    peerId, peerMustPresent, slot, root,  parentRoot, missingSidecars,
+    missingEnvelope, src)
 
 func finalizedDistance*(
     overseer: SyncOverseerRef2
@@ -959,6 +1078,32 @@ proc verifyBlock(
       else:
         await overseer.blockProcessor.addBlock(
           MsgSource.sync, forkyBlck, Opt.none(fulu.DataColumnSidecars),
+          maybeFinalized = maybeFinalized)
+    elif consensusFork == ConsensusFork.Gloas:
+      if overseer.shouldGetColumns(forkyBlck.message.slot):
+        let cres =
+          if len(forkyBlck.message.body.signed_execution_payload_bid.
+                 message.blob_kzg_commitments) == 0:
+            Opt.some(default(gloas.DataColumnSidecars))
+          else:
+            overseer.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
+        if cres.isSome():
+          let res =
+            await overseer.blockProcessor.addBlock(
+              MsgSource.sync, forkyBlck, cres,
+              maybeFinalized = maybeFinalized)
+          if res.isErr() and (res.error == VerifierError.MissingParent):
+            # In this case block will be stored in quarantine, so we need to
+            # preserve columns in column quarantine.
+            overseer.gloasColumnQuarantine[].put(
+              forkyBlck.root, cres.get(), false)
+          res
+        else:
+          overseer.blockQuarantine[].addSidecarless(forkyBlck)
+          Result[void, VerifierError].err(VerifierError.MissingSidecars)
+      else:
+        await overseer.blockProcessor.addBlock(
+          MsgSource.sync, forkyBlck, Opt.none(gloas.DataColumnSidecars),
           maybeFinalized = maybeFinalized)
     else:
       raiseAssert "Unsupported fork"
@@ -1394,9 +1539,11 @@ proc doRootSyncStep(
           peer.updateScore(PeerScoreGoodValues)
           debug "Block verification passed", reason = "ok"
           DagBlockSourceType.Dag
+
     # Update SyncDAG with block
     overseer.updatePeer(
-      peer.getKey(), true, signedBlock, missingSidecars, source)
+      peer.getKey(), true, signedBlock, missingSidecars,
+      missingEnvelope = true, source)
     removeRoot(signedBlock[].root)
 
   true
@@ -1651,6 +1798,9 @@ proc doRangeSyncStep(
       reason = request.reason
     return true
 
+  let consensusFork = dag.cfg.consensusForkAtEpoch(
+    request.data.start_slot().epoch)
+
   if direction.isBackward() and peerEntry.minBackBlockSlot.isSome():
     if request.data.slot <= peerEntry.minBackBlockSlot.get():
       debug "Peer has already reported that this block range is unavailable",
@@ -1676,7 +1826,7 @@ proc doRangeSyncStep(
             else:
               peer.updateScore(PeerScoreNoValues)
               return false
-      items = blocks.toSeq().toResponse()
+    var items = blocks.toSeq().toResponse()
 
     debug "Received blocks range on request",
       blocks_count = len(items),
@@ -1690,8 +1840,29 @@ proc doRangeSyncStep(
       overseer.tbsqueue(direction).push(request)
       return false
 
+    let combined =
+      if consensusFork == ConsensusFork.Gloas:
+        let
+          payloads =
+            (await executionPayloadEnvelopesByRange(
+              peer, request.data.slot, request.data.count)).valueOr:
+                debug "Failed to get payloads range from peer", reason = error
+                overseer.tbsqueue(direction).push(request)
+                if direction.isBackward() and rsrcUnavailable(error):
+                  # `ResourceUnavailable` is not critical for backfilling.
+                  return true
+                else:
+                  peer.updateScore(PeerScoreNoValues)
+                  return false
+        items.toResponse(payloads.asSeq())
+      elif consensusFork < ConsensusFork.Gloas:
+        0
+      else:
+        raiseAssert("Unsupported fork!")
+
     debug "Sending blocks range to processor",
       blocks_count = len(items),
+      blocks_combined = combined,
       blocks_map = getShortMap(request, items)
 
     let resp =
@@ -1782,6 +1953,113 @@ proc peekRange(
     netBlocks = overseer.tsbuffer(direction).peekRange(netRange)
   eraBlocks & netBlocks
 
+proc checkPeerColumnSidecars(
+    overseer: SyncOverseerRef2,
+    peer: Peer,
+    items: var seq[SyncResponseItem],
+    request: SyncRequest[Peer],
+    direction: SyncQueueKind
+): Result[PeerColumnData, bool] =
+  let
+    dag = overseer.consensusManager.dag
+    consensusFork = dag.cfg.consensusForkAtEpoch(
+      request.data.start_slot().epoch)
+    custodyMap = overseer.validatorCustody.getMap()
+    peerMap = peer.getColumnMapOrDefault()
+    checkpoint = peer.getFinalizedCheckpoint()
+    intersectMap = custodyMap and peerMap
+
+  logScope:
+    peer = peer
+    request = request
+    head = shortLog(dag.head)
+    block_buffer = shortLog(overseer.tsbuffer(direction))
+    blocks_queue = shortLog(overseer.tbsqueue(direction))
+    sidecars_queue = shortLog(overseer.tssqueue(direction))
+    column_quarantine = shortLog(overseer.columnQuarantine[])
+    peer_checkpoint = shortLog(checkpoint)
+    peer_head = shortLog(peer.getHeadBlockId())
+    peer_ea_slot = getEaSlotLog(peer)
+    peer_agent = $peer.getRemoteAgent()
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    direction = direction
+
+  # Here we perform check if remote peer has compatible columns or not.
+  if len(intersectMap) == 0:
+    debug "Peer does not have compatible columns",
+      custody_map = shortLog(custodyMap),
+      peer_map = shortLog(peerMap)
+    if not(direction.isBackward()):
+      # Backfilling is optional, so we not penalize peers which does not
+      # have compatible sidecars.
+      peer.updateScore(PeerScoreNoValues)
+    return err(true)
+
+  let (columnsNeeded, columnsHave) =
+    if len(items) > 0:
+      # Here we perform check if remote peer can provide columns that we
+      # do not have already.
+      var
+        res1 = false
+        res2 = false
+      for item in items:
+        let
+          missingMap =
+            withBlck(item.signedBlock[]):
+              when consensusFork == ConsensusFork.Fulu:
+                if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+                  ColumnMap()
+                else:
+                  overseer.columnQuarantine[].getMissingColumnsMap(
+                    forkyBlck.root)
+              elif consensusFork == ConsensusFork.Gloas:
+                if len(forkyBlck.message.body.signed_execution_payload_bid.
+                       message.blob_kzg_commitments) == 0:
+                  ColumnMap()
+                else:
+                  overseer.gloasColumnQuarantine[].getMissingColumnsMap(
+                    forkyBlck.root)
+              else:
+                raiseAssert "Unsupported fork!"
+
+        if not(missingMap.empty()):
+          # We have missing columns.
+          res1 = true
+          let newOnlyMap = missingMap and intersectMap
+          if not(newOnlyMap.empty()):
+            # Peer has something that we don't have.
+            res2 = true
+            break
+      (res1, res2)
+    else:
+      # This is undefined case, because its impossible to obtain blocks.
+      (false, false)
+
+  let (missingCount, missingLog) = overseer.getMissingColumnsLog(items)
+
+  debug "Peer columns compatibility",
+     custody_map = shortLog(custodyMap),
+     peer_map = shortLog(peerMap),
+     intersect_map = shortLog(intersectMap),
+     missing_count = missingCount,
+     missing_log = missingLog
+
+  if (len(items) > 0) and (columnsNeeded and not(columnsHave)):
+    debug "Peer has compatible columns that we already have",
+      custody_map = shortLog(custodyMap),
+      peer_map = shortLog(peerMap),
+      intersect_map = shortLog(intersectMap),
+      missing_count = missingCount,
+      missing_log = missingLog
+    return err(true)
+
+  ok(
+    PeerColumnData(
+      intersectMap: intersectMap,
+      missingCount: missingCount,
+      missingLog: missingLog))
+
 proc doRangeSidecarsStep(
     overseer: SyncOverseerRef2,
     peer: Peer,
@@ -1797,6 +2075,7 @@ proc doRangeSidecarsStep(
         res
     dag = overseer.consensusManager.dag
     checkpoint = peer.getFinalizedCheckpoint()
+    peerMap = peer.getColumnMapOrDefault()
 
   block:
     let
@@ -1812,6 +2091,7 @@ proc doRangeSidecarsStep(
       block_buffer = shortLog(overseer.tsbuffer(direction))
       blocks_queue = shortLog(overseer.tbsqueue(direction))
       sidecars_queue = shortLog(overseer.tssqueue(direction))
+      peer_map = shortLog(peerMap)
       peer_checkpoint = shortLog(checkpoint)
       peer_head = shortLog(peer.getHeadBlockId())
       direction = direction
@@ -1837,6 +2117,7 @@ proc doRangeSidecarsStep(
     blocks_queue = shortLog(overseer.tbsqueue(direction))
     sidecars_queue = shortLog(overseer.tssqueue(direction))
     column_quarantine = shortLog(overseer.columnQuarantine[])
+    peer_map = shortLog(peerMap)
     peer_checkpoint = shortLog(checkpoint)
     peer_head = shortLog(peer.getHeadBlockId())
     peer_ea_slot = getEaSlotLog(peer)
@@ -1881,166 +2162,89 @@ proc doRangeSidecarsStep(
         # blocks
         var items = overseer.peekRange(direction, request.data)
 
+        let pdata =
+          overseer.checkPeerColumnSidecars(
+            peer, items, request, direction).valueOr:
+            for mitem in items.mitems():
+              mitem = default(SyncResponseItem)
+            overseer.tssqueue(direction).push(request)
+            return error
+
+        # We only download sidecars if we miss it and peer have it.
         let
-          custodyMap = overseer.validatorCustody.getMap()
-          peerMap = peer.getColumnMapOrDefault()
-          intersectMap = custodyMap and peerMap
+          data =
+            (await dataColumnSidecarsByRange(
+              peer, request.data.slot, request.data.count,
+              List[ColumnIndex, NUMBER_OF_COLUMNS](
+                pdata.intersectMap.items().toSeq()))).valueOr:
+              debug "Failed to get data column sidecars range from peer",
+                reason = $error
+              overseer.tssqueue(direction).push(request)
+              if direction.isBackward() and rsrcUnavailable(error):
+                # `ResourceUnavailable` is not critical for backfilling.
+                if peerEntry.minBackCarSlot.isNone() or
+                  request.data.slot < peerEntry.minBackCarSlot.get():
+                  peerEntry.minBackCarSlot = Opt.some(request.data.slot)
+                return true
+              else:
+                peer.updateScore(PeerScoreNoValues)
+                return false
+
+        debug "Received data columns sidecars range from peer",
+          columns_map = getShortMap(request, pdata.intersectMap, data.toSeq()),
+          peer_map = shortLog(peerMap),
+          intersection_map = shortLog(pdata.intersectMap),
+          columns = slimLog(data.asSeq()),
+          missing_log = pdata.missingLog
+
+        var
+          grouped =
+            groupSidecars(request.data, pdata.intersectMap,
+              data.asSeq()).valueOr:
+              peer.updateScore(PeerScoreBadResponse)
+              debug "Received invalid data column sidecars range",
+                reason = $error, columns_count = len(data),
+                columns = slimLog(data.asSeq())
+              overseer.tssqueue(direction).push(request)
+              return false
 
         defer:
-          # Preemptively cleanup items range on exit
-          for mitem in items.mitems():
-            mitem = default(SyncResponseItem)
+          # Preemptively cleanup sidecar records list on exit
+          cleanupRecordsList(grouped)
 
-        # Here we perform check if remote peer has compatible columns or not.
-        if len(intersectMap) == 0:
-          debug "Peer does not have compatible columns",
-            custody_map = shortLog(custodyMap),
-            peer_map = shortLog(peerMap)
+        # Early detection of empty response.
+        let
+          (sindex, bcount) =
+            validateBlocks(items, grouped, pdata.intersectMap).valueOr:
+              peer.updateScore(PeerScoreMissingValues)
+              debug "Received non-complete data column sidecars range",
+                reason = $error, columns_count = len(data),
+                map = shortLog(pdata.intersectMap),
+                blocks = shortLog(items),
+                columns = shortLog(grouped)
+              overseer.tssqueue(direction).push(request)
+              return false
+
+        if (sindex == 0) and (bcount > 0):
+          # Empty response case, when we sure that blocks with sidecars
+          # exists in the range.
+          debug "Received empty columns range"
+          peer.updateScore(PeerScoreMissingValues)
           overseer.tssqueue(direction).push(request)
-          if not(direction.isBackward()):
-            # Backfilling is optional, so we not penalize peers which does not
-            # have compatible sidecars.
-            peer.updateScore(PeerScoreNoValues)
-          return true
+          return false
 
-        let (columnsNeeded, columnsHave) =
-          if len(items) > 0:
-            # Here we perform check if remote peer can provide columns that we
-            # do not have already.
-            var
-              res1 = false
-              res2 = false
-            for item in items:
-              let
-                missingMap =
-                  withBlck(item.signedBlock[]):
-                    when consensusFork == ConsensusFork.Fulu:
-                      if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-                        ColumnMap()
-                      else:
-                        overseer.columnQuarantine[].getMissingColumnsMap(
-                          forkyBlck.root)
-                    else:
-                      raiseAssert "Should not happen!"
-              if not(missingMap.empty()):
-                # We have missing columns.
-                res1 = true
-                let newOnlyMap = missingMap and intersectMap
-                if not(newOnlyMap.empty()):
-                  # Peer has something that we don't have.
-                  res2 = true
-                  break
-            (res1, res2)
-          else:
-            # This is undefined case, because its impossible to obtain
-            # blocks.
-            (false, false)
+        for record in grouped:
+          overseer.columnQuarantine[].put(
+            record.block_root, record.sidecar, false)
 
-        let (missingCount, missingLog) =
-          overseer.getMissingColumnsLog(items)
+        peer.updateScore(PeerScoreGoodValues)
 
-        debug "Peer columns compatibility",
-           custody_map = shortLog(custodyMap),
-           peer_map = shortLog(peerMap),
-           intersect_map = shortLog(intersectMap),
-           missing_count = missingCount,
-           missing_log = missingLog
-
-        if (len(items) > 0) and (columnsNeeded and not(columnsHave)):
-          debug "Peer has compatible columns that we already have",
-            custody_map = shortLog(custodyMap),
-            peer_map = shortLog(peerMap),
-            intersect_map = shortLog(intersectMap),
-            missing_count = missingCount,
-            missing_log = missingLog
+        if (len(items) == 0) and (len(grouped) > 0):
+          # Case when we have no blocks, but a lot of blobs.
+          debug "Received columns range which do not have corresponding " &
+                "blocks range"
           overseer.tssqueue(direction).push(request)
-          return true
-
-        if (len(items) == 0) or (columnsNeeded and columnsHave):
-          # We only download sidecars if we miss it and peer have it.
-          let
-            data =
-              (await dataColumnSidecarsByRange(
-                peer, request.data.slot, request.data.count,
-                List[ColumnIndex, NUMBER_OF_COLUMNS](
-                  intersectMap.items().toSeq()))).valueOr:
-                debug "Failed to get data column sidecars range from peer",
-                  reason = $error
-                overseer.tssqueue(direction).push(request)
-                if direction.isBackward() and rsrcUnavailable(error):
-                  # `ResourceUnavailable` is not critical for backfilling.
-                  if peerEntry.minBackCarSlot.isNone() or
-                    request.data.slot < peerEntry.minBackCarSlot.get():
-                    peerEntry.minBackCarSlot = Opt.some(request.data.slot)
-                  return true
-                else:
-                  peer.updateScore(PeerScoreNoValues)
-                  return false
-
-          debug "Received data columns sidecars range from peer",
-            columns_map = getShortMap(request, intersectMap, data.toSeq()),
-            peer_map = shortLog(peerMap),
-            intersection_map = shortLog(intersectMap),
-            missing_count = missingCount,
-            columns = slimLog(data.asSeq()),
-            missing_log = missingLog
-
-          var
-            grouped =
-              groupSidecars(request.data, intersectMap, data.asSeq()).valueOr:
-                peer.updateScore(PeerScoreBadResponse)
-                debug "Received invalid data column sidecars range",
-                  reason = $error, columns_count = len(data),
-                  columns = slimLog(data.asSeq())
-                overseer.tssqueue(direction).push(request)
-                return false
-
-          defer:
-            # Preemptively cleanup sidecar records list on exit
-            cleanupRecordsList(grouped)
-
-          # Early detection of empty response.
-          let
-            (sindex, bcount) =
-              validateBlocks(items, grouped, intersectMap).valueOr:
-                peer.updateScore(PeerScoreMissingValues)
-                debug "Received non-complete data column sidecars range",
-                  reason = $error, columns_count = len(data),
-                  map = shortLog(intersectMap),
-                  blocks = shortLog(items),
-                  columns = shortLog(grouped)
-                overseer.tssqueue(direction).push(request)
-                return false
-
-          if (sindex == 0) and (bcount > 0):
-            # Empty response case, when we sure that blocks with sidecars
-            # exists in the range.
-            debug "Received empty columns range"
-            peer.updateScore(PeerScoreMissingValues)
-            overseer.tssqueue(direction).push(request)
-            return false
-
-          for record in grouped:
-            overseer.columnQuarantine[].put(
-              record.block_root, record.sidecar, false)
-
-          peer.updateScore(PeerScoreGoodValues)
-
-          if (len(items) == 0) and (len(grouped) > 0):
-            # Case when we have no blocks, but a lot of blobs.
-            debug "Received columns range which do not have corresponding " &
-                  "blocks range"
-            overseer.tssqueue(direction).push(request)
-            return false
-
-        else:
-          debug "Sidecars are already downloaded",
-            custody_map = shortLog(custodyMap),
-            peer_map = shortLog(peerMap),
-            intersect_map = shortLog(intersectMap),
-            missing_count = missingCount,
-            missing_log = missingLog,
-            columns_needed = columnsNeeded, columns_have = columnsHave
+          return false
 
         debug "Sending sidecars range to processor",
           peer_map = shortLog(peerMap),
@@ -2566,7 +2770,9 @@ proc gossipMonitoringLoop(
       discard overseer.sdag.roots.mgetOrPut(
         blockId.root, SyncDagEntryRef.init(blockId))
 
-      overseer.updatePeer(event.src, false, event.blck, missingSidecars, src)
+      overseer.updatePeer(
+        event.src, false, event.blck, missingSidecars,
+        missingEnvelope = false, src)
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
   except CancelledError:
@@ -2626,7 +2832,7 @@ proc blockMonitoringLoop(
             blockId.root, SyncDagEntryRef.init(blockId))
 
       overseer.updatePeer(
-        overseer.localPeerId, false, slot, blockRoot, parentRoot, false,
+        overseer.localPeerId, false, slot, blockRoot, parentRoot, false, false,
         DagBlockSourceType.Dag)
 
   except AsyncEventQueueFullError:
@@ -2686,8 +2892,8 @@ proc finalMonitoringLoop(
         # sidecarsMissing == false in this case because this block was recently
         # selected as finalized head, so it is sure has sidecars already.
         overseer.updatePeer(
-          overseer.localPeerId, false, slot, blockRoot, parentRoot, false,
-          DagBlockSourceType.Dag)
+          overseer.localPeerId, false, slot, blockRoot, parentRoot,
+          false, false, DagBlockSourceType.Dag)
 
       # Pruning SyncDag.
       overseer.sdag.prune(event.epoch)
@@ -2838,10 +3044,12 @@ proc checkData(
           overseer.sdag.roots.mgetOrPut(
             blockId.root, SyncDagEntryRef.init(blockId))
         overseer.updatePeer(
-          overseer.localPeerId, peerMustPresent = false,
+          overseer.localPeerId,
+          peerMustPresent = false,
           blockId.slot, blockId.root,
           blck.parent_root,
           sidecarsMissed = true,
+          envelopeMissed = true,
           DagBlockSourceType.Dag)
     else:
       debug "Late block processor response", reason = "ok"

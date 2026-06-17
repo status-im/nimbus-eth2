@@ -68,11 +68,13 @@ type
     bblockBuffer*: BlocksRangeBuffer
     blockQuarantine*: ref Quarantine
     columnQuarantine*: ref ColumnQuarantine
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     blocksQueueBus*: AsyncEventQueue[EventBeaconBlockObject]
     blockFinalizationBus*: AsyncEventQueue[FinalizationInfoObject]
     missingRoots*: HashSet[Eth2Digest]
     missingSidecars*: HashSet[Eth2Digest]
+    missingEnvelopes*: HashSet[Eth2Digest]
     avgSpeedCounter*: int
     avgSpeed*: float
     blocksChunkSize*: int
@@ -140,6 +142,7 @@ proc new*(
     validatorCustody: ref ValidatorCustody,
     blockQuarantine: ref Quarantine,
     columnQuarantine: ref ColumnQuarantine,
+    gloasColumnQuarantine: ref GloasColumnQuarantine,
     gossipQueue: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     blocksQueue: AsyncEventQueue[EventBeaconBlockObject],
     finalizationQueue: AsyncEventQueue[FinalizationInfoObject],
@@ -156,6 +159,7 @@ proc new*(
     blockProcessor: blockProcessor,
     validatorCustody: validatorCustody,
     columnQuarantine: columnQuarantine,
+    gloasColumnQuarantine: gloasColumnQuarantine,
     blockQuarantine: blockQuarantine,
     blockGossipBus: gossipQueue,
     blocksQueueBus: blocksQueue,

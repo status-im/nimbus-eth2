@@ -897,7 +897,7 @@ proc initFullNode(
     SyncOverseerRef2.new(node.network, node.consensusManager, config,
                          getBeaconTime, node.beaconClock, blockProcessor,
                          validatorCustody, quarantine,
-                         dataColumnQuarantine,
+                         dataColumnQuarantine, gloasColumnQuarantine,
                          node.eventBus.blockGossipPeerQueue,
                          node.eventBus.blocksQueue,
                          node.eventBus.finalQueue)
