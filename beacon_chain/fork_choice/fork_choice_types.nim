@@ -151,7 +151,7 @@ type
     slot*: Slot
     payload_present*: bool
     next_payload_present*: bool
-    current_pending*: bool ##\
+    current_pending*: bool
     next_pending*: bool
 
   PtcVoteTally* = object

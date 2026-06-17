@@ -569,35 +569,6 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
-func should_extend_payload*(
-    self: var ForkChoiceBackend, root, proposer_boost_root: Eth2Digest): bool =
-  if root notin self.proto_array.fullBlockIndices:
-    return false
-  var present, available = 0'u64
-  self.ptc_votes.withValue(root, tally):
-    for i in 0 ..< tally[].present.len:
-      if tally[].present[i]: inc present
-      if tally[].available[i]: inc available
-  if present > PAYLOAD_TIMELY_THRESHOLD and
-      available > DATA_AVAILABILITY_TIMELY_THRESHOLD:
-    return true
-  if proposer_boost_root.isZero:
-    return true
-  let boostNode = self.proto_array.node(proposer_boost_root).valueOr:
-    return true
-  let parentIdx = boostNode.parent.valueOr:
-    return true
-  let parentNode = self.proto_array.node(parentIdx).valueOr:
-    return true
-  if parentNode.bid.root != root:
-    return true
-  parentIdx == self.proto_array.fullBlockIndices.getOrDefault(root, -1)
-
-func should_extend_payload*(self: var ForkChoice, root: Eth2Digest): bool =
-  self.backend.should_extend_payload(
-    root, self.checkpoints.proposer_boost_root)
-
 func find_head(
     self: var ForkChoiceBackend,
     current_slot: Slot,
@@ -636,7 +607,7 @@ func find_head(
       fullParentIdx =
         self.proto_array.fullBlockIndices.getOrDefault(parentRoot, -1)
     if parentIdx != fullParentIdx and
-        not self.should_extend_payload(parentRoot, proposerBoostRoot):
+        not self.should_extend_payload(parentRoot):
       emptyPreferredRoot = parentRoot
 
   # `compute_deltas` accumulated the same-slot (PENDING-only) vote weight into
