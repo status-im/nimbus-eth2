@@ -16,10 +16,11 @@ import
   eth/common/eth_types,
   results,
   kzg4844/[kzg_abi, kzg],
-  stew/objects,
+  stew/[byteutils, objects],
   # Local modules:
   ../spec/[engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
+  ../version,
   "."/[el_conf, engine_api_conversions]
 
 from std/sequtils import anyIt, filterIt, mapIt
@@ -112,6 +113,13 @@ type
 
     chainIdStatus: ChainIdStatus
       ## The latest status of the `checkChainId` exchange.
+
+    clientVersion: Opt[ClientVersionV1]
+      ## The version reported through `engine_getClientVersionV1`.
+
+    clientVersionExchanged: bool
+      ## Whether `engine_getClientVersionV1` has been attempted for this
+      ## connection.
 
     state: ELConnectionState
     hysteresisCounter: int
@@ -290,6 +298,25 @@ proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
       await sleepAsync(chronos.seconds(10))
 
   connection.web3.get.provider
+
+func consensusClientVersion(): ClientVersionV1 =
+  ClientVersionV1(
+    code: "NB", name: "Nimbus", version: "v" & versionAsStr, commit: default(Bytes4)
+  )
+
+func makeClientVersionGraffiti*(elVersion: ClientVersionV1): GraffitiBytes =
+  let
+    elCommit = toHex(distinctBase(elVersion.commit))
+    graffiti = elVersion.code & elCommit[0 ..< 4] & "NB" & gitRevision[0 ..< 4]
+
+  distinctBase(result)[0 ..< graffiti.len] = toBytes(graffiti)
+
+func getClientVersion*(m: ELManager): Opt[ClientVersionV1] =
+  for connection in m.elConnections:
+    if connection.clientVersion.isSome:
+      return connection.clientVersion
+
+  Opt.none(ClientVersionV1)
 
 template retryUntilCancelled(body: untyped) =
   ## Perform the same request in a loop until it is explicitly cancelled,
@@ -1078,6 +1105,29 @@ proc checkChainId(
     connection: ELConnection
 ) {.async: (raises: [CancelledError]).} =
   let rpcClient = await connection.connectedRpcClient()
+
+  if not connection.clientVersionExchanged:
+    connection.clientVersionExchanged = true
+    try:
+      let versions = await connection.engineApiRequest(
+        rpcClient.getClientVersion(consensusClientVersion()),
+        "getClientVersion",
+        Moment.now(),
+      )
+
+      if versions.len > 0:
+        connection.clientVersion = Opt.some(versions[0])
+        debug "Exchanged EL client version",
+          url = connection.engineUrl,
+          code = versions[0].code,
+          name = versions[0].name,
+          version = versions[0].version
+    except CancelledError as exc:
+      debug "Client version exchange was interrupted"
+      connection.clientVersionExchanged = false
+      raise exc
+    except CatchableError as exc:
+      debug "Failed to obtain EL client version", reason = exc.msg
 
   if m.eth1Network.isSome and
      connection.chainIdStatus == ChainIdStatus.notExchangedYet:
