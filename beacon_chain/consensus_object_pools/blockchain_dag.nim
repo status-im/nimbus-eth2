@@ -1754,6 +1754,16 @@ proc computeRandaoMix*(
 proc computeRandaoMixFromMemory*(
     dag: ChainDAGRef, bid: BlockId, lowSlot: Slot): Opt[Eth2Digest] =
   ## Compute requested RANDAO mix for `bid` from available states (~5 ms).
+  template tryLatestBid(state: ForkedHashedBeaconState) =
+    withState(state):
+      if forkyState.data.latest_block_header.slot == bid.slot and
+          forkyState.latest_block_root == bid.root:
+        return ok forkyState.data.get_randao_mix(
+          get_current_epoch(forkyState.data))
+  tryLatestBid dag.headState
+  tryLatestBid dag.epochRefState
+  tryLatestBid dag.clearanceState
+
   template tryWithState(state: ForkedHashedBeaconState) =
     block:
       withState(state):
