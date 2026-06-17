@@ -130,9 +130,8 @@ proc getPrevRandao*(
     pool: ExecutionPayloadBidPool, slot: Slot,
     parentBid: BlockId): Opt[Eth2Digest] =
   for payloadAvailability in PayloadAvailability:
-    let bid = pool.getHighestBidForSlotAndParent(
-      slot, parentBid.root, payloadAvailability)
-    if bid.isSome:
-      return Opt.some bid.unsafeGet.message.prev_randao
+    pool.getHighestBidForSlotAndParent(
+        slot, parentBid.root, payloadAvailability).isErrOr:
+      return Opt.some value.message.prev_randao
 
   pool.dag.computeRandaoMix(parentBid)
