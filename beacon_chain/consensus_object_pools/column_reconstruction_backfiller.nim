@@ -240,12 +240,9 @@ proc reconstructAndStore[
   beacon_column_reconstruction_attempts_total.inc()
   beacon_column_reconstruction_backfill_slot.set(int64(slot))
 
-  let startTime = Moment.now()
-  # `recover_cells_and_proofs_parallel` is a type class over Fulu/Gloas sidecar
-  # seqs and instantiates concretely per fork, so the held columns pass straight
-  # through regardless of `T`. Recovery only reads `index`/`column`, which both
-  # layouts share.
-  let recovered = (await recover_cells_and_proofs_parallel(
+  let
+    startTime = Moment.now()
+    recovered = (await recover_cells_and_proofs_parallel(
       self.taskpool, columns)).valueOr:
     beacon_column_reconstruction_failures_total.inc()
     debug "Column reconstruction failed",
@@ -304,10 +301,10 @@ proc reconstructSlot[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     have: ColumnMap,
     _: typedesc[T]
 ): Future[SlotRecon] {.async: (raises: [CancelledError]).} =
-  ## Load the columns we hold, recover the rest and persist them. Returns the
-  ## resulting slot state: `Servable` on success, `TooFew` if columns were
-  ## pruned out from under us between inspecting and loading them, or `Unknown`
-  ## on a recoverable failure (so a later pass retries once more columns arrive).
+  ## Returns the resulting slot state: `Servable` on success,
+  ## `TooFew` if columns were pruned out from under us between
+  ## inspecting and loading them, or `Unknown` on a recoverable
+  ## failure (so a later pass retries once more columns arrive).
   let columns = loadExistingColumns[T](self.dag.db, blockRoot, have)
   if columns.len < ColumnsRequiredForReconstruction:
     return SlotRecon.TooFew
@@ -333,15 +330,13 @@ proc processSlot(
     self.markSlot(slot, SlotRecon.Servable)
     return
 
-  # `getBlockIdAtSlot` returns the most recent block at or before `slot`;
-  # if that block is not the proposed block for this slot, the slot is
-  # empty and there is nothing to reconstruct.
   if not bsi.isProposed():
     self.markSlot(slot, SlotRecon.Servable)
     return
 
-  let blockRoot = bsi.bid.root
-  let have = existingColumns(self.dag.db, columnFork, blockRoot)
+  let
+    blockRoot = bsi.bid.root
+    have = existingColumns(self.dag.db, columnFork, blockRoot)
 
   if have.lenu64 == NUMBER_OF_COLUMNS:
     self.markSlot(slot, SlotRecon.Servable)
@@ -349,8 +344,8 @@ proc processSlot(
 
   let count = have.len
   if count == 0:
-    # Distinguish "block legitimately has zero blobs" from "we never
-    # received any columns" — only the latter is a reconstruction miss.
+    # Distinguish "a block having zero blobs" from "no columns were found"
+    # — only the latter is a reconstruction miss.
     let forked = self.dag.getForkedBlock(bsi.bid).valueOr:
       self.markSlot(slot, SlotRecon.Servable)
       return
@@ -413,12 +408,10 @@ proc run*(
   debug "Column reconstruction backfiller started"
   try:
     while true:
-      # Reconstruction is only possible once we custody at least half the
-      # matrix, so it's only a duty of nodes currently holding that many
-      # columns — i.e. a (light)supernode. Custody is dynamic: a node out of
-      # sync drops to limited custody, so re-check every pass and idle (rather
-      # than terminate) whenever our inferred custody falls below the
-      # reconstruction threshold, resuming once it climbs back.
+      # Custody is dynamic: a node out of sync drops to limited custody,
+      # so re-check every pass and idle (rather than terminate) whenever
+      # our inferred custody falls below the reconstruction threshold,
+      # resuming once it climbs back.
       if self.validatorCustody.getMap().len < ColumnsRequiredForReconstruction:
         await sleepAsync(IdleSleepDuration)
         continue
