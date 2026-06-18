@@ -1064,10 +1064,12 @@ proc getLightClientBootstrap(
   # Ensure `current_sync_committee_branch` is known
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand and
       not dag.hasCurrentSyncCommitteeBranch(slot):
-    let
-      bsi = dag.getExistingBlockIdAtSlot(slot).valueOr:
-        return default(ForkedLightClientBootstrap)
-      tmpState = assignClone(dag.headState)
+    let bsi = dag.getExistingBlockIdAtSlot(slot).valueOr:
+      return default(ForkedLightClientBootstrap)
+    if bsi.bid.root != blockRoot:
+      debug "LC bootstrap unavailable: Not canonical", blockRoot
+      return default(ForkedLightClientBootstrap)
+    let tmpState = assignClone(dag.headState)
     dag.withUpdatedExistingState(tmpState[], bsi) do:
       withState(updatedState):
         when consensusFork >= ConsensusFork.Altair:
