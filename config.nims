@@ -146,10 +146,11 @@ switch("define", "withoutPCRE")
 
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
+  switch("stacktrace", "off")
   switch("import", "libbacktrace")
 else:
-  --stacktrace:on
-  --linetrace:on
+  switch("stacktrace", "on")
+  switch("linetrace", "on")
 
 var canEnableDebuggingSymbols = true
 if defined(macosx):
