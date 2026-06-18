@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2025 Status Research & Development GmbH
+# Copyright (c) 2025-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -95,12 +95,9 @@ suite "ColumnMap test suite":
         map3 = map1 and map2
 
       check:
-        map1.items().toSeq().mapIt($int(it)).join(", ") ==
-          vector[0].mapIt($it).join(", ")
-        map2.items().toSeq().mapIt($int(it)).join(", ") ==
-          vector[1].mapIt($it).join(", ")
-        "[" & map3.items().toSeq().mapIt($int(it)).join(", ") & "]" ==
-          vector[2]
+        map1.mapIt($int(it)).join(", ") == vector[0].mapIt($it).join(", ")
+        map2.mapIt($int(it)).join(", ") == vector[1].mapIt($it).join(", ")
+        "[" & map3.mapIt($int(it)).join(", ") & "]" == vector[2]
 
   test "supernode test":
     for max in ((NUMBER_OF_COLUMNS div 2) + 1) ..< NUMBER_OF_COLUMNS:
@@ -109,8 +106,7 @@ suite "ColumnMap test suite":
         columns.add(ColumnIndex(i))
       let map = ColumnMap.init(columns)
       check:
-        map.items().toSeq().mapIt($int(it)).join(", ") ==
-          columns.mapIt($it).join(", ")
+        map.mapIt($int(it)).join(", ") == columns.mapIt($it).join(", ")
         shortLog(map) == "[supernode]"
 
   test "contains() test":
@@ -118,7 +114,7 @@ suite "ColumnMap test suite":
       let testMap = ColumnMap.init([ColumnIndex(i)])
       for k in 0 ..< NUMBER_OF_COLUMNS:
         if k == i:
-          check ColumnIndex(k) in testMap == true
+          check ColumnIndex(k) in testMap
         else:
           check ColumnIndex(k) in testMap == false
 
@@ -128,7 +124,7 @@ suite "ColumnMap test suite":
       for k in 0 ..< NUMBER_OF_COLUMNS:
         map.incl(ColumnIndex(k))
         check:
-          ColumnIndex(k) in map == true
+          ColumnIndex(k) in map
         map.excl(ColumnIndex(k))
         check:
-          ColumnIndex(k) notin map == true
+          ColumnIndex(k) notin map

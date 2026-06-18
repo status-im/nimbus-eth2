@@ -177,7 +177,8 @@ suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
-    var pending = get_pending_validators(defaultRuntimeConfig, preState)
+    var pending = get_pending_validators(
+      defaultRuntimeConfig, preState, toHashSet([depositRequest.pubkey]))
     process_deposit_request(
       defaultRuntimeConfig, preState,
       sortValidatorBuckets(preState.validators.asSeq)[],

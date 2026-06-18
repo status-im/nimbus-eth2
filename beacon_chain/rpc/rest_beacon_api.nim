@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[typetraits, sequtils, sets],
+  std/[typetraits, sets],
   stew/base10,
   chronicles, metrics,
   ./rest_utils,
@@ -19,6 +19,8 @@ import
       peerdas_helpers, eth2_merkleization,
       forks, network, state_transition_block, validator],
   ../validators/message_router_mev
+
+from std/sequtils import mapIt, toSeq
 
 export rest_utils
 
@@ -1651,7 +1653,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadBid
-  router.api(MethodPost, "/eth/v1/beacon/execution_payload_bid") do (
+  router.api(MethodPost, "/eth/v1/beacon/execution_payload_bids") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
     let
@@ -1680,8 +1682,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error)
     RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
-  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelopes/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
     let
       blockIdent = block_id.valueOr:

@@ -11,12 +11,15 @@ import
   std/sequtils,
   chronicles,
   metrics,
-  ../spec/[network, peerdas_helpers],
+  ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
   ../spec/datatypes/deneb
+
+from ../spec/column_map import contains
+
 export eth2_processor, eth2_network
 
 logScope:
@@ -165,18 +168,8 @@ proc publishSidecars(
       notice "Data column sent",
         data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: gloas.DataColumnSidecars
-  for dc in cols:
-    if dc[].index in allowed:
-      finalCols.add dc
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.gloasColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -201,18 +194,8 @@ proc publishSidecars(
       notice "Data column sent",
         data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: fulu.DataColumnSidecars
-  for dc in cols:
-    if dc[].index in allowed:
-      finalCols.add dc
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.dataColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,

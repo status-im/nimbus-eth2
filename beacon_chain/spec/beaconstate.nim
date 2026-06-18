@@ -15,7 +15,7 @@ import
   ../validator_bucket_sort
 
 from std/algorithm import fill, isSorted, sort
-from std/sequtils import anyIt, mapIt, toSeq
+from std/sequtils import anyIt, mapIt
 
 export extras, forks, validator, chronicles
 
@@ -3257,7 +3257,7 @@ proc is_valid_indexed_payload_attestation*(
   if indexed_payload_attestation.attesting_indices.len == 0:
     return false
 
-  if not toSeq(indexed_payload_attestation.attesting_indices).isSorted:
+  if not indexed_payload_attestation.attesting_indices.asSeq.isSorted:
     return false
 
   # Verify aggregate signature

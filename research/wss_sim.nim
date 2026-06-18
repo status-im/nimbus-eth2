@@ -21,21 +21,14 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_clock, sszdump],
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/spec/[crypto, forks, helpers, signatures, state_transition],
+  ../beacon_chain/spec/[crypto, forks],
   ../beacon_chain/validators/[keystore_management, validator_pool]
 
-from std/sequtils import filterIt, toSeq
+from std/sequtils import filterIt, findIt, toSeq
 from ../beacon_chain/gossip_processing/block_processor import
   newExecutionPayload
 from ../beacon_chain/spec/engine_authentication import loadJwtSecretFile
-
-template findIt*(s: openArray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
+from ../beacon_chain/spec/state_transition import makeBeaconBlock, process_slots
 
 func findValidator(validators: seq[Validator], pubkey: ValidatorPubKey):
     Opt[ValidatorIndex] =
@@ -44,9 +37,6 @@ func findValidator(validators: seq[Validator], pubkey: ValidatorPubKey):
     Opt.none ValidatorIndex
   else:
     Opt.some idx.ValidatorIndex
-
-from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
-from ../beacon_chain/spec/datatypes/deneb import SignedBeaconBlock
 
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, startBlock: string,

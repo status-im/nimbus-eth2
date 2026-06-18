@@ -218,14 +218,6 @@ func check_attestation_subnet(
 
   ok()
 
-func check_blob_sidecar_inclusion_proof(
-    blob_sidecar: deneb.BlobSidecar): Result[void, ValidationError] =
-  let res = blob_sidecar.verify_blob_sidecar_inclusion_proof()
-  if res.isErr:
-    return errReject(cstring res.error)
-
-  ok()
-
 func check_data_column_sidecar_inclusion_proof(
     data_column_sidecar: ref fulu.DataColumnSidecar):
     Result[void, ValidationError] =
@@ -306,15 +298,6 @@ template checkedResult(
 template checkedReject(
     pool: ValidatorChangePool, msg: cstring): untyped =
   pool.dag.checkedReject(msg)
-
-func getMaxBlobsPerBlock(cfg: RuntimeConfig, slot: Slot): uint64 =
-  let epoch = slot.epoch
-  if epoch >= cfg.FULU_FORK_EPOCH:
-    get_blob_parameters(cfg, epoch).MAX_BLOBS_PER_BLOCK
-  elif epoch >= cfg.ELECTRA_FORK_EPOCH:
-    cfg.MAX_BLOBS_PER_BLOCK_ELECTRA
-  else:
-    cfg.MAX_BLOBS_PER_BLOCK
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
@@ -426,25 +409,10 @@ template validateBeaconBlockGloas(
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
   let executionParent = block:
-    var
-      cur = dag.getBlockRef(bid.parent_block_root).valueOr:
-        return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-      i = 0
-      found = false
-
-    while i < 2:
-      let pBhash = dag.loadExecutionBlockHash(cur).valueOr:
-        return errIgnore("validateBeaconBlockGloas: cannot load block hash")
-      if pBhash == bid.parent_block_hash:
-        found = true
-        break
-      if isNil(cur.parent):
-        break
-      cur = cur.parent
-      inc i
-    if not found:
+    let parentRef = dag.getBlockRef(bid.parent_block_root).valueOr:
+      return errIgnore("validateBeaconBlockGloas: parent not yet seen")
+    dag.executionParent(parentRef, bid.parent_block_hash).valueOr:
       return errIgnore("validateBeaconBlockGloas: invalid execution parent")
-    cur
 
   # - [IGNORE] The block's parent execution payload (defined by
   #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
@@ -456,7 +424,7 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  if dag.cfg.consensusForkAtEpoch(executionParent.slot.epoch()) >= ConsensusFork.Gloas:
+  if executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
     # The executionParent exists in DAG, so we should check unviable envelope
     # and the database for the validation rules.
     if executionParent.root in envelopeQuarantine.unviable:
@@ -478,182 +446,6 @@ template validateBeaconBlockGloas(
   # block's parent (defined by `block.parent_root`).
   if not (bid.parent_block_root == blck.parent_root):
     return dag.checkedReject("validateBeaconBlockGloas: parent block mismatch")
-
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-proc validateBlobSidecar*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    blob_sidecar: BlobSidecar,
-    wallTime: BeaconTime, subnet_id: BlobId): Result[void, ValidationError] =
-  # Some of the checks below have been reordered compared to the spec, to
-  # perform the cheap checks first - in particular, we want to avoid loading
-  # an `EpochRef` and checking signatures. This reordering might lead to
-  # different IGNORE/REJECT results in turn affecting gossip scores.
-  # If the header is invalid, so is the block that shares its block_root ->
-  # we can mark those blocks invalid without further processing
-  template block_header: untyped = blob_sidecar.signed_block_header.message
-
-  # [REJECT] The sidecar's index is consistent with `MAX_BLOBS_PER_BLOCK`
-  # -- i.e. `blob_sidecar.index < MAX_BLOBS_PER_BLOCK`
-  if not (blob_sidecar.index < dag.cfg.getMaxBlobsPerBlock(block_header.slot)):
-    return dag.checkedReject("BlobSidecar: index inconsistent")
-
-  # [REJECT] The sidecar is for the correct subnet -- i.e.
-  # `compute_subnet_for_blob_sidecar(blob_sidecar.index) == subnet_id`.
-  if not (dag.cfg.compute_subnet_for_blob_sidecar(
-      block_header.slot, blob_sidecar.index) == subnet_id):
-    return dag.checkedReject("BlobSidecar: subnet incorrect")
-
-  # [IGNORE] The sidecar is not from a future slot (with a
-  # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that
-  # `block_header.slot <= current_slot` (a client MAY queue future sidecars
-  # for processing at the appropriate slot).
-  if not (block_header.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
-    return errIgnore("BlobSidecar: slot too high")
-
-  # [IGNORE] The sidecar is from a slot greater than the latest
-  # finalized slot -- i.e. validate that `block_header.slot >
-  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)`
-  if not (block_header.slot > dag.finalizedHead.slot):
-    return errIgnore("BlobSidecar: slot already finalized")
-
-  # [IGNORE] The sidecar is the first sidecar for the tuple
-  # (block_header.slot, block_header.proposer_index, blob_sidecar.index)
-  # with valid header signature, sidecar inclusion proof, and kzg proof.
-  let block_root = hash_tree_root(block_header)
-  if dag.getBlockRef(block_root).isSome():
-    return errIgnore("BlobSidecar: already have block")
-
-  # This adds block root matching to the spec gossip validation. It's an
-  # IGNORE condition, so it shouldn't affect Nimbus's scoring, and when some
-  # (slashable) double proposals happen with blobs present, without this one
-  # or the other block, or potentially both, won't get its full set of blobs
-  # through gossip validation and have to backfill them later. There is some
-  # cost in slightly more outgoing bandwidth on such double-proposals but it
-  # remains insignificant compared with other bandwidth usage.
-  #
-  # It would be good to fix this more properly, but this has come up often on
-  # Pectra devnet-6.
-  #
-  # Detailed explanation:
-  #
-  # There were regular double-proposer, slashable events (some of which got
-  # slashed, but that takes at least a couple of slots typically to be noticed,
-  # it's not instant). What would happen is, Nimbus would be going fine,
-  # following the chain, until one of these double proposals came up.
-  # Each had, independently, some set of blobs:
-  #
-  # * separately valid block 1, with a set of valid blobs; and
-  # * separately valid block 2, with a set of valid blobs (different than the
-  #   first set, created by a different node).
-  #
-  # Both of these proposals shared a slot and proposer index, because they were
-  # the same proposer. Indeed, the signatures were all valid too, because, well,
-  # they were both legitimately running that private key.
-  #
-  # But what would happen is,
-  #   * if block 1's blobs came in, and block 1 came in, and block 1 turned out
-  #     to be the one the chain followed, then, great, the IGNORE condition here
-  #     worked fine (WLOG extend to block 2); but
-  #   * if the blobs came in interleaved, this wasn't always true, and,
-  #     crucially, this gossip condition as spec-written prevented Nimbus's
-  #     gossip from being able to collect all the blobs from block 1.
-  #
-  # Maybe other clients did/do this by having a very efficient
-  # request manager-equivalent, I'm not sure. But without something, either
-  # receiving via gossip or req/resp, Nimbus just got stuck until a suitable
-  # reorg happened, typically dozens of slots later, because this gossip
-  # condition prevented it from seeing all the blobs corresponding to either
-  # block.
-  #
-  # Also, it would be basically random chance which, if asked by req/resp,
-  # of the two different (or more, but the devnet-6 case was two slashable
-  # blocks at a time) sets of blobs would be returned, so it seemed to
-  # sometimes have to retry this. All of this took enough time Nimbus lost the
-  # chain basically deterministically every time this slashable double-proposal
-  # situation came up.
-  #
-  # I don't see anything obviously corresponding to this in the tests, either,
-  # to show this is otherwise addressed.
-
-  # [REJECT] The sidecar's inclusion proof is valid as verified by
-  # `verify_blob_sidecar_inclusion_proof(blob_sidecar)`.
-  block:
-    let v = check_blob_sidecar_inclusion_proof(blob_sidecar)
-    if v.isErr:
-      return dag.checkedReject(v.error)
-
-  # [IGNORE] The sidecar's block's parent (defined by
-  # `block_header.parent_root`) has been seen (via both gossip and
-  # non-gossip sources) (a client MAY queue sidecars for processing
-  # once the parent block is retrieved).
-  #
-  # [REJECT] The sidecar's block's parent (defined by
-  # `block_header.parent_root`) passes validation.
-  let parent = dag.getBlockRef(block_header.parent_root).valueOr:
-    return quarantine[].addMissingValid(
-      block_header.parent_root, block_root, "BlobSidecar: parent"
-    )
-
-  # [REJECT] The sidecar is from a higher slot than the sidecar's
-  # block's parent (defined by `block_header.parent_root`).
-  if not (block_header.slot > parent.bid.slot):
-    discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
-    return dag.checkedReject("BlobSidecar: slot lower than parents'")
-
-  # [REJECT] The current finalized_checkpoint is an ancestor of the sidecar's
-  # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
-  # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
-  let
-    finalized_checkpoint = dag.headState.finalized_checkpoint
-    ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
-
-  if ancestor.isNil:
-    # This shouldn't happen: we should always be able to trace the parent back
-    # to the finalized checkpoint (else it wouldn't be in the DAG)
-    return errIgnore("BlobSidecar: Can't find ancestor")
-
-  if not (
-      finalized_checkpoint.root == ancestor.root or
-      finalized_checkpoint.root.isZero):
-    discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
-    return dag.checkedReject(
-      "BlobSidecar: Finalized checkpoint not an ancestor")
-
-  # [REJECT] The sidecar is proposed by the expected `proposer_index`
-  # for the block's slot in the context of the current shuffling
-  # (defined by `block_header.parent_root`/`block_header.slot`).
-  # If the proposer_index cannot immediately be verified against the expected
-  # shuffling, the sidecar MAY be queued for later processing while proposers
-  # for the block's branch are calculated -- in such a case do not
-  # REJECT, instead IGNORE this message.
-  # [REJECT] The proposer signature of `blob_sidecar.signed_block_header`,
-  # is valid with respect to the `block_header.proposer_index` pubkey.
-  dag.verifyBlockProposer(
-    parent, block_header.slot, block_header.proposer_index, block_root,
-    blob_sidecar.signed_block_header.signature,
-    quarantine.latest_sidecar_signatures
-  ).isOkOr:
-    if error.invalid:
-      discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
-    return dag.checkedReject(error.msg)
-
-  # Cache the verified (block_root, signature) pair for future fast-path checks
-  quarantine.latest_sidecar_signatures.put(
-    (block_root, blob_sidecar.signed_block_header.signature), ())
-
-  # [REJECT] The sidecar's blob is valid as verified by `verify_blob_kzg_proof(
-  # blob_sidecar.blob, blob_sidecar.kzg_commitment, blob_sidecar.kzg_proof)`.
-  block:
-    let ok = verifyBlobKzgProof(
-        KzgBlob(bytes: blob_sidecar.blob),
-        blob_sidecar.kzg_commitment,
-        blob_sidecar.kzg_proof).valueOr:
-      return dag.checkedReject("BlobSidecar: blob verify failed")
-    if not ok:
-      return dag.checkedReject("BlobSidecar: blob invalid")
-
-  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
@@ -2086,6 +1878,12 @@ proc validateExecutionPayloadBid*(
         return errIgnore(
           "ExecutionPayloadBid: parent block root not found in fork choice")
 
+      # [REJECT] The bid is for a higher slot than its parent block -- i.e.
+      # validate that `bid.slot` is greater than the slot of the block with root
+      # `bid.parent_block_root`.
+      if not (bid.slot > parentBlck.slot):
+        return errReject("ExecutionPayloadBid: slot not greater than parent's")
+
       # [IGNORE] this bid is the highest value bid seen for the tuple
       # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`.
       let
@@ -2123,17 +1921,10 @@ proc validateExecutionPayloadBid*(
           bid.gas_limit, seenPref.target_gas_limit):
         return errIgnore("ExecutionPayloadBid: gas limit not target-compatible")
 
-      # [IGNORE] bid.parent_block_root is the hash tree root of a known beacon
-      # block in fork choice
-      if dag.getBlockRef(bid.parent_block_root).isNone():
-        return errIgnore(
-          "ExecutionPayloadBid: parent block root not found in fork choice")
-
       # [IGNORE] bid.slot is the current slot or the next slot
       let currentSlot = wallTime.slotOrZero(dag.timeParams)
       if bid.slot != currentSlot and bid.slot != currentSlot + 1:
-        return errIgnore(
-          "ExecutionPayloadBid: slot not current or next slot")
+        return errIgnore("ExecutionPayloadBid: slot not current or next slot")
 
       # [REJECT] The length of KZG commitments is less than or equal to the
       # limitation defined in the consensus layer -- i.e. validate that
@@ -2200,13 +1991,15 @@ proc validatePayloadAttestationMessage*(
   # [REJECT] The message's block `data.beacon_block_root` passes validation.
   # Should have been validatied by getNBlockRef above
 
+  let vidx = ValidatorIndex.init(payload_attestation_message.validator_index).valueOr:
+    return dag.checkedReject(
+      "PayloadAttestationMessage: invalid validator index")
+
   # [REJECT] The message's validator index is within the payload committee in
   # `get_ptc(state, data.slot)`. The `state` is the head state corresponding to
   # processing the block up to the current slot as determined by fork choice
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
-      let vidx = ValidatorIndex(payload_attestation_message.validator_index)
-
       var present = false
       for idx in get_ptc(forkyState.data, data.slot):
         if idx == vidx:
@@ -2224,10 +2017,9 @@ proc validatePayloadAttestationMessage*(
   # to the validator's public key.
   if checkSignature:
     let
-      validator_index = ValidatorIndex(payload_attestation_message.validator_index)
-      senderPubKey = dag.validatorKey(validator_index).valueOr:
+      senderPubKey = dag.validatorKey(vidx).valueOr:
         return dag.checkedReject(
-          "PayPayloadAttesatationMessage: invalid validator index")
+          "PayloadAttestationMessage: invalid validator index")
       fork = dag.forkAtEpoch(data.slot.epoch)
 
     let deferredCrypto = batchCrypto.schedulePayloadAttestationCheck(
@@ -2250,7 +2042,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
@@ -2284,18 +2076,17 @@ proc validateProposerPreferences*(
   # where state is the checkpoint state at the epoch
   # compute_epoch_at_slot(preferences.proposal_slot) - 1
   # and the root preferences.dependent_root.
-  # Spec requires the checkpoint state at dependent_root; we approximate
-  # with head state which should have the same proposer_lookahead when synced.
-  withState(dag.headState):
-    when consensusFork >= ConsensusFork.Gloas:
-      if not is_valid_proposal_slot(
-          forkyState.data, preferences.proposal_slot,
-          preferences.validator_index):
-        return dag.checkedReject(
-          "ProposerPreferences: not the proposer for proposal_slot")
-    else:
-      return errIgnore(
-        "ProposerPreferences: head state not yet at Gloas fork")
+  #
+  # Rather than replay that checkpoint state, compute the proposer from the
+  # shuffling anchored at the referenced dependent_root block.
+  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
+    return errIgnore("ProposerPreferences: dependent_root not in dag")
+  let proposer = dag.getProposer(
+      dependentRef, preferences.proposal_slot).valueOr:
+    return errIgnore("ProposerPreferences: unable to compute proposer")
+  if proposer.uint64 != preferences.validator_index:
+    return dag.checkedReject(
+      "ProposerPreferences: not the proposer for proposal_slot")
 
   # [IGNORE] The signed_proposer_preferences is the first valid message seen
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,

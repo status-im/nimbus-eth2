@@ -436,19 +436,9 @@ func `==`(a: seq[ValidatorPubKey],
     return false
   var indices: seq[int]
   for publicKey in a:
-    let index =
-      block:
-        var res = -1
-        for k, v in b.pairs():
-          let key =
-            when b is seq[KeystoreInfo]:
-              v.validating_pubkey
-            else:
-              v.pubkey
-          if key == publicKey:
-            res = k
-            break
-        res
+    let index = b.findIt(
+      (when b is seq[KeystoreInfo]: it.validating_pubkey else: it.pubkey) ==
+        publicKey)
     if (index == -1) or (index in indices):
       return false
     indices.add(index)

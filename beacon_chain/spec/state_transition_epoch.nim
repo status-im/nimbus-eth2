@@ -1208,8 +1208,9 @@ func apply_pending_deposit(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#new-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/beacon-chain.md#modified-process_pending_deposits
 func process_pending_deposits*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -1231,11 +1232,12 @@ func process_pending_deposits*(
   let finalized_slot = start_slot(state.finalized_checkpoint.epoch)
 
   for deposit in state.pending_deposits:
-    # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
-    if  deposit.slot > GENESIS_SLOT and  # Is deposit request
-        # There are pending Eth1 bridge deposits
-        state.eth1_deposit_index < state.deposit_requests_start_index:
-      break
+    when state is electra.BeaconState:
+      # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+      if  deposit.slot > GENESIS_SLOT and  # Is deposit request
+          # There are pending Eth1 bridge deposits
+          state.eth1_deposit_index < state.deposit_requests_start_index:
+        break
 
     # Check if deposit has been finalized, otherwise, stop processing.
     if deposit.slot > finalized_slot:

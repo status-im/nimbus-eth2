@@ -71,6 +71,22 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
+  # [New in Gloas] Replaces the role of Fulu's PartialDataColumnHeader: it
+  # carries the per-block metadata (slot + beacon_block_root) needed to
+  # assemble a Gloas `DataColumnSidecar` from accumulated partial cells.
+  PartialDataColumnGroupID* = object
+    slot*: Slot
+    beacon_block_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+  # [Modified in Gloas] Compared to Fulu, the `header` field is removed
+  # (peers now key on `PartialDataColumnGroupID` out-of-band)
+  PartialDataColumnSidecar* = object
+    cells_present_bitmap*: fulu.CellsPresentBits
+    partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    kzg_proofs*: deneb.KzgProofs
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest

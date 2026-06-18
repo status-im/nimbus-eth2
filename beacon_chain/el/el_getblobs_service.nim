@@ -48,10 +48,9 @@ type
     blockProcessor*: ref BlockProcessor
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
-    partialColumnQuarantine*: ref PartialColumnQuarantine
+    partialColumnQuarantine: ref FuluPartialColumnQuarantine
       # Sink for partial column cells reconstructed from a partial
-      # engine_getBlobsV3 response on Fulu. Only populated when
-      # `partialColumns` is enabled.
+      # engine_getBlobsV3 response on Fulu.
     partialColumns*: bool
       # Mirrors `--debug-partial-columns`: when true the Fulu path issues
       # `engine_getBlobsV3` and routes partial responses into the partial
@@ -78,7 +77,7 @@ proc new*(
     blockProcessor: ref BlockProcessor,
     dataColumnQuarantine: ref ColumnQuarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
-    partialColumnQuarantine: ref PartialColumnQuarantine,
+    partialColumnQuarantine: ref FuluPartialColumnQuarantine,
     partialColumns: bool,
     validatorCustody: ValidatorCustodyRef,
     network: Eth2Node
@@ -213,13 +212,13 @@ proc attemptGetBlobs*(
             return
 
           self.partialColumnQuarantine[].putPartialHeader(
-            forkyBlck.root, header)
+            forkyBlck.root, newClone(header))
           for columnIndex in 0 ..< partialSidecars.len:
             discard self.partialColumnQuarantine[].getOrCreateEntry(
               forkyBlck.root, ColumnIndex(columnIndex), numBlobs)
             self.partialColumnQuarantine[].addCells(
               forkyBlck.root, ColumnIndex(columnIndex),
-              partialSidecars[columnIndex])
+              newClone(partialSidecars[columnIndex]))
 
           debug "Added partial data columns from EL blobpool to quarantine",
             root = forkyBlck.root,
@@ -286,7 +285,7 @@ proc attemptGetBlobs*(
         root = forkyBlck.root,
         slot = forkyBlck.message.slot,
         batch_len = batch.len
-      self.dataColumnQuarantine[].put(forkyBlck.root, batch)
+      self.dataColumnQuarantine[].put(forkyBlck.root, batch, verified = true)
       # Any partial-cell state for this block is now superseded by the full
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
@@ -351,7 +350,7 @@ proc attemptGetBlobs*(
     root = blck.root,
     slot = blck.message.slot,
     batch_len = batch.len
-  self.gloasColumnQuarantine[].put(blck.root, batch)
+  self.gloasColumnQuarantine[].put(blck.root, batch, verified = true)
 
   # If the envelope is already orphaned waiting on sidecars, re-enqueuing the
   # payload will pop it and continue processing; otherwise this just marks
@@ -427,7 +426,7 @@ proc attemptGetBlobsFromColumn*(
     root = block_root,
     slot = slot,
     batch_len = batch.len
-  self.dataColumnQuarantine[].put(block_root, batch)
+  self.dataColumnQuarantine[].put(block_root, batch, verified = true)
   # Any partial-cell state for this block is now superseded by the full
   # column sidecars we just installed.
   self.partialColumnQuarantine[].pruneForBlock(block_root)
