@@ -20,7 +20,9 @@ const
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
   sourcePath = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
-  gitRevision* = strip(generateGitRevision(sourcePath))[0..5]
+  sourceRevision = strip(generateGitRevision(sourcePath))
+  gitRevisionBytes4* = sourceRevision[0..7]
+  gitRevision* = sourceRevision[0..5]
 
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild

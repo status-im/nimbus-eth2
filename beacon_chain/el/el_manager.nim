@@ -117,10 +117,6 @@ type
     clientVersion: Opt[ClientVersionV1]
       ## The version reported through `engine_getClientVersionV1`.
 
-    clientVersionExchanged: bool
-      ## Whether `engine_getClientVersionV1` has been attempted for this
-      ## connection.
-
     state: ELConnectionState
     hysteresisCounter: int
 
@@ -300,16 +296,20 @@ proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
   connection.web3.get.provider
 
 func consensusClientVersion(): ClientVersionV1 =
+  const commit = Bytes4(hexToByteArray[4](gitRevisionBytes4))
+
   ClientVersionV1(
-    code: "NB", name: "Nimbus", version: "v" & versionAsStr, commit: default(Bytes4)
+    code: "NB", name: "Nimbus", version: "v" & versionAsStr, commit: commit
   )
 
 func makeClientVersionGraffiti*(elVersion: ClientVersionV1): GraffitiBytes =
   let
     elCommit = toHex(distinctBase(elVersion.commit))
-    graffiti = elVersion.code & elCommit[0 ..< 4] & "NB" & gitRevision[0 ..< 4]
+    graffiti = elVersion.code & elCommit[0 ..< 4] & "NB" & gitRevisionBytes4[0 ..< 4]
 
-  distinctBase(result)[0 ..< graffiti.len] = toBytes(graffiti)
+  var res: GraffitiBytes
+  distinctBase(res)[0 ..< graffiti.len] = toBytes(graffiti)
+  res
 
 func getClientVersion*(m: ELManager): Opt[ClientVersionV1] =
   for connection in m.elConnections:
@@ -1106,8 +1106,7 @@ proc checkChainId(
 ) {.async: (raises: [CancelledError]).} =
   let rpcClient = await connection.connectedRpcClient()
 
-  if not connection.clientVersionExchanged:
-    connection.clientVersionExchanged = true
+  if connection.clientVersion.isNone:
     try:
       let versions = await connection.engineApiRequest(
         rpcClient.getClientVersion(consensusClientVersion()),
@@ -1124,7 +1123,6 @@ proc checkChainId(
           version = versions[0].version
     except CancelledError as exc:
       debug "Client version exchange was interrupted"
-      connection.clientVersionExchanged = false
       raise exc
     except CatchableError as exc:
       debug "Failed to obtain EL client version", reason = exc.msg

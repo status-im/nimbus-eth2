@@ -38,23 +38,23 @@ type
     ## Tracks the state of a mock execution client for testing scenarios, mainly
     ## for the purpose of testing failure, timeout and error scenarios (rather
     ## than specific payload properties)
-    chainId*: UInt256
-    shouldFailNewPayload*: bool
-    shouldFailForkchoice*: bool
-    shouldFailGetPayload*: bool
-    shouldFailChainId*: bool
-    shouldFailClientVersion*: bool
-    newPayloadCallCount*: int
-    newPayloadV5CallCount*: int
-    forkchoiceCallCount*: int
-    forkchoiceV4CallCount*: int
-    getPayloadCallCount*: int
-    getPayloadV6CallCount*: int
-    chainIdCallCount*: int
-    getClientVersionCallCount*: int
-    clientVersion*: ClientVersionV1
-    responseDelay*: Duration
-    blockNumber*: uint64
+    chainId: UInt256
+    shouldFailNewPayload: bool
+    shouldFailForkchoice: bool
+    shouldFailGetPayload: bool
+    shouldFailChainId: bool
+    shouldFailClientVersion: bool
+    newPayloadCallCount: int
+    newPayloadV5CallCount: int
+    forkchoiceCallCount: int
+    forkchoiceV4CallCount: int
+    getPayloadCallCount: int
+    getPayloadV6CallCount: int
+    chainIdCallCount: int
+    getClientVersionCallCount: int
+    clientVersion: ClientVersionV1
+    responseDelay: Duration
+    blockNumber: uint64
 
   MockSetup = ref object
     state: MockEngineState
@@ -224,7 +224,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
     return @[state.clientVersion]
 
-proc newMockRpcServer*(
+proc newMockRpcServer(
     state: MockEngineState, port: Port
 ): RpcHttpServer {.raises: [CatchableError].} =
   ## Create and start a new mock RPC server on the given port
@@ -386,7 +386,7 @@ suite "EL Manager - Helpers":
       )
     )
 
-    check $graffiti == "GE168dNB" & gitRevision[0 ..< 4]
+    check $graffiti == "GE168dNB" & gitRevisionBytes4[0 ..< 4]
 
   test "client version graffiti ignores long semver versions":
     let graffiti = makeClientVersionGraffiti(
@@ -398,9 +398,9 @@ suite "EL Manager - Helpers":
       )
     )
 
-    check $graffiti == "GE168dNB" & gitRevision[0 ..< 4]
+    check $graffiti == "GE168dNB" & gitRevisionBytes4[0 ..< 4]
 
-proc createELManager*(
+proc createELManager(
     engines: seq[EngineApiUrl], eth1Network: Opt[Eth1Network] = Opt.none(Eth1Network)
 ): ELManager =
   ELManager.new(engines, eth1Network)
@@ -453,7 +453,6 @@ suite "EL Manager - Async Operations":
     let version = manager.getClientVersion()
     check:
       mockState.getClientVersionCallCount == 1
-      version.isSome
       version.get.code == "GE"
       version.get.version == "v1.14.0"
 
@@ -466,7 +465,7 @@ suite "EL Manager - Async Operations":
     check waitFor waitForGetClientVersionRequest(mockState)
 
     check:
-      mockState.getClientVersionCallCount == 1
+      mockState.getClientVersionCallCount >= 1
       manager.getClientVersion().isNone
 
 suite "EL Manager - forkchoiceUpdated":
