@@ -1350,8 +1350,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
   # committee period begins, in which case `epochsToNextSyncPeriod` is none.
   if  epochsToSyncPeriod.isNone or
-      node.dag.cfg.consensusForkAtEpoch(epoch + epochsToSyncPeriod.get) <
-        ConsensusFork.Altair:
+      epoch + epochsToSyncPeriod.get < node.dag.cfg.ALTAIR_FORK_EPOCH:
     return subnets
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
@@ -1702,7 +1701,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   # Do this after node.gossipState is updated to avoid adding immediately
   # unsubscribed subscriptions.
   for gossipEpoch in node.gossipState:
-    if node.dag.cfg.consensusForkAtEpoch(gossipEpoch) >= ConsensusFork.Fulu:
+    if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
       node.updateDataColumnSidecarHandlers(gossipEpoch)
 
   node.doppelgangerChecked(slot.epoch)
@@ -1834,17 +1833,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # next slot
 
   let reconstructFut =
-    if node.dag.cfg.consensusForkAtEpoch(slot.epoch()) >= ConsensusFork.Fulu:
+    if slot.epoch() >= node.dag.cfg.FULU_FORK_EPOCH:
       reconstructDataColumns(node, slot)
     else:
       nil
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
+  #
+  # This must be before the advanceOffset/advanceCutoff.
   let
-    endOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+    endOffset = node.dag.timeParams.payloadAttestationSlotOffset + nanos((
       node.dag.timeParams.SLOT_DURATION.nanoseconds -
-      node.dag.timeParams.aggregateSlotOffset.nanoseconds) div 2)
+      node.dag.timeParams.payloadAttestationSlotOffset.nanoseconds) div 6)
     endCutoff = node.beaconClock.fromNow(
       slot.start_beacon_time(node.dag.timeParams) + endOffset)
   if endCutoff.inFuture:
@@ -2001,19 +2002,21 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # When we're not behind schedule, we'll speculatively update the clearance
   # state in anticipation of receiving the next block - we do it after
   # logging slot end since the nextActionWaitTime can be short
+  #
+  # This must be after the endOffset/endCutoff.
   let
-    advanceOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+    advanceOffset = node.dag.timeParams.payloadAttestationSlotOffset + nanos((
       node.dag.timeParams.SLOT_DURATION.nanoseconds -
-      node.dag.timeParams.aggregateSlotOffset.nanoseconds) * 3 div 4)
+      node.dag.timeParams.payloadAttestationSlotOffset.nanoseconds) div 2)
     advanceCutoff = node.beaconClock.fromNow(
       slot.start_beacon_time(node.dag.timeParams) + advanceOffset)
 
   let proposalFcu =
     if advanceCutoff.inFuture:
-      # We wait until there's only a second left before the next slot begins, then
-      # we advance the clearance state to the next slot - this gives us a high
-      # probability of being prepared for the block that will arrive and the
-      # epoch processing that follows
+      # Wait until half-way through the slot's idle tail, and then advance the
+      # clearance state to the next slot - this gives us a high probability of
+      # being prepared for the block that will arrive and the epoch processing
+      # that follows
       await sleepAsync(advanceCutoff.offset)
       let
         nextSlot = slot + 1

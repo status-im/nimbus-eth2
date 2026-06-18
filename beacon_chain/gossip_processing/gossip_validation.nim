@@ -424,7 +424,7 @@ template validateBeaconBlockGloas(
   #
   # - [REJECT] The block's execution payload parent (defined by
   #   bid.parent_block_hash) passes all validation.
-  if dag.cfg.consensusForkAtEpoch(executionParent.slot.epoch()) >= ConsensusFork.Gloas:
+  if executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
     # The executionParent exists in DAG, so we should check unviable envelope
     # and the database for the validation rules.
     if executionParent.root in envelopeQuarantine.unviable:

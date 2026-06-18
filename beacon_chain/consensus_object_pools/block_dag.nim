@@ -88,7 +88,7 @@ func init*(
   # and later blocks are loaded as optimistic, which gets adjusted that first
   # `VALID` fcU from an EL plus markExecutionValid. Pre-merge blocks still get
   # marked as `VALID`.
-  if cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Bellatrix:
+  if slot.epoch >= cfg.BELLATRIX_FORK_EPOCH:
     BlockRef.init(
       root, Opt.none Eth2Digest, Opt.none Eth2Digest,
       OptimisticStatus.notValidated, slot)
