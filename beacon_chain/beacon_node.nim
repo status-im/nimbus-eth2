@@ -10,7 +10,7 @@
 # Everything needed to run a full Beacon Node
 
 import
-  std/osproc,
+  std/[osproc, sets],
 
   # Nimble packages
   chronos, presto,
@@ -58,7 +58,9 @@ type
     attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
+    columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
+    fastConfirmationQueue*: AsyncEventQueue[FastConfirmationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
@@ -74,7 +76,6 @@ type
 
   BeaconNode* = ref object
     nickname*: string
-    graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: NetKeyPair
     db*: BeaconChainDB
@@ -129,16 +130,8 @@ type
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
     lastColumnCustodyIndices*: seq[CustodyIndex]
+    sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     shutdownEvent*: AsyncEvent
-
-# TODO https://github.com/status-im/nim-stew/pull/258
-template findIt*(s: openArray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.currentSlot
@@ -209,8 +202,12 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[BlobSidecarInfoObject](),
     columnSidecarQueue:
       newAsyncEventQueue[DataColumnSidecarInfoObject](),
+    columnSidecarFullQueue:
+      newAsyncEventQueue[ref fulu.DataColumnSidecar](),
     finalQueue:
       newAsyncEventQueue[FinalizationInfoObject](),
+    fastConfirmationQueue:
+      newAsyncEventQueue[FastConfirmationInfoObject](),
     reorgQueue:
       newAsyncEventQueue[ReorgInfoObject](),
     contribQueue:

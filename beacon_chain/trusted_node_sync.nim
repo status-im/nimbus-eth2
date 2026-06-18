@@ -18,8 +18,7 @@ import
   ./[beacon_chain_db, process_state]
 
 from presto import RestDecodingError
-from "."/beacon_clock import
-  BeaconClock, fromFloatSeconds, currentSlot, init
+from ./beacon_clock import BeaconClock, fromFloatSeconds, currentSlot, init
 
 const
   largeRequestsTimeout = 6.minutes  # Downloading large items such as states.
@@ -406,7 +405,7 @@ proc doTrustedNodeSync*(
 
     # For Gloas states and possibly beyond, we also need to
     # download the payload envelope for the head block.
-    if cfg.consensusForkAtEpoch(state[].slot.epoch) >= ConsensusFork.Gloas:
+    if state[].slot.epoch >= cfg.GLOAS_FORK_EPOCH:
       let blockRoot = withState(state[]):
         forkyState.latest_block_root()
       notice "Downloading execution payload envelope for checkpoint block",
@@ -437,7 +436,7 @@ proc doTrustedNodeSync*(
   let
     validatorMonitor = newClone(
       ValidatorMonitor.init(cfg, false, false))
-    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraPath = eraDir)
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraDir)
     backfillSlot = max(dag.backfill.slot, 1.Slot) - 1
     horizon = max(dag.horizon, dag.frontfill.valueOr(BlockId()).slot)
 

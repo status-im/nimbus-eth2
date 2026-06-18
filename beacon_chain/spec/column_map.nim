@@ -11,7 +11,7 @@ import
   stew/bitops2,
   ../spec/datatypes/fulu
 
-from std/sequtils import mapIt, toSeq
+from std/sequtils import mapIt
 from std/strutils import join
 
 static:
@@ -103,9 +103,15 @@ func len*(a: ColumnMap): int =
   countOnes(a.data[0]) + countOnes(a.data[1])
 
 func `$`*(a: ColumnMap): string =
-  "[" & a.items().toSeq().mapIt($it).join(", ") & "]"
+  "[" & a.mapIt($it).join(", ") & "]"
 
 func shortLog*(a: ColumnMap): string =
   if len(a) > NUMBER_OF_COLUMNS div 2:
     return "[supernode]"
   $a
+
+func supernodeMap*(): ColumnMap =
+  ColumnMap(data: [0xFFFF_FFFF_FFFF_FFFF'u64, 0xFFFF_FFFF_FFFF_FFFF'u64])
+
+func lightSupernodeMap*(): ColumnMap =
+  ColumnMap(data: [0xFFFF_FFFF_FFFF_FFFF'u64, 0'u64])

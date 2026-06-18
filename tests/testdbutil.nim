@@ -8,6 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
+  std/sequtils,
   chronicles,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/consensus_object_pools/blockchain_dag,
@@ -20,7 +21,8 @@ export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 proc makeTestDB*(
     cfg: RuntimeConfig,
     validators: Natural,
-    eth1Data = Opt.none(Eth1Data)): BeaconChainDB =
+    eth1Data = Opt.none(Eth1Data),
+    lightClientDataImportBackfill = true): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   # Data column support requires GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
@@ -44,7 +46,9 @@ proc makeTestDB*(
       forkyState.data.eth1_data = eth1Data.get
       forkyState.root = hash_tree_root(forkyState.data)
 
-  result = BeaconChainDB.new("", cfg, inMemory = true)
+  result = BeaconChainDB.new(
+    "", cfg, inMemory = true,
+    lightClientDataImportBackfill = lightClientDataImportBackfill)
   ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(
@@ -85,3 +89,13 @@ proc getEarliestInvalidBlockRoot*(
     curBlck = curBlck.parent
 
   curBlck.root
+
+func forkBlocksMatchHeads*(dag: ChainDAGRef): bool =
+  var expected: HashSet[Eth2Digest]
+  for head in dag.heads:
+    var cur = head
+    while cur != nil and not expected.containsOrIncl(cur.root):
+      cur = cur.parent
+  if expected.len != dag.forkBlocks.len:
+    return false
+  expected.allIt dag.containsForkBlock(it)

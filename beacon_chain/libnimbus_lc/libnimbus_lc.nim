@@ -1101,18 +1101,21 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
 
   # Check fork consistency
-  static: doAssert totalSerializedFields(BlockObject) == 27,
+  static: doAssert totalSerializedFields(BlockObject) == 28,
     "Only update this number once code is adjusted to check new fields!"
   if data.baseFeePerGas.isNone and (
       data.withdrawals.isSome or data.withdrawalsRoot.isSome or
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome):
+      data.requestsHash.isSome or data.blockAccessListHash.isSome):
     return nil
   if data.withdrawalsRoot.isNone and (
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome):
+      data.requestsHash.isSome or data.blockAccessListHash.isSome):
     return nil
-  if data.blobGasUsed.isNone and data.requestsHash.isSome:
+  if data.blobGasUsed.isNone and (
+      data.requestsHash.isSome or data.blockAccessListHash.isSome):
+    return nil
+  if data.requestsHash.isNone and data.blockAccessListHash.isSome:
     return nil
   if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
     return nil
@@ -1165,6 +1168,11 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     requestsHash:
       if data.requestsHash.isSome:
         Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
+      else:
+        Opt.none(Hash32),
+    blockAccessListHash:
+      if data.blockAccessListHash.isSome:
+        Opt.some data.blockAccessListHash.get.asEth2Digest.to(Hash32)
       else:
         Opt.none(Hash32))
   if blockHeader.computeRlpHash().asEth2Digest() != executionHash[]:

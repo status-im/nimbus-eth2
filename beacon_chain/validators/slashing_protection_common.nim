@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   # Stdlib
@@ -142,61 +142,11 @@ type
     of BadProposalKind.DatabaseError:
       message*: string
 
-{.push warning[ProveField]:off.}
-func `==`*(a, b: BadVote): bool =
-  ## Comparison operator.
-  ## Used implictily by Result when comparing the
-  ## result of multiple DB versions
-  if a.kind != b.kind:
-    false
-  else:
-    case a.kind
-    of DoubleVote:
-      a.existingAttestation == b.existingAttestation
-    of SurroundVote:
-      (a.existingAttestationRoot == b.existingAttestationRoot) and
-        (a.sourceExisting == b.sourceExisting) and
-        (a.targetExisting == b.targetExisting) and
-        (a.sourceSlashable == b.sourceSlashable) and
-        (a.targetSlashable == b.targetSlashable)
-    of TargetPrecedesSource:
-      true
-    of MinSourceViolation:
-      (a.minSource == b.minSource) and
-        (a.candidateSource == b.candidateSource)
-    of MinTargetViolation:
-      (a.minTarget == b.minTarget) and
-        (a.candidateTarget == b.candidateTarget)
-    of BadVoteKind.DatabaseError:
-      true
-{.pop.}
-
 template `==`*(a, b: PubKey0x): bool =
   PubKeyBytes(a) == PubKeyBytes(b)
 
 template `<`*(a, b: PubKey0x): bool =
   PubKeyBytes(a) < PubKeyBytes(b)
-
-template cmp*(a, b: PubKey0x): bool =
-  cmp(PubKeyBytes(a), PubKeyBytes(b))
-
-{.push warning[ProveField]:off.}
-func `==`*(a, b: BadProposal): bool =
-  ## Comparison operator.
-  ## Used implictily by Result when comparing the
-  ## result of multiple DB versions
-  ##
-  ## Except that V1 doesn't support low-watermark...
-  if a.kind != b.kind:
-    false
-  elif a.kind == DoubleProposal:
-    a.existingBlock == b.existingBlock
-  elif a.kind == MinSlotViolation:
-    a.minSlot == b.minSlot and
-      a.candidateSlot == b.candidateSlot
-  else: # Unreachable
-    false
-{.pop.}
 
 # Serialization
 # --------------------------------------------
@@ -234,15 +184,6 @@ proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
     a = (typeof a)(r.readValue(string).parseBiggestUInt())
   except ValueError:
     raiseUnexpectedValue(r, "Integer in a string expected")
-
-proc importSlashingInterchange*(
-       db: auto,
-       path: string): SlashingImportStatus {.raises: [IOError, SerializationError].} =
-  ## Import a Slashing Protection Database Interchange Format
-  ## into a Nimbus DB.
-  ## This adds data to already existing data.
-  let spdir = Json.loadFile(path, SPDIR)
-  return db.inclSPDIR(spdir)
 
 # Logging
 # --------------------------------------------

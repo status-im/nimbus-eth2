@@ -15,7 +15,7 @@ import
   ../../beacon_chain/spec/forks,
   ../../beacon_chain/spec/network
 
-from std/sequtils import toSeq
+from std/sequtils import countIt
 
 var cfg = defaultRuntimeConfig
 cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
@@ -222,6 +222,6 @@ suite "EF - BPO forkdigests":
       forkDigests = ForkDigests.init(cfg, gvr)
 
     check:
-      toSeq(forkDigests(ConsensusFork.Fulu, forkDigests)).len == 0
-      toSeq(forkDigests(ConsensusFork.Gloas, forkDigests)).len == 1
-      toSeq(forkDigests(ConsensusFork.Heze, forkDigests)).len == 0
+      forkDigests(ConsensusFork.Fulu, forkDigests).countIt(true) == 0
+      forkDigests(ConsensusFork.Gloas, forkDigests).countIt(true) == 1
+      forkDigests(ConsensusFork.Heze, forkDigests).countIt(true) == 0

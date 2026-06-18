@@ -53,6 +53,8 @@ type
     proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
     proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
+  OnFastConfirmationCallback* =
+    proc(data: FastConfirmationInfoObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
@@ -161,6 +163,19 @@ type
       ## The most recently known head, as chosen by fork choice; might be
       ## optimistic
 
+    headPayload*: BlockRef
+      ## The known payload head that is chosen by fork choice. It will be used
+      ## on the next block proposal for building payload on either the current
+      ## head (parent) or the parent of the current head (grandparent).
+      ##
+      ## Used only since Gloas. Always read values from the head instead of
+      ## headPayload. It is for deriving the should_extend_payload status.
+      ##
+      ## In the usual scenarios it should point to either`dag.head` or
+      ## `dag.head.parent`. It would be nil at the beginning of Gloas fork,
+      ## either Gloas genesis or upgrading from pre-Gloas. It would also be nil
+      ## if it is in a different fork from the head at node startup.
+
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
       ## dag.tail - when backfilling, we'll move backwards in time starting
@@ -250,6 +265,8 @@ type
       ## On head changed callback
     onReorgHappened*: OnReorgCallback
       ## On beacon chain reorganization
+    onFastConfirmation*: OnFastConfirmationCallback
+      ## On fast confirmation callback
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
     onEnvelopeAdded*: OnExecutionPayloadCallback
@@ -290,9 +307,6 @@ type
 
   EpochRef* = ref object
     key*: EpochKey
-
-    eth1_data*: Eth1Data
-    eth1_deposit_index*: uint64
 
     checkpoints*: FinalityCheckpoints
 
@@ -339,6 +353,10 @@ type
     state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch*: Epoch
     optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
+
+  FastConfirmationInfoObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
 
   EventBeaconBlockObject* = object
     slot*: Slot
@@ -427,6 +445,10 @@ template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
 
+template setFastConfirmationCb*(
+    dag: ChainDAGRef, cb: OnFastConfirmationCallback) =
+  dag.onFastConfirmation = cb
+
 template setEnvelopeCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeAdded = cb
 
@@ -496,9 +518,15 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
     epoch: epoch
   )
 
-func init*(t: typedesc[EventBeaconBlockObject],
-           v: ForkedTrustedSignedBeaconBlock,
-           optimistic: Opt[bool]): EventBeaconBlockObject =
+func init*(
+    t: typedesc[FastConfirmationInfoObject],
+    bid: BlockId): FastConfirmationInfoObject =
+  FastConfirmationInfoObject(slot: bid.slot, block_root: bid.root)
+
+func init*(
+    t: typedesc[EventBeaconBlockObject],
+    v: ForkedTrustedSignedBeaconBlock,
+    optimistic: Opt[bool]): EventBeaconBlockObject =
   withBlck(v):
     EventBeaconBlockObject(
       slot: forkyBlck.message.slot,

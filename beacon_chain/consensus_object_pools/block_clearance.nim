@@ -13,7 +13,7 @@ import
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
-  "."/[block_pools_types, block_dag, blockchain_dag,
+  ./[block_pools_types, block_dag, blockchain_dag,
        blockchain_dag_light_client, block_quarantine]
 
 export results, signatures_batch, block_dag, blockchain_dag
@@ -72,7 +72,7 @@ proc addResolvedHeadBlock(
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        optimisticStatus: OptimisticStatus,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnBlockAdded,
+       onBlockAdded: OnBlockAdded, fromGossip: bool,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert state.matches_block_slot(
@@ -96,17 +96,8 @@ proc addResolvedHeadBlock(
 
   # Resolved blocks should be stored in database
   dag.putBlock(trustedBlock)
+  dag.registerHead(blockRef)
   let putBlockTick = Moment.now()
-
-  var foundHead: bool
-  for head in dag.heads.mitems():
-    if head.isAncestorOf(blockRef):
-      head = blockRef
-      foundHead = true
-      break
-
-  if not foundHead:
-    dag.heads.add(blockRef)
 
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
@@ -118,13 +109,22 @@ proc addResolvedHeadBlock(
     epochRef = dag.getEpochRef(state, cache)
     epochRefTick = Moment.now()
 
-  debug "Block resolved",
-    blockRoot = shortLog(blockRoot),
-    blck = shortLog(trustedBlock.message),
-    optimisticStatus, heads = dag.heads.len(),
-    stateDataDur, sigVerifyDur, stateVerifyDur,
-    putBlockDur = putBlockTick - startTick,
-    epochRefDur = epochRefTick - putBlockTick
+  if fromGossip:
+    info "Block resolved",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(trustedBlock.message),
+      optimisticStatus, heads = dag.heads.len(),
+      stateDataDur, sigVerifyDur, stateVerifyDur,
+      putBlockDur = putBlockTick - startTick,
+      epochRefDur = epochRefTick - putBlockTick
+  else:
+    debug "Block resolved",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(trustedBlock.message),
+      optimisticStatus, heads = dag.heads.len(),
+      stateDataDur, sigVerifyDur, stateVerifyDur,
+      putBlockDur = putBlockTick - startTick,
+      epochRefDur = epochRefTick - putBlockTick
 
   # Update light client data
   dag.processNewBlockForLightClient(state, trustedBlock, parent.bid)
@@ -206,12 +206,16 @@ proc checkHeadBlock*(
         debug "Duplicate block"
         return err(VerifierError.Duplicate)
 
-    # Block is older than finalized, but different from the block in our
-    # canonical history: it must be from an unviable branch
-    debug "Block from unviable fork",
-      existing = shortLog(existing.get()),
-      finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail)
+      # Block is older than finalized, but different from the block in our
+      # canonical history: it must be from an unviable branch
+      debug "Block from unviable fork",
+        existing = shortLog(existing.get()),
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail)
+    else:
+      debug "Block from unviable fork (slot not backfilled)",
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail)
 
     return err(VerifierError.UnviableFork)
 
@@ -247,8 +251,8 @@ proc checkHeadBlock*(
 proc addHeadBlockWithParent*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock, parent: BlockRef,
-    optimisticStatus: OptimisticStatus, onBlockAdded: OnBlockAdded
-    ): Result[BlockRef, VerifierError] =
+    optimisticStatus: OptimisticStatus, onBlockAdded: OnBlockAdded,
+    fromGossip = false): Result[BlockRef, VerifierError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
   ##
@@ -331,6 +335,7 @@ proc addHeadBlockWithParent*(
     optimisticStatus,
     parent, cache,
     onBlockAdded,
+    fromGossip,
     stateDataDur = stateDataTick - startTick,
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
@@ -467,6 +472,10 @@ proc addBackfillBlock*(
 
   let putBlockTick = Moment.now
   debug "Block backfilled",
+    blockRoot = shortLog(signedBlock.root),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signedBlock.signature),
+    backfill = shortLog(dag.backfill),
     sigVerifyDur = sigVerifyTick - startTick,
     putBlockDur = putBlockTick - sigVerifyTick
 
@@ -701,8 +710,9 @@ proc addLightForwardBlock*(
     OptimisticStatus.notValidated,
     parent, cache,
     onBlockAdded,
-    proposerVerifyTick - startTick,
-    stateDataTick - proposerVerifyTick,
-    stateVerifyTick - stateDataTick)
+    fromGossip = false,
+    stateDataDur = proposerVerifyTick - startTick,
+    sigVerifyDur = stateDataTick - proposerVerifyTick,
+    stateVerifyDur = stateVerifyTick - stateDataTick)
 
   ok()

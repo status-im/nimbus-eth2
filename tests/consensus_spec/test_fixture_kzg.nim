@@ -343,7 +343,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       data = loadCellsAndKzgProofsValidCases(suitePath)
       rowCount = data[data.len - 1].row_index.int + 1
       # The 64 column indices
-      indices = toSeq(0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
+      indices = (0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
       # Minimal data for recovery
       input = data.filterIt(it.column_index in indices)
         .mapIt(MatrixEntry(
@@ -384,6 +384,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       # check recovered cells and proofs
       # assuming columns are sorted
       var tp = Taskpool.new()
+      defer: tp.shutdown()
       let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isOk
       let val = v.get
@@ -454,6 +455,7 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
 
       # check error
       var tp = Taskpool.new()
+      defer: tp.shutdown()
       let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isErr
 

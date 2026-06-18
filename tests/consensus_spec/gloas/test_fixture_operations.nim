@@ -33,7 +33,6 @@ const
   OpBlsToExecutionChangeDir   = OpDir/"bls_to_execution_change"
   OpConsolidationRequestDir   = OpDir/"consolidation_request"
   OpDepositRequestDir         = OpDir/"deposit_request"
-  OpDepositsDir               = OpDir/"deposit"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
   OpParentExecutionPayloadDir = OpDir/"parent_execution_payload"
   OpExecutionPayloadBidDir    = OpDir/"execution_payload_bid"
@@ -49,7 +48,7 @@ const
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
   OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
-  OpDepositsDir, OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
+  OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
   OpSyncAggregateDir, OpVoluntaryExitDir, OpVoluntaryExitChurnDir,
   OpWithdrawalsDir
@@ -174,23 +173,12 @@ suite baseDescription & "Consolidation Request " & preset():
       OpConsolidationRequestDir, suiteName, "Consolidation Request",
       "consolidation_request", applyConsolidationRequest, path)
 
-suite baseDescription & "Deposit " & preset():
-  func applyDeposit(
-      preState: var gloas.BeaconState, deposit: Deposit):
-      Result[void, cstring] =
-    process_deposit(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
-
-  for path in walkTests(OpDepositsDir):
-    runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
-
 suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
-    var pending = get_pending_validators(defaultRuntimeConfig, preState)
+    var pending = get_pending_validators(
+      defaultRuntimeConfig, preState, toHashSet([depositRequest.pubkey]))
     process_deposit_request(
       defaultRuntimeConfig, preState,
       sortValidatorBuckets(preState.validators.asSeq)[],
@@ -202,17 +190,17 @@ suite baseDescription & "Deposit Request " & preset():
       applyDepositRequest, path)
 
 suite baseDescription & "Parent Execution Payload " & preset():
-  proc applyParentExecutionPayload(
+  proc applyParentExecPayload(
       preState: var gloas.BeaconState,
       blck: gloas.BeaconBlock): Result[void, cstring] =
     var cache: StateCache
     process_parent_execution_payload(
-      defaultRuntimeConfig, preState, blck, cache)
+      defaultRuntimeConfig, preState, blck, {}, cache)
 
   for path in walkTests(OpParentExecutionPayloadDir):
-    runTest[gloas.BeaconBlock, typeof applyParentExecutionPayload](
+    runTest[gloas.BeaconBlock, typeof applyParentExecPayload](
       OpParentExecutionPayloadDir, suiteName, "Parent Execution Payload",
-      "block", applyParentExecutionPayload, path)
+      "block", applyParentExecPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(

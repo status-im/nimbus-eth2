@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, sequtils, strutils, algorithm, math, tables, macrocache],
+  std/[typetraits, os, math, tables, macrocache],
 
   # Status libs
   results,
@@ -26,11 +26,13 @@ import
   libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
-  ".."/[version, conf, beacon_clock, conf_light_client],
+  ../[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
   ../validators/keystore_management,
-  "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
-       libp2p_json_serialization, peer_pool, peer_scores]
+  ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
+     libp2p_json_serialization, peer_pool, peer_scores]
+
+from std/sequtils import countIt, filterIt, mapIt
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
@@ -235,7 +237,7 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
-  
+
   PeerAddrProto* {.pure.} = enum
     TCP
     UDP
@@ -1053,7 +1055,7 @@ proc doMakeEth2Request(
   finally:
     await stream.closeWithEOF()
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type,
     timeout: Duration
@@ -1066,7 +1068,7 @@ proc makeEth2Request(
     doMakeEth2Request(
       peer, protocolId, requestBytes, ResponseMsg, 1.Limit, timeout)
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type, maxResponseItems: Limit,
     timeout: Duration
@@ -1919,7 +1921,7 @@ proc new(T: type Eth2Node,
       {
         enrForkIdField: SSZ.encode(enrForkId),
         enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
-        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)                                                   
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)
       },
     rng),
     discoveryEnabled: discovery,
@@ -2387,13 +2389,13 @@ proc newBeaconSwitch(
     .withAgentVersion(config.agentString)
     .withServices(@[service])
 
-    if config.tcpEnabled: 
+    if config.tcpEnabled:
       sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
              .withTcpTransport({ServerFlags.ReuseAddr})
 
     if config.quicEnabled:
       sb = sb.withQuicTransport()
-        
+
     ok sb.build()
   except LPError as exc:
     err(exc.msg)
@@ -2910,22 +2912,24 @@ proc broadcastBlobSidecar*(
   node.broadcast(topic, blob)
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: fulu.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref fulu.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.signed_block_header.message.slot.epoch
+    contextEpoch = data_column[].signed_block_header.message.slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: gloas.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref gloas.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.slot.epoch
+    contextEpoch = data_column[].slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

@@ -212,7 +212,7 @@ restapi-test:
 		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 0 )) \
 		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 2 )) \
 		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 3 )) \
-		--resttest-delay 30 \
+		--resttest-delay 2 \
 		--kill-old-processes
 
 SIGNER_TYPE := nimbus
@@ -225,7 +225,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--fulu-fork-epoch 10000 \
+		--fulu-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp false \
@@ -312,7 +312,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
+			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
@@ -485,7 +485,7 @@ endif
 force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
 
 # https://www.gnu.org/software/make/manual/html_node/Multiple-Rules.html#Multiple-Rules
-# Already defined as a reult
+# Already defined as a result
 nimbus_beacon_node: force_build_alone_tools
 
 GOERLI_TESTNETS_PARAMS := \

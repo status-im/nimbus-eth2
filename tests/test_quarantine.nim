@@ -179,7 +179,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, Slot(3), uint64(5), ColumnIndex(31)) == false
       bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.put(broot1, sidecar1)
+    bq.put(broot1, sidecar1, verified = false)
 
     check:
       bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
@@ -190,7 +190,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
       bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.put(broot1, sidecar2)
+    bq.put(broot1, sidecar2, verified = false)
 
     check:
       bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
@@ -201,7 +201,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
       bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.put(broot1, sidecar3)
+    bq.put(broot1, sidecar3, verified = false)
 
     check:
       bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
@@ -212,7 +212,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
       bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.put(broot2, sidecar4)
+    bq.put(broot2, sidecar4, verified = false)
 
     check:
       bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
@@ -223,7 +223,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
       bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.put(broot3, sidecar5)
+    bq.put(broot3, sidecar5, verified = false)
 
     check:
       bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
@@ -234,7 +234,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, Slot(3), uint64(8), ColumnIndex(31)) == false
       bq.hasSidecar(broot5, Slot(10), uint64(100), ColumnIndex(3)) == false
 
-    bq.put(broot4, sidecar6)
+    bq.put(broot4, sidecar6, verified = false)
 
     check:
       bq.hasSidecar(broot1, Slot(1), uint64(5), ColumnIndex(0)) == true
@@ -326,14 +326,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
 
-    bq.put(broot1, sidecars1)
+    bq.put(broot1, sidecars1, verified = false)
     check:
       len(bq) == len(sidecars1)
 
     var counter = 0
     for index in 0 ..< len(sidecars2):
       if index notin [1, 3, 5, 7]:
-        bq.put(broot2, sidecars2[index])
+        bq.put(broot2, sidecars2[index], verified = false)
         inc(counter)
         check len(bq) == len(sidecars1) + counter
 
@@ -347,25 +347,25 @@ suite "ColumnQuarantine data structure test suite " & preset():
       compareSidecars(dres.get(), sidecars1) == true
       len(bq) == counter
 
-    bq.put(broot2, sidecars2[1])
+    bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 1
 
-    bq.put(broot2, sidecars2[3])
+    bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 2
 
-    bq.put(broot2, sidecars2[5])
+    bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 3
 
-    bq.put(broot2, sidecars2[7])
+    bq.put(broot2, sidecars2[7], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == true
       len(bq) == len(sidecars2)
@@ -385,14 +385,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 6)))
           res
@@ -411,11 +411,11 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
 
-    bq.put(broot1, sidecars1)
+    bq.put(broot1, sidecars1, verified = false)
 
     for index in 0 ..< len(sidecars2):
       if index notin [1, 3, 5, 7]:
-        bq.put(broot2, sidecars2[index])
+        bq.put(broot2, sidecars2[index], verified = false)
 
     check:
       bq.hasSidecars(fuluBlock1) == true
@@ -426,22 +426,22 @@ suite "ColumnQuarantine data structure test suite " & preset():
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
 
-    bq.put(broot2, sidecars2[1])
+    bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
 
-    bq.put(broot2, sidecars2[3])
+    bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
 
-    bq.put(broot2, sidecars2[5])
+    bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
       bq.popSidecars(fuluBlock2.root).isNone() == true
 
-    bq.put(broot2, sidecars2[7])
+    bq.put(broot2, sidecars2[7], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == true
 
@@ -453,6 +453,31 @@ suite "ColumnQuarantine data structure test suite " & preset():
     bq.remove(broot1)
     bq.remove(broot2)
     check len(bq) == 0
+
+  test "popSidecars tolerates partial custody at DA threshold [node]":
+    const custodyColumns =
+      (0 ..< (NUMBER_OF_COLUMNS div 2 + 32)).mapIt(it.ColumnIndex)
+    var bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
+    let broot = genBlockRoot(1)
+
+    # Populate exactly half the column space — the DA threshold — at
+    # the first half of custody indices, leaving the rest of custody
+    # Empty.
+    var present: seq[ref fulu.DataColumnSidecar]
+    for i in 0 ..< (NUMBER_OF_COLUMNS div 2):
+      let sc = newClone(genFuluDataColumnSidecar(
+        index = int(custodyColumns[i]), slot = 1, proposer_index = 5))
+      bq.put(broot, sc, verified = false)
+      present.add(sc)
+
+    check len(bq) == NUMBER_OF_COLUMNS div 2
+    let res = bq.popSidecars(broot)
+    check:
+      res.isOk()
+      # Populated subset is returned; Empty custody slots are silently
+      # skipped instead of crashing the node.
+      res.get().len == NUMBER_OF_COLUMNS div 2
+      compareSidecars(res.get(), present) == true
 
   test "put()/fetchMissingSidecars/remove test [node]":
     let
@@ -535,8 +560,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
       if i >= len(sidecars1):
         break
 
-      bq.put(broot1, sidecars1[i])
-      bq.put(broot2, sidecars2[i])
+      bq.put(broot1, sidecars1[i], verified = false)
+      bq.put(broot2, sidecars2[i], verified = false)
 
     bq.remove(broot1)
     bq.remove(broot2)
@@ -546,7 +571,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
     let
       custodyColumns = supernodeColumns()
       peerCustodyColumns1 =
-        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+        [15, 20, 33, 41, 42, 97, 100, 126].mapIt(ColumnIndex(it))
 
     var bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
     let
@@ -555,14 +580,14 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1, proposer_index = 5)))
           res
       sidecars2 =
         block:
           var res: seq[ref fulu.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genFuluDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2, proposer_index = 50)))
           res
@@ -573,18 +598,15 @@ suite "ColumnQuarantine data structure test suite " & preset():
       missing: DataColumnsByRootIdentifier
     ): bool =
       const ExpectedVectors = [
-        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
-        (@[63, 64, 65, 66, 95, 96, 97], 58 .. 58),
-        (@[63, 64, 65, 66, 95, 96], 59 .. 59),
-        (@[63, 64, 65, 66, 95], 60 .. 60),
-        (@[63, 64, 65, 66], 61 .. 61),
-        (@[63, 64, 65], 62 .. 62),
-        (@[63, 64], 63 .. 63),
-        (@[64], 64 .. 64),
-        (@[], 65 .. 65)
+        (@[15, 20, 33, 41, 42, 97, 100, 126], 0 .. 15),
+        (@[20, 33, 41, 42, 97, 100, 126], 16 .. 20),
+        (@[33, 41, 42, 97, 100, 126], 21 .. 33),
+        (@[41, 42, 97, 100, 126], 34 .. 41),
+        (@[42, 97, 100, 126], 42 .. 42),
+        (@[97, 100, 126], 43 .. 63)
       ]
 
-      doAssert(index in 0 .. 65)
+      doAssert(index in 0 .. 63)
       for expect in ExpectedVectors:
         if index in expect[1]:
           if len(expect[0]) != len(missing.indices):
@@ -597,7 +619,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           return true
       false
 
-    for i in 0 ..< len(sidecars1) + 1:
+    for i in 0 ..< len(sidecars1) div 2:
       let
         missing1 = bq.fetchMissingSidecars(broot1)
         missing2 = bq.fetchMissingSidecars(broot2)
@@ -610,15 +632,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
         compareSidecars(
           broot2,
           sidecars2.toOpenArray(i, len(sidecars2) - 1), missing2) == true
-        checkSupernodeExpected(
-          broot1,
-          i, missing3) == true
+        checkSupernodeExpected(broot1, i, missing3) == true
 
-      if i >= len(sidecars1):
-        break
-
-      bq.put(broot1, sidecars1[i])
-      bq.put(broot2, sidecars2[i])
+      bq.put(broot1, sidecars1[i], verified = false)
+      bq.put(broot2, sidecars2[i], verified = false)
 
     bq.remove(broot1)
     bq.remove(broot2)
@@ -646,7 +663,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
-      bq.put(item.blockRoot, item.sidecar)
+      bq.put(item.blockRoot, item.sidecar, verified = false)
 
     check len(bq) == maxSidecars
 
@@ -674,7 +691,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
                     proposer_index = 1000000'u64,
                     index = custodyColumns[0]) == false
-    bq.put(blockRoot, sidecar)
+    bq.put(blockRoot, sidecar, verified = false)
     check:
       len(bq) == (len(sidecars) - len(custodyColumns) + 1)
       bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
@@ -721,7 +738,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
                       s.signed_block_header.message.proposer_index,
                       s.index) == false
 
-    bq.put(mblockRoot, msidecars)
+    bq.put(mblockRoot, msidecars, verified = false)
     check len(bq) == beforeLength
 
     for s in msidecars:
@@ -779,13 +796,13 @@ suite "ColumnQuarantine data structure test suite " & preset():
         broot2, custodyColumns).indices) == len(custodyColumns)
 
     for index in 0 ..< len(custodyColumns):
-      bq.put(broot1, sidecars1[index])
+      bq.put(broot1, sidecars1[index], verified = false)
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
           broot1, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
-      bq.put(broot1, sidecars1d[index])
+      bq.put(broot1, sidecars1d[index], verified = false)
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
@@ -793,13 +810,13 @@ suite "ColumnQuarantine data structure test suite " & preset():
             len(custodyColumns) - (index + 1)
 
     for index in 0 ..< len(custodyColumns):
-      bq.put(broot2, sidecars2[index])
+      bq.put(broot2, sidecars2[index], verified = false)
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
           broot2, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
-      bq.put(broot2, sidecars2d[index])
+      bq.put(broot2, sidecars2d[index], verified = false)
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
@@ -859,7 +876,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         newClone(
           genFuluDataColumnSidecar(index = item.index, slot = item.slot,
                                    proposer_index = item.proposer_index))
-      bq.put(genBlockRoot(item.root), sidecar)
+      bq.put(genBlockRoot(item.root), sidecar, verified = false)
 
     check:
       len(bq) == len(TestVectors)
@@ -947,7 +964,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
-      bq.put(item.blockRoot, item.sidecar)
+      bq.put(item.blockRoot, item.sidecar, verified = false)
 
     # put(sidecar) test
 
@@ -980,7 +997,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         blockRoot = blockRoot1, slot = Slot(10000),
         proposer_index = 1000000'u64, index = custodyColumns[0]) == false
 
-    bq.put(blockRoot1, sidecar)
+    bq.put(blockRoot1, sidecar, verified = false)
 
     check:
       len(bq) == len(sidecars) + 1
@@ -1046,7 +1063,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
                       s.signed_block_header.message.proposer_index,
                       s.index) == false
 
-    bq.put(mblockRoot, msidecars)
+    bq.put(mblockRoot, msidecars, verified = false)
 
     check:
       lenDisk(bq) == len(custodyColumns)
@@ -1092,6 +1109,61 @@ suite "ColumnQuarantine data structure test suite " & preset():
       lenDisk(bq) == 0
       quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) == 0
 
+  test "verified flag survives database unload/load [node]":
+    let
+      custodyColumns =
+        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+
+    var
+      bq = ColumnQuarantine.init(cfg, custodyColumns, quarantine, 2, nil)
+      sidecars: seq[tuple[sidecar: ref fulu.DataColumnSidecar,
+                          blockRoot: Eth2Digest]]
+
+    let maxSidecars = int(NUMBER_OF_COLUMNS * SLOTS_PER_EPOCH) * 3
+    for i in 0 ..< maxSidecars:
+      let
+        index = i mod len(custodyColumns)
+        slot = i div len(custodyColumns) + 100
+        blockRoot = genBlockRoot(slot)
+        sidecar = newClone(
+          genFuluDataColumnSidecar(index = int(custodyColumns[index]),
+                                   slot, proposer_index = i))
+      sidecars.add((sidecar, blockRoot))
+
+    # Fill the in-memory quarantine to capacity with `verified` sidecars.
+    for item in sidecars:
+      bq.put(item.blockRoot, item.sidecar, verified = true)
+
+    check:
+      lenMemory(bq) == maxSidecars
+      lenDisk(bq) == 0
+
+    # Adding one more sidecar overfills memory and forces the oldest node
+    # (`genBlockRoot(100)`, holding all custody columns of the first block) to
+    # be offloaded to disk.
+    let
+      extra = newClone(
+        genFuluDataColumnSidecar(index = int(custodyColumns[0]), slot = 10000,
+                                 proposer_index = 1000000))
+      extraRoot = genBlockRoot(10000)
+    bq.put(extraRoot, extra, verified = true)
+
+    let offloadedRoot = genBlockRoot(100)
+    check:
+      lenDisk(bq) == len(custodyColumns)
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
+        len(custodyColumns)
+
+    # Popping reloads the offloaded columns from disk. Because the `verified`
+    # flag is now carried through the unload/load cycle, none of them should be
+    # queued for re-verification.
+    let dres = bq.popSidecars(offloadedRoot)
+    check:
+      dres.isOk()
+      dres.get().len == len(custodyColumns)
+      lenDisk(bq) == 0
+      bq.popPendingVerify(offloadedRoot).empty() == true
+
   test "database and memory overfill protection and pruning test [node]":
     let
       custodyColumns =
@@ -1130,7 +1202,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         epochs2.add(epoch2)
 
     for item in sidecars1:
-      bq.put(item.blockRoot, item.sidecar)
+      bq.put(item.blockRoot, item.sidecar, verified = false)
 
     check:
       len(bq) == len(sidecars1)
@@ -1143,7 +1215,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         finish = start + len(custodyColumns) - 1
         blockRoot = sidecars2[start].blockRoot
         sidecars = sidecars2.toOpenArray(start, finish).mapIt(it.sidecar)
-      bq.put(blockRoot, sidecars)
+      bq.put(blockRoot, sidecars, verified = false)
 
     check:
       len(bq) == len(sidecars1) + len(sidecars2)
@@ -1189,7 +1261,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
                     proposer_index = 2000000'u64,
                     index = custodyColumns[0]) == false
 
-    bq.put(blockRoot, sidecar)
+    bq.put(blockRoot, sidecar, verified = false)
 
     check:
       len(bq) == len(sidecars1) + len(sidecars2) - len(custodyColumns) + 1
@@ -1279,7 +1351,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         sidecars.add((sidecar, blockRoot))
 
       for item in sidecars:
-        bq.put(item.blockRoot, item.sidecar)
+        bq.put(item.blockRoot, item.sidecar, verified = false)
 
       # At this stage only last sidecars in range
       # [maxSidecars - quarantine.size, maxSidecars] should be present in
@@ -1338,7 +1410,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         sidecars.add((sidecar, blockRoot))
 
       for item in sidecars:
-        bq.put(item.blockRoot, item.sidecar)
+        bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -1370,7 +1442,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
       # Now we should be able to add new columns to in-memory storage.
       for item in sidecars2:
-        bq.put(item.blockRoot, item.sidecar)
+        bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == len(custodyColumns)
@@ -1398,23 +1470,23 @@ suite "ColumnQuarantine data structure test suite " & preset():
       of "node":
         # Add only first 3 sidecars for first block
         for i in 0 ..< 3:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add only first 5 sidecars for second block
         for i in 8 ..< 13:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add all other sidecars
         for item in sidecars.toOpenArray(16, bq.sizeMemory - 1):
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
       of "supernode":
         # Add only 64 sidecars for first block.
         for i in 0 ..< 64:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add only 64 sidecars for second block.
         for i in 128 ..< 192:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add all other sidecars
         for item in sidecars.toOpenArray(256, bq.sizeMemory - 1):
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory() - len(custodyColumns)
@@ -1424,7 +1496,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         let offset = bq.sizeMemory()
         for i in 0 ..< len(custodyColumns):
           let item = sidecars[offset + i]
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -1435,7 +1507,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         let offset = bq.sizeMemory() + len(custodyColumns)
         for i in 0 ..< len(custodyColumns):
           let item = sidecars[offset + i]
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -1506,26 +1578,31 @@ suite "ColumnQuarantine data structure test suite " & preset():
         block2 = genFuluSignedBeaconBlock(
           sidecars[0 + len(custodyColumns)].blockRoot, commitments)
 
-      # Both blocks should be incomplete.
-      check:
-        bq.hasSidecars(block1) == false
-        bq.hasSidecars(block2) == false
+      case cvec[0]:
+      of "node":
+        check:
+          bq.hasSidecars(block1) == false
+          bq.hasSidecars(block2) == false
+      of "supernode":
+        check:
+          bq.hasSidecars(block1) == true
+          bq.hasSidecars(block2) == true
 
       case cvec[0]
       of "node":
         # Add last 5 sidecars for first block
         for i in 3 ..< 8:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add last 3 sidecars for second block
         for i in 13 ..< 16:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
       of "supernode":
         # Add last 64 sidecars for first block.
         for i in 64 ..< 128:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add last 64 sidecars for second block.
         for i in 192 ..< 256:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -1567,7 +1644,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = 0
-              finish = len(custodyColumns) div 2 + 1
+              finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -1584,7 +1661,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = len(custodyColumns)
-              finish = start + len(custodyColumns) div 2 + 1
+              finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -1687,7 +1764,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           sidecar = newClone(genFuluDataColumnSidecar(
             int(bq.custodyColumns[index]), slot, proposer_index = i))
         sidecars.add((sidecar, blockRoot))
-        bq.put(blockRoot, sidecar)
+        bq.put(blockRoot, sidecar, verified = false)
 
       let rootsCount = bq.sizeMemory() div len(bq.custodyColumns)
 
@@ -1781,7 +1858,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           sidecar = newClone(genFuluDataColumnSidecar(
             int(bq.custodyColumns[index]), slot, proposer_index = i))
         sidecars.add((sidecar, blockRoot))
-        bq.put(blockRoot, sidecar)
+        bq.put(blockRoot, sidecar, verified = false)
 
       let rootsCount = (bq.sizeMemory() * 2) div len(bq.custodyColumns)
 
@@ -1835,6 +1912,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
               item.sidecar[].signed_block_header.message.proposer_index,
               item.sidecar[].index) == false
 
+      # Re-add pre-update set (new root to force newSidecarsCount > 0)
+      bq.put(
+        genBlockRoot(int.high), sidecars.mapIt(it.sidecar), verified = false)
+
 suite "GloasColumnQuarantine data structure test suite " & preset():
   setup:
     let
@@ -1877,7 +1958,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, ColumnIndex(31)) == false
       bq.hasSidecar(broot5, ColumnIndex(3)) == false
 
-    bq.put(broot1, sidecar1)
+    bq.put(broot1, sidecar1, verified = false)
 
     check:
       bq.hasSidecar(broot1, ColumnIndex(0)) == true
@@ -1888,7 +1969,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, ColumnIndex(31)) == false
       bq.hasSidecar(broot5, ColumnIndex(3)) == false
 
-    bq.put(broot1, sidecar2)
+    bq.put(broot1, sidecar2, verified = false)
 
     check:
       bq.hasSidecar(broot1, ColumnIndex(0)) == true
@@ -1899,7 +1980,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, ColumnIndex(31)) == false
       bq.hasSidecar(broot5, ColumnIndex(3)) == false
 
-    bq.put(broot1, sidecar3)
+    bq.put(broot1, sidecar3, verified = false)
 
     check:
       bq.hasSidecar(broot1, ColumnIndex(0)) == true
@@ -1910,7 +1991,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, ColumnIndex(31)) == false
       bq.hasSidecar(broot5, ColumnIndex(3)) == false
 
-    bq.put(broot2, sidecar4)
+    bq.put(broot2, sidecar4, verified = false)
 
     check:
       bq.hasSidecar(broot1, ColumnIndex(0)) == true
@@ -1921,7 +2002,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, ColumnIndex(31)) == false
       bq.hasSidecar(broot5, ColumnIndex(3)) == false
 
-    bq.put(broot3, sidecar5)
+    bq.put(broot3, sidecar5, verified = false)
 
     check:
       bq.hasSidecar(broot1, ColumnIndex(0)) == true
@@ -1932,7 +2013,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(broot4, ColumnIndex(31)) == false
       bq.hasSidecar(broot5, ColumnIndex(3)) == false
 
-    bq.put(broot4, sidecar6)
+    bq.put(broot4, sidecar6, verified = false)
 
     check:
       bq.hasSidecar(broot1, ColumnIndex(0)) == true
@@ -2024,14 +2105,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
 
-    bq.put(broot1, sidecars1)
+    bq.put(broot1, sidecars1, verified = false)
     check:
       len(bq) == len(sidecars1)
 
     var counter = 0
     for index in 0 ..< len(sidecars2):
       if index notin [1, 3, 5, 7]:
-        bq.put(broot2, sidecars2[index])
+        bq.put(broot2, sidecars2[index], verified = false)
         inc(counter)
         check len(bq) == len(sidecars1) + counter
 
@@ -2045,25 +2126,25 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       compareSidecars(dres.get(), sidecars1) == true
       len(bq) == counter
 
-    bq.put(broot2, sidecars2[1])
+    bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 1
 
-    bq.put(broot2, sidecars2[3])
+    bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 2
 
-    bq.put(broot2, sidecars2[5])
+    bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 3
 
-    bq.put(broot2, sidecars2[7])
+    bq.put(broot2, sidecars2[7], verified = false)
     check:
       bq.hasSidecars(envl2) == true
       len(bq) == len(sidecars2)
@@ -2083,14 +2164,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< (len(custodyColumns) div 2):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
@@ -2109,11 +2190,11 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
 
-    bq.put(broot1, sidecars1)
+    bq.put(broot1, sidecars1, verified = false)
 
     for index in 0 ..< len(sidecars2):
       if index notin [1, 3, 5, 7]:
-        bq.put(broot2, sidecars2[index])
+        bq.put(broot2, sidecars2[index], verified = false)
 
     check:
       bq.hasSidecars(envl1) == true
@@ -2124,22 +2205,22 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
 
-    bq.put(broot2, sidecars2[1])
+    bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
 
-    bq.put(broot2, sidecars2[3])
+    bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
 
-    bq.put(broot2, sidecars2[5])
+    bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(envl2) == false
       bq.popSidecars(broot2).isNone() == true
 
-    bq.put(broot2, sidecars2[7])
+    bq.put(broot2, sidecars2[7], verified = false)
     check:
       bq.hasSidecars(envl2) == true
 
@@ -2151,6 +2232,26 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     bq.remove(broot1)
     bq.remove(broot2)
     check len(bq) == 0
+
+  test "popSidecars tolerates partial custody at DA threshold [node]":
+    const custodyColumns =
+      (0 ..< (NUMBER_OF_COLUMNS div 2 + 32)).mapIt(it.ColumnIndex)
+    var bq = GloasColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
+    let broot = genBlockRoot(1)
+
+    var present: seq[ref gloas.DataColumnSidecar]
+    for i in 0 ..< (NUMBER_OF_COLUMNS div 2):
+      let sc = newClone(genGloasDataColumnSidecar(
+        index = int(custodyColumns[i]), slot = 1))
+      bq.put(broot, sc, verified = false)
+      present.add(sc)
+
+    check len(bq) == NUMBER_OF_COLUMNS div 2
+    let res = bq.popSidecars(broot)
+    check:
+      res.isOk()
+      res.get().len == NUMBER_OF_COLUMNS div 2
+      compareSidecars(res.get(), present) == true
 
   test "put()/fetchMissingSidecars/remove test [node]":
     let
@@ -2233,8 +2334,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       if i >= len(sidecars1):
         break
 
-      bq.put(broot1, sidecars1[i])
-      bq.put(broot2, sidecars2[i])
+      bq.put(broot1, sidecars1[i], verified = false)
+      bq.put(broot2, sidecars2[i], verified = false)
 
     bq.remove(broot1)
     bq.remove(broot2)
@@ -2244,7 +2345,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     let
       custodyColumns = supernodeColumns()
       peerCustodyColumns1 =
-        [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+        [15, 20, 33, 41, 42, 97, 100, 126].mapIt(ColumnIndex(it))
 
     var bq = GloasColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
     let
@@ -2253,14 +2354,14 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars1 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 1)))
           res
       sidecars2 =
         block:
           var res: seq[ref gloas.DataColumnSidecar]
-          for i in 0 ..< (len(custodyColumns) div 2 + 1):
+          for i in 0 ..< len(custodyColumns):
             res.add(newClone(genGloasDataColumnSidecar(
               index = int(custodyColumns[i]), slot = 2)))
           res
@@ -2271,18 +2372,15 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       missing: DataColumnsByRootIdentifier
     ): bool =
       const ExpectedVectors = [
-        (@[63, 64, 65, 66, 95, 96, 97, 98], 0 .. 57),
-        (@[63, 64, 65, 66, 95, 96, 97], 58 .. 58),
-        (@[63, 64, 65, 66, 95, 96], 59 .. 59),
-        (@[63, 64, 65, 66, 95], 60 .. 60),
-        (@[63, 64, 65, 66], 61 .. 61),
-        (@[63, 64, 65], 62 .. 62),
-        (@[63, 64], 63 .. 63),
-        (@[64], 64 .. 64),
-        (@[], 65 .. 65)
+        (@[15, 20, 33, 41, 42, 97, 100, 126], 0 .. 15),
+        (@[20, 33, 41, 42, 97, 100, 126], 16 .. 20),
+        (@[33, 41, 42, 97, 100, 126], 21 .. 33),
+        (@[41, 42, 97, 100, 126], 34 .. 41),
+        (@[42, 97, 100, 126], 42 .. 42),
+        (@[97, 100, 126], 43 .. 63)
       ]
 
-      doAssert(index in 0 .. 65)
+      doAssert(index in 0 .. 63)
       for expect in ExpectedVectors:
         if index in expect[1]:
           if len(expect[0]) != len(missing.indices):
@@ -2295,7 +2393,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           return true
       false
 
-    for i in 0 ..< len(sidecars1) + 1:
+    for i in 0 ..< len(sidecars1) div 2:
       let
         missing1 = bq.fetchMissingSidecars(broot1)
         missing2 = bq.fetchMissingSidecars(broot2)
@@ -2312,11 +2410,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           broot1,
           i, missing3) == true
 
-      if i >= len(sidecars1):
-        break
-
-      bq.put(broot1, sidecars1[i])
-      bq.put(broot2, sidecars2[i])
+      bq.put(broot1, sidecars1[i], verified = false)
+      bq.put(broot2, sidecars2[i], verified = false)
 
     bq.remove(broot1)
     bq.remove(broot2)
@@ -2344,7 +2439,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
-      bq.put(item.blockRoot, item.sidecar)
+      bq.put(item.blockRoot, item.sidecar, verified = false)
 
     check len(bq) == maxSidecars
 
@@ -2372,7 +2467,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
                     proposer_index = 0'u64,
                     index = custodyColumns[0]) == false
-    bq.put(blockRoot, sidecar)
+    bq.put(blockRoot, sidecar, verified = false)
     check:
       len(bq) == (len(sidecars) - len(custodyColumns) + 1)
       bq.hasSidecar(blockRoot = blockRoot, slot = Slot(10000),
@@ -2416,7 +2511,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
                       0'u64,
                       s.index) == false
 
-    bq.put(mblockRoot, msidecars)
+    bq.put(mblockRoot, msidecars, verified = false)
     check len(bq) == beforeLength
 
     for s in msidecars:
@@ -2473,13 +2568,13 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         broot2, custodyColumns).indices) == len(custodyColumns)
 
     for index in 0 ..< len(custodyColumns):
-      bq.put(broot1, sidecars1[index])
+      bq.put(broot1, sidecars1[index], verified = false)
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
           broot1, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
-      bq.put(broot1, sidecars1d[index])
+      bq.put(broot1, sidecars1d[index], verified = false)
       check:
         len(bq) == (index + 1)
         len(bq.fetchMissingSidecars(
@@ -2487,13 +2582,13 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             len(custodyColumns) - (index + 1)
 
     for index in 0 ..< len(custodyColumns):
-      bq.put(broot2, sidecars2[index])
+      bq.put(broot2, sidecars2[index], verified = false)
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
           broot2, custodyColumns).indices) ==
             len(custodyColumns) - (index + 1)
-      bq.put(broot2, sidecars2d[index])
+      bq.put(broot2, sidecars2d[index], verified = false)
       check:
         len(bq) == len(custodyColumns) + (index + 1)
         len(bq.fetchMissingSidecars(
@@ -2553,7 +2648,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         newClone(
           genGloasDataColumnSidecar(
             index = item.index, slot = item.slot))
-      bq.put(genBlockRoot(item.root), sidecar)
+      bq.put(genBlockRoot(item.root), sidecar, verified = false)
 
     check:
       len(bq) == len(TestVectors)
@@ -2640,7 +2735,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars.add((sidecar, blockRoot))
 
     for item in sidecars:
-      bq.put(item.blockRoot, item.sidecar)
+      bq.put(item.blockRoot, item.sidecar, verified = false)
 
     # put(sidecar) test
 
@@ -2670,7 +2765,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         blockRoot = blockRoot1, slot = Slot(10000),
         index = custodyColumns[0]) == false
 
-    bq.put(blockRoot1, sidecar)
+    bq.put(blockRoot1, sidecar, verified = false)
 
     check:
       len(bq) == len(sidecars) + 1
@@ -2732,7 +2827,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
                       s.slot,
                       s.index) == false
 
-    bq.put(mblockRoot, msidecars)
+    bq.put(mblockRoot, msidecars, verified = false)
 
     check:
       lenDisk(bq) == len(custodyColumns)
@@ -2811,7 +2906,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         epochs2.add(epoch2)
 
     for item in sidecars1:
-      bq.put(item.blockRoot, item.sidecar)
+      bq.put(item.blockRoot, item.sidecar, verified = false)
 
     check:
       len(bq) == len(sidecars1)
@@ -2824,7 +2919,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         finish = start + len(custodyColumns) - 1
         blockRoot = sidecars2[start].blockRoot
         sidecars = sidecars2.toOpenArray(start, finish).mapIt(it.sidecar)
-      bq.put(blockRoot, sidecars)
+      bq.put(blockRoot, sidecars, verified = false)
 
     check:
       len(bq) == len(sidecars1) + len(sidecars2)
@@ -2864,7 +2959,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecar(blockRoot = blockRoot, slot = Slot(1000000),
                     index = custodyColumns[0]) == false
 
-    bq.put(blockRoot, sidecar)
+    bq.put(blockRoot, sidecar, verified = false)
 
     check:
       len(bq) == len(sidecars1) + len(sidecars2) - len(custodyColumns) + 1
@@ -2948,7 +3043,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         sidecars.add((sidecar, blockRoot))
 
       for item in sidecars:
-        bq.put(item.blockRoot, item.sidecar)
+        bq.put(item.blockRoot, item.sidecar, verified = false)
 
       # At this stage only last sidecars in range
       # [maxSidecars - quarantine.size, maxSidecars] should be present in
@@ -3003,7 +3098,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         sidecars.add((sidecar, blockRoot))
 
       for item in sidecars:
-        bq.put(item.blockRoot, item.sidecar)
+        bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -3035,7 +3130,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
       # Now we should be able to add new columns to in-memory storage.
       for item in sidecars2:
-        bq.put(item.blockRoot, item.sidecar)
+        bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == len(custodyColumns)
@@ -3063,23 +3158,23 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       of "node":
         # Add only first 3 sidecars for first block
         for i in 0 ..< 3:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add only first 5 sidecars for second block
         for i in 8 ..< 13:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add all other sidecars
         for item in sidecars.toOpenArray(16, bq.sizeMemory - 1):
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
       of "supernode":
         # Add only 64 sidecars for first block.
         for i in 0 ..< 64:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add only 64 sidecars for second block.
         for i in 128 ..< 192:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add all other sidecars
         for item in sidecars.toOpenArray(256, bq.sizeMemory - 1):
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory() - len(custodyColumns)
@@ -3089,7 +3184,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         let offset = bq.sizeMemory()
         for i in 0 ..< len(custodyColumns):
           let item = sidecars[offset + i]
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -3100,7 +3195,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         let offset = bq.sizeMemory() + len(custodyColumns)
         for i in 0 ..< len(custodyColumns):
           let item = sidecars[offset + i]
-          bq.put(item.blockRoot, item.sidecar)
+          bq.put(item.blockRoot, item.sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -3165,26 +3260,32 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         envl2 = genGloasSignedExecutionPayloadEnvelope(
           sidecars[0 + len(custodyColumns)].blockRoot, commitments)
 
-      # Both blocks should be incomplete.
-      check:
-        bq.hasSidecars(envl1) == false
-        bq.hasSidecars(envl2) == false
+
+      case cvec[0]
+      of "node":
+        check:
+          bq.hasSidecars(envl1) == false
+          bq.hasSidecars(envl2) == false
+      of "supernode":
+        check:
+          bq.hasSidecars(envl1) == true
+          bq.hasSidecars(envl2) == true
 
       case cvec[0]
       of "node":
         # Add last 5 sidecars for first block
         for i in 3 ..< 8:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add last 3 sidecars for second block
         for i in 13 ..< 16:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
       of "supernode":
         # Add last 64 sidecars for first block.
         for i in 64 ..< 128:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
         # Add last 64 sidecars for second block.
         for i in 192 ..< 256:
-          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar)
+          bq.put(sidecars[i].blockRoot, sidecars[i].sidecar, verified = false)
 
       check:
         bq.lenMemory() == bq.sizeMemory()
@@ -3226,7 +3327,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = 0
-              finish = len(custodyColumns) div 2 + 1
+              finish = len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -3243,7 +3344,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
             # rebuild.
             let
               start = len(custodyColumns)
-              finish = start + len(custodyColumns) div 2 + 1
+              finish = start + len(custodyColumns)
             sidecars.toOpenArray(start, finish - 1).mapIt(it.sidecar)
           else:
             raiseAssert "inaccessible"
@@ -3346,7 +3447,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           sidecar = newClone(genGloasDataColumnSidecar(
             int(bq.custodyColumns[index]), slot))
         sidecars.add((sidecar, blockRoot))
-        bq.put(blockRoot, sidecar)
+        bq.put(blockRoot, sidecar, verified = false)
 
       let rootsCount = bq.sizeMemory() div len(bq.custodyColumns)
 
@@ -3438,7 +3539,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           sidecar = newClone(genGloasDataColumnSidecar(
             int(bq.custodyColumns[index]), slot))
         sidecars.add((sidecar, blockRoot))
-        bq.put(blockRoot, sidecar)
+        bq.put(blockRoot, sidecar, verified = false)
 
       let rootsCount = (bq.sizeMemory() * 2) div len(bq.custodyColumns)
 

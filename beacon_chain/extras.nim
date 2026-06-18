@@ -22,22 +22,28 @@ import metrics
 
 type
   UpdateFlag* = enum
-    skipBlsValidation ##\
-    ## Skip verification of BLS signatures in block processing.
-    ## Predominantly intended for use in testing, e.g. to allow extra coverage.
-    ## Also useful to avoid unnecessary work when replaying known, good blocks.
-    skipStateRootValidation ##\
-    ## Skip verification of block state root.
-    strictVerification ##\
-    ## Strictly assert on unexpected conditions to aid debugging.
-    ## Should not be used in production, as additional asserts are reachable.
-    slotProcessed ##\
-    ## Allow blocks to be applied to states with the same slot number as the
-    ## block which is what happens when `process_block` is called separately
-    skipLastStateRootCalculation ##\
-    ## When process_slots() is being called as part of a state_transition(),
-    ## the hash_tree_root() from the block will fill in the state.root so it
-    ## should skip calculating that last state root.
+    skipBlsValidation
+      ## Skip verification of BLS signatures in block processing. Predominantly
+      ## intended for use in testing, e.g. to allow extra coverage. Also useful
+      ## to avoid unnecessary work when replaying known, good blocks.
+    skipStateRootValidation
+      ## Skip verification of block state root.
+    strictVerification
+      ## Strictly assert on unexpected conditions to aid debugging.
+      ## Should not be used in production, as additional asserts are reachable.
+    slotProcessed
+      ## Allow blocks to be applied to states with the same slot number as the
+      ## block which is what happens when `process_block` is called separately
+    skipLastStateRootCalculation
+      ## When process_slots() is being called as part of a state_transition(),
+      ## the hash_tree_root() from the block will fill in the state.root so it
+      ## should skip calculating that last state root.
+    skipApplyParentExecutionPayload
+      ## When proposing Gloas blocks, apply_parent_execution_payload() is needed
+      ## for producing a correct execution payload. This causes the transition
+      ## function to be called twice, as it will be used in process_block(). For
+      ## optimization, this is used in proposal for skipping the transitioning
+      ## in process_block().
 
   UpdateFlags* = set[UpdateFlag]
 

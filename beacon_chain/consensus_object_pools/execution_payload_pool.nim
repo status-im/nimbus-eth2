@@ -14,33 +14,59 @@ import
   ../beacon_clock,
   ./blockchain_dag
 
-from std/sequtils import filterIt
-
 logScope: topics = "bidpool"
 
 type
+  PayloadAvailability* {.pure.} = enum
+    Timely
+    Withheld
+
+  BidKey = tuple
+    parentBlockRoot: Eth2Digest
+    payloadAvailability: PayloadAvailability
+
   SlotBids* = object
-    highestBids*: Table[Eth2Digest, gloas.SignedExecutionPayloadBid]
+    highestBids*: Table[BidKey, gloas.SignedExecutionPayloadBid]
     seenBuilders*: HashSet[uint64]
 
   ExecutionPayloadBidPool* = object
-    ## Pool for tracking execution payload bids received from builders
-    ## Only stores the highest-value bid per (slot, parent_block_hash)
+    ## Pool for tracking execution payload bids received from builders.
+    ## Only stores the highest-value bid per (slot, parentBlockRoot,
+    ## payloadAvailability).
     dag*: ChainDAGRef
     slotBids*: Table[Slot, SlotBids]
-    blockRootIndex*: Table[Eth2Digest, seq[(Slot, Eth2Digest)]]
 
 func init*(
     T: type ExecutionPayloadBidPool,
     dag: ChainDAGRef): ExecutionPayloadBidPool =
   ExecutionPayloadBidPool(
     dag: dag,
-    slotBids: initTable[Slot, SlotBids](),
-    blockRootIndex: initTable[Eth2Digest, seq[(Slot, Eth2Digest)]]())
+    slotBids: initTable[Slot, SlotBids]())
+
+proc payloadAvailability*(
+    dag: ChainDAGRef,
+    blck: BlockRef,
+    executionBlockHash: Eth2Digest): Opt[PayloadAvailability] =
+  let (blockHash, parentHash) = dag.loadExecutionAndParentBlockHash(blck)
+  if blockHash.isSome and executionBlockHash == blockHash.unsafeGet:
+    Opt.some PayloadAvailability.Timely
+  elif parentHash.isSome and executionBlockHash == parentHash.unsafeGet:
+    Opt.some PayloadAvailability.Withheld
+  else:
+    Opt.none PayloadAvailability
+
+func prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
+  var slotsToRemove: seq[Slot]
+  for slot in pool.slotBids.keys:
+    if slot < beforeSlot:
+      slotsToRemove.add(slot)
+  for slot in slotsToRemove:
+    pool.slotBids.del(slot)
 
 proc addBid*(
     pool: var ExecutionPayloadBidPool,
     signedBid: gloas.SignedExecutionPayloadBid,
+    payloadAvailability: PayloadAvailability,
     wallTime: BeaconTime) =
   template bid: untyped = signedBid.message
 
@@ -49,13 +75,19 @@ proc addBid*(
     builder_index = bid.builder_index
     bid_value = bid.value
 
+  # Bids expire after their slot has passed
+  pool.prune(beforeSlot =
+    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(pool.dag.timeParams))
+
   let slotData = addr pool.slotBids.mgetOrPut(bid.slot, default(SlotBids))
 
   if slotData.seenBuilders.containsOrIncl(bid.builder_index):
     debug "Duplicate bid from builder, ignoring"
     return
 
-  let currentBid = slotData.highestBids.getOrDefault(bid.parent_block_hash)
+  let
+    key = (bid.parent_block_root, payloadAvailability)
+    currentBid = slotData.highestBids.getOrDefault(key)
   if currentBid != static(default(gloas.SignedExecutionPayloadBid)):
     if bid.value <= currentBid.message.value:
       debug "Bid value not higher than current best",
@@ -67,10 +99,7 @@ proc addBid*(
   else:
     debug "First bid for this slot and parent"
 
-  slotData.highestBids[bid.parent_block_hash] = signedBid
-
-  pool.blockRootIndex.mgetOrPut(
-    bid.parent_block_root, @[]).add((bid.slot, bid.parent_block_hash))
+  slotData.highestBids[key] = signedBid
 
 func getBidForSlotAndBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
@@ -84,53 +113,19 @@ func getBidForSlotAndBuilder*(
 
 func getHighestBidForSlotAndParent*(
     pool: ExecutionPayloadBidPool, slot: Slot,
-    parentBlockHash: Eth2Digest): Opt[gloas.SignedExecutionPayloadBid] =
+    parentBlockRoot: Eth2Digest, payloadAvailability: PayloadAvailability
+): Opt[gloas.SignedExecutionPayloadBid] =
   let
     slotData = pool.slotBids.getOrDefault(slot)
-    bid = slotData.highestBids.getOrDefault(parentBlockHash)
+    key = (parentBlockRoot, payloadAvailability)
+    bid = slotData.highestBids.getOrDefault(key)
   if bid != static(default(gloas.SignedExecutionPayloadBid)):
     Opt.some(bid)
   else:
     Opt.none(gloas.SignedExecutionPayloadBid)
-
-func getBidForBlockRoot*(
-    pool: ExecutionPayloadBidPool,
-    blockRoot: Eth2Digest): Opt[gloas.SignedExecutionPayloadBid] =
-  let references = pool.blockRootIndex.getOrDefault(blockRoot, @[])
-  if references.len > 0:
-    let (slot, parentHash) = references[0]
-    return pool.getHighestBidForSlotAndParent(slot, parentHash)
-  Opt.none(gloas.SignedExecutionPayloadBid)
-
-func hasBidForBlockRoot*(
-    pool: ExecutionPayloadBidPool, blockRoot: Eth2Digest): bool =
-  pool.blockRootIndex.getOrDefault(blockRoot, @[]).len > 0
 
 func hasSeenBidFromBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
     builderIndex: uint64): bool =
   let slotData = pool.slotBids.getOrDefault(slot)
   builderIndex in slotData.seenBuilders
-
-proc prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
-  try:
-    var slotsToRemove: seq[Slot]
-    for slot in pool.slotBids.keys:
-      if slot < beforeSlot:
-        slotsToRemove.add(slot)
-
-    for slot in slotsToRemove:
-      if slot in pool.slotBids:
-        for parentHash, bid in pool.slotBids[slot].highestBids:
-          let blockRoot = bid.message.parent_block_root
-          if blockRoot in pool.blockRootIndex:
-            pool.blockRootIndex[blockRoot] =
-              pool.blockRootIndex[blockRoot].filterIt(
-                it != (slot, parentHash))
-            if pool.blockRootIndex[blockRoot].len == 0:
-              pool.blockRootIndex.del(blockRoot)
-
-      pool.slotBids.del(slot)
-
-  except KeyError:
-    error "KeyError during bid pruning"

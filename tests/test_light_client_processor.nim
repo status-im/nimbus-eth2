@@ -46,7 +46,8 @@ suite "Light client processor" & preset():
       cfg, cfg.makeTestDB(numValidators), validatorMonitor, {},
       lcDataConfig = LightClientDataConfig(
         serve: true,
-        importMode: LightClientDataImportMode.OnlyNew))
+        importMode: LightClientDataImportMode.OnlyNew,
+        importBackfill: true))
     quarantine = newClone(Quarantine.init(dag.cfg))
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()

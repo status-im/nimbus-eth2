@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[typetraits, sequtils, sets],
+  std/[typetraits, sets],
   stew/base10,
   chronicles, metrics,
   ./rest_utils,
@@ -19,6 +19,8 @@ import
       peerdas_helpers, eth2_merkleization,
       forks, network, state_transition_block, validator],
   ../validators/message_router_mev
+
+from std/sequtils import mapIt, toSeq
 
 export rest_utils
 
@@ -1058,6 +1060,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
+            if blobs.len !=
+                forkyBlck.message.body.blob_kzg_commitments.len:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
+            if kzg_proofs.len != blobs.len * fulu.CELLS_PER_EXT_BLOB:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
               kzg_proofs.mapIt(kzg.KzgProof(it)))
@@ -1604,11 +1613,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
 
-    var data_columns: seq[fulu.DataColumnSidecar]
+    var data_columns: fulu.DataColumnSidecars
     for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
-      var dataColumnSidecar = new fulu.DataColumnSidecar
+      let dataColumnSidecar = new fulu.DataColumnSidecar
       if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
-        data_columns.add dataColumnSidecar[]
+        data_columns.add dataColumnSidecar
 
     let data = recover_blobs_from_data_columns(data_columns)
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
@@ -1644,7 +1653,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadBid
-  router.api(MethodPost, "/eth/v1/beacon/execution_payload_bid") do (
+  router.api(MethodPost, "/eth/v1/beacon/execution_payload_bids") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
     let
@@ -1673,8 +1682,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error)
     RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
-  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelopes/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
     let
       blockIdent = block_id.valueOr:

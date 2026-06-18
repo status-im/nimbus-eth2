@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-alpha.7"
+const SPEC_VERSION* = "1.7.0-alpha.10"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -685,12 +685,6 @@ template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
 
 iterator vindices*(
     a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
-  static: doAssert distinctBase(ValidatorIndex) is uint32
-  for i in 0..<a.len.uint32:
-    yield i.ValidatorIndex
-
-iterator vindices*(
-    a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
   static: doAssert distinctBase(ValidatorIndex) is uint32
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex

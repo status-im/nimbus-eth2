@@ -398,7 +398,7 @@ rm -rf "${DATA_DIR}/pids/*"
 mkdir -p "${DATA_DIR}/pids" "${DATA_DIR}/logs"
 
 scripts/makedir.sh "${DATA_DIR}"
-echo x > "${DATA_DIR}/keymanager-token"
+echo testToken > "${DATA_DIR}/keymanager-token"
 
 JWT_FILE="${DATA_DIR}/jwtsecret"
 echo "Generating JWT file '$JWT_FILE'..."
@@ -918,7 +918,7 @@ DIRECTPEER_ENR=$(
     --config-file "${DATA_DIR}/prometheus.yml" || true # TODO: this currently fails on macOS,
                                                        # but it can be considered non-critical
 
-cp "$SCRIPTS_DIR/$CONST_PRESET-non-overriden-config.yaml" "$RUNTIME_CONFIG_FILE"
+cp "$SCRIPTS_DIR/$CONST_PRESET-non-overridden-config.yaml" "$RUNTIME_CONFIG_FILE"
 # TODO the runtime config file should be used during deposit generation as well!
 echo Wrote "${RUNTIME_CONFIG_FILE}":
 tee -a "$RUNTIME_CONFIG_FILE" <<EOF

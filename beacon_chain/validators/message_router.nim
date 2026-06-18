@@ -11,12 +11,15 @@ import
   std/sequtils,
   chronicles,
   metrics,
-  ../spec/[network, peerdas_helpers],
+  ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
   ../spec/datatypes/deneb
+
+from ../spec/column_map import contains
+
 export eth2_processor, eth2_network
 
 logScope:
@@ -63,7 +66,7 @@ type
 
   SomeSidecarsToRoute =
     seq[BlobSidecar] |
-    seq[fulu.DataColumnSidecar]
+    fulu.DataColumnSidecars
 
   SomeOptSidecars =
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
@@ -144,13 +147,13 @@ proc publishRouteBlock(
 proc publishSidecars(
     router: ref MessageRouter,
     _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
+    sidecarsOpt: Opt[gloas.DataColumnSidecars]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
-    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    let subnet = compute_subnet_for_data_column_sidecar(dc[].index)
     workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
 
   let resAll = await allFinished(workers)
@@ -160,33 +163,23 @@ proc publishSidecars(
     doAssert r.finished()
     if r.failed():
       notice "Data column not sent",
-        data_column = shortLog(cols[i]), error = r.error[]
+        data_column = shortLog(cols[i][]), error = r.error[]
     else:
       notice "Data column sent",
-        data_column = shortLog(cols[i])
+        data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: gloas.DataColumnSidecars
-  for dc in cols:
-    if dc.index in allowed:
-      finalCols.add newClone(dc)
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.gloasColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
     _: fulu.SignedBeaconBlock,
-    cols: seq[fulu.DataColumnSidecar]
+    cols: fulu.DataColumnSidecars
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
-    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    let subnet = compute_subnet_for_data_column_sidecar(dc[].index)
     workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
 
   let resAll = await allFinished(workers)
@@ -196,23 +189,13 @@ proc publishSidecars(
     doAssert r.finished()
     if r.failed():
       notice "Data column not sent",
-        data_column = shortLog(cols[i]), error = r.error[]
+        data_column = shortLog(cols[i][]), error = r.error[]
     else:
       notice "Data column sent",
-        data_column = shortLog(cols[i])
+        data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: fulu.DataColumnSidecars
-  for dc in cols:
-    if dc.index in allowed:
-      finalCols.add newClone(dc)
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.dataColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -714,12 +697,14 @@ proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
-  let vRes = validateExecutionPayload(
-    router[].dag, router[].quarantine,
-    router.processor.envelopeQuarantine, signedEnvelope)
+  let
+    wallTime = router[].getCurrentBeaconTime()
+    vRes = validateExecutionPayload(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, signedEnvelope, wallTime)
   if not isGoodForSending(vRes):
     warn "Envelope failed validation",
       envelope = shortLog(signedEnvelope.message),

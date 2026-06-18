@@ -17,7 +17,7 @@ import
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/ordered_trie,
   # Internal
-  "."/[eth2_merkleization, forks, ssz_codec]
+  ./[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
@@ -27,7 +27,9 @@ export
   eth2_merkleization, forks, ssz_codec, rlp, eth_types_rlp.append
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/weak-subjectivity.md#constants
-const ETH_TO_GWEI = 1_000_000_000.Gwei
+const
+  ETH_TO_GWEI = 1_000_000_000.Gwei
+  GWEI_TO_WEI* = 1_000_000_000'u64 # 1 Gwei = 10^9 Wei
 
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether

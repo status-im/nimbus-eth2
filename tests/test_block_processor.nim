@@ -75,12 +75,12 @@ suite "Block processor" & preset():
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
       dataColumnQuarantine = newClone(ColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
-      envelopeQuarantine = newClone(EnvelopeQuarantine())
+      envelopeQuarantine = newClone(EnvelopeQuarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker = default(ActionTracker)
@@ -153,9 +153,9 @@ suite "Block processor" & preset():
       dag.heads.mapIt(it) == @[b2Get.get()]
 
     # check that init also reloads block graph
-    var
+    let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
-      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      dag2 = ChainDAGRef.init(cfg, db, validatorMonitor2, {})
 
     check:
       # ensure we loaded the correct head state
@@ -165,15 +165,16 @@ suite "Block processor" & preset():
       dag2.getBlockRef(b2.root).isSome()
       dag2.heads.len == 1
       dag2.heads[0].root == b2.root
+      dag2.forkBlocksMatchHeads()
 
   asyncTest "Invalidate block root" & preset():
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       processor = BlockProcessor.new(
-        false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, dataColumnQuarantine, gloasColumnQuarantine,
-        envelopeQuarantine, getTimeFn, invalidBlockRoots = @[b2.root])
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
 
     block:
       let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
@@ -201,6 +202,33 @@ suite "Block processor" & preset():
         dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
 
+  asyncTest "Invalidate existing block root" & preset():
+    let
+      processor = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn)
+
+      b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b3 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+    check:
+      (await processor.addBlock(MsgSource.gossip, b1, noSidecars)).isOk
+      (await processor.addBlock(MsgSource.gossip, b2, noSidecars)).isOk
+      (await processor.addBlock(MsgSource.gossip, b3, noSidecars)).isOk
+    dag.updateHead(dag.getBlockRef(b3.root).get(), quarantine[], [])
+
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+      dag2 = ChainDAGRef.init(
+        cfg, db, validatorMonitor2, {}, invalidBlockRoots = @[b2.root])
+    check:
+      dag2.getBlockRef(b1.root).isSome
+      dag2.getBlockRef(b2.root).isNone
+      dag2.getBlockRef(b3.root).isNone
+      dag2.head == dag2.getBlockRef(b1.root).get
+      dag2.forkBlocksMatchHeads()
+
   asyncTest "Process a block from each fork (without blobs)" & preset():
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
@@ -227,9 +255,14 @@ suite "Block processor" & preset():
           let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
         else:
           let sidecarsOpt = noSidecars
-        discard await processor.addBlock(
+        check (await processor.addBlock(
           MsgSource.gossip, b0.blck, sidecarsOpt
-        )
+        )).isOk()
+
+        when consensusFork == ConsensusFork.Gloas:
+          check (await processor.addPayload(
+            b0.blck, b0.envelope, Opt.none(gloas.DataColumnSidecars)
+          )).isOk()
 
   asyncTest "Process Deneb block without blob sidecars" & preset():
     # Advance to Deneb fork
@@ -292,21 +325,21 @@ suite "Block processor" & preset():
         )
 
         # Create block with blobs
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache,
+          blobs_bundle = blobsBundle,
         )
 
         # Assemble data column sidecars
         let dataColumnSidecars = assemble_data_column_sidecars(
           engineBlock.blck, @[kzgBlob], cellsAndProofs.proofs.mapIt(kzg.KzgProof(it))
         )
-        let dsRef = dataColumnSidecars.mapIt(newClone(it))
 
         # Process the block with data columns
         let res = await processor.addBlock(
           MsgSource.gossip,
           engineBlock.blck,
-          Opt.some(dsRef)
+          Opt.some(dataColumnSidecars)
         )
 
         check:
@@ -372,7 +405,7 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Block stored but envelope not available, should be in missing list
-          engineBlock.blck.root in envelopeQuarantine[].checkMissing(32)
+          FetchRecord(root: engineBlock.blck.root) in envelopeQuarantine[].checkMissing(32)
 
   asyncTest "Gloas block pops pre-arrived envelope from quarantine" & preset():
     # Envelope arrives before its block (orphan envelope).
@@ -403,7 +436,7 @@ suite "Block processor" & preset():
             )
           )
         )
-        envelopeQuarantine[].addOrphan(envelope)
+        envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
 
         let res = await processor.addBlock(
           MsgSource.gossip, engineBlock.blck, noSidecars)
@@ -412,7 +445,8 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Envelope was popped, not marked as orphan
-          engineBlock.blck.root notin envelopeQuarantine[].orphans
+          (engineBlock.blck.root, BUILDER_INDEX_SELF_BUILD) notin
+            envelopeQuarantine[].orphans
 
   asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
     # Multiple blocks stored optimistically, each marks its envelope as missing.
@@ -445,8 +479,8 @@ suite "Block processor" & preset():
     # Both envelopes should be missing
     let missing = envelopeQuarantine[].checkMissing(32)
     check:
-      b1.root in missing
-      b2.root in missing
+      FetchRecord(root: b1.root) in missing
+      FetchRecord(root: b2.root) in missing
 
   asyncTest "Gloas reverse order blocks with missing parent" & preset():
     # Block N+1 arrives before block N. Block N+1 goes to
@@ -529,9 +563,9 @@ suite "Block processor" & preset():
     # Simulate node restart: reinitialize DAG from the same DB.
     # All in-memory state caches are dropped, forcing updateState to
     # replay through b1-b3 slots from disk.
-    var
+    let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
-      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      dag2 = ChainDAGRef.init(cfg, db, validatorMonitor2, {})
       quarantine2 = newClone(Quarantine.init(cfg))
       attestationPool2 = newClone(AttestationPool.init(dag2, quarantine2))
       consensusManager2 = ConsensusManager.new(
@@ -540,7 +574,6 @@ suite "Block processor" & preset():
         newClone(DynamicFeeRecipientsStore.init()),
         "", Opt.some default(Eth1Address), defaultGasLimit)
 
-    let
       state2 = newClone(dag2.headState)
       getTimeFn2 = proc(): BeaconTime =
         state2[].slot.start_beacon_time(cfg.timeParams)
