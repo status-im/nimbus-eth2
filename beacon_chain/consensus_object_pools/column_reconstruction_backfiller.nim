@@ -344,8 +344,8 @@ proc processSlot(
 
   let count = have.len
   if count == 0:
-    # Distinguish "a block having zero blobs" from "no columns were found"
-    # — only the latter is a reconstruction miss.
+    # Distinguish "a block having zero blobs" from "no/below
+    # threshold columns were found" — only the latter is a reconstruction miss.
     let forked = self.dag.getForkedBlock(bsi.bid).valueOr:
       self.markSlot(slot, SlotRecon.Servable)
       return
