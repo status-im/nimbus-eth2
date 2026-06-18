@@ -118,11 +118,7 @@ func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # blobs may arrive before an orphan is tagged `blobless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
 
-func enoughColumns*[
-    A: SomeDataColumnSidecar,
-    B: OnDataColumnSidecarCallback,
-    C: SomeSidecarAddedCallback
-](q: SidecarQuarantine[A, B, C], count: int): bool =
+func enoughColumns*(q: SomeColumnQuarantine, count: int): bool =
   if count >= NUMBER_OF_COLUMNS div 2:
     return true
   if count == len(q.custodyMap):
@@ -412,14 +408,7 @@ proc put*[
 ) =
   q.put(blockRoot, [sidecar], verified)
 
-proc remove*[
-    A: SomeDataColumnSidecar,
-    B: OnDataColumnSidecarCallback,
-    C: SomeSidecarAddedCallback
-](
-    q: var SidecarQuarantine[A, B, C],
-    blockRoot: Eth2Digest
-) =
+proc remove*(q: var SomeColumnQuarantine, blockRoot: Eth2Digest) =
   ## Remove all the data columns or blobs related to the block root ``blockRoot`
   ## from the quarantine ``q``.
   ##
@@ -544,7 +533,7 @@ func hasSidecars*(
 
 func hasSidecars*(
     quarantine: GloasColumnQuarantine,
-    blck: fulu.SignedBeaconBlock,
+    blck: gloas.SignedBeaconBlock,
 ): bool =
   ## Function returns ``true`` if quarantine has all the columns for block
   ## ``blck`` with block root ``blockRoot``.
