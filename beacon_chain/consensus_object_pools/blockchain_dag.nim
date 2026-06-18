@@ -2536,6 +2536,23 @@ proc executionParent*(
     cur = cur.parent
   Opt.none(BlockRef)
 
+func shouldExtendPayload*(
+    dag: ChainDAGRef, head: BlockRef): bool =
+  ## A helper function for getting the status of whether or not to build/extend
+  ## on the head payload, as the payload selected by fork choice is stored in
+  ## DAG.
+  ##
+  ## Related fork choice helpers
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_build_on_full
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
+  (
+    # For either genesis or pre-Gloas block, we should always build on them.
+    head.slot == GENESIS_SLOT or
+    head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH or
+    # The usual path since Gloas
+    head == dag.headPayload
+  )
+
 from std/packedsets import PackedSet, incl, items
 
 func getBlsToExecutionChangeStatuses(
@@ -2798,37 +2815,25 @@ proc updateHead*(
       dag.onFinHappened(dag, data)
 
 proc updateHeadExecutionPayload*(
-    dag: ChainDAGRef, head: BlockRef,
+    dag: ChainDAGRef, headPayload: BlockRef,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope) =
   ## Update the execution payload of the head block since Gloas, which should
   ## usually be invoked after the call of updateHead().
 
-  template envelopeSlot(): auto = signedEnvelope.message.slot
-
   logScope:
     blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
     builderIdx = signedEnvelope.message.builder_index
-    slot = envelopeSlot()
+    slot = signedEnvelope.slot
     head = shortLog(dag.head)
+    headPayload = shortLog(headPayload)
 
-  let consensusFork = dag.cfg.consensusForkAtEpoch(envelopeSlot.epoch())
-
-  # Check if state replay is needed.
-  if consensusFork < ConsensusFork.Gloas:
-    trace "Updating execution payload in incorrect fork"
+  # Check with the head. When it is not related to the current head, it should
+  # be outdated and so ignoring it.
+  if not (headPayload == dag.head or headPayload == dag.head.parent):
+    warn "Head payload may be outdated or incorrect fork"
     return
 
-  var cache: StateCache
-  if not updateState(
-      dag, dag.headState, head.bid.atSlot(), false, cache,
-      dag.updateFlags):
-    # Advancing the head state should never fail, given that the tail is
-    # implicitly finalised, the head is an ancestor of the tail and we always
-    # store the tail state in the database, as well as every epoch slot state in
-    # between
-    fatal "Unable to load head state during head update, database corrupt?"
-    quit 1
-
+  dag.headPayload = headPayload
   debugGloasComment("update finalized head here?")
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =

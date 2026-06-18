@@ -201,7 +201,6 @@ from ../consensus_object_pools/block_clearance import
 
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, VerifierError] =
   sidecarsOpt.isErrOr:
@@ -220,7 +219,6 @@ proc verifySidecars(
 
 proc verifySidecars(
     signedBlock: fulu.SignedBeaconBlock,
-    envelope: NoEnvelope,
     sidecarsOpt: Opt[fulu.DataColumnSidecars],
 ): Result[void, VerifierError] =
   sidecarsOpt.isErrOr:
@@ -264,7 +262,7 @@ proc storeBackfillBlock(
   const consensusFork = typeof(signedBlock).kind
 
   when consensusFork == ConsensusFork.Fulu:
-    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
+    ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -707,7 +705,7 @@ proc storeBlock(
       sidecarsOpt.isErrOr:
         let toVerify = value.filterIt(it[].index in pendingVerify)
         if toVerify.len > 0:
-          ?verifySidecars(signedBlock, noEnvelope, Opt.some(toVerify))
+          ?verifySidecars(signedBlock, Opt.some(toVerify))
     debug "block_processor verifySidecars completed",
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
@@ -955,7 +953,7 @@ proc storeBackfillPayload(
 ): Result[void, VerifierError] =
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
-  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
   ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
 
   self.storeSidecars(sidecarsOpt)
@@ -989,7 +987,7 @@ proc storePayload(
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
 
-  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")

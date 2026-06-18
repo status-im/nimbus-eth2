@@ -381,7 +381,10 @@ proc getExecutionPayload*(
     beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead =
       when consensusFork >= ConsensusFork.Gloas:
-        proposalExecutionHead(forkyState.data)
+        if should_extend_payload:
+          proposalExecutionHead(forkyState.data)
+        else:
+          forkyState.data.latest_execution_payload_bid.parent_block_hash
       elif consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
       else:
