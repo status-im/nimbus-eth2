@@ -14,7 +14,6 @@ import
   taskpools,
   kzg4844/kzg,
   metrics,
-  ssz_serialization/[proofs, types],
   ../spec/[forks, helpers, peerdas_helpers, column_map],
   ../sync/validator_custody,
   ../beacon_chain_db,
