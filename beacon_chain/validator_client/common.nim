@@ -895,7 +895,8 @@ proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,
-                               socketFlags = socketFlags)
+                               socketFlags = socketFlags,
+                               userAgent = nimbusAgentStr)
   ok(client)
 
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,

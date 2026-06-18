@@ -17,7 +17,7 @@ import
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/ordered_trie,
   # Internal
-  "."/[eth2_merkleization, forks, ssz_codec]
+  ./[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a

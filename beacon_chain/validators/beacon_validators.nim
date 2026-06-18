@@ -17,7 +17,7 @@ import
   std/[os, tables],
 
   # Nimble packages
-  stew/byteutils,
+  stew/[assign2, byteutils],
   chronos,
   metrics,
   chronicles,
@@ -264,8 +264,8 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
         return
 
       let
-        finalized_slot =
-          forkyFinalityUpdate.finalized_header.beacon.slot
+        attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
+        finalized_slot = forkyFinalityUpdate.finalized_header.beacon.slot
         has_supermajority =
           hasSupermajoritySyncParticipation(num_active_participants.uint64)
         newFinality =
@@ -277,37 +277,52 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
             false
           else:
             has_supermajority
-      if newFinality:
-        template msg(): auto = forkyFinalityUpdate
-        let sendResult =
-          await node.network.broadcastLightClientFinalityUpdate(msg)
-
-        # Optimization for message with ephemeral validity, whether sent or not
-        pool.latestForwardedFinalitySlot = finalized_slot
-        pool.latestForwardedFinalityHasSupermajority = has_supermajority
-
-        if sendResult.isOk:
-          beacon_light_client_finality_updates_sent.inc()
-          notice "LC finality update sent", message = shortLog(msg)
-        else:
-          warn "LC finality update failed to send",
-            error = sendResult.error()
-
-      let attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
-      if attested_slot > pool.latestForwardedOptimisticSlot:
-        let msg = forkyFinalityUpdate.toOptimistic
-        let sendResult =
-          await node.network.broadcastLightClientOptimisticUpdate(msg)
-
-        # Optimization for message with ephemeral validity, whether sent or not
-        pool.latestForwardedOptimisticSlot = attested_slot
-
-        if sendResult.isOk:
-          beacon_light_client_optimistic_updates_sent.inc()
-          notice "LC optimistic update sent", message = shortLog(msg)
-        else:
-          warn "LC optimistic update failed to send",
-            error = sendResult.error()
+      var
+        sentFinUpdate {.noinit.}: lcDataFork.LightClientFinalityUpdate
+        sentOptUpdate {.noinit.}: lcDataFork.LightClientOptimisticUpdate
+      let
+        sendFinalityUpdateFut =
+          if newFinality:
+            sentFinUpdate.assign(forkyFinalityUpdate)
+            pool.latestForwardedFinalitySlot = finalized_slot
+            pool.latestForwardedFinalityHasSupermajority = has_supermajority
+            node.network.broadcastLightClientFinalityUpdate(sentFinUpdate)
+          else:
+            nil
+        sendOptimisticUpdateFut =
+          if attested_slot > pool.latestForwardedOptimisticSlot:
+            sentOptUpdate.assign(forkyFinalityUpdate.toOptimistic)
+            pool.latestForwardedOptimisticSlot = attested_slot
+            node.network.broadcastLightClientOptimisticUpdate(sentOptUpdate)
+          else:
+            nil
+      try:
+        if sendFinalityUpdateFut != nil:
+          let sendResult = await sendFinalityUpdateFut
+          if sendResult.isOk:
+            beacon_light_client_finality_updates_sent.inc()
+            notice "LC finality update sent",
+              message = shortLog(sentFinUpdate)
+          else:
+            warn "LC finality update failed to send",
+              error = sendResult.error()
+        if sendOptimisticUpdateFut != nil:
+          let sendResult = await sendOptimisticUpdateFut
+          if sendResult.isOk:
+            beacon_light_client_optimistic_updates_sent.inc()
+            notice "LC optimistic update sent",
+              message = shortLog(sentOptUpdate)
+          else:
+            warn "LC optimistic update failed to send",
+              error = sendResult.error()
+      except CancelledError as exc:
+        var futs = newSeqOfCap[Future[void].Raising([])](2)
+        if sendFinalityUpdateFut != nil:
+          futs.add sendFinalityUpdateFut.cancelAndWait()
+        if sendOptimisticUpdateFut != nil:
+          futs.add sendOptimisticUpdateFut.cancelAndWait()
+        await noCancel allFutures(futs)
+        raise exc
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
@@ -317,7 +332,7 @@ proc createAndSendAttestation(node: BeaconNode,
                               {.async: (raises: [CancelledError]).} =
   let epoch = registered.data.slot.epoch
 
-  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Electra:
+  if epoch < node.dag.cfg.ELECTRA_FORK_EPOCH:
     warn "Routing of pre-electra attestations not supported",
       attestationData = shortLog(registered.data)
     return
@@ -418,8 +433,7 @@ proc proposeBlockAux(
           let
             parentId = state[].latest_block_id
             parentExecutionRequests =
-              if node.dag.cfg.consensusForkAtEpoch(parentId.slot.epoch()) >=
-                  ConsensusFork.Gloas:
+              if parentId.slot.epoch() >= node.dag.cfg.GLOAS_FORK_EPOCH:
                 # When proposal should extend the head payload, the envelope must
                 # exist or otherwise we shouldn't proceed.
                 let envelope = node.dag.db.getExecutionPayloadEnvelope(
@@ -865,7 +879,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     payloadIndex =
-      if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas or
+      if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH or
           attestationHead.blck.slot >= slot:
         0'u64
       else:
@@ -1027,7 +1041,7 @@ proc sendSyncCommitteeContributions(
         node, validator, subcommitteeIdx, head, slot)
 
 proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
-  if node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch) >= ConsensusFork.Gloas:
+  if blck.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
     node.dag.db.containsExecutionPayloadEnvelope(blck.root)
   else:
     true
@@ -1087,8 +1101,7 @@ proc sendPayloadAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform payload attestation duties for PTC members
 
-  let consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
-  if consensusFork < ConsensusFork.Gloas:
+  if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#constructing-the-payloadattestationmessage
@@ -1133,7 +1146,7 @@ proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
 
-  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
+  if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
   if slot.is_epoch and slot.epoch > 0:
@@ -1243,7 +1256,7 @@ proc signAndSendAggregate(
     discard await node.router.routeSignedAggregateAndProof(
       msg, checkSignature = false)
 
-  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
+  if slot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#aggregateandproof
     var msg = electra.SignedAggregateAndProof(
@@ -1634,7 +1647,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   await node.sendProposerPreferences(head, slot)
 
 proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
-  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Gloas:
+  if epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
   let validatorIndices = block:

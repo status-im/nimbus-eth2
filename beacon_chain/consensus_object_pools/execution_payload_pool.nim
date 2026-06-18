@@ -129,3 +129,13 @@ func hasSeenBidFromBuilder*(
     builderIndex: uint64): bool =
   let slotData = pool.slotBids.getOrDefault(slot)
   builderIndex in slotData.seenBuilders
+
+proc getPrevRandao*(
+    pool: ExecutionPayloadBidPool, slot: Slot,
+    parentBid: BlockId): Opt[Eth2Digest] =
+  for payloadAvailability in PayloadAvailability:
+    pool.getHighestBidForSlotAndParent(
+        slot, parentBid.root, payloadAvailability).isErrOr:
+      return Opt.some value.message.prev_randao
+
+  pool.dag.computeRandaoMix(parentBid)

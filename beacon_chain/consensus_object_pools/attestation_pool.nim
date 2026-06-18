@@ -901,8 +901,7 @@ proc getBeaconHead*(
   # choice marked the slot's block full; the bid's `parent_block` must be on it.
   let
     isGloas =
-      pool.dag.cfg.consensusForkAtEpoch(
-        pool.dag.finalizedHead.slot.epoch) >= ConsensusFork.Gloas
+      pool.dag.finalizedHead.slot.epoch >= pool.dag.cfg.GLOAS_FORK_EPOCH
     finalizedExecutionBlockHash =
       if isGloas:
         pool.dag.loadExecutionAndParentBlockHash(pool.dag.finalizedHead.blck)
