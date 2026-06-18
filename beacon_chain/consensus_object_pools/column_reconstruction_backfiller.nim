@@ -361,7 +361,7 @@ proc processSlot(
         # [Modified in Gloas:EIP7732] commitments live under the payload bid.
         blockHadBlobs = forkyBlck.message.body
           .signed_execution_payload_bid.message.blob_kzg_commitments.len > 0
-      elif consensusFork >= ConsensusFork.Fulu:
+      elif consensusFork == ConsensusFork.Fulu:
         blockHadBlobs = forkyBlck.message.body.blob_kzg_commitments.len > 0
     if not blockHadBlobs:
       self.markSlot(slot, SlotRecon.Servable)
@@ -376,12 +376,9 @@ proc processSlot(
   # On reconstruction failure `reconstructSlot` returns `Unknown`, leaving the
   # slot eligible for a later retry.
   let state =
-    case columnFork
-    of ConsensusFork.Fulu:
+    if columnFork == ConsensusFork.Fulu:
       await self.reconstructSlot(slot, blockRoot, have, fulu.DataColumnSidecar)
     else:
-      # Gloas and every newer fork share the Gloas data column format, so they
-      # all reconstruct through this branch (`columnFork` has mapped them here).
       debugHezeComment "need to confirm Heze data columns stay identical to Gloas"
       await self.reconstructSlot(slot, blockRoot, have, gloas.DataColumnSidecar)
   self.markSlot(slot, state)
