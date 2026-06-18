@@ -191,7 +191,7 @@ proc initHeadersStore(
     """)
     ? backend.exec("""
       CREATE UNIQUE INDEX IF NOT EXISTS `""" & name & """_islot`
-      ON `""" & name & """`(slot);
+      ON `""" & name & """`(`slot`);
     """)
   if not ? backend.hasTable(name):
     return ok LightClientHeaderStore()
