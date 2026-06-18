@@ -5,7 +5,7 @@ asttokens==2.0.5
 attrs==21.4.0
 backcall==0.2.0
 black==26.3.1
-bleach==4.1.0
+bleach==6.4.0
 cffi==1.15.0
 click==8.0.3
 cycler==0.11.0
