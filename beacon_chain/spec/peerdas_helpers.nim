@@ -24,6 +24,13 @@ from std/algorithm import sort
 from std/sequtils import anyIt, mapIt, repeat, toSeq
 from stew/staticfor import staticFor
 
+# Generics sandwich via `recover_cells_and_proofs_parallel`: its
+# `seq[ref fulu...] | seq[ref gloas...]` input makes it generic, so the chronos
+# `threadsync` symbols (ThreadSignalPtr, Flowvar, ...) it uses must be in scope
+# at the instantiation callsite. Re-export them here so callers get them for
+# free. See https://github.com/nim-lang/Nim/issues/11225
+export threadsync
+
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
   ProofBytes = array[fulu.CELLS_PER_EXT_BLOB, KzgProof]
@@ -157,13 +164,14 @@ proc recover_matrix*(partial_matrix: seq[MatrixEntry],
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
-    dataColumns: seq[ref fulu.DataColumnSidecar]):
+    dataColumns: seq[ref fulu.DataColumnSidecar] |
+                 seq[ref gloas.DataColumnSidecar]):
     Future[Result[seq[CellsAndProofs], cstring]] {.async: (raises: []).} =
   ## Recover blobs from data column sidecars in parallel.
   ## Only the `index`/`column` fields are consumed, which both the Fulu and
-  ## Gloas sidecar layouts share; callers holding Gloas sidecars adapt them to
-  ## this concrete Fulu input (kept concrete because the taskpool `spawn` below
-  ## cannot be instantiated from a generic context).
+  ## Gloas sidecar layouts share, so the input is a type class over either; the
+  ## proc thus instantiates concretely per fork at each callsite, sidestepping
+  ## the taskpool `spawn` below not being instantiable from a generic context.
   ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
   ## - Checks timeout before every spawn operation.

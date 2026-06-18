@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[deques, sequtils],
+  std/deques,
   chronicles,
   chronos,
   taskpools,
@@ -39,8 +39,6 @@ declareGauge beacon_column_reconstruction_earliest_available_slot,
   "by the reconstruction backfiller"
 
 const
-  # Spec: a node "SHOULD reconstruct the full data matrix" once it holds
-  # 50%+ of the columns, i.e. NUMBER_OF_COLUMNS / 2 == 64.
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/das-core.md#reconstruction-and-cross-seeding
   ColumnsRequiredForReconstruction = NUMBER_OF_COLUMNS div 2
 
@@ -55,10 +53,12 @@ const
 
 type
   SlotRecon {.pure.} = enum
-    Unknown      ## Not yet inspected by the backfiller.
-    NoColumns    ## Slot has no block, or the block has zero blob commitments.
-    TooFew       ## Block has blobs but <64 columns present — cannot recover.
-    Full         ## All 128 columns are now present (original or reconstructed).
+    Unknown   ## Not yet inspected by the backfiller.
+    TooFew    ## Block has blobs but <64 columns present — cannot recover yet.
+    Servable  ## Slot can be served with the full matrix: all 128 columns are
+              ## present (original or reconstructed), or it legitimately carries
+              ## none — an empty slot or a block with zero blob commitments.
+              ## The backfiller treats both the same: nothing left to do.
 
   ColumnReconstructionBackfiller* = object
     dag: ChainDAGRef
@@ -139,13 +139,6 @@ func markSlot(
   if idx >= 0 and idx < self.slotStates.len:
     self.slotStates[idx] = state
 
-func isFullyServable(state: SlotRecon): bool =
-  ## A slot can be served with the complete column matrix when every column is
-  ## present (`Full`) or when it legitimately carries none — an empty slot or a
-  ## block with zero blob commitments (`NoColumns`). `TooFew`/`Unknown` slots
-  ## cannot (yet) be served in full and therefore break the continuous trail.
-  state in {SlotRecon.Full, SlotRecon.NoColumns}
-
 func headContiguousBottom(self: ColumnReconstructionBackfillerRef): Slot =
   ## Lowest slot of the unbroken run of fully-servable slots ending at the
   ## head. The continuous "we hold all NUMBER_OF_COLUMNS columns" period is
@@ -159,7 +152,7 @@ func headContiguousBottom(self: ColumnReconstructionBackfillerRef): Slot =
     let idx = self.slotIdx(bottom - 1)
     if idx < 0 or idx >= self.slotStates.len:
       break
-    if not self.slotStates[idx].isFullyServable:
+    if self.slotStates[idx] != SlotRecon.Servable:
       break
     bottom = bottom - 1
   bottom
@@ -198,7 +191,7 @@ func onColumnsStored*(
   ## hold enough columns to cross the `ColumnsRequiredForReconstruction`
   ## threshold, so mark it `Unknown` for the next pass to re-count (and, if it
   ## was the trail-blocker, let `eaSlot` extend further). Slots in any other
-  ## state are left untouched — `Full`/`NoColumns` need no redo and `Unknown`
+  ## state are left untouched — `Servable` slots need no redo and `Unknown`
   ## is already queued.
   if slot < self.bitmapStartSlot:
     return
@@ -249,18 +242,12 @@ proc reconstructAndStore[
   beacon_column_reconstruction_backfill_slot.set(int64(slot))
 
   let startTime = Moment.now()
-  # `recover_cells_and_proofs_parallel` is concrete over Fulu sidecars (its
-  # taskpool `spawn` can't be instantiated generically). Recovery only reads
-  # `index`/`column`, so adapt Gloas sidecars to that shape; Fulu ones pass
-  # through unchanged.
-  let recoverInput =
-    when T is fulu.DataColumnSidecar:
-      columns
-    else:
-      columns.mapIt((ref fulu.DataColumnSidecar)(
-        index: it[].index, column: it[].column))
+  # `recover_cells_and_proofs_parallel` is a type class over Fulu/Gloas sidecar
+  # seqs and instantiates concretely per fork, so the held columns pass straight
+  # through regardless of `T`. Recovery only reads `index`/`column`, which both
+  # layouts share.
   let recovered = (await recover_cells_and_proofs_parallel(
-      self.taskpool, recoverInput)).valueOr:
+      self.taskpool, columns)).valueOr:
     beacon_column_reconstruction_failures_total.inc()
     debug "Column reconstruction failed",
       slot, blockRoot, haveCount = columns.len, reason = error
@@ -319,14 +306,14 @@ proc reconstructSlot[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     _: typedesc[T]
 ): Future[SlotRecon] {.async: (raises: [CancelledError]).} =
   ## Load the columns we hold, recover the rest and persist them. Returns the
-  ## resulting slot state: `Full` on success, `TooFew` if columns were pruned
-  ## out from under us between inspecting and loading them, or `Unknown` on a
-  ## recoverable failure (so a later pass retries once more columns arrive).
+  ## resulting slot state: `Servable` on success, `TooFew` if columns were
+  ## pruned out from under us between inspecting and loading them, or `Unknown`
+  ## on a recoverable failure (so a later pass retries once more columns arrive).
   let columns = loadExistingColumns[T](self.dag.db, blockRoot, have)
   if columns.len < ColumnsRequiredForReconstruction:
     return SlotRecon.TooFew
   if await self.reconstructAndStore(slot, blockRoot, have, columns):
-    SlotRecon.Full
+    SlotRecon.Servable
   else:
     SlotRecon.Unknown
 
@@ -336,31 +323,29 @@ proc processSlot(
   let blockFork = self.dag.cfg.consensusForkAtEpoch(slot.epoch)
   # Data columns only exist from Fulu onward; pre-Fulu slots carry none.
   if blockFork notin {ConsensusFork.Fulu, ConsensusFork.Gloas, ConsensusFork.Heze}:
-    self.markSlot(slot, SlotRecon.NoColumns)
+    self.markSlot(slot, SlotRecon.Servable)
     return
 
-  # Heze data columns are identical to Gloas's and share the Gloas column store
-  # (there is no separate Heze table), so use Gloas for every column operation.
-  # The block itself is still read as its actual fork further below.
+  # Gloas and every newer fork (Heze, ...) share the Gloas data column format
   let columnFork =
-    if blockFork == ConsensusFork.Heze: ConsensusFork.Gloas else: blockFork
+    if blockFork >= ConsensusFork.Gloas: ConsensusFork.Gloas else: blockFork
 
   let bsi = self.dag.getBlockIdAtSlot(slot).valueOr:
-    self.markSlot(slot, SlotRecon.NoColumns)
+    self.markSlot(slot, SlotRecon.Servable)
     return
 
   # `getBlockIdAtSlot` returns the most recent block at or before `slot`;
   # if that block is not the proposed block for this slot, the slot is
   # empty and there is nothing to reconstruct.
   if not bsi.isProposed():
-    self.markSlot(slot, SlotRecon.NoColumns)
+    self.markSlot(slot, SlotRecon.Servable)
     return
 
   let blockRoot = bsi.bid.root
   let have = existingColumns(self.dag.db, columnFork, blockRoot)
 
   if have.lenu64 == NUMBER_OF_COLUMNS:
-    self.markSlot(slot, SlotRecon.Full)
+    self.markSlot(slot, SlotRecon.Servable)
     return
 
   let count = have.len
@@ -368,7 +353,7 @@ proc processSlot(
     # Distinguish "block legitimately has zero blobs" from "we never
     # received any columns" — only the latter is a reconstruction miss.
     let forked = self.dag.getForkedBlock(bsi.bid).valueOr:
-      self.markSlot(slot, SlotRecon.NoColumns)
+      self.markSlot(slot, SlotRecon.Servable)
       return
     var blockHadBlobs = false
     withBlck(forked):
@@ -379,7 +364,7 @@ proc processSlot(
       elif consensusFork >= ConsensusFork.Fulu:
         blockHadBlobs = forkyBlck.message.body.blob_kzg_commitments.len > 0
     if not blockHadBlobs:
-      self.markSlot(slot, SlotRecon.NoColumns)
+      self.markSlot(slot, SlotRecon.Servable)
     else:
       self.markSlot(slot, SlotRecon.TooFew)
     return
@@ -392,13 +377,13 @@ proc processSlot(
   # slot eligible for a later retry.
   let state =
     case columnFork
-    of ConsensusFork.Gloas:
-      # `columnFork` folds Gloas and every newer fork that shares the Gloas
-      # column format into this branch.
-      debugHezeComment "confirm Heze data columns stay identical to Gloas"
-      await self.reconstructSlot(slot, blockRoot, have, gloas.DataColumnSidecar)
-    else:
+    of ConsensusFork.Fulu:
       await self.reconstructSlot(slot, blockRoot, have, fulu.DataColumnSidecar)
+    else:
+      # Gloas and every newer fork share the Gloas data column format, so they
+      # all reconstruct through this branch (`columnFork` has mapped them here).
+      debugHezeComment "need to confirm Heze data columns stay identical to Gloas"
+      await self.reconstructSlot(slot, blockRoot, have, gloas.DataColumnSidecar)
   self.markSlot(slot, state)
 
 func frontierSlot(self: ColumnReconstructionBackfillerRef): Opt[Slot] =
