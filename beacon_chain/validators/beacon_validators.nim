@@ -1015,7 +1015,7 @@ proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
       if forkyBlck.message.body.signed_execution_payload_bid.message
           .blob_kzg_commitments.len() == 0:
         return true
-      for columnIdx in node.dataColumnQuarantine.custodyColumns:
+      for columnIdx in node.fuluColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
             consensusFork, blck.root, columnIdx):
           return false

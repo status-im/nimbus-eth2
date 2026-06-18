@@ -195,7 +195,7 @@ proc publishSidecars(
         data_column = shortLog(cols[i][])
 
   Opt.some(cols.filterIt(
-    it[].index in router[].processor.dataColumnQuarantine[].custodyMap))
+    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -727,7 +727,7 @@ proc routeExecutionPayloadEnvelope*(
 
   # Add envelope and sidecars to DAG
   (await router[].blockProcessor.addPayload(
-      signedBlock, signedEnvelope, finalSidecars)).isOkOr:
+      signedBlock, signedEnvelope)).isOkOr:
     return err("Proposed envelope failed to add to the chain")
 
   ok()
