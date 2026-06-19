@@ -1133,8 +1133,9 @@ proc sendProposerPreferences(
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#broadcasting-signedproposerpreferences
           let dependent_root =
-            forkyState.dependent_root(proposal_slot.epoch)
+            forkyState.get_proposer_dependent_root(proposal_slot.epoch)
           let data = ProposerPreferences(
             dependent_root: dependent_root,
             validator_index: validator_index.uint64,

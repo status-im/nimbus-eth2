@@ -3180,6 +3180,15 @@ func dependent_root*(state: ForkyHashedBeaconState, epoch: Epoch): Eth2Digest =
     else:
       Eth2Digest() # "don't know"
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
+func get_proposer_dependent_root*(
+    state: ForkyHashedBeaconState, epoch: Epoch): Eth2Digest =
+  ## Return the dependent root for the proposer lookahead at ``epoch``.
+  if epoch < MIN_SEED_LOOKAHEAD:
+    state.dependent_root(GENESIS_EPOCH)
+  else:
+    state.dependent_root(epoch - MIN_SEED_LOOKAHEAD)
+
 func proposer_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
   state.dependent_root(state.data.slot.epoch)
 
