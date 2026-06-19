@@ -387,16 +387,21 @@ proc prepareNextSlot*(
 
       # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml#L125
       if self.onPayloadAttributes != nil:
+        let parentBlockNumber =
+          when consensusFork >= ConsensusFork.Gloas:
+            debugGloasComment "parent payload can be empty/orphaned"
+            if dag.shouldExtendPayload(head):
+              head.executionBlockNumber.get(0'u64)
+            else:
+              0'u64
+          else:
+            forkyState.data.latest_execution_payload_header.block_number
         self.onPayloadAttributes(EventPayloadAttributesObject(
           version: consensusFork.toString(),
           data: PayloadAttributesEventData(
             proposer_index: uint64(validatorIndex),
             proposal_slot: proposalSlot,
-            parent_block_number:
-              when consensusFork >= ConsensusFork.Gloas:
-                forkyState.data.latest_execution_payload_bid.block_number
-              else:
-                forkyState.data.latest_execution_payload_header.block_number,
+            parent_block_number: parentBlockNumber,
             parent_block_root: beaconHead.blck.bid.root,
             parent_block_hash: executionHead,
             payload_attributes: RestPayloadAttributes(
