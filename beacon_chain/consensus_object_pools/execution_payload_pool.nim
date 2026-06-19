@@ -119,15 +119,14 @@ proc getHighestBidForProposalState*(
   if state.slot <= GENESIS_SLOT:
     return static(Opt.none gloas.SignedExecutionPayloadBid)
 
-  result = pool.getHighestBidForSlotAndParent(
+  let res = pool.getHighestBidForSlotAndParent(
     state.slot, state.get_block_root_at_slot(state.slot - 1),
     payloadAvailability)
-  if result.isNone:
-    return static(Opt.none gloas.SignedExecutionPayloadBid)
-
-  pool.dag.cfg.can_process_execution_payload_bid(
-      state, result.unsafeGet, state.slot, {skipBlsValidation}).isOkOr:
-    return static(Opt.none gloas.SignedExecutionPayloadBid)
+  res.isErrOr:
+    if pool.dag.cfg.can_process_execution_payload_bid(
+        state, value, state.slot, {skipBlsValidation}).isErr:
+      return static(Opt.none gloas.SignedExecutionPayloadBid)
+  res
 
 func hasSeenBidFromBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
