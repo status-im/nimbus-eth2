@@ -14,12 +14,12 @@ import
   kzg4844/kzg,
   ssz_serialization/types,
   ../el/el_manager,
-  ../spec/[column_map, helpers, forks],
+  ../spec/[column_map, helpers, forks, network],
   ../consensus_object_pools/[
     attestation_pool, block_clearance, block_quarantine, blockchain_dag,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    payload_attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    partial_column_quarantine, payload_attestation_pool, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -54,6 +54,10 @@ declareCounter data_column_sidecars_received,
   "Number of valid data columns processed by this node"
 declareCounter data_column_sidecars_dropped,
   "Number of invalid data columns dropped by this node", labels = ["reason"]
+declareCounter partial_data_column_sidecars_received,
+  "Number of valid partial data columns processed by this node"
+declareCounter partial_data_column_sidecars_dropped,
+  "Number of invalid partial data columns dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -110,6 +114,14 @@ declareHistogram data_column_sidecar_delay,
 
 declareHistogram data_column_sidecar_validation_duration,
   "Time(s) taken to validate a data column sidecar",
+  buckets = [0.001, 0.005, 0.010, 0.015, 0.020, 0.030, 0.050, 0.100, 0.250, 0.500, 1.0, Inf]
+
+declareHistogram partial_data_column_sidecar_delay,
+  "Time(s) between slot start and partial data column sidecar reception",
+  buckets = delayBuckets
+
+declareHistogram partial_data_column_sidecar_validation_duration,
+  "Time(s) taken to validate a partial data column sidecar",
   buckets = [0.001, 0.005, 0.010, 0.015, 0.020, 0.030, 0.050, 0.100, 0.250, 0.500, 1.0, Inf]
 
 type
@@ -169,11 +181,20 @@ type
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
     dataColumnQuarantine*: ref ColumnQuarantine
+    partialColumnQuarantine*: ref FuluPartialColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#forwarding
+    # Once clients can construct the full DataColumnSidecar after receiving
+    # missing cells, they should forward the full DataColumnSidecar over
+    # standard gossipsub to peers that do not support partial messages.
+    onFullColumnAssembled*:
+      proc(subnet_id: uint64, sidecar: fulu.DataColumnSidecar
+      ) {.gcsafe, raises: [].}
 
   ValidationRes* = Result[void, ValidationError]
 
@@ -197,6 +218,7 @@ proc new*(T: type Eth2Processor,
           payloadAttestationPool: ref PayloadAttestationPool,
           quarantine: ref Quarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
+          partialColumnQuarantine: ref FuluPartialColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
@@ -219,6 +241,7 @@ proc new*(T: type Eth2Processor,
     payloadAttestationPool: payloadAttestationPool,
     quarantine: quarantine,
     dataColumnQuarantine: dataColumnQuarantine,
+    partialColumnQuarantine: partialColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
@@ -358,6 +381,138 @@ proc processExecutionPayloadEnvelope*(
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())
 
   ok()
+
+proc processPartialDataColumnSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    p_data_column_sidecar: fulu.PartialDataColumnSidecar,
+    subnet_id: uint64, group_block_root: Eth2Digest): ValidationRes =
+
+  let hasHeader = p_data_column_sidecar.header.len > 0
+
+  # We need a header (either in the message or previously cached) to proceed
+  if hasHeader:
+    let header = p_data_column_sidecar.header[0]
+    template block_header: untyped = header.signed_block_header.message
+
+    let
+      wallTime = self.getCurrentBeaconTime()
+      (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
+
+    logScope:
+      pdcs = shortLog(p_data_column_sidecar)
+      wallSlot
+
+    if not afterGenesis:
+      notice "Partial data column before genesis"
+      return errIgnore("Partial data column before genesis")
+
+    # Potential under/overflows are fine; would just create odd metrics and logs
+    let delay = wallTime -
+      block_header.slot.start_beacon_time(self.dag.timeParams)
+    debug "Partial data column received", delay
+
+    let
+      validationStart = Moment.now()
+      v =
+        self.dag.validatePartialDataColumnSidecar(
+          self.quarantine, self.dataColumnQuarantine,
+          self.partialColumnQuarantine,
+          p_data_column_sidecar, wallTime, subnet_id, group_block_root)
+
+    partial_data_column_sidecar_validation_duration.observe(
+      (Moment.now() - validationStart).toFloatSeconds())
+
+    if v.isErr():
+      debug "Dropping partial data column", error = v.error()
+      partial_data_column_sidecars_dropped.inc(1, [$v.error[0]])
+      return v
+
+    static: doAssert DATA_COLUMN_SIDECAR_SUBNET_COUNT == NUMBER_OF_COLUMNS
+    let
+      block_root = hash_tree_root(block_header)
+      column_index = ColumnIndex(subnet_id)
+    doAssert compute_subnet_for_data_column_sidecar(column_index) == subnet_id
+
+    # Get or create a partial column entry for this (block_root, column_index)
+    let numBlobs = header.kzg_commitments.len
+    discard self.partialColumnQuarantine[].getOrCreateEntry(
+      block_root, column_index, numBlobs)
+
+    # Add the cells from this partial message into the partial column quarantine
+    self.partialColumnQuarantine[].addCells(
+      block_root, column_index, newClone(p_data_column_sidecar))
+
+    debug "Partial data column validated, cells added to partial column quarantine"
+
+    # Check if we can assemble a full DataColumnSidecar from accumulated partials
+    if self.partialColumnQuarantine[].isComplete(block_root, column_index):
+      let assembled = self.partialColumnQuarantine[].assembleDataColumnSidecar(
+        block_root, column_index)
+      if assembled.isSome():
+        debug "Partial columns assembled into full data column sidecar"
+        let fullSidecar = assembled.get()
+        self.dataColumnQuarantine[].put(
+          block_root, newClone(fullSidecar), verified = true)
+
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#forwarding
+        # Forward the full sidecar to non-partial peers for backwards compat.
+        # Avoid forwarding the full DataColumnSidecar message to peers that
+        # requested partial messages for that given topic.
+        if self.onFullColumnAssembled != nil:
+          self.onFullColumnAssembled(subnet_id, fullSidecar)
+
+        # Clean up partial column quarantine entry
+        self.partialColumnQuarantine[].removeEntry(block_root, column_index)
+
+        # Check if we have all columns for a sidecarless block
+        if block_root in self.quarantine[].sidecarless:
+          let cres = self.dataColumnQuarantine[].popSidecars(block_root)
+          if cres.isSome():
+            let blck = self.quarantine[].popSidecarless(block_root).expect("checked above")
+            withBlck(blck):
+              when (consensusFork >= ConsensusFork.Fulu) and
+                (consensusFork < ConsensusFork.Gloas):
+                self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
+              else:
+                raiseAssert "Wrong fork for columns: " & $consensusFork
+
+    partial_data_column_sidecars_received.inc()
+    partial_data_column_sidecar_delay.observe(delay.toFloatSeconds())
+
+    v
+  else:
+    # Cells-only message without header
+    let
+      wallTime = self.getCurrentBeaconTime()
+      (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
+
+    logScope:
+      pdcs = shortLog(p_data_column_sidecar)
+      wallSlot
+
+    if not afterGenesis:
+      notice "Partial data column before genesis"
+      return errIgnore("Partial data column before genesis")
+
+    let
+      validationStart = Moment.now()
+      v =
+        self.dag.validatePartialDataColumnSidecar(
+          self.quarantine, self.dataColumnQuarantine,
+          self.partialColumnQuarantine,
+          p_data_column_sidecar, wallTime, subnet_id, group_block_root)
+
+    partial_data_column_sidecar_validation_duration.observe(
+      (Moment.now() - validationStart).toFloatSeconds())
+
+    if v.isErr():
+      debug "Dropping partial data column (cells-only)", error = v.error()
+      partial_data_column_sidecars_dropped.inc(1, [$v.error[0]])
+      return v
+
+    # cells-only messages are currently not supported without a header
+    # (validatePartialDataColumnSidecar will IGNORE them)
+    v
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,

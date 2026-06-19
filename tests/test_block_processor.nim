@@ -20,19 +20,17 @@ import
     peerdas_helpers, state_transition],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    blockchain_dag, block_quarantine, block_clearance, column_quarantine,
-    consensus_manager, envelope_quarantine
+    attestation_pool, blockchain_dag, block_quarantine, block_clearance,
+    column_quarantine, consensus_manager, envelope_quarantine,
+    partial_column_quarantine,
   ],
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
 
 from chronos/unittest2/asynctests import asyncTest
-from ../beacon_chain/consensus_object_pools/attestation_pool import
-  AttestationPool, init
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker
-from ../beacon_chain/validators/keystore_management import KeymanagerHost
 
 from std/strutils import rsplit
 
@@ -379,6 +377,125 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
 
+  asyncTest "Assemble partial data column sidecars from Fulu block" & preset():
+    # Advance to Fulu fork
+    process_slots(
+      cfg, state[], start_slot(cfg.FULU_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    withState(state[]):
+      when consensusFork == ConsensusFork.Fulu:
+        let kzgBlob = createValidKzgBlob()
+        let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
+          raiseAssert "Failed to create commitment"
+
+        let cellsAndProofs = kzg.computeCellsAndKzgProofs(kzgBlob).valueOr:
+          raiseAssert "Failed to compute cells and proofs"
+
+        var blobsBundle = testblockutil.BlobsBundle(
+          commitments: @[commitment],
+          proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
+          blobs: @[kzgBlob.bytes]
+        )
+
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache, blobs_bundle = blobsBundle
+        )
+
+        # Wrap cell proofs as Opt.some (proposer has all proofs)
+        let optProofs = cellsAndProofs.proofs.mapIt(Opt.some(kzg.KzgProof(it)))
+        let partialSidecars = assemble_partial_data_column_sidecars(
+          @[kzgBlob], optProofs)
+
+        check:
+          # One partial sidecar per column (CELLS_PER_EXT_BLOB columns)
+          partialSidecars.len > 0
+          # Each sidecar should have 1 cell (1 blob)
+          partialSidecars[0].partial_column.len == 1
+          partialSidecars[0].kzg_proofs.len == 1
+          # Bitmap should have bit 0 set (blob index 0)
+          partialSidecars[0].cells_present_bitmap[0] == true
+
+  asyncTest "Partial column quarantine round-trip assembly" & preset():
+    # Advance to Fulu fork
+    process_slots(
+      cfg, state[], start_slot(cfg.FULU_FORK_EPOCH),
+      cache, info, {}
+    ).expect("OK")
+
+    withState(state[]):
+      when consensusFork == ConsensusFork.Fulu:
+        let kzgBlob = createValidKzgBlob()
+        let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
+          raiseAssert "Failed to create commitment"
+
+        let cellsAndProofs = kzg.computeCellsAndKzgProofs(kzgBlob).valueOr:
+          raiseAssert "Failed to compute cells and proofs"
+
+        var blobsBundle = testblockutil.BlobsBundle(
+          commitments: @[commitment],
+          proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
+          blobs: @[kzgBlob.bytes]
+        )
+
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache, blobs_bundle = blobsBundle
+        )
+
+        let blockRoot = engineBlock.blck.root
+        let numBlobs = engineBlock.blck.message.body.blob_kzg_commitments.len
+
+        # Assemble full data column sidecars (reference)
+        let fullSidecars = assemble_data_column_sidecars(
+          engineBlock.blck, @[kzgBlob],
+          cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)))
+
+        # Assemble partial data column sidecars
+        let optProofs = cellsAndProofs.proofs.mapIt(Opt.some(kzg.KzgProof(it)))
+        let partialSidecars = assemble_partial_data_column_sidecars(
+          @[kzgBlob], optProofs)
+
+        # Build header from block
+        let
+          beacon_block_header = BeaconBlockHeader(
+            slot: engineBlock.blck.message.slot,
+            proposer_index: engineBlock.blck.message.proposer_index,
+            parent_root: engineBlock.blck.message.parent_root,
+            state_root: engineBlock.blck.message.state_root,
+            body_root: hash_tree_root(engineBlock.blck.message.body))
+          signed_beacon_block_header = SignedBeaconBlockHeader(
+            message: beacon_block_header,
+            signature: engineBlock.blck.signature)
+        var pHeader = fulu.PartialDataColumnHeader(
+          kzg_commitments: engineBlock.blck.message.body.blob_kzg_commitments,
+          signed_block_header: signed_beacon_block_header)
+        engineBlock.blck.message.body.build_proof(
+          KZG_COMMITMENTS_GINDEX,
+          pHeader.kzg_commitments_inclusion_proof).expect("Valid gindex")
+
+        # Use quarantine to ingest partials and reassemble
+        var pcq = FuluPartialColumnQuarantine.init()
+        pcq.putPartialHeader(blockRoot, newClone(pHeader))
+
+        # Pick column index 0 for the round-trip test
+        let colIdx = ColumnIndex(0)
+        let entry = pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
+        check entry == pcq.getEntry(blockRoot, colIdx).get()
+        pcq.addCells(blockRoot, colIdx, newClone(partialSidecars[0]))
+
+        check:
+          pcq.isComplete(blockRoot, colIdx)
+
+        let assembled = pcq.assembleDataColumnSidecar(blockRoot, colIdx)
+        check:
+          assembled.isSome()
+          # The assembled sidecar should match the directly-assembled full sidecar
+          assembled.get().index == fullSidecars[0].index
+          assembled.get().column.len == fullSidecars[0].column.len
+          assembled.get().kzg_proofs.len == fullSidecars[0].kzg_proofs.len
+          assembled.get().kzg_commitments == fullSidecars[0].kzg_commitments
+
   asyncTest "Gloas block without envelope marks missing" & preset():
     # Block arrives but envelope hasn't arrived yet.
     # Block should be stored optimistically; envelope marked as missing.
@@ -461,6 +578,77 @@ suite "Block processor" & preset():
       getTimeFn
     )
 
+    withState(state[]):
+      when consensusFork == ConsensusFork.Fulu:
+        let kzgBlob = createValidKzgBlob()
+        let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
+          raiseAssert "Failed to create commitment"
+
+        let cellsAndProofs = kzg.computeCellsAndKzgProofs(kzgBlob).valueOr:
+          raiseAssert "Failed to compute cells and proofs"
+
+        var blobsBundle = testblockutil.BlobsBundle(
+          commitments: @[commitment],
+          proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
+          blobs: @[kzgBlob.bytes]
+        )
+
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache, blobs_bundle = blobsBundle
+        )
+
+        let blockRoot = engineBlock.blck.root
+        let numBlobs = engineBlock.blck.message.body.blob_kzg_commitments.len
+
+        # Assemble partial sidecars
+        let optProofs = cellsAndProofs.proofs.mapIt(Opt.some(kzg.KzgProof(it)))
+        let partialSidecars = assemble_partial_data_column_sidecars(
+          @[kzgBlob], optProofs)
+
+        # Build header
+        let
+          beacon_block_header = BeaconBlockHeader(
+            slot: engineBlock.blck.message.slot,
+            proposer_index: engineBlock.blck.message.proposer_index,
+            parent_root: engineBlock.blck.message.parent_root,
+            state_root: engineBlock.blck.message.state_root,
+            body_root: hash_tree_root(engineBlock.blck.message.body))
+          signed_beacon_block_header = SignedBeaconBlockHeader(
+            message: beacon_block_header,
+            signature: engineBlock.blck.signature)
+        var pHeader = fulu.PartialDataColumnHeader(
+          kzg_commitments: engineBlock.blck.message.body.blob_kzg_commitments,
+          signed_block_header: signed_beacon_block_header)
+        engineBlock.blck.message.body.build_proof(
+          KZG_COMMITMENTS_GINDEX,
+          pHeader.kzg_commitments_inclusion_proof).expect("Valid gindex")
+
+        # Use quarantine to reassemble all columns from partials
+        var pcq = FuluPartialColumnQuarantine.init()
+        pcq.putPartialHeader(blockRoot, newClone(pHeader))
+
+        var reassembled: seq[fulu.DataColumnSidecar]
+        for i in 0 ..< partialSidecars.len:
+          let colIdx = ColumnIndex(i)
+          let entry = pcq.getOrCreateEntry(blockRoot, colIdx, numBlobs)
+          check entry == pcq.getEntry(blockRoot, colIdx).get()
+          pcq.addCells(blockRoot, colIdx, newClone(partialSidecars[i]))
+          let assembled = pcq.assembleDataColumnSidecar(blockRoot, colIdx)
+          check assembled.isSome()
+          reassembled.add(assembled.get())
+
+        let dsRef = reassembled.mapIt(newClone(it))
+
+        # Process the block with reassembled data columns
+        let res = await processor.addBlock(
+          MsgSource.gossip,
+          engineBlock.blck,
+          Opt.some(dsRef)
+        )
+
+        check:
+          res.isOk
+          dag.containsForkBlock(engineBlock.blck.root)
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
       b2 = addTestBlock(state[], cache, cfg = cfg).gloasData

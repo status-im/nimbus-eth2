@@ -19,9 +19,9 @@ import
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    light_client_pool, payload_attestation_pool, spec_cache,
-    sync_committee_msg_pool, validator_change_pool],
-  ../beacon_clock,
+    light_client_pool, partial_column_quarantine, payload_attestation_pool,
+    spec_cache, sync_committee_msg_pool, validator_change_pool],
+  ".."/[beacon_clock],
   ./batch_validation
 
 from std/sequtils import findIt
@@ -237,6 +237,18 @@ proc check_data_column_sidecar_kzg_proofs(
 
   ok()
 
+proc check_partial_data_column_sidecar_kzg_proofs(
+    p_data_column: fulu.PartialDataColumnSidecar,
+    all_commitments: deneb.KzgCommitments,
+    column_index: ColumnIndex):
+    Result[void, ValidationError] =
+  let res = p_data_column.verify_partial_data_column_sidecar_kzg_proofs(
+    all_commitments, column_index)
+  if res.isErr:
+    return errReject(res.error)
+
+  ok()
+
 # Gossip Validation
 # ----------------------------------------------------------------
 
@@ -447,6 +459,225 @@ template validateBeaconBlockGloas(
   # block's parent (defined by `block.parent_root`).
   if not (bid.parent_block_root == blck.parent_root):
     return dag.checkedReject("validateBeaconBlockGloas: parent block mismatch")
+
+proc validatePartialDataColumnSidecar*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    dataColumnQuarantine: ref ColumnQuarantine,
+    partialColumnQuarantine: ref FuluPartialColumnQuarantine,
+    p_data_column_sidecar: fulu.PartialDataColumnSidecar,
+    wallTime: BeaconTime, subnet_id: uint64,
+    group_block_root: Eth2Digest):
+    Result[void, ValidationError] =
+
+  # === For all partial messages ===
+
+  let hasHeader = p_data_column_sidecar.header.len > 0
+  let hasCells = p_data_column_sidecar.partial_column.len > 0
+
+  # [REJECT] A header and/or cells are present in the message
+  # (it is not semantically empty).
+  if not hasHeader and not hasCells:
+    return dag.checkedReject(
+      "PartialDataColumnSidecar: message is semantically empty")
+
+  # [REJECT] There are the same number of cells and proofs in the message
+  # and this number is equal the number of 1s in the cells_present_bitmap.
+  var bitmapOnes = 0
+  for i in 0 ..< p_data_column_sidecar.cells_present_bitmap.len:
+    if p_data_column_sidecar.cells_present_bitmap[Natural(i)]:
+      inc bitmapOnes
+  if p_data_column_sidecar.partial_column.len !=
+        p_data_column_sidecar.kzg_proofs.len or
+      p_data_column_sidecar.partial_column.len != bitmapOnes:
+    return dag.checkedReject(
+      "PartialDataColumnSidecar: cells, proofs, and bitmap popcount mismatch")
+
+  static: doAssert DATA_COLUMN_SIDECAR_SUBNET_COUNT == NUMBER_OF_COLUMNS
+  let column_index = ColumnIndex(subnet_id)
+
+  # === For verifying the PartialDataColumnHeader ===
+
+  if hasHeader:
+    let header = p_data_column_sidecar.header[0]
+    template block_header: untyped = header.signed_block_header.message
+
+    # [REJECT] The header's kzg_commitments list is non-empty.
+    if header.kzg_commitments.len == 0:
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: header's kzg_commitments list is empty")
+
+    # [REJECT] The hash of the block header in `signed_block_header` MUST be
+    # the same one identified by the partial message's group id.
+    if hash_tree_root(block_header) != group_block_root:
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: header root mismatches gossipsub group id")
+
+    # [REJECT] The cells present bitmap length is equal to the number of KZG
+    # commitments in the `PartialDataColumnHeader`.
+    if p_data_column_sidecar.cells_present_bitmap.len != header.kzg_commitments.len:
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: cells_present_bitmap length mismatches kzg_commitments")
+
+    # [IGNORE] The header is not from a future slot (with a
+    # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
+    # block_header.slot <= current_slot (a client MAY queue future headers
+    # for processing at the appropriate slot).
+    if not (block_header.slot <=
+        (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      return errIgnore("PartialDataColumnSidecar: slot too high")
+
+    # [IGNORE] The header is from a slot greater than the latest finalized
+    # slot -- i.e. validate that block_header.slot >
+    # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch).
+    if not (block_header.slot > dag.finalizedHead.slot):
+      return errIgnore("PartialDataColumnSidecar: slot already finalized")
+
+    let block_root = hash_tree_root(block_header)
+
+    # [REJECT] If a valid header was previously received, the received header
+    # MUST equal the previously valid header.
+    let existingHeader =
+      partialColumnQuarantine[].getPartialHeader(block_root)
+    if existingHeader.isSome():
+      let existing = existingHeader.get()
+      if header.signed_block_header != existing.signed_block_header or
+          header.kzg_commitments != existing.kzg_commitments or
+          header.kzg_commitments_inclusion_proof !=
+            existing.kzg_commitments_inclusion_proof:
+        return dag.checkedReject(
+          "PartialDataColumnSidecar: header mismatch with previously valid header")
+
+    # [REJECT] The header's kzg_commitments field inclusion proof is valid
+    # as verified by verify_partial_data_column_header_inclusion_proof.
+    block:
+      let v = verify_partial_data_column_header_inclusion_proof(header)
+      if v.isErr:
+        return dag.checkedReject(v.error)
+
+    # [IGNORE] The header's block's parent (defined by
+    # block_header.parent_root) has been seen (via gossip or non-gossip
+    # sources) (a client MAY queue header for processing once the parent
+    # block is retrieved).
+    #
+    # [REJECT] The header's block's parent (defined by
+    # block_header.parent_root) passes validation.
+    let parent = dag.getBlockRef(block_header.parent_root).valueOr:
+      return quarantine[].addMissingValid(
+        block_header.parent_root, block_root,
+        "PartialDataColumnSidecar: parent"
+      )
+
+    # [REJECT] The header is from a higher slot than the header's block's
+    # parent (defined by block_header.parent_root).
+    if not (block_header.slot > parent.bid.slot):
+      discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: slot lower than parents'")
+
+    # [REJECT] The current finalized_checkpoint is an ancestor of the
+    # header's block -- i.e. get_checkpoint_block(store,
+    # block_header.parent_root, store.finalized_checkpoint.epoch) ==
+    # store.finalized_checkpoint.root.
+    let
+      finalized_checkpoint = dag.headState.finalized_checkpoint
+      ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
+
+    if ancestor.isNil:
+      return errIgnore("PartialDataColumnSidecar: Can't find ancestor")
+
+    if not (
+        finalized_checkpoint.root == ancestor.root or
+        finalized_checkpoint.root.isZero):
+      discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: Finalized checkpoint not an ancestor")
+
+    # [REJECT] The proposer signature of signed_block_header is valid with
+    # respect to the block_header.proposer_index pubkey.
+    #
+    # [REJECT] The header is proposed by the expected proposer_index for the
+    # block's slot in the context of the current shuffling (defined by
+    # block_header.parent_root/block_header.slot). If the proposer_index
+    # cannot immediately be verified against the expected shuffling, the
+    # header MAY be queued for later processing while proposers for the
+    # block's branch are calculated -- in such a case do not REJECT, instead
+    # IGNORE this message.
+    dag.verifyBlockProposer(
+      parent, block_header.slot, block_header.proposer_index, block_root,
+      header.signed_block_header.signature,
+      quarantine.latest_sidecar_signatures
+    ).isOkOr:
+      if error.invalid:
+        discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
+      return dag.checkedReject(error.msg)
+
+    # Cache the verified (block_root, signature) pair for future fast-path
+    # checks.
+    quarantine.latest_sidecar_signatures.put(
+      (block_root, header.signed_block_header.signature), ())
+
+    # Store the validated header so it can be reused across all subnets.
+    partialColumnQuarantine[].putPartialHeader(block_root, newClone(header))
+
+  # === For verifying the cells in a partial message ===
+
+  if hasCells:
+    # [IGNORE] If the received partial message contains only cell and proof
+    # data, the node has seen a valid corresponding PartialDataColumnHeader.
+    let storedHeader =
+      if hasHeader:
+        Opt.some(p_data_column_sidecar.header[0])
+      else:
+        # Need to find the block root from the stored header; for cells-only
+        # messages we rely on the quarantine having already received the header.
+        # We cannot derive block_root without a header, so scan entries.
+        Opt.none(fulu.PartialDataColumnHeader)
+
+    # For cells-only messages, we need to find the matching header.
+    if not hasHeader:
+      # Without a header in the message, we have no block_header to derive
+      # block_root. This is a cells-only message -- the spec says we must
+      # have already seen a valid header. We rely on the group_id mechanism
+      # at the gossipsub layer to match cells to headers.
+      # For now, IGNORE if we have no header at all.
+      return errIgnore(
+        "PartialDataColumnSidecar: cells-only message without header not yet supported")
+
+    let
+      header = storedHeader.get()
+      block_root = hash_tree_root(header.signed_block_header.message)
+
+    # [IGNORE] The corresponding header is not from a future slot.
+    if not (header.signed_block_header.message.slot <=
+        (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      return errIgnore(
+        "PartialDataColumnSidecar: corresponding header slot too high")
+
+    # [IGNORE] The corresponding header is from a slot greater than the
+    # latest finalized slot.
+    if not (header.signed_block_header.message.slot > dag.finalizedHead.slot):
+      return errIgnore(
+        "PartialDataColumnSidecar: corresponding header slot already finalized")
+
+    # [REJECT] For cells the receiver already has, The sidecar's cell and
+    # proof data are equal to the local copy.
+    if not partialColumnQuarantine[].cellsConsistent(
+        block_root, column_index, p_data_column_sidecar):
+      return dag.checkedReject(
+        "PartialDataColumnSidecar: cell data conflicts with stored cell")
+
+    # [REJECT] The sidecar's cell and proof data is valid as verified by
+    # verify_partial_data_column_sidecar_kzg_proofs(sidecar,
+    # header.kzg_commitments, column_index).
+    block:
+      let r = check_partial_data_column_sidecar_kzg_proofs(
+        p_data_column_sidecar,
+        header.kzg_commitments,
+        column_index)
+      if r.isErr:
+        return dag.checkedReject(r.error)
+
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(

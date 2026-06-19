@@ -213,7 +213,7 @@ BELLATRIX_FORK_EPOCH: 0
   except Exception as exc: # TODO Fix confutils exceptions
     raiseAssert exc.msg
 
-  doCreateTestnet(createTestnetConf, rng[])
+  doCreateTestnet(createTestnetConf, rng)
 
   let tokenFileRes = secureWriteFile(tokenFilePath, correctTokenValue)
   if tokenFileRes.isErr:

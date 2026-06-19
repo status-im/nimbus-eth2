@@ -71,6 +71,27 @@ type
   SomeOptSidecars =
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#forwarding
+# Once clients can construct the full DataColumnSidecar after receiving
+# missing cells, they should forward the full DataColumnSidecar over
+# standard gossipsub to peers that do not support partial messages.
+# Avoid forwarding the full DataColumnSidecar message to peers that
+# requested partial messages for that given topic.
+proc setupPartialColumnForwarding*(router: ref MessageRouter) =
+  ## Wire the processor's onFullColumnAssembled callback to forward
+  ## assembled full sidecars to non-partial peers via standard gossipsub.
+  router[].processor[].onFullColumnAssembled = proc(
+      subnet_id: uint64, sidecar: fulu.DataColumnSidecar
+  ) {.gcsafe, raises: [].} =
+    let sidecarRef = newClone(sidecar)
+    proc forward() {.async: (raises: []).} =
+      try:
+        discard await router[].network.broadcastDataColumnSidecar(
+          subnet_id, sidecarRef)
+      except CancelledError:
+        discard
+    asyncSpawn forward()
+
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
   # been received via gossip (because they might have been sent to multiple
@@ -224,6 +245,36 @@ proc publishSidecars(
 
   Opt.some(blobs.mapIt(newClone(it)))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+proc publishPartialSidecars(
+    router: ref MessageRouter,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    partials: seq[fulu.PartialDataColumnSidecar]
+): Future[void] {.async: (raises: [CancelledError]).} =
+  ## Publish partial data column sidecars via the gossipsub Partial Message
+  ## Extension. Parts metadata and materialized cells are sent to peers that
+  ## opted into partial messages on the relevant data column sidecar topics.
+  let blockRoot = hash_tree_root(blck.message)
+
+  var workers = newSeq[Future[void]](len(partials))
+
+  for i, pdc in partials:
+    let subnet = compute_subnet_for_data_column_sidecar(ColumnIndex(i))
+    workers[i] = router[].network.publishPartialDataColumn(
+      subnet, blockRoot, pdc)
+
+  let resAll = await allFinished(workers)
+
+  for i in 0..<resAll.len:
+    let r = resAll[i]
+    doAssert r.finished()
+    if r.failed():
+      notice "Partial data column not sent",
+        column_index = i, error = r.error[]
+    else:
+      notice "Partial data column sent",
+        column_index = i
+
 proc addRoutedBlock(
     router: ref MessageRouter,
     blck: ForkySignedBeaconBlock,
@@ -283,10 +334,44 @@ proc routeSignedBeaconBlock*(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    someSidecarsOpt: fulu.DataColumnSidecars,
+    partialSidecars: seq[fulu.PartialDataColumnSidecar],
+    checkValidator: bool
+): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+  ## Overload that broadcasts both full and partial data column sidecars.
+  ## Full sidecars are sent to peers that expect them; partial sidecars
+  ## are broadcast for peers that have opted into partial messages.
+  ## For Gloas, full DataColumnSidecars are sent via the execution payload
+  ## envelope route instead of the block route, so only partial sidecars
+  ## are published here.
+
+  # 1. Validate
+  ? router.validateRouteBlock(blck, checkValidator)
+
+  # 2. Publish block
+  await router.publishRouteBlock(blck)
+
+  # 3. Publish full data column sidecars (Fulu only)
+  when blck is fulu.SignedBeaconBlock:
+    let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+
+  # 4. Publish partial data column sidecars
+  await publishPartialSidecars(router, blck, partialSidecars)
+
+  # 5. Add block to DAG (using full sidecars only on Fulu)
+  when blck is fulu.SignedBeaconBlock:
+    return await router.addRoutedBlock(blck, finalSidecars)
+  else:
+    return await router.addRoutedBlock(blck, noSidecars)
+
+proc routeSignedBeaconBlock*(
+    router: ref MessageRouter,
     blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
-  ## Same as pre-Gloas block but no sidecars publishing.
+  ## Gloas/Heze publish data column sidecars via the execution payload
+  ## envelope route, so block routing does not carry sidecars here.
 
   # 1. Validate
   ? router.validateRouteBlock(blck, checkValidator)

@@ -21,7 +21,8 @@ import
     execution_payload_pool, partial_column_quarantine,
     payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
-  ./networking/[topic_params, network_metadata_downloads],
+  ./networking/[topic_params, network_metadata_downloads,
+    gossip_partial_columns],
   ./rpc/[rest_api, state_ttl_cache],
   ./el/el_getblobs_service,
   ./spec/[
@@ -37,6 +38,8 @@ from std/sequtils import filterIt, mapIt, toSeq
 #from std/strutils import
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
+from libp2p/protocols/pubsub/rpc/messages import PartialMessageExtensionRPC
+from libp2p/peerid import PeerId
 from ./spec/datatypes/deneb import SignedBeaconBlock
 
 logScope: topics = "beacnde"
@@ -756,7 +759,8 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      quarantine,dataColumnQuarantine, partialColumnQuarantine, gloasColumnQuarantine,
+
       envelopeQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -859,6 +863,7 @@ proc initFullNode(
   node.lightClientPool = lightClientPool
   node.validatorChangePool = validatorChangePool
   node.processor = processor
+
   node.executionPayloadBidPool = executionPayloadBidPool
   node.payloadAttestationPool = payloadAttestationPool
   node.batchVerifier = batchVerifier
@@ -890,6 +895,26 @@ proc initFullNode(
                                                 node.validatorCustody,
                                                 node.network)
   node.router = router
+
+  if config.partialColumns:
+    router.setupPartialColumnForwarding()
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+  # Set up the partial message extension callback for incoming partial cells.
+  if config.partialColumns:
+    node.network.onPartialColumnRPC = proc(
+        peer: PeerId, rpc: PartialMessageExtensionRPC
+    ) {.gcsafe, raises: [].} =
+      let decoded = node.network.handlePartialColumnRPC(peer, rpc)
+      if decoded.isNone():
+        return  # Metadata-only update or decode failure
+
+      let (subnetId, blockRoot, pdc) = decoded.get()
+      let v = node.processor[].processPartialDataColumnSidecar(
+        MsgSource.gossip, pdc, subnetId, blockRoot)
+      if v.isErr():
+        debug "Partial column from extension RPC failed validation",
+          error = v.error, peer, subnetId
 
   await node.addValidators()
 
@@ -1045,7 +1070,7 @@ proc init*(
     nil
 
   let
-    netKeys = getPersistentNetKeys(rng[], config)
+    netKeys = getPersistentNetKeys(rng, config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
     network = createEth2Node(
@@ -1361,7 +1386,12 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
 
   for i in node.validatorCustody.custodyGroups():
     let topic = getDataColumnSidecarTopic(forkDigest, i)
-    node.network.subscribe(topic, basicParams())
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#requesting-partial-messages
+    # A peer requests partial messages for a topic by setting the partial
+    # field in gossipsub's SubOpts RPC message to true.
+    node.network.subscribe(
+      topic, basicParams(),
+      requestsPartial = node.config.partialColumns)
     custody.add(i)
   node.lastColumnCustodyIndices = custody
 
@@ -2472,6 +2502,10 @@ proc installMessageValidators(node: BeaconNode) =
                       MsgSource.gossip, newClone(dataColumnSidecar),
                       subnet_id)))
         elif consensusFork == ConsensusFork.Fulu:
+          # Regular data_column_sidecar topic carries fulu.DataColumnSidecar.
+          # Partial columns are delivered separately via the libp2p Partial
+          # Message Extension RPC (see onPartialColumnRPC callback) and must
+          # not be SSZ-decoded on this topic.
           for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             closureScope:
               let subnet_id = it
@@ -2799,7 +2833,7 @@ proc doRunBeaconNode(
   else:
     node.run(nil)
 
-proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
+proc doRecord(config: BeaconNodeConf, rng: ref HmacDrbgContext) {.
     raises: [CatchableError].} =
   case config.recordCmd:
   of RecordCmd.create:
@@ -2897,7 +2931,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   of BNStartUpCmd.beaconNode: doRunBeaconNode(config, rng)
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
-  of BNStartUpCmd.record: doRecord(config, rng[])
+  of BNStartUpCmd.record: doRecord(config, rng)
   of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartUpCmd.trustedNodeSync:

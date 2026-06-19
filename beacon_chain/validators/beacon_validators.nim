@@ -675,9 +675,42 @@ proc proposeBlockAux(
       engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
       engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
   elif fork == ConsensusFork.Fulu:
-    let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
-      engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+    let
+      blobs = engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it))
+      proofs = engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it))
+      sidecarsOpt = signedBlock.assemble_data_column_sidecars(blobs, proofs)
+      partialSidecarsWithHeader =
+        if node.config.partialColumns:
+          let
+            optProofs = proofs.mapIt(Opt.some(it))
+            partialSidecars =
+              assemble_partial_data_column_sidecars(blobs, optProofs)
+            beacon_block_header = BeaconBlockHeader(
+              slot: signedBlock.message.slot,
+              proposer_index: signedBlock.message.proposer_index,
+              parent_root: signedBlock.message.parent_root,
+              state_root: signedBlock.message.state_root,
+              body_root: hash_tree_root(signedBlock.message.body))
+            signed_beacon_block_header = SignedBeaconBlockHeader(
+              message: beacon_block_header,
+              signature: signedBlock.signature)
+          var pHeader = fulu.PartialDataColumnHeader(
+            kzg_commitments: signedBlock.message.body.blob_kzg_commitments,
+            signed_block_header: signed_beacon_block_header)
+          signedBlock.message.body.build_proof(
+            KZG_COMMITMENTS_GINDEX,
+            pHeader.kzg_commitments_inclusion_proof).expect("Valid gindex")
+
+          var withHeaders =
+            newSeqOfCap[fulu.PartialDataColumnSidecar](partialSidecars.len)
+          for pdc in partialSidecars:
+            var withHeader = pdc
+            withHeader.header =
+              List[fulu.PartialDataColumnHeader, 1].init(@[pHeader])
+            withHeaders.add(withHeader)
+          withHeaders
+        else:
+          newSeq[fulu.PartialDataColumnSidecar]()
   elif fork == ConsensusFork.Electra:
     let sidecarsOpt = signedBlock.create_blob_sidecars(
       engineBlock.blobsBundle.proofs,
@@ -691,6 +724,14 @@ proc proposeBlockAux(
         when fork >= ConsensusFork.Gloas:
           await node.router.routeSignedBeaconBlock(
             signedBlock, checkValidator = false)
+        elif fork == ConsensusFork.Fulu:
+          if node.config.partialColumns:
+            await node.router.routeSignedBeaconBlock(
+              signedBlock, sidecarsOpt, partialSidecarsWithHeader,
+              checkValidator = false)
+          else:
+            await node.router.routeSignedBeaconBlock(
+              signedBlock, sidecarsOpt, checkValidator = false)
         else:
           await node.router.routeSignedBeaconBlock(
             signedBlock, sidecarsOpt, checkValidator = false)

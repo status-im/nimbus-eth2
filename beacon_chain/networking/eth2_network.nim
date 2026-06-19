@@ -22,15 +22,16 @@ import
     crypto/secp, builders],
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
+  libp2p/protocols/pubsub/gossipsub/partial_message,
   libp2p/stream/connection,
-  libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ../[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
   ../validators/keystore_management,
   ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
-     libp2p_json_serialization, peer_pool, peer_scores]
+     libp2p_json_serialization, peer_pool, peer_scores,
+     gossip_partial_columns]
 
 from std/sequtils import countIt, filterIt, mapIt
 
@@ -107,6 +108,11 @@ type
     custodyMap: ColumnMap
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+    onPartialColumnRPC*: OnPartialColumnRPCCallback
+      ## Application-level callback for incoming partial data column messages.
+      ## Set by nimbus_beacon_node after processor/quarantine are available.
 
   AverageThroughput* = object
     count*: uint64
@@ -864,6 +870,7 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
+         T is fulu.PartialDataColumnSidecar or
          T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
          T is gloas.SignedExecutionPayloadEnvelope or
          T is gloas.SignedExecutionPayloadBid or
@@ -2280,14 +2287,14 @@ func initNetKeys(privKey: PrivateKey): NetKeyPair =
   let pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-proc getRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
-  let privKey = PrivateKey.random(Secp256k1, rng).valueOr:
+proc getRandomNetKeys*(rng: ref HmacDrbgContext): NetKeyPair =
+  let privKey = PrivateKey.random(Secp256k1, newBearSslRng(rng)).valueOr:
     fatal "Could not generate random network key file"
     quit QuitFailure
   initNetKeys(privKey)
 
 proc getPersistentNetKeys*(
-    rng: var HmacDrbgContext,
+    rng: ref HmacDrbgContext,
     dataDir, netKeyFile: string,
     netKeyInsecurePassword: bool,
     allowLoadExisting: bool): NetKeyPair =
@@ -2333,7 +2340,7 @@ proc getPersistentNetKeys*(
             key_path = keyPath
       let
         keys = rng.getRandomNetKeys()
-        sres = saveNetKeystore(rng, keyPath, keys.seckey, insecurePassword)
+        sres = saveNetKeystore(rng[], keyPath, keys.seckey, insecurePassword)
       if sres.isErr():
         fatal "Could not create network key file"
         quit QuitFailure
@@ -2343,7 +2350,7 @@ proc getPersistentNetKeys*(
       keys
 
 proc getPersistentNetKeys*(
-    rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
+    rng: ref HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
   of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
@@ -2375,19 +2382,16 @@ proc newBeaconSwitch(
     addresses: seq[MultiAddress],
     rng: ref HmacDrbgContext,
 ): Result[Switch, string] =
-  let service: Service = WildcardAddressResolverService.new()
-
   var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
   try:
     sb = sb
     .withPrivateKey(seckey)
-    .withAddresses(addresses)
-    .withRng(rng)
+    .withAddresses(addresses, enableWildcardResolver = true)
+    .withRng(newBearSslRng(rng))
     .withNoise()
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
-    .withServices(@[service])
 
     if config.tcpEnabled:
       sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
@@ -2499,40 +2503,58 @@ proc createEth2Node*(
     except CatchableError:
       err(ValidationResult.Reject)
 
+  # Holds reference to the Eth2Node so the partial message extension callback
+  # can dispatch to the application-level handler once it's set.
+  var nodeRef: Eth2Node
+
   let
-    params = GossipSubParams.init(
-      pruneBackoff = chronos.minutes(1),
-      unsubscribeBackoff = chronos.seconds(10),
-      floodPublish = true,
-      gossipFactor = 0.05,
-      d = 8,
-      dLow = 6,
-      dHigh = 12,
-      dScore = 6,
-      dOut = 6 div 2, # less than dlow and no more than dlow/2
-      dLazy = 6,
-      heartbeatInterval = chronos.milliseconds(700),
-      historyLength = 6,
-      historyGossip = 3,
-      fanoutTTL = chronos.seconds(60),
-      # 2 epochs matching maximum valid attestation lifetime
-      seenTTL = cfg.timeParams.SLOT_DURATION * (SLOTS_PER_EPOCH * 2).int64,
-      gossipThreshold = -4000,
-      publishThreshold = -8000,
-      graylistThreshold = -16000, # also disconnect threshold
-      opportunisticGraftThreshold = 0,
-      decayInterval = chronos.seconds(12),
-      decayToZero = 0.01,
-      retainScore = chronos.seconds(385),
-      appSpecificWeight = 0.0,
-      ipColocationFactorWeight = -53.75,
-      ipColocationFactorThreshold = 3.0,
-      behaviourPenaltyWeight = -15.9,
-      behaviourPenaltyDecay = 0.986,
-      disconnectBadPeers = true,
-      directPeers = directPeers,
-      bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
-    )
+    params = block:
+      var p = GossipSubParams.init(
+        pruneBackoff = chronos.minutes(1),
+        unsubscribeBackoff = chronos.seconds(10),
+        floodPublish = true,
+        gossipFactor = 0.05,
+        d = 8,
+        dLow = 6,
+        dHigh = 12,
+        dScore = 6,
+        dOut = 6 div 2, # less than dlow and no more than dlow/2
+        dLazy = 6,
+        heartbeatInterval = chronos.milliseconds(700),
+        historyLength = 6,
+        historyGossip = 3,
+        fanoutTTL = chronos.seconds(60),
+        # 2 epochs matching maximum valid attestation lifetime
+        seenTTL = cfg.timeParams.SLOT_DURATION * (SLOTS_PER_EPOCH * 2).int64,
+        gossipThreshold = -4000,
+        publishThreshold = -8000,
+        graylistThreshold = -16000, # also disconnect threshold
+        opportunisticGraftThreshold = 0,
+        decayInterval = chronos.seconds(12),
+        decayToZero = 0.01,
+        retainScore = chronos.seconds(385),
+        appSpecificWeight = 0.0,
+        ipColocationFactorWeight = -53.75,
+        ipColocationFactorThreshold = 3.0,
+        behaviourPenaltyWeight = -15.9,
+        behaviourPenaltyDecay = 0.986,
+        disconnectBadPeers = true,
+        directPeers = directPeers,
+        bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
+      )
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+      # Gossipsub's Partial Message Extension enables exchanging selective
+      # parts of a message rather than the whole.
+      when config is BeaconNodeConf:
+        if config.partialColumns:
+          p.partialMessageExtensionConfig = Opt.some(
+            makePartialMessageExtensionConfig(
+              proc(peer: PeerId, rpc: PartialMessageExtensionRPC)
+                  {.gcsafe, raises: [].} =
+                if nodeRef != nil and nodeRef.onPartialColumnRPC != nil:
+                  nodeRef.onPartialColumnRPC(peer, rpc)
+            ))
+      p
     pubsub =
       try:
         GossipSub.init(
@@ -2544,6 +2566,7 @@ proc createEth2Node*(
           verifySignature = false,
           anonymize = true,
           maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
+          rng = switch.rng,
           parameters = params,
         )
       except InitializationError as exc:
@@ -2559,6 +2582,9 @@ proc createEth2Node*(
     extTcpPort, extQuicPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
+
+  # Complete the closure capture for the partial message extension callback
+  nodeRef = node
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
@@ -2623,14 +2649,15 @@ func shortForm*(id: NetKeyPair): string =
 
 proc subscribe*(
     node: Eth2Node, topic: string, topicParams: TopicParams,
-    enableTopicMetrics: bool = false) =
+    enableTopicMetrics: bool = false,
+    requestsPartial: bool = false) =
   if enableTopicMetrics:
     node.pubsub.knownTopics.incl(topic)
 
   node.pubsub.topicParams[topic] = topicParams
 
   # Passing in `nil` because we do all message processing in the validator
-  node.pubsub.subscribe(topic, nil)
+  node.pubsub.subscribe(topic, nil, requestsPartial = requestsPartial)
 
 proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult]
     {.async: (raises: [CancelledError], raw: true).} =
@@ -2930,6 +2957,96 @@ proc broadcastDataColumnSidecar*(
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
   node.broadcast(topic, data_column[])
+
+proc broadcastPartialDataColumnSidecar*(
+    node: Eth2Node, subnet_id: uint64,
+    p_data_column: fulu.PartialDataColumnSidecar):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch =
+      p_data_column.header[0].signed_block_header.message.slot.epoch
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+  node.broadcast(topic, p_data_column)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#partial-columns-for-cell-dissemination
+proc publishPartialDataColumn*(
+    node: Eth2Node,
+    subnet_id: uint64,
+    blockRoot: Eth2Digest,
+    p_data_column: fulu.PartialDataColumnSidecar):
+    Future[void] {.async: (raises: []).} =
+  ## Publish a partial data column sidecar via the gossipsub Partial Message
+  ## Extension. This sends parts metadata and materialized cells to peers
+  ## that opted into partial messages on the relevant topic.
+  let
+    contextEpoch =
+      if p_data_column.header.len > 0:
+        p_data_column.header[0].signed_block_header.message.slot.epoch
+      else:
+        # Cells-only message: caller must ensure this is valid
+        Epoch(0)
+    topic = getDataColumnSidecarTopic(
+      node.forkDigestAtEpoch(contextEpoch), subnet_id)
+    pm = newDataColumnPartialMessage(
+      blockRoot, ColumnIndex(subnet_id), p_data_column)
+  await node.pubsub.publishPartial(topic, pm)
+
+func parseSubnetIdFromTopic*(topic: string): Opt[uint64] =
+  ## Extract subnet_id from a data column sidecar topic string.
+  ## Topic format: /eth2/{forkDigest}/data_column_sidecar_{subnet_id}/ssz_snappy
+  let topicParts = topic.split('/')
+  for part in topicParts:
+    if part.startsWith("data_column_sidecar_"):
+      let subnetStr = part[len("data_column_sidecar_") ..< part.len]
+      try:
+        return Opt.some(parseBiggestUInt(subnetStr))
+      except ValueError:
+        return Opt.none(uint64)
+  Opt.none(uint64)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/fulu/p2p-interface.md#encoding-and-decoding-responses
+# All responses MUST be encoded and decoded with the
+# PartialDataColumnSidecar container.
+proc handlePartialColumnRPC*(
+    node: Eth2Node,
+    peer: PeerId,
+    rpc: PartialMessageExtensionRPC
+): Opt[tuple[
+    subnetId: uint64,
+    blockRoot: Eth2Digest,
+    pdc: fulu.PartialDataColumnSidecar]] =
+  ## Decode and validate an incoming PartialMessageExtensionRPC into a
+  ## (subnet_id, blockRoot, PartialDataColumnSidecar) tuple. The blockRoot
+  ## is parsed from the gossipsub group id and used by the validator to
+  ## REJECT header/group-id mismatches. Returns Opt.none on metadata-only
+  ## updates or decoding failures.
+  type R = tuple[
+    subnetId: uint64,
+    blockRoot: Eth2Digest,
+    pdc: fulu.PartialDataColumnSidecar]
+
+  if rpc.partialMessage.len == 0:
+    return Opt.none(R)
+
+  let blockRoot = parseGroupId(rpc.groupID).valueOr:
+    debug "Invalid partial column RPC groupId", error, peer
+    return Opt.none(R)
+
+  let subnetId = parseSubnetIdFromTopic(rpc.topicID).valueOr:
+    debug "Failed to parse subnet_id from partial column RPC topic",
+      topic = rpc.topicID, peer
+    return Opt.none(R)
+
+  var pdc: fulu.PartialDataColumnSidecar
+  try:
+    pdc = SSZ.decode(rpc.partialMessage, fulu.PartialDataColumnSidecar)
+  except SerializationError as e:
+    debug "Failed to decode partial data column from extension RPC",
+      error = e.msg, peer
+    return Opt.none(R)
+
+  Opt.some((subnetId: subnetId, blockRoot: blockRoot, pdc: pdc))
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
