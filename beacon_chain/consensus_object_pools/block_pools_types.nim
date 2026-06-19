@@ -390,6 +390,25 @@ type
     slot*: Slot
     block_root*: Eth2Digest
 
+  RestPayloadAttributes* = object
+    timestamp*: uint64
+    prev_randao*: Eth2Digest
+    suggested_fee_recipient*: Eth1Address
+    withdrawals*: seq[Withdrawal]
+    parent_beacon_block_root*: Eth2Digest
+
+  PayloadAttributesEventData* = object
+    proposer_index*: uint64
+    proposal_slot*: Slot
+    parent_block_number*: uint64
+    parent_block_root*: Eth2Digest
+    parent_block_hash*: Eth2Digest
+    payload_attributes*: RestPayloadAttributes
+
+  EventPayloadAttributesObject* = object
+    version*: string
+    data*: PayloadAttributesEventData
+
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams
 

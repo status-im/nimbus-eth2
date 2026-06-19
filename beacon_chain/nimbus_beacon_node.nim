@@ -508,6 +508,8 @@ proc initFullNode(
     node.eventBus.reorgQueue.emit(eventData)
   proc onFastConfirmation(data: FastConfirmationInfoObject) =
     node.eventBus.fastConfirmationQueue.emit(data)
+  proc onPayloadAttributes(data: EventPayloadAttributesObject) =
+    node.eventBus.payloadAttributesQueue.emit(data)
   proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
     let optimistic = node.dag.is_optimistic(BlockId(
       root: data.message.beacon_block_root,
@@ -845,6 +847,7 @@ proc initFullNode(
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
   dag.setFastConfirmationCb(onFastConfirmation)
+  consensusManager.onPayloadAttributes = onPayloadAttributes
   dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)

@@ -24,6 +24,9 @@ from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 logScope: topics = "cman"
 
 type
+  OnPayloadAttributesCallback* =
+    proc(data: EventPayloadAttributesObject) {.gcsafe, raises: [].}
+
   ConsensusManager* = object
     expectedSlot: Slot
     expectedBlockReceived: Future[bool].Raising([CancelledError])
@@ -60,6 +63,9 @@ type
 
     forkchoiceInflight: bool
       ## True when there's an async `forkchoiceUpdated` in flight
+
+    onPayloadAttributes*: OnPayloadAttributesCallback
+      ## Notifies the event bus when proposal payload attributes are computed
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -378,6 +384,31 @@ proc prepareNextSlot*(
           state, Opt.some(attributes), deadline, false
         )
       debug "Fork-choice updated for proposal", status, executionHead, attributes
+
+      # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml#L125
+      if self.onPayloadAttributes != nil:
+        self.onPayloadAttributes(EventPayloadAttributesObject(
+          version: consensusFork.toString(),
+          data: PayloadAttributesEventData(
+            proposer_index: uint64(validatorIndex),
+            proposal_slot: proposalSlot,
+            parent_block_number:
+              when consensusFork >= ConsensusFork.Gloas:
+                forkyState.data.latest_execution_payload_bid.block_number
+              else:
+                forkyState.data.latest_execution_payload_header.block_number,
+            parent_block_root: beaconHead.blck.bid.root,
+            parent_block_hash: executionHead,
+            payload_attributes: RestPayloadAttributes(
+              timestamp: timestamp,
+              prev_randao: prevRandao,
+              suggested_fee_recipient: feeRecipient,
+              withdrawals:
+                when consensusFork >= ConsensusFork.Gloas:
+                  get_expected_withdrawals(forkyState.data).withdrawals
+                else:
+                  get_expected_withdrawals(forkyState.data),
+              parent_beacon_block_root: beaconHead.blck.bid.root))))
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:
