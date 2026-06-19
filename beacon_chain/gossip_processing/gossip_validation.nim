@@ -24,7 +24,6 @@ import
   ../beacon_clock,
   ./batch_validation
 
-import std/tables
 from libp2p/protocols/pubsub/errors import ValidationResult
 from ../consensus_object_pools/common_tools import
   is_gas_limit_target_compatible
