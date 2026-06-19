@@ -1903,14 +1903,15 @@ proc validateExecutionPayloadBid*(
           "ExecutionPayloadBid: insufficient builder balance")
 
       let bidDependentRoot = dag.get_dependent_root(parentBlck.bid, bid.slot)
-      let seenPref = block:
-        let
-          seenBucket = uint64(bid.slot.epoch()) mod 2
-          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
-        template prefs: untyped = seenProposerPreferences[seenBucket][seenKey]
-        if bidDependentRoot notin prefs:
-          return dag.checkedReject("ExecutionPayloadBid: matching preferences not seen")
-        prefs.getOrDefault(bidDependentRoot)
+      let
+        seenBucket = uint64(bid.slot.epoch()) mod 2
+        seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+      var seenPref: ProposerPreferences
+      seenProposerPreferences[seenBucket][seenKey].withValue(
+          bidDependentRoot, pref):
+        seenPref = pref[]
+      do:
+        return dag.checkedReject("ExecutionPayloadBid: matching preferences not seen")
 
       # [IGNORE]
       # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
@@ -2103,8 +2104,6 @@ proc validateProposerPreferences*(
   # [IGNORE] The signed_proposer_preferences is the first valid message seen
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,
   # preferences.validator_index).
-  # `validator_index` is the verified proposer for `dependent_root`, so the
-  # cache keys on `dependent_root`; the bucket is reset each epoch.
   let
     bucket = proposalEpoch.uint64 mod 2
     slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
