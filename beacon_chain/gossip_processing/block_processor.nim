@@ -262,11 +262,10 @@ proc storeBackfillBlock(
   const consensusFork = typeof(signedBlock).kind
 
   when consensusFork == ConsensusFork.Fulu:
-    when sidecarsOpt is not NoSidecars:
-      ?verifySidecars(signedBlock, sidecarsOpt)
-  elif consensusFork == ConsensusFork.Gloas:
-    when sidecarsOpt is not NoSidecars:
-      ?verifySidecars(signedBlock, sidecarsOpt)
+    ?verifySidecars(signedBlock, sidecarsOpt)
+  elif (consensusFork == ConsensusFork.Gloas) and
+    (sidecarsOpt is not NoSidecars):
+    ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -740,9 +739,15 @@ proc storeBlock(
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
       blockRoot = shortLog(signedBlock.root)
-  elif consensusFork == ConsensusFork.Gloas:
-    when sidecarsOpt is not NoSidecars:
-      ?verifySidecars(signedBlock, sidecarsOpt)
+  elif (consensusFork == ConsensusFork.Gloas) and
+       (sidecarsOpt is not NoSidecars):
+    let pendingVerify =
+      self.gloasColumnQuarantine[].popPendingVerify(signedBlock.root)
+    if not pendingVerify.empty:
+      sidecarsOpt.isErrOr:
+        let toVerify = value.filterIt(it[].index in pendingVerify)
+        if toVerify.len > 0:
+          ?verifySidecars(signedBlock, Opt.some(toVerify))
     debug "block_processor verifySidecars completed",
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
@@ -950,7 +955,9 @@ proc addBlock*(
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
         # In Gloas, block is enqueued with NoSidecar so we need not to care
         # about quarantine.
-        discard
+        if sidecarsOpt.isSome:
+          self.gloasColumnQuarantine[].put(
+            blockRoot, sidecarsOpt.get, verified = false)
       elif sidecarsOpt is NoSidecars | Opt[BlobSidecars]:
         discard
       else:
