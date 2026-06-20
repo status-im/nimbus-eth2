@@ -920,7 +920,7 @@ proc getBeaconHead*(
         # Because a different fork already finalized a later point,
         # report the finalized execution payload hash instead.
         finalizedExecutionBlockHash
-      elif isGloas:
+      elif safeBlock.get.slot.epoch >= pool.dag.cfg.GLOAS_FORK_EPOCH:
         pool.dag.loadExecutionAndParentBlockHash(safeBlock.get)
           .parentHash.get(finalizedExecutionBlockHash)
       else:
