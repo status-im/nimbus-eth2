@@ -215,6 +215,28 @@ proc verify_deposit_signature*(genesis_fork_version: Version,
     return false
   verify_deposit_signature(genesis_fork_version, deposit, pubkey)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-is_valid_builder_deposit_signature
+func compute_builder_deposit_signing_root(
+    genesis_fork_version: Version,
+    deposit_message: DepositMessage): Eth2Digest =
+  let domain = compute_domain(DOMAIN_BUILDER_DEPOSIT, genesis_fork_version)
+  compute_signing_root(deposit_message, domain)
+
+proc verify_builder_deposit_signature*(
+    genesis_fork_version: Version,
+    pubkey: ValidatorPubKey, withdrawal_credentials: Eth2Digest,
+    amount: Gwei, signature: ValidatorSig): bool =
+  let
+    cookedKey = pubkey.load().valueOr:  # Loading the pubkey is slow!
+      return false
+    message = DepositMessage(
+      pubkey: pubkey,
+      withdrawal_credentials: withdrawal_credentials,
+      amount: amount)
+    signing_root = compute_builder_deposit_signing_root(
+      genesis_fork_version, message)
+  blsVerify(cookedKey, signing_root.data, signature)
+
 func compute_voluntary_exit_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit): Eth2Digest =
@@ -430,7 +452,7 @@ proc verify_bls_to_execution_change_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#new-verify_execution_payload_bid_signature
 func compute_execution_payload_bid_signing_root(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
-    msg: gloas.ExecutionPayloadBid | heze.ExecutionPayloadBid): Eth2Digest =
+    msg: ExecutionPayloadBid): Eth2Digest =
   let
     domain = get_domain(
       fork, DOMAIN_BEACON_BUILDER, epoch, genesis_validators_root)
@@ -438,7 +460,7 @@ func compute_execution_payload_bid_signing_root(
 
 func get_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    epoch: Epoch, msg: gloas.ExecutionPayloadBid | heze.ExecutionPayloadBid,
+    epoch: Epoch, msg: ExecutionPayloadBid,
     privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_execution_payload_bid_signing_root(
     fork, genesis_validators_root, epoch, msg)
@@ -446,7 +468,7 @@ func get_execution_payload_bid_signature*(
 
 proc verify_execution_payload_bid_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    epoch: Epoch, msg: gloas.ExecutionPayloadBid | heze.ExecutionPayloadBid,
+    epoch: Epoch, msg: ExecutionPayloadBid,
     pubkey: ValidatorPubKey | CookedPubKey,
     signature: SomeSig): bool =
   let signing_root = compute_execution_payload_bid_signing_root(

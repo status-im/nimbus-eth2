@@ -146,7 +146,7 @@ type
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
     seenProposerPreferences*:
-      array[2, array[SLOTS_PER_EPOCH, seq[ProposerPreferences]]]
+      array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
 
     doppelgangerDetection*: DoppelgangerProtection
 

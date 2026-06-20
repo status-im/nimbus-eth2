@@ -48,7 +48,7 @@ from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
 from ../consensus_object_pools/execution_payload_pool import
-  getHighestBidForSlotAndParent, payloadAvailability
+  getHighestBidForProposalState, payloadAvailability
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -445,7 +445,7 @@ proc proposeBlockAux(
               # For parent in pre-Gloas, we should extend the payload with empty
               # execution requests.
               else:
-                default(ExecutionRequests)
+                default(gloas.ExecutionRequests)
 
           apply_parent_execution_payload(
             node.dag.cfg,
@@ -460,9 +460,9 @@ proc proposeBlockAux(
           parentExecutionRequests
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          default(ExecutionRequests)
+          default(gloas.ExecutionRequests)
       else:
-        default(ExecutionRequests)
+        default(electra.ExecutionRequests)
 
     engineBid =
       when fork == ConsensusFork.Heze:
@@ -607,8 +607,8 @@ proc proposeBlockAux(
       payloadAvailability = node.dag.payloadAvailability(head, executionHead)
       poolBid =
         if payloadAvailability.isSome:
-          node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
-            slot, head.root, payloadAvailability.unsafeGet)
+          node.executionPayloadBidPool[].getHighestBidForProposalState(
+            state[].forky(fork).data, payloadAvailability.unsafeGet)
         else:
           Opt.none gloas.SignedExecutionPayloadBid
       localBlockValueBoost =
@@ -1133,8 +1133,9 @@ proc sendProposerPreferences(
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#broadcasting-signedproposerpreferences
           let dependent_root =
-            forkyState.dependent_root(proposal_slot.epoch)
+            forkyState.get_proposer_dependent_root(proposal_slot.epoch)
           let data = ProposerPreferences(
             dependent_root: dependent_root,
             validator_index: validator_index.uint64,

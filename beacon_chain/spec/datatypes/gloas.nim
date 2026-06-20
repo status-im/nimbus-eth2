@@ -117,6 +117,40 @@ type
     blobsBundle*: fulu.BlobsBundle # [New in Fulu]
     executionRequests*: seq[seq[byte]]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#builderdepositrequest
+  # [New in Gloas:EIP8282]
+  BuilderDepositRequest* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#builderexitrequest
+  # [New in Gloas:EIP8282]
+  BuilderExitRequest* = object
+    source_address*: ExecutionAddress
+    pubkey*: ValidatorPubKey
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#executionrequests
+  # [Modified in Gloas:EIP8282]
+  ExecutionRequests* = object
+    deposits*:
+      List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]
+        ## [New in Electra:EIP6110]
+    withdrawals*:
+      List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD]
+        ## [New in Electra:EIP7002:EIP7251]
+    consolidations*:
+      List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD]
+        ## [New in Electra:EIP7251]
+    builder_deposits*:
+      List[BuilderDepositRequest,
+        Limit MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD]
+        ## [New in Gloas:EIP8282]
+    builder_exits*:
+      List[BuilderExitRequest, Limit MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD]
+        ## [New in Gloas:EIP8282]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayloadbid
   ExecutionPayloadBid* = object
     parent_block_hash*: Eth2Digest
@@ -201,10 +235,11 @@ type
     amount*: Gwei
     builder_index*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingpayment
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#builderpendingpayment
   BuilderPendingPayment* = object
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
+    proposer_index*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#new-proposerpreferences
   ProposerPreferences* = object

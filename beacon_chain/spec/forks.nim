@@ -659,14 +659,6 @@ template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
   else:
     {.error: "ExecutionPayloadHeader unsupported in " & $kind.}
 
-template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
-  when kind >= ConsensusFork.Heze:
-    heze.SignedExecutionPayloadBid
-  elif kind >= ConsensusFork.Gloas:
-    gloas.SignedExecutionPayloadBid
-  else:
-    {.error: "SignedExecutionPayloadBid unsupported in " & $kind.}
-
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Heze:
     gloas.ExecutionPayloadForSigning
@@ -684,6 +676,12 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
     bellatrix.ExecutionPayloadForSigning
   else:
     {.error: "ExecutionPayloadForSigning unsupported in " & $kind.}
+
+template ExecutionRequests*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Gloas:
+    gloas.ExecutionRequests
+  else:
+    electra.ExecutionRequests
 
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:

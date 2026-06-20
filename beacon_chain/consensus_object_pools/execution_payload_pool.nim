@@ -124,6 +124,22 @@ func getHighestBidForSlotAndParent*(
   else:
     Opt.none(gloas.SignedExecutionPayloadBid)
 
+proc getHighestBidForProposalState*(
+    pool: ExecutionPayloadBidPool, state: ForkyBeaconState,
+    payloadAvailability: PayloadAvailability
+): Opt[gloas.SignedExecutionPayloadBid] =
+  if state.slot <= GENESIS_SLOT:
+    return static(Opt.none gloas.SignedExecutionPayloadBid)
+
+  let res = pool.getHighestBidForSlotAndParent(
+    state.slot, state.get_block_root_at_slot(state.slot - 1),
+    payloadAvailability)
+  res.isErrOr:
+    if pool.dag.cfg.can_process_execution_payload_bid(
+        state, value, state.slot, {skipBlsValidation}).isErr:
+      return static(Opt.none gloas.SignedExecutionPayloadBid)
+  res
+
 func hasSeenBidFromBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
     builderIndex: uint64): bool =

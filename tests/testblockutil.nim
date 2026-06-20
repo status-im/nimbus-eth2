@@ -295,7 +295,7 @@ proc addTestEngineBlock*(
         default(bellatrix.ExecutionPayloadForSigning)
 
     execution_requests = block:
-      let requests = default(ExecutionRequests)
+      let requests = default(consensusFork.ExecutionRequests)
       when consensusFork >= ConsensusFork.Gloas:
         if should_extend_payload:
           apply_parent_execution_payload(
@@ -307,9 +307,9 @@ proc addTestEngineBlock*(
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
 
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Heze:
-        heze.SignedExecutionPayloadBid(
-          message: heze.ExecutionPayloadBid(
+      when consensusFork >= ConsensusFork.Gloas:
+        SignedExecutionPayloadBid(
+          message: ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
@@ -320,23 +320,8 @@ proc addTestEngineBlock*(
             execution_requests_root: hash_tree_root(execution_requests),
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
-      elif consensusFork == ConsensusFork.Gloas:
-        gloas.SignedExecutionPayloadBid(
-          message: gloas.ExecutionPayloadBid(
-            builder_index: BUILDER_INDEX_SELF_BUILD,
-            slot: state.data.slot,
-            block_hash: eps.executionPayload.block_hash,
-            parent_block_hash: eps.executionPayload.parent_hash,
-            parent_block_root: state.latest_block_root,
-            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
-            gas_limit: eps.executionPayload.gas_limit,
-            execution_requests_root: hash_tree_root(execution_requests),
-            value: 0.Gwei,
-          ),
-          signature: ValidatorSig.infinity(),
-        )
       else:
-        default(gloas.SignedExecutionPayloadBid)
+        default(SignedExecutionPayloadBid)
 
     message = makeBeaconBlock(
         cfg,
