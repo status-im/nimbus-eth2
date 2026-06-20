@@ -624,10 +624,7 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Heze:
           # TODO document why there are no columns here
-          when consensusFork == ConsensusFork.Heze:
-            # Disable sidecars processing at block time.
-            const sidecarsOpt = noSidecars
-          elif consensusFork == ConsensusFork.Gloas:
+          when consensusFork >= ConsensusFork.Gloas:
             # Disable sidecars processing at block time.
             const sidecarsOpt = noSidecars
           else:

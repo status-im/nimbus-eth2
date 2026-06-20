@@ -31,6 +31,8 @@ const
   OpAttSlashingDir            = OpDir/"attester_slashing"
   OpBlockHeaderDir            = OpDir/"block_header"
   OpBlsToExecutionChangeDir   = OpDir/"bls_to_execution_change"
+  OpBuilderDepositRequestDir  = OpDir/"builder_deposit_request"
+  OpBuilderExitRequestDir     = OpDir/"builder_exit_request"
   OpConsolidationRequestDir   = OpDir/"consolidation_request"
   OpDepositRequestDir         = OpDir/"deposit_request"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
@@ -47,7 +49,8 @@ const
 
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-  OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
+  OpBlsToExecutionChangeDir, OpBuilderDepositRequestDir, OpBuilderExitRequestDir,
+  OpConsolidationRequestDir, OpDepositRequestDir,
   OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
   OpSyncAggregateDir, OpVoluntaryExitDir, OpVoluntaryExitChurnDir,
@@ -177,17 +180,44 @@ suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
-    var pending = get_pending_validators(
-      defaultRuntimeConfig, preState, toHashSet([depositRequest.pubkey]))
+    # [Modified in Gloas:EIP8282] deposit requests are queued like Fulu
     process_deposit_request(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[],
-      sortValidatorBuckets(preState.builders.asSeq)[], pending, depositRequest, {})
+      defaultRuntimeConfig, preState, depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
+
+suite baseDescription & "Builder Deposit Request " & preset():
+  func applyBuilderDepositRequest(
+      preState: var gloas.BeaconState,
+      builderDepositRequest: gloas.BuilderDepositRequest):
+      Result[void, cstring] =
+    process_builder_deposit_request(
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest)
+    ok()
+
+  for path in walkTests(OpBuilderDepositRequestDir):
+    runTest[gloas.BuilderDepositRequest, typeof applyBuilderDepositRequest](
+      OpBuilderDepositRequestDir, suiteName, "Builder Deposit Request",
+      "builder_deposit_request", applyBuilderDepositRequest, path)
+
+suite baseDescription & "Builder Exit Request " & preset():
+  func applyBuilderExitRequest(
+      preState: var gloas.BeaconState,
+      builderExitRequest: gloas.BuilderExitRequest):
+      Result[void, cstring] =
+    process_builder_exit_request(
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.builders.asSeq)[], builderExitRequest)
+    ok()
+
+  for path in walkTests(OpBuilderExitRequestDir):
+    runTest[gloas.BuilderExitRequest, typeof applyBuilderExitRequest](
+      OpBuilderExitRequestDir, suiteName, "Builder Exit Request",
+      "builder_exit_request", applyBuilderExitRequest, path)
 
 suite baseDescription & "Parent Execution Payload " & preset():
   proc applyParentExecPayload(
@@ -205,14 +235,15 @@ suite baseDescription & "Parent Execution Payload " & preset():
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(
       preState: var gloas.BeaconState,
-      blck: gloas.BeaconBlock): Result[void, cstring] =
+      signedBid: SignedExecutionPayloadBid): Result[void, cstring] =
+    var cache: StateCache
     process_execution_payload_bid(
-      defaultRuntimeConfig, preState, blck)
+      defaultRuntimeConfig, preState, signedBid, cache)
 
   for path in walkTests(OpExecutionPayloadBidDir):
-    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadBid](
+    runTest[SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
       OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
-      "block", applyExecutionPayloadBid, path)
+      "execution_payload_bid", applyExecutionPayloadBid, path)
 
 suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(

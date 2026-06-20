@@ -445,7 +445,7 @@ proc proposeBlockAux(
               # For parent in pre-Gloas, we should extend the payload with empty
               # execution requests.
               else:
-                default(ExecutionRequests)
+                default(gloas.ExecutionRequests)
 
           apply_parent_execution_payload(
             node.dag.cfg,
@@ -460,9 +460,9 @@ proc proposeBlockAux(
           parentExecutionRequests
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          default(ExecutionRequests)
+          default(gloas.ExecutionRequests)
       else:
-        default(ExecutionRequests)
+        default(electra.ExecutionRequests)
 
     engineBid =
       when fork == ConsensusFork.Heze:
