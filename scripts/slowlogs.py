@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+# Copyright (c) 2026 Status Research & Development GmbH. Licensed under
+# either of:
+# - Apache License, version 2.0
+# - MIT license
+# at your option. This file may not be copied, modified, or distributed except
+# according to those terms.
+
 # Print logs that have gaps between them larger than the threshold - useful for
 # finding slowdowns in the code where the thread is busy for long periods of
 # time
@@ -11,7 +18,7 @@ from datetime import datetime
 
 THRESHOLD = 0.75
 
-if len(sys.argv) > 0:
+if len(sys.argv) > 1:
     THRESHOLD = float(sys.argv[1])
 
 last = None
