@@ -18,17 +18,21 @@ import
   ./testutil
 
 func makeTx(bytes: openArray[byte]): bellatrix.Transaction =
+  var tx: bellatrix.Transaction
   for b in bytes:
-    discard result.add(b)
+    discard tx.add(b)
+  tx
 
 func makeInclusionList(
     slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
     txs: openArray[bellatrix.Transaction]): InclusionList =
-  result.slot = slot
-  result.validator_index = validator_index
-  result.inclusion_list_committee_root = committee_root
+  var il = InclusionList(
+    slot: slot,
+    validator_index: validator_index,
+    inclusion_list_committee_root: committee_root)
   for tx in txs:
-    discard result.transactions.add(tx)
+    discard il.transactions.add(tx)
+  il
 
 suite "Inclusion list" & preset():
   setup:
@@ -164,3 +168,36 @@ suite "Inclusion list" & preset():
     let other = store.get_inclusion_list_transactions(
       state[], slot + 1, cache)
     check other.len == 0
+
+  test "end-to-end: committee members sign, validate, and are collected":
+    var store: InclusionListStore
+
+    # Each committee member signs a list carrying one transaction keyed by its
+    # validator index (so cycled/duplicate members produce identical lists, a
+    # no-op rather than an equivocation).
+    for member in committee:
+      let mi = member.uint64
+      var signed: SignedInclusionList
+      signed.message = makeInclusionList(
+        slot, mi, committeeRoot, [makeTx([byte (mi shr 8), byte mi])])
+      signed.signature = get_inclusion_list_signature(
+        state[].fork, state[].genesis_validators_root, signed.message,
+        MockPrivKeys[member]).toValidatorSig
+
+      # The committee root in the message is what the consumer recomputes ...
+      check:
+        signed.message.inclusion_list_committee_root == committeeRoot
+        is_valid_inclusion_list_signature(state[], signed)
+
+      store.process_inclusion_list(signed.message, is_timely = true)
+
+    # every distinct member's transaction is collected exactly once,
+    # with no validator flagged as an equivocator.
+    var distinctMembers: HashSet[uint64]
+    for member in committee:
+      distinctMembers.incl member.uint64
+
+    let txs = store.get_inclusion_list_transactions(state[], slot, cache)
+    check:
+      committeeRoot notin store.equivocators
+      txs.len == distinctMembers.len
