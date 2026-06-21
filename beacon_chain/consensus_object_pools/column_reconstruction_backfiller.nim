@@ -33,8 +33,8 @@ declareGauge beacon_column_reconstruction_backfill_slot,
   "Slot most recently selected for reconstruction by the backfiller service"
 
 declareGauge beacon_column_reconstruction_earliest_available_slot,
-  "Earliest slot from which the full column matrix can be served, as extended " &
-  "by the reconstruction backfiller"
+  "Earliest slot from which the full column matrix can be served, as " &
+  "extended by the reconstruction backfiller"
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/das-core.md#reconstruction-and-cross-seeding
@@ -52,7 +52,8 @@ const
 type
   SlotRecon {.pure.} = enum
     ## Outcome of inspecting/reconstructing a single slot (see `processSlot`).
-    Unknown   ## Recoverable failure (e.g. recovery errored); retry on a later pass.
+    Unknown   ## Recoverable failure (e.g. recovery errored); retry on a later
+              ## pass.
     TooFew    ## Block has blobs but <64 columns present — cannot recover yet.
     Servable  ## Slot can be served with the full matrix: all 128 columns are
               ## present (original or reconstructed), or it legitimately carries
@@ -113,6 +114,12 @@ func retentionStartSlot(self: ColumnReconstructionBackfillerRef): Slot =
     max(headSlot - retentionSlots, fuluStartSlot)
 
 proc updateEarliestAvailableSlot(self: ColumnReconstructionBackfillerRef) =
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/fulu/p2p-interface.md#status-v2
+  ## If the node is able to serve all blocks throughout the entire sidecars
+  ## retention period (as defined by both MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+  ## and MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS), but is NOT able to
+  ## serve all sidecars during this period, it should advertise the earliest
+  ## slot from which it can serve all sidecars.
   ## Lower `dag.eaSlot` to `runBottom`, the durable bottom of the servable run,
   ## so peers learn of the longer history. We only ever lower it here: other
   ## writers (prune, custody) own raising it. During a reorg refill
@@ -122,7 +129,8 @@ proc updateEarliestAvailableSlot(self: ColumnReconstructionBackfillerRef) =
   if self.runBottom == FAR_FUTURE_SLOT or self.runBottom >= self.dag.eaSlot:
     return
   self.dag.eaSlot = self.runBottom
-  beacon_column_reconstruction_earliest_available_slot.set(int64(self.runBottom))
+  beacon_column_reconstruction_earliest_available_slot.set(
+    int64(self.runBottom))
   debug "Extended earliest available slot to reconstructed trail",
     eaSlot = self.runBottom, head = self.dag.head.slot
 
@@ -259,8 +267,9 @@ proc processSlot(
   ## *current* canonical chain. The canonical block is read fresh each call, so
   ## a reorg that re-mapped this slot is handled implicitly.
   let blockFork = self.dag.cfg.consensusForkAtEpoch(slot.epoch)
-  # Data columns only exist from Fulu onward; pre-Fulu slots carry none.
-  if blockFork notin {ConsensusFork.Fulu, ConsensusFork.Gloas, ConsensusFork.Heze}:
+  static: doAssert high(ConsensusFork) == ConsensusFork.Heze,
+    "review whether the new fork's data columns are reconstructable here"
+  if blockFork < ConsensusFork.Fulu:
     return SlotRecon.Servable
 
   let columnFork =
@@ -326,7 +335,8 @@ proc reconcileHead(
       old.isSome and old.get.isAncestorOf(self.dag.head)
   self.lastHeadRoot = headRoot
   self.frontierBlocked = false
-  if not extension and self.runTop != FAR_FUTURE_SLOT and self.runTop > finalized:
+  if not extension and self.runTop != FAR_FUTURE_SLOT and
+      self.runTop > finalized:
     self.runTop = finalized
     if self.runBottom != FAR_FUTURE_SLOT and self.runBottom > self.runTop:
       # The entire established run was post-finalized — fully invalidated.

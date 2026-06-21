@@ -247,15 +247,15 @@ proc storeSidecars(
     self: BlockProcessor,
     sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
 ) =
-  if sidecarsOpt.isSome():
-    self.consensusManager.dag.db.putDataColumnSidecars(sidecarsOpt[])
-    if self.onDataColumnsStored != nil and sidecarsOpt[].len > 0:
+  sidecarsOpt.isErrOr:
+    self.consensusManager.dag.db.putDataColumnSidecars(value)
+    if self.onDataColumnsStored != nil and value.len > 0:
       let slot =
         when sidecarsOpt is Opt[gloas.DataColumnSidecars]:
           # [Modified in Gloas:EIP7732] carries `slot` directly.
-          sidecarsOpt[][0][].slot
+          value[0][].slot
         else:
-          sidecarsOpt[][0][].signed_block_header.message.slot
+          value[0][].signed_block_header.message.slot
       self.onDataColumnsStored(slot)
 
 proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
