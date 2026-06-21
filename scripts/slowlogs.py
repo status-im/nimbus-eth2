@@ -11,7 +11,7 @@ from datetime import datetime
 
 THRESHOLD = 0.75
 
-if len(sys.argv) > 0:
+if len(sys.argv) > 1:
     THRESHOLD = float(sys.argv[1])
 
 last = None
