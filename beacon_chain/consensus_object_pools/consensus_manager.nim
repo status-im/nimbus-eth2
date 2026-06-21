@@ -413,7 +413,17 @@ proc prepareNextSlot*(
                   get_expected_withdrawals(forkyState.data).withdrawals
                 else:
                   get_expected_withdrawals(forkyState.data),
-              parent_beacon_block_root: beaconHead.blck.bid.root))))
+              parent_beacon_block_root: beaconHead.blck.bid.root,
+              slot_number:
+                when consensusFork >= ConsensusFork.Gloas:
+                  Opt.some(uint64(proposalSlot))
+                else:
+                  Opt.none(uint64),
+              target_gas_limit:
+                when consensusFork >= ConsensusFork.Gloas:
+                  Opt.some(self[].getGasLimit(nextProposer))
+                else:
+                  Opt.none(uint64)))))
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:

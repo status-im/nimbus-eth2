@@ -396,6 +396,8 @@ type
     suggested_fee_recipient*: Eth1Address
     withdrawals*: seq[Withdrawal]
     parent_beacon_block_root*: Eth2Digest
+    slot_number*: Opt[uint64]
+    target_gas_limit*: Opt[uint64]
 
   PayloadAttributesEventData* = object
     proposer_index*: uint64
