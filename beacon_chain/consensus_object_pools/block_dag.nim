@@ -40,8 +40,6 @@ type
     executionBlockHash*: Opt[Eth2Digest]
     executionParentHash*: Opt[Eth2Digest]
       ## Added in Gloas for computing the `PayloadStatus`
-    executionBlockNumber*: Opt[uint64]
-      ## Added in Gloas; cached from the payload envelope when it is imported
     optimisticStatus*: OptimisticStatus
 
     parent*: BlockRef ##\

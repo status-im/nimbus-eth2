@@ -389,9 +389,13 @@ proc prepareNextSlot*(
       if self.onPayloadAttributes != nil:
         let parentBlockNumber =
           when consensusFork >= ConsensusFork.Gloas:
-            debugGloasComment "parent payload can be empty/orphaned"
+            debugGloasComment "0 when not extending head: parent payload number is not on head"
             if dag.shouldExtendPayload(head):
-              head.executionBlockNumber.get(0'u64)
+              let envelope = dag.db.getExecutionPayloadEnvelope(head.bid.root)
+              if envelope.isSome:
+                envelope.get.message.payload.block_number
+              else:
+                0'u64
             else:
               0'u64
           else:
