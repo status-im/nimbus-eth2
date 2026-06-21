@@ -499,7 +499,8 @@ suite "Proposer preferences validation " & preset():
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
-      seen: array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]]
+      seen: array[2, array[
+        SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
 
     # Pick an upcoming slot and its scheduled proposer from the head state's
     # proposer_lookahead.
@@ -521,7 +522,7 @@ suite "Proposer preferences validation " & preset():
             proposerFound = true
             break
         # wrongValidator just needs to differ from the scheduled proposer at
-        # proposerSlot; other slots don't matter for is_valid_proposal_slot.
+        # proposer_slot; that is the only slot the proposer check looks at.
         wrongValidator = proposer_index + 1
         if forkyState.data.proposer_lookahead.item(
             proposer_slot - startSlot) == wrongValidator:

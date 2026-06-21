@@ -50,10 +50,6 @@ declareCounter execution_payload_envelopes_received,
   "Number of valid execution payload envelope processed by this node"
 declareCounter execution_payload_envelopes_dropped,
   "Number of invalid execution payload envelope dropped by this node", labels = ["reason"]
-declareCounter blob_sidecars_received,
-  "Number of valid blobs processed by this node"
-declareCounter blob_sidecars_dropped,
-  "Number of invalid blobs dropped by this node", labels = ["reason"]
 declareCounter data_column_sidecars_received,
   "Number of valid data columns processed by this node"
 declareCounter data_column_sidecars_dropped,
@@ -108,9 +104,6 @@ declareHistogram beacon_block_delay,
 declareHistogram execution_payload_envelope_delay,
   "Time(s) between slot start and execution payload envelope reception", buckets = delayBuckets
 
-declareHistogram blob_sidecar_delay,
-  "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
-
 declareHistogram data_column_sidecar_delay,
   "Time(s) betweeen slot start and data column sidecar reception",
   buckets = delayBuckets
@@ -152,7 +145,8 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
-    seenProposerPreferences*: array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]]
+    seenProposerPreferences*:
+      array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -268,7 +262,12 @@ proc processSignedBeaconBlock*(
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
-  debug "Block received", delay
+  debug "Block received",
+    bid = shortLog(signedBlock.toBlockId()),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signedBlock.signature),
+    wallSlot,
+    delay
 
   self.dag.validateBeaconBlock(
       self.quarantine, self.envelopeQuarantine, signedBlock,
@@ -300,6 +299,7 @@ proc processSignedBeaconBlock*(
       else:
         self.dataColumnQuarantine[].popSidecars(signedBlock.root)
     if sidecarsOpt.isNone():
+      self.blockProcessor[].startExecutionValidity(signedBlock, wallTime)
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
   elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
@@ -358,42 +358,6 @@ proc processExecutionPayloadEnvelope*(
   execution_payload_envelope_delay.observe(delay.toFloatSeconds())
 
   ok()
-
-proc processBlobSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId): ValidationRes =
-  template block_header: untyped = blobSidecar.signed_block_header.message
-
-  let
-    wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
-
-  logScope:
-    blob = shortLog(blobSidecar)
-    wallSlot
-
-  if not afterGenesis:
-    notice "Blob before genesis"
-    return errIgnore("Blob before genesis")
-
-  # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime -
-    block_header.slot.start_beacon_time(self.dag.timeParams)
-  debug "Blob received", delay
-
-  let v =
-    self.dag.validateBlobSidecar(self.quarantine,
-                                 blobSidecar, wallTime, subnet_id)
-
-  if v.isErr():
-    debug "Dropping blob", error = v.error()
-    blob_sidecars_dropped.inc(1, [$v.error[0]])
-    return v
-
-  blob_sidecars_received.inc()
-  blob_sidecar_delay.observe(delay.toFloatSeconds())
-
-  v
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,

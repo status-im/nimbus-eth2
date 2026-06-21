@@ -46,9 +46,9 @@ const
   LowestScoreAggregatedAttestation* =
     phase0.Attestation(
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
-  LowestScoreAggregatedElectraAttestation* =
-    electra.Attestation(
-      aggregation_bits: electra.AggregationBits(BitSeq.init(1)))
+  LowestScoreAggregatedGloasAttestation* =
+    gloas.Attestation(
+      aggregation_bits: BitSeq.init(1))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -473,8 +473,9 @@ type
       aggregateAndProof* {.
         serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.AggregateAndProofV2:
-      forkedAggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
+      aggregateAndProofV2* {.
+        serializedFieldName: "aggregate_and_proof".}:
+          Web3SignerForkedAggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -909,8 +910,15 @@ func init*(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    forkedAggregateAndProof:
-      ForkedAggregateAndProof.init(data, typeof(data).kind)
+    aggregateAndProofV2:
+      when data is gloas.AggregateAndProof:
+        Web3SignerForkedAggregateAndProof(
+          kind: ConsensusFork.Gloas,
+          data: data)
+      else:
+        Web3SignerForkedAggregateAndProof(
+          kind: ConsensusFork.Electra,
+          data: isomorphicCast[gloas.AggregateAndProof](data))
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

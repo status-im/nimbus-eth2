@@ -252,6 +252,8 @@ proc updateValidatorCustody*(
     totalNodeBalance: Gwei
 ) =
   if totalNodeBalance == Gwei(0):
+    if vcus.state == ValidatorCustodyState.Init:
+      vcus.updateState(currentSlot)
     return
 
   logScope:

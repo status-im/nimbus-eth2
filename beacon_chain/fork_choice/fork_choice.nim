@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status libraries
   results, chronicles,
   # Internal
@@ -17,10 +17,10 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[spec_cache, blockchain_dag],
-  "."/[fork_choice_types, proto_array, fast_confirmation]
+  ./[fork_choice_types, proto_array, fast_confirmation, fork_choice_epbs]
 
 from std/sequtils import keepItIf
-export results, fork_choice_types
+export results, fork_choice_types, fork_choice_epbs
 export proto_array.len
 
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -92,21 +92,37 @@ proc init*(
 
 func process_attestation(
     self: var ForkChoiceBackend,
-    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot) =
+    validator_index: ValidatorIndex, block_root: Eth2Digest, slot: Slot,
+    payload_present: bool, cfg: RuntimeConfig) =
   ## Add an attestation to the fork choice context
   self.votes.extend(validator_index.int + 1)
 
   template vote: untyped = self.votes[validator_index]
-  if vote.slot != FAR_FUTURE_SLOT:
-    if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
+
+  if slot.epoch >= cfg.GLOAS_FORK_EPOCH:
+    # slot based tracking with payload preference
+    if slot > vote.slot or vote.next_root.isZero:
       vote.next_root = block_root
       vote.slot = slot
+      vote.next_payload_present = payload_present
+
+      trace "Integrating Gloas vote in fork choice",
+        validator_index = validator_index,
+        slot = slot,
+        payload_present = payload_present,
+        new_vote = shortLog(vote)
+  else:
+    if vote.slot != FAR_FUTURE_SLOT:
+      if slot.epoch > vote.slot.epoch or vote.next_root.isZero:
+        vote.next_root = block_root
+        vote.slot = slot
 
       trace "Integrating vote in fork choice",
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
+proc process_attestation_queue(
+    self: var ForkChoice, slot: Slot, cfg: RuntimeConfig) =
   # Spec:
   # Attestations can only affect the fork choice of subsequent slots.
   # Delay consideration in the fork choice until their slot is in the past.
@@ -115,7 +131,8 @@ proc process_attestation_queue(self: var ForkChoice, slot: Slot) =
     if it.slot < slot:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index, it.block_root, it.slot)
+          validator_index, it.block_root, it.slot,
+          it.committee_index == CommitteeIndex(1), cfg)
       false
     else:
       true
@@ -238,7 +255,7 @@ proc reconfirm_fcr(
 
   # Reconfirm with previous balance source after attestations
   # from past slots have been applied
-  self.process_attestation_queue(current_slot)
+  self.process_attestation_queue(current_slot, dag.cfg)
   if ? fcr.should_revert_confirmed_on_new_epoch(
       dag, confirmed, current_slot, diag):
     reason = "epoch"
@@ -336,7 +353,7 @@ proc update_time*(
       ? self.on_tick(dag, time)
 
     if preSlot != postSlot:
-      self.process_attestation_queue(postSlot)
+      self.process_attestation_queue(postSlot, dag.cfg)
 
   ok()
 
@@ -347,15 +364,31 @@ proc on_attestation*(
     attestation_slot: Slot,
     beacon_block_root: Eth2Digest,
     attesting_indices: openArray[ValidatorIndex],
+    attestation_committee_index: CommitteeIndex,
     wallTime: BeaconTime): FcResult[void] =
   ? self.update_time(dag,
     max(wallTime, attestation_slot.start_beacon_time(dag.timeParams)))
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-validate_on_attestation
+  if attestation_slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH:
+    let index = attestation_committee_index.uint64
+    if index notin [0'u64, 1'u64]:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    let block_slot = self.backend.proto_array.slot(beacon_block_root)
+    if block_slot.isSome and block_slot.get == attestation_slot and index != 0:
+      return err ForkChoiceError(kind: fcInvalidAttestation)
+    # If attesting for a full node, the payload must be known
+    debugGloasComment "temporarily disabled"
+    # if index == 1 and
+    #     beacon_block_root notin self.backend.proto_array.fullBlockIndices:
+    #   return err ForkChoiceError(kind: fcInvalidAttestation)
 
   if attestation_slot < self.checkpoints.time.slotOrZero(dag.timeParams):
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
-        validator_index, beacon_block_root, attestation_slot)
+        validator_index, beacon_block_root, attestation_slot,
+        attestation_committee_index == CommitteeIndex(1), dag.cfg)
   else:
     # Spec:
     # Attestations can only affect the fork choice of subsequent slots.
@@ -363,6 +396,7 @@ proc on_attestation*(
     self.queuedAttestations.add QueuedAttestation(
       attesting_indices: @attesting_indices,
       block_root: beacon_block_root,
+      committee_index: attestation_committee_index,
       slot: attestation_slot)
   ok()
 
@@ -390,30 +424,39 @@ func process_block*(
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
-proc update_proposer_boost_root(
-    self: var ForkChoice, dag: ChainDAGRef,
-    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock, current_slot: Slot) =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-record_block_timeliness
+func record_block_timeliness(
+    self: var ForkChoice, timeParams: TimeParams,
+    blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
+    current_slot: Slot): bool =
+  ## Record whether the block is PTC-timely (read by `should_apply_proposer_boost`)
+  ## and return whether it is attestation-timely (used by `update_proposer_boost_root`).
   const consensusFork = typeof(blck).kind
+  let isCurrentSlot = current_slot == blck.slot
 
+  when consensusFork >= ConsensusFork.Gloas:
+    if isCurrentSlot and self.checkpoints.time <
+        blck.slot.payload_attestation_deadline(timeParams):
+      self.backend.timely_proposer_blocks.incl blckRef.root
+
+  isCurrentSlot and self.checkpoints.time <
+    blck.slot.attestation_deadline(timeParams, consensusFork)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+func update_proposer_boost_root(
+    self: var ForkChoice, dag: ChainDAGRef,
+    blckRef: BlockRef, current_slot: Slot, is_timely: bool) =
   template is_first_block: bool =
     self.checkpoints.proposer_boost_root == ZERO_HASH
 
-  template attestation_threshold: BeaconTime =
-    current_slot.attestation_deadline(dag.timeParams, consensusFork)
+  template is_same_dependent_root: bool =
+    get_dependent_root(dag, blckRef.bid, current_slot) ==
+      get_dependent_root(dag, dag.head.bid, current_slot)
 
-  template is_timely: bool =
-    current_slot == blck.slot and
-    self.checkpoints.time < attestation_threshold
-
-  # Add proposer score boost if the block is the first timely block
-  # for this slot, with the same proposer as the canonical chain.
-  if is_timely and is_first_block:
-    # Only update if the proposer is the same as on the canonical chain
-    let expected_proposer = dag.getProposer(dag.head, current_slot).valueOr:
-      return
-    if blck.proposer_index == expected_proposer.uint64:
-      self.checkpoints.proposer_boost_root = blckRef.root
+  # Add proposer score boost if the block is timely, not conflicting with an
+  # existing boosted block, and shares the dependent root of the canonical head.
+  if is_timely and is_first_block and is_same_dependent_root:
+    self.checkpoints.proposer_boost_root = blckRef.root
 
 proc process_block*(
     self: var ForkChoice,
@@ -434,16 +477,34 @@ proc process_block*(
 
   for attestation in blck.body.attestations:
     if attestation.data.beacon_block_root in self.backend:
-      for vidx in dag.get_attesting_indices(attestation):
-        self.backend.process_attestation(
-          vidx, attestation.data.beacon_block_root, attestation.data.slot)
+      when typeof(blck).kind >= ConsensusFork.Gloas:
+        let payloadPresent = attestation.data.index == 1
+        for vidx in dag.get_attesting_indices(attestation):
+          self.backend.process_attestation(
+            vidx, attestation.data.beacon_block_root, attestation.data.slot,
+            payloadPresent, dag.cfg)
+      else:
+        for vidx in dag.get_attesting_indices(attestation):
+          self.backend.process_attestation(
+            vidx, attestation.data.beacon_block_root, attestation.data.slot,
+            false, dag.cfg)
+
+  when typeof(blck).kind >= ConsensusFork.Gloas:
+    for pa in blck.body.payload_attestations:
+      let tally = addr self.backend.ptc_votes.mgetOrPut(
+        pa.data.beacon_block_root, PtcVoteTally())
+      for i in 0 ..< pa.aggregation_bits.len:
+        if pa.aggregation_bits[i]:
+          tally.present[i] = pa.data.payload_present
+          tally.available[i] = pa.data.blob_data_available
 
   trace "Integrating block in fork choice",
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
   let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  self.update_proposer_boost_root(dag, blckRef, blck, slot)
+  let isTimely = self.record_block_timeliness(dag.timeParams, blckRef, blck, slot)
+  self.update_proposer_boost_root(dag, blckRef, slot, isTimely)
 
   # Update checkpoints in store if necessary
   ? self.update_checkpoints(dag, epochRef.checkpoints, slot)
@@ -581,6 +642,22 @@ proc prune(
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
     self.update_confirmed(dag, self.to_block_id(checkpoints.finalized), "prune")
+
+  # Drop per-block fork-choice state for blocks no longer in the proto-array.
+  var staleRoots: seq[Eth2Digest]
+  for root in self.ptc_votes.keys:
+    if root notin self.proto_array.indices:
+      staleRoots.add root
+  for root in staleRoots:
+    self.ptc_votes.del root
+
+  staleRoots.setLen(0)
+  for root in self.timely_proposer_blocks:
+    if root notin self.proto_array.indices:
+      staleRoots.add root
+  for root in staleRoots:
+    self.timely_proposer_blocks.excl root
+
   ok()
 
 proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
@@ -669,7 +746,7 @@ func compute_deltas(
 
       if vote.slot != FAR_FUTURE_SLOT and not vote.next_root.isZero:
         if vote.next_root in indices:
-          let index = resolveIndex(vote.next_root, vote.payload_present)
+          let index = resolveIndex(vote.next_root, vote.next_payload_present)
           if index >= deltas.len:
             return err ForkChoiceError(
               kind: fcInvalidNodeDelta,

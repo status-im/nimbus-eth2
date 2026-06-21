@@ -121,27 +121,8 @@ func init(T: type AttestationData, entry: AttestationEntry): T =
     target: entry.target,
   )
 
-proc init*(T: type AttestationPool, dag: ChainDAGRef,
-           quarantine: ref Quarantine, wallTime = default(BeaconTime),
-           onSingleAttestation: OnSingleAttestationCallback = nil): T =
-  ## Initialize an AttestationPool from the dag `headState`
-  ## The `finalized_root` works around the finalized_checkpoint of the genesis block
-  ## holding a zero_root.
-  let
-    currentSlot = wallTime.slotOrZero(dag.timeParams)
-    finalizedEpochRef = dag.getFinalizedEpochRef()
-  var forkChoice = ForkChoice.init(
-    dag.cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
-    finalizedEpochRef, dag.finalizedHead.blck, currentSlot, wallTime)
-
-  # Feed fork choice with unfinalized history - during startup, block pool only
-  # keeps track of a single history so we just need to follow it
-  doAssert dag.heads.len == 1, "Init only supports a single history"
-
-  var
-    blocks: seq[BlockRef]
-    cur = dag.head
-
+func collectShallowAncestors(
+    shallow: var HashSet[BlockRef], head: BlockRef) =
   # When the chain is finalizing, the votes between the head block and the
   # finalized checkpoint should be enough for a stable fork choice - when the
   # chain is not finalizing, we want to seed it with as many votes as possible
@@ -150,24 +131,42 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   # it takes to replay that many blocks during startup and thus miss _new_
   # votes.
   const ForkChoiceHorizon = 256
+  var
+    i = 0
+    cur = head
+  while cur != nil and i < ForkChoiceHorizon:
+    shallow.incl cur
+    cur = cur.parent
+    inc i
+
+proc loadHead(
+    forkChoice: var ForkChoice, dag: ChainDAGRef,
+    head: BlockRef, shallow: HashSet[BlockRef]) =
+  var
+    blocks: seq[BlockRef]
+    cur = head
   while cur != dag.finalizedHead.blck:
     blocks.add cur
     cur = cur.parent
 
-  info "Initializing fork choice", unfinalized_blocks = blocks.len
-
-  var epochRef = finalizedEpochRef
-  for i in 0..<blocks.len:
+  var epochRef: EpochRef
+  for i in countdown(blocks.high, 0):
     let
-      blckRef = blocks[blocks.len - i - 1]
+      blckRef = blocks[i]
+      areInaccurateCheckpointsAcceptable =
+        # Fork choice needs to know about the full block tree back through the
+        # finalization point, but doesn't really need to have overly accurate
+        # justification and finalization points until we get close to head -
+        # nonetheless, we'll make sure to pass a fresh finalization point now
+        # and then to make sure the fork choice data structure doesn't grow
+        # too big - getting an EpochRef can be expensive.
+        if blckRef in shallow or i >= blocks.high:
+          false
+        else:
+          # Must be deterministic across heads
+          (blckRef.slot div 1024) == (blocks[i + 1].slot div 1024)
       status =
-        if i < (blocks.len - ForkChoiceHorizon) and (i mod 1024 != 0):
-          # Fork choice needs to know about the full block tree back through the
-          # finalization point, but doesn't really need to have overly accurate
-          # justification and finalization points until we get close to head -
-          # nonetheless, we'll make sure to pass a fresh finalization point now
-          # and then to make sure the fork choice data structure doesn't grow
-          # too big - getting an EpochRef can be expensive.
+        if areInaccurateCheckpointsAcceptable:
           forkChoice.backend.process_block(
             blckRef.bid, blckRef.parent.root, epochRef.checkpoints)
         else:
@@ -195,7 +194,29 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
               dag, epochRef, blckRef, unrealized, forkyBlck.message,
               blckRef.slot.start_beacon_time(dag.timeParams))
 
-    doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
+    doAssert status.isOk(), "Error preloading the fork choice: " & $status.error
+
+proc init*(
+    T: type AttestationPool, dag: ChainDAGRef,
+    quarantine: ref Quarantine, wallTime = default(BeaconTime),
+    onSingleAttestation: OnSingleAttestationCallback = nil): T =
+  ## Initialize an AttestationPool from the dag `headState`
+  ## The `finalized_root` works around the finalized_checkpoint of the genesis block
+  ## holding a zero_root.
+  let
+    currentSlot = wallTime.slotOrZero(dag.timeParams)
+    finalizedEpochRef = dag.getFinalizedEpochRef()
+  var forkChoice = ForkChoice.init(
+    dag.cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
+    finalizedEpochRef, dag.finalizedHead.blck, currentSlot, wallTime)
+
+  # Feed fork choice with unfinalized history
+  info "Initializing fork choice", head = dag.head
+
+  var shallow: HashSet[BlockRef]
+  shallow.collectShallowAncestors(dag.head)
+  
+  forkChoice.loadHead(dag, dag.head, shallow)
 
   info "Fork choice initialized",
     justified = shortLog(dag.headState.current_justified_checkpoint),
@@ -210,10 +231,10 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
 proc addForkChoiceVotes(
     pool: var AttestationPool, slot: Slot,
     attesting_indices: openArray[ValidatorIndex], block_root: Eth2Digest,
-    wallTime: BeaconTime) =
+    committee_index: CommitteeIndex, wallTime: BeaconTime) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
-    pool.dag, slot, block_root, attesting_indices, wallTime);
+    pool.dag, slot, block_root, attesting_indices, committee_index, wallTime);
     v.isErr):
       # This indicates that the fork choice and the chain dag are out of sync -
       # this is most likely the result of a bug, but we'll try to keep going -
@@ -495,7 +516,7 @@ proc addAttestation*(
 
   pool.addForkChoiceVotes(
     attestation.data.slot, attesting_indices, attestation.data.beacon_block_root,
-    wallTime,
+    CommitteeIndex(attestation.data.index), wallTime,
   )
 
   # There does not seem to be an SSE stream event corresponding to Attestation,
@@ -931,8 +952,7 @@ proc getBeaconHead*(
   # choice marked the slot's block full; the bid's `parent_block` must be on it.
   let
     isGloas =
-      pool.dag.cfg.consensusForkAtEpoch(
-        pool.dag.finalizedHead.slot.epoch) >= ConsensusFork.Gloas
+      pool.dag.finalizedHead.slot.epoch >= pool.dag.cfg.GLOAS_FORK_EPOCH
     finalizedExecutionBlockHash =
       if isGloas:
         pool.dag.loadExecutionAndParentBlockHash(pool.dag.finalizedHead.blck)

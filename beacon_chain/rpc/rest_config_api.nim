@@ -420,6 +420,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex(DOMAIN_PROPOSER_PREFERENCES.data),
           DOMAIN_PTC_ATTESTER:
             to0xHex(DOMAIN_PTC_ATTESTER.data),
+          DOMAIN_BUILDER_DEPOSIT:
+            to0xHex(DOMAIN_BUILDER_DEPOSIT.data),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
@@ -444,6 +446,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex([byte(WITHDRAWAL_REQUEST_TYPE)]),
           CONSOLIDATION_REQUEST_TYPE:
             to0xHex([byte(CONSOLIDATION_REQUEST_TYPE)]),
+          BUILDER_DEPOSIT_REQUEST_TYPE:
+            to0xHex([byte(BUILDER_DEPOSIT_REQUEST_TYPE)]),
+          BUILDER_EXIT_REQUEST_TYPE:
+            to0xHex([byte(BUILDER_EXIT_REQUEST_TYPE)]),
           MIN_ACTIVATION_BALANCE:
             Base10.toString(uint64(MIN_ACTIVATION_BALANCE)),
           MAX_EFFECTIVE_BALANCE_ELECTRA:
@@ -486,6 +492,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(PTC_SIZE)),
           MAX_PAYLOAD_ATTESTATIONS:
             Base10.toString(uint64(MAX_PAYLOAD_ATTESTATIONS)),
+          MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD)),
+          MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD)),
           MAX_BUILDERS_PER_WITHDRAWALS_SWEEP:
             Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP)),
           CHURN_LIMIT_QUOTIENT_GLOAS:
@@ -507,11 +517,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_SIGNED_BEACON_BLOCK_SIZE:
             Base10.toString(MAX_SIGNED_BEACON_BLOCK_SIZE),
           MAX_SIGNED_INCLUSION_LIST_SIZE:
-            Base10.toString(MAX_SIGNED_INCLUSION_LIST_SIZE),
-          MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE:
-            Base10.toString(MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE),
-          MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE:
-            Base10.toString(MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE)
+            Base10.toString(MAX_SIGNED_INCLUSION_LIST_SIZE)
         )
       )
     cachedDepositContract =

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -42,7 +42,7 @@ suite "Envelope Quarantine":
         message: ExecutionPayloadEnvelope(
           beacon_block_root: root1,
           builder_index: 1'u64))
-      blckBid = gloas.SignedExecutionPayloadBid(
+      blckBid = SignedExecutionPayloadBid(
         message: gloas.ExecutionPayloadBid(
           builder_index: 1'u64))
       blck = gloas.BeaconBlock(

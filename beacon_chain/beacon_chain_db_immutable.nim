@@ -19,7 +19,6 @@ from ./spec/datatypes/electra import
   PendingPartialWithdrawal
 from ./spec/datatypes/gloas import
   Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid
-from ./spec/datatypes/heze import ExecutionPayloadBid
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -616,7 +615,7 @@ type
     builder_pending_withdrawals*: HashSeq[BuilderPendingWithdrawal]
 
     # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+    latest_execution_payload_bid*: ExecutionPayloadBid
       ## [Modified in Gloas:EIP7732]
 
     # [New in Gloas:EIP7732]
@@ -716,7 +715,7 @@ type
     builder_pending_withdrawals*: HashSeq[BuilderPendingWithdrawal]
 
     # Execution
-    latest_execution_payload_bid*: heze.ExecutionPayloadBid
+    latest_execution_payload_bid*: ExecutionPayloadBid
 
     payload_expected_withdrawals*: HashSeq[Withdrawal]
     ptc_window*:

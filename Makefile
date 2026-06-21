@@ -225,7 +225,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--fulu-fork-epoch 2 \
+		--fulu-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp false \

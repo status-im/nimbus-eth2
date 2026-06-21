@@ -55,6 +55,14 @@ proc payloadAvailability*(
   else:
     Opt.none PayloadAvailability
 
+func prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
+  var slotsToRemove: seq[Slot]
+  for slot in pool.slotBids.keys:
+    if slot < beforeSlot:
+      slotsToRemove.add(slot)
+  for slot in slotsToRemove:
+    pool.slotBids.del(slot)
+
 proc addBid*(
     pool: var ExecutionPayloadBidPool,
     signedBid: gloas.SignedExecutionPayloadBid,
@@ -66,6 +74,10 @@ proc addBid*(
     bid_slot = bid.slot
     builder_index = bid.builder_index
     bid_value = bid.value
+
+  # Bids expire after their slot has passed
+  pool.prune(beforeSlot =
+    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(pool.dag.timeParams))
 
   let slotData = addr pool.slotBids.mgetOrPut(bid.slot, default(SlotBids))
 
@@ -112,16 +124,34 @@ func getHighestBidForSlotAndParent*(
   else:
     Opt.none(gloas.SignedExecutionPayloadBid)
 
+proc getHighestBidForProposalState*(
+    pool: ExecutionPayloadBidPool, state: ForkyBeaconState,
+    payloadAvailability: PayloadAvailability
+): Opt[gloas.SignedExecutionPayloadBid] =
+  if state.slot <= GENESIS_SLOT:
+    return static(Opt.none gloas.SignedExecutionPayloadBid)
+
+  let res = pool.getHighestBidForSlotAndParent(
+    state.slot, state.get_block_root_at_slot(state.slot - 1),
+    payloadAvailability)
+  res.isErrOr:
+    if pool.dag.cfg.can_process_execution_payload_bid(
+        state, value, state.slot, {skipBlsValidation}).isErr:
+      return static(Opt.none gloas.SignedExecutionPayloadBid)
+  res
+
 func hasSeenBidFromBuilder*(
     pool: ExecutionPayloadBidPool, slot: Slot,
     builderIndex: uint64): bool =
   let slotData = pool.slotBids.getOrDefault(slot)
   builderIndex in slotData.seenBuilders
 
-proc prune*(pool: var ExecutionPayloadBidPool, beforeSlot: Slot) =
-  var slotsToRemove: seq[Slot]
-  for slot in pool.slotBids.keys:
-    if slot < beforeSlot:
-      slotsToRemove.add(slot)
-  for slot in slotsToRemove:
-    pool.slotBids.del(slot)
+proc getPrevRandao*(
+    pool: ExecutionPayloadBidPool, slot: Slot,
+    parentBid: BlockId): Opt[Eth2Digest] =
+  for payloadAvailability in PayloadAvailability:
+    pool.getHighestBidForSlotAndParent(
+        slot, parentBid.root, payloadAvailability).isErrOr:
+      return Opt.some value.message.prev_randao
+
+  pool.dag.computeRandaoMix(parentBid)

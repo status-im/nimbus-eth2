@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, sequtils, strutils, algorithm, math, tables, macrocache],
+  std/[typetraits, os, math, tables, macrocache],
 
   # Status libs
   results,
@@ -26,11 +26,13 @@ import
   libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
-  ".."/[version, conf, beacon_clock, conf_light_client],
+  ../[version, conf, beacon_clock, conf_light_client],
   ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
   ../validators/keystore_management,
-  "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
-       libp2p_json_serialization, peer_pool, peer_scores]
+  ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
+     libp2p_json_serialization, peer_pool, peer_scores]
+
+from std/sequtils import countIt, filterIt, mapIt
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
@@ -851,10 +853,8 @@ func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
-  elif T is gloas.SignedBeaconBlock:
+  elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock:
     MAX_SIGNED_BEACON_BLOCK_SIZE.uint32
-  elif T is heze.SignedBeaconBlock:
-    MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE.uint32
   elif T is gloas.DataColumnSidecar:
     MAX_DATA_COLUMN_SIDECAR_SIZE.uint32
   else:
@@ -865,10 +865,8 @@ template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T).uint32
-    elif T is gloas.SignedBeaconBlock:
+    elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock:
       MAX_SIGNED_BEACON_BLOCK_SIZE
-    elif T is heze.SignedBeaconBlock:
-      MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE
     elif T is gloas.SignedAggregateAndProof:
       MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE
     elif T is gloas.AttesterSlashing:
@@ -877,8 +875,6 @@ template gossipMaxSize(T: untyped): uint32 =
       MAX_DATA_COLUMN_SIDECAR_SIZE
     elif T is gloas.SignedExecutionPayloadBid:
       MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE
-    elif T is heze.SignedExecutionPayloadBid:
-      MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE
     elif T is heze.SignedInclusionList:
       MAX_SIGNED_INCLUSION_LIST_SIZE
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
@@ -894,7 +890,7 @@ template gossipMaxSize(T: untyped): uint32 =
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
-         T is gloas.Attestation or T is SomeForkyLightClientObject:
+         T is SomeForkyLightClientObject:
       MAX_PAYLOAD_SIZE
     else:
       {.fatal: "unknown type " & name(T).}

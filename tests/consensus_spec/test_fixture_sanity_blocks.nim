@@ -14,7 +14,7 @@ import
   ./os_ops,
   ../testutil
 
-from std/sequtils import toSeq
+from std/sequtils import countIt
 from ../../beacon_chain/spec/presets import const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
@@ -39,7 +39,7 @@ proc runTest(
 
     # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
     # so purely lexicographic sorting wouldn't sort properly.
-    let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
+    let numBlocks = walkPattern(testPath/"blocks_*.ssz_snappy").countIt(true)
     for i in 0 ..< numBlocks:
       let blck = loadBlock(
         testPath/"blocks_" & $i & ".ssz_snappy", consensusFork,

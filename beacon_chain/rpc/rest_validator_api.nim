@@ -9,13 +9,13 @@
 
 import std/[typetraits, sets, sequtils]
 import stew/base10, chronicles
-import ".."/[beacon_chain_db, beacon_node],
-       ".."/networking/eth2_network,
-       ".."/consensus_object_pools/[blockchain_dag, spec_cache,
-                                    attestation_pool, sync_committee_msg_pool],
-       ".."/validators/[beacon_validators, block_payloads],
-       ".."/spec/[beaconstate, forks, network, state_transition_block],
-       "."/[rest_utils, state_ttl_cache]
+import ../[beacon_chain_db, beacon_node],
+       ../networking/eth2_network,
+       ../consensus_object_pools/[blockchain_dag, spec_cache,
+                                  attestation_pool, sync_committee_msg_pool],
+       ../validators/[beacon_validators, block_payloads],
+       ../spec/[beaconstate, forks, network, state_transition_block],
+       ./[rest_utils, state_ttl_cache]
 
 export rest_utils
 
@@ -540,7 +540,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400,
                                                InvalidCommitteeIndexValueError,
                                                $res.error())
-            if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) >= ConsensusFork.Electra:
+            if qslot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
               0.CommitteeIndex
             else:
               res.get()

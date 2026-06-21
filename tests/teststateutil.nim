@@ -46,7 +46,7 @@ proc initGenesisState*(
     forkyState.data.latest_block_header.body_root =
       when consensusFork >= ConsensusFork.Gloas:
         hash_tree_root(consensusFork.BeaconBlockBody(
-          signed_execution_payload_bid: consensusFork.SignedExecutionPayloadBid(
+          signed_execution_payload_bid: SignedExecutionPayloadBid(
             message: forkyState.data.latest_execution_payload_bid)))
       else:
         hash_tree_root(default(consensusFork.BeaconBlockBody))

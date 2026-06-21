@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status
   results,
   chronicles,
@@ -55,6 +55,8 @@ type
     fcPruningFromOutdatedFinalizedRoot
     fcUnknownBlockIdAtSlot
     fcUnknownShufflingRef
+    fcInvalidAttestation
+    fcInvalidPayloadAttestation
 
   Index* = int
   Delta* = int64
@@ -68,7 +70,9 @@ type
        fcPreviousHeadUnknown,
        fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick:
+    of fcInconsistentTick,
+       fcInvalidAttestation,
+       fcInvalidPayloadAttestation:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
@@ -112,6 +116,7 @@ type
     unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
+    emptyPreferredRoot*: Eth2Digest
 
   ProtoNode* = object
     bid*: BlockId
@@ -146,6 +151,10 @@ type
     payload_present*: bool
     next_payload_present*: bool
 
+  PtcVoteTally* = object
+    present*: BitArray[int PTC_SIZE]
+    available*: BitArray[int PTC_SIZE]
+
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
     # The `assigned_slots` (`fast_confirmation.nim`) are based on `dag.head`
@@ -164,6 +173,8 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
+    ptc_votes*: Table[Eth2Digest, PtcVoteTally]
+    timely_proposer_blocks*: HashSet[Eth2Digest]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]

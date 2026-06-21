@@ -32,9 +32,10 @@ from ./capella import
   HistoricalSummary, SignedBLSToExecutionChange, Withdrawal
 from ./deneb import Blobs
 from ./gloas import
-  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, PayloadAttestation,
-  EpochParticipationFlags, InactivityScores, KzgCommitments, KzgProofs,
-  SignedBLSToExecutionChangeList
+  Builder, BuilderPendingPayment, BuilderPendingWithdrawal,
+  EpochParticipationFlags, ExecutionPayloadBid, ExecutionRequests,
+  InactivityScores, PayloadAttestation, SignedBLSToExecutionChangeList,
+  SignedExecutionPayloadBid
 
 export json_serialization, base
 
@@ -49,29 +50,6 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#signedinclusionlist
   SignedInclusionList* = object
     message*: InclusionList
-    signature*: ValidatorSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#executionpayloadbid
-  ExecutionPayloadBid* = object
-    parent_block_hash*: Eth2Digest
-    parent_block_root*: Eth2Digest
-    block_hash*: Eth2Digest
-    prev_randao*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-    gas_limit*: uint64
-    builder_index*: uint64
-    slot*: Slot
-    value*: Gwei
-    execution_payment*: Gwei
-    blob_kzg_commitments*: gloas.KzgCommitments
-    execution_requests_root*: Eth2Digest
-    # [New in Heze:EIP7805]
-    inclusion_list_bits*: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#signedexecutionpayloadbid
-  SignedExecutionPayloadBid* = object
-    # [Modified in Heze:EIP7805]
-    message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#beaconstate

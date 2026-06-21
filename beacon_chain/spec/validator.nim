@@ -609,18 +609,6 @@ func get_beacon_proposer_indices*(
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
-func is_valid_proposal_slot*(
-    state: gloas.BeaconState | heze.BeaconState,
-    slot: Slot, validator_index: uint64): bool =
-  ## Check if the validator is the proposer for the given slot within the
-  ## proposer lookahead.
-  let start_slot = state.get_current_epoch().start_slot()
-  if slot < start_slot or
-      slot - start_slot >= state.proposer_lookahead.lenu64:
-    return false
-  state.proposer_lookahead.item(slot - start_slot) == validator_index
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/validator.md#broadcasting-signedproposerpreferences
 # The signature of this function diverges from the spec to avoid
 # passing the full beacon state through an inline iterator which

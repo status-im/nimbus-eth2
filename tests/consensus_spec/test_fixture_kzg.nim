@@ -343,7 +343,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       data = loadCellsAndKzgProofsValidCases(suitePath)
       rowCount = data[data.len - 1].row_index.int + 1
       # The 64 column indices
-      indices = toSeq(0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
+      indices = (0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
       # Minimal data for recovery
       input = data.filterIt(it.column_index in indices)
         .mapIt(MatrixEntry(

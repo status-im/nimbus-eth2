@@ -28,8 +28,8 @@ pipeline {
     )
     choice(
       name: 'NIX_TARGET',
-      description: 'Nix flake target to build',
-      choices: ['beacon_node', 'validator_client']
+      description: 'Flake target to build. "auto" derives it from the job name, pick a target to force it.',
+      choices: ['auto', 'beacon_node', 'validator_client']
     )
   }
 
@@ -59,13 +59,13 @@ pipeline {
 
     stage('Build') {
       steps { script {
-        result = nix.flake(params.NIX_TARGET)
+        result = nix.flake(resolveTarget())
       } }
     }
 
     stage('Version check') {
       steps { script {
-        sh "${result}/bin/nimbus_${params.NIX_TARGET} --version"
+        sh "${result}/bin/nimbus_${resolveTarget()} --version"
       } }
     }
 
@@ -99,4 +99,16 @@ pipeline {
 
 def isMainBranch() {
   return ['stable', 'testing', 'unstable'].contains(env.BRANCH_NAME)
+}
+
+def resolveTarget() {
+  return (params.NIX_TARGET in [null, '', 'auto']) ? nixTarget() : params.NIX_TARGET
+}
+
+def nixTarget() {
+  /* Dev CI is multibranch (BRANCH_NAME set) and only ever builds the beacon node.*/
+  if (env.BRANCH_NAME) {
+    return 'beacon_node'
+  }
+  return env.JOB_NAME.toLowerCase().contains('validator-client') ? 'validator_client' : 'beacon_node'
 }

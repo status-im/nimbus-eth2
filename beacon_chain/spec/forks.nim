@@ -13,7 +13,7 @@ import
   stew/assign2,
   chronicles,
   ../extras,
-  "."/[
+  ./[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
@@ -296,6 +296,11 @@ type
     kind*: ConsensusFork
     data*: BeaconBlockHeader
       ## From Bellatrix onwards, a header is all that's needed
+
+  Web3SignerForkedAggregateAndProof* = object
+    kind*: ConsensusFork
+    data*: gloas.AggregateAndProof
+      ## electra.AggregateAndProof is isomorphic
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
@@ -673,14 +678,6 @@ template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
     bellatrix.ExecutionPayloadHeader
   else:
     {.error: "ExecutionPayloadHeader unsupported in " & $kind.}
-
-template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
-  when kind >= ConsensusFork.Heze:
-    heze.SignedExecutionPayloadBid
-  elif kind >= ConsensusFork.Gloas:
-    gloas.SignedExecutionPayloadBid
-  else:
-    {.error: "SignedExecutionPayloadBid unsupported in " & $kind.}
 
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Heze:
@@ -1530,46 +1527,6 @@ template withAttestation*(a: ForkedAttestation, body: untyped): untyped =
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
     template forkyAttestation: untyped {.inject.} = a.phase0Data
-    body
-
-template withAggregateAndProof*(a: ForkedAggregateAndProof,
-                                body: untyped): untyped =
-  case a.kind
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyProof: untyped {.inject.} = a.hezeData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyProof: untyped {.inject.} = a.gloasData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyProof: untyped {.inject.} = a.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyProof: untyped {.inject.} = a.electraData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyProof: untyped {.inject.} = a.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyProof: untyped {.inject.} = a.capellaData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyProof: untyped {.inject.} = a.bellatrixData
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyProof: untyped {.inject.} = a.altairData
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyProof: untyped {.inject.} = a.phase0Data
     body
 
 func toBeaconBlockHeader*(

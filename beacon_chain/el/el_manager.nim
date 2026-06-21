@@ -56,7 +56,7 @@ const
   # https://github.com/ethereum/execution-apis/blob/74feb592ce7b3a33fd8f6866d9464f8028c8a5e3/src/engine/osaka.md#request-2
   GETBLOBS_TIMEOUT = 1.seconds
 
-  connectionStateChangeHysteresisThreshold = 15
+  connectionStateChangeHysteresisThreshold* = 15
     ## How many unsuccessful/successful requests we must see
     ## before declaring the connection as degraded/restored
 
@@ -274,7 +274,13 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.
     warn "Engine API connection failed", err = web3Res.error
     false
   else:
-    connection.web3 = Opt.some(web3Res.get)
+    let web3 = web3Res.get
+    web3.onDisconnect = proc() =
+      connection.web3.isErrOr:
+        if value == web3:
+          debug "Connection to EL node lost", url = url(connection.engineUrl)
+          connection.web3 = Opt.none(Web3)
+    connection.web3 = Opt.some(web3)
     true
 
 proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.

@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronicles, chronos, metrics,
+  chronicles, chronos, metrics, minilru,
   ../spec/[forks, helpers_el, signatures, signatures_batch, column_map,
            peerdas_helpers],
   ../sszdump
@@ -52,7 +52,7 @@ logScope: topics = "gossip_blocks"
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
-declareHistogram beacon_block_data_availability_delay,
+declareHistogram beacon_block_data_availability_delay_seconds,
   "Time(s) between slot start and the block becoming data-available (resolved)",
   buckets = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 16.0, Inf]
 
@@ -115,6 +115,13 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
+    earlyExecValidity: ExecValidityLru
+      ## newPayload started upon gossip validation, while waiting for Fulu
+      ## column data availability
+
+  ExecValidityLru =
+    LruCache[Eth2Digest, Future[Opt[OptimisticStatus]].Raising([CancelledError])]
+
   NoSidecars* = typeof(())
   SomeOptSidecars =
     NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
@@ -152,7 +159,8 @@ proc new*(T: type BlockProcessor,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: batchVerifier[]
+    verifier: batchVerifier[],
+    earlyExecValidity: ExecValidityLru.init(8)
   )
 
 # Sync callbacks
@@ -193,7 +201,6 @@ from ../consensus_object_pools/block_clearance import
 
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, VerifierError] =
   sidecarsOpt.isErrOr:
@@ -212,7 +219,6 @@ proc verifySidecars(
 
 proc verifySidecars(
     signedBlock: fulu.SignedBeaconBlock,
-    envelope: NoEnvelope,
     sidecarsOpt: Opt[fulu.DataColumnSidecars],
 ): Result[void, VerifierError] =
   sidecarsOpt.isErrOr:
@@ -256,7 +262,7 @@ proc storeBackfillBlock(
   const consensusFork = typeof(signedBlock).kind
 
   when consensusFork == ConsensusFork.Fulu:
-    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
+    ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -372,6 +378,30 @@ proc getExecutionValidity(
       blck = shortLog(blck)
 
   Opt.some(optimisticStatus)
+
+func nextSlotDeadline(wallTime: BeaconTime, dag: ChainDAGRef): Duration =
+  ## Time from `wallTime` until ~1s before the next slot, for newPayload deadline
+  let slotTime =
+    (wallTime.slotOrZero(dag.timeParams) + 1).start_beacon_time(dag.timeParams) -
+      chronos.seconds(1)
+  if slotTime <= wallTime:
+    chronos.seconds(0)
+  else:
+    chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+
+proc startExecutionValidity*(
+    self: var BlockProcessor,
+    signedBlock: fulu.SignedBeaconBlock, wallTime: BeaconTime) =
+  if signedBlock.root in self.earlyExecValidity:
+    return
+
+  let dag = self.consensusManager.dag
+  self.earlyExecValidity.put(
+    signedBlock.root,
+    self.consensusManager.elManager.getExecutionValidity(
+      signedBlock, noEnvelope,
+      deadline = sleepAsync(nextSlotDeadline(wallTime, dag)),
+      retry = not dag.is_optimistic(dag.head.bid)))
 
 proc addBlock*(
   self: ref BlockProcessor,
@@ -602,15 +632,7 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadlineTime =
-      block:
-        let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
-        if slotTime <= wallTime:
-          chronos.seconds(0)
-        else:
-          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
-    deadline = sleepAsync(deadlineTime)
+    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   if signedBlock.root in self.invalidBlockRoots:
     warn "Block root treated as invalid via config",
@@ -647,8 +669,16 @@ proc storeBlock(
         elif consensusFork >= ConsensusFork.Bellatrix:
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
-          await self.consensusManager.elManager.getExecutionValidity(
-            signedBlock, noEnvelope, deadline, shouldRetry())
+          when consensusFork == ConsensusFork.Fulu:
+            let cached = self.earlyExecValidity.pop(signedBlock.root)
+            if cached.isSome:
+              await cached.get()
+            else:
+              await self.consensusManager.elManager.getExecutionValidity(
+                signedBlock, noEnvelope, deadline, shouldRetry())
+          else:
+            await self.consensusManager.elManager.getExecutionValidity(
+              signedBlock, noEnvelope, deadline, shouldRetry())
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 
@@ -675,7 +705,7 @@ proc storeBlock(
       sidecarsOpt.isErrOr:
         let toVerify = value.filterIt(it[].index in pendingVerify)
         if toVerify.len > 0:
-          ?verifySidecars(signedBlock, noEnvelope, Opt.some(toVerify))
+          ?verifySidecars(signedBlock, Opt.some(toVerify))
     debug "block_processor verifySidecars completed",
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
@@ -698,7 +728,7 @@ proc storeBlock(
   if fromGossip:
     let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
       dag.timeParams)
-    beacon_block_data_availability_delay.observe(daDelay.toFloatSeconds())
+    beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL
@@ -721,7 +751,7 @@ proc storeBlock(
   # In the unhappy case, the head update kickstarts any pruning and cleanup work
   # which helps conserve resources, ie also a good thing to be doing just after
   # having added a block.
-  let previousExecutionValid = dag.head.executionValid
+  let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
   self.consensusManager[].updateHead(wallSlot)
 
   # After producing attestations, we might be asked to produce a block for the
@@ -923,7 +953,7 @@ proc storeBackfillPayload(
 ): Result[void, VerifierError] =
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
-  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
   ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
 
   self.storeSidecars(sidecarsOpt)
@@ -939,15 +969,7 @@ proc storePayload(
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadlineTime =
-      block:
-        let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
-        if slotTime <= wallTime:
-          chronos.seconds(0)
-        else:
-          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
-    deadline = sleepAsync(deadlineTime)
+    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   let
     optimisticStatusRes =
@@ -965,7 +987,7 @@ proc storePayload(
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
 
-  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")
@@ -980,7 +1002,7 @@ proc storePayload(
 
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
-  let previousExecutionValid = dag.head.executionValid
+  let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
 
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")

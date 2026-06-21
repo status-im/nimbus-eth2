@@ -114,7 +114,7 @@ proc fetchGenesisState(
     eraDir: string,
     genesisState = none(InputFile),
     genesisStateUrl = none(Uri),
-): Future[Opt[ref ForkedHashedBeaconState]] {.async: (raises: []).} =
+): Future[Opt[ref ForkedHashedBeaconState]] {.async: (raises: [CancelledError]).} =
   ## Load the genesis state from any of the given sources with a preference for
   ## local files (in the case that only an URL/digest pair is baked into the
   ## binary)
@@ -132,6 +132,8 @@ proc fetchGenesisState(
         info "Downloading genesis state",
           sourceUrl = $genesisStateUrl.get(metadata.genesis.url)
       ok await metadata.fetchGenesisState(genesisStateUrl)
+    except CancelledError as exc:
+      raise exc
     except CatchableError as err:
       error "Failed to obtain genesis state",
         source = metadata.genesis.sourceDesc, err = err.msg
@@ -396,7 +398,8 @@ proc loadChainDag(
       if config.lightClientDataServe: onLightClientOptimisticUpdate
       else: nil
   dag = ChainDAGRef.init(
-    cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
+    cfg, db, validatorMonitor, chainDagFlags,
+    config.eraDir, config.invalidBlockRoots,
     vanityLogs = getVanityLogs(detectTTY(config.logFormat)),
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,
@@ -621,10 +624,7 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Heze:
           # TODO document why there are no columns here
-          when consensusFork == ConsensusFork.Heze:
-            # Disable sidecars processing at block time.
-            const sidecarsOpt = noSidecars
-          elif consensusFork == ConsensusFork.Gloas:
+          when consensusFork >= ConsensusFork.Gloas:
             # Disable sidecars processing at block time.
             const sidecarsOpt = noSidecars
           else:
@@ -1347,8 +1347,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
   # committee period begins, in which case `epochsToNextSyncPeriod` is none.
   if  epochsToSyncPeriod.isNone or
-      node.dag.cfg.consensusForkAtEpoch(epoch + epochsToSyncPeriod.get) <
-        ConsensusFork.Altair:
+      epoch + epochsToSyncPeriod.get < node.dag.cfg.ALTAIR_FORK_EPOCH:
     return subnets
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
@@ -1392,23 +1391,6 @@ proc addCapellaMessageHandlers(
     getBlsToExecutionChangeTopic(forkDigest),
     getBlsToExecutionChangeTopicParams(node.dag.timeParams))
 
-proc doAddDenebMessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot,
-    blobSidecarSubnetCount: uint64) =
-  node.addCapellaMessageHandlers(forkDigest, slot)
-  for topic in blobSidecarTopics(forkDigest, blobSidecarSubnetCount):
-    node.network.subscribe(topic, basicParams())
-
-proc addDenebMessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.doAddDenebMessageHandlers(
-    forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT)
-
-proc addElectraMessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.doAddDenebMessageHandlers(
-    forkDigest, slot, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
-
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
@@ -1434,20 +1416,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
-
-proc doRemoveDenebMessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, blobSidecarSubnetCount: uint64) =
-  node.removeCapellaMessageHandlers(forkDigest)
-  for topic in blobSidecarTopics(forkDigest, blobSidecarSubnetCount):
-    node.network.unsubscribe(topic)
-
-proc removeDenebMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.doRemoveDenebMessageHandlers(
-    forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT)
-
-proc removeElectraMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.doRemoveDenebMessageHandlers(
-    forkDigest, node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
 
 proc removeFuluMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   # Deliberately don't handle blobs, which Deneb and Electra contain, in lieu
@@ -1694,8 +1662,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeDenebMessageHandlers,
-    removeElectraMessageHandlers,
+    removeCapellaMessageHandlers,  # deneb (capella handlers, different forkDigest)
+    removeCapellaMessageHandlers,  # electra (capella handlers, different forkDigest)
     removeFuluMessageHandlers,
     removeGloasMessageHandlers,
     removeGloasMessageHandlers  # heze (gloas handlers)
@@ -1711,8 +1679,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addDenebMessageHandlers,
-    addElectraMessageHandlers,
+    addCapellaMessageHandlers,  # deneb (capella handlers, different forkDigest)
+    addCapellaMessageHandlers,  # electra (capella handlers, different forkDigest)
     addCapellaMessageHandlers, # no blobs; updateDataColumnSidecarHandlers for rest
     addGloasMessageHandlers,
     addGloasMessageHandlers  # heze (gloas handlers)
@@ -1730,7 +1698,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   # Do this after node.gossipState is updated to avoid adding immediately
   # unsubscribed subscriptions.
   for gossipEpoch in node.gossipState:
-    if node.dag.cfg.consensusForkAtEpoch(gossipEpoch) >= ConsensusFork.Fulu:
+    if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
       node.updateDataColumnSidecarHandlers(gossipEpoch)
 
   node.doppelgangerChecked(slot.epoch)
@@ -1862,17 +1830,19 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # next slot
 
   let reconstructFut =
-    if node.dag.cfg.consensusForkAtEpoch(slot.epoch()) >= ConsensusFork.Fulu:
+    if slot.epoch() >= node.dag.cfg.FULU_FORK_EPOCH:
       reconstructDataColumns(node, slot)
     else:
       nil
 
   # By waiting until close before slot end, ensure that preparation for next
   # slot does not interfere with propagation of messages and with VC duties.
+  #
+  # This must be before the advanceOffset/advanceCutoff.
   let
-    endOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+    endOffset = node.dag.timeParams.payloadAttestationSlotOffset + nanos((
       node.dag.timeParams.SLOT_DURATION.nanoseconds -
-      node.dag.timeParams.aggregateSlotOffset.nanoseconds) div 2)
+      node.dag.timeParams.payloadAttestationSlotOffset.nanoseconds) div 6)
     endCutoff = node.beaconClock.fromNow(
       slot.start_beacon_time(node.dag.timeParams) + endOffset)
   if endCutoff.inFuture:
@@ -2029,19 +1999,21 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # When we're not behind schedule, we'll speculatively update the clearance
   # state in anticipation of receiving the next block - we do it after
   # logging slot end since the nextActionWaitTime can be short
+  #
+  # This must be after the endOffset/endCutoff.
   let
-    advanceOffset = node.dag.timeParams.aggregateSlotOffset + nanos((
+    advanceOffset = node.dag.timeParams.payloadAttestationSlotOffset + nanos((
       node.dag.timeParams.SLOT_DURATION.nanoseconds -
-      node.dag.timeParams.aggregateSlotOffset.nanoseconds) * 3 div 4)
+      node.dag.timeParams.payloadAttestationSlotOffset.nanoseconds) div 2)
     advanceCutoff = node.beaconClock.fromNow(
       slot.start_beacon_time(node.dag.timeParams) + advanceOffset)
 
   let proposalFcu =
     if advanceCutoff.inFuture:
-      # We wait until there's only a second left before the next slot begins, then
-      # we advance the clearance state to the next slot - this gives us a high
-      # probability of being prepared for the block that will arrive and the
-      # epoch processing that follows
+      # Wait until half-way through the slot's idle tail, and then advance the
+      # clearance state to the next slot - this gives us a high probability of
+      # being prepared for the block that will arrive and the epoch processing
+      # that follows
       await sleepAsync(advanceCutoff.offset)
       let
         nextSlot = slot + 1
@@ -2527,26 +2499,6 @@ proc installMessageValidators(node: BeaconNode) =
                     node.processor[].processDataColumnSidecar(
                       MsgSource.gossip, newClone(dataColumnSidecar),
                       subnet_id)))
-
-        when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-          # blob_sidecar_{subnet_id}
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
-          let subnetCount =
-            when consensusFork >= ConsensusFork.Electra:
-              node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
-            else:
-              node.dag.cfg.BLOB_SIDECAR_SUBNET_COUNT
-          for it in 0.BlobId ..< subnetCount.BlobId:
-            closureScope:  # Needed for inner `proc`; don't lift it out of loop.
-              let subnet_id = it
-              node.network.addValidator(
-                getBlobSidecarTopic(digest, subnet_id), proc (
-                  blobSidecar: deneb.BlobSidecar,
-                  src: PeerId
-                ): ValidationResult =
-                  toValidationResult(
-                    node.processor[].processBlobSidecar(
-                      MsgSource.gossip, blobSidecar, subnet_id)))
 
   node.installLightClientMessageValidators()
 

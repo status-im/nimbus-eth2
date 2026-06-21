@@ -96,17 +96,8 @@ proc addResolvedHeadBlock(
 
   # Resolved blocks should be stored in database
   dag.putBlock(trustedBlock)
+  dag.registerHead(blockRef)
   let putBlockTick = Moment.now()
-
-  var foundHead: bool
-  for head in dag.heads.mitems():
-    if head.isAncestorOf(blockRef):
-      head = blockRef
-      foundHead = true
-      break
-
-  if not foundHead:
-    dag.heads.add(blockRef)
 
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
@@ -481,6 +472,10 @@ proc addBackfillBlock*(
 
   let putBlockTick = Moment.now
   debug "Block backfilled",
+    blockRoot = shortLog(signedBlock.root),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signedBlock.signature),
+    backfill = shortLog(dag.backfill),
     sigVerifyDur = sigVerifyTick - startTick,
     putBlockDur = putBlockTick - sigVerifyTick
 

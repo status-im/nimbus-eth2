@@ -142,6 +142,7 @@ AllTests-mainnet
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
++ Invalidate existing block root [Preset: mainnet]                                           OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
@@ -163,6 +164,7 @@ AllTests-mainnet
 ```
 ## BlockRef and helpers
 ```diff
++ executionParent sanity                                                                     OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
@@ -649,6 +651,11 @@ AllTests-mainnet
 + getPayload with different forkchoiceUpdated attributes                                     OK
 + multiple sequential forkchoiceUpdated calls with payload attributes                        OK
 ```
+## EL Manager - WebSocket reconnection
+```diff
++ reconnects after EL restart (degraded connection)                                          OK
++ reconnects after EL restart (working connection)                                           OK
+```
 ## EL Manager - forkchoiceUpdated
 ```diff
 + forkchoiceUpdated basic call                                                               OK
@@ -765,6 +772,10 @@ AllTests-mainnet
 + Obtaining the gas limit of a missing validator returns 404 [Beacon Node] [Preset: mainnet] OK
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
+```
+## Gloas block validity
+```diff
++ Execution valid                                                                            OK
 ```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
@@ -1108,18 +1119,10 @@ AllTests-mainnet
 + RestErrorMessage writer tests                                                              OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (ALTAIR)                                     OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (BELLATRIX)                                  OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (CAPELLA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (DENEB)                                      OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (PHASE 0)                                    OK
 + remote signing example AGGREGATION_SLOT                                                    OK
 + remote signing example ATTESTATION                                                         OK
-+ remote signing example BLOCK_V2 (BELLATRIX)                                                OK
-+ remote signing example BLOCK_V2 (CAPELLA)                                                  OK
-+ remote signing example BLOCK_V2 (DENEB)                                                    OK
-+ remote signing example BLOCK_V2 (ELECTRA)                                                  OK
++ remote signing example BLOCK_V2 (FULU)                                                     OK
 + remote signing example DEPOSIT                                                             OK
 + remote signing example RANDAO_REVEAL                                                       OK
 + remote signing example SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF                               OK

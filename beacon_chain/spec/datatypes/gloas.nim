@@ -256,10 +256,33 @@ type
     message*: AggregateAndProof
     signature*: ValidatorSig
 
-  ExecutionRequests* {.sszActiveFields: [1, 1, 1].} = object
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#builderdepositrequest
+  # [New in Gloas:EIP8282]
+  BuilderDepositRequest* = object
+    pubkey*: ValidatorPubKey
+    withdrawal_credentials*: Eth2Digest
+    amount*: Gwei
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#builderexitrequest
+  # [New in Gloas:EIP8282]
+  BuilderExitRequest* = object
+    source_address*: ExecutionAddress
+    pubkey*: ValidatorPubKey
+
+  BuilderDepositRequests* = seq[BuilderDepositRequest]
+  BuilderExitRequests* = seq[BuilderExitRequest]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#executionrequests
+  # [Modified in Gloas:EIP8282]
+  ExecutionRequests* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
     deposits*: DepositRequests
     withdrawals*: WithdrawalRequests
     consolidations*: ConsolidationRequests
+    # [New in Gloas:EIP8282]
+    builder_deposits*: BuilderDepositRequests
+    # [New in Gloas:EIP8282]
+    builder_exits*: BuilderExitRequests
 
   SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
   SomeAttesterSlashing* = AttesterSlashing | TrustedAttesterSlashing
@@ -279,10 +302,11 @@ type
     amount*: Gwei
     builder_index*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#builderpendingpayment
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#builderpendingpayment
   BuilderPendingPayment* = object
     weight*: Gwei
     withdrawal*: BuilderPendingWithdrawal
+    proposer_index*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#new-proposerpreferences
   ProposerPreferences* = object
