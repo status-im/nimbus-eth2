@@ -2377,6 +2377,31 @@ func get_inclusion_list_committee*(
     res[i] = indices[i mod indices.len]
   res
 
+func compute_inclusion_list_committee_root*(
+    committee: array[int INCLUSION_LIST_COMMITTEE_SIZE, ValidatorIndex]):
+    Eth2Digest =
+  ## `hash_tree_root` of the inclusion list committee, treated as a
+  ## `Vector[ValidatorIndex, INCLUSION_LIST_COMMITTEE_SIZE]` as in the spec.
+  ## `ValidatorIndex` serializes as `uint64`, so widen before hashing.
+  var indices: array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64]
+  for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
+    indices[i] = committee[i].uint64
+  hash_tree_root(indices)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/heze/beacon-chain.md#new-is_valid_inclusion_list_signature
+proc is_valid_inclusion_list_signature*(
+    state: heze.BeaconState,
+    signed_inclusion_list: SignedInclusionList): bool =
+  ## Check if ``signed_inclusion_list`` has a valid signature.
+  let
+    msg = signed_inclusion_list.message
+    index = msg.validator_index
+  if index >= state.validators.lenu64:
+    return false
+  verify_inclusion_list_signature(
+    state.fork, state.genesis_validators_root, msg,
+    state.validators[index].pubkey, signed_inclusion_list.signature)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/fork.md#new-initialize_ptc_window
 func initialize_ptc_window(
     state: var gloas.BeaconState, cache: var StateCache) =

@@ -866,6 +866,9 @@ AllTests-mainnet
 ## Inclusion list [Preset: mainnet]
 ```diff
 + get_inclusion_list_committee                                                               OK
++ get_inclusion_list_transactions dedups and filters                                         OK
++ is_valid_inclusion_list_signature                                                          OK
++ process_inclusion_list detects equivocation                                                OK
 ```
 ## Key splitting
 ```diff
