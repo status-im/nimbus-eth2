@@ -385,7 +385,7 @@ proc prepareNextSlot*(
         )
       debug "Fork-choice updated for proposal", status, executionHead, attributes
 
-      # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml#L125
+      # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
       if self.onPayloadAttributes != nil:
         let parentBlockNumber =
           when consensusFork >= ConsensusFork.Gloas:
