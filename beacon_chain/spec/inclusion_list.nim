@@ -24,6 +24,10 @@ type
     inclusion_list_timeliness*: Table[Eth2Digest, bool]
     equivocators*: Table[Eth2Digest, HashSet[uint64]]
 
+const
+  emptyInclusionLists = default(Table[Eth2Digest, InclusionList])
+  emptyEquivocators = default(HashSet[uint64])
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/inclusion-list.md#new-process_inclusion_list
 func process_inclusion_list*(
     store: var InclusionListStore,
@@ -42,14 +46,12 @@ func process_inclusion_list*(
       if stored.validator_index != validator_index:
         continue
       if stored != inclusion_list:
-        store.equivocators.mgetOrPut(
-          key, default(HashSet[uint64])).incl(validator_index)
+        store.equivocators.mgetOrPut(key, emptyEquivocators).incl(validator_index)
       return
 
   let inclusion_list_root = hash_tree_root(inclusion_list)
-  store.inclusion_lists.mgetOrPut(
-    key, default(Table[Eth2Digest, InclusionList]))[
-      inclusion_list_root] = inclusion_list
+  store.inclusion_lists.mgetOrPut(key, emptyInclusionLists)[
+    inclusion_list_root] = inclusion_list
   store.inclusion_list_timeliness[inclusion_list_root] = is_timely
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/inclusion-list.md#new-get_inclusion_list_transactions
@@ -61,7 +63,7 @@ func get_inclusion_list_transactions*(
     only_timely = true): seq[bellatrix.Transaction] =
   let
     committee = get_inclusion_list_committee(state, slot, cache)
-    key = compute_inclusion_list_committee_root(committee)
+    key = hash_tree_root(committee)
 
   var
     transactions: seq[bellatrix.Transaction]

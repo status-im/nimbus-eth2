@@ -11,7 +11,8 @@
 import
   std/[sets, tables],
   unittest2,
-  ../beacon_chain/spec/[beaconstate, forks, signatures, inclusion_list],
+  ../beacon_chain/spec/[
+    beaconstate, eth2_merkleization, forks, signatures, inclusion_list],
   ./consensus_spec/fixtures_utils,
   ./teststateutil,
   ./testblockutil,
@@ -46,7 +47,7 @@ suite "Inclusion list" & preset():
       state = addr forkedState[].hezeData.data
       slot = state[].slot
       committee = get_inclusion_list_committee(state[], slot, cache)
-      committeeRoot = compute_inclusion_list_committee_root(committee)
+      committeeRoot = hash_tree_root(committee)
 
   test "get_inclusion_list_committee":
     # The committee always has exactly INCLUSION_LIST_COMMITTEE_SIZE members ...
@@ -63,8 +64,8 @@ suite "Inclusion list" & preset():
     check indices.len > 0
     for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
       check:
-        committee[i] == indices[i mod indices.len]
-        committee[i].uint64 < state[].validators.lenu64
+        committee[i] == indices[i mod indices.len].uint64
+        committee[i] < state[].validators.lenu64
 
   test "is_valid_inclusion_list_signature":
     const validator_index = 0'u64

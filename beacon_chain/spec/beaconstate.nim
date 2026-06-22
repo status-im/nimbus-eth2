@@ -2359,12 +2359,10 @@ iterator get_ptc*(state: gloas.BeaconState | heze.BeaconState, slot: Slot):
   for idx in state.ptc_window[index]:
     yield ValidatorIndex(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/heze/beacon-chain.md#new-get_inclusion_list_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/beacon-chain.md#new-get_inclusion_list_committee
 func get_inclusion_list_committee*(
     state: heze.BeaconState, slot: Slot, cache: var StateCache):
-    array[int INCLUSION_LIST_COMMITTEE_SIZE, ValidatorIndex] =
-  ## Return the inclusion list committee for the given ``slot``, formed by
-  ## cycling through that slot's beacon committees.
+    array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64] =
   let
     epoch = epoch(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
@@ -2372,30 +2370,16 @@ func get_inclusion_list_committee*(
   for i in 0'u64 ..< committees_per_slot:
     indices.add get_beacon_committee(state, slot, CommitteeIndex(i), cache)
   doAssert indices.len > 0, "get_inclusion_list_committee: no active validators"
-  var res: array[int INCLUSION_LIST_COMMITTEE_SIZE, ValidatorIndex]
   for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
-    res[i] = indices[i mod indices.len]
-  res
+    result[i] = indices[i mod indices.len].uint64
 
-func compute_inclusion_list_committee_root*(
-    committee: array[int INCLUSION_LIST_COMMITTEE_SIZE, ValidatorIndex]):
-    Eth2Digest =
-  ## `hash_tree_root` of the inclusion list committee, treated as a
-  ## `Vector[ValidatorIndex, INCLUSION_LIST_COMMITTEE_SIZE]` as in the spec.
-  ## `ValidatorIndex` serializes as `uint64`, so widen before hashing.
-  var indices: array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64]
-  for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
-    indices[i] = committee[i].uint64
-  hash_tree_root(indices)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/heze/beacon-chain.md#new-is_valid_inclusion_list_signature
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/beacon-chain.md#new-is_valid_inclusion_list_signature
 proc is_valid_inclusion_list_signature*(
     state: heze.BeaconState,
     signed_inclusion_list: SignedInclusionList): bool =
   ## Check if ``signed_inclusion_list`` has a valid signature.
-  let
-    msg = signed_inclusion_list.message
-    index = msg.validator_index
+  template msg: untyped = signed_inclusion_list.message
+  let index = msg.validator_index
   if index >= state.validators.lenu64:
     return false
   verify_inclusion_list_signature(
