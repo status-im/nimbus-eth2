@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2020-2025 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -80,16 +80,6 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_3/ssz_snappy"
       getBlobSidecarTopic(forkDigest, BlobId(1)) ==
         "/eth2/00000000/blob_sidecar_1/ssz_snappy"
-      toSeq(blobSidecarTopics(forkDigest, subnetCount = 9)) ==
-        ["/eth2/00000000/blob_sidecar_0/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_1/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_2/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_3/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_4/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_5/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_6/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_7/ssz_snappy",
-         "/eth2/00000000/blob_sidecar_8/ssz_snappy"]
 
   test "is_aggregator":
     check:
@@ -277,7 +267,7 @@ suite "Honest validator":
     for i in
         FAULT_INSPECTION_WINDOW * 7 ..
         FAULT_INSPECTION_WINDOW * 9 + MAX_MISSING_WINDOW * 2 - 1:
-      # i.e. two fullly covered epochs then get into MAX_MISSING_WINDOW * 2 - 1
+      # i.e. two fully-covered epochs, then get into MAX_MISSING_WINDOW * 2 - 1
       # of the every-other-block is present. Because only MAX_MISSING_WINDOW of
       # these can exist, it's the ones at (FIW*9 base of 0): 1, 3, 5, 7, 9 that
       # are missing. Can get up to 9 here, i.e. by 2 * MAX_MISSING_WINDOW, as a

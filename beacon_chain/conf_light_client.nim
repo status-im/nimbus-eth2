@@ -57,11 +57,30 @@ type LightClientConf* = object
     desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
     name: "listen-address" .}: Option[IpAddress]
 
+  tcpEnabled* {.
+    hidden
+    desc: "Enable TCP transport"
+    defaultValue: true
+    name: "debug-tcp" .}: bool
+
   tcpPort* {.
     desc: "Listening TCP port for Ethereum LibP2P traffic"
     defaultValue: defaultEth2TcpPort
     defaultValueDesc: $defaultEth2TcpPortDesc
     name: "tcp-port" .}: Port
+
+  quicEnabled* {.
+    hidden
+    desc: "Enable QUIC transport"
+    defaultValue: false
+    name: "debug-quic" .}: bool
+
+  quicPort* {.
+    hidden
+    desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
+    defaultValue: defaultEth2QuicPort
+    defaultValueDesc: $defaultEth2QuicPortDesc
+    name: "debug-quic-port" .}: Port
 
   udpPort* {.
     desc: "Listening UDP port for node discovery"
@@ -113,6 +132,7 @@ type LightClientConf* = object
 
   syncLightClientFinality* {.
     desc: "Whether the light client should including finality information when syncing execution layers"
+    defaultValue: true
     name: "sync-light-client-finality" .}: bool
 
   # Execution layer
@@ -140,6 +160,23 @@ type LightClientConf* = object
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
     name: "debug-stop-at-epoch" .}: uint64
+
+  # Metrics
+  metricsEnabled* {.
+    desc: "Enable the metrics server"
+    defaultValue: false
+    name: "metrics" .}: bool
+
+  metricsAddress* {.
+    desc: "Listening address of the metrics server"
+    defaultValue: defaultAdminListenAddress
+    defaultValueDesc: $defaultAdminListenAddressDesc
+    name: "metrics-address" .}: IpAddress
+
+  metricsPort* {.
+    desc: "Listening HTTP port of the metrics server"
+    defaultValue: 8008
+    name: "metrics-port" .}: Port
 
   logFile* {.
     obsolete: "Logging to file has been deprecated since v1.5.3, see https://nimbus.guide/logging.html#logging-to-a-file"

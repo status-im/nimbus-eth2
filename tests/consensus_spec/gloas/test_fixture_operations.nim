@@ -21,7 +21,6 @@ import
   ../../helpers/debug_state
 
 from std/sequtils import anyIt, mapIt, toSeq
-from std/strutils import contains
 from ../../../beacon_chain/spec/beaconstate import
   get_base_reward_per_increment, get_state_exit_queue_info,
   get_total_active_balance, latest_block_root, process_attestation
@@ -32,26 +31,30 @@ const
   OpAttSlashingDir            = OpDir/"attester_slashing"
   OpBlockHeaderDir            = OpDir/"block_header"
   OpBlsToExecutionChangeDir   = OpDir/"bls_to_execution_change"
+  OpBuilderDepositRequestDir  = OpDir/"builder_deposit_request"
+  OpBuilderExitRequestDir     = OpDir/"builder_exit_request"
   OpConsolidationRequestDir   = OpDir/"consolidation_request"
   OpDepositRequestDir         = OpDir/"deposit_request"
-  OpDepositsDir               = OpDir/"deposit"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
-  OpExecutionPayloadDir       = OpDir/"execution_payload"
+  OpParentExecutionPayloadDir = OpDir/"parent_execution_payload"
   OpExecutionPayloadBidDir    = OpDir/"execution_payload_bid"
   OpPayloadAttestationDir     = OpDir/"payload_attestation"
   OpProposerSlashingDir       = OpDir/"proposer_slashing"
   OpSyncAggregateDir          = OpDir/"sync_aggregate"
   OpVoluntaryExitDir          = OpDir/"voluntary_exit"
+  OpVoluntaryExitChurnDir     = OpDir/"voluntary_exit_churn"
   OpWithdrawalsDir            = OpDir/"withdrawals"
 
   baseDescription = "EF - Gloas - Operations - "
 
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-  OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
-  OpDepositsDir, OpWithdrawalRequestDir, OpExecutionPayloadDir,
+  OpBlsToExecutionChangeDir, OpBuilderDepositRequestDir, OpBuilderExitRequestDir,
+  OpConsolidationRequestDir, OpDepositRequestDir,
+  OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
-  OpSyncAggregateDir, OpVoluntaryExitDir, OpWithdrawalsDir
+  OpSyncAggregateDir, OpVoluntaryExitDir, OpVoluntaryExitChurnDir,
+  OpWithdrawalsDir
 ])
 
 doAssert toHashSet(
@@ -173,71 +176,74 @@ suite baseDescription & "Consolidation Request " & preset():
       OpConsolidationRequestDir, suiteName, "Consolidation Request",
       "consolidation_request", applyConsolidationRequest, path)
 
-suite baseDescription & "Deposit " & preset():
-  func applyDeposit(
-      preState: var gloas.BeaconState, deposit: Deposit):
-      Result[void, cstring] =
-    process_deposit(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
-
-  for path in walkTests(OpDepositsDir):
-    runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
-
 suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
-    var pending = get_pending_validators(defaultRuntimeConfig, preState)
+    # [Modified in Gloas:EIP8282] deposit requests are queued like Fulu
     process_deposit_request(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[],
-      sortValidatorBuckets(preState.builders.asSeq)[], pending, depositRequest, {})
+      defaultRuntimeConfig, preState, depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
 
-suite baseDescription & "Execution Payload " & preset():
-  proc makeApplyExecutionPayloadCb(path: string): auto =
-    return proc(
-        preState: var gloas.BeaconState,
-        signed_envelope: SignedExecutionPayloadEnvelope):
-        Result[void, cstring] =
-      let payloadValid = os_ops.readFile(
-          OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
-        ).contains("execution_valid: true")
-      var
-        cache: StateCache
-      let hashedState = (ref gloas.HashedBeaconState)(
-        data: preState, root: hash_tree_root(preState))
+suite baseDescription & "Builder Deposit Request " & preset():
+  func applyBuilderDepositRequest(
+      preState: var gloas.BeaconState,
+      builderDepositRequest: gloas.BuilderDepositRequest):
+      Result[void, cstring] =
+    process_builder_deposit_request(
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest)
+    ok()
 
-      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
-      let res = process_execution_payload(
-        defaultRuntimeConfig, hashedState[],
-        signed_envelope, executePayload, cache)
-      preState = hashedState.data
-      res
+  for path in walkTests(OpBuilderDepositRequestDir):
+    runTest[gloas.BuilderDepositRequest, typeof applyBuilderDepositRequest](
+      OpBuilderDepositRequestDir, suiteName, "Builder Deposit Request",
+      "builder_deposit_request", applyBuilderDepositRequest, path)
 
-  for path in walkTests(OpExecutionPayloadDir):
-    let applyExecutionPayload = makeApplyExecutionPayloadCb(path)
-    runTest[SignedExecutionPayloadEnvelope, typeof applyExecutionPayload](
-      OpExecutionPayloadDir, suiteName, "Execution Payload", "signed_envelope",
-      applyExecutionPayload, path)
+suite baseDescription & "Builder Exit Request " & preset():
+  func applyBuilderExitRequest(
+      preState: var gloas.BeaconState,
+      builderExitRequest: gloas.BuilderExitRequest):
+      Result[void, cstring] =
+    process_builder_exit_request(
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.builders.asSeq)[], builderExitRequest)
+    ok()
+
+  for path in walkTests(OpBuilderExitRequestDir):
+    runTest[gloas.BuilderExitRequest, typeof applyBuilderExitRequest](
+      OpBuilderExitRequestDir, suiteName, "Builder Exit Request",
+      "builder_exit_request", applyBuilderExitRequest, path)
+
+suite baseDescription & "Parent Execution Payload " & preset():
+  proc applyParentExecPayload(
+      preState: var gloas.BeaconState,
+      blck: gloas.BeaconBlock): Result[void, cstring] =
+    var cache: StateCache
+    process_parent_execution_payload(
+      defaultRuntimeConfig, preState, blck, {}, cache)
+
+  for path in walkTests(OpParentExecutionPayloadDir):
+    runTest[gloas.BeaconBlock, typeof applyParentExecPayload](
+      OpParentExecutionPayloadDir, suiteName, "Parent Execution Payload",
+      "block", applyParentExecPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(
       preState: var gloas.BeaconState,
-      blck: gloas.BeaconBlock): Result[void, cstring] =
+      signedBid: SignedExecutionPayloadBid): Result[void, cstring] =
+    var cache: StateCache
     process_execution_payload_bid(
-      defaultRuntimeConfig, preState, blck)
+      defaultRuntimeConfig, preState, signedBid, cache)
 
   for path in walkTests(OpExecutionPayloadBidDir):
-    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadBid](
+    runTest[SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
       OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
-      "block", applyExecutionPayloadBid, path)
+      "execution_payload_bid", applyExecutionPayloadBid, path)
 
 suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(
@@ -313,11 +319,16 @@ suite baseDescription & "Voluntary Exit " & preset():
       OpVoluntaryExitDir, suiteName, "Voluntary Exit", "voluntary_exit",
       applyVoluntaryExit, path)
 
+  for path in walkTests(OpVoluntaryExitChurnDir):
+    runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
+      OpVoluntaryExitChurnDir, suiteName, "Voluntary Exit Churn",
+      "voluntary_exit", applyVoluntaryExit, path)
+
 suite baseDescription & "Withdrawals " & preset():
   for path in walkTests(OpWithdrawalsDir):
     # See: https://github.com/status-im/nimbus-eth2/pull/7926#discussion_r2776852494
-    if path in ["invalid_validator_index_pending_partial", 
-                "invalid_builder_index_sweep", 
+    if path in ["invalid_validator_index_pending_partial",
+                "invalid_builder_index_sweep",
                 "invalid_validator_index_sweep",
                 "invalid_builder_index_pending"]:
       continue
@@ -326,7 +337,7 @@ suite baseDescription & "Withdrawals " & preset():
         "[Valid]   "
       else:
         "[Invalid] "
-    
+
     test prefix & baseDescription & "Withdrawals - " & path:
       let
         testDir = OpWithdrawalsDir / "pyspec_tests" / path
@@ -335,7 +346,7 @@ suite baseDescription & "Withdrawals " & preset():
         done = process_withdrawals(preState[])
 
       if fileExists(testDir/"post.ssz_snappy"):
-        let 
+        let
           postState = newClone(parseTest(
             testDir/"post.ssz_snappy", SSZ, gloas.BeaconState))
           pass = preState[].hash_tree_root() == postState[].hash_tree_root()

@@ -16,7 +16,6 @@ import
   eth/p2p/discoveryv5/random2,
   eth/rlp,
   eth/trie/ordered_trie,
-  json_rpc/jsonmarshal,
   secp256k1,
   snappy,
   web3/[engine_api_types, eth_api_types, conversions],
@@ -346,7 +345,7 @@ proc ETHLightClientStoreCreateFromBootstrap(
     except RestError:
       return nil
   doAssert bootstrap.kind > LightClientDataFork.None
-  bootstrap.migrateToDataFork(lcDataFork)
+  bootstrap.migrateToDataFork(lcDataFork, cfg[])
 
   let store = lcDataFork.LightClientStore.new()
   store[] = initialize_light_client_store(
@@ -533,7 +532,7 @@ proc ETHLightClientStoreProcessUpdatesByRange(
   var didProgress = false
   for i in 0 ..< updates.len:
     doAssert updates[i].kind > LightClientDataFork.None
-    updates[i].migrateToDataFork(lcDataFork)
+    updates[i].migrateToDataFork(lcDataFork, cfg[])
     let res = process_light_client_update(
       store[], updates[i].forky(lcDataFork),
       currentSlot, cfg[], genesisValRoot[])
@@ -619,7 +618,7 @@ proc ETHLightClientStoreProcessFinalityUpdate(
     except RestError:
       return 1
   doAssert finalityUpdate.kind > LightClientDataFork.None
-  finalityUpdate.migrateToDataFork(lcDataFork)
+  finalityUpdate.migrateToDataFork(lcDataFork, cfg[])
   let res = process_light_client_update(
     store[], finalityUpdate.forky(lcDataFork),
     currentSlot, cfg[], genesisValRoot[])
@@ -703,7 +702,7 @@ proc ETHLightClientStoreProcessOptimisticUpdate(
     except RestError:
       return 1
   doAssert optimisticUpdate.kind > LightClientDataFork.None
-  optimisticUpdate.migrateToDataFork(lcDataFork)
+  optimisticUpdate.migrateToDataFork(lcDataFork, cfg[])
   let res = process_light_client_update(
     store[], optimisticUpdate.forky(lcDataFork),
     currentSlot, cfg[], genesisValRoot[])
@@ -1029,224 +1028,8 @@ proc ETHLightClientHeaderCopyExecutionHash(
   ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.4/specs/deneb/beacon-chain.md#executionpayloadheader
   discard cfg  # Future-proof against SSZ execution block header, EIP-6404ff.
   let root = Eth2Digest.new()
-  root[] = header[].execution.block_hash
+  root[] = header[].execution_block_hash
   root.toUnmanagedPtr()
-
-type ExecutionPayloadHeader =
-  typeof(declval(lcDataFork.LightClientHeader).execution)
-
-func ETHLightClientHeaderGetExecution(
-    header: ptr lcDataFork.LightClientHeader
-): ptr ExecutionPayloadHeader {.exported.} =
-  ## Obtains the execution payload header of a given light client header.
-  ##
-  ## * The returned value is allocated in the given light client header.
-  ##   It must neither be released nor written to, and the light client header
-  ##   must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `header` - Light client header.
-  ##
-  ## Returns:
-  ## * Execution payload header.
-  ##
-  ## See:
-  ## * https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/deneb/beacon-chain.md#executionpayloadheader
-  addr header[].execution
-
-func ETHExecutionPayloadHeaderGetParentHash(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
-  ## Obtains the parent execution block hash of a given
-  ## execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Parent execution block hash.
-  addr execution[].parent_hash
-
-func ETHExecutionPayloadHeaderGetFeeRecipient(
-    execution: ptr ExecutionPayloadHeader): ptr ExecutionAddress {.exported.} =
-  ## Obtains the fee recipient address of a given execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Fee recipient execution address.
-  addr execution[].fee_recipient
-
-func ETHExecutionPayloadHeaderGetStateRoot(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
-  ## Obtains the state MPT root of a given execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Execution state root.
-  addr execution[].state_root
-
-func ETHExecutionPayloadHeaderGetReceiptsRoot(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
-  ## Obtains the receipts MPT root of a given execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Execution receipts root.
-  addr execution[].receipts_root
-
-func ETHExecutionPayloadHeaderGetLogsBloom(
-    execution: ptr ExecutionPayloadHeader): ptr BloomLogs {.exported.} =
-  ## Obtains the logs Bloom of a given execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Execution logs Bloom.
-  addr execution[].logs_bloom
-
-func ETHExecutionPayloadHeaderGetPrevRandao(
-    execution: ptr ExecutionPayloadHeader): ptr Eth2Digest {.exported.} =
-  ## Obtains the previous randao mix of a given execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Previous randao mix.
-  addr execution[].prev_randao
-
-func ETHExecutionPayloadHeaderGetBlockNumber(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the execution block number of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Execution block number.
-  execution[].block_number.cint
-
-func ETHExecutionPayloadHeaderGetGasLimit(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the gas limit of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Gas limit.
-  execution[].gas_limit.cint
-
-func ETHExecutionPayloadHeaderGetGasUsed(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the gas used of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Gas used.
-  execution[].gas_used.cint
-
-func ETHExecutionPayloadHeaderGetTimestamp(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the timestamp of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Execution block timestamp.
-  execution[].timestamp.cint
-
-func ETHExecutionPayloadHeaderGetExtraDataBytes(
-    execution: ptr ExecutionPayloadHeader,
-    numBytes #[out]#: ptr cint): ptr UncheckedArray[byte] {.exported.} =
-  ## Obtains the extra data buffer of a given execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ## * `numBytes` [out] - Length of buffer.
-  ##
-  ## Returns:
-  ## * Buffer with execution block extra data.
-  numBytes[] = execution[].extra_data.len.cint
-  if execution[].extra_data.len == 0:
-    # https://github.com/nim-lang/Nim/issues/22389
-    const defaultExtraData: cstring = ""
-    return cast[ptr UncheckedArray[byte]](defaultExtraData)
-  cast[ptr UncheckedArray[byte]](addr execution[].extra_data[0])
-
-func ETHExecutionPayloadHeaderGetBaseFeePerGas(
-    execution: ptr ExecutionPayloadHeader): ptr UInt256 {.exported.} =
-  ## Obtains the base fee per gas of a given execution payload header.
-  ##
-  ## * The returned value is allocated in the given execution payload header.
-  ##   It must neither be released nor written to, and the execution payload
-  ##   header must not be released while the returned value is in use.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Base fee per gas.
-  addr execution[].base_fee_per_gas
-
-func ETHExecutionPayloadHeaderGetBlobGasUsed(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the blob gas used of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Blob gas used.
-  execution[].blob_gas_used.cint
-
-func ETHExecutionPayloadHeaderGetExcessBlobGas(
-    execution: ptr ExecutionPayloadHeader): cint {.exported.} =
-  ## Obtains the excess blob gas of a given execution payload header.
-  ##
-  ## Parameters:
-  ## * `execution` - Execution payload header.
-  ##
-  ## Returns:
-  ## * Excess blob gas.
-  execution[].excess_blob_gas.cint
 
 type
   ETHWithdrawal = object
@@ -1306,10 +1089,10 @@ proc ETHExecutionBlockHeaderCreateFromJson(
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
   let data = try:
-    # a direct parameter like JrpcConv.decode($blockHeaderJson, BlockObject)
+    # a direct parameter like EthJson.decode($blockHeaderJson, BlockObject)
     # will cause premature garbage collector kick in.
     let jsonBytes = $blockHeaderJson
-    JrpcConv.decode(jsonBytes, BlockObject)
+    EthJson.decode(jsonBytes, BlockObject)
   except SerializationError:
     return nil
   if data == nil:
@@ -1320,18 +1103,21 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     return nil
 
   # Check fork consistency
-  static: doAssert totalSerializedFields(BlockObject) == 27,
+  static: doAssert totalSerializedFields(BlockObject) == 28,
     "Only update this number once code is adjusted to check new fields!"
   if data.baseFeePerGas.isNone and (
       data.withdrawals.isSome or data.withdrawalsRoot.isSome or
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome):
+      data.requestsHash.isSome or data.blockAccessListHash.isSome):
     return nil
   if data.withdrawalsRoot.isNone and (
       data.blobGasUsed.isSome or data.excessBlobGas.isSome or
-      data.requestsHash.isSome):
+      data.requestsHash.isSome or data.blockAccessListHash.isSome):
     return nil
-  if data.blobGasUsed.isNone and data.requestsHash.isSome:
+  if data.blobGasUsed.isNone and (
+      data.requestsHash.isSome or data.blockAccessListHash.isSome):
+    return nil
+  if data.requestsHash.isNone and data.blockAccessListHash.isSome:
     return nil
   if data.withdrawals.isSome != data.withdrawalsRoot.isSome:
     return nil
@@ -1384,6 +1170,11 @@ proc ETHExecutionBlockHeaderCreateFromJson(
     requestsHash:
       if data.requestsHash.isSome:
         Opt.some data.requestsHash.get.asEth2Digest.to(Hash32)
+      else:
+        Opt.none(Hash32),
+    blockAccessListHash:
+      if data.blockAccessListHash.isSome:
+        Opt.some data.blockAccessListHash.get.asEth2Digest.to(Hash32)
       else:
         Opt.none(Hash32))
   if blockHeader.computeRlpHash().asEth2Digest() != executionHash[]:
@@ -2018,10 +1809,10 @@ proc ETHTransactionsCreateFromJson(
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_getblockbyhash
   var datas = try:
-    # a direct parameter like JrpcConv.decode($transactionsJson, seq[TransactionObject])
+    # a direct parameter like EthJson.decode($transactionsJson, seq[TransactionObject])
     # will cause premature garbage collector kick in.
     let jsonBytes = $transactionsJson
-    JrpcConv.decode(jsonBytes, seq[TransactionObject])
+    EthJson.decode(jsonBytes, seq[TransactionObject])
   except SerializationError:
     return nil
 
@@ -2034,7 +1825,7 @@ proc ETHTransactionsCreateFromJson(
       return nil
 
     # Check fork consistency
-    static: doAssert totalSerializedFields(TransactionObject) == 23,
+    static: doAssert totalSerializedFields(TransactionObject) == 24,
       "Only update this number once code is adjusted to check new fields!"
     let txType =
       case data.`type`.get(0.Quantity):
@@ -3155,10 +2946,10 @@ proc ETHReceiptsCreateFromJson(
   ## See:
   ## * https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_gettransactionreceipt
   var datas = try:
-    # a direct parameter like JrpcConv.decode($receiptsJson, seq[ReceiptObject])
+    # a direct parameter like EthJson.decode($receiptsJson, seq[ReceiptObject])
     # will cause premature garbage collector kick in.
     let jsonBytes = $receiptsJson
-    JrpcConv.decode(jsonBytes, seq[ReceiptObject])
+    EthJson.decode(jsonBytes, seq[ReceiptObject])
   except SerializationError:
     return nil
   if datas.len != ETHTransactionsGetCount(transactions):

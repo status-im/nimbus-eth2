@@ -330,11 +330,7 @@ proc prepareNextSlot*(
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
   withState(dag.clearanceState):
-    when consensusFork == ConsensusFork.Heze:
-      debugHezeComment "well, likely can't keep reusing V3 much longer"
-    elif consensusFork == ConsensusFork.Gloas:
-      debugGloasComment "well, likely can't keep reusing V3 much longer"
-    elif consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
+    when consensusFork >= ConsensusFork.Electra:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       let
         timestamp = dag.timeParams
@@ -347,30 +343,41 @@ proc prepareNextSlot*(
           nextProposer, Opt.some(validatorIndex), proposalSlot.epoch
         )
         beaconHead = self.attestationPool[].getBeaconHead(head)
-        headBlockHash = dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
-          return
+        executionHead =
+          when consensusFork >= ConsensusFork.Gloas:
+            if dag.shouldExtendPayload(head):
+              proposalExecutionHead(forkyState.data)
+            else:
+              dag.loadExecutionAndParentBlockHash(head).parentHash.valueOr:
+                return
+          else:
+            dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
+              return
 
-      if headBlockHash.isZero:
+      if executionHead.isZero:
         return
 
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
       let
         state = ForkchoiceStateV1.init(
-          headBlockHash, beaconHead.safeExecutionBlockHash,
+          executionHead, beaconHead.safeExecutionBlockHash,
           beaconHead.finalizedExecutionBlockHash,
         )
-        attributes = PayloadAttributesV3.init(
-          timestamp,
-          prevRandao,
-          feeRecipient,
-          get_expected_withdrawals(forkyState.data),
-          beaconHead.blck.bid.root,
-        )
+        attributes =
+          when consensusFork >= ConsensusFork.Gloas:
+            PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
+              get_expected_withdrawals(forkyState.data).withdrawals,
+              beaconHead.blck.bid.root, proposalSlot,
+              self[].getGasLimit(nextProposer))
+          else:
+            # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
+            PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
+              get_expected_withdrawals(forkyState.data),
+              beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
           state, Opt.some(attributes), deadline, false
         )
-      debug "Fork-choice updated for proposal", status, headBlockHash, attributes
+      debug "Fork-choice updated for proposal", status, executionHead, attributes
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:
@@ -464,7 +471,7 @@ proc forkchoiceUpdated(
           payloadExecutionStatus = status
       true
     of OptimisticStatus.invalidated:
-      if head.blck.executionValid:
+      if head.blck.optimisticStatus == OptimisticStatus.valid:
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
         warn "Previously valid execution payload turned invalid during fork choice update - check execution client for faults and restart the beacon node",
           blck = head.blck,

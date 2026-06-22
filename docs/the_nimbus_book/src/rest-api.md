@@ -153,26 +153,6 @@ Get scheduled upcoming forks (retrieve all forks, past present and future, of wh
 In addition to supporting the standard endpoints, Nimbus has a set of specific endpoints which augment the standard API.
 
 
-#### Check Graffiti String
-
-
-=== "With our mainnet testing server"
-    ```
-    curl -X GET http://testing.mainnet.beacon-api.nimbus.team/nimbus/v1/graffiti
-    ```
-
-=== "With your own local server"
-    ```
-    curl -X GET http://localhost:5052/nimbus/v1/graffiti
-    ```
-
-#### Set Graffiti String
-
-=== "With your own local server"
-    ```
-    curl -X POST http://localhost:5052/nimbus/v1/graffiti -H  "Content-Type: text/plain" -d "new graffiti"
-    ```
-
 #### Set Log Level
 
 *TBA*

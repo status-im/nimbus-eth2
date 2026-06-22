@@ -82,7 +82,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV2):
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
 func asConsensusType*(
-    rpcExecutionPayload: ExecutionPayloadV3 | ExecutionPayloadV4):
+    rpcExecutionPayload: ExecutionPayloadV3):
     deneb.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -107,6 +107,36 @@ func asConsensusType*(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64)
+
+func asConsensusType*(
+    rpcExecutionPayload: ExecutionPayloadV4):
+    gloas.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+
+  gloas.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient: rpcExecutionPayload.feeRecipient,
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
+    excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
+    block_access_list: List[byte, MAX_BYTES_PER_TRANSACTION].init(
+      rpcExecutionPayload.blockAccessList),
+    slot_number: Slot(rpcExecutionPayload.slotNumber))
 
 func asConsensusType*(
     payload: engine_api.GetPayloadV4Response):
@@ -149,10 +179,10 @@ func asConsensusType*(
         payload.blobsBundle.blobs.mapIt(it.data))),
     executionRequests: payload.executionRequests)
 
-func asConsensusTypeGloas*(
-    payload: GetPayloadV5Response): gloas.ExecutionPayloadForSigning =
+func asConsensusType*(
+    payload: GetPayloadV6Response): gloas.ExecutionPayloadForSigning =
   gloas.ExecutionPayloadForSigning(
-    executionPayload: payload.executionPayload.asConsensusType,
+    executionPayload: payload.executionPayload.asConsensusType(),
     blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
@@ -245,7 +275,7 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas))
 
-func asEngineExecutionPayloadV4*(executionPayload: deneb.ExecutionPayload):
+func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     ExecutionPayloadV4 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
@@ -269,8 +299,8 @@ func asEngineExecutionPayloadV4*(executionPayload: deneb.ExecutionPayload):
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
     blobGasUsed: Quantity(executionPayload.blob_gas_used),
     excessBlobGas: Quantity(executionPayload.excess_blob_gas),
-    blockAccessList: @[],  # TODO: stub
-    slotNumber: Quantity(0)) # TODO: stub
+    blockAccessList: executionPayload.block_access_list.asSeq,
+    slotNumber: Quantity(executionPayload.slot_number))
 
 proc asEngineVersionedHashes*(
     blob_kzg_commitments: KzgCommitments
@@ -280,21 +310,42 @@ proc asEngineVersionedHashes*(
   mapIt(blob_kzg_commitments, kzg_commitment_to_versioned_hash(it))
 
 proc asEngineExecutionRequests*(
-    execution_requests: electra.ExecutionRequests
-): seq[seq[byte]] =
-  # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
+    execution_requests: electra.ExecutionRequests): seq[seq[byte]] =
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.7/src/engine/prague.md#request
   # "Each list element is a `requests` byte array as defined by
   # EIP-7685. The first byte of each element is the `request_type`
   # and the remaining bytes are the `request_data`. Elements of
   # the list MUST be ordered by `request_type` in ascending order.
   # Elements with empty `request_data` MUST be excluded from the
   # list."
-
   var requests: seq[seq[byte]]
   for request_type, request_data in [
     SSZ.encode(execution_requests.deposits),
     SSZ.encode(execution_requests.withdrawals),
     SSZ.encode(execution_requests.consolidations),
+  ]:
+    if request_data.len > 0:
+      requests.add @[request_type.byte] & request_data
+  requests
+
+# https://eips.ethereum.org/EIPS/eip-7685
+# [Modified in Gloas:EIP8282] also emits builder deposit/exit requests
+proc asEngineExecutionRequests*(
+    execution_requests: gloas.ExecutionRequests): seq[seq[byte]] =
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.7/src/engine/prague.md#request
+  # "Each list element is a `requests` byte array as defined by
+  # EIP-7685. The first byte of each element is the `request_type`
+  # and the remaining bytes are the `request_data`. Elements of
+  # the list MUST be ordered by `request_type` in ascending order.
+  # Elements with empty `request_data` MUST be excluded from the
+  # list."
+  var requests: seq[seq[byte]]
+  for request_type, request_data in [
+    SSZ.encode(execution_requests.deposits),
+    SSZ.encode(execution_requests.withdrawals),
+    SSZ.encode(execution_requests.consolidations),
+    SSZ.encode(execution_requests.builder_deposits),
+    SSZ.encode(execution_requests.builder_exits),
   ]:
     if request_data.len > 0:
       requests.add @[request_type.byte] & request_data

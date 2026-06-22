@@ -13,7 +13,7 @@ import
   stew/assign2,
   chronicles,
   ../extras,
-  "."/[
+  ./[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
@@ -21,7 +21,7 @@ import
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
 from std/algorithm import sort
-from std/sequtils import mapIt
+from std/sequtils import deduplicate, filterIt, mapIt
 from stew/staticfor import staticFor
 
 export
@@ -96,7 +96,8 @@ type
   ForkyExecutionPayload* =
     bellatrix.ExecutionPayload |
     capella.ExecutionPayload |
-    deneb.ExecutionPayload
+    deneb.ExecutionPayload |
+    gloas.ExecutionPayload
 
   ForkyExecutionPayloadHeader* =
     bellatrix.ExecutionPayloadHeader |
@@ -241,18 +242,6 @@ type
     of ConsensusFork.Fulu:      fuluData*:      electra.Attestation
     of ConsensusFork.Gloas:     gloasData*:     electra.Attestation
     of ConsensusFork.Heze:      hezeData*:      electra.Attestation
-
-  ForkedAggregateAndProof* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.AggregateAndProof
-    of ConsensusFork.Altair:    altairData*:    phase0.AggregateAndProof
-    of ConsensusFork.Bellatrix: bellatrixData*: phase0.AggregateAndProof
-    of ConsensusFork.Capella:   capellaData*:   phase0.AggregateAndProof
-    of ConsensusFork.Deneb:     denebData*:     phase0.AggregateAndProof
-    of ConsensusFork.Electra:   electraData*:   electra.AggregateAndProof
-    of ConsensusFork.Fulu:      fuluData*:      electra.AggregateAndProof
-    of ConsensusFork.Gloas:     gloasData*:     electra.AggregateAndProof
-    of ConsensusFork.Heze:      hezeData*:      electra.AggregateAndProof
 
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -688,6 +677,12 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   else:
     {.error: "ExecutionPayloadForSigning unsupported in " & $kind.}
 
+template ExecutionRequests*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Gloas:
+    gloas.ExecutionRequests
+  else:
+    electra.ExecutionRequests
+
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
     fulu_mev.BlindedBeaconBlock
@@ -827,7 +822,9 @@ template BlindedBlockContents*(
 template PayloadAttributes*(
     kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
-  when kind >= ConsensusFork.Deneb:
+  when kind >= ConsensusFork.Gloas:
+    PayloadAttributesV4
+  elif kind >= ConsensusFork.Deneb:
     PayloadAttributesV3
   elif kind >= ConsensusFork.Capella:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
@@ -1506,46 +1503,6 @@ template withAttestation*(a: ForkedAttestation, body: untyped): untyped =
     template forkyAttestation: untyped {.inject.} = a.phase0Data
     body
 
-template withAggregateAndProof*(a: ForkedAggregateAndProof,
-                                body: untyped): untyped =
-  case a.kind
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyProof: untyped {.inject.} = a.hezeData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyProof: untyped {.inject.} = a.gloasData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyProof: untyped {.inject.} = a.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyProof: untyped {.inject.} = a.electraData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyProof: untyped {.inject.} = a.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyProof: untyped {.inject.} = a.capellaData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyProof: untyped {.inject.} = a.bellatrixData
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyProof: untyped {.inject.} = a.altairData
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyProof: untyped {.inject.} = a.phase0Data
-    body
-
 func toBeaconBlockHeader*(
     blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock):
     BeaconBlockHeader =
@@ -1670,10 +1627,23 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
         res = entry.EPOCH
     res
 
+func nextForkDigestAtEpoch*(
+    cfg: RuntimeConfig, forkDigests: ForkDigests, epoch: Epoch): ForkDigest =
+  ## Compute the next fork digest for ENR `nfd` field.
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/fulu/p2p-interface.md#next-fork-digest
+  let nextForkEpoch = cfg.nextForkEpochAtEpoch(epoch)
+  # If no next fork is scheduled, `nfd` should be zeros by default.
+  if nextForkEpoch == FAR_FUTURE_EPOCH:
+    default(ForkDigest)
+  else:
+    forkDigests.atEpoch(nextForkEpoch, cfg)
+
 func lcDataForkAtConsensusFork*(
     consensusFork: ConsensusFork): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
-  if consensusFork >= ConsensusFork.Electra:
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
+  if consensusFork >= ConsensusFork.Gloas:
+    LightClientDataFork.Gloas
+  elif consensusFork >= ConsensusFork.Electra:
     LightClientDataFork.Electra
   elif consensusFork >= ConsensusFork.Deneb:
     LightClientDataFork.Deneb
@@ -1699,11 +1669,22 @@ static:
         check lcDataFork.next_sync_committee_gindex,
           BeaconState, "next_sync_committee"
 
-        when lcDataFork >= LightClientDataFork.Capella and
-            consensusFork < ConsensusFork.Gloas:
-          debugGloasComment "[PH] LC specs"
-          check EXECUTION_PAYLOAD_GINDEX,
-            BeaconBlockBody, "execution_payload"
+        when lcDataFork >= LightClientDataFork.Capella:
+          when consensusFork >= ConsensusFork.Gloas:
+            check EXECUTION_BLOCK_HASH_GINDEX_GLOAS, BeaconBlockBody,
+              "signed_execution_payload_bid", "message", "parent_block_hash"
+          else:
+            check EXECUTION_PAYLOAD_GINDEX,
+              BeaconBlockBody, "execution_payload"
+            const latest_block_hash_gindex =
+              when consensusFork >= ConsensusFork.Deneb:
+                EXECUTION_BLOCK_HASH_GINDEX_DENEB
+              else:
+                EXECUTION_BLOCK_HASH_GINDEX
+            check latest_block_hash_gindex,
+              BeaconBlockBody, "execution_payload", "block_hash"
+        else:
+          discard  # Light client data does not track execution data
 
 func getForkSchedule*(cfg: RuntimeConfig): array[8, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
@@ -1846,7 +1827,9 @@ func init*(T: type ForkDigests,
            (cfg.GLOAS_FORK_EPOCH, ConsensusFork.Gloas, compute_fork_digest_fulu(
             cfg, genesis_validators_root, cfg.GLOAS_FORK_EPOCH)),
            (cfg.HEZE_FORK_EPOCH, ConsensusFork.Heze, compute_fork_digest_fulu(
-            cfg, genesis_validators_root, cfg.HEZE_FORK_EPOCH))] &
+            cfg, genesis_validators_root, cfg.HEZE_FORK_EPOCH))]
+            .filterIt(it[0] != FAR_FUTURE_EPOCH and
+                      consensusForkAtEpoch(cfg, it[0]) == it[1]) &
           mapIt(cfg.BLOB_SCHEDULE, (
             it.EPOCH,
             consensusForkAtEpoch(cfg, it.EPOCH),
@@ -1854,7 +1837,9 @@ func init*(T: type ForkDigests,
 
         # BPOs need to be reverse-epoch sorted
         bpos.sort(cmp = proc(x, y: auto): int = system.cmp(y[0], x[0]))
-        bpos
+        # A fork-list entry at the same epoch as a BLOB_SCHEDULE entry
+        # produces an identical tuple.
+        bpos.deduplicate
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =
@@ -1972,22 +1957,6 @@ template init*(T: type ForkedAttestation,
     ForkedAttestation(kind: ConsensusFork.Gloas, gloasData: attestation)
   of ConsensusFork.Heze:
     ForkedAttestation(kind: ConsensusFork.Heze, hezeData: attestation)
-
-template init*(T: type ForkedAggregateAndProof,
-               proof: electra.AggregateAndProof,
-               fork: ConsensusFork): T =
-  case fork
-  of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-    raiseAssert $fork &
-      " fork should not be used for this type of aggregate and proof"
-  of ConsensusFork.Electra:
-    ForkedAggregateAndProof(kind: ConsensusFork.Electra, electraData: proof)
-  of ConsensusFork.Fulu:
-    ForkedAggregateAndProof(kind: ConsensusFork.Fulu, fuluData: proof)
-  of ConsensusFork.Gloas:
-    ForkedAggregateAndProof(kind: ConsensusFork.Gloas, gloasData: proof)
-  of ConsensusFork.Heze:
-    ForkedAggregateAndProof(kind: ConsensusFork.Heze, hezeData: proof)
 
 func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
   when typeof(eps).kind >= ConsensusFork.Deneb:

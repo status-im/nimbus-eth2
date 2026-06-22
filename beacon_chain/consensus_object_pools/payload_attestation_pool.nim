@@ -20,13 +20,13 @@ from ../spec/beaconstate import get_ptc
 
 logScope: topics = "payattpool"
 
-declareGauge payload_attestation_pool_block_packing_time,
-  "Time it took to create list of payload attestations for block"
+declareCounter payload_attestation_pool_block_packing_secs,
+  "Total amount of time pent packing payload attestations"
 
 type
   PayloadAttestationEntry* = object
     data*: PayloadAttestationData
-    messages*: Table[ValidatorIndex, PayloadAttestationMessage]
+    messages*: Table[uint64, PayloadAttestationMessage]
     aggregated*: Opt[PayloadAttestation]
 
   PayloadAttestationPool* = object
@@ -50,6 +50,20 @@ func pruneOldEntries(pool: var PayloadAttestationPool, wallTime: BeaconTime) =
   for slot in slotsToRemove:
     pool.attestations.del(slot)
 
+func isSeen*(
+    pool: var PayloadAttestationPool, message: PayloadAttestationMessage
+): bool =
+  pool.attestations.withValue(message.data.slot, slotEntries):
+    let key = (
+      message.data.beacon_block_root, message.data.payload_present,
+      message.data.blob_data_available,
+    )
+
+    slotEntries[].withValue(key, entry):
+      return message.validator_index in entry[].messages
+
+  false
+
 func addPayloadAttestation*(
     pool: var PayloadAttestationPool, message: PayloadAttestationMessage,
     wallTime: BeaconTime): bool =
@@ -70,11 +84,8 @@ func addPayloadAttestation*(
       key, PayloadAttestationEntry(data: message.data))
 
   # Check for duplicate
-  let vidx = ValidatorIndex(validator_index)
-  if vidx in entry[].messages:
+  if entry[].messages.hasKeyOrPut(validator_index, message):
     return false
-
-  entry[].messages[vidx] = message
 
   entry[].aggregated = Opt.none(PayloadAttestation)
 
@@ -82,9 +93,7 @@ func addPayloadAttestation*(
 
 func aggregateMessages(
     pool: PayloadAttestationPool, slot: Slot,
-    entry: var PayloadAttestationEntry, cache: var StateCache
-): Opt[PayloadAttestation] =
-
+    entry: var PayloadAttestationEntry): Opt[PayloadAttestation] =
   if entry.messages.len == 0:
     return Opt.none(PayloadAttestation)
 
@@ -96,7 +105,7 @@ func aggregateMessages(
         ptc_index = 0
 
       for ptc_validator_index in get_ptc(forkyState.data, slot):
-        entry.messages.withValue(ptc_validator_index, message):
+        entry.messages.withValue(uint64 ptc_validator_index, message):
           let cookedSig = message[].signature.load().valueOr:
             continue
           aggregation_bits[ptc_index] = true
@@ -120,24 +129,22 @@ func aggregateMessages(
 
 func getAggregatedPayloadAttestation*(
     pool: var PayloadAttestationPool, slot: Slot,
-    key: (Eth2Digest, bool, bool), cache: var StateCache
-): Opt[PayloadAttestation] =
+    key: (Eth2Digest, bool, bool)): Opt[PayloadAttestation] =
   ## Get aggregated payload attestation for a specific attestation data
 
   pool.attestations.withValue(slot, slotEntries):
     slotEntries[].withValue(key, entry):
       if entry[].aggregated.isNone():
-        entry[].aggregated = pool.aggregateMessages(slot, entry[], cache)
+        entry[].aggregated = pool.aggregateMessages(slot, entry[])
       return entry[].aggregated
 
   Opt.none(PayloadAttestation)
 
 proc getPayloadAttestationsForBlock*(
     pool: var PayloadAttestationPool, target_slot: Slot,
-    cache: var StateCache): seq[PayloadAttestation] =
+    parent_block_root: Eth2Digest
+): seq[PayloadAttestation] =
   ## Get payload attestations to include in a block for a target slot
-  let startPackingTick = Moment.now()
-
   if target_slot == 0:
     return @[]
 
@@ -146,16 +153,24 @@ proc getPayloadAttestationsForBlock*(
   if attestation_slot notin pool.attestations:
     return @[]
 
+  let startPackingTick = Moment.now()
+
   var
     payload_attestations: seq[PayloadAttestation]
     totalCandidates = 0
 
   pool.attestations.withValue(attestation_slot, slotEntries):
     for key, entry in slotEntries[]:
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-process_payload_attestation
+      # process_payload_attestation requires
+      # `data.beacon_block_root == state.latest_block_header.parent_root`,
+      # so attestations referencing any other block at the same slot would
+      # invalidate the block.
+      if key[0] != parent_block_root:
+        continue
       totalCandidates += 1
       let aggregated =
-        pool.getAggregatedPayloadAttestation(
-          attestation_slot, key, cache)
+        pool.getAggregatedPayloadAttestation(attestation_slot, key)
       if aggregated.isSome():
         payload_attestations.add(aggregated.get())
         if payload_attestations.len >= MAX_PAYLOAD_ATTESTATIONS.int:
@@ -168,6 +183,6 @@ proc getPayloadAttestationsForBlock*(
     packingDur = packingDur, totalCandidates = totalCandidates,
     payload_attestations = payload_attestations.len()
 
-  payload_attestation_pool_block_packing_time.set(packingDur.toFloatSeconds())
+  payload_attestation_pool_block_packing_secs.inc(packingDur.toFloatSeconds())
 
   payload_attestations

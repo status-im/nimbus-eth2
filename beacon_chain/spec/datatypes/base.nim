@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-alpha.4"
+const SPEC_VERSION* = "1.7.0-alpha.11"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -220,12 +220,6 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
-
-  EpochParticipationFlags* =
-    distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-    ## Not a HashList because the list sees significant updates every block
-    ## effectively making the cost of clearing the cache higher than the typical
-    ## gains
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
@@ -695,53 +689,8 @@ iterator vindices*(
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
 
-iterator vindices*(
-    a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
-  static: doAssert distinctBase(ValidatorIndex) is uint32
-  for i in 0..<a.len.uint32:
-    yield i.ValidatorIndex
-
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
-
-template asList*(epochFlags: EpochParticipationFlags): untyped =
-  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
-template asList*(epochFlags: var EpochParticipationFlags): untyped =
-  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr epochFlags)
-  tmp[]
-
-template asSeq*(epochFlags: EpochParticipationFlags): untyped =
-  seq[ParticipationFlags] asList(epochFlags)
-
-template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
-  let tmp = cast[ptr seq[ParticipationFlags]](addr epochFlags)
-  tmp[]
-
-template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
-  asList(epochFlags)[idx]
-
-template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64|int): ParticipationFlags =
-  asList(epochFlags)[idx]
-
-template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
-  asList(epochFlags)[idx] = flags
-
-template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
-  asList(epochFlags).add flags
-
-template len*(epochFlags: EpochParticipationFlags): int =
-  asList(epochFlags).len
-
-template low*(epochFlags: EpochParticipationFlags): int =
-  asSeq(epochFlags).low
-template high*(epochFlags: EpochParticipationFlags): int =
-  asSeq(epochFlags).high
-
-template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
-  # TODO https://github.com/nim-lang/Nim/issues/21123
-  mixin assign
-  var tmp = cast[ptr seq[ParticipationFlags]](addr v)
-  assign(tmp[], distinctBase src)
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
@@ -1016,12 +965,12 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
   cache.participating.reset()
 
-func checkForkConsistency*(cfg: RuntimeConfig) =
+func checkForkConsistency(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
      cfg.DENEB_FORK_VERSION, cfg.ELECTRA_FORK_VERSION,
-     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION]
+     cfg.FULU_FORK_VERSION, cfg.GLOAS_FORK_VERSION, cfg.HEZE_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
@@ -1042,14 +991,13 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.DENEB_FORK_EPOCH, cfg.ELECTRA_FORK_EPOCH)
   assertForkEpochOrder(cfg.ELECTRA_FORK_EPOCH, cfg.FULU_FORK_EPOCH)
   assertForkEpochOrder(cfg.FULU_FORK_EPOCH, cfg.GLOAS_FORK_EPOCH)
+  assertForkEpochOrder(cfg.GLOAS_FORK_EPOCH, cfg.HEZE_FORK_EPOCH)
 
   doAssert isSorted(cfg.BLOB_SCHEDULE, cmp = cmpBlobParameters)
 
-func ofLen[T, N](ListType: type List[T, N], n: int): ListType =
-  if n < N:
-    distinctBase(result).setLen(n)
-  else:
-    raise newException(SszSizeMismatchError)
+func checkConfigConsistency*(cfg: RuntimeConfig) =
+  cfg.checkForkConsistency()
+  doAssert cfg.NUMBER_OF_CUSTODY_GROUPS <= NUMBER_OF_COLUMNS
 
-template debugGloasComment*(s: string) = discard
-template debugHezeComment*(s: string) = discard
+template debugGloasComment*(_: string) = discard
+template debugHezeComment*(_: string) = discard

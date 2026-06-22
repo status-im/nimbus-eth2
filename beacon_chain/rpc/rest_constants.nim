@@ -248,6 +248,10 @@ const
     "v1/beacon/blocks, v1/beacon/blinded_blocks, and " &
     "v1/builder/states/{state_id}/expected_withdrawals have been removed: " &
     "https://github.com/ethereum/beacon-APIs/pull/549"
+  DeprecatedRemovalNimbusGraffiti* =
+    "nimbus/v1/graffiti has been removed. For runtime graffiti updates, use " &
+    "standard Keymanager API endpoint /eth/v1/validator/{pubkey}/graffiti " &
+    "(https://ethereum.github.io/keymanager-APIs/)"
   BlockIncorrectFork* =
     "Block has incorrect fork"
   ValidatorNotActive* =
@@ -296,3 +300,7 @@ const
     "Reward value overflow"
   HistoricalSummariesUnavailable* =
     "Historical summaries unavailable"
+  ExecutionPayloadBidValidationError* =
+    "Invalid execution payload bid, it won't validate, so it's rejected"
+  ExecutionPayloadBidValidationSuccess* =
+    "The execution payload bid was validated successfully and has been broadcast"

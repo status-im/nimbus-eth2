@@ -9,13 +9,13 @@
 
 import std/[typetraits, sets, sequtils]
 import stew/base10, chronicles
-import ".."/[beacon_chain_db, beacon_node],
-       ".."/networking/eth2_network,
-       ".."/consensus_object_pools/[blockchain_dag, spec_cache,
-                                    attestation_pool, sync_committee_msg_pool],
-       ".."/validators/[beacon_validators, block_payloads],
-       ".."/spec/[beaconstate, forks, network, state_transition_block],
-       "."/[rest_utils, state_ttl_cache]
+import ../[beacon_chain_db, beacon_node],
+       ../networking/eth2_network,
+       ../consensus_object_pools/[blockchain_dag, spec_cache,
+                                  attestation_pool, sync_committee_msg_pool],
+       ../validators/[beacon_validators, block_payloads],
+       ../spec/[beaconstate, forks, network, state_transition_block],
+       ./[rest_utils, state_ttl_cache]
 
 export rest_utils
 
@@ -459,17 +459,23 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           state = node.dag.getProposalState(qhead, qslot, cache[]).valueOr:
             return RestApiResponse.jsonError(
               Http500, "Proposal state is not available")
-          engineBid = (await node.getExecutionPayload(
-              consensusFork, qhead, state, proposer,
-              node.dag.validatorKey(proposer).get().toPubKey())).valueOr:
-            return RestApiResponse.jsonError(Http500,
-              "Engine payload is not available")
-          message = (node.makeEngineBlock(
-              consensusFork, state[].forky(consensusFork), cache[],
-              proposer, qrandao, qgraffiti, qhead, qslot,
-              engineBid.eps, engineBid.execution_requests)).valueOr:
-            return RestApiResponse.jsonError(
-              Http500, "Engine block production failed: " & error)
+          engineBid = block:
+            debugGloasComment("should_extend_payload")
+            (await node.getExecutionPayload(
+                consensusFork, qhead, state, proposer,
+                node.dag.validatorKey(proposer).get().toPubKey(),
+                false)).valueOr:
+              return RestApiResponse.jsonError(Http500,
+                "Engine payload is not available")
+          message = block:
+            debugGloasComment("parent_execution_requests")
+            (node.makeEngineBlock(
+                consensusFork, state[].forky(consensusFork), cache[],
+                proposer, qrandao, qgraffiti, qhead, qslot,
+                engineBid.eps, engineBid.execution_requests,
+                default(consensusFork.ExecutionRequests), {})).valueOr:
+              return RestApiResponse.jsonError(
+                Http500, "Engine block production failed: " & error)
           blockContents = electra.BlockContents(
             `block`: message.blck,
             kzg_proofs: message.blobsBundle.proofs,
@@ -534,7 +540,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400,
                                                InvalidCommitteeIndexValueError,
                                                $res.error())
-            if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) >= ConsensusFork.Electra:
+            if qslot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
               0.CommitteeIndex
             else:
               res.get()

@@ -32,8 +32,8 @@ from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
 from ./capella import
-  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
-  SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
+  HistoricalSummary, SignedBLSToExecutionChange,
+  SignedBLSToExecutionChangeList, Withdrawal
 from ./deneb import
   Blobs, ExecutionPayload, ExecutionPayloadHeader, KzgCommitments, KzgProofs
 
@@ -47,18 +47,11 @@ const
   # The number of cells in an extended blob |
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/p2p-interface.md#configuration
+  # The number of data column sidecar subnets used in the gossipsub protocol.
   DATA_COLUMN_SIDECAR_SUBNET_COUNT* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#custody-setting
   CUSTODY_REQUIREMENT* = 4
-
-  # Minimum number of custody groups an honest node with
-  # validators attached custodies and serves samples from
-  VALIDATOR_CUSTODY_REQUIREMENT* = 8
-
-  # Balance increment corresponding to one additional group to custody
-  # 2**5 * 10**9 (= 32,000,000,000) Gwei
-  BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64 = 32000000000'u64
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/polynomial-commitments-sampling.md#custom-types
@@ -108,23 +101,27 @@ type
     block_root*: Eth2Digest
     indices*: DataColumnIndices
 
-  # https://github.com/MarcoPolo/consensus-specs/blob/c02a3a764d9b9cfe74f701493e08aa8291f40dfe/specs/fulu/p2p-interface.md#partial-columns
-  PartialDataColumnSidecar* = object
-    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    kzg_proofs*: deneb.KzgProofs
-
-  # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
-  PartialDataColumnPartsMetadat* = object
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
+  PartialDataColumnPartsMetadata* = object
     available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
-  # https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#partialdatacolumnheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnheader
   PartialDataColumnHeader* = object
     kzg_commitments*: KzgCommitments
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
+
+  CellsPresentBits* = BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnsidecar
+  PartialDataColumnSidecar* = object
+    cells_present_bitmap*: CellsPresentBits
+    partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    kzg_proofs*: deneb.KzgProofs
+    # Optional header, only sent on eager pushes
+    header*: List[PartialDataColumnHeader, 1]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#matrixentry
   MatrixEntry* = object
@@ -143,8 +140,14 @@ type
     proofs*: fulu.KzgProofs
     blobs*: Blobs
 
-  # Not in spec, defined in order to compute custody subnets
-  CgcBits* = BitArray[DATA_COLUMN_SIDECAR_SUBNET_COUNT]
+  # BitArray needs a compile-time size but NUMBER_OF_CUSTODY_GROUPS is
+  # runtime-configurable. We use NUMBER_OF_COLUMNS (compile-time, 128)
+  # instead, which is safe because NUMBER_OF_CUSTODY_GROUPS <=
+  # NUMBER_OF_COLUMNS always holds: each custody group maps to one or
+  # more columns, so there can never be more groups than columns.
+  # If NUMBER_OF_CUSTODY_GROUPS shrinks (e.g. to 64 or 32), the array
+  # is slightly oversized but still correct — unused high bits stay zero.
+  CgcBits* = BitArray[NUMBER_OF_COLUMNS]
 
   CgcCount* = uint8
 
@@ -467,6 +470,14 @@ func shortLog*(v: DataColumnSidecar): auto =
     kzg_commitments: v.kzg_commitments.len,
     kzg_proofs: v.kzg_proofs.len,
     block_header: shortLog(v.signed_block_header.message),
+  )
+
+func shortLog*(v: PartialDataColumnSidecar): auto =
+  (
+    cells_present: v.cells_present_bitmap,
+    partial_column: v.partial_column.len,
+    kzg_proofs: v.kzg_proofs.len,
+    has_header: v.header.len > 0,
   )
 
 func shortLog*(v: seq[DataColumnSidecar]): auto =

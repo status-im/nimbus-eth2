@@ -20,13 +20,15 @@ import
     peerdas_helpers, state_transition],
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
-    block_clearance, consensus_manager, envelope_quarantine,
+    blockchain_dag, block_quarantine, block_clearance, column_quarantine,
+    consensus_manager, envelope_quarantine
   ],
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
 
 from chronos/unittest2/asynctests import asyncTest
+from ../beacon_chain/consensus_object_pools/attestation_pool import
+  AttestationPool, init
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker
@@ -38,7 +40,7 @@ block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
   doAssert kzg.loadTrustedSetup(
     sourceDir &
-      "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
+      "/../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 7).isOk
 
 # Helper to create valid KZG blobs
 func createValidKzgBlob(): kzg.KzgBlob =
@@ -73,13 +75,12 @@ suite "Block processor" & preset():
         res
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
-      blobQuarantine = newClone(BlobQuarantine())
       dataColumnQuarantine = newClone(ColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
-      envelopeQuarantine = newClone(EnvelopeQuarantine())
+      envelopeQuarantine = newClone(EnvelopeQuarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       elManager = new ELManager # TODO: initialise this properly
       actionTracker = default(ActionTracker)
@@ -110,9 +111,8 @@ suite "Block processor" & preset():
     let
       processor = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager, validatorMonitor,
-        blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-        envelopeQuarantine, getTimeFn,
-      )
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn)
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
 
@@ -153,9 +153,9 @@ suite "Block processor" & preset():
       dag.heads.mapIt(it) == @[b2Get.get()]
 
     # check that init also reloads block graph
-    var
+    let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
-      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      dag2 = ChainDAGRef.init(cfg, db, validatorMonitor2, {})
 
     check:
       # ensure we loaded the correct head state
@@ -165,16 +165,16 @@ suite "Block processor" & preset():
       dag2.getBlockRef(b2.root).isSome()
       dag2.heads.len == 1
       dag2.heads[0].root == b2.root
+      dag2.forkBlocksMatchHeads()
 
   asyncTest "Invalidate block root" & preset():
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
       processor = BlockProcessor.new(
-        false, "", "", batchVerifier, consensusManager,
-        validatorMonitor, blobQuarantine, dataColumnQuarantine,
-        gloasColumnQuarantine, envelopeQuarantine, getTimeFn,
-        invalidBlockRoots = @[b2.root])
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn, invalidBlockRoots = @[b2.root])
 
     block:
       let res = await processor.addBlock(MsgSource.gossip, b2, noSidecars)
@@ -202,12 +202,38 @@ suite "Block processor" & preset():
         dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
 
+  asyncTest "Invalidate existing block root" & preset():
+    let
+      processor = BlockProcessor.new(
+        false, "", "", batchVerifier, consensusManager, validatorMonitor,
+        dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+        getTimeFn)
+
+      b1 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b2 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+      b3 = addTestBlock(state[], cache, cfg = cfg).bellatrixData
+    check:
+      (await processor.addBlock(MsgSource.gossip, b1, noSidecars)).isOk
+      (await processor.addBlock(MsgSource.gossip, b2, noSidecars)).isOk
+      (await processor.addBlock(MsgSource.gossip, b3, noSidecars)).isOk
+    dag.updateHead(dag.getBlockRef(b3.root).get(), quarantine[], [])
+
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+      dag2 = ChainDAGRef.init(
+        cfg, db, validatorMonitor2, {}, invalidBlockRoots = @[b2.root])
+    check:
+      dag2.getBlockRef(b1.root).isSome
+      dag2.getBlockRef(b2.root).isNone
+      dag2.getBlockRef(b3.root).isNone
+      dag2.head == dag2.getBlockRef(b1.root).get
+      dag2.forkBlocksMatchHeads()
+
   asyncTest "Process a block from each fork (without blobs)" & preset():
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn,
-    )
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn)
 
     for consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Gloas:
       process_slots(
@@ -225,65 +251,18 @@ suite "Block processor" & preset():
 
       withState(state[]):
         let b0 = addTestEngineBlock(cfg, consensusFork, forkyState, cache)
-        discard await processor.addBlock(
-          MsgSource.gossip, b0.blck, b0.blobsBundle.toSidecarsOpt(consensusFork)
-        )
+        when consensusFork == ConsensusFork.Fulu:
+          let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+        else:
+          let sidecarsOpt = noSidecars
+        check (await processor.addBlock(
+          MsgSource.gossip, b0.blck, sidecarsOpt
+        )).isOk()
 
-  asyncTest "Process Deneb block with blob sidecars" & preset():
-    # Advance to Deneb fork
-    process_slots(
-      cfg, state[], start_slot(cfg.DENEB_FORK_EPOCH),
-      cache, info, {}
-    ).expect("OK")
-
-    let processor = BlockProcessor.new(
-      false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
-    )
-
-    withState(state[]):
-      when consensusFork == ConsensusFork.Deneb:
-        # Create valid blobs and KZG data
-        let kzgBlob = createValidKzgBlob()
-        let commitment = kzg.blobToKzgCommitment(kzgBlob).valueOr:
-          raiseAssert "Failed to create commitment"
-        let proof = kzg.computeBlobKzgProof(kzgBlob, commitment).valueOr:
-          raiseAssert "Failed to create proof"
-
-        # Build BlobsBundle using testblockutil's type
-        var blobsBundle = testblockutil.BlobsBundle(
-          commitments: @[commitment],
-          proofs: @[proof],
-          blobs: @[kzgBlob.bytes]
-        )
-
-        # Create block with blobs
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Deneb, forkyState, blobsBundle, cache = cache
-        )
-
-        # Create blob sidecars from the block
-        var blobs: deneb.Blobs
-        var kzg_proofs: deneb.KzgProofs
-        doAssert blobs.add(kzgBlob.bytes)
-        doAssert kzg_proofs.add(proof)
-
-        let blobSidecars = create_blob_sidecars(
-          engineBlock.blck, kzg_proofs, blobs
-        )
-        let bscarRef = blobSidecars.mapIt(newClone(it))
-
-        # Process the block with blob sidecars
-        let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.some(bscarRef)
-        )
-
-        check:
-          res.isOk
-          dag.containsForkBlock(engineBlock.blck.root)
+        when consensusFork == ConsensusFork.Gloas:
+          check (await processor.addPayload(
+            b0.blck, b0.envelope, Opt.none(gloas.DataColumnSidecars)
+          )).isOk()
 
   asyncTest "Process Deneb block without blob sidecars" & preset():
     # Advance to Deneb fork
@@ -294,8 +273,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -309,10 +288,7 @@ suite "Block processor" & preset():
 
         # Process should succeed (empty commitments is valid)
         let res = await processor.addBlock(
-          MsgSource.gossip,
-          engineBlock.blck,
-          Opt.none(deneb.BlobSidecars)
-        )
+          MsgSource.gossip, engineBlock.blck, noSidecars)
 
         check:
           res.isOk
@@ -327,8 +303,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -349,21 +325,21 @@ suite "Block processor" & preset():
         )
 
         # Create block with blobs
-        let engineBlock = addTestEngineBlockWithBlobs(
-          cfg, ConsensusFork.Fulu, forkyState, blobsBundle, cache = cache
+        let engineBlock = addTestEngineBlock(
+          cfg, ConsensusFork.Fulu, forkyState, cache,
+          blobs_bundle = blobsBundle,
         )
 
         # Assemble data column sidecars
         let dataColumnSidecars = assemble_data_column_sidecars(
           engineBlock.blck, @[kzgBlob], cellsAndProofs.proofs.mapIt(kzg.KzgProof(it))
         )
-        let dsRef = dataColumnSidecars.mapIt(newClone(it))
 
         # Process the block with data columns
         let res = await processor.addBlock(
           MsgSource.gossip,
           engineBlock.blck,
-          Opt.some(dsRef)
+          Opt.some(dataColumnSidecars)
         )
 
         check:
@@ -379,8 +355,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -413,8 +389,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -429,7 +405,7 @@ suite "Block processor" & preset():
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
           # Block stored but envelope not available, should be in missing list
-          engineBlock.blck.root in envelopeQuarantine[].getMissing()
+          FetchRecord(root: engineBlock.blck.root) in envelopeQuarantine[].checkMissing(32)
 
   asyncTest "Gloas block pops pre-arrived envelope from quarantine" & preset():
     # Envelope arrives before its block (orphan envelope).
@@ -441,8 +417,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     withState(state[]):
@@ -454,11 +430,13 @@ suite "Block processor" & preset():
         var envelope = gloas.SignedExecutionPayloadEnvelope(
           message: gloas.ExecutionPayloadEnvelope(
             beacon_block_root: engineBlock.blck.root,
-            slot: engineBlock.blck.message.slot,
             builder_index: BUILDER_INDEX_SELF_BUILD,
+            payload: gloas.ExecutionPayload(
+              slot_number: engineBlock.blck.message.slot,
+            )
           )
         )
-        envelopeQuarantine[].addOrphan(envelope)
+        envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
 
         let res = await processor.addBlock(
           MsgSource.gossip, engineBlock.blck, noSidecars)
@@ -466,8 +444,9 @@ suite "Block processor" & preset():
         check:
           res.isOk
           dag.containsForkBlock(engineBlock.blck.root)
-          # Envelope was popped, not marked as missing
-          engineBlock.blck.root notin envelopeQuarantine[].getMissing()
+          # Envelope was popped, not marked as orphan
+          (engineBlock.blck.root, BUILDER_INDEX_SELF_BUILD) notin
+            envelopeQuarantine[].orphans
 
   asyncTest "Gloas consecutive blocks accumulate missing envelopes" & preset():
     # Multiple blocks stored optimistically, each marks its envelope as missing.
@@ -478,8 +457,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     let
@@ -498,10 +477,10 @@ suite "Block processor" & preset():
     check res2.isOk
 
     # Both envelopes should be missing
-    let missing = envelopeQuarantine[].getMissing()
+    let missing = envelopeQuarantine[].checkMissing(32)
     check:
-      b1.root in missing
-      b2.root in missing
+      FetchRecord(root: b1.root) in missing
+      FetchRecord(root: b2.root) in missing
 
   asyncTest "Gloas reverse order blocks with missing parent" & preset():
     # Block N+1 arrives before block N. Block N+1 goes to
@@ -514,8 +493,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     let
@@ -554,8 +533,8 @@ suite "Block processor" & preset():
 
     let processor = BlockProcessor.new(
       false, "", "", batchVerifier, consensusManager, validatorMonitor,
-      blobQuarantine, dataColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, getTimeFn
+      dataColumnQuarantine, gloasColumnQuarantine, envelopeQuarantine,
+      getTimeFn
     )
 
     let
@@ -584,9 +563,9 @@ suite "Block processor" & preset():
     # Simulate node restart: reinitialize DAG from the same DB.
     # All in-memory state caches are dropped, forcing updateState to
     # replay through b1-b3 slots from disk.
-    var
+    let
       validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
-      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+      dag2 = ChainDAGRef.init(cfg, db, validatorMonitor2, {})
       quarantine2 = newClone(Quarantine.init(cfg))
       attestationPool2 = newClone(AttestationPool.init(dag2, quarantine2))
       consensusManager2 = ConsensusManager.new(
@@ -595,15 +574,13 @@ suite "Block processor" & preset():
         newClone(DynamicFeeRecipientsStore.init()),
         "", Opt.some default(Eth1Address), defaultGasLimit)
 
-    let
       state2 = newClone(dag2.headState)
       getTimeFn2 = proc(): BeaconTime =
         state2[].slot.start_beacon_time(cfg.timeParams)
       processor2 = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager2, validatorMonitor2,
-        newClone(BlobQuarantine()), newClone(ColumnQuarantine()),
-        newClone(GloasColumnQuarantine()), newClone(EnvelopeQuarantine()),
-        getTimeFn2)
+        newClone(ColumnQuarantine()), newClone(GloasColumnQuarantine()),
+        newClone(EnvelopeQuarantine()), getTimeFn2)
 
     # updateState should replay through b1-b3 from
     # disk, calling applyExecutionPayloadEnvelope for each

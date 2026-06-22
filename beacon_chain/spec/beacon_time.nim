@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[hashes, typetraits],
@@ -56,7 +56,6 @@ template ethTimeUnit*(typ: type) {.dirty.} =
   # Not closed over type in question (Slot or Epoch)
   func `mod`*(x: typ, y: uint64): uint64 {.borrow.}
   func `div`*(x: typ, y: uint64): uint64 {.borrow.}
-  func `div`*(x: uint64, y: typ): uint64 {.borrow.}
   func `-`*(x: typ, y: typ): uint64 {.borrow.}
 
   iterator countdown*(a, b: typ, step: Positive = 1): typ =
@@ -105,8 +104,6 @@ ethTimeUnit SyncCommitteePeriod
 template `<`*(a, b: BeaconTime): bool = a.ns_since_genesis < b.ns_since_genesis
 template `<=`*(a, b: BeaconTime): bool = a.ns_since_genesis <= b.ns_since_genesis
 template `<`*(a, b: TimeDiff): bool = a.nanoseconds < b.nanoseconds
-template `<=`*(a, b: TimeDiff): bool = a.nanoseconds <= b.nanoseconds
-template `<`*(a: TimeDiff, b: Duration): bool = a.nanoseconds < b.nanoseconds
 
 func afterGenesis*(t: BeaconTime): bool =
   t.ns_since_genesis >= 0
@@ -182,6 +179,10 @@ func syncCommitteeMessageSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
 func syncContributionSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.CONTRIBUTION_DUE_BPS_GLOAS)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-get_payload_due_ms
+func payloadSlotOffset*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.PAYLOAD_DUE_BPS)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0/specs/gloas/validator.md#payload-timeliness-attestation
 func payloadAttestationSlotOffset*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
@@ -243,6 +244,10 @@ func sync_contribution_deadline_gloas*(
     s: Slot, timeParams: TimeParams): BeaconTime =
   s.start_beacon_time(timeParams) +
     timeParams.syncContributionSlotOffsetGloas
+
+func payload_deadline*(
+    s: Slot, timeParams: TimeParams): BeaconTime =
+  s.start_beacon_time(timeParams) + timeParams.payloadSlotOffset
 
 func payload_attestation_deadline*(
     s: Slot, timeParams: TimeParams): BeaconTime =

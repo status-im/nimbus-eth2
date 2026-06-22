@@ -137,8 +137,7 @@ iterator getValidatorIndices(
   yield bls_to_execution_change.message.validator_index
 
 func isSeen*(
-    pool: ValidatorChangePool,
-    msg: phase0.AttesterSlashing | electra.AttesterSlashing): bool =
+    pool: ValidatorChangePool, msg: electra.AttesterSlashing): bool =
   for idx in getValidatorIndices(msg):
     # One index is enough!
     if idx notin pool.prior_seen_attester_slashed_indices:
@@ -194,11 +193,11 @@ func addMessage*(
     addMessageAux(pool.bls_to_execution_changes_gossip)
 
 proc validateValidatorChangeMessage(
-    cfg: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing): bool =
+    _: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing): bool =
   check_proposer_slashing(state, msg, {}).isOk
 proc validateValidatorChangeMessage(
-    cfg: RuntimeConfig, state: ForkyBeaconState, msg:
-    phase0.AttesterSlashing | electra.AttesterSlashing): bool =
+    _: RuntimeConfig, state: ForkyBeaconState, msg: electra.AttesterSlashing):
+    bool =
   check_attester_slashing(state, msg, {}).isOk
 proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState, msg: SignedVoluntaryExit):

@@ -247,6 +247,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS),
           CONTRIBUTION_DUE_BPS_GLOAS:
             Base10.toString(cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS),
+          PAYLOAD_DUE_BPS:
+            Base10.toString(cfg.timeParams.PAYLOAD_DUE_BPS),
           PAYLOAD_ATTESTATION_DUE_BPS:
             Base10.toString(cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS),
 
@@ -347,6 +349,9 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS),
 
+          MIN_BUILDER_WITHDRAWABILITY_DELAY:
+            Base10.toString(cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY),
+
           CONFIRMATION_BYZANTINE_THRESHOLD:
             Base10.toString(cfg.CONFIRMATION_BYZANTINE_THRESHOLD),
 
@@ -415,6 +420,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex(DOMAIN_PROPOSER_PREFERENCES.data),
           DOMAIN_PTC_ATTESTER:
             to0xHex(DOMAIN_PTC_ATTESTER.data),
+          DOMAIN_BUILDER_DEPOSIT:
+            to0xHex(DOMAIN_BUILDER_DEPOSIT.data),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
@@ -439,6 +446,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex([byte(WITHDRAWAL_REQUEST_TYPE)]),
           CONSOLIDATION_REQUEST_TYPE:
             to0xHex([byte(CONSOLIDATION_REQUEST_TYPE)]),
+          BUILDER_DEPOSIT_REQUEST_TYPE:
+            to0xHex([byte(BUILDER_DEPOSIT_REQUEST_TYPE)]),
+          BUILDER_EXIT_REQUEST_TYPE:
+            to0xHex([byte(BUILDER_EXIT_REQUEST_TYPE)]),
           MIN_ACTIVATION_BALANCE:
             Base10.toString(uint64(MIN_ACTIVATION_BALANCE)),
           MAX_EFFECTIVE_BALANCE_ELECTRA:
@@ -481,12 +492,22 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(PTC_SIZE)),
           MAX_PAYLOAD_ATTESTATIONS:
             Base10.toString(uint64(MAX_PAYLOAD_ATTESTATIONS)),
+          MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD)),
+          MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD)),
           BUILDER_REGISTRY_LIMIT:
             Base10.toString(uint64(BUILDER_REGISTRY_LIMIT)),
           BUILDER_PENDING_WITHDRAWALS_LIMIT:
             Base10.toString(uint64(BUILDER_PENDING_WITHDRAWALS_LIMIT)),
           MAX_BUILDERS_PER_WITHDRAWALS_SWEEP:
-            Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP))
+            Base10.toString(uint64(MAX_BUILDERS_PER_WITHDRAWALS_SWEEP)),
+          CHURN_LIMIT_QUOTIENT_GLOAS:
+            Base10.toString(cfg.CHURN_LIMIT_QUOTIENT_GLOAS),
+          CONSOLIDATION_CHURN_LIMIT_QUOTIENT:
+            Base10.toString(cfg.CONSOLIDATION_CHURN_LIMIT_QUOTIENT),
+          MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS:
+            Base10.toString(cfg.MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS)
         )
       )
     cachedDepositContract =

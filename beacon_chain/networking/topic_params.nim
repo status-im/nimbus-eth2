@@ -21,6 +21,8 @@ import ".."/spec/[presets, network, validator]
 from libp2p/protocols/pubsub/gossipsub import
   TopicParams, validateParameters, init
 
+export TopicParams
+
 type
   MeshMessageInfo = object
     meshMessageDecayTime: chronos.Duration

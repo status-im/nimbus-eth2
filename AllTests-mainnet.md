@@ -6,14 +6,14 @@ AllTests-mainnet
 ```
 ## Attestation pool electra processing [Preset: mainnet]
 ```diff
-+ Aggregated attestations with disjoint comittee bits into a single on-chain aggregate [Pres OK
++ Aggregated attestations with disjoint committee bits into a single on-chain aggregate [Pre OK
 + Aggregating across committees [Preset: mainnet]                                            OK
 + Attestation from different branch [Preset: mainnet]                                        OK
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
 + Attestations may overlap, bigger first [Preset: mainnet]                                   OK
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
 + Attestations should be combined [Preset: mainnet]                                          OK
-+ Attestations with disjoint comittee bits and equal data into single on-chain aggregate [Pr OK
++ Attestations with disjoint committee bits and equal data into single on-chain aggregate [P OK
 + Attester slashing marks validator as equivocating                                          OK
 + Attester slashing retains unrealized checkpoints                                           OK
 + Cache coherence on chain aggregates [Preset: mainnet]                                      OK
@@ -36,6 +36,8 @@ AllTests-mainnet
 ```
 ## Beacon chain DB [Preset: mainnet]
 ```diff
++ batch delete data columns [Preset: mainnet]                                                OK
++ batch put data columns [Preset: mainnet]                                                   OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
@@ -87,6 +89,7 @@ AllTests-mainnet
 + Auto check/repair test (missing footer)                                                    OK
 + Auto check/repair test (missing last chunk)                                                OK
 + Auto check/repair test (only header)                                                       OK
++ Auto check/repair test (zero-filled file)                                                  OK
 + Fixture file validation                                                                    OK
 ```
 ## Beacon state [Preset: mainnet]
@@ -108,6 +111,7 @@ AllTests-mainnet
 ## Beacon validators test suite
 ```diff
 + builderBetterBid(builderBoostFactor) test                                                  OK
++ builderBetterBid(localBlockValueBoost) with Gwei-to-Wei conversion                         OK
 ```
 ## Blinded block conversions
 ```diff
@@ -116,19 +120,6 @@ AllTests-mainnet
 + deneb toSignedBlindedBeaconBlock                                                           OK
 + electra toSignedBlindedBeaconBlock                                                         OK
 + fulu toSignedBlindedBeaconBlock                                                            OK
-```
-## BlobQuarantine data structure test suite  [Preset: mainnet]
-```diff
-+ database and memory overfill protection and pruning test                                   OK
-+ database unload/load test                                                                  OK
-+ overfill protection test                                                                   OK
-+ overfill test [maximum number of blobs]                                                    OK
-+ popSidecars()/hasSidecars() return []/true on block without blobs                          OK
-+ pruneAfterFinalization() test                                                              OK
-+ put() duplicate items should not affect counters                                           OK
-+ put()/fetchMissingSidecars/remove test                                                     OK
-+ put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
-+ put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() test                         OK
 ```
 ## Block pool altair processing [Preset: mainnet]
 ```diff
@@ -151,7 +142,7 @@ AllTests-mainnet
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
-+ Process Deneb block with blob sidecars [Preset: mainnet]                                   OK
++ Invalidate existing block root [Preset: mainnet]                                           OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
@@ -173,6 +164,7 @@ AllTests-mainnet
 ```
 ## BlockRef and helpers
 ```diff
++ executionParent sanity                                                                     OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
@@ -212,6 +204,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -219,6 +212,7 @@ AllTests-mainnet
 + put()/hasSidecar(index, slot, proposer_index)/remove() test                                OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [node] test                  OK
 + put(sidecar)/put([sidecars])/hasSidecars/popSidecars/remove() [supernode] test             OK
++ verified flag survives database unload/load [node]                                         OK
 ```
 ## Combined scenarios [Beacon Node] [Preset: mainnet]
 ```diff
@@ -260,6 +254,7 @@ AllTests-mainnet
 + Fulu fork digest resolved via bpos list                                                    OK
 + Fusaka devnet-2                                                                            OK
 + Glamsterdam bal-devnet-2                                                                   OK
++ Non-scheduled post-Electra fork has no bpos entries                                        OK
 + nextForkEpochAtEpoch includes Gloas from Fulu                                              OK
 + nextForkEpochAtEpoch with BPO before Gloas                                                 OK
 ```
@@ -617,13 +612,16 @@ AllTests-mainnet
 ```
 ## EIP-7594 Unit Tests
 ```diff
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)                                 OK
++ EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)                                OK
 + EIP-7594: Compute Matrix                                                                   OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
++ EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
 + EIP:7594: Recover Matrix                                                                   OK
 ```
 ## EL Configuration
 ```diff
 + Empty config file                                                                          OK
-+ Invalid URls                                                                               OK
 + New style config files                                                                     OK
 + Old style config files                                                                     OK
 + URL parsing                                                                                OK
@@ -653,20 +651,30 @@ AllTests-mainnet
 + getPayload with different forkchoiceUpdated attributes                                     OK
 + multiple sequential forkchoiceUpdated calls with payload attributes                        OK
 ```
+## EL Manager - WebSocket reconnection
+```diff
++ reconnects after EL restart (degraded connection)                                          OK
++ reconnects after EL restart (working connection)                                           OK
+```
 ## EL Manager - forkchoiceUpdated
 ```diff
 + forkchoiceUpdated basic call                                                               OK
 + forkchoiceUpdated multiple sequential calls                                                OK
++ forkchoiceUpdated times out without selected response                                      OK
 + forkchoiceUpdated with payload attributes                                                  OK
 + forkchoiceUpdated with response delay                                                      OK
++ forkchoiceUpdatedV4 basic call                                                             OK
 ```
 ## EL Manager - getPayload
 ```diff
 + success without retry                                                                      OK
++ success without retry using getPayloadV6                                                   OK
 ```
 ## EL Manager - newPayload
 ```diff
++ newPayload times out without selected response                                             OK
 + success without retry                                                                      OK
++ success without retry using newPayloadV5                                                   OK
 ```
 ## Engine API conversions
 ```diff
@@ -679,14 +687,19 @@ AllTests-mainnet
 ```diff
 + Add missing                                                                                OK
 + Add orphan                                                                                 OK
++ Add unviable                                                                               OK
 + Clean up orphans                                                                           OK
++ Has orphan                                                                                 OK
 + Pop orphan                                                                                 OK
 ```
 ## Eth2 specific discovery tests
 ```diff
++ Attestation subnet query                                                                   OK
++ Columns subcustody query                                                                   OK
++ Combination subnet query                                                                   OK
 + Invalid attnets field                                                                      OK
-+ Subnet query                                                                               OK
 + Subnet query after ENR update                                                              OK
++ Sync subnet query                                                                          OK
 ```
 ## Execution Payload Bid Pool
 ```diff
@@ -694,7 +707,8 @@ AllTests-mainnet
 + Duplicate detection - same builder same slot                                               OK
 + Empty pool returns none                                                                    OK
 + Highest bid selection - different builders                                                 OK
-+ Multiple bids for different parents same slot                                              OK
++ Multiple bids for different beacon parent roots same slot                                  OK
++ Multiple bids for different execution parent hashes same slot                              OK
 + Pruning removes old bids                                                                   OK
 + Track seen bids                                                                            OK
 ```
@@ -759,6 +773,10 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gloas block validity
+```diff
++ Execution valid                                                                            OK
+```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
 + Empty in-memory scenario test [node]                                                       OK
@@ -782,6 +800,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK
 + put()/fetchMissingSidecars/remove test [node]                                              OK
@@ -803,6 +822,11 @@ AllTests-mainnet
 ```diff
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
+```
+## Gossip validation - Gloas
+```diff
++ validateBeaconBlock - finalized head execution parent                                      OK
++ validateBeaconBlock - mismatched execution parent                                          OK
 ```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
@@ -839,7 +863,11 @@ AllTests-mainnet
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
-## Key spliting
+## Inclusion list [Preset: mainnet]
+```diff
++ get_inclusion_list_committee                                                               OK
+```
+## Key splitting
 ```diff
 + k < n                                                                                      OK
 + k == n                                                                                     OK
@@ -926,8 +954,14 @@ AllTests-mainnet
 + Voluntary exit signatures                                                                  OK
 + execution payload bid signatures                                                           OK
 + execution payload envelope signatures                                                      OK
++ inclusion list signatures                                                                  OK
 + payload attestation message signatures                                                     OK
 + proposer preferences message signatures                                                    OK
+```
+## Missing Table
+```diff
++ Add and delete missing                                                                     OK
++ Check missing with exponential backoff                                                     OK
 ```
 ## Network metadata
 ```diff
@@ -937,6 +971,7 @@ AllTests-mainnet
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
 + Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 ## Nimbus remote signer/signing test (web3signer)
@@ -960,6 +995,75 @@ AllTests-mainnet
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
+```
+## Partial Column Quarantine (Fulu)
+```diff
++ Assemble multiple columns for the same block independently                                 OK
++ Cell tracking is per-column                                                                OK
++ Different block roots with same column index are independent                               OK
++ Different column indices are independent                                                   OK
++ Get entry for unknown key returns none                                                     OK
++ Get header for unknown root returns none                                                   OK
++ Header LRU evicts oldest entry when full                                                   OK
++ Init creates empty quarantine                                                              OK
++ Mark all cells received                                                                    OK
++ Mark and check cell received                                                               OK
++ Mark cell received for non-existent entry is no-op                                         OK
++ Mark cell received with out-of-bounds blob index is no-op                                  OK
++ Multiple headers for different roots                                                       OK
++ Overwrite header with same root                                                            OK
++ PartialColumnKey equality                                                                  OK
++ PartialColumnKey hash differs for different keys                                           OK
++ Put and get entry                                                                          OK
++ Put and get partial header                                                                 OK
++ Remove entry                                                                               OK
++ Remove entry does not affect other entries                                                 OK
++ Remove header                                                                              OK
++ Remove non-existent entry is no-op                                                         OK
++ Remove non-existent header is no-op                                                        OK
++ Removing entry does not remove header                                                      OK
++ Removing header does not remove entries                                                    OK
++ addCells accumulates across multiple sidecars                                              OK
++ addCells ingests cells from a PartialDataColumnSidecar                                     OK
++ addCells is independent across columns                                                     OK
++ addCells on non-existent entry is no-op                                                    OK
++ addCells with overlapping bitmap overwrites existing cells                                 OK
++ assembleDataColumnSidecar preserves inclusion proof from header                            OK
++ assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
++ assembleDataColumnSidecar returns none for non-existent entry                              OK
++ assembleDataColumnSidecar returns none when cells incomplete                               OK
++ assembleDataColumnSidecar returns none when header missing from cache                      OK
++ assembleDataColumnSidecar returns none when header not validated                           OK
++ assembleDataColumnSidecar with cells added incrementally                                   OK
++ assembleDataColumnSidecar with markCellReceived (data overload)                            OK
++ getOrCreateEntry creates new entry                                                         OK
++ getOrCreateEntry new entry has properly sized cells and proofs                             OK
++ getOrCreateEntry reflects header validation status                                         OK
++ getOrCreateEntry returns existing entry                                                    OK
++ hasCellReceived for non-existent entry returns false                                       OK
++ hasCellReceived for out-of-bounds index returns false                                      OK
++ isComplete becomes true after incremental addCells                                         OK
++ isComplete returns false for non-existent entry                                            OK
++ isComplete returns false when cells are missing                                            OK
++ isComplete returns false when header not validated                                         OK
++ isComplete returns true when header validated and all cells received                       OK
++ isComplete with single blob                                                                OK
++ markCellReceived with data on non-existent entry is no-op                                  OK
++ markCellReceived with data out-of-bounds is no-op                                          OK
++ markCellReceived with data stores cell and proof                                           OK
+```
+## Partial Column Quarantine (Gloas)
+```diff
++ Group IDs with same root but different slots are distinct keys                             OK
++ GroupID hash and equality                                                                  OK
++ Header LRU eviction (gloas, keyed by GroupID)                                              OK
++ Init creates empty quarantine                                                              OK
++ Remove header (group id) does not remove entries (gloas)                                   OK
++ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
++ assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
++ getOrCreateEntry reflects gloas group-id validation                                        OK
++ isComplete and assembleDataColumnSidecar (gloas)                                           OK
++ putPartialGroupID stores group id under itself                                             OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
@@ -1002,8 +1106,8 @@ AllTests-mainnet
 ```
 ## Quarantine [Preset: mainnet]
 ```diff
-+ put/iterate/remove test [BlobSidecars]                                                     OK
-+ put/iterate/remove test [DataColumnSidecar]                                                OK
++ put/iterate/remove test [fulu DataColumnSidecar]                                           OK
++ put/iterate/remove test [gloas DataColumnSidecar]                                          OK
 ```
 ## REST encoding and decoding
 ```diff
@@ -1015,18 +1119,10 @@ AllTests-mainnet
 + RestErrorMessage writer tests                                                              OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (ALTAIR)                                     OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (BELLATRIX)                                  OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (CAPELLA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (DENEB)                                      OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (PHASE 0)                                    OK
 + remote signing example AGGREGATION_SLOT                                                    OK
 + remote signing example ATTESTATION                                                         OK
-+ remote signing example BLOCK_V2 (BELLATRIX)                                                OK
-+ remote signing example BLOCK_V2 (CAPELLA)                                                  OK
-+ remote signing example BLOCK_V2 (DENEB)                                                    OK
-+ remote signing example BLOCK_V2 (ELECTRA)                                                  OK
++ remote signing example BLOCK_V2 (FULU)                                                     OK
 + remote signing example DEPOSIT                                                             OK
 + remote signing example RANDAO_REVEAL                                                       OK
 + remote signing example SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF                               OK
@@ -1036,13 +1132,13 @@ AllTests-mainnet
 + remote signing example VOLUNTARY_EXIT                                                      OK
 + strictParse(Stuint) tests                                                                  OK
 ```
-## Remove keystore testing suite
+## Remote keystore testing suite
 ```diff
 + Many remotes                                                                               OK
 + Single remote                                                                              OK
 + Verifying Signer / Many remotes                                                            OK
 + Verifying Signer / Single remote                                                           OK
-+ vesion 1                                                                                   OK
++ version 1                                                                                  OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
@@ -1152,7 +1248,6 @@ AllTests-mainnet
 ```
 ## SyncManager test suite
 ```diff
-+ [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
 + [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
 + [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK
@@ -1328,13 +1423,13 @@ AllTests-mainnet
 ```diff
 + Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc                                      OK
 + Metadata cgc below CUSTODY_REQUIREMENT, valid ENR cgc updates metadata                     OK
-+ Metadata cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                                OK
-+ No metadata, ENR cgc exceeds NUMBER_OF_COLUMNS - returns OutOfRange                        OK
++ Metadata cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange                         OK
++ No metadata, ENR cgc exceeds NUMBER_OF_CUSTODY_GROUPS - returns OutOfRange                 OK
 + No metadata, ENR without cgc field - returns default                                       OK
 + No metadata, no ENR - returns default CUSTODY_REQUIREMENT                                  OK
 + No metadata, valid ENR cgc                                                                 OK
 + Valid metadata with cgc == CUSTODY_REQUIREMENT (boundary)                                  OK
-+ Valid metadata with cgc == NUMBER_OF_COLUMNS (supernode)                                   OK
++ Valid metadata with cgc == NUMBER_OF_CUSTODY_GROUPS (supernode)                            OK
 + Valid metadata with cgc >= CUSTODY_REQUIREMENT                                             OK
 ```
 ## removeValidatorFiles()

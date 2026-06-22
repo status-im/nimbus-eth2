@@ -39,7 +39,7 @@ from ../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   produceContribution, produceSyncAggregate, pruneData
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index, get_committee_count_per_slot,
-  get_committee_indices, get_ptc
+  get_committee_indices, get_ptc, latest_block_root
 from ../tests/testbcutil import addHeadBlock, willSelectNewHead
 from ../tests/testblockutil import makeAttestationData, MockPrivKeys, `[]`
 
@@ -291,9 +291,9 @@ cli do(
       sync_aggregate = syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
 
       epb =
-        when consensusFork >= ConsensusFork.Heze:
+        when consensusFork >= ConsensusFork.Gloas:
           let bid =
-            heze.ExecutionPayloadBid(
+            ExecutionPayloadBid(
               parent_block_hash: state.data.latest_block_hash,
               parent_block_root: hash_tree_root(state.data.latest_block_header),
               block_hash: ZERO_HASH,
@@ -305,32 +305,18 @@ cli do(
               slot: slot,
               value: 0.Gwei,
               execution_payment: 0.Gwei,
-              blob_kzg_commitments: default(KzgCommitments))
-          heze.SignedExecutionPayloadBid(
-            message: bid, signature: ValidatorSig.infinity())
-        elif consensusFork == ConsensusFork.Gloas:
-          let bid =
-            gloas.ExecutionPayloadBid(
-              parent_block_hash: state.data.latest_block_hash,
-              parent_block_root: hash_tree_root(state.data.latest_block_header),
-              block_hash: ZERO_HASH,
-              prev_randao:
-                get_randao_mix(state.data, get_current_epoch(state.data)),
-              fee_recipient: static(default(ExecutionAddress)),
-              gas_limit: 30000000'u64,
-              builder_index: BUILDER_INDEX_SELF_BUILD,
-              slot: slot,
-              value: 0.Gwei,
-              execution_payment: 0.Gwei,
-              blob_kzg_commitments: default(KzgCommitments))
-          gloas.SignedExecutionPayloadBid(
+              blob_kzg_commitments: default(KzgCommitments),
+              execution_requests_root:
+                hash_tree_root(default(consensusFork.ExecutionRequests)))
+          SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:
-          default(gloas.SignedExecutionPayloadBid)
+          default(SignedExecutionPayloadBid)
 
       payload_attestations =
         when consensusFork >= ConsensusFork.Gloas:
-          payloadAttestationPool.getPayloadAttestationsForBlock(slot, cache)
+          payloadAttestationPool.getPayloadAttestationsForBlock(
+            slot, state.latest_block_root)
         else:
           newSeq[PayloadAttestation]()
 
@@ -349,7 +335,7 @@ cli do(
         sync_aggregate,
         default(consensusFork.ExecutionPayloadForSigning),
         {},
-        default(ExecutionRequests),
+        default(consensusFork.ExecutionRequests),
         epb,
         payload_attestations
       ).expect("block")

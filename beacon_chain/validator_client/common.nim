@@ -224,7 +224,6 @@ type
   ValidatorClient* = object
     config*: ValidatorClientConf
     metricsServer*: Opt[MetricsHttpServerRef]
-    graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
     forkService*: ForkServiceRef
@@ -693,6 +692,7 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     AGGREGATE_DUE_BPS_GLOAS: parseBps "AGGREGATE_DUE_BPS_GLOAS",
     SYNC_MESSAGE_DUE_BPS_GLOAS: parseBps "SYNC_MESSAGE_DUE_BPS_GLOAS",
     CONTRIBUTION_DUE_BPS_GLOAS: parseBps "CONTRIBUTION_DUE_BPS_GLOAS",
+    PAYLOAD_DUE_BPS: parseBps "PAYLOAD_DUE_BPS",
     PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
@@ -895,7 +895,8 @@ proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,
-                               socketFlags = socketFlags)
+                               socketFlags = socketFlags,
+                               userAgent = nimbusAgentStr)
   ok(client)
 
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,

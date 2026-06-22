@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[typetraits, sequtils, sets],
+  std/[typetraits, sets],
   stew/base10,
   chronicles, metrics,
   ./rest_utils,
@@ -19,6 +19,8 @@ import
       peerdas_helpers, eth2_merkleization,
       forks, network, state_transition_block, validator],
   ../validators/message_router_mev
+
+from std/sequtils import mapIt, toSeq
 
 export rest_utils
 
@@ -1050,14 +1052,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           static: doAssert high(ConsensusFork) == ConsensusFork.Heze
           when consensusFork == ConsensusFork.Heze:
             debugHezeComment "stub: heze block routing"
+            debugHezeComment("data columns")
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
-              checkValidator = true)
+              forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Gloas:
+            debugGloasComment("data columns")
             await node.router.routeSignedBeaconBlock(
-              forkyBlck, Opt.none(seq[gloas.DataColumnSidecar]),
-              checkValidator = true)
+              forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
+            if blobs.len !=
+                forkyBlck.message.body.blob_kzg_commitments.len:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
+            if kzg_proofs.len != blobs.len * fulu.CELLS_PER_EXT_BLOB:
+              return RestApiResponse.jsonError(
+                Http400, InvalidBlockObjectError)
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
               kzg_proofs.mapIt(kzg.KzgProof(it)))
@@ -1604,11 +1613,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
 
-    var data_columns: seq[fulu.DataColumnSidecar]
+    var data_columns: fulu.DataColumnSidecars
     for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
-      var dataColumnSidecar = new fulu.DataColumnSidecar
+      let dataColumnSidecar = new fulu.DataColumnSidecar
       if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
-        data_columns.add dataColumnSidecar[]
+        data_columns.add dataColumnSidecar
 
     let data = recover_blobs_from_data_columns(data_columns)
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
@@ -1643,8 +1652,38 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
-  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelope/{block_id}") do (
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadBid
+  router.api(MethodPost, "/eth/v1/beacon/execution_payload_bids") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400,
+                                       FailedToObtainConsensusForkError)
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    debugHezeComment "Heze has a different ExecutionPayloadBid"
+    if consensusVersion.get() != ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400,
+                                       SlotFromTheIncorrectForkError)
+
+    let dres = decodeBodyJsonOrSsz(
+      gloas.SignedExecutionPayloadBid, contentBody.get())
+    if dres.isErr():
+      return RestApiResponse.jsonError(dres.error())
+    let res = await node.router.routeExecutionPayloadBid(dres.get())
+    if res.isErr():
+      return RestApiResponse.jsonError(Http400,
+                                       ExecutionPayloadBidValidationError,
+                                       $res.error)
+    RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelopes/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:
     let
       blockIdent = block_id.valueOr:

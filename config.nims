@@ -28,21 +28,31 @@ switch("nimcache", nimCachePath)
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
 # With LTO enabled, optimization flags should be passed to both compiler and linker!
 if defined(release) and not defined(disableLTO):
-  # "-w" is not passed to the compiler during linking, so we need to disable
-  # some warnings by hand.
-  switch("passL", "-Wno-stringop-overflow -Wno-stringop-overread")
+  # TODO https://github.com/nim-lang/Nim/issues/25847
+  # https://github.com/nim-lang/Nim/blob/bfeb3146d1638b39f69007a4ae5a23e23ae4e5ef/config/nim.cfg#L331
+  template extend(name, value) = put(name, get(name) & value)
 
-  # lto_incremental available as of Nim 1.6.14 / https://github.com/nim-lang/Nim/pull/21679
-  switch("define", "lto_incremental")
-
-  # According to early measurements, this helped make LTO make better choices -
-  # it probably needs to be re-tested for newer GCC versions..
-  put("gcc.options.always", get("gcc.options.always") & " -finline-limit=100000")
-  put("gcc.options.linker", get("gcc.options.linker") & " -finline-limit=100000")
+  extend "vcc.options.always", " /GL /Gw /Gy"
+  extend "vcc.cpp.options.always", " /GL /Gw /Gy"
+  extend "vcc.options.linker", " /link /LTCG:incremental"
+  extend "vcc.cpp.options.linker", " /link /LTCG:incremental"
+  extend "clang_cl.options.always", " -flto=thin"
+  extend "clang.cpp.options.always", " -flto=thin"
+  extend "clang.options.always", " -flto=thin"
+  extend "clang.cpp.options.always", " -flto=thin"
+  extend "clang.options.linker", " -flto=thin"
+  extend "clang.cpp.options.linker", " -flto=thin"
+  extend "icl.options.always", " /Qipo"
+  extend "icl.cpp.options.always", " /Qipo"
+  extend "gcc.options.always", " -flto=auto -finline-limit=100000"
+  extend "gcc.cpp.options.always", " -flto=auto -finline-limit=100000"
+  extend "gcc.options.linker", " -flto=auto -Wno-stringop-overflow -Wno-stringop-overread -finline-limit=100000"  # https://github.com/nim-lang/Nim/issues/21595
+  extend "gcc.cpp.options.linker", " -flto=auto -Wno-stringop-overflow -Wno-stringop-overread -finline-limit=100000"
 
   if defined(macosx):
     # https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-flto
-    put("clang.options.linker", get("clang.options.linker") & " -Wl,-object_path_lto," & nimCachePath & "/lto")
+    extend "clang.options.linker", " -Wl,-object_path_lto," & nimCachePath & "/lto"
+    extend "clang.cpp.options.linker", " -Wl,-object_path_lto," & nimCachePath & "/lto"
 
 # Hidden visibility allows for better position-independent codegen - it also
 # resolves a build issue in BLST where otherwise private symbols would require
@@ -65,8 +75,13 @@ if defined(limitStackUsage):
   # available on some GCC versions but not all - run with `-d:limitStackUsage`
   # and look for .su files in "./build/", "./nimcache/" or $TMPDIR that list the
   # stack size of each function.
-  switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
-  switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
+  switch("passC", "-fstack-usage -Werror=stack-usage=851968")
+  switch("passL", "-fstack-usage -Werror=stack-usage=851968")
+  
+  # QUIC does variable stack allocations
+  put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
+  put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
+  put("lsquic_hkdf.always", "-fno-lto -Wno-stack-usage")
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
@@ -127,13 +142,15 @@ switch("passL", "-fno-omit-frame-pointer")
 --define:nimTypeNames
 
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
+switch("define", "withoutPCRE")
 
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
+  switch("stacktrace", "off")
   switch("import", "libbacktrace")
 else:
-  --stacktrace:on
-  --linetrace:on
+  switch("stacktrace", "on")
+  switch("linetrace", "on")
 
 var canEnableDebuggingSymbols = true
 if defined(macosx):
@@ -160,8 +177,13 @@ if canEnableDebuggingSymbols:
 switch("warningAsError", "BareExcept:on")
 switch("warningAsError", "CaseTransition:on")
 switch("warningAsError", "CStringConv:on")
+switch("warningAsError", "CycleCreated:on")
 switch("warningAsError", "ImplicitDefaultValue:on")
+switch("warningAsError", "ImplicitTemplateRedefinition:on")
 switch("warningAsError", "LongLiterals:on")
+switch("warningAsError", "ProveField:on")
+switch("warningAsError", "StmtListLambda:on")
+switch("warningAsError", "UnreachableCode:on")
 switch("warningAsError", "UnusedImport:on")
 switch("hintAsError", "ConvFromXtoItselfNotNeeded:on")
 switch("hintAsError", "DuplicateModuleImport:on")

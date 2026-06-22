@@ -8,8 +8,8 @@
 {.push raises: [], gcsafe.}
 
 import
-  "."/[helpers, forks],
-  "."/datatypes/base
+  ./[helpers, forks],
+  ./datatypes/base
 
 from std/algorithm import sort, upperBound
 
@@ -44,15 +44,21 @@ const
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
+  defaultEth2QuicPort* = 9001
+  defaultEth2QuicPortDesc* = $defaultEth2QuicPort
+
   # This is not part of the spec! But it's port which Lighthouse uses
   defaultEth2RestPort* = 5052
   defaultEth2RestPortDesc* = $defaultEth2RestPort
+  defaultVcKeymanagerPort* = 5062
+  defaultVcKeymanagerPortDesc* = $defaultVcKeymanagerPort
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
-  enrCustodySubnetCountField* = "cgc"
+  enrCustodyGroupCountField* = "cgc"
   enrNextForkDigestField* = "nfd"
   enrForkIdField* = "eth2"
+  quicField* = "quic"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
   "/eth2/" & $forkDigest & "/"
@@ -276,11 +282,6 @@ func getSyncSubnets*(
     # 3.
     res.setBit(i div (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT))
   res
-
-iterator blobSidecarTopics*(
-    forkDigest: ForkDigest, subnetCount: uint64): string =
-  for subnet_id in 0.BlobId ..< subnetCount.BlobId:
-    yield getBlobSidecarTopic(forkDigest, subnet_id)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,

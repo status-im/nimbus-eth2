@@ -29,12 +29,13 @@ from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
   TrustedSyncAggregate, SyncnetBits, num_active_participants
 from ./capella import
-  ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
-  SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
+  HistoricalSummary, SignedBLSToExecutionChange,
+  SignedBLSToExecutionChangeList, Withdrawal
 from ./deneb import
-  Blobs, ExecutionPayload, ExecutionPayloadHeader, KzgCommitments, KzgProofs
+  Blobs, KzgCommitments, KzgProofs
 from ./gloas import
-  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, PayloadAttestation
+  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
+  ExecutionRequests, PayloadAttestation, SignedExecutionPayloadBid
 
 export json_serialization, base
 
@@ -49,28 +50,6 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#signedinclusionlist
   SignedInclusionList* = object
     message*: InclusionList
-    signature*: ValidatorSig
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#executionpayloadbid
-  ExecutionPayloadBid* = object
-    parent_block_hash*: Eth2Digest
-    parent_block_root*: Eth2Digest
-    block_hash*: Eth2Digest
-    prev_randao*: Eth2Digest
-    fee_recipient*: ExecutionAddress
-    gas_limit*: uint64
-    builder_index*: uint64
-    slot*: Slot
-    value*: Gwei
-    execution_payment*: Gwei
-    blob_kzg_commitments*: KzgCommitments
-    # [New in Heze:EIP7805]
-    inclusion_list_bits*: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#signedexecutionpayloadbid
-  SignedExecutionPayloadBid* = object
-    # [Modified in Heze:EIP7805]
-    message*: ExecutionPayloadBid
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#beaconstate
@@ -128,9 +107,7 @@ type
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
 
-    # Execution
-    # [Modified in Heze:EIP7805]
-    latest_execution_payload_bid*: ExecutionPayloadBid
+    latest_block_hash*: Eth2Digest
 
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
@@ -163,7 +140,11 @@ type
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     builder_pending_withdrawals*:
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
-    latest_block_hash*: Eth2Digest
+
+    # Execution
+    # [Modified in Heze:EIP7805]
+    latest_execution_payload_bid*: ExecutionPayloadBid
+
     payload_expected_withdrawals*:
       HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
     ptc_window*:
@@ -238,7 +219,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -263,6 +244,7 @@ type
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    parent_execution_requests*: gloas.ExecutionRequests
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -302,6 +284,7 @@ type
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    parent_execution_requests*: gloas.ExecutionRequests
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -329,6 +312,7 @@ type
     signed_execution_payload_bid*: SignedExecutionPayloadBid
     payload_attestations*:
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+    parent_execution_requests*: gloas.ExecutionRequests
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -427,3 +411,14 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+# Helpers to frequently used values
+template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
+  if v.body.signed_execution_payload_bid.message.builder_index ==
+      BUILDER_INDEX_SELF_BUILD:
+    v.proposer_index
+  else:
+    v.body.signed_execution_payload_bid.message.builder_index
+template builder_index*(
+    v: SignedBeaconBlock | TrustedSignedBeaconBlock): uint64 =
+  v.message.builder_index

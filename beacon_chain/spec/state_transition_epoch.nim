@@ -239,7 +239,7 @@ func is_unslashed_participating_index(
       unsafeAddr state.previous_epoch_participation
 
   is_active_validator(state.validators[validator_index], epoch) and
-    has_flag(epoch_participation[].item(validator_index), flag_index) and
+    has_flag(epoch_participation[][validator_index], flag_index) and
     not state.validators[validator_index].slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#justification-and-finalization
@@ -699,7 +699,7 @@ template get_flag_and_inactivity_delta(
     pflags =
       if  is_active_validator(state.validators[vidx], previous_epoch) and
           not state.validators[vidx].slashed:
-        epoch_participation[].item(vidx)
+        epoch_participation[][vidx]
       else:
         0
 
@@ -1208,7 +1208,9 @@ func apply_pending_deposit(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#new-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/beacon-chain.md#modified-process_pending_deposits
 func process_pending_deposits*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -1217,7 +1219,10 @@ func process_pending_deposits*(
   let
     next_epoch = get_current_epoch(state) + 1
     available_for_processing = state.deposit_balance_to_consume +
-      get_activation_exit_churn_limit(cfg, state, cache)
+      (when typeof(state).kind >= ConsensusFork.Gloas:
+        get_activation_churn_limit(cfg, state, cache)
+      else:
+        get_activation_exit_churn_limit(cfg, state, cache))
   var
     processed_amount = 0.Gwei
     next_deposit_index = 0
@@ -1227,11 +1232,12 @@ func process_pending_deposits*(
   let finalized_slot = start_slot(state.finalized_checkpoint.epoch)
 
   for deposit in state.pending_deposits:
-    # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
-    if  deposit.slot > GENESIS_SLOT and  # Is deposit request
-        # There are pending Eth1 bridge deposits
-        state.eth1_deposit_index < state.deposit_requests_start_index:
-      break
+    when state is electra.BeaconState:
+      # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+      if  deposit.slot > GENESIS_SLOT and  # Is deposit request
+          # There are pending Eth1 bridge deposits
+          state.eth1_deposit_index < state.deposit_requests_start_index:
+        break
 
     # Check if deposit has been finalized, otherwise, stop processing.
     if deposit.slot > finalized_slot:
@@ -1667,8 +1673,8 @@ proc process_epoch*(
   process_slashings(state, info.balances.current_epoch)
   process_eth1_data_reset(state)
   ? process_pending_deposits(cfg, state, cache)
-  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   ? process_pending_consolidations(cfg, state)
+  ? process_builder_pending_payments(cfg, state, cache)  # [New in Gloas:EIP7732]
   process_effective_balance_updates(state)
   process_slashings_reset(state)
   process_randao_mixes_reset(state)

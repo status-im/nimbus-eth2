@@ -42,9 +42,17 @@ import
   ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
+from ../consensus_object_pools/common_tools import
+  is_gas_limit_target_compatible
 from ../spec/beaconstate import get_expected_withdrawals
 
 export results
+
+template executionRequestsTypeForPayload(EPS: typedesc): typedesc =
+  when EPS.kind >= ConsensusFork.Gloas:
+    gloas.ExecutionRequests
+  else:
+    electra.ExecutionRequests
 
 type
   BuilderBidResult[BB: ForkyBuilderBid] = Result[BB, string]
@@ -66,7 +74,8 @@ type
 
   EngineBid*[EPS: ForkyExecutionPayloadForSigning] = object
     eps*: EPS
-    execution_requests*: ExecutionRequests
+    # [Modified in Gloas:EIP8282]
+    execution_requests*: executionRequestsTypeForPayload(EPS)
 
   Bids[consensusFork: static ConsensusFork] = object
     engineBid*: Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]
@@ -89,7 +98,7 @@ func init*(t: typedesc[BoostFactor], value: uint8): BoostFactor =
 func init*(t: typedesc[BoostFactor], value: uint64): BoostFactor =
   BoostFactor(kind: BoostFactorKind.Builder, value64: value)
 
-func builderBetterBid(
+func builderBetterBid*(
     localBlockValueBoost: uint8, builderValue: UInt256, engineValue: Wei
 ): bool =
   # Scale down to ensure no overflows; if lower few bits would have been
@@ -128,7 +137,7 @@ func builderBetterBid*(
     else:
       (multipledBuilderValue div 100) >= engineValue
 
-func builderBetterBid(
+func builderBetterBid*(
     boostFactor: BoostFactor, builderValue: UInt256, engineValue: Wei
 ): bool =
   case boostFactor.kind
@@ -137,28 +146,31 @@ func builderBetterBid(
   of BoostFactorKind.Builder:
     builderBetterBid(boostFactor.value64, builderValue, engineValue)
 
-func decodePayloadRequests(
-    eps:
-      electra.ExecutionPayloadForSigning | fulu.ExecutionPayloadForSigning |
-      gloas.ExecutionPayloadForSigning
-): Result[ExecutionRequests, string] =
+template validateRequestType(request_type_and_payload, prev_type): untyped =
+  ## Shared EIP-7685 framing checks: minimum length and strictly ascending,
+  ## non-duplicated request types.
+  if request_type_and_payload.len < 2:
+    return err("Execution layer request too short")
+  let request_type = request_type_and_payload[0]
+  prev_type.isErrOr:
+    if request_type < value:
+      return err("Execution layer request types not sorted")
+    if request_type == value:
+      return err("Execution layer request types duplicated")
+  prev_type.ok request_type
+
+func decodePayloadRequests[EPS: electra.ExecutionPayloadForSigning |
+    fulu.ExecutionPayloadForSigning | gloas.ExecutionPayloadForSigning](
+    eps: EPS
+): Result[executionRequestsTypeForPayload(EPS), string] =
   try:
     var
-      execution_requests_buffer: ExecutionRequests
+      execution_requests_buffer: executionRequestsTypeForPayload(EPS)
       prev_type: Opt[byte]
 
     # TODO why aren't these decoded already?
     for request_type_and_payload in eps.executionRequests:
-      if request_type_and_payload.len < 2:
-        return err("Execution layer request too short")
-
-      let request_type = request_type_and_payload[0]
-      if prev_type.isSome:
-        if request_type < prev_type.get:
-          return err("Execution layer request types not sorted")
-        if request_type == prev_type.get:
-          return err("Execution layer request types duplicated")
-      prev_type.ok request_type
+      validateRequestType(request_type_and_payload, prev_type)
 
       template request_payload(): untyped =
         request_type_and_payload.toOpenArray(1, request_type_and_payload.len - 1)
@@ -178,6 +190,26 @@ func decodePayloadRequests(
           request_payload,
           List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD],
         )
+      # [New in Gloas:EIP8282]
+      of BUILDER_DEPOSIT_REQUEST_TYPE:
+        when EPS.kind >= ConsensusFork.Gloas:
+          execution_requests_buffer.builder_deposits = SSZ.decode(
+            request_payload,
+            List[gloas.BuilderDepositRequest,
+              Limit MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD],
+          )
+        else:
+          return err("Execution layer invalid request type")
+      # [New in Gloas:EIP8282]
+      of BUILDER_EXIT_REQUEST_TYPE:
+        when EPS.kind >= ConsensusFork.Gloas:
+          execution_requests_buffer.builder_exits = SSZ.decode(
+            request_payload,
+            List[gloas.BuilderExitRequest,
+              Limit MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD],
+          )
+        else:
+          return err("Execution layer invalid request type")
       else:
         return err("Execution layer invalid request type")
 
@@ -185,31 +217,29 @@ func decodePayloadRequests(
   except SerializationError:
     err("Failed to deserialize execution requests")
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
 func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
-    execution_requests: ExecutionRequests,
+    execution_requests: gloas.ExecutionRequests,
     beacon_block_root: Eth2Digest,
-    slot: Slot,
-    state_root: Eth2Digest,
+    parent_block_root: Eth2Digest
 ): gloas.ExecutionPayloadEnvelope =
   gloas.ExecutionPayloadEnvelope(
     payload: eps.executionPayload,
     execution_requests: execution_requests,
     builder_index: BUILDER_INDEX_SELF_BUILD,
     beacon_block_root: beacon_block_root,
-    slot: slot,
-    state_root: state_root,
+    parent_beacon_block_root: parent_block_root,
   )
 
 func makeSignedExecutionPayloadBid(
-    T: type gloas.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
+    executionPayload: gloas.ExecutionPayload,
+    execution_requests: gloas.ExecutionRequests,
     blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
-    _: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE],
-): gloas.SignedExecutionPayloadBid =
-  let bid = gloas.ExecutionPayloadBid(
+): SignedExecutionPayloadBid =
+  let bid = ExecutionPayloadBid(
     parent_block_hash: executionPayload.parent_hash,
     parent_block_root: parentBlockRoot,
     block_hash: executionPayload.block_hash,
@@ -221,36 +251,12 @@ func makeSignedExecutionPayloadBid(
     value: 0.Gwei,
     execution_payment: 0.Gwei,
     blob_kzg_commitments: blob_kzg_commitments,
+    execution_requests_root: hash_tree_root(execution_requests),
   )
-  gloas.SignedExecutionPayloadBid(
+  SignedExecutionPayloadBid(
     message: bid,
     signature: ValidatorSig.infinity()
   )
-
-func makeSignedExecutionPayloadBid(
-    T: type heze.SignedExecutionPayloadBid,
-    executionPayload: deneb.ExecutionPayload,
-    blob_kzg_commitments: KzgCommitments,
-    parentBlockRoot: Eth2Digest,
-    slot: Slot,
-    inclusion_list_bits: BitArray[int INCLUSION_LIST_COMMITTEE_SIZE],
-): heze.SignedExecutionPayloadBid =
-  let bid = heze.ExecutionPayloadBid(
-    parent_block_hash: executionPayload.parent_hash,
-    parent_block_root: parentBlockRoot,
-    block_hash: executionPayload.block_hash,
-    prev_randao: executionPayload.prev_randao,
-    fee_recipient: executionPayload.fee_recipient,
-    gas_limit: executionPayload.gas_limit,
-    builder_index: BUILDER_INDEX_SELF_BUILD,
-    slot: slot,
-    value: 0.Gwei,
-    execution_payment: 0.Gwei,
-    blob_kzg_commitments: blob_kzg_commitments,
-    inclusion_list_bits: inclusion_list_bits)
-  heze.SignedExecutionPayloadBid(
-    message: bid,
-    signature: ValidatorSig.infinity())
 
 proc makeEngineBlock*(
     node: BeaconNode,
@@ -263,7 +269,11 @@ proc makeEngineBlock*(
     head: BlockRef,
     slot: Slot,
     eps: ForkyExecutionPayloadForSigning,
-    execution_requests: ExecutionRequests,
+    execution_requests: consensusFork.ExecutionRequests,
+    parent_execution_requests: consensusFork.ExecutionRequests,
+    verification_flags: UpdateFlags,
+    builderBid: Opt[SignedExecutionPayloadBid] = Opt.none(
+      SignedExecutionPayloadBid),
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -272,25 +282,38 @@ proc makeEngineBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Heze:
-        debugHezeComment "set inclusion_list_bits with FOCIL information"
-        makeSignedExecutionPayloadBid(
-          heze.SignedExecutionPayloadBid,
-          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
-          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
-      elif consensusFork == ConsensusFork.Gloas:
-        makeSignedExecutionPayloadBid(
-          gloas.SignedExecutionPayloadBid,
-          eps.executionPayload, eps.kzg_commitments, state.latest_block_root,
-          slot, static(default(BitArray[int INCLUSION_LIST_COMMITTEE_SIZE])))
+      when consensusFork >= ConsensusFork.Gloas:
+        builderBid.valueOr:
+          makeSignedExecutionPayloadBid(
+            eps.executionPayload, execution_requests, eps.kzg_commitments,
+            state.latest_block_root, slot)
       else:
-        default(gloas.SignedExecutionPayloadBid)
+        default(SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, state.latest_block_root)
       else:
         default(seq[PayloadAttestation])
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/builder.md#constructing-the-signedexecutionpayloadbid
+  # Set `bid.gas_limit` to be the gas limit of the constructed payload, which
+  # **MUST** satisfy `is_gas_limit_target_compatible(parent_gas_limit,
+  # bid.gas_limit, target_gas_limit)`
+  when consensusFork >= ConsensusFork.Gloas:
+    if builderBid.isNone():
+      let
+        parentGasLimit = state.data.latest_execution_payload_bid.gas_limit
+        gasLimit = signed_execution_payload_bid.message.gas_limit
+        targetGasLimit = node.consensusManager[].getGasLimit(
+          state.data.validators.item(validator_index).pubkey)
+      if not is_gas_limit_target_compatible(
+          parentGasLimit, gasLimit, targetGasLimit):
+        warn "Self-built EL payload gas_limit not target-compatible; refusing to propose",
+          slot, parentGasLimit, gasLimit, targetGasLimit
+        return err("EL payload gas_limit not target-compatible")
+
+  let
     blockAndRewards = makeBeaconBlockWithRewards(
       node.dag.cfg,
       consensusFork,
@@ -305,11 +328,12 @@ proc makeEngineBlock*(
       exits,
       sync_aggregate,
       eps.executionPayload,
-      verificationFlags = {},
+      verification_flags,
       eps.kzg_commitments,
       execution_requests,
       signed_execution_payload_bid,
       payload_attestations,
+      parent_execution_requests,
     ).valueOr:
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -332,6 +356,7 @@ proc getExecutionPayload*(
     proposalState: ref ForkedHashedBeaconState,
     validator_index: ValidatorIndex,
     validator_pubkey: ValidatorPubKey,
+    should_extend_payload: bool,
 ): Future[Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]] {.
     async: (raises: [CancelledError])
 .} =
@@ -348,7 +373,10 @@ proc getExecutionPayload*(
     beaconHead = node.attestationPool[].getBeaconHead(head)
     executionHead =
       when consensusFork >= ConsensusFork.Gloas:
-        forkyState.data.latest_execution_payload_bid.block_hash
+        if should_extend_payload:
+          proposalExecutionHead(forkyState.data)
+        else:
+          forkyState.data.latest_execution_payload_bid.parent_block_hash
       elif consensusFork >= ConsensusFork.Bellatrix:
         forkyState.data.latest_execution_payload_header.block_hash
       else:
@@ -359,7 +387,14 @@ proc getExecutionPayload*(
     prevRandao = get_randao_mix(forkyState.data, slot.epoch)
     withdrawals =
       when consensusFork >= ConsensusFork.Gloas:
-        get_expected_withdrawals(forkyState.data).withdrawals
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/validator.md#executionpayload
+        # - If `should_extend_payload(store, parent_root)`:
+        #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
+        # - else `withdrawals = state.payload_expected_withdrawals`.
+        if should_extend_payload:
+          get_expected_withdrawals(forkyState.data).withdrawals
+        else:
+          forkyState.data.payload_expected_withdrawals.asSeq()
       elif consensusFork >= ConsensusFork.Capella:
         get_expected_withdrawals(forkyState.data)
       else:
@@ -378,9 +413,18 @@ proc getExecutionPayload*(
   type PayloadType = consensusFork.ExecutionPayloadForSigning
   let
     state = ForkchoiceStateV1.init(executionHead, latestSafe, latestFinalized)
-    attributes = PayloadAttributesV3.init(
-      timestamp, prevRandao, feeRecipient, withdrawals, beaconHead.blck.bid.root
-    )
+    attributes =
+      when consensusFork >= ConsensusFork.Gloas:
+        PayloadAttributesV4.init(
+          timestamp, prevRandao, feeRecipient, withdrawals,
+          beaconHead.blck.bid.root, slot,
+          node.consensusManager[].getGasLimit(validator_pubkey),
+        )
+      else:
+        PayloadAttributesV3.init(
+          timestamp, prevRandao, feeRecipient, withdrawals,
+          beaconHead.blck.bid.root
+        )
     eps = await(node.elManager.getPayload(PayloadType, state, attributes)).valueOr:
       if not proposalState[].is_merge_transition_complete():
         # Pre-merge, an all-zeroes execution payload is used and there are no
@@ -512,10 +556,11 @@ proc makeBuilderBlock*(
 
   debugGloasComment "make signed bid from engine payload"
   let
-    signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
+    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
-        node.payloadAttestationPool[].getPayloadAttestationsForBlock(slot, cache)
+        node.payloadAttestationPool[].getPayloadAttestationsForBlock(
+          slot, state.latest_block_root)
       else:
         newSeq[PayloadAttestation]()
 
@@ -588,11 +633,11 @@ proc collectBids*(
 
     builderBidFut =
       if usePayloadBuilder:
-        debugGloasComment "handle different get_expected_withdrawals types"
         let
           withdrawals = List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
-            when consensusFork == ConsensusFork.Gloas:
-              get_expected_withdrawals(proposalState[].forky(consensusFork).data)[0]
+            when consensusFork >= ConsensusFork.Gloas:
+              get_expected_withdrawals(
+                proposalState[].forky(consensusFork).data).withdrawals
             else:
               get_expected_withdrawals(proposalState[].forky(consensusFork).data)
           )
@@ -604,9 +649,12 @@ proc collectBids*(
       else:
         nil
 
-    enginePayloadFut = node.getExecutionPayload(
-      consensusFork, head, proposalState, validator_index, validator_pubkey
-    )
+    enginePayloadFut = block:
+      debugGloasComment("should_extend_payload")
+      node.getExecutionPayload(
+        consensusFork, head, proposalState, validator_index, validator_pubkey,
+        false,
+      )
 
   # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
   # second for remote validators. getExecutionPayload times out after
@@ -721,6 +769,8 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     slot,
     bids.engineBid[].eps,
     bids.engineBid[].execution_requests,
+    default(consensusFork.ExecutionRequests),
+    {},
   )
 
   ok(

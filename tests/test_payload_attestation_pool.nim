@@ -11,7 +11,6 @@
 import
   # Status libraries
   unittest2,
-  chronicles,
   # Internal
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, payload_attestation_pool, spec_cache],
@@ -107,13 +106,15 @@ suite "Payload attestation pool" & preset():
           message = makePayloadAttestationMessage(
             forkyState, beacon_block_root, ptc_member, privkey, cache)
 
+        check not pool[].isSeen(message)
         check pool[].addPayloadAttestation(message, wallTime)
+        check pool[].isSeen(message)
 
         # Should not be able to add the same attestation twice
         check not pool[].addPayloadAttestation(message, wallTime)
 
         let aggregated = pool[].getAggregatedPayloadAttestation(
-            slot, (beacon_block_root, true, true), cache)
+            slot, (beacon_block_root, true, true))
 
         check aggregated.isSome()
         check aggregated.get().data == message.data
@@ -148,7 +149,7 @@ suite "Payload attestation pool" & preset():
           check pool[].addPayloadAttestation(message, wallTime)
 
         let aggregated = pool[].getAggregatedPayloadAttestation(
-          slot, (beacon_block_root, true, true), cache)
+          slot, (beacon_block_root, true, true))
         check aggregated.isSome()
         check aggregated.get().aggregation_bits.countOnes() >= ptc_members.len
 
@@ -195,7 +196,7 @@ suite "Payload attestation pool" & preset():
 
           let aggregated =
             pool[].getAggregatedPayloadAttestation(
-              slot, (beacon_block_root, true, true), cache)
+              slot, (beacon_block_root, true, true))
           check aggregated.isSome()
 
           # Check that all positions are set in aggregation bits
@@ -225,7 +226,7 @@ suite "Payload attestation pool" & preset():
           added_count += 1
 
         let attestations =
-          pool[].getPayloadAttestationsForBlock(target_slot, cache)
+          pool[].getPayloadAttestationsForBlock(target_slot, beacon_block_root)
         check attestations.len > 0
         check attestations[0].data.slot == slot
 
@@ -258,7 +259,7 @@ suite "Payload attestation pool" & preset():
 
         # Old attestation should no longer be retrievable
         let attestations =
-          pool[].getPayloadAttestationsForBlock(slot + 6, cache)
+          pool[].getPayloadAttestationsForBlock(slot + 6, beacon_block_root)
         check attestations.len == 0
 
   test "Different 'blob data available' and 'payload presence' values" & preset():
@@ -304,13 +305,13 @@ suite "Payload attestation pool" & preset():
 
         let
           agg1 = pool[].getAggregatedPayloadAttestation(
-            slot, (beacon_block_root, true, true), cache)
+            slot, (beacon_block_root, true, true))
           agg2 = pool[].getAggregatedPayloadAttestation(
-            slot, (beacon_block_root, false, false), cache)
+            slot, (beacon_block_root, false, false))
           agg3 = pool[].getAggregatedPayloadAttestation(
-            slot, (beacon_block_root, false, true), cache)
+            slot, (beacon_block_root, false, true))
           agg4 = pool[].getAggregatedPayloadAttestation(
-            slot, (beacon_block_root, true, false), cache)
+            slot, (beacon_block_root, true, false))
 
         check agg1.isSome()
         check agg2.isSome()
@@ -327,7 +328,6 @@ suite "Payload attestation pool" & preset():
     withState(state[]):
       when consensusFork >= ConsensusFork.Gloas:
         # Get PTC using StateCache version
-        var cache = StateCache()
         let stateCacheResults = collect(newSeq):
           for validator_index in get_ptc(forkyState.data, slot):
             validator_index

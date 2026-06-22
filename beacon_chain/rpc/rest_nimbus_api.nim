@@ -5,18 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
-  std/sequtils,
+  std/[strutils, sequtils],
   stew/base10,
+  results,
   chronicles,
   chronos/apps/http/httpdebug,
   libp2p/[multiaddress, multicodec, peerstore],
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
   ../el/el_manager,
-  ../spec/[forks, beacon_time],
+  ../spec/[forks, beacon_time, peerdas_helpers, column_map],
+  ../sync/validator_custody,
   ../beacon_node, ../nimbus_binary_common
 
 export rest_utils
@@ -203,37 +205,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonResponse((peers: res))
 
   router.api2(MethodPost, "/nimbus/v1/graffiti") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
-    if contentBody.isNone:
-      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-
-    template setGraffitiAux(node: BeaconNode,
-                            graffitiStr: string): RestApiResponse =
-      node.graffitiBytes = try:
-        GraffitiBytes.init(graffitiStr)
-      except CatchableError as err:
-        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         err.msg)
-      RestApiResponse.jsonResponse((result: true))
-
-    let body = contentBody.get()
-    if body.contentType == ApplicationJsonMediaType:
-      let graffitiBytes = decodeBody(GraffitiBytes, body)
-      if graffitiBytes.isErr():
-        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         $graffitiBytes.error())
-      node.graffitiBytes = graffitiBytes.get()
-      RestApiResponse.jsonResponse((result: true))
-    elif body.contentType == TextPlainMediaType:
-      node.setGraffitiAux body.strData()
-    elif body.contentType == UrlEncodedMediaType:
-      node.setGraffitiAux decodeUrl(body.strData())
-    else:
-      RestApiResponse.jsonError(
-        Http400, "Unsupported content type: " & $body.contentType)
+      contentBody: Option[ContentBody]) -> RestApiResponse:
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodGet, "/nimbus/v1/graffiti") do () -> RestApiResponse:
-    RestApiResponse.jsonResponse(node.graffitiBytes)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodPost, "/nimbus/v1/chronicles/settings") do (
     log_level: Option[string]) -> RestApiResponse:
@@ -545,3 +521,136 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.jsonError(Http404, HistoricalSummariesUnavailable)
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+  router.api2(MethodGet, "/nimbus/v1/debug/sync/peers") do (
+    ) -> RestApiResponse:
+
+    proc getMetadataCgc(peer: Peer): Result[uint8, cstring] =
+      let metadata = peer.metadata
+      if metadata.isNone():
+        return err("metadata is not available")
+      if metadata.get.custody_group_count > NUMBER_OF_COLUMNS:
+        return err("metadata cgc out of range")
+      ok(uint8(metadata.get.custody_group_count))
+
+    proc getEnrCgc(peer: Peer): Result[uint8, cstring] =
+      if peer.enr.isNone():
+        return err("enr is not available")
+      let
+        enr = peer.enr.get()
+        field = enr.get(enrCustodyGroupCountField, seq[byte]).valueOr:
+          return err("enr cgc field is not available")
+        cgc =
+          try:
+            SSZ.decode(field, uint8)
+          except SszError, SerializationError:
+            return err("unable to decode enr cgc field")
+      if cgc > NUMBER_OF_COLUMNS:
+        return err("enr cgc value is out of range")
+      ok(cgc)
+
+    let localMap = node.validatorCustody.getMap()
+
+    var
+      usefulPeers = 0
+      uselessPeers = 0
+      supernodePeers = 0
+      totalPeers = 0
+      incomingPeers = 0
+      outgoingPeers = 0
+      indices: array[NUMBER_OF_COLUMNS, int]
+      distribution: array[NUMBER_OF_COLUMNS, int]
+      counts: seq[int]
+      res: seq[RestSyncPeer]
+      columns = 0
+
+    for peer in node.network.peers.values():
+      if peer.connectionState == Connected:
+        let
+          nodeId = peer.fetchNodeIdFromPeerId().get()
+          enrcgc = peer.getEnrCgc()
+          metcgc = peer.getMetadataCgc()
+          cgc =
+            if enrcgc.isOk():
+              enrcgc.get()
+            else:
+              if metcgc.isOk():
+                metcgc.get()
+              else:
+                0'u8
+          enrField = if enrcgc.isOk(): $enrcgc.get() else: $enrcgc.error
+          metField = if metcgc.isOk(): $metcgc.get() else: $metcgc.error
+
+          columnMap =
+            node.network.cfg.resolve_column_map_from_custody_groups(
+              nodeId, CustodyIndex(cgc))
+          intersectMap = localMap and columnMap
+
+        for index in columnMap.items():
+          inc(distribution[int(index)])
+
+        for index in intersectMap.items():
+          inc(indices[int(index)])
+
+        if len(columnMap) == NUMBER_OF_COLUMNS:
+          inc(supernodePeers)
+        if len(intersectMap) == 0:
+          inc(uselessPeers)
+        else:
+          inc(usefulPeers)
+
+        if peer.direction == PeerType.Incoming:
+          inc(incomingPeers)
+        else:
+          inc(outgoingPeers)
+
+        inc(totalPeers)
+
+        let peer = RestSyncPeer(
+          peer_id: $peer.peerId,
+          node_id: $nodeId,
+          direction: toLowerAscii($peer.direction),
+          enr_cgc: enrField,
+          meta_cgc: metField,
+          cgc: int(cgc),
+          columns: columnMap.mapIt(int(it)),
+          intersection: intersectMap.mapIt(int(it)),
+          agent: $peer.getRemoteAgent(),
+          agent_full:
+            node.network.switch.peerStore[AgentBook][peer.peerId],
+          proto_full:
+            node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
+        )
+        res.add(peer)
+
+    for index in localMap:
+      let count = indices[int(index)]
+      if count != 0:
+        inc(columns)
+      counts.add(count)
+
+    let fillRate = (float(columns) * 100.0) / float(len(localMap))
+
+    RestApiResponse.jsonResponseWMeta(
+      res,
+      (
+        total_peers_count: RestNumeric(totalPeers),
+        useless_peers_count: RestNumeric(uselessPeers),
+        useful_peers_count: RestNumeric(usefulPeers),
+        supernode_peers_count: RestNumeric(supernodePeers),
+        incoming_peers_count: RestNumeric(incomingPeers),
+        outgoing_peers_count: RestNumeric(outgoingPeers),
+        custody_map: localMap.mapIt(int(it)),
+        columns_count: RestNumeric(len(localMap)),
+        counts: counts,
+        fill_rate: fillRate,
+        distribution: distribution
+      ))
+
+  router.api2(MethodGet, "/nimbus/v1/debug/custody") do (
+    ) -> RestApiResponse:
+    let
+      slot = node.currentSlot()
+      res =
+        "{\"data\":" & node.validatorCustody.debugCustodyJsonDump(slot) & "}\n"
+    RestApiResponse.response(res, Http200, "application/json")

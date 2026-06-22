@@ -48,7 +48,7 @@ const
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
   LowestScoreAggregatedElectraAttestation* =
     electra.Attestation(
-      aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1)))
+      aggregation_bits: AggregationBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -60,7 +60,9 @@ type
     ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar,
     SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate,
-    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage
+    ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
+    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage,
+    FastConfirmation
 
 
   EventTopics* = set[EventTopic]
@@ -255,6 +257,19 @@ type
     direction*: string
     agent*: string # This is not part of specification
     proto*: string # This is not part of specification
+
+  RestSyncPeer* = object
+    peer_id*: string
+    node_id*: string
+    direction*: string
+    enr_cgc*: string
+    meta_cgc*: string
+    cgc*: int
+    columns*: seq[int]
+    intersection*: seq[int]
+    agent*: string
+    agent_full*: string
+    proto_full*: string
 
   RestNodeVersion* = object
     version*: string
@@ -458,8 +473,8 @@ type
       aggregateAndProof* {.
         serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.AggregateAndProofV2:
-      forkedAggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
+      aggregateAndProofV2* {.
+        serializedFieldName: "aggregate_and_proof".}: electra.AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -656,8 +671,6 @@ template withForkyBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyData: untyped {.inject, used.} = x.denebData
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.denebData.blobs
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
@@ -829,9 +842,6 @@ func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
 func init*(t: typedesc[StateIdent], v: Slot): StateIdent =
   StateIdent(kind: StateQueryKind.Slot, slot: v)
 
-func init*(t: typedesc[StateIdent], v: Eth2Digest): StateIdent =
-  StateIdent(kind: StateQueryKind.Root, root: v)
-
 func init*(t: typedesc[BlockIdent], v: BlockIdentType): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Named, value: v)
 
@@ -841,16 +851,8 @@ func init*(t: typedesc[BlockIdent], v: Slot): BlockIdent =
 func init*(t: typedesc[BlockIdent], v: Eth2Digest): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Root, root: v)
 
-func init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
-  ValidatorIdent(kind: ValidatorQueryKind.Index, index: RestValidatorIndex(v))
-
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
-
-func init*(t: typedesc[RestBlockInfo],
-           v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
-  withBlck(v):
-    RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: Gwei, status: string,
@@ -907,8 +909,7 @@ func init*(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    forkedAggregateAndProof:
-      ForkedAggregateAndProof.init(data, typeof(data).kind)
+    aggregateAndProofV2: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
@@ -1104,16 +1105,9 @@ func init*(t: typedesc[RestSignedContributionAndProof],
     ),
     signature: signature)
 
-func len*(p: RestWithdrawalPrefix): int = sizeof(p)
-
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string): RestErrorMessage =
   RestErrorMessage(code: code, message: message)
-
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string, stacktrace: string): RestErrorMessage =
-  RestErrorMessage(code: code, message: message,
-                   stacktraces: Opt.some(@[stacktrace]))
 
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string, stacktrace: openArray[string]): RestErrorMessage =
