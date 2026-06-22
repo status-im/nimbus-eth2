@@ -393,7 +393,8 @@ template compute_proposer_index(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/beacon-chain.md#modified-compute_proposer_index
 template compute_proposer_index(
-    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState,
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState,
     indices: openArray[ValidatorIndex], seed: Eth2Digest,
     unshuffleTransform: untyped): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
@@ -460,62 +461,51 @@ func compute_proposer_indices*(
 
   proposerIndices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-compute_balance_weighted_acceptance
-func compute_balance_weighted_acceptance(
-    state: gloas.BeaconState, index: ValidatorIndex,
-    seed: Eth2Digest, i: uint64): bool =
-  ## Return whether to accept the selection of the validator ``index``, with probability
-  ## proportional to its ``effective_balance``, and randomness given by ``seed`` and ``i``.
-  const MAX_RANDOM_VALUE = (2^16 - 1).uint64
-
-  var buffer {.noinit.}: array[40, byte]
-  buffer[0..31] = seed.data
-  buffer[32..39] = uint_to_bytes(i div 16)
-
-  let
-    random_bytes = eth2digest(buffer)
-    offset = (i mod 16) * 2
-
-  var random_bytes_8: array[8, byte]
-  random_bytes_8[0..1] = random_bytes.data.toOpenArray(offset, offset + 1)
-
-  let
-    random_value = bytes_to_uint64(random_bytes_8)
-    effective_balance = state.validators[index].effective_balance
-
-  effective_balance.uint64 * MAX_RANDOM_VALUE >=
-    MAX_EFFECTIVE_BALANCE_ELECTRA * random_value
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
 iterator compute_balance_weighted_selection*(
-    state: gloas.BeaconState, indices: seq[ValidatorIndex],
-    seed: Eth2Digest, size: uint64,
+    state: gloas.BeaconState | heze.BeaconState,
+    indices: seq[ValidatorIndex], seed: Eth2Digest, size: uint64,
     shuffle_indices: bool): ValidatorIndex =
   ## Return ``size`` indices sampled by effective balance, using ``indices``
   ## as candidates. If ``shuffle_indices`` is ``True``, candidate indices
   ## are themselves sampled from ``indices`` by shuffling it, otherwise
   ## ``indices`` is traversed in order.
+  const MAX_RANDOM_VALUE = (2^16 - 1).uint64
   let total = indices.lenu64
   doAssert total > 0
+  template effective_balances(idx: uint64): uint64 =
+    uint64(state.validators[indices[idx]].effective_balance)
 
   var
     i = 0'u64
     count = 0'u64
-
+    random_bytes: array[32, byte]
+    hash_buf {.noinit.}: array[40, byte]
+    rv_buf: array[8, byte]
+  hash_buf[0..31] = seed.data
   while count < size:
+    let offset = (i mod 16) * 2
+    if offset == 0:
+      hash_buf[32..39] = uint_to_bytes(i div 16)
+      random_bytes = eth2digest(hash_buf).data
     var next_index = i mod total
     if shuffle_indices:
       next_index = compute_shuffled_index(next_index, total, seed)
 
-    let candidate_index = indices[next_index]
-    if compute_balance_weighted_acceptance(state, candidate_index, seed, i):
-      yield candidate_index
+    rv_buf[0..1] = random_bytes.toOpenArray(offset, offset + 1)
+    let
+      weight = effective_balances(next_index) * MAX_RANDOM_VALUE
+      random_value = bytes_to_uint64(rv_buf)
+      threshold = MAX_EFFECTIVE_BALANCE_ELECTRA * random_value
+
+    if weight >= threshold:
+      yield indices[next_index]
       inc count
     inc i
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-compute_proposer_indices
 func compute_proposer_indices*(
-    state: gloas.BeaconState,
+    state: gloas.BeaconState | heze.BeaconState,
     epoch: Epoch, seed: Eth2Digest,
     indices: seq[ValidatorIndex]
 ): seq[ValidatorIndex] =
@@ -570,18 +560,25 @@ func get_beacon_proposer_index*(
       return res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_beacon_proposer_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/beacon-chain.md#modified-get_beacon_proposer_indices
 func get_beacon_proposer_indices*(
     state: ForkyBeaconState, epoch: Epoch
 ): seq[Opt[ValidatorIndex]] =
   ## Return the proposer indices for the given `epoch`.
-  let indices = get_active_validator_indices(state, epoch)
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
 
   debugGloasComment "temporary workaround for Gloas"
   when typeof(state).kind >= ConsensusFork.Gloas:
+    # [Modified in Gloas:EIP8045] Build the active-and-unslashed candidate
+    # set in a single pass, avoiding a second copy of the active indices.
+    var indices = newSeqOfCap[ValidatorIndex](state.validators.len)
+    for vidx in get_active_validator_indices(state, epoch):
+      if not state.validators[vidx].slashed:
+        indices.add vidx
     let proposers = compute_proposer_indices(state, epoch, seed, indices)
     proposers.mapIt(Opt.some(it))
   else:
+    let indices = get_active_validator_indices(state, epoch)
     compute_proposer_indices(state, epoch, seed, indices)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
@@ -611,6 +608,31 @@ func get_beacon_proposer_indices*(
     # as the method of computing proposer in the below
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+# The signature of this function diverges from the spec to avoid
+# passing the full beacon state through an inline iterator which
+# triggers stack-materialization of the enclosing case object.
+# https://github.com/nim-lang/Nim/issues/25287
+# https://github.com/nim-lang/Nim/issues/25694
+iterator get_upcoming_proposal_slots*(
+    proposer_lookahead:
+      HashArray[Limit((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64],
+    current_epoch: Epoch,
+    state_slot: Slot,
+    validator_index: uint64): Slot =
+  ## Get the future slots within the proposer lookahead for which
+  ## ``validator_index`` is proposing.
+  const total_slots = (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH
+  for offset in 0'u64 ..< total_slots:
+    if proposer_lookahead.item(offset) == validator_index:
+      let
+        epoch_offset = offset div SLOTS_PER_EPOCH
+        slot_in_epoch = offset mod SLOTS_PER_EPOCH
+        slot = (current_epoch + epoch_offset).start_slot +
+          slot_in_epoch
+      if slot > state_slot:
+        yield slot
 
 func initialize_proposer_lookahead*(state: electra.BeaconState,
                                     cache: var StateCache):
@@ -767,7 +789,7 @@ proc compute_on_chain_aggregate*(
   prev_committee_index.reset()
 
   var
-    aggregation_bits = ElectraCommitteeValidatorsBits.init(totalLen)
+    aggregation_bits = AggregationBits.init(totalLen)
     pos = 0
     filledLen = 0
   for i, a in aggregates:

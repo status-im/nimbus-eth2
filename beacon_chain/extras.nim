@@ -7,6 +7,8 @@
 
 {.push raises: [].}
 
+import metrics
+
 # Temporary dumping ground for extra types and helpers that could make it into
 # the spec potentially
 #
@@ -20,25 +22,36 @@
 
 type
   UpdateFlag* = enum
-    skipBlsValidation ##\
-    ## Skip verification of BLS signatures in block processing.
-    ## Predominantly intended for use in testing, e.g. to allow extra coverage.
-    ## Also useful to avoid unnecessary work when replaying known, good blocks.
-    skipStateRootValidation ##\
-    ## Skip verification of block state root.
-    strictVerification ##\
-    ## Strictly assert on unexpected conditions to aid debugging.
-    ## Should not be used in production, as additional asserts are reachable.
-    slotProcessed ##\
-    ## Allow blocks to be applied to states with the same slot number as the
-    ## block which is what happens when `process_block` is called separately
-    skipLastStateRootCalculation ##\
-    ## When process_slots() is being called as part of a state_transition(),
-    ## the hash_tree_root() from the block will fill in the state.root so it
-    ## should skip calculating that last state root.
-    skipLastEnvelope ##\
-    ## As a full beacon block consists of a beacon block and envelope since
-    ## Gloas, the last envelope may not be there yet. This is used to toggle the
-    ## strict state transition of the last envelope in updateState().
+    skipBlsValidation
+      ## Skip verification of BLS signatures in block processing. Predominantly
+      ## intended for use in testing, e.g. to allow extra coverage. Also useful
+      ## to avoid unnecessary work when replaying known, good blocks.
+    skipStateRootValidation
+      ## Skip verification of block state root.
+    strictVerification
+      ## Strictly assert on unexpected conditions to aid debugging.
+      ## Should not be used in production, as additional asserts are reachable.
+    slotProcessed
+      ## Allow blocks to be applied to states with the same slot number as the
+      ## block which is what happens when `process_block` is called separately
+    skipLastStateRootCalculation
+      ## When process_slots() is being called as part of a state_transition(),
+      ## the hash_tree_root() from the block will fill in the state.root so it
+      ## should skip calculating that last state root.
+    skipApplyParentExecutionPayload
+      ## When proposing Gloas blocks, apply_parent_execution_payload() is needed
+      ## for producing a correct execution payload. This causes the transition
+      ## function to be called twice, as it will be used in process_block(). For
+      ## optimization, this is used in proposal for skipping the transitioning
+      ## in process_block().
 
   UpdateFlags* = set[UpdateFlag]
+
+# Single metric used for internal inconsistencies that should not happen.
+# If it ever becomes non-0, check the logs for warnings and report a bug.
+
+declareCounter beacon_errors_internal_total,
+  "Total occurrences of internal errors - check logs"
+
+proc incInternalErrors*() =
+  beacon_errors_internal_total.inc()

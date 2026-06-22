@@ -8,18 +8,18 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[tables],
+  std/tables,
   chronicles, chronos, metrics,
   taskpools,
   kzg4844/kzg,
   ssz_serialization/types,
   ../el/el_manager,
-  ../spec/[helpers, forks],
+  ../spec/[column_map, helpers, forks],
   ../consensus_object_pools/[
-    attestation_pool, blob_quarantine, block_clearance, block_quarantine,
-    blockchain_dag, envelope_quarantine, execution_payload_pool,
-    payload_attestation_pool, light_client_pool,
-    sync_committee_msg_pool, validator_change_pool],
+    attestation_pool, block_clearance, block_quarantine, blockchain_dag,
+    column_quarantine, envelope_quarantine, execution_payload_pool,
+    payload_attestation_pool, light_client_pool, sync_committee_msg_pool,
+    validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -50,10 +50,6 @@ declareCounter execution_payload_envelopes_received,
   "Number of valid execution payload envelope processed by this node"
 declareCounter execution_payload_envelopes_dropped,
   "Number of invalid execution payload envelope dropped by this node", labels = ["reason"]
-declareCounter blob_sidecars_received,
-  "Number of valid blobs processed by this node"
-declareCounter blob_sidecars_dropped,
-  "Number of invalid blobs dropped by this node", labels = ["reason"]
 declareCounter data_column_sidecars_received,
   "Number of valid data columns processed by this node"
 declareCounter data_column_sidecars_dropped,
@@ -108,9 +104,6 @@ declareHistogram beacon_block_delay,
 declareHistogram execution_payload_envelope_delay,
   "Time(s) between slot start and execution payload envelope reception", buckets = delayBuckets
 
-declareHistogram blob_sidecar_delay,
-  "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
-
 declareHistogram data_column_sidecar_delay,
   "Time(s) betweeen slot start and data column sidecar reception",
   buckets = delayBuckets
@@ -152,6 +145,8 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
+    seenProposerPreferences*:
+      array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -173,7 +168,6 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
@@ -202,7 +196,6 @@ proc new*(T: type Eth2Processor,
           executionPayloadBidPool: ref ExecutionPayloadBidPool,
           payloadAttestationPool: ref PayloadAttestationPool,
           quarantine: ref Quarantine,
-          blobQuarantine: ref BlobQuarantine,
           dataColumnQuarantine: ref ColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
@@ -225,7 +218,6 @@ proc new*(T: type Eth2Processor,
     executionPayloadBidPool: executionPayloadBidPool,
     payloadAttestationPool: payloadAttestationPool,
     quarantine: quarantine,
-    blobQuarantine: blobQuarantine,
     dataColumnQuarantine: dataColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
@@ -270,9 +262,16 @@ proc processSignedBeaconBlock*(
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
-  debug "Block received", delay
+  debug "Block received",
+    bid = shortLog(signedBlock.toBlockId()),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signedBlock.signature),
+    wallSlot,
+    delay
 
-  self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {}).isOkOr:
+  self.dag.validateBeaconBlock(
+      self.quarantine, self.envelopeQuarantine, signedBlock,
+      wallTime, {}).isOkOr:
     debug "Dropping block", err = error
 
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
@@ -300,14 +299,10 @@ proc processSignedBeaconBlock*(
       else:
         self.dataColumnQuarantine[].popSidecars(signedBlock.root)
     if sidecarsOpt.isNone():
+      self.blockProcessor[].startExecutionValidity(signedBlock, wallTime)
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
-  elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Electra:
-    let sidecarsOpt = self.blobQuarantine[].popSidecars(signedBlock.root, signedBlock)
-    if sidecarsOpt.isNone():
-      self.quarantine[].addSidecarless(signedBlock)
-      return ok()
-  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Capella:
+  elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
     const sidecarsOpt = noSidecars
   else:
     {.error: "Unknown fork " & $consensusFork.}
@@ -345,13 +340,18 @@ proc processExecutionPayloadEnvelope*(
   debug "Envelope received", delay
 
   self.dag.validateExecutionPayload(
-      self.quarantine, self.envelopeQuarantine, signedEnvelope).isOkOr:
+      self.quarantine, self.envelopeQuarantine, signedEnvelope,
+      wallTime).isOkOr:
     debug "Dropping envelope", err = error
     execution_payload_envelopes_dropped.inc(1, [$error[0]])
     return err(error)
 
+  if not isNil(self.dag.onEnvelopeGossipAdded):
+    self.dag.onEnvelopeGossipAdded(signedEnvelope)
+
   trace "Envelope validated"
-  self.envelopeQuarantine[].addOrphan(signedEnvelope)
+  self.envelopeQuarantine[].addOrphan(
+    self.dag.finalizedHead.slot, signedEnvelope)
   self.blockProcessor.enqueuePayload(signedEnvelope.message.beacon_block_root)
 
   execution_payload_envelopes_received.inc()
@@ -359,69 +359,19 @@ proc processExecutionPayloadEnvelope*(
 
   ok()
 
-proc processBlobSidecar*(
-    self: var Eth2Processor, src: MsgSource,
-    blobSidecar: deneb.BlobSidecar, subnet_id: BlobId): ValidationRes =
-  template block_header: untyped = blobSidecar.signed_block_header.message
-
-  let
-    wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
-
-  logScope:
-    blob = shortLog(blobSidecar)
-    wallSlot
-
-  if not afterGenesis:
-    notice "Blob before genesis"
-    return errIgnore("Blob before genesis")
-
-  # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime -
-    block_header.slot.start_beacon_time(self.dag.timeParams)
-  debug "Blob received", delay
-
-  let v =
-    self.dag.validateBlobSidecar(self.quarantine, self.blobQuarantine,
-                                 blobSidecar, wallTime, subnet_id)
-
-  if v.isErr():
-    debug "Dropping blob", error = v.error()
-    blob_sidecars_dropped.inc(1, [$v.error[0]])
-    return v
-
-  let block_root = hash_tree_root(block_header)
-  debug "Blob validated, putting in blob quarantine"
-  self.blobQuarantine[].put(block_root, newClone(blobSidecar))
-
-  if (let o = self.quarantine[].popSidecarless(block_root); o.isSome):
-    withBlck(o[]):
-      when consensusFork in [ConsensusFork.Deneb, ConsensusFork.Electra]:
-        let bres = self.blobQuarantine[].popSidecars(block_root, forkyBlck)
-        if bres.isSome():
-          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, bres)
-        else:
-          self.quarantine[].addSidecarless(forkyBlck)
-      else:
-        raiseAssert "Wrong fork for blob: " & $consensusFork
-
-  blob_sidecars_received.inc()
-  blob_sidecar_delay.observe(delay.toFloatSeconds())
-
-  v
-
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: fulu.DataColumnSidecar,
+    dataColumnSidecar: ref fulu.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
-  template block_header: untyped = dataColumnSidecar.signed_block_header.message
+  template block_header: untyped =
+    dataColumnSidecar[].signed_block_header.message
 
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
-    dcs = shortLog(dataColumnSidecar)
+    dcs = shortLog(dataColumnSidecar[])
     wallSlot
 
   if not afterGenesis:
@@ -450,7 +400,13 @@ proc processDataColumnSidecar*(
   let block_root = hash_tree_root(block_header)
 
   debug "Data column validated, putting data column in quarantine"
-  self.dataColumnQuarantine[].put(block_root, newClone(dataColumnSidecar))
+  if dataColumnSidecar[].index notin self.dataColumnQuarantine[].custodyMap:
+    data_column_sidecars_received.inc()
+    data_column_sidecar_delay.observe(delay.toFloatSeconds())
+    return v
+
+  self.dataColumnQuarantine[].put(
+    block_root, dataColumnSidecar, verified = true)
 
   if block_root in self.quarantine[].sidecarless:
     let cres = self.dataColumnQuarantine[].popSidecars(block_root)
@@ -470,14 +426,14 @@ proc processDataColumnSidecar*(
 
 proc processDataColumnSidecar*(
     self: var Eth2Processor, src: MsgSource,
-    dataColumnSidecar: gloas.DataColumnSidecar,
+    dataColumnSidecar: ref gloas.DataColumnSidecar,
     subnet_id: uint64): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
 
   logScope:
-    dcs = shortLog(dataColumnSidecar)
+    dcs = shortLog(dataColumnSidecar[])
     wallSlot
 
   if not afterGenesis:
@@ -496,9 +452,13 @@ proc processDataColumnSidecar*(
     return v
 
   debug "Data column validated"
+  if dataColumnSidecar[].index notin self.gloasColumnQuarantine[].custodyMap:
+    data_column_sidecars_received.inc()
+    return v
+
   self.gloasColumnQuarantine[].put(
-    dataColumnSidecar.beacon_block_root, newClone(dataColumnSidecar))
-  self.blockProcessor.enqueuePayload(dataColumnSidecar.beacon_block_root)
+    dataColumnSidecar[].beacon_block_root, dataColumnSidecar, verified = true)
+  self.blockProcessor.enqueuePayload(dataColumnSidecar[].beacon_block_root)
 
   data_column_sidecars_received.inc()
   v
@@ -575,7 +535,8 @@ proc processAttestation*(
 
   let v = (
     await self.attestationPool.validateAttestation(
-      self.batchCrypto, attestation, wallTime, subnet_id, checkSignature
+      self.batchCrypto, self.envelopeQuarantine, attestation,
+      wallTime, subnet_id, checkSignature
     )
   ).valueOr:
     debug "Dropping attestation", reason = $error
@@ -647,6 +608,7 @@ proc processSignedAggregateAndProof*(
   let v = (
     await self.attestationPool.validateAggregate(
       self.batchCrypto,
+      self.envelopeQuarantine,
       signedAggregateAndProof,
       wallTime,
       checkSignature = checkSignature,
@@ -923,7 +885,7 @@ proc processLightClientOptimisticUpdate*(
   v
 
 proc processExecutionPayloadBid*(
-    self: var Eth2Processor, signedBid: SignedExecutionPayloadBid
+    self: var Eth2Processor, signedBid: gloas.SignedExecutionPayloadBid
 ): ValidationRes =
   let wallTime = self.getCurrentBeaconTime()
 
@@ -933,11 +895,18 @@ proc processExecutionPayloadBid*(
     blockRoot = signedBid.message.parent_block_root
 
   let v = validateExecutionPayloadBid(
-    self.dag, self.executionPayloadBidPool, signedBid, wallTime)
+    self.dag, self.executionPayloadBidPool, self.seenProposerPreferences,
+    signedBid, wallTime)
   if v.isOk():
     debug "Execution payload bid validated"
-    self.executionPayloadBidPool[].addBid(signedBid, wallTime)
+
+    let payloadAvailability = v.get
+
+    self.executionPayloadBidPool[].addBid(
+      signedBid, payloadAvailability, wallTime)
+
     beacon_execution_payload_bids_received.inc()
+
     ok()
   else:
     debug "Dropping execution payload bid", reason = $v.error
@@ -964,3 +933,18 @@ proc processPayloadAttestationMessage*(
 
   trace "Payload attestation validated"
   return ok()
+
+proc processProposerPreferences*(
+    self: ref Eth2Processor, src: MsgSource,
+    signed_preferences: SignedProposerPreferences
+): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    v = validateProposerPreferences(
+      self.dag, self.seenProposerPreferences, signed_preferences, wallTime)
+  if v.isErr():
+    debug "Dropping proposer preferences", reason = $v.error
+    return err(v.error())
+
+  trace "Proposer preferences validated"
+  ok()

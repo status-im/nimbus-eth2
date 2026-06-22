@@ -1,27 +1,35 @@
 #!/usr/bin/env groovy
 /* beacon_chain
- * Copyright (c) 2019-2025 Status Research & Development GmbH
+ * Copyright (c) 2019-2026 Status Research & Development GmbH
  * Licensed and distributed under either of
  *   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
  *   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
  * at your option. This file may not be copied, modified, or distributed except according to those terms.
  */
-library 'status-jenkins-lib@v1.9.2'
+library 'status-jenkins-lib@v1.9.45'
+
+def result = ''
 
 pipeline {
-  /* This way we run the same Jenkinsfile on different platforms. */
-  agent { label params.AGENT_LABEL }
+  agent {
+    docker {
+      label 'linuxcontainer'
+      image 'harbor.status.im/infra/ci-build-containers:linux-base-1.0.0'
+      args '--volume=/nix:/nix ' +
+           '--volume=/etc/nix:/etc/nix '
+    }
+  }
 
   parameters {
-    string(
-      name: 'AGENT_LABEL',
-      description: 'Label for targetted CI slave host: linux/macos',
-      defaultValue: params.AGENT_LABEL ?: getAgentLabel(),
-    )
     choice(
       name: 'VERBOSITY',
       description: 'Value for the V make flag to increase log verbosity',
       choices: [0, 1, 2]
+    )
+    choice(
+      name: 'NIX_TARGET',
+      description: 'Flake target to build. "auto" derives it from the job name, pick a target to force it.',
+      choices: ['auto', 'beacon_node', 'validator_client']
     )
   }
 
@@ -43,15 +51,38 @@ pipeline {
   }
 
   stages {
-    stage('Beacon Node') {
+    stage('Lockfile check') {
       steps { script {
-        nix.flake('beacon_node')
+        sh 'nix flake lock --no-update-lock-file'
+      } }
+    }
+
+    stage('Build') {
+      steps { script {
+        result = nix.flake(resolveTarget())
       } }
     }
 
     stage('Version check') {
       steps { script {
-        sh 'result/bin/nimbus_beacon_node --version'
+        sh "${result}/bin/nimbus_${resolveTarget()} --version"
+      } }
+    }
+
+    stage('Push to Nix cache') {
+      when {
+        expression {
+          env.JOB_NAME.toLowerCase().contains('nightly')
+        }
+      }
+      steps { script {
+        nix.copyToCache(derivations: [result])
+      } }
+    }
+
+    stage('Service check') {
+      steps { script {
+        sh 'nix run ".#checks.x86_64-linux.beacon-node.driver"'
       } }
     }
   }
@@ -70,17 +101,14 @@ def isMainBranch() {
   return ['stable', 'testing', 'unstable'].contains(env.BRANCH_NAME)
 }
 
-/* This allows us to use one Jenkinsfile and run
- * jobs on different platforms based on job name. */
-def getAgentLabel() {
-    if (params.AGENT_LABEL) { return params.AGENT_LABEL }
-    /* We extract the name of the job from currentThread because
-     * before an agent is picket env is not available. */
-    def tokens = Thread.currentThread().getName().split('/')
-    def labels = []
-    /* Check if the job path contains any of the valid labels. */
-    ['linux', 'macos', 'x86_64', 'aarch64', 'arm64'].each {
-        if (tokens.contains(it)) { labels.add(it) }
-    }
-    return labels.join(' && ')
+def resolveTarget() {
+  return (params.NIX_TARGET in [null, '', 'auto']) ? nixTarget() : params.NIX_TARGET
+}
+
+def nixTarget() {
+  /* Dev CI is multibranch (BRANCH_NAME set) and only ever builds the beacon node.*/
+  if (env.BRANCH_NAME) {
+    return 'beacon_node'
+  }
+  return env.JOB_NAME.toLowerCase().contains('validator-client') ? 'validator_client' : 'beacon_node'
 }

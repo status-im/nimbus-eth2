@@ -48,7 +48,7 @@ const
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
   LowestScoreAggregatedElectraAttestation* =
     electra.Attestation(
-      aggregation_bits: ElectraCommitteeValidatorsBits(BitSeq.init(1)))
+      aggregation_bits: AggregationBits(BitSeq.init(1)))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -57,10 +57,12 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
     Head, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar, SingleAttestation,
-    FinalizedCheckpoint, ChainReorg, ContributionAndProof,
-    LightClientFinalityUpdate, LightClientOptimisticUpdate, ExecutionPayloadAvailable,
-    ExecutionPayloadBid, PayloadAttestationMessage
+    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar,
+    SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
+    LightClientFinalityUpdate, LightClientOptimisticUpdate,
+    ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
+    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage,
+    FastConfirmation
 
 
   EventTopics* = set[EventTopic]
@@ -256,6 +258,19 @@ type
     agent*: string # This is not part of specification
     proto*: string # This is not part of specification
 
+  RestSyncPeer* = object
+    peer_id*: string
+    node_id*: string
+    direction*: string
+    enr_cgc*: string
+    meta_cgc*: string
+    cgc*: int
+    columns*: seq[int]
+    intersection*: seq[int]
+    agent*: string
+    agent_full*: string
+    proto_full*: string
+
   RestNodeVersion* = object
     version*: string
 
@@ -325,6 +340,11 @@ type
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
+  HezeSignedBlockContents* = object
+    signed_block*: heze.SignedBeaconBlock
+    kzg_proofs*: fulu.KzgProofs
+    blobs*: deneb.Blobs
+
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
@@ -335,6 +355,7 @@ type
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
     of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
     of ConsensusFork.Gloas:     gloasData*:     GloasSignedBlockContents
+    of ConsensusFork.Heze:      hezeData*:      HezeSignedBlockContents
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -452,8 +473,8 @@ type
       aggregateAndProof* {.
         serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.AggregateAndProofV2:
-      forkedAggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
+      aggregateAndProofV2* {.
+        serializedFieldName: "aggregate_and_proof".}: electra.AggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -560,10 +581,7 @@ type
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
-
-  GetHeaderResponseElectra* = DataVersionEnclosedObject[electra_mev.SignedBuilderBid]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
-  SubmitBlindedBlockResponseElectra* = DataVersionEnclosedObject[electra_mev.ExecutionPayloadAndBlobsBundle]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",
@@ -621,6 +639,13 @@ func `==`*(a, b: RestValidatorIndex): bool {.borrow.}
 template withForkyBlck*(
     x: RestPublishedSignedBlockContents, body: untyped): untyped =
   case x.kind
+  of ConsensusFork.Heze:
+    const consensusFork {.inject, used.} = ConsensusFork.Heze
+    template forkyData: untyped {.inject, used.} = x.hezeData
+    template forkyBlck: untyped {.inject, used.} = x.hezeData.signed_block
+    template kzg_proofs: untyped {.inject, used.} = x.hezeData.kzg_proofs
+    template blobs: untyped {.inject, used.} = x.hezeData.blobs
+    body
   of ConsensusFork.Gloas:
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
     template forkyData: untyped {.inject, used.} = x.gloasData
@@ -646,8 +671,6 @@ template withForkyBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyData: untyped {.inject, used.} = x.denebData
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.denebData.blobs
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
@@ -690,6 +713,8 @@ func init*(T: type ForkedSignedBeaconBlock,
       ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
     of ConsensusFork.Gloas:
       ForkedSignedBeaconBlock.init(contents.gloasData.signed_block)
+    of ConsensusFork.Heze:
+      ForkedSignedBeaconBlock.init(contents.hezeData.signed_block)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -795,14 +820,27 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
     )
   )
 
+func init*(t: typedesc[RestPublishedSignedBlockContents],
+           contents: heze.BlockContents, root: Eth2Digest,
+           signature: ValidatorSig): RestPublishedSignedBlockContents =
+  RestPublishedSignedBlockContents(
+    kind: ConsensusFork.Heze,
+    hezeData: HezeSignedBlockContents(
+      signed_block: heze.SignedBeaconBlock(
+        message: contents.`block`,
+        root: root,
+        signature: signature
+      ),
+      kzg_proofs: contents.kzg_proofs,
+      blobs: contents.blobs
+    )
+  )
+
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
 
 func init*(t: typedesc[StateIdent], v: Slot): StateIdent =
   StateIdent(kind: StateQueryKind.Slot, slot: v)
-
-func init*(t: typedesc[StateIdent], v: Eth2Digest): StateIdent =
-  StateIdent(kind: StateQueryKind.Root, root: v)
 
 func init*(t: typedesc[BlockIdent], v: BlockIdentType): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Named, value: v)
@@ -813,16 +851,8 @@ func init*(t: typedesc[BlockIdent], v: Slot): BlockIdent =
 func init*(t: typedesc[BlockIdent], v: Eth2Digest): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Root, root: v)
 
-func init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
-  ValidatorIdent(kind: ValidatorQueryKind.Index, index: RestValidatorIndex(v))
-
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
-
-func init*(t: typedesc[RestBlockInfo],
-           v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
-  withBlck(v):
-    RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: Gwei, status: string,
@@ -879,8 +909,7 @@ func init*(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    forkedAggregateAndProof:
-      ForkedAggregateAndProof.init(data, typeof(data).kind)
+    aggregateAndProofV2: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
@@ -1076,16 +1105,9 @@ func init*(t: typedesc[RestSignedContributionAndProof],
     ),
     signature: signature)
 
-func len*(p: RestWithdrawalPrefix): int = sizeof(p)
-
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string): RestErrorMessage =
   RestErrorMessage(code: code, message: message)
-
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string, stacktrace: string): RestErrorMessage =
-  RestErrorMessage(code: code, message: message,
-                   stacktraces: Opt.some(@[stacktrace]))
 
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string, stacktrace: openArray[string]): RestErrorMessage =
@@ -1128,25 +1150,32 @@ func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
 
 ## Types and helpers for historical_summaries + proof endpoint
 const
-  # gIndex for historical_summaries field (27th field in BeaconState)
-  HISTORICAL_SUMMARIES_GINDEX* = GeneralizedIndex(59) # 32 + 27 = 59
-  HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = GeneralizedIndex(91) # 64 + 27 = 91
+  HISTORICAL_SUMMARIES_GINDEX* = get_generalized_index(
+    capella.BeaconState, "historical_summaries")
+  HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = get_generalized_index(
+    electra.BeaconState, "historical_summaries")
+static:
+  doAssert HISTORICAL_SUMMARIES_GINDEX == 59.GeneralizedIndex
+  doAssert HISTORICAL_SUMMARIES_GINDEX_ELECTRA == 91.GeneralizedIndex
 
 type
   # Note: these could go in separate Capella/Electra spec files if they were
   # part of the specification.
-  HistoricalSummariesProof* = array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
+  HistoricalSummariesProof* =
+    array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
   HistoricalSummariesProofElectra* =
     array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_ELECTRA), Eth2Digest]
 
   # REST API types
   GetHistoricalSummariesV1Response* = object
-    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
     proof*: HistoricalSummariesProof
     slot*: Slot
 
   GetHistoricalSummariesV1ResponseElectra* = object
-    historical_summaries*: HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
     proof*: HistoricalSummariesProofElectra
     slot*: Slot
 
@@ -1161,8 +1190,10 @@ type
   # REST client response type
   ForkedHistoricalSummariesWithProof* = object
     case kind*: HistoricalSummariesFork
-    of HistoricalSummariesFork.Capella: capellaData*: GetHistoricalSummariesV1Response
-    of HistoricalSummariesFork.Electra: electraData*: GetHistoricalSummariesV1ResponseElectra
+    of HistoricalSummariesFork.Capella: capellaData*:
+      GetHistoricalSummariesV1Response
+    of HistoricalSummariesFork.Electra: electraData*:
+      GetHistoricalSummariesV1ResponseElectra
 
 template historical_summaries_gindex*(
     kind: static HistoricalSummariesFork): GeneralizedIndex =
@@ -1195,8 +1226,10 @@ template init*(
       kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
     )
 
-func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
-  static: doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
+func historicalSummariesForkAtConsensusFork*(
+    consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
+  static:
+    doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
   if consensusFork >= ConsensusFork.Electra:
     Opt.some HistoricalSummariesFork.Electra
   elif consensusFork >= ConsensusFork.Capella:
@@ -1204,7 +1237,20 @@ func historicalSummariesForkAtConsensusFork*(consensusFork: ConsensusFork): Opt[
   else:
     Opt.none HistoricalSummariesFork
 
-func parse*(_: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
+static:
+  for consensusFork in ConsensusFork:
+    withConsensusFork(consensusFork):
+      const historicalSummariesFork =
+        historicalSummariesForkAtConsensusFork(consensusFork)
+      when historicalSummariesFork.isSome:
+        template check(gindex, T: untyped, path: varargs[untyped]): untyped =
+          doAssert gindex == consensusFork.T.get_generalized_index(path)
+
+        check historicalSummariesFork.get.historical_summaries_gindex,
+          BeaconState, "historical_summaries"
+
+func parse*(
+    _: type ValidatorIdent, value: string): Result[ValidatorIdent, cstring] =
   # Either key or index depending on prefix
   if len(value) > 2 and (value[0] == '0') and (value[1] == 'x'):
     let res = ? ValidatorPubKey.fromHex(value)
@@ -1213,7 +1259,8 @@ func parse*(_: type ValidatorIdent, value: string): Result[ValidatorIdent, cstri
     let res = RestValidatorIndex(? Base10.decode(uint64, value))
     ok(ValidatorIdent(kind: ValidatorQueryKind.Index, index: res))
 
-func parse*(_: type ValidatorFilter, value: string): Result[ValidatorFilter, cstring] =
+func parse*(
+    _: type ValidatorFilter, value: string): Result[ValidatorFilter, cstring] =
   case value
   of "pending_initialized":
     ok({ValidatorFilterKind.PendingInitialized})

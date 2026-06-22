@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[typetraits, tables],
@@ -505,7 +505,8 @@ proc new*(T: type BeaconChainDBV0,
 
 proc new*(T: type BeaconChainDB,
           db: SqStoreRef,
-          cfg: RuntimeConfig
+          cfg: RuntimeConfig,
+          lightClientDataImportBackfill = false
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -538,12 +539,13 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("capella_blocks").expectDb(),
       kvStore db.openKvStore("deneb_blocks").expectDb(),
       kvStore db.openKvStore("electra_blocks").expectDb(),
-      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("fulu_blocks").expectDb()
-      else:
-        nil,
+      kvStore db.openKvStore("fulu_blocks").expectDb(),
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("gloas_blocks").expectDb()
+      else:
+        nil,
+      if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("321cd149fc98434fa315ce9afd563ad1").expectDb()
       else:
         nil
     ]
@@ -557,12 +559,13 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
       kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb(),
       kvStore db.openKvStore("electra_state_no_validator_pubkeys").expectDb(),
-      if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-        kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb()
-      else:
-        nil,
+      kvStore db.openKvStore("fulu_state_no_validator_pubkeys").expectDb(),
       if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
         kvStore db.openKvStore("gloas_state_no_validator_pubkeys").expectDb()
+      else:
+        nil,
+      if cfg.HEZE_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        kvStore db.openKvStore("92859b2e460944169bcca68d8a620069").expectDb()
       else:
         nil
     ]
@@ -588,6 +591,11 @@ proc new*(T: type BeaconChainDB,
           "lc_electra_headers"
         else:
           "",
+      gloasHeaders:
+        if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_gloas_headers"
+        else:
+          "",
       altairCurrentBranches: "lc_altair_current_branches",
       electraCurrentBranches:
         if cfg.ELECTRA_FORK_EPOCH != FAR_FUTURE_EPOCH:
@@ -598,7 +606,7 @@ proc new*(T: type BeaconChainDB,
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Electra
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
 
   var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
@@ -609,12 +617,11 @@ proc new*(T: type BeaconChainDB,
     nil, # Capella
     nil, # Deneb
     nil, # Electra
-    if cfg.FULU_FORK_EPOCH != FAR_FUTURE_EPOCH:
-      kvStore db.openKvStore("fulu_columns").expectDb()
-    else: nil,
+    kvStore db.openKvStore("fulu_columns").expectDb(),
     if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
       kvStore db.openKvStore("gloas_columns").expectDb()
-    else: nil
+    else: nil,
+    nil  # Heze
   ]
 
   var envelopes: KvStoreRef
@@ -673,7 +680,8 @@ proc new*(T: type BeaconChainDB,
           dir: string,
           cfg: RuntimeConfig,
           inMemory = false,
-          readOnly = false
+          readOnly = false,
+          lightClientDataImportBackfill = false
     ): BeaconChainDB =
   let db =
     if inMemory:
@@ -688,7 +696,7 @@ proc new*(T: type BeaconChainDB,
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
-  BeaconChainDB.new(db, cfg)
+  BeaconChainDB.new(db, cfg, lightClientDataImportBackfill)
 
 template getQuarantineDB*(db: BeaconChainDB): QuarantineDB =
   db.quarantine
@@ -870,21 +878,61 @@ proc delBlobSidecar*(
     root: Eth2Digest, index: BlobIndex): bool =
   db.blobs.del(blobkey(root, index)).expectDb()
 
-proc putDataColumnSidecar*(
+proc putDataColumnSidecars*(
     db: BeaconChainDB,
-    value: fulu.DataColumnSidecar) =
+    values: openArray[ref fulu.DataColumnSidecar]) =
+  ## Batch-insert Fulu data column sidecars in a single SQL transaction
+  ## driven by one inline `INSERT OR REPLACE` prepared statement reused
+  ## across every row. Mirrors the inline-SQL pattern of
+  ## `delDataColumnSidecars`. Sidecars sharing a block share the same
+  ## `signed_block_header`, so the per-block `hash_tree_root` is memoized
+  ## across the batch.
+  if values.len == 0:
+    return
   const consensusFork = ConsensusFork.Fulu
   doAssert db.columns[consensusFork] != nil
-  let block_root = hash_tree_root(value.signed_block_header.message)
-  db.columns[consensusFork].putSZSSZ(columnkey(block_root, value.index), value)
 
-proc putDataColumnSidecar*(
+  let stmt = expectDb db.db.prepareStmt(
+    "INSERT OR REPLACE INTO 'fulu_columns'(key, value) VALUES (?, ?);",
+    (array[40, byte], seq[byte]), void, managed = false)
+  defer: stmt.dispose()
+
+  db.withManyWrites:
+    var
+      cachedHeader: BeaconBlockHeader
+      cachedRoot: Eth2Digest
+      have = false
+    for v in values:
+      template sidecar: untyped = v[]
+      let header = sidecar.signed_block_header.message
+      if not have or header != cachedHeader:
+        cachedHeader = header
+        cachedRoot = hash_tree_root(header)
+        have = true
+      expectDb stmt.exec(
+        (columnkey(cachedRoot, sidecar.index), encodeSZSSZ(sidecar)))
+
+proc putDataColumnSidecars*(
     db: BeaconChainDB,
-    value: gloas.DataColumnSidecar) =
+    values: openArray[ref gloas.DataColumnSidecar]) =
+  ## Batch-insert Gloas data column sidecars. Gloas sidecars carry
+  ## `beacon_block_root` directly, so no per-row hashing is required.
+  if values.len == 0:
+    return
   const consensusFork = ConsensusFork.Gloas
   doAssert db.columns[consensusFork] != nil
-  db.columns[consensusFork].putSZSSZ(columnkey(
-    value.beacon_block_root, value.index), value)
+
+  let stmt = expectDb db.db.prepareStmt(
+    "INSERT OR REPLACE INTO 'gloas_columns'(key, value) VALUES (?, ?);",
+    (array[40, byte], seq[byte]), void, managed = false)
+  defer: stmt.dispose()
+
+  db.withManyWrites:
+    for v in values:
+      template sidecar: untyped = v[]
+      expectDb stmt.exec(
+        (columnkey(sidecar.beacon_block_root, sidecar.index),
+         encodeSZSSZ(sidecar)))
 
 proc delDataColumnSidecar*(
     db: BeaconChainDB, consensusFork: ConsensusFork,
@@ -892,6 +940,42 @@ proc delDataColumnSidecar*(
   if db.columns[consensusFork] == nil:
     return false
   db.columns[consensusFork].del(columnkey(root, index)).expectDb()
+
+proc delDataColumnSidecars*(
+    db: BeaconChainDB, consensusFork: ConsensusFork,
+    root: Eth2Digest): int =
+  ## Delete every data column sidecar stored for `root` in a single ranged
+  ## SQL `DELETE`. Column keys are laid out as `[root (32B)][index_BE (8B)]`,
+  ## so all sidecars for a block form one contiguous primary-key range that
+  ## SQLite sweeps in one statement. Returns the number of rows removed.
+  if db.columns[consensusFork] == nil:
+    return 0
+
+  let tableName =
+    case consensusFork
+    of ConsensusFork.Fulu: "fulu_columns"
+    of ConsensusFork.Gloas: "gloas_columns"
+    else: return 0
+
+  var bounds: (array[40, byte], array[40, byte])
+  bounds[0][0..<32] = root.data
+  bounds[1][0..<32] = root.data
+  for i in 32..<40:
+    bounds[1][i] = 0xFF'u8
+
+  let stmt = expectDb db.db.prepareStmt(
+    "DELETE FROM '" & tableName &
+      "' WHERE key BETWEEN ? AND ? RETURNING 1;",
+    (array[40, byte], array[40, byte]), int64, managed = false)
+  defer: stmt.dispose()
+
+  var
+    deleted = 0
+    row: int64
+  for rowRes in exec(stmt, bounds, row):
+    expectDb rowRes
+    inc deleted
+  deleted
 
 proc putExecutionPayloadEnvelope*(
     db: BeaconChainDB, value: SignedExecutionPayloadEnvelope) =
@@ -916,7 +1000,9 @@ proc updateImmutableValidators*(
     db.immutableValidators.add immutableValidator
 
 template BeaconStateNoImmutableValidators(kind: static ConsensusFork): auto =
-  when kind == ConsensusFork.Gloas:
+  when kind == ConsensusFork.Heze:
+    typedesc[HezeBeaconStateNoImmutableValidators]
+  elif kind == ConsensusFork.Gloas:
     typedesc[GloasBeaconStateNoImmutableValidators]
   elif kind == ConsensusFork.Fulu:
     typedesc[FuluBeaconStateNoImmutableValidators]
@@ -1420,22 +1506,6 @@ proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
 
   state_roots
 
-proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
-  # Load summaries into table - there's no telling what order they're in so we
-  # load them all - bugs in nim prevent this code from living in the iterator.
-  var summaries = initTable[Eth2Digest, BeaconBlockSummary](1024*1024)
-
-  discard db.summaries.find([], proc(k, v: openArray[byte]) =
-    var output: BeaconBlockSummary
-
-    if k.len() == sizeof(Eth2Digest) and decodeSSZ(v, output):
-      summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
-    else:
-      warn "Invalid summary in database", klen = k.len(), vlen = v.len()
-  )
-
-  summaries
-
 type RootedSummary = tuple[root: Eth2Digest, summary: BeaconBlockSummary]
 iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     RootedSummary =
@@ -1503,11 +1573,13 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   while true:
     var found = false
     withAll(ConsensusFork):
-      if not found:
-        let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
-        if blck.isSome:
-          res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
-          found = true
+      debugHezeComment "enable Heze block retrieval for backwards compat"
+      when consensusFork != ConsensusFork.Heze:
+        if not found:
+          let blck = db.getBlock(res.root, consensusFork.TrustedSignedBeaconBlock)
+          if blck.isSome:
+            res.summary = blck.unsafeGet.message.toBeaconBlockSummary()
+            found = true
     found = found or db.v0.backend.getSnappySSZ(
       subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found
     if not found:

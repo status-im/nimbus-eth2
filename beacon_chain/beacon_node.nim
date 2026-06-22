@@ -10,7 +10,7 @@
 # Everything needed to run a full Beacon Node
 
 import
-  std/osproc,
+  std/[osproc, sets],
 
   # Nimble packages
   chronos, presto,
@@ -18,11 +18,12 @@ import
 
   # Local modules
   ./[beacon_clock, beacon_chain_db, conf, light_client, version],
-  ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
+  ./gossip_processing/[
+    eth2_processor, block_processor, block_processor_light_client],
   ./networking/eth2_network,
   ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
-    blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
+    blockchain_dag, block_quarantine, column_quarantine, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
     sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
@@ -39,8 +40,8 @@ export
   osproc, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_change_pool,
-  eth2_network, el_manager, request_manager, sync_manager,
-  eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
+  eth2_network, el_manager, request_manager, sync_manager, eth2_processor,
+  block_processor_light_client, blockchain_dag, block_quarantine,
   base, message_router, validator_monitor, validator_pool,
   consensus_manager, dynamic_fee_recipients, sync_types
 
@@ -57,7 +58,9 @@ type
     attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
     blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
+    columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
+    fastConfirmationQueue*: AsyncEventQueue[FastConfirmationInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
@@ -65,26 +68,26 @@ type
     optUpdateQueue*: AsyncEventQueue[
       RestVersioned[ForkedLightClientOptimisticUpdate]]
     optFinHeaderUpdateQueue*: AsyncEventQueue[ForkedLightClientHeader]
-    execPayloadAvlQueue*: AsyncEventQueue[ExecutionPayloadInfoObject]
-    execPayloadBidQueue*: AsyncEventQueue[SignedExecutionPayloadBid]
+    execPayloadAddedQueue*: AsyncEventQueue[EventExecutionPayloadObject]
+    execPayloadGossipAddedQueue*: AsyncEventQueue[EventExecutionPayloadGossipObject]
+    execPayloadAvlQueue*: AsyncEventQueue[EventExecutionPayloadAvailableObject]
+    execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
     payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
 
   BeaconNode* = ref object
     nickname*: string
-    graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: NetKeyPair
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
-    optimisticProcessor*: OptimisticProcessor
-    optimisticFcuFut*: Future[(PayloadExecutionStatus, Opt[Hash32])]
+    lightBlockProcessor*: LightBlockProcessor
+    lightClientFcuFut*: Future[(PayloadExecutionStatus, Opt[Hash32])]
       .Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
     list*: ChainListRef
     quarantine*: ref Quarantine
-    blobQuarantine*: ref BlobQuarantine
     dataColumnQuarantine*: ref ColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
     attestationPool*: ref AttestationPool
@@ -113,6 +116,7 @@ type
     attachedValidatorBalanceTotal*: Gwei
     gossipState*: GossipState
     blocksGossipState*: GossipState
+    envelopeGossipState*: GossipState
     beaconClock*: BeaconClock
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
@@ -125,16 +129,9 @@ type
       ## Number of validators that we've checked for activation
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
+    lastColumnCustodyIndices*: seq[CustodyIndex]
+    sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     shutdownEvent*: AsyncEvent
-
-# TODO https://github.com/status-im/nim-stew/pull/258
-template findIt*(s: openArray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.currentSlot
@@ -183,25 +180,52 @@ proc getPayloadBuilderClient*(
 
 func init*(T: type EventBus): T =
   T(
-    headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
-    blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
-    blockGossipQueue: newAsyncEventQueue[EventBeaconBlockGossipObject](),
-    blockGossipPeerQueue: newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
-    singleAttestQueue: newAsyncEventQueue[SingleAttestation](),
-    exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
-    blsToExecQueue: newAsyncEventQueue[SignedBLSToExecutionChange](),
-    propSlashQueue: newAsyncEventQueue[ProposerSlashing](),
-    attSlashQueue: newAsyncEventQueue[electra.AttesterSlashing](),
-    blobSidecarQueue: newAsyncEventQueue[BlobSidecarInfoObject](),
-    columnSidecarQueue: newAsyncEventQueue[DataColumnSidecarInfoObject](),
-    finalQueue: newAsyncEventQueue[FinalizationInfoObject](),
-    reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
-    contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
-    finUpdateQueue: newAsyncEventQueue[RestVersioned[ForkedLightClientFinalityUpdate]](),
+    headQueue:
+      newAsyncEventQueue[HeadChangeInfoObject](),
+    blocksQueue:
+      newAsyncEventQueue[EventBeaconBlockObject](),
+    blockGossipQueue:
+      newAsyncEventQueue[EventBeaconBlockGossipObject](),
+    blockGossipPeerQueue:
+      newAsyncEventQueue[EventBeaconBlockGossipPeerObject](),
+    singleAttestQueue:
+      newAsyncEventQueue[SingleAttestation](),
+    exitQueue:
+      newAsyncEventQueue[SignedVoluntaryExit](),
+    blsToExecQueue:
+      newAsyncEventQueue[SignedBLSToExecutionChange](),
+    propSlashQueue:
+      newAsyncEventQueue[ProposerSlashing](),
+    attSlashQueue:
+      newAsyncEventQueue[electra.AttesterSlashing](),
+    blobSidecarQueue:
+      newAsyncEventQueue[BlobSidecarInfoObject](),
+    columnSidecarQueue:
+      newAsyncEventQueue[DataColumnSidecarInfoObject](),
+    columnSidecarFullQueue:
+      newAsyncEventQueue[ref fulu.DataColumnSidecar](),
+    finalQueue:
+      newAsyncEventQueue[FinalizationInfoObject](),
+    fastConfirmationQueue:
+      newAsyncEventQueue[FastConfirmationInfoObject](),
+    reorgQueue:
+      newAsyncEventQueue[ReorgInfoObject](),
+    contribQueue:
+      newAsyncEventQueue[SignedContributionAndProof](),
+    finUpdateQueue:
+      newAsyncEventQueue[RestVersioned[ForkedLightClientFinalityUpdate]](),
     optUpdateQueue:
       newAsyncEventQueue[RestVersioned[ForkedLightClientOptimisticUpdate]](),
-    optFinHeaderUpdateQueue: newAsyncEventQueue[ForkedLightClientHeader](),
-    execPayloadAvlQueue: newAsyncEventQueue[ExecutionPayloadInfoObject](),
-    execPayloadBidQueue: newAsyncEventQueue[SignedExecutionPayloadBid](),
-    payloadAttMsgQueue: newAsyncEventQueue[PayloadAttestationMessage]()
+    optFinHeaderUpdateQueue:
+      newAsyncEventQueue[ForkedLightClientHeader](),
+    execPayloadAddedQueue:
+      newAsyncEventQueue[EventExecutionPayloadObject](),
+    execPayloadGossipAddedQueue:
+      newAsyncEventQueue[EventExecutionPayloadGossipObject](),
+    execPayloadAvlQueue:
+      newAsyncEventQueue[EventExecutionPayloadAvailableObject](),
+    execPayloadBidQueue:
+      newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
+    payloadAttMsgQueue:
+      newAsyncEventQueue[PayloadAttestationMessage](),
   )

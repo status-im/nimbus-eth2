@@ -1,13 +1,17 @@
 {
   pkgs ? import <nixpkgs> { },
   # Source code of this repo.
-  src ? ../.,
+  self ? {},
+  # Nimbus-build-system package.
+  nim ? null,
+  # GCC version to compile the target with.
+  gcc ? null,
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
   targets ? ["nimbus_beacon_node"],
+  # Options: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL, NONE
+  highestLogLevel ? "DEBUG",
   # Options: 0,1,2
   verbosity ? 1,
-  # Perform 2-stage bootstrap instead of 3-stage to save time.
-  quickAndDirty ? true,
   # These are the only platforms tested in CI and considered stable.
   stableSystems ? [
     "x86_64-linux" "aarch64-linux" "armv7a-linux"
@@ -16,63 +20,80 @@
   ],
 }:
 
-# The 'or' is to handle src fallback to ../. which lack submodules attribue.
-assert pkgs.lib.assertMsg ((src.submodules or true) == true)
+# The 'or' is to handle self fallback to {} which lack submodules attribute.
+assert pkgs.lib.assertMsg ((self.submodules or true) == true)
   "Unable to build without submodules. Append '?submodules=1#' to the URI.";
 
 let
-  inherit (pkgs) stdenv lib writeScriptBin callPackage;
+  inherit (pkgs) lib writeScriptBin callPackage;
 
-  revision = lib.substring 0 8 (src.rev or "00000000");
+  stdenv =
+    if gcc != null && !pkgs.stdenv.isDarwin
+    then pkgs.overrideCC pkgs.stdenv gcc
+    else pkgs.stdenv;
+
+  revision = lib.substring 0 8 (self.rev or self.dirtyRev or "00000000");
 in stdenv.mkDerivation rec {
   pname = "nimbus-eth2";
   version = "${callPackage ./version.nix {}}-${revision}";
 
-  inherit src;
+  src = lib.fileset.toSource {
+    root = ./..;
+    fileset = lib.fileset.unions [
+      ./../Makefile ./../beacon_chain.nimble ./../config.nims
+      ./../beacon_chain ./../ncli ./../scripts ./../vendor ./../tools
+    ];
+  };
 
-  # Fix for Nim compiler calling 'git rev-parse' and 'lsb_release'.
   nativeBuildInputs = let
     fakeGit = writeScriptBin "git" "echo ${version}";
-    fakeLsbRelease = writeScriptBin "lsb_release" "echo nix";
   in
-    with pkgs; [ fakeGit fakeLsbRelease which ]
+    with pkgs; [ nim which fakeGit ]
     ++ lib.optionals stdenv.isDarwin [ pkgs.darwin.cctools ];
 
   enableParallelBuilding = true;
 
-  # Disable CPU optmizations that make binary not portable.
-  NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
-  # Avoid Nim cache permission errors.
-  XDG_CACHE_HOME = "/tmp";
+  # Disable CPU optimizations that make binary not portable.
+  env.NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
-    # TODO: Compile Nim in a separate derivation to save time.
-    "QUICK_AND_DIRTY_COMPILER=${if quickAndDirty then "1" else "0"}"
-    "QUICK_AND_DIRTY_NIMBLE=${if quickAndDirty then "1" else "0"}"
+    # Built from nimbus-build-system via flake.
+    "USE_SYSTEM_NIM=1"
+    # Define highest available log level.
+    "LOG_LEVEL=${highestLogLevel}"
   ];
 
-  # Generate the nimbus-build-system.paths file.
+  # Avoid Nim cache permission errors.
   configurePhase = ''
-    patchShebangs scripts vendor/nimbus-build-system > /dev/null
-    make nimbus-build-system-paths
+    export XDG_CACHE_HOME="$TMPDIR/.cache"
+    export NIMBLE_DIR="$TMPDIR/.nimble"
+    export NIMCACHE="$TMPDIR/nimcache"
   '';
 
-  # Avoid nimbus-build-system invoking `git clone` to build Nim.
-  preBuild = ''
-    pushd vendor/nimbus-build-system/vendor/Nim
-    mkdir dist
-    cp -r ${callPackage ./nimble.nix {}}    dist/nimble
-    cp -r ${callPackage ./checksums.nix {}} dist/checksums
-    cp -r ${callPackage ./csources.nix {}}  csources_v2
-    chmod 777 -R dist/nimble csources_v2
-    popd
+  patchPhase = ''
+    patchShebangs scripts vendor/nimbus-build-system/scripts
   '';
 
   installPhase = ''
     mkdir -p $out/bin
     rm -f build/generate_makefile
     cp build/* $out/bin
+  '';
+
+  doInstallCheck = true;
+  installCheckPhase = ''
+    for BINARY in $out/bin/*; do
+      case "$(basename "$BINARY")" in
+        ncli|ncli_db)
+          # These don't support --version, just verify they execute.
+          $BINARY --help > /dev/null 2>&1
+          ;;
+        *)
+          $BINARY --version
+          ;;
+      esac
+    done
   '';
 
   meta = with lib; {

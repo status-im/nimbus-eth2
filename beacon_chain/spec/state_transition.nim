@@ -125,7 +125,8 @@ func process_slot*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_slot
 func process_slot*(
-    state: var gloas.BeaconState, pre_state_root: Eth2Digest) =
+    state: var (gloas.BeaconState | heze.BeaconState),
+    pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -345,9 +346,10 @@ proc makeBeaconBlockWithRewards*(
     execution_payload: ForkyExecutionPayloadOrHeader,
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
-    execution_requests: ExecutionRequests,
+    execution_requests: consensusFork.ExecutionRequests,
     signed_execution_payload_bid: SignedExecutionPayloadBid,
-    payload_attestations: seq[PayloadAttestation]
+    payload_attestations: seq[PayloadAttestation],
+    parent_execution_requests = default(consensusFork.ExecutionRequests)
 ): Result[
     tuple[
       blck: consensusFork.BeaconBlock(typeof(execution_payload)), rewards: BlockRewards
@@ -407,9 +409,15 @@ proc makeBeaconBlockWithRewards*(
   when consensusFork >= ConsensusFork.Gloas:
     blck.body.signed_execution_payload_bid =
       signed_execution_payload_bid
+
+  when consensusFork >= ConsensusFork.Gloas:
     blck.body.payload_attestations =
       List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS].init(
         payload_attestations)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
+  when consensusFork >= ConsensusFork.Gloas:
+    blck.body.parent_execution_requests = parent_execution_requests
 
   let rewards =
     ?process_block(cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -435,16 +443,18 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     execution_payload: EP,
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
-    execution_requests: ExecutionRequests,
+    execution_requests: consensusFork.ExecutionRequests,
     signed_execution_payload_bid: SignedExecutionPayloadBid,
-    payload_attestations: seq[PayloadAttestation]
+    payload_attestations: seq[PayloadAttestation],
+    parent_execution_requests = default(consensusFork.ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
     ?makeBeaconBlockWithRewards(
       cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
       graffiti, attestations, deposits, validator_changes, sync_aggregate,
       execution_payload, verificationFlags, kzg_commitments,
-      execution_requests, signed_execution_payload_bid, payload_attestations
+      execution_requests, signed_execution_payload_bid, payload_attestations,
+      parent_execution_requests
     )
   ).blck
 
@@ -463,13 +473,15 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     eps: ForkyExecutionPayloadForSigning,
     verificationFlags: UpdateFlags,
-    execution_requests: ExecutionRequests = default(ExecutionRequests),
+    execution_requests = default(consensusFork.ExecutionRequests),
     signed_execution_payload_bid: SignedExecutionPayloadBid,
-    payload_attestations: seq[PayloadAttestation]
+    payload_attestations: seq[PayloadAttestation],
+    parent_execution_requests = default(consensusFork.ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
     graffiti, attestations, deposits, validator_changes, sync_aggregate,
     eps.executionPayload, verificationFlags, eps.kzg_commitments,
-    execution_requests, signed_execution_payload_bid, payload_attestations
+    execution_requests, signed_execution_payload_bid, payload_attestations,
+    parent_execution_requests
   )

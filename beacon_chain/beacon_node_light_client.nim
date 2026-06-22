@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, web3/engine_api_types,
@@ -13,12 +13,12 @@ import
 
 logScope: topics = "beacnde"
 
-func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
+func shouldSyncViaLightClient*(node: BeaconNode, wallSlot: Slot): bool =
   let optimisticHeader = node.lightClient.optimisticHeader
   withForkyHeader(optimisticHeader):
     when lcDataFork > LightClientDataFork.None:
-      shouldSyncOptimistically(
-        optimisticSlot = forkyHeader.beacon.slot,
+      shouldSyncViaLightClient(
+        lightClientSlot = forkyHeader.beacon.slot,
         dagSlot = node.dag.headState.slot,
         wallSlot = wallSlot)
     else:
@@ -38,27 +38,31 @@ proc initLightClient*(
   # for broadcasting light client data as a server.
 
   let
-    optimisticHandler = proc(
+    lightBlockHandler = proc(
         signedBlock: ForkedSignedBeaconBlock
     ): Future[void] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
-        when consensusFork == ConsensusFork.Gloas:
-          debugGloasComment ""
-        elif consensusFork >= ConsensusFork.Bellatrix:
+        when consensusFork in ConsensusFork.Bellatrix ..< ConsensusFork.Gloas:
           if forkyBlck.message.is_execution_block:
             template payload(): auto = forkyBlck.message.body.execution_payload
             if not payload.block_hash.isZero:
               discard await node.elManager.newExecutionPayload(
                 forkyBlck.message)
-          else: discard
-    optimisticProcessor = initOptimisticProcessor(
-      cfg.timeParams, getBeaconTime, optimisticHandler)
+
+    lightEnvelopeHandler = proc(
+        signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    ): Future[void] {.async: (raises: [CancelledError]).} =
+      if not signedEnvelope.message.payload.block_hash.isZero:
+        discard await node.elManager.newExecutionPayload(signedEnvelope.message)
+
+    lightBlockProcessor = initLightBlockProcessor(
+      cfg.timeParams, getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
 
     shouldInhibitSync = func(): bool =
       if isNil(node.syncOverseer):
         false
       else:
-        not node.syncOverseer.syncInProgress # No LC sync needed if DAG is in sync
+        not node.syncOverseer.syncInProgress  # No LC sync needed if DAG in sync
     lightClient = createLightClient(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Strict,
@@ -68,7 +72,7 @@ proc initLightClient*(
     proc onOptimisticHeader(
         lightClient: LightClient,
         optimisticHeader: ForkedLightClientHeader) =
-      if node.optimisticFcuFut != nil:
+      if node.lightClientFcuFut != nil:
         return
       withForkyHeader(optimisticHeader):
         when lcDataFork > LightClientDataFork.None:
@@ -80,18 +84,18 @@ proc initLightClient*(
           when lcDataFork >= LightClientDataFork.Capella:
             let
               consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-              blockHash = forkyHeader.execution.block_hash
+              blockHash = forkyHeader.execution_block_hash
 
-            # Retain optimistic head for other `forkchoiceUpdated` callers.
+            # Retain light client head for other `forkchoiceUpdated` callers.
             # May temporarily block `forkchoiceUpdated` calls, e.g., Geth:
             # - Refuses `newPayload`: "Ignoring payload while snap syncing"
             # - Refuses `fcU`: "Forkchoice requested unknown head"
-            # Once DAG sync catches up or as new optimistic heads are fetched
+            # Once DAG sync catches up or as new light client heads are fetched
             # the situation recovers
             debug "New LC optimistic header"
-            node.consensusManager[].setOptimisticHead(bid, blockHash)
+            node.consensusManager[].setLightClientHead(bid, blockHash)
             if not node.consensusManager[]
-                .shouldSyncOptimistically(node.currentSlot):
+                .shouldSyncViaLightClient(node.currentSlot):
               return
 
             # engine_forkchoiceUpdated
@@ -102,11 +106,11 @@ proc initLightClient*(
                   blockHash, beaconHead.safeExecutionBlockHash,
                   beaconHead.finalizedExecutionBlockHash,
                 )
-                node.optimisticFcuFut = node.elManager.forkchoiceUpdated(
+                node.lightClientFcuFut = node.elManager.forkchoiceUpdated(
                   state, payloadAttributes = Opt.none consensusFork.PayloadAttributes
                 )
-                node.optimisticFcuFut.addCallback do(future: pointer):
-                  node.optimisticFcuFut = nil
+                node.lightClientFcuFut.addCallback do(future: pointer):
+                  node.lightClientFcuFut = nil
           else:
             # The execution block hash is only available from Capella onward
             info "Ignoring new LC optimistic header until Capella"
@@ -114,7 +118,7 @@ proc initLightClient*(
     proc onFinalizedHeader(
         lightClient: LightClient,
         finalizedHeader: ForkedLightClientHeader) =
-      if not node.consensusManager[].shouldSyncOptimistically(node.currentSlot):
+      if not node.consensusManager[].shouldSyncViaLightClient(node.currentSlot):
         return
 
       node.eventBus.optFinHeaderUpdateQueue.emit(finalizedHeader)
@@ -128,7 +132,7 @@ proc initLightClient*(
       syncLightClient = config.syncLightClient,
       trustedBlockRoot = config.trustedBlockRoot
 
-  node.optimisticProcessor = optimisticProcessor
+  node.lightBlockProcessor = lightBlockProcessor
   node.lightClient = lightClient
 
 proc startLightClient*(node: BeaconNode) =
@@ -185,13 +189,11 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     return
   var header: ForkedLightClientHeader
   withBlck(bdata):
-    debugGloasComment ""
-    when consensusFork != ConsensusFork.Gloas:
-      const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
-      when lcDataFork > LightClientDataFork.None:
-        header = ForkedLightClientHeader.init(
-          forkyBlck.toLightClientHeader(lcDataFork))
-      else: raiseAssert "Unreachable"
+    const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
+    when lcDataFork > LightClientDataFork.None:
+      header = ForkedLightClientHeader.init(
+        forkyBlck.toLightClientHeader(lcDataFork))
+    else: raiseAssert "Unreachable"
   let current_sync_committee = block:
     let tmpState = assignClone(node.dag.headState)
     node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:

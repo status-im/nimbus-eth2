@@ -17,33 +17,22 @@ import
   toml_serialization/std/uri as confTomlUri,
   ../spec/engine_authentication
 
-from std/strutils import toLowerAscii, split, startsWith
+from std/strutils import toLowerAscii, startsWith
 
 export
   toml_serialization, confTomlDefs, confTomlNet, confTomlUri
 
 type
-  EngineApiRole* = enum
-    DepositSyncing = "sync-deposits"
-    BlockValidation = "validate-blocks"
-    BlockProduction = "produce-blocks"
-
-  EngineApiRoles* = set[EngineApiRole]
-
   EngineApiUrl* = object
     url: string
     jwtSecret: Opt[JwtSharedKey]
-    roles: EngineApiRoles
 
   EngineApiUrlConfigValue* = object
     url*: string # TODO: Use the URI type here
     jwtSecret* {.serializedFieldName: "jwt-secret".}: Option[string]
     jwtSecretFile* {.serializedFieldName: "jwt-secret-file".}: Option[InputFile]
-    roles*: Option[EngineApiRoles]
 
 const
-  defaultEngineApiRoles* = { DepositSyncing, BlockValidation, BlockProduction }
-
   # https://github.com/ethereum/execution-apis/pull/302
   defaultJwtSecret = "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
 
@@ -52,9 +41,8 @@ chronicles.formatIt EngineApiUrl:
 
 proc init*(T: type EngineApiUrl,
            url: string,
-           jwtSecret = Opt.none JwtSharedKey,
-           roles = defaultEngineApiRoles): T =
-  T(url: url, jwtSecret: jwtSecret, roles: roles)
+           jwtSecret = Opt.none JwtSharedKey): T =
+  T(url: url, jwtSecret: jwtSecret)
 
 func url*(engineUrl: EngineApiUrl): string =
   engineUrl.url
@@ -62,47 +50,12 @@ func url*(engineUrl: EngineApiUrl): string =
 func jwtSecret*(engineUrl: EngineApiUrl): Opt[JwtSharedKey] =
   engineUrl.jwtSecret
 
-func roles*(engineUrl: EngineApiUrl): EngineApiRoles =
-  engineUrl.roles
-
-func unknownRoleMsg(role: string): string =
-  "'" & role & "' is not a valid EL function"
-
-template raiseError(reader: var TomlReader, msg: string) =
-  raiseTomlErr(reader.lex, msg)
-
-proc readValue*(reader: var TomlReader, value: var EngineApiRoles)
-               {.raises: [SerializationError, IOError].} =
-  let roles = reader.readValue seq[string]
-  if roles.len == 0:
-    reader.raiseError "At least one role should be provided"
-  for role in roles:
-    case role.toLowerAscii
-    of $DepositSyncing:
-      value.incl DepositSyncing
-    of $BlockValidation:
-      value.incl BlockValidation
-    of $BlockProduction:
-      value.incl BlockProduction
-    else:
-      reader.raiseError(unknownRoleMsg role)
-
-proc writeValue*(
-    writer: var JsonWriter, roles: EngineApiRoles) {.raises: [IOError].} =
-  var strRoles: seq[string]
-
-  for role in EngineApiRole:
-    if role in roles: strRoles.add $role
-
-  writer.writeValue strRoles
-
 proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
                  {.raises: [ValueError].} =
   var
     uri = parseUri(input)
     jwtSecret: Option[string]
     jwtSecretFile: Option[InputFile]
-    roles: Option[EngineApiRoles]
 
   if uri.anchor != "":
     for key, value in decodeQuery(uri.anchor):
@@ -111,21 +64,6 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
         jwtSecret = some value
       of "jwtSecretFile", "jwt-secret-file":
         jwtSecretFile = some InputFile.parseCmdArg(value)
-      of "roles":
-        var uriRoles: EngineApiRoles = {}
-        for role in split(value, ","):
-          case role.toLowerAscii
-          of $DepositSyncing:
-            uriRoles.incl DepositSyncing
-          of $BlockValidation:
-            uriRoles.incl BlockValidation
-          of $BlockProduction:
-            uriRoles.incl BlockProduction
-          else:
-            raise newException(ValueError, unknownRoleMsg role)
-        if uriRoles == {}:
-          raise newException(ValueError, "The list of roles should not be empty")
-        roles = some uriRoles
       else:
         raise newException(ValueError, "'" & key & "' is not a recognized Engine URL property")
     uri.anchor = ""
@@ -133,8 +71,7 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
   EngineApiUrlConfigValue(
     url: $uri,
     jwtSecret: jwtSecret,
-    jwtSecretFile: jwtSecretFile,
-    roles: roles)
+    jwtSecretFile: jwtSecretFile)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
                {.raises: [SerializationError, IOError].} =
@@ -186,8 +123,7 @@ proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
 
   ok EngineApiUrl.init(
     url = url,
-    jwtSecret = jwtSecret,
-    roles = confValue.roles.get(defaultEngineApiRoles))
+    jwtSecret = jwtSecret)
 
 proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[JwtSharedKey] =
   if jwtSecret.isSome:

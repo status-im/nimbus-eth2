@@ -30,8 +30,6 @@ from ../../../beacon_chain/spec/datatypes/bellatrix import PowBlock
 from ../../../beacon_chain/spec/datatypes/capella import
   BLSToExecutionChange, SignedBLSToExecutionChange, HistoricalSummary,
   Withdrawal
-from ../../../beacon_chain/spec/datatypes/deneb import
-  BlobIdentifier, BlobSidecar
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -125,10 +123,12 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "BeaconBlockBody": checkSSZ(gloas.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(gloas.BeaconState, path, hash)
-          of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
-          of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Builder": checkSSZ(Builder, path, hash)
+          of "BuilderDepositRequest":
+            checkSSZ(gloas.BuilderDepositRequest, path, hash)
+          of "BuilderExitRequest":
+            checkSSZ(gloas.BuilderExitRequest, path, hash)
           of "BuilderPendingPayment": checkSSZ(BuilderPendingPayment, path, hash)
           of "BuilderPendingWithdrawal":
             checkSSZ(BuilderPendingWithdrawal, path, hash)
@@ -145,18 +145,15 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "Eth1Block": checkSSZ(Eth1Block, path, hash)
           of "Eth1Data": checkSSZ(Eth1Data, path, hash)
           of "ExecutionPayload":
-            checkSSZ(deneb.ExecutionPayload, path, hash)
+            checkSSZ(gloas.ExecutionPayload, path, hash)
           of "ExecutionPayloadHeader":
             checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
-          of "ExecutionPayloadBid":
-            checkSSZ(gloas.ExecutionPayloadBid, path, hash)
+          of "ExecutionPayloadBid": checkSSZ(ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
-            checkSSZ(electra.ExecutionRequests, path, hash)
+            checkSSZ(gloas.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
-          of "ForkChoiceNode":
-            debugGloasComment "skipping ForkChoiceNode test for now"
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
@@ -220,5 +217,11 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
+          of "PartialDataColumnGroupID":
+            checkSSZ(gloas.PartialDataColumnGroupID, path, hash)
+          of "PartialDataColumnSidecar":
+            checkSSZ(gloas.PartialDataColumnSidecar, path, hash)
+          of "PartialDataColumnPartsMetadata":
+            debugGloasComment "Skipping PartialDataColumn tests for now"
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

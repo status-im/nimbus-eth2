@@ -27,10 +27,10 @@ type
     of ValidatorStorageKind.Identifier:
       ident: ValidatorIdent
 
-static: doAssert(high(ConsensusFork) == ConsensusFork.Gloas,
+static: doAssert(high(ConsensusFork) == ConsensusFork.Heze,
           "Update OptionalForks constant!")
 const
-  OptionalForks* = {ConsensusFork.Gloas}
+  OptionalForks* = {ConsensusFork.Gloas, ConsensusFork.Heze}
     ## When a new ConsensusFork is added and before this fork is activated on
     ## `mainnet`, it should be part of `OptionalForks`.
     ## In this case, the client will ignore missing <FORKNAME>_VERSION

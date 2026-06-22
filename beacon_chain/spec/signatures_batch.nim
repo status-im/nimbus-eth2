@@ -427,7 +427,8 @@ proc collectSignatureSets*(
       consensusFork.voluntary_exit_signature_fork(fork, capella_fork_version)
     for volex in signed_block.message.body.voluntary_exits:
       let
-        key = validatorKeys.load(volex.message.validator_index).valueOr:
+        idx = volex.message.validator_index
+        key = validatorKeys.load(idx).valueOr:
           return err("collectSignatureSets: invalid voluntary exit")
         sig = volex.signature.load.valueOr:
           return err("collectSignatureSets: cannot load voluntary exit signature")

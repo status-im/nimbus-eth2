@@ -25,7 +25,8 @@ import
   ./fixtures_utils, ./os_ops
 
 from std/json import
-  JsonNode, getBool, getInt, getStr, hasKey, items, len, pairs, `$`, `[]`
+  JsonNode, JsonNodeKind, getBool, getInt, getStr, hasKey, items, len, pairs,
+  `$`, `[]`
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains, rsplit
 from stew/byteutils import fromHex
@@ -35,12 +36,14 @@ from ../../beacon_chain/spec/peerdas_helpers import
   verify_data_column_sidecar_kzg_proofs
 from ../../beacon_chain/spec/state_transition_block import
   check_attester_slashing, validate_blobs
+from ../../beacon_chain/spec/beaconstate import
+  is_valid_indexed_payload_attestation
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(io2.DirSep, 1)[0]
   doAssert loadTrustedSetup(
     sourceDir &
-      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
+      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 7).isOk
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.3.0/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
@@ -56,6 +59,8 @@ type
     opOnPhase0AttesterSlashing
     opOnElectraAttesterSlashing
     opInvalidateHash
+    opOnExecutionPayload
+    opOnPayloadAttestation
     opChecks
 
   BlobData = object
@@ -85,6 +90,10 @@ type
     of opInvalidateHash:
       invalidatedHash: Eth2Digest
       latestValidHash: Eth2Digest
+    of opOnExecutionPayload:
+      executionPayload: gloas.SignedExecutionPayloadEnvelope
+    of opOnPayloadAttestation:
+      payloadAttestation: gloas.PayloadAttestationMessage
     of opChecks:
       checks: JsonNode
 
@@ -195,6 +204,23 @@ proc loadOps(
           invalidatedHash: Eth2Digest.fromHex(step["block_hash"].getStr()),
           latestValidHash: Eth2Digest.fromHex(
             step["payload_status"]["latest_valid_hash"].getStr()))
+    elif step.hasKey"execution_payload":
+      let filename = step["execution_payload"].getStr()
+      result.add Operation(kind: opOnExecutionPayload,
+        executionPayload: parseTest(
+          path/filename & ".ssz_snappy", SSZ,
+          gloas.SignedExecutionPayloadEnvelope))
+    elif step.hasKey"payload_attestation" or
+         step.hasKey"payload_attestation_message":
+      let filename =
+        if step.hasKey"payload_attestation":
+          step["payload_attestation"].getStr()
+        else:
+          step["payload_attestation_message"].getStr()
+      result.add Operation(kind: opOnPayloadAttestation,
+        payloadAttestation: parseTest(
+          path/filename & ".ssz_snappy", SSZ,
+          gloas.PayloadAttestationMessage))
     elif step.hasKey"checks":
       result.add Operation(kind: opChecks,
         checks: step["checks"])
@@ -267,7 +293,8 @@ proc stepOnBlock(
   # this wouldn't be part of this check, presumably, their FC test vector step
   # would also have `true` validity because it'd not be known they weren't, so
   # adding this mock of the block processor is realistic and sufficient.
-  when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Bellatrix and
+       consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
     debugGloasComment "skip execution payload for Gloas?"
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
@@ -277,8 +304,7 @@ proc stepOnBlock(
       # before the block itself, while Nimbus fork choice treats invalidating
       # a non-existent block root as a no-op and does not remember it for the
       # future.
-      let lvh = invalidatedHashes.getOrDefault(
-        executionBlockHash, static(default(Eth2Digest)))
+      let lvh = invalidatedHashes.getOrDefault(executionBlockHash, ZERO_HASH)
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
         signedBlock.message.parent_root, lvh, executionBlockHash))
 
@@ -293,6 +319,13 @@ proc stepOnBlock(
     let status = fkChoice[].process_block(
       dag, epochRef, blckRef, unrealized, signedBlock.message, time)
     doAssert status.isOk()
+
+    # Save every post-block state to the DB so that a later `addHeadExecutionPayload`
+    # can `updateState` to it directly instead of replaying through blocks and
+    # hitting not-yet-revealed envelopes.
+    when consensusFork >= ConsensusFork.Gloas:
+      withState(dag.clearanceState):
+        dag.db.putState(forkyState)
 
     # 5. Update DAG with new head
     dag.updateHead(fkChoice, time)
@@ -315,6 +348,11 @@ proc stepChecks(
       let headRef = dag.getBlockRef(headRoot).get()
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())
+      if val.hasKey("payload_status"):
+        # PAYLOAD_STATUS_EMPTY=0, PAYLOAD_STATUS_FULL=1.
+        # The head is FULL iff a verified (FULL) node exists for its root.
+        let isFull = headRoot in fkChoice.backend.proto_array.fullBlockIndices
+        doAssert (if isFull: 1 else: 0) == val["payload_status"].getInt()
     elif check == "justified_checkpoint":
       let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
       let checkpointEpoch = fkChoice.checkpoints.justified.checkpoint.epoch
@@ -350,11 +388,26 @@ proc stepChecks(
     elif check == "confirmed_root":
       doAssert fkChoice.backend.confirmed.root ==
         Eth2Digest.fromHex(val.getStr())
+    elif check == "payload_timeliness_vote" or
+         check == "payload_data_availability_vote":
+      # `votes` is ordered by PTC position; a `null` position cast no vote, so
+      # its bit stays unset, same observable value as a recorded `false`.
+      let tally = fkChoice.backend.ptc_votes.getOrDefault(
+        Eth2Digest.fromHex(val["block_root"].getStr()))
+      var i = 0
+      for v in val["votes"].items:
+        let expected = v.kind != JNull and v.getBool()
+        if check == "payload_timeliness_vote":
+          doAssert tally.present[i] == expected
+        else:
+          doAssert tally.available[i] == expected
+        inc i
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
 proc doRunTest(
-    path: string, fork: ConsensusFork) {.raises: [KeyError, ValueError].} =
+    path: string, fork: ConsensusFork,
+    verifier: var BatchVerifier) {.raises: [KeyError, ValueError].} =
   let db = withConsensusFork(fork):
     BeaconChainDB.new(
       "", consensusFork.genesisTestRuntimeConfig, inMemory = true)
@@ -365,20 +418,20 @@ proc doRunTest(
     stores = withConsensusFork(fork):
       initialLoad(
         path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
+    steps = loadOps(path, fork)
 
-    rng = HmacDrbgContext.new()
-    taskpool =
-      try:
-        Taskpool.new()
-      except Exception as exc:
-        fatal "Failed to initialize Taskpool", exc = exc.msg
-        fail()
-        return
-  var verifier = BatchVerifier.init(rng, taskpool)
+  # https://github.com/ethereum/consensus-specs/pull/5376 ("Enable FCR tests for
+  # Gloas and Heze") added `@never_bls` to every fast_confirmation test so as of
+  # v1.7.0-alpha.11 these vectors ship blocks with an empty proposer signature.
+  if "fast_confirmation" in path:
+    stores.dag.updateFlags.incl skipBlsValidation
 
-  let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
   var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
+  # Keep the gloas signed blocks around so a later `execution_payload`
+  # step can verify its envelope against the matching block via
+  # `addHeadExecutionPayload`.
+  var gloasBlocks: Table[Eth2Digest, ForkedSignedBeaconBlock]
 
   let state = newClone(stores.dag.headState)
   var stateCache = StateCache()
@@ -394,13 +447,15 @@ proc doRunTest(
     of opOnPhase0Attestation:
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.phase0Att.data.slot, step.phase0Att.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)), time)
+        toSeq(stores.dag.get_attesting_indices(step.phase0Att.asTrusted)),
+        CommitteeIndex(step.phase0Att.data.index), time)
       doAssert status.isOk == step.valid
     of opOnElectraAttestation:
       let status = stores.fkChoice[].on_attestation(
         stores.dag, step.electraAtt.data.slot,
         step.electraAtt.data.beacon_block_root,
-        toSeq(stores.dag.get_attesting_indices(step.electraAtt)), time)
+        toSeq(stores.dag.get_attesting_indices(step.electraAtt)),
+        CommitteeIndex(step.electraAtt.data.index), time)
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
@@ -409,6 +464,9 @@ proc doRunTest(
           verifier, state[], stateCache,
           forkyBlck, step.blobData, step.columnsValid, time, invalidatedHashes)
         doAssert status.isOk == step.valid
+        when typeof(forkyBlck.message).kind >= ConsensusFork.Gloas:
+          if status.isOk:
+            gloasBlocks[forkyBlck.root] = step.blck
     of opOnPhase0AttesterSlashing:
       let indices = check_attester_slashing(
         state[], step.phase0AttesterSlashing, flags = {})
@@ -425,12 +483,44 @@ proc doRunTest(
       doAssert indices.isOk == step.valid
     of opInvalidateHash:
       invalidatedHashes[step.invalidatedHash] = step.latestValidHash
+    of opOnExecutionPayload:
+      let envBlockRoot = step.executionPayload.message.beacon_block_root
+      var valid = false
+      if envBlockRoot in gloasBlocks:
+        withBlck(gloasBlocks[envBlockRoot]):
+          when consensusFork == ConsensusFork.Gloas:
+            let addRes = stores.dag.addHeadExecutionPayload(
+              forkyBlck, step.executionPayload)
+            if addRes.isOk:
+              doAssert stores.fkChoice[].on_execution_payload(
+                stores.dag.cfg, stores.dag.timeParams,
+                step.executionPayload).isOk
+            valid = addRes.isOk
+      doAssert valid == step.valid
+    of opOnPayloadAttestation:
+      let pa = step.payloadAttestation
+      # This suite has no gossip layer, so mirror the signature check gossip
+      # does before recording.
+      var valid = false
+      withState(stores.dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          var attesting_indices: List[uint64, Limit PTC_SIZE]
+          discard attesting_indices.add(pa.validator_index)
+          if is_valid_indexed_payload_attestation(forkyState.data,
+              IndexedPayloadAttestation(
+                attesting_indices: attesting_indices,
+                data: pa.data, signature: pa.signature)):
+            valid = stores.fkChoice[].on_payload_attestation_message(
+              stores.dag, pa.validator_index, pa.data).isOk
+      doAssert valid == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
       raiseAssert "Unsupported"
 
-proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
+proc runTest(
+    suiteName: static[string], path: string, fork: ConsensusFork,
+    rng: ref HmacDrbgContext, taskpool: Taskpool) =
   const SKIP = [
     # protoArray can handle blocks in the future gracefully
     # spec: https://github.com/ethereum/consensus-specs/blame/v1.1.3/specs/phase0/fork-choice.md#L349
@@ -449,6 +539,30 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
     "should_override_forkchoice_update__true",
     "basic_is_parent_root",
     "basic_is_head_root",
+
+    # TODO https://github.com/ethereum/consensus-specs/pull/5288
+    "fcr_no_restart_when_gu_block_is_epoch_older",
+    "fcr_previous_epoch_030",
+    "fcr_previous_epoch_031",
+    "fcr_previous_epoch_032",
+    "fcr_previous_epoch_033",
+    "fcr_previous_epoch_034",
+    "fcr_previous_epoch_035",
+    "fcr_previous_epoch_036",
+    "fcr_previous_epoch_037",
+    "fcr_previous_epoch_038",
+    "fcr_previous_epoch_039",
+    "fcr_previous_epoch_040",
+    "fcr_restarts_to_gu_and_confirms_beyond_gu",
+    "fcr_restarts_to_gu_when_all_conditions_met",
+    "fcr_reverts_when_reconfirmation_fails_at_epoch_start_due_to_late_equivocations",
+    "is_one_confirmed_slashing_non_supporters_helps",
+    "is_one_confirmed_slashing_supporters_does_not_hurt",
+    "reconfirmation_passes_with_empty_slots_prior_first_block",
+
+    # TODO Gloas/ePBS: reveals an invalid execution payload envelope and a
+    # child block built as if that parent payload were FULL
+    "on_execution_payload_envelope_invalid_full_child",
   ]
 
   test suiteName & " - " & path.relativeTestPathComponent():
@@ -459,16 +573,24 @@ proc runTest(suiteName: static[string], path: string, fork: ConsensusFork) =
       if os_ops.splitPath(path).tail in SKIP:
         skip()
       else:
-        doRunTest(path, fork)
+        var verifier = BatchVerifier.init(rng, taskpool)
+        doRunTest(path, fork, verifier)
 
 template fcSuite(suiteName: static[string], testPathElem: static[string]) =
   suite "EF - " & suiteName & preset():
+    let
+      rng = HmacDrbgContext.new()
+      taskpool =
+        try:
+          Taskpool.new()
+        except Exception as exc:
+          raiseAssert "Failed to initialize Taskpool: " & exc.msg
     const presetPath = SszTestsDir/const_preset
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
-      if path.contains("eip7732") or path.contains("eip7805") or path.contains("gloas"):
+      if path.contains("heze"):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
@@ -476,14 +598,14 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
         let basePath = testsPath/path/"pyspec_tests"
         if kind != pcDir:
           continue
+        # The Gloas/ePBS fork-choice handlers wired so far cover the execution
+        # payload envelope and PTC message categories; the remaining categories
+        # depend on EMPTY/FULL head selection that is not yet wired here.
+        if testsPath.contains("gloas") and path notin [
+            "on_execution_payload_envelope", "on_payload_attestation_message"]:
+          continue
         for kind, path in walkDir(basePath, relative = true, checkDir = true):
-          # TODO https://github.com/ethereum/consensus-specs/pull/4807 modifies
-          # proposer boost mechanics to depend on the canonical chain
-          if  path.contains("voting_source_beyond_two_epoch") or
-              path.contains("justified_update_not_realized_finality") or
-              path.contains("justified_update_always_if_better"):
-            continue
-          runTest(suiteName, basePath/path, fork)
+          runTest(suiteName, basePath/path, fork, rng, taskpool)
 
 fcSuite("ForkChoice", "fork_choice")
 fcSuite("Sync", "sync")

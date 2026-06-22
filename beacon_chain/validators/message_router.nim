@@ -11,12 +11,15 @@ import
   std/sequtils,
   chronicles,
   metrics,
-  ../spec/[network, peerdas_helpers],
+  ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
   ../spec/datatypes/deneb
+
+from ../spec/column_map import contains
+
 export eth2_processor, eth2_network
 
 logScope:
@@ -63,12 +66,10 @@ type
 
   SomeSidecarsToRoute =
     seq[BlobSidecar] |
-    seq[fulu.DataColumnSidecar] |
-    Opt[seq[gloas.DataColumnSidecar]]
+    fulu.DataColumnSidecars
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
-    Opt[gloas.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -106,7 +107,9 @@ proc validateRouteBlock(
     return err("Block was not sent from validator that is also managed by the beacon node")
 
   # gossip validation
-  let res = validateBeaconBlock(router[].dag, router[].quarantine, blck, wallTime, {})
+  let res = validateBeaconBlock(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, blck, wallTime, {})
   if not res.isGoodForSending():
     warn "Block failed validation",
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
@@ -143,14 +146,14 @@ proc publishRouteBlock(
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: gloas.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
+    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
-    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    let subnet = compute_subnet_for_data_column_sidecar(dc[].index)
     workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
 
   let resAll = await allFinished(workers)
@@ -160,33 +163,23 @@ proc publishSidecars(
     doAssert r.finished()
     if r.failed():
       notice "Data column not sent",
-        data_column = shortLog(cols[i]), error = r.error[]
+        data_column = shortLog(cols[i][]), error = r.error[]
     else:
       notice "Data column sent",
-        data_column = shortLog(cols[i])
+        data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: gloas.DataColumnSidecars
-  for dc in cols:
-    if dc.index in allowed:
-      finalCols.add newClone(dc)
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.gloasColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
-    blck: fulu.SignedBeaconBlock,
-    cols: seq[fulu.DataColumnSidecar]
+    _: fulu.SignedBeaconBlock,
+    cols: fulu.DataColumnSidecars
 ): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
-    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    let subnet = compute_subnet_for_data_column_sidecar(dc[].index)
     workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
 
   let resAll = await allFinished(workers)
@@ -196,23 +189,13 @@ proc publishSidecars(
     doAssert r.finished()
     if r.failed():
       notice "Data column not sent",
-        data_column = shortLog(cols[i]), error = r.error[]
+        data_column = shortLog(cols[i][]), error = r.error[]
     else:
       notice "Data column sent",
-        data_column = shortLog(cols[i])
+        data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: fulu.DataColumnSidecars
-  for dc in cols:
-    if dc.index in allowed:
-      finalCols.add newClone(dc)
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.dataColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -239,12 +222,7 @@ proc publishSidecars(
       notice "Blob sent",
         blob = shortLog(blobs[i])
 
-  # Convert to seq[ref BlobSidecar]
-  var finalBlobs: BlobSidecars
-  for blob in blobs:
-    finalBlobs.add newClone(blob)
-
-  Opt.some(finalBlobs)
+  Opt.some(blobs.mapIt(newClone(it)))
 
 proc addRoutedBlock(
     router: ref MessageRouter,
@@ -286,9 +264,8 @@ proc addRoutedBlock(
 
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter,
-    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
-          gloas.SignedBeaconBlock,
-    someSidecarsOpt: SomeSidecarsToRoute,
+    blck: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+    someSidecars: SomeSidecarsToRoute,
     checkValidator: bool
 ): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
 
@@ -299,10 +276,26 @@ proc routeSignedBeaconBlock*(
   await router.publishRouteBlock(blck)
 
   # 3. Publish sidecars
-  let finalSidecars = await publishSidecars(router, blck, someSidecarsOpt)
+  let finalSidecars = await publishSidecars(router, blck, someSidecars)
 
   # 4. Add block to DAG
   return await router.addRoutedBlock(blck, finalSidecars)
+
+proc routeSignedBeaconBlock*(
+    router: ref MessageRouter,
+    blck: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    checkValidator: bool
+): Future[RouteBlockResult] {.async: (raises: [CancelledError]).} =
+  ## Same as pre-Gloas block but no sidecars publishing.
+
+  # 1. Validate
+  ? router.validateRouteBlock(blck, checkValidator)
+
+  # 2. Publish block
+  await router.publishRouteBlock(blck)
+
+  # 3. Add block to DAG
+  return await router.addRoutedBlock(blck, noSidecars)
 
 proc routeAttestation*(
     router: ref MessageRouter,
@@ -674,8 +667,8 @@ proc routeBlsToExecutionChange*(
 proc routePayloadAttestationMessage*(
     router: ref MessageRouter,
     message: PayloadAttestationMessage,
-    checkSignature = true, checkValidator = true):
-    Future[SendResult] {.async: (raises: [CancelledError]).} =
+    checkSignature = true, checkValidator = true
+) {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processPayloadAttestationMessage(
       message, checkSignature = checkSignature,
@@ -684,7 +677,7 @@ proc routePayloadAttestationMessage*(
     if not res.isGoodForSending:
       warn "Payload attestation failed validation",
         message = shortLog(message), error = res.error()
-      return err(res.error()[1])
+      return
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
@@ -700,32 +693,88 @@ proc routePayloadAttestationMessage*(
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
 
-  return ok()
-
 proc routeExecutionPayloadEnvelope*(
     router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    checkValidator: bool
-): Future[SendResult] {.async: (raises: [CancelledError]).} =
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  # Validate with gossip
+  let
+    wallTime = router[].getCurrentBeaconTime()
+    vRes = validateExecutionPayload(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, signedEnvelope, wallTime)
+  if not isGoodForSending(vRes):
+    warn "Envelope failed validation",
+      envelope = shortLog(signedEnvelope.message),
+      payload = shortLog(signedEnvelope.message.payload),
+      signature = shortLog(signedEnvelope.signature),
+      error = vRes.error()
+    return err(vRes.error()[1])
+
+  # Publish envelope
+  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  if res.isErr():
+    notice "Envelope not sent",
+      envelope = shortLog(signedEnvelope.message), error = res.error()
+  else:
+    notice "Envelope sent",
+      envelope = shortLog(signedEnvelope.message)
+
+  # Publish sidecars
+  let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
+
+  # Add envelope and sidecars to DAG
+  (await router[].blockProcessor.addPayload(
+      signedBlock, signedEnvelope, finalSidecars)).isOkOr:
+    return err("Proposed envelope failed to add to the chain")
+
+  ok()
+
+proc routeProposerPreferences*(
+    router: ref MessageRouter,
+    signed_preferences: SignedProposerPreferences
+) {.async: (raises: [CancelledError]).} =
   block:
-    let res = router[].processor[].processExecutionPayloadEnvelope(
-      MsgSource.api, signedEnvelope)
+    let res = router.processor.processProposerPreferences(
+      MsgSource.api, signed_preferences)
 
     if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message),
-        error = res.error()
-      return err(res.error()[1])
+      warn "Proposer preferences failed validation",
+        message = shortLog(signed_preferences), error = res.error()
+      return
 
   let res =
-    await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+    await router[].network.broadcastProposerPreferences(signed_preferences)
 
   if res.isOk():
-    info "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
+    info "Proposer preferences sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
+      validator_index = signed_preferences.message.validator_index
   else:
-    notice "Execution payload envelope not sent",
-      envelope = shortLog(signedEnvelope.message),
+    notice "Proposer preferences not sent",
+      proposal_slot = signed_preferences.message.proposal_slot,
       error = res.error()
 
-  return ok()
+proc routeExecutionPayloadBid*(
+    router: ref MessageRouter,
+    signedBid: gloas.SignedExecutionPayloadBid):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res =
+      router[].processor[].processExecutionPayloadBid(signedBid)
+    if not res.isGoodForSending:
+      warn "Execution payload bid failed validation",
+        bid = shortLog(signedBid.message), error = res.error()
+      return err(res.error()[1])
+
+  let res = await router[].network.broadcastExecutionPayloadBid(signedBid)
+  if res.isOk():
+    notice "Execution payload bid sent",
+      bid = shortLog(signedBid.message)
+  else:
+    notice "Execution payload bid not sent",
+      bid = shortLog(signedBid.message), error = res.error()
+
+  ok()

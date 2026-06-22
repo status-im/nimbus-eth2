@@ -21,7 +21,12 @@ import
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base, ./signatures
+  ./datatypes/base, ./[ssz_codec, signatures]
+
+from ssz_serialization/proofs import get_generalized_index
+from ./datatypes/electra import BeaconBlockBody
+from ./datatypes/fulu import BeaconBlockBody
+from ./datatypes/gloas import BeaconBlockBody
 
 from std/algorithm import binarySearch
 from std/math import `^`
@@ -590,11 +595,9 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
       "The Checksum value should have sub-fields named " &
       "'function', 'params', and 'message'")
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
-{.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Cipher) =
   var
@@ -631,11 +634,9 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
       "The Cipher value should have sub-fields named " &
       "'function', 'params', and 'message'")
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
-{.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Kdf) =
   var
@@ -670,11 +671,9 @@ template readValueImpl(r: var JsonReader, value: var Kdf) =
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
-{.pop.}
 
 func readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
   static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
@@ -719,25 +718,48 @@ template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
   writeJsonHexString(w.stream, distinctBase value)
 
-func parseProvenBlockProperty*(propertyPath: string): Result[ProvenProperty, string] =
-  if propertyPath == ".execution_payload.fee_recipient":
-    debugGloasComment "almost certainly not correct anymore, execution payload position changes substantially"
-    ok ProvenProperty(
+func parseProvenBlockProperty*(
+    propertyPath: string): Result[ProvenProperty, string] =
+  template gindexOrZero(path: varargs[untyped]): GeneralizedIndex =
+    when compiles(get_generalized_index(path)):
+      get_generalized_index(path)
+    else:
+      0.GeneralizedIndex
+
+  template initProvenProperty(
+      pathArgs: varargs[untyped]): ProvenProperty =
+    ProvenProperty(
       path: propertyPath,
-      electraIndex: GeneralizedIndex(801),
-      fuluIndex: GeneralizedIndex(801),
-      gloasIndex: GeneralizedIndex(801))
-  elif propertyPath == ".graffiti":
-    debugGloasComment "check if graffiti is still generalizedindex 18"
-    ok ProvenProperty(
-      path: propertyPath,
-      electraIndex: GeneralizedIndex(18),
-      fuluIndex: GeneralizedIndex(18),
-      gloasIndex: GeneralizedIndex(18))
+      electraIndex: electra.BeaconBlockBody.gindexOrZero(pathArgs),
+      fuluIndex: fulu.BeaconBlockBody.gindexOrZero(pathArgs),
+      gloasIndex: gloas.BeaconBlockBody.gindexOrZero(pathArgs))
+
+  case propertyPath
+  of ".execution_payload.fee_recipient":
+    let res = initProvenProperty("execution_payload", "fee_recipient")
+    ok res
+  of ".graffiti":
+    let res = initProvenProperty("graffiti")
+    ok res
   else:
     err("Keystores with proven properties different than " &
         "`.execution_payload.fee_recipient` and `.graffiti` " &
         "require a more recent version of Nimbus")
+
+static:
+  debugGloasComment "How to do fee recipient on Gloas?"
+  doAssert parseProvenBlockProperty(".execution_payload.fee_recipient").get ==
+    ProvenProperty(
+      path: ".execution_payload.fee_recipient",
+      electraIndex: 801.GeneralizedIndex,
+      fuluIndex: 801.GeneralizedIndex,
+      gloasIndex: 0.GeneralizedIndex)
+  doAssert parseProvenBlockProperty(".graffiti").get ==
+    ProvenProperty(
+      path: ".graffiti",
+      electraIndex: 18.GeneralizedIndex,
+      fuluIndex: 18.GeneralizedIndex,
+      gloasIndex: 18.GeneralizedIndex)
 
 proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError].} =
@@ -839,20 +861,8 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
           "RemoteKeystore")
       var provenProperties = reader.readValue(seq[ProvenProperty])
       for prop in provenProperties.mitems:
-        if prop.path == ".execution_payload.fee_recipient":
-          debugGloasComment "nearly certainly incorrect fee recipient generalizedindex"
-          prop.electraIndex = GeneralizedIndex(801)
-          prop.fuluIndex = GeneralizedIndex(801)
-          prop.gloasIndex = GeneralizedIndex(801)
-        elif prop.path == ".graffiti":
-          debugGloasComment "check if graffiti is still generalizedindex 18"
-          prop.electraIndex = GeneralizedIndex(18)
-          prop.fuluIndex = GeneralizedIndex(18)
-          prop.gloasIndex = GeneralizedIndex(18)
-        else:
-          reader.raiseUnexpectedValue("Keystores with proven properties different than " &
-                                      "`.execution_payload.fee_recipient` and `.graffiti` " &
-                                      "require a more recent version of Nimbus")
+        prop = parseProvenBlockProperty(prop.path).valueOr:
+          reader.raiseUnexpectedValue(error)
       provenBlockProperties = some provenProperties
     of "threshold":
       if threshold.isSome:
@@ -959,7 +969,6 @@ func decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
   let valid =
     case crypto.checksum.function
     of sha256Checksum:
-      template params: auto {.used.} = crypto.checksum.params
       template message: auto = crypto.checksum.message
       message == shaChecksum(decKey.toOpenArray(16, 31),
                              crypto.cipher.message.bytes)
@@ -1052,7 +1061,6 @@ func getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
 func `==`*(a, b: KdfSaltKey): bool {.borrow.}
 func hash*(salt: KdfSaltKey): Hash {.borrow.}
 
-{.push warning[ProveField]:off.}
 func `==`*(a, b: Kdf): bool =
   # We do not care about `message` field.
   if a.function != b.function:
@@ -1071,15 +1079,10 @@ func `==`*(a, b: Kdf): bool =
     (aparams.p == bparams.p) and (aparams.r == bparams.r) and
     (len(seq[byte](aparams.salt)) > 0) and
     (seq[byte](aparams.salt) == seq[byte](bparams.salt))
-{.pop.}
 
 func `==`*(a, b: Cipher): bool =
   # We do not care about `params` and `message` fields.
   a.function == b.function
-
-func `==`*(a, b: KeystoreCacheItem): bool =
-  (a.kdf == b.kdf) and (a.cipher == b.cipher) and
-  (a.decryptionKey == b.decryptionKey)
 
 func init*(t: typedesc[KeystoreCacheRef],
            expireTime = KeystoreCachePruningTime): KeystoreCacheRef =
@@ -1219,14 +1222,6 @@ func decryptNetKeystore*(nkeystore: NetKeystore,
       err "Invalid key"
   else:
     err $status
-
-func decryptNetKeystore*(nkeystore: JsonString,
-                         password: KeystorePass): KsResult[lcrypto.PrivateKey] =
-  try:
-    let keystore = parseNetKeystore(string nkeystore)
-    return decryptNetKeystore(keystore, password)
-  except SerializationError as exc:
-    return err(exc.formatMsg("<keystore>"))
 
 func generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
   rng.generateBytes(keyLen)

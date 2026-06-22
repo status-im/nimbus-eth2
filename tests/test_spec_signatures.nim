@@ -44,7 +44,7 @@ suite "Message signatures":
 
   test "Slot signatures":
     let
-      root0 = default(Eth2Digest)
+      root0 = ZERO_HASH
       root1 = gvr1
       sig = get_block_signature(fork0, gvr0, slot0, root0, privkey0).toValidatorSig
 
@@ -122,7 +122,7 @@ suite "Message signatures":
 
   test "Sync committee message signatures":
     let
-      root0 = default(Eth2Digest)
+      root0 = ZERO_HASH
       root1 = gvr1
       sig = get_sync_committee_message_signature(fork0, gvr0, slot0, root0, privkey0)
         .toValidatorSig()
@@ -187,7 +187,7 @@ suite "Message signatures":
 
   test "execution payload bid signatures":
     let
-      msg0 = default(ExecutionPayloadBid)
+      msg0 = default(gloas.ExecutionPayloadBid)
       msg1 = (var v = msg0; v.slot = v.slot + 1; v)
       epoch0 = Epoch(0)
       sig = get_execution_payload_bid_signature(fork0, gvr0, epoch0, msg0, privkey0).toValidatorSig
@@ -253,6 +253,20 @@ suite "Message signatures":
       not verify_payload_attestation_message_signature(fork0, gvr0, data1, pubkey0, sig)
       not verify_payload_attestation_message_signature(fork0, gvr0, data0, pubkey1, sig)
 
+  test "inclusion list signatures":
+    let
+      msg0 = default(InclusionList)
+      msg1 = (var m = msg0; m.validator_index = 1; m)
+      sig = get_inclusion_list_signature(fork0, gvr0, msg0, privkey0).toValidatorSig
+
+    check:
+      verify_inclusion_list_signature(fork0, gvr0, msg0, pubkey0, sig)
+
+      not verify_inclusion_list_signature(fork1, gvr0, msg0, pubkey0, sig)
+      not verify_inclusion_list_signature(fork0, gvr1, msg0, pubkey0, sig)
+      not verify_inclusion_list_signature(fork0, gvr0, msg1, pubkey0, sig)
+      not verify_inclusion_list_signature(fork0, gvr0, msg0, pubkey1, sig)
+
   test "BLS to execution change signatures":
     let
       change0 = default(SignedBLSToExecutionChange)
@@ -293,3 +307,17 @@ suite "Message signatures":
       not verify_builder_signature(version1, reg0, pubkey0, sig)
       not verify_builder_signature(version0, reg1, pubkey0, sig)
       not verify_builder_signature(version0, reg0, pubkey1, sig)
+
+    test "proposer preferences message signatures":
+      let
+        data0 = default(ProposerPreferences)
+        data1 = (var d = data0; d.proposal_slot = d.proposal_slot + 1; d)
+        sig = get_proposer_preferences_signature(fork0, gvr0, data0, privkey0).toValidatorSig
+
+      check:
+        verify_proposer_preferences_signature(fork0, gvr0, data0, pubkey0, sig)
+
+        not verify_proposer_preferences_signature(fork1, gvr0, data0, pubkey0, sig)
+        not verify_proposer_preferences_signature(fork0, gvr1, data0, pubkey0, sig)
+        not verify_proposer_preferences_signature(fork0, gvr0, data1, pubkey0, sig)
+        not verify_proposer_preferences_signature(fork0, gvr0, data0, pubkey1, sig)

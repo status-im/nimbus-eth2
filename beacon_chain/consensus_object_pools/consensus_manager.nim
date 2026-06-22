@@ -11,7 +11,8 @@ import
   chronicles, chronos,
   ../spec/datatypes/base,
   ../spec/beaconstate,
-  ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
+  ../consensus_object_pools/[
+    blockchain_dag, block_quarantine, attestation_pool],
   ../el/el_manager,
   ../beacon_clock,
   ./common_tools
@@ -53,9 +54,9 @@ type
 
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
-    optimisticHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
-    optimisticHeadStatus: OptimisticStatus
-      ## forkchoiceUpdated response about the optimistic head
+    lightClientHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
+    lightClientHeadStatus: OptimisticStatus
+      ## forkchoiceUpdated response about the light client head
 
     forkchoiceInflight: bool
       ## True when there's an async `forkchoiceUpdated` in flight
@@ -87,7 +88,7 @@ func new*(T: type ConsensusManager,
   )
 
 # Consensus Management
-# -----------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 func to*(v: PayloadExecutionStatus, T: type OptimisticStatus): T =
   case v
@@ -130,50 +131,50 @@ proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool]
 
   return fut
 
-func shouldSyncOptimistically*(
-    optimisticSlot, dagSlot, wallSlot: Slot): bool =
-  ## Determine whether an optimistic execution block hash should be reported
-  ## to the EL client instead of the current head as determined by fork choice.
+func shouldSyncViaLightClient*(
+    lightClientSlot, dagSlot, wallSlot: Slot): bool =
+  ## Determine whether the execution block hash reported to the EL client
+  ## should be reported based off the light client instead of fork choice.
 
-  # Check whether optimistic head is sufficiently ahead of DAG
+  # Check whether light client head is sufficiently ahead of DAG
   const minProgress = 8 * SLOTS_PER_EPOCH  # Set arbitrarily
-  if optimisticSlot < dagSlot or optimisticSlot - dagSlot < minProgress:
+  if lightClientSlot < dagSlot or lightClientSlot - dagSlot < minProgress:
     return false
 
-  # Check whether optimistic head has synced sufficiently close to wall slot
+  # Check whether light client head has synced sufficiently close to wall slot
   const maxAge = 2 * SLOTS_PER_EPOCH  # Set arbitrarily
-  if optimisticSlot < max(wallSlot, maxAge.Slot) - maxAge:
+  if lightClientSlot < max(wallSlot, maxAge.Slot) - maxAge:
     return false
 
   true
 
-func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
-  if self.optimisticHeadStatus == OptimisticStatus.invalidated or
-      self.optimisticHead.execution_block_hash.isZero:
+func shouldSyncViaLightClient*(self: ConsensusManager, wallSlot: Slot): bool =
+  if self.lightClientHeadStatus == OptimisticStatus.invalidated or
+      self.lightClientHead.execution_block_hash.isZero:
     return false
 
-  shouldSyncOptimistically(
-    optimisticSlot = self.optimisticHead.bid.slot,
+  shouldSyncViaLightClient(
+    lightClientSlot = self.lightClientHead.bid.slot,
     dagSlot = self.dag.headState.slot,
     wallSlot = wallSlot)
 
-func optimisticHead*(self: ConsensusManager): BlockId =
-  self.optimisticHead.bid
+func lightClientHead*(self: ConsensusManager): BlockId =
+  self.lightClientHead.bid
 
-proc setOptimisticHead*(
+proc setLightClientHead*(
     self: var ConsensusManager,
     bid: BlockId, execution_block_hash: Eth2Digest) =
-  if self.optimisticHeadStatus == OptimisticStatus.invalidated:
+  if self.lightClientHeadStatus == OptimisticStatus.invalidated:
     # If the light client was wrong in the past, either the execution client or
     # the light client has been compromised and we shouldn't trust either until
     # a restart
-    warn "Ignoring optimistic head update due to previous invalidity",
+    warn "Ignoring light client head update due to previous invalidity",
       bid, execution_block_hash
   else:
     let newHead = (bid: bid, execution_block_hash: execution_block_hash)
-    if self.optimisticHead != newHead:
-      self.optimisticHead = newHead
-      self.optimisticHeadStatus = OptimisticStatus.notValidated
+    if self.lightClientHead != newHead:
+      self.lightClientHead = newHead
+      self.lightClientHeadStatus = OptimisticStatus.notValidated
 
 func getKnownValidatorsForBlsChangeTracking(
     self: ConsensusManager, newHead: BlockRef): seq[ValidatorIndex] =
@@ -201,7 +202,7 @@ proc updateHead(self: var ConsensusManager, newHead: BlockRef) =
     newHead, self.quarantine[],
     self.getKnownValidatorsForBlsChangeTracking(newHead))
   updateSafeBlockMetrics(
-    self.attestationPool[].forkChoice.get_safe_beacon_block_id)
+    self.attestationPool[].forkChoice.retrieve_fast_confirmed_bid)
   self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
@@ -329,9 +330,7 @@ proc prepareNextSlot*(
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
   withState(dag.clearanceState):
-    when consensusFork == ConsensusFork.Gloas:
-      debugGloasComment "well, likely can't keep reusing V3 much longer"
-    elif consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
+    when consensusFork >= ConsensusFork.Electra:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       let
         timestamp = dag.timeParams
@@ -344,30 +343,41 @@ proc prepareNextSlot*(
           nextProposer, Opt.some(validatorIndex), proposalSlot.epoch
         )
         beaconHead = self.attestationPool[].getBeaconHead(head)
-        headBlockHash = dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
-          return
+        executionHead =
+          when consensusFork >= ConsensusFork.Gloas:
+            if dag.shouldExtendPayload(head):
+              proposalExecutionHead(forkyState.data)
+            else:
+              dag.loadExecutionAndParentBlockHash(head).parentHash.valueOr:
+                return
+          else:
+            dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
+              return
 
-      if headBlockHash.isZero:
+      if executionHead.isZero:
         return
 
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
       let
         state = ForkchoiceStateV1.init(
-          headBlockHash, beaconHead.safeExecutionBlockHash,
+          executionHead, beaconHead.safeExecutionBlockHash,
           beaconHead.finalizedExecutionBlockHash,
         )
-        attributes = PayloadAttributesV3.init(
-          timestamp,
-          prevRandao,
-          feeRecipient,
-          get_expected_withdrawals(forkyState.data),
-          beaconHead.blck.bid.root,
-        )
+        attributes =
+          when consensusFork >= ConsensusFork.Gloas:
+            PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
+              get_expected_withdrawals(forkyState.data).withdrawals,
+              beaconHead.blck.bid.root, proposalSlot,
+              self[].getGasLimit(nextProposer))
+          else:
+            # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
+            PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
+              get_expected_withdrawals(forkyState.data),
+              beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
           state, Opt.some(attributes), deadline, false
         )
-      debug "Fork-choice updated for proposal", status, headBlockHash, attributes
+      debug "Fork-choice updated for proposal", status, executionHead, attributes
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:
@@ -390,8 +400,8 @@ proc forkchoiceUpdated*(
         PayloadExecutionStatus.valid
       else:
         let
-          state =
-            ForkchoiceStateV1.init(headBlockHash, safeBlockHash, finalizedBlockHash)
+          state = ForkchoiceStateV1.init(
+            headBlockHash, safeBlockHash, finalizedBlockHash)
           (status, _) = await self.elManager.forkchoiceUpdated(
             state, Opt.none consensusFork.PayloadAttributes, deadline, retry
           )
@@ -409,25 +419,25 @@ proc forkchoiceUpdated(
   ## Send forkchoiceUpdated to the client, return false iff the head was invalid
   ## and true otherwise
 
-  if self[].shouldSyncOptimistically(wallSlot):
-    # No point retrying for optimistic slots since there will be a new attempt
-    # "soon"
-    # However, we will make the call even if the optimistic head hasn't changed
+  if self[].shouldSyncViaLightClient(wallSlot):
+    # No point retrying for light client sync since there will be a new attempt
+    # "soon". However, we call even if the light client head hasn't changed
     # since the last slot since the finalized / safe blocks might have changed
     let status = await self.forkchoiceUpdated(
-      self.optimisticHead.bid.slot, self.optimisticHead.execution_block_hash,
-      head.safeExecutionBlockHash, head.finalizedExecutionBlockHash, deadline, false,
-    )
+      self.lightClientHead.bid.slot, self.lightClientHead.execution_block_hash,
+      head.safeExecutionBlockHash, head.finalizedExecutionBlockHash,
+      deadline, retry = false)
 
-    self.optimisticHeadStatus = status.to(OptimisticStatus)
+    self.lightClientHeadStatus = status.to(OptimisticStatus)
 
-    case self.optimisticHeadStatus
+    case self.lightClientHeadStatus
     of OptimisticStatus.valid, OptimisticStatus.notValidated:
       true
     of OptimisticStatus.invalidated:
-      warn "Light execution payload invalid - the execution client or the light client data is faulty",
+      warn "Light client execution payload invalid - " &
+        "the execution client or the light client data is faulty",
         payloadExecutionStatus = status,
-        optimisticBlockHash = self.optimisticHead.execution_block_hash
+        lightClientBlockHash = self.lightClientHead.execution_block_hash
       false
   else:
     let
@@ -461,7 +471,7 @@ proc forkchoiceUpdated(
           payloadExecutionStatus = status
       true
     of OptimisticStatus.invalidated:
-      if head.blck.executionValid:
+      if head.blck.optimisticStatus == OptimisticStatus.valid:
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
         warn "Previously valid execution payload turned invalid during fork choice update - check execution client for faults and restart the beacon node",
           blck = head.blck,
@@ -471,7 +481,8 @@ proc forkchoiceUpdated(
       head.blck.markExecutionValid(false)
       self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
       # TODO differentiate invalid execution from invalid consensus
-      discard self.quarantine[].addUnviable(head.blck.root, UnviableKind.Invalid)
+      discard self.quarantine[].addUnviable(
+        head.blck.root, UnviableKind.Invalid)
       false
 
 proc updateExecutionHead*(
@@ -509,7 +520,7 @@ proc updateExecutionHead*(
     # earlier block or a different fork (as attestations keep coming in).
     #
     # When light client data is available, we might also run into the case where
-    # the optimistic head is broken - this is very bad and light client head
+    # the light client head is broken - this is very bad and light client head
     # will simply be ignored until the next restart.
 
     if deadline.finished:

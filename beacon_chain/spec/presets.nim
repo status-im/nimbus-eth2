@@ -47,6 +47,7 @@ type TimeParams* = object
   AGGREGATE_DUE_BPS_GLOAS*: uint16
   SYNC_MESSAGE_DUE_BPS_GLOAS*: uint16
   CONTRIBUTION_DUE_BPS_GLOAS*: uint16
+  PAYLOAD_DUE_BPS*: uint16
   PAYLOAD_ATTESTATION_DUE_BPS*: uint16
 
 const
@@ -81,6 +82,7 @@ func isValid*(timeParams: TimeParams): bool =
     timeParams.AGGREGATE_DUE_BPS_GLOAS and
   timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
     timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS
+
 type
   Version* = distinct array[4, byte]
 
@@ -122,11 +124,14 @@ type
     FULU_FORK_EPOCH*: Epoch
     GLOAS_FORK_VERSION*: Version
     GLOAS_FORK_EPOCH*: Epoch
+    HEZE_FORK_VERSION*: Version
+    HEZE_FORK_EPOCH*: Epoch
 
     # Time parameters
     timeParams*: TimeParams
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
+    MIN_BUILDER_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
     ETH1_FOLLOW_DISTANCE*: uint64
 
@@ -176,6 +181,11 @@ type
     BLOB_SIDECAR_SUBNET_COUNT_ELECTRA*: uint64
     MAX_BLOBS_PER_BLOCK_ELECTRA*: uint64
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA*: uint64
+
+    # Gloas
+    CHURN_LIMIT_QUOTIENT_GLOAS*: uint64
+    CONSOLIDATION_CHURN_LIMIT_QUOTIENT*: uint64
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS*: uint64
 
     # Fulu
     NUMBER_OF_CUSTODY_GROUPS*: uint64
@@ -281,6 +291,9 @@ when const_preset == "mainnet":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x00],
     GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Heze
+    HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x00],
+    HEZE_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -311,12 +324,16 @@ when const_preset == "mainnet":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 7500,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**13 (= 8,192) epochs ~36 days
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 8192,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -395,6 +412,14 @@ when const_preset == "mainnet":
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
+
+    # Gloas
+    # 2**15 (= 32,768)
+    CHURN_LIMIT_QUOTIENT_GLOAS: 32768'u64,
+    # 2**16 (= 65,536)
+    CONSOLIDATION_CHURN_LIMIT_QUOTIENT: 65536'u64,
+    # 2**8 * 10**9 (= 256,000,000,000)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS: 256000000000'u64,
 
     # Fulu
     NUMBER_OF_CUSTODY_GROUPS: 128,
@@ -477,6 +502,9 @@ elif const_preset == "gnosis":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x64],
     GLOAS_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Heze
+    HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x64],
+    HEZE_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -507,12 +535,16 @@ elif const_preset == "gnosis":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 7500,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**13 (= 8,192) epochs ~36 days
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 8192,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -593,6 +625,11 @@ elif const_preset == "gnosis":
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 256,
 
+    # Gloas
+    CHURN_LIMIT_QUOTIENT_GLOAS: 32768'u64,
+    CONSOLIDATION_CHURN_LIMIT_QUOTIENT: 65536'u64,
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS: 256000000000'u64,
+
     # Fulu
     NUMBER_OF_CUSTODY_GROUPS: 128,
     DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
@@ -672,6 +709,9 @@ elif const_preset == "minimal":
     # Gloas
     GLOAS_FORK_VERSION: Version [byte 0x07, 0x00, 0x00, 0x01],
     GLOAS_FORK_EPOCH: Epoch(uint64.high),
+    # Heze
+    HEZE_FORK_VERSION: Version [byte 0x08, 0x00, 0x00, 0x01],
+    HEZE_FORK_EPOCH: Epoch(uint64.high),
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -702,12 +742,16 @@ elif const_preset == "minimal":
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 7500,
+      # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**1 (= 2) epochs
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 2,
     # [customized] higher frequency of committee turnover and faster time to acceptable voluntary exit
     SHARD_COMMITTEE_PERIOD: 64,
     # [customized] process deposits more quickly, but insecure
@@ -787,6 +831,14 @@ elif const_preset == "minimal":
     MAX_BLOBS_PER_BLOCK_ELECTRA: 9,
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 1152,
+
+    # Gloas
+    # [customized] 2**4 (= 16)
+    CHURN_LIMIT_QUOTIENT_GLOAS: 16'u64,
+    # [customized] 2**5 (= 32)
+    CONSOLIDATION_CHURN_LIMIT_QUOTIENT: 32'u64,
+    # [customized] 2**7 * 10**9 (= 128,000,000,000)
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS: 128000000000'u64,
 
     # Fulu
     NUMBER_OF_CUSTODY_GROUPS: 128,
@@ -1195,6 +1247,9 @@ proc readRuntimeConfig*(
     checkParsedValue(
       "CONTRIBUTION_DUE_BPS_GLOAS", cfg.timeParams.CONTRIBUTION_DUE_BPS_GLOAS,
       cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS)
+    checkParsedValue(
+      "PAYLOAD_DUE_BPS", cfg.timeParams.PAYLOAD_DUE_BPS,
+      cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
     checkParsedValue(
       "PAYLOAD_ATTESTATION_DUE_BPS", cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
       cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)

@@ -5,19 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
-import std/[tables, os, strutils]
-import serialization, json_serialization,
+import std/tables,
+       serialization, json_serialization,
        json_serialization/std/[options, net],
        chronos, presto, presto/secureserver, chronicles, confutils,
-       results, stew/[base10, byteutils, io2, bitops2]
-import "."/spec/datatypes/[base, altair, phase0],
-       "."/spec/[crypto, digest, network, signatures, forks],
-       "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       "."/rpc/rest_constants,
-       "."/[buildinfo, conf, version, nimbus_binary_common],
-       "."/validators/[keystore_management, validator_pool]
+       results, stew/[base10, byteutils, io2, bitops2],
+       ./spec/[crypto, digest, signatures, forks],
+       ./spec/eth2_apis/[rest_types, eth2_rest_serialization],
+       ./rpc/rest_constants,
+       ./[buildinfo, conf, version, nimbus_binary_common],
+       ./validators/[keystore_management, validator_pool]
+
+from std/os import commandLineParams, `/`
 
 const
   NimbusSigningNodeIdent = "nimbus_remote_signer/" & fullVersionStr
@@ -55,10 +56,10 @@ func validate(key: string, value: string): int =
   else:
     1
 
-proc getRouter*(): RestRouter =
+func getRouter*(): RestRouter =
   RestRouter.init(validate)
 
-proc router(sn: SigningNodeRef): RestRouter =
+func router(sn: SigningNodeRef): RestRouter =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     sn.signingServer.sserver.router
@@ -225,11 +226,9 @@ proc installApiHandlers*(node: SigningNodeRef) =
       of Web3SignerRequestKind.AggregateAndProofV2:
         let
           forkInfo = request.forkInfo.get()
-          signature =
-            withAggregateAndProof(request.forkedAggregateAndProof):
-              get_aggregate_and_proof_signature(forkInfo.fork,
-                forkInfo.genesis_validators_root, forkyProof,
-                validator.data.privateKey).toHex()
+          signature = get_aggregate_and_proof_signature(forkInfo.fork,
+            forkInfo.genesis_validators_root, request.aggregateAndProofV2,
+            validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:
         let
@@ -250,18 +249,15 @@ proc installApiHandlers*(node: SigningNodeRef) =
           return signatureResponse(Http200, signature)
 
         let (feeRecipientIndex, blockHeader) =
-          case request.beaconBlockHeader.kind
-          of ConsensusFork.Phase0 .. ConsensusFork.Capella:
-            return errorResponse(Http400, BlockIncorrectFork)
-          of ConsensusFork.Deneb:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Electra:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Fulu:
-            (GeneralizedIndex(801), request.beaconBlockHeader.data)
-          of ConsensusFork.Gloas:
-            debugGloasComment "do not this"
-            return errorResponse(Http400, BlockIncorrectFork)
+          withConsensusFork(request.beaconBlockHeader.kind):
+            when consensusFork in ConsensusFork.Deneb ..< ConsensusFork.Gloas:
+              const gindex = get_generalized_index(
+                consensusFork.BeaconBlockBody,
+                "execution_payload", "fee_recipient")
+              (gindex, request.beaconBlockHeader.data)
+            else:
+              debugGloasComment "do not this"
+              return errorResponse(Http400, BlockIncorrectFork)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
           return errorResponse(Http400, MissingMerkleProofError)

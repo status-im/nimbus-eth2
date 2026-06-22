@@ -36,16 +36,10 @@ type
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
     ## creating future `LightClientUpdate` and `LightClientBootstrap` instances.
-    current_sync_committee_branch*:
-      LightClientDataFork.high.CurrentSyncCommitteeBranch
-    next_sync_committee_branch*:
-      LightClientDataFork.high.NextSyncCommitteeBranch
-
     finalized_slot*: Slot
-    finality_branch*: LightClientDataFork.high.FinalityBranch
-
     current_period_best_update*: ref ForkedLightClientUpdate
     latest_signature_slot*: Slot
+    union_roots*: seq[Eth2Digest]
 
   LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
@@ -68,6 +62,8 @@ type
       ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
+    importBackfill*: bool
+      ## Whether to collect data for backfilling historical light client data
     maxPeriods*: Option[uint64]
       ## Maximum number of sync committee periods to retain light client data
     onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
@@ -91,6 +87,8 @@ type
       ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
+    importBackfill*: bool
+      ## Whether to collect data for backfilling historical light client data
     maxPeriods*: uint64
       ## Maximum number of sync committee periods to retain light client data
 

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status
   results,
   chronicles,
@@ -55,6 +55,8 @@ type
     fcPruningFromOutdatedFinalizedRoot
     fcUnknownBlockIdAtSlot
     fcUnknownShufflingRef
+    fcInvalidAttestation
+    fcInvalidPayloadAttestation
 
   Index* = int
   Delta* = int64
@@ -68,7 +70,9 @@ type
        fcPreviousHeadUnknown,
        fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick:
+    of fcInconsistentTick,
+       fcInvalidAttestation,
+       fcInvalidPayloadAttestation:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
@@ -108,9 +112,11 @@ type
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
+    fullBlockIndices*: Table[Eth2Digest, Index]
     unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
+    emptyPreferredRoot*: Eth2Digest
 
   ProtoNode* = object
     bid*: BlockId
@@ -124,6 +130,7 @@ type
 
   BalanceCheckpoint* = object
     checkpoint*: Checkpoint
+    block_slot*: Slot
     total_active_balance*: Gwei
     balances*: seq[ForkChoiceBalance]
 
@@ -141,6 +148,12 @@ type
     current_root*: Eth2Digest
     next_root*: Eth2Digest
     slot*: Slot
+    payload_present*: bool
+    next_payload_present*: bool
+
+  PtcVoteTally* = object
+    present*: BitArray[int PTC_SIZE]
+    available*: BitArray[int PTC_SIZE]
 
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
@@ -160,11 +173,14 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
+    ptc_votes*: Table[Eth2Digest, PtcVoteTally]
+    timely_proposer_blocks*: HashSet[Eth2Digest]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
     slot*: Slot
+    committee_index*: CommitteeIndex
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
@@ -176,6 +192,8 @@ func shortLog*(vote: VoteTracker): auto =
     slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
+    payload_present: vote.payload_present,
+    next_payload_present: vote.next_payload_present
   )
 
 chronicles.formatIt VoteTracker: it.shortLog
@@ -192,6 +210,7 @@ template to_balance_checkpoint*(
     epochRef: EpochRef, blck: BlockRef): BalanceCheckpoint =
   BalanceCheckpoint(
     checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
+    block_slot: blck.slot,
     total_active_balance: epochRef.total_active_balance,
     balances: epochRef.fork_choice_balances)
 

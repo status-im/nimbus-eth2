@@ -54,6 +54,8 @@ func genesisTestRuntimeConfig*(consensusFork: ConsensusFork): RuntimeConfig =
     res.FULU_FORK_EPOCH = GENESIS_EPOCH
   if consensusFork >= ConsensusFork.Gloas:
     res.GLOAS_FORK_EPOCH = GENESIS_EPOCH
+  if consensusFork >= ConsensusFork.Heze:
+    res.HEZE_FORK_EPOCH = GENESIS_EPOCH
 
   res
 
@@ -160,8 +162,7 @@ proc loadBlock*(
     validateBlockHash = true): auto =
   var blck = parseTest(path, SSZ, consensusFork.SignedBeaconBlock)
   blck.root = hash_tree_root(blck.message)
-  debugGloasComment ""
-  when consensusFork >= ConsensusFork.Bellatrix and consensusFork != ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Bellatrix and consensusFork < ConsensusFork.Gloas:
     if blck.message.is_execution_block and
         not blck.message.body.execution_payload.transactions.anyIt(it.len == 0):
       if blck.message.body.execution_payload.block_hash !=

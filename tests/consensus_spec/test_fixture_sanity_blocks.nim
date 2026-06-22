@@ -14,10 +14,8 @@ import
   ./os_ops,
   ../testutil
 
-from std/sequtils import toSeq
-from std/strutils import contains, toLowerAscii
-from ../../beacon_chain/spec/presets import
-  const_preset, defaultRuntimeConfig
+from std/sequtils import countIt
+from ../../beacon_chain/spec/presets import const_preset, defaultRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
   readSszBytes, toSszType
@@ -41,7 +39,7 @@ proc runTest(
 
     # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
     # so purely lexicographic sorting wouldn't sort properly.
-    let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
+    let numBlocks = walkPattern(testPath/"blocks_*.ssz_snappy").countIt(true)
     for i in 0 ..< numBlocks:
       let blck = loadBlock(
         testPath/"blocks_" & $i & ".ssz_snappy", consensusFork,
@@ -69,33 +67,32 @@ proc runTest(
 
 template runForkBlockTests(consensusFork: static ConsensusFork) =
   const
-    forkHumanName = $consensusFork
-    forkDirName = forkHumanName.toLowerAscii()
+    forkName = $consensusFork
     FinalityDir =
-      SszTestsDir/const_preset/forkDirName/"finality"/"finality"/"pyspec_tests"
+      SszTestsDir/const_preset/forkName/"finality"/"finality"/"pyspec_tests"
     RandomDir =
-      SszTestsDir/const_preset/forkDirName/"random"/"random"/"pyspec_tests"
+      SszTestsDir/const_preset/forkName/"random"/"random"/"pyspec_tests"
     SanityBlocksDir =
-      SszTestsDir/const_preset/forkDirName/"sanity"/"blocks"/"pyspec_tests"
+      SszTestsDir/const_preset/forkName/"sanity"/"blocks"/"pyspec_tests"
 
-  suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
+  suite "EF - " & forkName & " - Sanity - Blocks " & preset():
     for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
       consensusFork.runTest(
-        "EF - " & forkHumanName & " - Sanity - Blocks",
+        "EF - " & forkName & " - Sanity - Blocks",
         SanityBlocksDir, suiteName, path)
 
-  suite "EF - " & forkHumanName & " - Finality " & preset():
+  suite "EF - " & forkName & " - Finality " & preset():
     for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
       consensusFork.runTest(
-        "EF - " & forkHumanName & " - Finality",
+        "EF - " & forkName & " - Finality",
         FinalityDir, suiteName, path)
 
-  debugGloasComment "random block sanity"
-  when consensusFork != ConsensusFork.Gloas:
-    suite "EF - " & forkHumanName & " - Random " & preset():
+  when consensusFork != ConsensusFork.Heze:
+    debugHezeComment "no random tests for Heze yet"
+    suite "EF - " & forkName & " - Random " & preset():
       for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
         consensusFork.runTest(
-          "EF - " & forkHumanName & " - Random",
+          "EF - " & forkName & " - Random",
           RandomDir, suiteName, path)
 
 withAll(ConsensusFork):

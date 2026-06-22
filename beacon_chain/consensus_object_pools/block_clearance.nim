@@ -13,7 +13,7 @@ import
   ../spec/[
     beaconstate, forks, signatures, signatures_batch,
     state_transition, state_transition_epoch],
-  "."/[block_pools_types, block_dag, blockchain_dag,
+  ./[block_pools_types, block_dag, blockchain_dag,
        blockchain_dag_light_client, block_quarantine]
 
 export results, signatures_batch, block_dag, blockchain_dag
@@ -72,7 +72,7 @@ proc addResolvedHeadBlock(
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        optimisticStatus: OptimisticStatus,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnBlockAdded,
+       onBlockAdded: OnBlockAdded, fromGossip: bool,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert state.matches_block_slot(
@@ -96,17 +96,8 @@ proc addResolvedHeadBlock(
 
   # Resolved blocks should be stored in database
   dag.putBlock(trustedBlock)
+  dag.registerHead(blockRef)
   let putBlockTick = Moment.now()
-
-  var foundHead: bool
-  for head in dag.heads.mitems():
-    if head.isAncestorOf(blockRef):
-      head = blockRef
-      foundHead = true
-      break
-
-  if not foundHead:
-    dag.heads.add(blockRef)
 
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
@@ -118,13 +109,22 @@ proc addResolvedHeadBlock(
     epochRef = dag.getEpochRef(state, cache)
     epochRefTick = Moment.now()
 
-  debug "Block resolved",
-    blockRoot = shortLog(blockRoot),
-    blck = shortLog(trustedBlock.message),
-    optimisticStatus, heads = dag.heads.len(),
-    stateDataDur, sigVerifyDur, stateVerifyDur,
-    putBlockDur = putBlockTick - startTick,
-    epochRefDur = epochRefTick - putBlockTick
+  if fromGossip:
+    info "Block resolved",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(trustedBlock.message),
+      optimisticStatus, heads = dag.heads.len(),
+      stateDataDur, sigVerifyDur, stateVerifyDur,
+      putBlockDur = putBlockTick - startTick,
+      epochRefDur = epochRefTick - putBlockTick
+  else:
+    debug "Block resolved",
+      blockRoot = shortLog(blockRoot),
+      blck = shortLog(trustedBlock.message),
+      optimisticStatus, heads = dag.heads.len(),
+      stateDataDur, sigVerifyDur, stateVerifyDur,
+      putBlockDur = putBlockTick - startTick,
+      epochRefDur = epochRefTick - putBlockTick
 
   # Update light client data
   dag.processNewBlockForLightClient(state, trustedBlock, parent.bid)
@@ -139,14 +139,14 @@ proc addResolvedHeadBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    let unrealized =
-      when consensusFork >= ConsensusFork.Altair:
-        state.forky(consensusFork).data.compute_unrealized_finality()
-      else:
-        state.forky(consensusFork).data.compute_unrealized_finality(cache)
-    onBlockAdded(
-      blockRef, trustedBlock, state.forky(consensusFork).data, epochRef, unrealized
-    )
+    template forkyState: auto = state.forky(consensusFork)
+    when consensusFork >= ConsensusFork.Altair:
+      let (unrealized, balances) = forkyState.data.compute_unrealized_finality()
+      dag.putParticipatingBalances CachedParticipatingBalances(
+        bid: blockRef.bid, balances: balances)
+    else:
+      let unrealized = forkyState.data.compute_unrealized_finality(cache)
+    onBlockAdded(blockRef, trustedBlock, forkyState.data, epochRef, unrealized)
 
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
@@ -206,12 +206,16 @@ proc checkHeadBlock*(
         debug "Duplicate block"
         return err(VerifierError.Duplicate)
 
-    # Block is older than finalized, but different from the block in our
-    # canonical history: it must be from an unviable branch
-    debug "Block from unviable fork",
-      existing = shortLog(existing.get()),
-      finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail)
+      # Block is older than finalized, but different from the block in our
+      # canonical history: it must be from an unviable branch
+      debug "Block from unviable fork",
+        existing = shortLog(existing.get()),
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail)
+    else:
+      debug "Block from unviable fork (slot not backfilled)",
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail)
 
     return err(VerifierError.UnviableFork)
 
@@ -247,8 +251,8 @@ proc checkHeadBlock*(
 proc addHeadBlockWithParent*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock, parent: BlockRef,
-    optimisticStatus: OptimisticStatus, onBlockAdded: OnBlockAdded
-    ): Result[BlockRef, VerifierError] =
+    optimisticStatus: OptimisticStatus, onBlockAdded: OnBlockAdded,
+    fromGossip = false): Result[BlockRef, VerifierError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
   ##
@@ -331,6 +335,7 @@ proc addHeadBlockWithParent*(
     optimisticStatus,
     parent, cache,
     onBlockAdded,
+    fromGossip,
     stateDataDur = stateDataTick - startTick,
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
@@ -467,6 +472,10 @@ proc addBackfillBlock*(
 
   let putBlockTick = Moment.now
   debug "Block backfilled",
+    blockRoot = shortLog(signedBlock.root),
+    blck = shortLog(signedBlock.message),
+    signature = shortLog(signedBlock.signature),
+    backfill = shortLog(dag.backfill),
     sigVerifyDur = sigVerifyTick - startTick,
     putBlockDur = putBlockTick - sigVerifyTick
 
@@ -487,13 +496,13 @@ proc addHeadExecutionPayload*(
   if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
     return err(VerifierError.Duplicate)
 
-  template envelopeBlockRoot(): auto =
-    signedEnvelope.message.beacon_block_root
+  template envelopeBlockRoot(): auto = signedEnvelope.message.beacon_block_root
+  template envelopeSlot(): auto = signedEnvelope.message.slot
 
   logScope:
-    blockRoot = shortLog(envelopeBlockRoot())
+    blockRoot = shortLog(envelopeBlockRoot)
     builderIdx = signedEnvelope.message.builder_index
-    slot = signedEnvelope.message.slot
+    slot = envelopeSlot
     signature = shortLog(signedEnvelope.signature)
 
   const consensusFork = typeof(signedBlock).kind
@@ -502,57 +511,55 @@ proc addHeadExecutionPayload*(
   template bid(): auto =
     signedBlock.message.body.signed_execution_payload_bid.message
   if not (
-    signedBlock.message.slot == signedEnvelope.message.slot and
-    signedBlock.root == envelopeBlockRoot() and
+    signedBlock.message.slot == envelopeSlot and
+    signedBlock.root == envelopeBlockRoot and
     bid.builder_index == signedEnvelope.message.builder_index and
     bid.block_hash == signedEnvelope.message.payload.block_hash
   ):
     info "Envelope mismatches with this block"
     return err(VerifierError.Invalid)
 
-  # Check with the DAG head.
-  let blck = dag.head
-  if blck.slot() > signedEnvelope.message.slot:
-    return err(VerifierError.Duplicate)
-  elif blck.slot() < signedEnvelope.message.slot:
-    # Envelopes in future slots would not be able reach here as the valid block
-    # should be missing. If they reach this point, we could not know whether it
-    # is valid or not due to missing of block.
+  # Check if the block is valid and non-finalized.
+  let blck = dag.getBlockRef(envelopeBlockRoot).valueOr:
+    let blckId = dag.getBlockId(envelopeBlockRoot)
+    if blckId.isSome() and blckId.get().slot < dag.finalizedHead.slot:
+      return err(VerifierError.UnviableFork)
     return err(VerifierError.MissingParent)
-  elif blck.root() != envelopeBlockRoot():
-    # The above should have ensure that they are in the same slot. Now verify
-    # the envelope is for the head block.
-    debug "Envelope is not for the current head"
-    return err(VerifierError.Invalid)
-  elif dag.clearanceState.forky(consensusFork).data.latest_block_hash ==
-       signedEnvelope.message.payload.block_hash:
-    # The envelope has been applied to the state so skipping it.
-    return err(VerifierError.Duplicate)
 
+  # Load state cache for updateState() and state transition.
   var cache: StateCache
+  loadStateCache(dag, cache, blck.bid, blck.slot().epoch())
 
-  # Load state cache for state transition function.
-  loadStateCache(dag, cache, blck.bid, dag.clearanceState.slot.epoch())
-
-  debug "Envelope transitioning"
+  # We need to move state back to the exact block time in order to validate the
+  # envelope with state, as the block could be older than the head.
+  let blckBsi = BlockSlotId.init(blck.bid, envelopeSlot)
+  if not updateState(
+      dag, dag.clearanceState, blckBsi, false, cache, dag.updateFlags):
+    # If updateState() fails, it means there may be some missing blocks and
+    # envelopes of its parents, or the database is corrupted.
+    error "Unable to load clearance state for envelope, database corrupt?",
+      clearanceBlock = shortLog(blckBsi)
+    return err(VerifierError.MissingParent)
 
   # Verify with state transition function.
-  process_execution_payload(
-    dag.cfg,
-    dag.clearanceState.forky(consensusFork),
-    signedEnvelope,
-    func(_: deneb.ExecutionPayload): bool = true,
-    cache,
-  ).isOkOr:
-    assign(dag.clearanceState, dag.headState)
-    info "Envelope transition failed", msg = error
+  verify_execution_payload_envelope(
+      dag.timeParams,
+      dag.forkAtEpoch(envelopeSlot.epoch),
+      dag.clearanceState.forky(consensusFork),
+      signedEnvelope,
+      dag.genesis_validators_root).isOkOr:
+    debug "Envelope verification failed", reason = error
     return err(VerifierError.Invalid)
-
-  debug "Envelope transitioned"
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
-  blck.markExecutionValid(true)
+
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload: The node has received a `SignedExecutionPayloadEnvelope`
+  # (from P2P or API) that is successfully imported on the fork-choice
+  # `on_execution_payload_envelope` handler
+  if not isNil(dag.onEnvelopeAdded):
+    dag.onEnvelopeAdded(signedEnvelope)
 
   ok(blck)
 
@@ -586,27 +593,36 @@ proc addBackfillExecutionPayload*(
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
     return err(VerifierError.Duplicate)
 
-  # Check builder index is matched with the block
-  block:
-    let blck = dag.getForkedBlock(bsi.bid).valueOr:
+  let (builderIdx, bidBuilderIdx) = block:
+    let forkedBlck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
       # corrupted.
       debug "Backfill envelope cannot find forked block, database corrupt?"
       return err(VerifierError.Invalid)
-    withBlck(blck):
+    withBlck(forkedBlck):
       when consensusFork >= ConsensusFork.Gloas:
         template bid(): auto =
           forkyBlck.message.body.signed_execution_payload_bid
-        if bid.message.builder_index != envelope.builder_index:
-          return err(VerifierError.Invalid)
+        (forkyBlck.builder_index, bid.message.builder_index)
       else:
         return err(VerifierError.UnviableFork)
 
+  # Check builder index is matched with the block
+  if bidBuilderIdx != envelope.builder_index:
+    return err(VerifierError.Invalid)
+
   # Verify signature
-  let builderKey = dag.validatorKey(envelope.builder_index).valueOr:
-    fatal "Invalid builder in backfill envelope - checkpoint state corrupt?",
-      head = shortLog(dag.head), tail = shortLog(dag.tail)
-    quit 1
+  let builderKey =
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        if bidBuilderIdx == BUILDER_INDEX_SELF_BUILD:
+          forkyState.data.validators.item(builderIdx).pubkey
+        else:
+          if bidBuilderIdx >= forkyState.data.builders.lenu64:
+            return err(VerifierError.Invalid)
+          forkyState.data.builders.item(bidBuilderIdx).pubkey
+      else:
+        return err(VerifierError.UnviableFork)
   if not verify_execution_payload_envelope_signature(
       dag.forkAtEpoch(envelope.slot.epoch),
       dag.genesis_validators_root,
@@ -694,8 +710,9 @@ proc addLightForwardBlock*(
     OptimisticStatus.notValidated,
     parent, cache,
     onBlockAdded,
-    proposerVerifyTick - startTick,
-    stateDataTick - proposerVerifyTick,
-    stateVerifyTick - stateDataTick)
+    fromGossip = false,
+    stateDataDur = proposerVerifyTick - startTick,
+    sigVerifyDur = stateDataTick - proposerVerifyTick,
+    stateVerifyDur = stateVerifyTick - stateDataTick)
 
   ok()

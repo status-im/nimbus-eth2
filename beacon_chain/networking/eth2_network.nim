@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, sequtils, strutils, algorithm, math, tables, macrocache],
+  std/[typetraits, os, math, tables, macrocache],
 
   # Status libs
   results,
@@ -26,11 +26,13 @@ import
   libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
-  ".."/[version, conf, beacon_clock, conf_light_client],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks],
+  ../[version, conf, beacon_clock, conf_light_client],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
   ../validators/keystore_management,
-  "."/[eth2_discovery, eth2_protocol_dsl, eth2_agents,
-       libp2p_json_serialization, peer_pool, peer_scores]
+  ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
+     libp2p_json_serialization, peer_pool, peer_scores]
+
+from std/sequtils import countIt, filterIt, mapIt
 
 export
   tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
@@ -47,6 +49,12 @@ type
 
   ErrorMsg = List[byte, 256]
   SendResult* = Result[void, cstring]
+
+  PeerCgcStatus* {.pure.} = enum
+    Unavailable,
+    OutOfRange
+
+  PeerCgcResult* = Result[uint64, PeerCgcStatus]
 
   DirectPeers = Table[PeerId, seq[MultiAddress]]
 
@@ -96,6 +104,7 @@ type
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
     getBeaconTime*: GetBeaconTimeFn
+    custodyMap: ColumnMap
 
     quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
 
@@ -228,6 +237,12 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
+
+  PeerAddrProto* {.pure.} = enum
+    TCP
+    UDP
+    QUIC
+
 
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
@@ -851,7 +866,8 @@ template gossipMaxSize(T: untyped): uint32 =
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
          T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
          T is gloas.SignedExecutionPayloadEnvelope or
-         T is gloas.SignedExecutionPayloadBid:
+         T is gloas.SignedExecutionPayloadBid or
+         T is heze.SignedBeaconBlock:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -1039,7 +1055,7 @@ proc doMakeEth2Request(
   finally:
     await stream.closeWithEOF()
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type,
     timeout: Duration
@@ -1052,7 +1068,7 @@ proc makeEth2Request(
     doMakeEth2Request(
       peer, protocolId, requestBytes, ResponseMsg, 1.Limit, timeout)
 
-proc makeEth2Request(
+proc makeEth2Request*(
     peer: Peer, protocolId: string, requestBytes: seq[byte],
     ResponseMsg: type, maxResponseItems: Limit,
     timeout: Duration
@@ -1322,8 +1338,20 @@ proc handleIncomingStream(network: Eth2Node,
     await noCancel conn.closeWithEOF()
     releasePeer(peer)
 
+template tcpEndPoint(address, port): auto =
+  MultiAddress.init(address, tcpProtocol, port)
+
+template udpEndPoint(address, port): auto =
+  MultiAddress.init(address, udpProtocol, port)
+
+template quicEndPoint(address, port): auto =
+  concat(
+    MultiAddress.init(address, udpProtocol, port),
+    MultiAddress.init("/quic-v1").expect("valid address")).expect(
+      "valid quic address")
+
 func toPeerAddr*(r: enr.TypedRecord,
-                 proto: IpTransportProtocol): Result[PeerAddr, cstring] =
+                 peerAddrProto: openArray[PeerAddrProto]): Result[PeerAddr, cstring] =
   if not r.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
 
@@ -1334,42 +1362,61 @@ func toPeerAddr*(r: enr.TypedRecord,
 
   var addrs = newSeq[MultiAddress]()
 
-  case proto
-  of tcpProtocol:
-    if r.ip.isSome and r.tcp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
+  for proto in peerAddrProto:
+    case proto
+    of PeerAddrProto.TCP:
+      if r.ip.isSome and r.tcp.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv4,
+          address_v4: r.ip.get)
+        addrs.add tcpEndPoint(ip, Port r.tcp.get)
 
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.tcp6.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp6.get)
-      elif r.tcp.isSome:
-        addrs.add MultiAddress.init(ip, tcpProtocol, Port r.tcp.get)
-      else:
-        discard
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.tcp6.isSome:
+          addrs.add tcpEndPoint(ip, Port r.tcp6.get)
+        elif r.tcp.isSome:
+          addrs.add tcpEndPoint(ip, Port r.tcp.get)
+        else:
+          discard
 
-  of udpProtocol:
-    if r.ip.isSome and r.udp.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv4,
-        address_v4: r.ip.get)
-      addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
+    of PeerAddrProto.UDP:
+      if r.ip.isSome and r.udp.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv4,
+          address_v4: r.ip.get)
+        addrs.add udpEndPoint(ip, Port r.udp.get)
 
-    if r.ip6.isSome:
-      let ip = IpAddress(
-        family: IpAddressFamily.IPv6,
-        address_v6: r.ip6.get)
-      if r.udp6.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp6.get)
-      elif r.udp.isSome:
-        addrs.add MultiAddress.init(ip, udpProtocol, Port r.udp.get)
-      else:
-        discard
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.udp6.isSome:
+          addrs.add udpEndPoint(ip, Port r.udp6.get)
+        elif r.udp.isSome:
+          addrs.add udpEndPoint(ip, Port r.udp.get)
+        else:
+          discard
+
+    of PeerAddrProto.QUIC:
+      if r.ip.isSome and r.quic.isSome:
+        let ip = IpAddress(
+            family: IpAddressFamily.IPv4,
+            address_v4: r.ip.get)
+        addrs.add quicEndPoint(ip, Port r.quic.get)
+
+      if r.ip6.isSome:
+        let ip = IpAddress(
+          family: IpAddressFamily.IPv6,
+          address_v6: r.ip6.get)
+        if r.quic6.isSome:
+          addrs.add quicEndPoint(ip, Port r.quic6.get)
+        elif r.quic.isSome:
+          addrs.add quicEndPoint(ip, Port r.quic.get)
+        else:
+          discard
 
   if addrs.len == 0:
     return err("enr: no addresses in record")
@@ -1442,7 +1489,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async: (raises: [CancelledError
 
 func toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let nodeRecord = TypedRecord.fromRecord(node.record)
-  let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
+  let peerAddr = ? nodeRecord.toPeerAddr([PeerAddrProto.TCP, PeerAddrProto.QUIC])
   ok(peerAddr)
 
 proc trimConnections(node: Eth2Node, count: int) =
@@ -1535,8 +1582,7 @@ proc trimConnections(node: Eth2Node, count: int) =
     inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
-proc getLowSubnets(node: Eth2Node, epoch: Epoch):
-                  (AttnetBits, SyncnetBits, CgcBits) =
+proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subnet with < `dLow` peers from topic subscription
@@ -1601,11 +1647,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
     if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
-      default(SyncnetBits),
-    if epoch >= node.cfg.FULU_FORK_EPOCH:
-      findLowSubnets(getDataColumnSidecarTopic, uint64, (DATA_COLUMN_SIDECAR_SUBNET_COUNT).int)
-    else:
-      default(CgcBits)
+      default(SyncnetBits)
   )
 
 proc getWallEpoch(node: Eth2Node): Epoch =
@@ -1616,29 +1658,27 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
 
   while true:
     let
-      (wantedAttnets, wantedSyncnets, wantedCgcnets) =
-        node.getLowSubnets(node.getWallEpoch)
+      (wantedAttnets, wantedSyncnets) = node.getLowSubnets(node.getWallEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-      wantedCgcnetsCount = wantedCgcnets.countOnes()
       outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
       targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
-    if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-        wantedCgcnetsCount > 0 or outgoingPeers < targetOutgoingPeers:
+    if (wantedAttnetsCount > 0) or (wantedSyncnetsCount > 0) or
+       (outgoingPeers < targetOutgoingPeers):
 
       let
-        minScore =
-          if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
-              wantedCgcnetsCount > 0:
-            1
-          else:
-            0
+        minScore = [
+          (if wantedAttnetsCount > 0: 1 else: 0),
+          (if wantedSyncnetsCount > 0: 10 else: 0),
+          100
+        ]
         discoveredNodes = await node.discovery.queryRandom(
+          node.cfg,
           node.discoveryForkId,
           wantedAttnets,
           wantedSyncnets,
-          wantedCgcnets,
+          node.custodyMap,
           minScore)
 
       let newPeers = block:
@@ -1688,11 +1728,14 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     # Also, give some time to dial the discovered nodes and update stats etc
     await sleepAsync(5.seconds)
 
-proc fetchNodeIdFromPeerId*(peer: Peer): NodeId=
+proc fetchNodeIdFromPeerId*(peer: Peer): Opt[NodeId] =
   # Convert peer id to node id by extracting the peer's public key
   var key: PublicKey
-  discard peer.peerId.extractPublicKey(key)
-  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
+  if not peer.peerId.extractPublicKey(key):
+    return Opt.none(NodeId)
+  let pubkey = keys.PublicKey.fromRaw(key.skkey.getBytes()).valueOr:
+    return Opt.none(NodeId)
+  Opt.some(pubkey.toNodeId())
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -1837,8 +1880,9 @@ proc new(T: type Eth2Node,
          config: BeaconNodeConf | LightClientConf, runtimeCfg: RuntimeConfig,
          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
+         initialNextForkDigest: ForkDigest,
          switch: Switch, pubsub: GossipSub,
-         ip: Opt[IpAddress], tcpPort, udpPort: Opt[Port],
+         ip: Opt[IpAddress], tcpPort, quicPort, udpPort: Opt[Port],
          privKey: keys.PrivateKey, discovery: bool,
          directPeers: DirectPeers, announcedAddresses: openArray[MultiAddress],
          rng: ref HmacDrbgContext): T =
@@ -1873,10 +1917,11 @@ proc new(T: type Eth2Node,
     forkDigests: forkDigests,
     getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
-      config, ip, tcpPort, udpPort, privKey,
+      config, ip, tcpPort, quicPort, udpPort, privKey,
       {
         enrForkIdField: SSZ.encode(enrForkId),
-        enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
+        enrAttestationSubnetsField: SSZ.encode(metadata.attnets),
+        enrNextForkDigestField: SSZ.encode(initialNextForkDigest)
       },
     rng),
     discoveryEnabled: discovery,
@@ -1885,7 +1930,8 @@ proc new(T: type Eth2Node,
     seenThreshold: seenThreshold,
     directPeers: directPeers,
     announcedAddresses: @announcedAddresses,
-    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
+    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime),
+    nextForkDigest: initialNextForkDigest
   )
 
   proc peerHook(
@@ -1932,7 +1978,7 @@ proc startListening*(node: Eth2Node) {.async.} =
   try:
     await node.switch.start()
   except CatchableError as exc:
-    fatal "Failed to start LibP2P transport. TCP port may be already in use",
+    fatal "Failed to start LibP2P transport. TCP/QUIC port may be already in use",
           exc = exc.msg
     quit 1
 
@@ -1956,7 +2002,7 @@ proc start*(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     notice "Discovery disabled; trying bootstrap nodes",
       nodes = node.discovery.bootstrapRecords.len
     for enr in node.discovery.bootstrapRecords:
-      let pa = TypedRecord.fromRecord(enr).toPeerAddr(tcpProtocol)
+      let pa = TypedRecord.fromRecord(enr).toPeerAddr([PeerAddrProto.TCP, PeerAddrProto.QUIC])
       if pa.isOk():
         await node.connQueue.addLast(pa.get())
   node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
@@ -2230,9 +2276,6 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async: (raises: [CancelledError]).} 
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
 
-template tcpEndPoint(address, port): auto =
-  MultiAddress.init(address, tcpProtocol, port)
-
 func initNetKeys(privKey: PrivateKey): NetKeyPair =
   let pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
@@ -2329,7 +2372,7 @@ func gossipId(
 proc newBeaconSwitch(
     config: BeaconNodeConf | LightClientConf,
     seckey: PrivateKey,
-    address: MultiAddress,
+    addresses: seq[MultiAddress],
     rng: ref HmacDrbgContext,
 ): Result[Switch, string] =
   let service: Service = WildcardAddressResolverService.new()
@@ -2337,17 +2380,23 @@ proc newBeaconSwitch(
   var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
   try:
-    ok sb
+    sb = sb
     .withPrivateKey(seckey)
-    .withAddress(address)
+    .withAddresses(addresses)
     .withRng(rng)
     .withNoise()
-    .withMplex(chronos.minutes(5), chronos.minutes(5))
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
-    .withTcpTransport({ServerFlags.ReuseAddr})
     .withServices(@[service])
-    .build()
+
+    if config.tcpEnabled:
+      sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
+             .withTcpTransport({ServerFlags.ReuseAddr})
+
+    if config.quicEnabled:
+      sb = sb.withQuicTransport()
+
+    ok sb.build()
   except LPError as exc:
     err(exc.msg)
 
@@ -2364,25 +2413,35 @@ proc createEth2Node*(
     wallEpoch = getBeaconTime().slotOrZero(cfg.timeParams).epoch
     enrForkId = cfg.getENRForkID(wallEpoch, genesis_validators_root)
     discoveryForkId = cfg.getDiscoveryForkID(wallEpoch, genesis_validators_root)
-
+    initialNextForkDigest = cfg.nextForkDigestAtEpoch(forkDigests[], wallEpoch)
     listenAddress =
       if config.listenAddress.isSome():
         config.listenAddress.get()
       else:
         getAutoAddress(Port(0)).toIpAddress()
 
+  var ports = @[(port: config.udpPort, protocol: PortProtocol.UDP)]
+
+  if config.tcpEnabled:
+    ports.add((port: config.tcpPort, protocol: PortProtocol.TCP))
+
+  if config.quicEnabled:
+    ports.add((port: config.quicPort, protocol: PortProtocol.UDP))
+
+  let
     (extIp, extPorts) = setupAddress(
       config.nat,
       listenAddress,
-      @[
-        (port: config.udpPort, protocol: PortProtocol.UDP),
-        (port: config.tcpPort, protocol: PortProtocol.TCP),
-      ],
+      ports,
       clientId,
     )
-
     extUdpPort = extPorts[0].toPort()
-    extTcpPort = extPorts[1].toPort()
+    extTcpPort = if config.tcpEnabled: extPorts[1].toPort() else: Opt.none(Port)
+    extQuicPort =
+      if config.quicEnabled:
+        extPorts[if config.tcpEnabled: 2 else: 1].toPort()
+      else:
+        Opt.none(Port)
 
     directPeers = block:
       var res: DirectPeers
@@ -2394,7 +2453,7 @@ proc createEth2Node*(
                 warn "Failed to parse direct peer address, skipping", enr=s, err = error
                 return err("Invalid direct peer")
               typedEnr = TypedRecord.fromRecord(enr)
-              peerAddress = toPeerAddr(typedEnr, tcpProtocol).get()
+              peerAddress = toPeerAddr(typedEnr, [PeerAddrProto.TCP, PeerAddrProto.QUIC]).get()
             (peerAddress.peerId, peerAddress.addrs[0])
           elif s.startsWith("/"):
             parseFullAddress(s).valueOr:
@@ -2407,10 +2466,18 @@ proc createEth2Node*(
         info "Adding privileged direct peer", peerId, address
       res
 
-    hostAddress = tcpEndPoint(listenAddress, config.tcpPort)
-    announcedAddresses =
-      if extIp.isNone() or extTcpPort.isNone(): @[]
-      else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
+  var hostAddress = newSeq[MultiAddress]()
+  var announcedAddresses = newSeq[MultiAddress]()
+
+  if config.tcpEnabled:
+    hostAddress.add(tcpEndPoint(listenAddress, config.tcpPort))
+    if not(extIp.isNone() or extTcpPort.isNone()):
+      announcedAddresses.add(tcpEndPoint(extIp.get(), extTcpPort.get()))
+
+  if config.quicEnabled:
+    hostAddress.add(quicEndPoint(listenAddress, config.quicPort))
+    if not(extIp.isNone() or extQuicPort.isNone()):
+      announcedAddresses.add(quicEndPoint(extIp.get(), extQuicPort.get()))
 
   debug "Initializing networking", hostAddress,
                                    network_public_key = netKeys.pubkey,
@@ -2488,8 +2555,8 @@ proc createEth2Node*(
     return err("Cannot mount pubsub: " & exc.msg)
 
   let node = Eth2Node.new(
-    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
-    extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
+    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, initialNextForkDigest, switch, pubsub, extIp,
+    extTcpPort, extQuicPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
 
@@ -2503,18 +2570,19 @@ func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
-proc lookupCgcFromPeer*(peer: Peer): uint64 =
-  # Fetches the custody column count from a remote peer.
-  # If the peer advertises their custody column count via the `cgc` ENR field,
+proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
+  # Fetches the custody group count from a remote peer.
+  # If the peer advertises their custody group count via the `cgc` ENR field,
   # that value is returned. Otherwise, the default value `CUSTODY_REQUIREMENT`
   # is assumed.
 
+  let numberOfCustodyGroups = peer.network.cfg.NUMBER_OF_CUSTODY_GROUPS
   let metadata = peer.metadata
   if metadata.isOk:
-    let cgc = if metadata.get.custody_group_count <= NUMBER_OF_COLUMNS:
+    let cgc = if metadata.get.custody_group_count <= numberOfCustodyGroups:
                 metadata.get.custody_group_count
               else:
-                0
+                return err(PeerCgcStatus.OutOfRange)
 
     # If a peer's metadata hasn't been updated since a Fulu transition, the
     # metadata is present but has no initialized cgc.
@@ -2525,7 +2593,7 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
     # data column discovery. This new field MUST be added once
     # `FULU_FORK_EPOCH` is assigned any value other than `FAR_FUTURE_EPOCH`."
     if cgc >= CUSTODY_REQUIREMENT:
-      return cgc
+      return ok(cgc)
 
   # Try getting the custody count from ENR if metadata fetch fails.
   debug "Could not get cgc from metadata, trying from ENR",
@@ -2533,22 +2601,22 @@ proc lookupCgcFromPeer*(peer: Peer): uint64 =
   let enrOpt = peer.enr
   if not enrOpt.isNone:
     let enr = enrOpt.get
-    let enrFieldOpt = enr.get(enrCustodySubnetCountField, seq[byte])
+    let enrFieldOpt = enr.get(enrCustodyGroupCountField, seq[byte])
     if enrFieldOpt.isOk:
       try:
         let cgc = SSZ.decode(enrFieldOpt.get, uint8)
-        if cgc > NUMBER_OF_COLUMNS:
-          return 0
+        if cgc > numberOfCustodyGroups:
+          return err(PeerCgcStatus.OutOfRange)
 
         if peer.metadata.isOk:
           peer.metadata.get.custody_group_count = cgc
 
-        return cgc.uint64
+        return ok(cgc.uint64)
       except SszError, SerializationError:
-        discard  # Ignore decoding errors and fallback to default
+        return err(PeerCgcStatus.Unavailable)
 
-  # Return default value if no valid custody subnet count is found.
-  CUSTODY_REQUIREMENT
+  # Return default value if no valid custody group count is found.
+  ok(CUSTODY_REQUIREMENT)
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
@@ -2703,14 +2771,18 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
 
-proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
+proc loadCgcnetMetadataAndEnr*(
+    node: Eth2Node,
+    cgcnets: CgcCount,
+    map: ColumnMap
+) =
   node.metadata.seq_number += 1
   node.metadata.custody_group_count = cgcnets.uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#custody-group-count
   let res =
     node.discovery.updateRecord({
-      enrCustodySubnetCountField: SSZ.encode(cgcnets)
+      enrCustodyGroupCountField: SSZ.encode(cgcnets)
     })
 
   if res.isErr:
@@ -2718,6 +2790,7 @@ proc loadCgcnetMetadataAndEnr*(node: Eth2Node, cgcnets: CgcCount) =
     # be the correct one and the ENR will not increase in size
     warn "Failed to update the ENR cgc field", error = res.error
   else:
+    node.custodyMap = map
     debug "Updated ENR cgc", cgcnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
@@ -2739,7 +2812,7 @@ proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
 proc updateNextForkDigest*(node: Eth2Node, next_fork_digest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#next-fork-digest
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/fulu/p2p-interface.md#next-fork-digest
   if node.nextForkDigest == next_fork_digest:
     return
 
@@ -2839,22 +2912,24 @@ proc broadcastBlobSidecar*(
   node.broadcast(topic, blob)
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: fulu.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref fulu.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.signed_block_header.message.slot.epoch
+    contextEpoch = data_column[].signed_block_header.message.slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastDataColumnSidecar*(
-    node: Eth2Node, subnet_id: uint64, data_column: gloas.DataColumnSidecar):
+    node: Eth2Node, subnet_id: uint64,
+    data_column: ref gloas.DataColumnSidecar):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let
-    contextEpoch = data_column.slot.epoch
+    contextEpoch = data_column[].slot.epoch
     topic = getDataColumnSidecarTopic(
       node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, data_column)
+  node.broadcast(topic, data_column[])
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
@@ -2906,3 +2981,21 @@ proc broadcastExecutionPayloadEnvelope*(
     topic = getExecutionPayloadTopic(
       node.forkDigestAtEpoch(contextEpoch))
   node.broadcast(topic, envelope)
+
+proc broadcastProposerPreferences*(
+    node: Eth2Node, msg: SignedProposerPreferences):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = msg.message.proposal_slot.epoch
+    topic = getProposerPreferencesTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, msg)
+
+proc broadcastExecutionPayloadBid*(
+    node: Eth2Node, signedBid: gloas.SignedExecutionPayloadBid):
+    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+  let
+    contextEpoch = signedBid.message.slot.epoch
+    topic = getExecutionPayloadBidTopic(
+      node.forkDigestAtEpoch(contextEpoch))
+  node.broadcast(topic, signedBid)

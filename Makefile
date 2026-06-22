@@ -163,18 +163,11 @@ NIM_PARAMS += -d:disable_libbacktrace
 endif
 
 deps: | deps-common nat-libs build/generate_makefile
-ifneq ($(USE_LIBBACKTRACE), 0)
-deps: | libbacktrace
-endif
 
 #- deletes binaries that might need to be rebuilt after a Git pull
 update: | update-common
 	rm -f build/generate_makefile
 	rm -fr nimcache/
-
-# nim-libbacktrace
-libbacktrace:
-	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
 # Make sure ports don't overlap to support concurrent execution of tests
 # Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
@@ -191,8 +184,8 @@ libbacktrace:
 #
 # REST tests:
 # - --base-port (REST_TEST_BASE_PORT + 0)
-# - --base-rest-port (REST_TEST_BASE_PORT + 1)
-# - --base-metrics-port (REST_TEST_BASE_PORT + 2)
+# - --base-rest-port (REST_TEST_BASE_PORT + 2)
+# - --base-metrics-port (REST_TEST_BASE_PORT + 3)
 #
 # Local testnets (entire continuous range):
 # - --base-port + [0, --nodes + --light-clients)
@@ -216,10 +209,10 @@ MAINNET_TESTNET_BASE_PORT := 26501
 restapi-test:
 	./tests/simulation/restapi.sh \
 		--data-dir resttest0_data \
-		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 0 )) \
-		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 1 )) \
-		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 3 + 2 )) \
-		--resttest-delay 30 \
+		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 0 )) \
+		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 2 )) \
+		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 3 )) \
+		--resttest-delay 2 \
 		--kill-old-processes
 
 SIGNER_TYPE := nimbus
@@ -232,9 +225,11 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--fulu-fork-epoch 1000 \
+		--fulu-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
+		--debug-tcp false \
+		--debug-quic true \
 		--base-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MINIMAL_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -253,16 +248,17 @@ local-testnet-minimal:
 		--run-spamoor \
 		-- \
 		--verify-finalization \
-		--discv5:no \
-		--num-threads:1
+		--discv5:no
 
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--fulu-fork-epoch 1 \
+		--fulu-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
+		--debug-tcp true \
+		--debug-quic false \
 		--base-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 0 )) \
 		--base-rest-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 30 )) \
 		--base-metrics-port $$(( $(MAINNET_TESTNET_BASE_PORT) + EXECUTOR_NUMBER * 400 + 60 )) \
@@ -281,7 +277,8 @@ local-testnet-mainnet:
 		--run-spamoor \
 		-- \
 		--verify-finalization \
-		--discv5:no
+		--discv5:no \
+		--num-threads:1
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES_CORE := \
@@ -315,7 +312,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
+			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
@@ -430,9 +427,6 @@ endif
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
 # It's OK to only build this once. `make update` deletes the binary, forcing a rebuild.
-ifneq ($(USE_LIBBACKTRACE), 0)
-build/generate_makefile: | libbacktrace
-endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
 	+ echo -e $(BUILD_MSG) "$@" && \
 	$(ENV_SCRIPT) $(NIMC) c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
@@ -491,11 +485,14 @@ endif
 force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
 
 # https://www.gnu.org/software/make/manual/html_node/Multiple-Rules.html#Multiple-Rules
-# Already defined as a reult
+# Already defined as a result
 nimbus_beacon_node: force_build_alone_tools
 
 GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--debug-tcp=true \
+	--debug-quic=true \
+	--debug-quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--metrics \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
@@ -744,9 +741,6 @@ ntu: | build deps
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,transition*,generate_makefile,nimbus-wix/obj}
-ifneq ($(USE_LIBBACKTRACE), 0)
-	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
-endif
 
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \

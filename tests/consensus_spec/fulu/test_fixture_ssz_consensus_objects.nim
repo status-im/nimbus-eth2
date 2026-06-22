@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -29,8 +29,6 @@ from ../../../beacon_chain/spec/datatypes/bellatrix import PowBlock
 from ../../../beacon_chain/spec/datatypes/capella import
   BLSToExecutionChange, SignedBLSToExecutionChange, HistoricalSummary,
   Withdrawal
-from ../../../beacon_chain/spec/datatypes/deneb import
-  BlobIdentifier, BlobSidecar
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -124,8 +122,6 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "BeaconBlockBody": checkSSZ(electra.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(fulu.BeaconState, path, hash)
-          of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
-          of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ConsolidationRequest": checkSSZ(ConsolidationRequest, path, hash)
@@ -194,5 +190,11 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
+          of "PartialDataColumnHeader":
+            checkSSZ(fulu.PartialDataColumnHeader, path, hash)
+          of "PartialDataColumnSidecar":
+            checkSSZ(fulu.PartialDataColumnSidecar, path, hash)
+          of "PartialDataColumnPartsMetadata":
+            debugGloasComment "Skipping PartialDataColumn tests for now"
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

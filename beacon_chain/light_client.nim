@@ -235,7 +235,6 @@ proc resetToFinalizedHeader*(
     current_sync_committee: altair.SyncCommittee) =
   lightClient.processor[].resetToFinalizedHeader(header, current_sync_committee)
 
-
 declareCounter beacon_light_client_finality_updates_received,
   "Number of valid LC finality updates processed by this node"
 declareCounter beacon_light_client_finality_updates_dropped,

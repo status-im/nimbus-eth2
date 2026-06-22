@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,8 +22,8 @@ template parse(keystore: string): auto =
     checkpoint "Serialization Error: " & err.formatMsg("<keystore>")
     raise err
 
-suite "Remove keystore testing suite":
-  test "vesion 1" :
+suite "Remote keystore testing suite":
+  test "version 1":
     for version in [1, 2]:
       let remoteKeyStores = """{
         "version": """ & $version & """,
@@ -137,7 +137,7 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].electraIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(801)
+      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(0)
 
   test "Verifying Signer / Many remotes":
     for version in [3]:
@@ -186,4 +186,4 @@ suite "Remove keystore testing suite":
       check keystore.provenBlockProperties.len == 1
       check keystore.provenBlockProperties[0].electraIndex == GeneralizedIndex(801)
       check keystore.provenBlockProperties[0].fuluIndex == GeneralizedIndex(801)
-      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(801)
+      check keystore.provenBlockProperties[0].gloasIndex == GeneralizedIndex(0)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,6 +9,7 @@
 {.used.}
 
 import
+  chronos,
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
@@ -45,7 +46,7 @@ block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
   doAssert loadTrustedSetup(
     sourceDir &
-      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 0).isOk
+      "/../../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup.txt", 7).isOk
 
 proc runBlobToKzgCommitmentTest(suiteName, suitePath, path: string) =
   let relativePathComponent = path.relativeTestPathComponent(suitePath)
@@ -342,7 +343,7 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       data = loadCellsAndKzgProofsValidCases(suitePath)
       rowCount = data[data.len - 1].row_index.int + 1
       # The 64 column indices
-      indices = toSeq(0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
+      indices = (0 ..< (NUMBER_OF_COLUMNS div 2)).mapIt(ColumnIndex(it * 2))
       # Minimal data for recovery
       input = data.filterIt(it.column_index in indices)
         .mapIt(MatrixEntry(
@@ -383,7 +384,8 @@ proc runRecoverCellsAndKzgProofsParallelValidTest(suiteName, suitePath: string) 
       # check recovered cells and proofs
       # assuming columns are sorted
       var tp = Taskpool.new()
-      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      defer: tp.shutdown()
+      let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isOk
       let val = v.get
       for i in 0..<val.len:
@@ -453,7 +455,8 @@ proc runRecoverCellsAndKzgProofsParallelInvalidTest(suiteName, suitePath: string
 
       # check error
       var tp = Taskpool.new()
-      let v = tp.recover_cells_and_proofs_parallel(colInput)
+      defer: tp.shutdown()
+      let v = waitFor tp.recover_cells_and_proofs_parallel(colInput)
       check v.isErr
 
 var suiteName = "EF - KZG"

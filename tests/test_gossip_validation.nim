@@ -14,26 +14,35 @@ import
   chronos,
   taskpools,
   # Internal
-  ../beacon_chain/[beacon_clock],
+  ../beacon_chain/beacon_clock,
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
-    sync_committee_msg_pool],
-  ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[
-    beaconstate, state_transition, helpers, network, validator],
+    envelope_quarantine, sync_committee_msg_pool],
+  ../beacon_chain/spec/[state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import count, toSeq
 from ./testbcutil import addHeadBlock
+from ../beacon_chain/spec/beaconstate import dependent_root, latest_block_root
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
     # pool[].prune(dag) # We test without att_1_0 pool / fork choice pruning
+
+func signProposerPreferences(
+    dag: ChainDAGRef, prefs: ProposerPreferences,
+    privkey: ValidatorPrivKey): SignedProposerPreferences =
+  let
+    fork = dag.forkAtEpoch(prefs.proposal_slot.epoch)
+    sig = get_proposer_preferences_signature(
+      fork, dag.genesis_validators_root, prefs, privkey)
+  SignedProposerPreferences(
+    message: prefs, signature: sig.toValidatorSig())
 
 suite "Gossip validation " & preset():
   setup:
@@ -48,6 +57,7 @@ suite "Gossip validation " & preset():
       taskpool = Taskpool.new()
       verifier {.used.} = BatchVerifier.init(rng, taskpool)
       quarantine = newClone(Quarantine.init(dag.cfg))
+      envQuarantine = newClone(EnvelopeQuarantine.init())
       pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
@@ -113,29 +123,29 @@ suite "Gossip validation " & preset():
       beaconTime = att_1_0.data.slot.start_beacon_time(cfg.timeParams)
 
     check:
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
+      validateAttestation(pool, batchCrypto, envQuarantine, att_1_0, beaconTime, subnet, true).waitFor().isOk
 
       # Same validator again
-      validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().error()[0] ==
+      validateAttestation(pool, batchCrypto, envQuarantine, att_1_0, beaconTime, subnet, true).waitFor().error()[0] ==
         ValidationResult.Ignore
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Wrong subnet
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
+        pool, batchCrypto, envQuarantine, att_1_0, beaconTime, SubnetId(subnet.uint8 + 1), true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the future
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
+        pool, batchCrypto, envQuarantine, att_1_0, beaconTime - 1.seconds, subnet, true).waitFor().isErr
 
     pool[].nextAttestationEpoch.setLen(0) # reset for test
     check:
       # Too far in the past
       validateAttestation(
-        pool, batchCrypto, att_1_0, beaconTime -
+        pool, batchCrypto, envQuarantine, att_1_0, beaconTime -
         cfg.timeParams.SLOT_DURATION * SLOTS_PER_EPOCH.int64 - 1.seconds,
         subnet, true).waitFor().isErr
 
@@ -146,7 +156,7 @@ suite "Gossip validation " & preset():
       check:
         # Invalid signature
         validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true).waitFor().
+          pool, batchCrypto, envQuarantine, broken, beaconTime, subnet, true).waitFor().
             error()[0] == ValidationResult.Reject
 
     block:
@@ -156,9 +166,9 @@ suite "Gossip validation " & preset():
       # One invalid, one valid (batched)
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, att_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, att_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
@@ -172,9 +182,9 @@ suite "Gossip validation " & preset():
       # One invalid, one valid (batched)
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, att_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, att_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
@@ -194,9 +204,9 @@ suite "Gossip validation " & preset():
       # the individual attestations are invalid but their aggregate validates!
       let
         fut_1_0 = validateAttestation(
-          pool, batchCrypto, broken_1_0, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken_1_0, beaconTime, subnet, true)
         fut_1_1 = validateAttestation(
-          pool, batchCrypto, broken_1_1, beaconTime, subnet, true)
+          pool, batchCrypto, envQuarantine, broken_1_1, beaconTime, subnet, true)
 
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
@@ -480,3 +490,120 @@ suite "Gossip validation - Altair":
         msg, subcommitteeIdx,
         state[].data.slot.start_beacon_time(cfg.timeParams),
         true).waitFor().isErr()
+
+suite "Proposer preferences validation " & preset():
+  setup:
+    var
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
+        validatorMonitor, {})
+      seen: array[2, array[
+        SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
+
+    # Pick an upcoming slot and its scheduled proposer from the head state's
+    # proposer_lookahead.
+    var
+      proposer_slot: Slot
+      proposer_index: uint64
+      dependent_root: Eth2Digest
+      proposerFound = false
+      wrongValidator: uint64
+    withState(dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        let startSlot = forkyState.data.get_current_epoch().start_slot()
+        for offset in 1'u64 ..< forkyState.data.proposer_lookahead.lenu64:
+          let slot = startSlot + offset
+          if slot > forkyState.data.slot:
+            proposer_slot = slot
+            proposer_index = forkyState.data.proposer_lookahead.item(offset)
+            dependent_root = forkyState.dependent_root(slot.epoch)
+            proposerFound = true
+            break
+        # wrongValidator just needs to differ from the scheduled proposer at
+        # proposer_slot; that is the only slot the proposer check looks at.
+        wrongValidator = proposer_index + 1
+        if forkyState.data.proposer_lookahead.item(
+            proposer_slot - startSlot) == wrongValidator:
+          wrongValidator += 1
+    check proposerFound
+
+    let
+      prefs = ProposerPreferences(
+        dependent_root: dependent_root,
+        proposal_slot: proposer_slot,
+        validator_index: proposer_index,
+        fee_recipient: default(ExecutionAddress),
+        target_gas_limit: 30_000_000)
+      signed = signProposerPreferences(
+        dag, prefs, MockPrivKeys[proposer_index.ValidatorIndex])
+      wallTime = dag.head.slot.start_beacon_time(dag.cfg.timeParams)
+
+  test "validateProposerPreferences - happy case":
+    check:
+      validateProposerPreferences(dag, seen, signed, wallTime).isOk
+
+  test "validateProposerPreferences - duplicate ignored":
+    check:
+      validateProposerPreferences(dag, seen, signed, wallTime).isOk
+      validateProposerPreferences(dag, seen, signed, wallTime).isErr
+
+  test "validateProposerPreferences - proposal_slot already passed":
+    let past = (proposer_slot + 1).start_beacon_time(dag.cfg.timeParams)
+    # Still within current/next epoch window, but wallTime >= proposal_slot.
+    check:
+      validateProposerPreferences(dag, seen, signed, past).isErr
+
+  test "validateProposerPreferences - proposal_slot outside current/next epoch":
+    var msg = prefs
+    msg.proposal_slot = proposer_slot + SLOTS_PER_EPOCH * 3
+    let farAhead = signProposerPreferences(
+      dag, msg, MockPrivKeys[proposer_index.ValidatorIndex])
+    check:
+      validateProposerPreferences(dag, seen, farAhead, wallTime).isErr
+
+  test "validateProposerPreferences - wrong proposer rejected":
+    var msg = prefs
+    msg.validator_index = wrongValidator
+    let wrong = signProposerPreferences(
+      dag, msg, MockPrivKeys[wrongValidator.ValidatorIndex])
+    check:
+      validateProposerPreferences(dag, seen, wrong, wallTime).isErr
+
+  test "validateProposerPreferences - invalid signature rejected":
+    var tampered = signed
+    tampered.signature = default(ValidatorSig)
+    check:
+      validateProposerPreferences(dag, seen, tampered, wallTime).isErr
+
+suite "Gossip validation - Gloas":
+  setup:
+    let
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
+        validatorMonitor, {})
+      quarantine = newClone(Quarantine.init(dag.cfg))
+      envelopeQuarantine = newClone(EnvelopeQuarantine.init())
+      wallTime = (GENESIS_SLOT + 1).start_beacon_time(cfg.timeParams)
+    var cache = StateCache()
+
+  test "validateBeaconBlock - finalized head execution parent":
+    let
+      blck = makeTestBlock(dag.headState, cache, cfg = cfg).gloasData
+      res = dag.validateBeaconBlock(
+        quarantine, envelopeQuarantine, blck, wallTime, {})
+    check:
+      res.isOk
+
+  test "validateBeaconBlock - mismatched execution parent":
+    var blck = makeTestBlock(dag.headState, cache, cfg = cfg).gloasData
+    template bid: untyped =
+      blck.message.body.signed_execution_payload_bid.message
+    bid.parent_block_hash.data[0] = not bid.parent_block_hash.data[0]
+    let res = dag.validateBeaconBlock(
+      quarantine, envelopeQuarantine, blck, wallTime, {})
+    check:
+      res.isErr

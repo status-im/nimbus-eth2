@@ -5,13 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   ./gnosis/[
     phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-    deneb_preset, electra_preset, fulu_preset, gloas_preset]
+    deneb_preset, electra_preset, fulu_preset, gloas_preset, heze_preset]
 
 export
   phase0_preset, altair_preset, bellatrix_preset, capella_preset,
-  deneb_preset, electra_preset, fulu_preset, gloas_preset
+  deneb_preset, electra_preset, fulu_preset, gloas_preset, heze_preset

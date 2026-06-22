@@ -36,7 +36,7 @@ from consensus_object_pools/block_pools_types_light_client
 
 export
   uri, nat, enr,
-  defaultEth2TcpPort, enabledLogLevel,
+  defaultEth2TcpPort, defaultEth2QuicPort, enabledLogLevel,
   defs, parseCmdArg, completeCmdArg, network_metadata,
   el_conf, network,
   confTomlDefs, confTomlNet, confTomlUri, jsnet,
@@ -231,6 +231,12 @@ type
       desc: "Subscribe to the first half of column subnets"
       name: "light-supernode" .}: bool
 
+    partialColumns* {.
+      hidden
+      defaultValue: false,
+      desc: "Backward compatible partial data column sidecar support",
+      name: "debug-partial-columns" .}: bool
+
     debugEnableReconstruction* {.
       hidden
       defaultValue: false,
@@ -302,11 +308,30 @@ type
         defaultValueDesc: "*"
         name: "listen-address" .}: Option[IpAddress]
 
+      tcpEnabled* {.
+        hidden
+        desc: "Enable TCP transport"
+        defaultValue: true
+        name: "debug-tcp" .}: bool
+
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
         defaultValue: defaultEth2TcpPort
         defaultValueDesc: $defaultEth2TcpPortDesc
         name: "tcp-port" .}: Port
+
+      quicEnabled* {.
+        hidden
+        desc: "Enable QUIC transport"
+        defaultValue: false
+        name: "debug-quic" .}: bool
+
+      quicPort* {.
+        hidden
+        desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
+        defaultValue: defaultEth2QuicPort
+        defaultValueDesc: $defaultEth2QuicPortDesc
+        name: "debug-quic-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
@@ -528,6 +553,12 @@ type
         defaultValue: LightClientDataImportMode.OnlyNew
         defaultValueDesc: $LightClientDataImportMode.OnlyNew
         name: "light-client-data-import-mode" .}: LightClientDataImportMode
+
+      lightClientDataImportBackfill* {.
+        hidden
+        desc: "Collect additional data for enabling peers to backfill light client data (experimental)"
+        defaultValue: false
+        name: "debug-light-client-data-import-backfill" .}: bool
 
       lightClientDataMaxPeriods* {.
         desc: "Maximum number of sync committee periods to retain light client data"
@@ -804,13 +835,32 @@ type
           desc: "External IP address"
           name: "ip" .}: IpAddress
 
+        tcpExtEnabled* {.
+          hidden
+          desc: "Enable TCP transport"
+          defaultValue: true
+          name: "debug-tcp" .}: bool
+
         tcpPortExt* {.
           desc: "External TCP port"
+          defaultValue: defaultEth2TcpPort
           name: "tcp-port" .}: Port
 
         udpPortExt* {.
           desc: "External UDP port"
           name: "udp-port" .}: Port
+
+        quicExtEnabled* {.
+          hidden
+          desc: "Enable QUIC transport"
+          defaultValue: false
+          name: "debug-quic" .}: bool
+
+        quicPortExt* {.
+          hidden
+          desc: "External QUIC port"
+          defaultValue: defaultEth2QuicPort
+          name: "debug-quic-port" .}: Port
 
         seqNumber* {.
           desc: "Record sequence number"
@@ -984,8 +1034,8 @@ type
 
     keymanagerPort* {.
       desc: "Listening port for the REST keymanager API"
-      defaultValue: defaultEth2RestPort
-      defaultValueDesc: $defaultEth2RestPortDesc
+      defaultValue: defaultVcKeymanagerPort
+      defaultValueDesc: $defaultVcKeymanagerPortDesc
       name: "keymanager-port" .}: Port
 
     keymanagerAddress* {.
@@ -1349,7 +1399,6 @@ proc eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
   string config.eraDirFlag.get(OutDir(config.dataDir / "era"))
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
@@ -1366,9 +1415,7 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     else: fail()
   else:
     fail()
-{.pop.}
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletFile should be used only in the right context"
@@ -1385,7 +1432,6 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     else: fail()
   else:
     fail()
-{.pop.}
 
 func databaseDir*(dataDir: OutDir): string =
   dataDir / "db"

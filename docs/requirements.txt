@@ -20,7 +20,7 @@ colorama==0.4.6
     # via mkdocs-material
 ghp-import==2.1.0
     # via mkdocs
-idna==3.10
+idna==3.15
     # via requests
 jinja2==3.1.6
     # via
@@ -64,9 +64,9 @@ pip-tools==7.4.1
     # via -r requirements.in
 platformdirs==4.3.6
     # via mkdocs-get-deps
-pygments==2.18.0
+pygments==2.20.0
     # via mkdocs-material
-pymdown-extensions==10.16.1
+pymdown-extensions==10.21.3
     # via mkdocs-material
 pyproject-hooks==1.2.0
     # via
@@ -89,7 +89,7 @@ requests==2.33.0
     # via mkdocs-material
 six==1.16.0
     # via python-dateutil
-urllib3==2.6.3
+urllib3==2.7.0
     # via requests
 watchdog==5.0.3
     # via mkdocs

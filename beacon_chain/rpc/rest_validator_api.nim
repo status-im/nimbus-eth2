@@ -9,13 +9,13 @@
 
 import std/[typetraits, sets, sequtils]
 import stew/base10, chronicles
-import ".."/[beacon_chain_db, beacon_node],
-       ".."/networking/eth2_network,
-       ".."/consensus_object_pools/[blockchain_dag, spec_cache,
-                                    attestation_pool, sync_committee_msg_pool],
-       ".."/validators/[beacon_validators, block_payloads],
-       ".."/spec/[beaconstate, forks, network, state_transition_block],
-       "."/[rest_utils, state_ttl_cache]
+import ../[beacon_chain_db, beacon_node],
+       ../networking/eth2_network,
+       ../consensus_object_pools/[blockchain_dag, spec_cache,
+                                  attestation_pool, sync_committee_msg_pool],
+       ../validators/[beacon_validators, block_payloads],
+       ../spec/[beaconstate, forks, network, state_transition_block],
+       ./[rest_utils, state_ttl_cache]
 
 export rest_utils
 
@@ -401,7 +401,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         else:
           let res = builder_boost_factor.get()
           if res.isErr():
-            return RestApiResponse.jsonError(Http400, )
+            return RestApiResponse.jsonError(Http400)
           res.get()
       proposer = node.dag.getProposer(qhead, qslot).valueOr:
         return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
@@ -416,7 +416,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         # produceBlockV3 won't work past Fulu.
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
-      elif consensusFork >= ConsensusFork.Electra:
+      elif consensusFork >= ConsensusFork.Fulu:
         let
           message = (await node.makeMaybeBlindedBeaconBlockForHeadAndSlot(
               consensusFork, proposer, qrandao, qgraffiti, qhead, qslot,
@@ -451,6 +451,49 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             forked, consensusFork, message.blck.isBlinded,
             message.executionValue, message.consensusValue,
             node.hasRestAllowedOrigin)
+        else:
+          raiseAssert "preferredContentType() returns invalid content type"
+      elif consensusFork == ConsensusFork.Electra:
+        let
+          cache = new StateCache
+          state = node.dag.getProposalState(qhead, qslot, cache[]).valueOr:
+            return RestApiResponse.jsonError(
+              Http500, "Proposal state is not available")
+          engineBid = block:
+            debugGloasComment("should_extend_payload")
+            (await node.getExecutionPayload(
+                consensusFork, qhead, state, proposer,
+                node.dag.validatorKey(proposer).get().toPubKey(),
+                false)).valueOr:
+              return RestApiResponse.jsonError(Http500,
+                "Engine payload is not available")
+          message = block:
+            debugGloasComment("parent_execution_requests")
+            (node.makeEngineBlock(
+                consensusFork, state[].forky(consensusFork), cache[],
+                proposer, qrandao, qgraffiti, qhead, qslot,
+                engineBid.eps, engineBid.execution_requests,
+                default(consensusFork.ExecutionRequests), {})).valueOr:
+              return RestApiResponse.jsonError(
+                Http500, "Engine block production failed: " & error)
+          blockContents = electra.BlockContents(
+            `block`: message.blck,
+            kzg_proofs: message.blobsBundle.proofs,
+            blobs: message.blobsBundle.blobs)
+
+        if contentType == sszMediaType:
+          RestApiResponse.sszResponse(
+            blockContents, consensusFork, isBlinded = false,
+            message.executionValue, message.consensusValue,
+            node.hasRestAllowedOrigin)
+        elif contentType == jsonMediaType:
+          RestApiResponse.jsonResponsePlain(
+            ForkedMaybeBlindedBeaconBlock.init(
+              blockContents,
+              Opt.some message.executionValue,
+              Opt.some message.consensusValue),
+            consensusFork, false, message.executionValue,
+            message.consensusValue, node.hasRestAllowedOrigin)
         else:
           raiseAssert "preferredContentType() returns invalid content type"
       else:
@@ -497,7 +540,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400,
                                                InvalidCommitteeIndexValueError,
                                                $res.error())
-            if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) >= ConsensusFork.Electra:
+            if qslot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
               0.CommitteeIndex
             else:
               res.get()
@@ -613,7 +656,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          UnsupportedForkError,
                                          $UnsupportedForkError)
-      of ConsensusFork.Electra .. ConsensusFork.Gloas:
+      of ConsensusFork.Electra .. ConsensusFork.Heze:
         addDecodedProofs(electra.SignedAggregateAndProof)
 
     await allFutures(proofs)

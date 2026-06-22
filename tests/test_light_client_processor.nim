@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2025 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -26,16 +26,17 @@ suite "Light client processor" & preset():
     lowPeriod = 0.SyncCommitteePeriod
     lastPeriodWithSupermajority = 4.SyncCommitteePeriod
     highPeriod = 6.SyncCommitteePeriod
-  debugGloasComment "add res.GLOAS_FORK_EPOCH = ..."
   let cfg = block:  # Fork schedule that covers each `LightClientDataFork`
-    static: doAssert ConsensusFork.high == ConsensusFork.Gloas
+    static: doAssert ConsensusFork.high == ConsensusFork.Heze
     var res = defaultRuntimeConfig
-    res.ALTAIR_FORK_EPOCH = 1.Epoch
-    res.BELLATRIX_FORK_EPOCH = 2.Epoch
-    res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
-    res.DENEB_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
-    res.ELECTRA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 3).Epoch
-    res.FULU_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 4).Epoch
+    res.ALTAIR_FORK_EPOCH = 0.SyncCommitteePeriod.start_epoch + 1
+    res.BELLATRIX_FORK_EPOCH = 0.SyncCommitteePeriod.start_epoch + 2
+    res.CAPELLA_FORK_EPOCH = 1.SyncCommitteePeriod.start_epoch + 0
+    res.DENEB_FORK_EPOCH = 1.SyncCommitteePeriod.start_epoch + 1
+    res.ELECTRA_FORK_EPOCH = 2.SyncCommitteePeriod.start_epoch + 0
+    res.FULU_FORK_EPOCH = 2.SyncCommitteePeriod.start_epoch + 1
+    res.GLOAS_FORK_EPOCH = 3.SyncCommitteePeriod.start_epoch + 0
+    res.HEZE_FORK_EPOCH = 3.SyncCommitteePeriod.start_epoch + 1
     res
 
   const numValidators = SLOTS_PER_EPOCH
@@ -45,7 +46,8 @@ suite "Light client processor" & preset():
       cfg, cfg.makeTestDB(numValidators), validatorMonitor, {},
       lcDataConfig = LightClientDataConfig(
         serve: true,
-        importMode: LightClientDataImportMode.OnlyNew))
+        importMode: LightClientDataImportMode.OnlyNew,
+        importBackfill: true))
     quarantine = newClone(Quarantine.init(dag.cfg))
     rng = HmacDrbgContext.new()
     taskpool = Taskpool.new()
@@ -127,9 +129,9 @@ suite "Light client processor" & preset():
         check update.kind <= store[].kind
         withForkyStore(store[]):
           when lcDataFork > LightClientDataFork.None:
-            bootstrap.migrateToDataFork(lcDataFork)
+            bootstrap.migrateToDataFork(lcDataFork, cfg)
             template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
-            let upgraded = update.migratingToDataFork(lcDataFork)
+            let upgraded = update.migratingToDataFork(lcDataFork, cfg)
             template forkyUpdate: untyped = upgraded.forky(lcDataFork)
             check:
               res.isOk
@@ -159,7 +161,7 @@ suite "Light client processor" & preset():
                 withForkyStore(store[]):
                   when lcDataFork > LightClientDataFork.None:
                     let upgraded = newClone(
-                      update[].migratingToDataFork(lcDataFork))
+                      update[].migratingToDataFork(lcDataFork, cfg))
                     template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                     check:
                       res.isOk
@@ -169,7 +171,7 @@ suite "Light client processor" & preset():
                 withForkyStore(store[]):
                   when lcDataFork > LightClientDataFork.None:
                     let upgraded = newClone(
-                      update[].migratingToDataFork(lcDataFork))
+                      update[].migratingToDataFork(lcDataFork, cfg))
                     template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                     check:
                       res.isErr
@@ -180,7 +182,7 @@ suite "Light client processor" & preset():
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
                   let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork))
+                    update[].migratingToDataFork(lcDataFork, cfg))
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -200,7 +202,7 @@ suite "Light client processor" & preset():
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
                   let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork))
+                    update[].migratingToDataFork(lcDataFork, cfg))
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -211,7 +213,7 @@ suite "Light client processor" & preset():
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
                   let upgraded = newClone(
-                    update[].migratingToDataFork(lcDataFork))
+                    update[].migratingToDataFork(lcDataFork, cfg))
                   template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
@@ -233,7 +235,7 @@ suite "Light client processor" & preset():
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
                 let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork))
+                  update[].migratingToDataFork(lcDataFork, cfg))
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -247,7 +249,7 @@ suite "Light client processor" & preset():
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
                 let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork))
+                  update[].migratingToDataFork(lcDataFork, cfg))
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -258,7 +260,7 @@ suite "Light client processor" & preset():
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
                 let upgraded = newClone(
-                  update[].migratingToDataFork(lcDataFork))
+                  update[].migratingToDataFork(lcDataFork, cfg))
                 template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
@@ -279,14 +281,14 @@ suite "Light client processor" & preset():
           withForkyStore(store[]):
             when lcDataFork > LightClientDataFork.None:
               let upgraded = newClone(
-                update[].migratingToDataFork(lcDataFork))
+                update[].migratingToDataFork(lcDataFork, cfg))
               template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header == forkyUpdate.attested_header
         else:
           withForkyStore(store[]):
             when lcDataFork > LightClientDataFork.None:
               let upgraded = newClone(
-                update[].migratingToDataFork(lcDataFork))
+                update[].migratingToDataFork(lcDataFork, cfg))
               template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header != forkyUpdate.attested_header
 
@@ -307,9 +309,9 @@ suite "Light client processor" & preset():
       if res.isOk:
         withForkyStore(store[]):
           when lcDataFork > LightClientDataFork.None:
-            oldFinalized.migrateToDataFork(lcDataFork)
+            oldFinalized.migrateToDataFork(lcDataFork, cfg)
             template forkyOldFinalized: untyped = oldFinalized.forky(lcDataFork)
-            let upgraded = finalityUpdate.migratingToDataFork(lcDataFork)
+            let upgraded = finalityUpdate.migratingToDataFork(lcDataFork, cfg)
             template forkyUpdate: untyped = upgraded.forky(lcDataFork)
             check:
               finalizationMode == LightClientFinalizationMode.Optimistic
