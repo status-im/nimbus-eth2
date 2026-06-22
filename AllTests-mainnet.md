@@ -865,6 +865,7 @@ AllTests-mainnet
 ```
 ## Inclusion list [Preset: mainnet]
 ```diff
++ end-to-end: committee members sign, validate, and are collected                            OK
 + get_inclusion_list_committee                                                               OK
 + get_inclusion_list_transactions dedups and filters                                         OK
 + is_valid_inclusion_list_signature                                                          OK

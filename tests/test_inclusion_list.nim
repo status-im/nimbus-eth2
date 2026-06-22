@@ -19,10 +19,7 @@ import
   ./testutil
 
 func makeTx(bytes: openArray[byte]): bellatrix.Transaction =
-  var tx: bellatrix.Transaction
-  for b in bytes:
-    discard tx.add(b)
-  tx
+  bellatrix.Transaction(@bytes)
 
 func makeInclusionList(
     slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
@@ -32,7 +29,7 @@ func makeInclusionList(
     validator_index: validator_index,
     inclusion_list_committee_root: committee_root)
   for tx in txs:
-    discard il.transactions.add(tx)
+    doAssert il.transactions.add(tx)
   il
 
 suite "Inclusion list" & preset():
