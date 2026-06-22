@@ -114,6 +114,15 @@ func onColumnsStored(c: var BackfillCursors, slot: Slot) =
   if c.frontierBlocked and slot == c.frontier:
     c.frontierBlocked = false
 
+func servableBottom(c: BackfillCursors, head: Slot): Slot =
+  ## Earliest slot advertisable as servable-from-head (drives `dag.eaSlot`).
+  if c.runTop == FAR_FUTURE_SLOT:
+    head + 1
+  elif c.runTop >= head:
+    c.runBottom
+  else:
+    c.frontier + 1
+
 func outcome(chain: DummyBeaconChain, slot: Slot): SlotRecon =
   if slot in chain.tooFew: SlotRecon.TooFew else: SlotRecon.Servable
 
@@ -228,6 +237,24 @@ suite "Column reconstruction backfiller cursors":
     check:
       c.runTop == Slot(205)
       c.runBottom == Slot(100)  # re-established from the new head to floor
+
+  test "a reorg retracts the advertised slot, then re-extends it":
+    var c = BackfillCursors.init()
+    var chain = DummyBeaconChain(
+      head: Slot(200), finalized: Slot(150), retentionStart: Slot(100),
+      headRoot: root(1))
+    runToIdle(c, chain)
+    check c.servableBottom(chain.head) == Slot(100)  # caught up: full run
+
+    # Reorg: the post-finalized window must be refilled before we can serve it.
+    chain.head = Slot(205)
+    chain.headRoot = root(3)
+    chain.extension = false
+    c.reconcileHead(chain.head, chain.finalized, chain.headRoot, chain.extension)
+    check c.servableBottom(chain.head) == Slot(206)  # retracted to head + 1
+
+    runToIdle(c, chain)
+    check c.servableBottom(chain.head) == Slot(100)  # refilled back to floor
 
   test "an advancing retention floor lifts runBottom":
     var c = BackfillCursors.init()

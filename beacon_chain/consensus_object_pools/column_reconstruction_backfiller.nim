@@ -113,26 +113,30 @@ func retentionStartSlot(self: ColumnReconstructionBackfillerRef): Slot =
   else:
     max(headSlot - retentionSlots, fuluStartSlot)
 
+func servableBottom(self: ColumnReconstructionBackfillerRef): Slot =
+  ## Earliest slot of the contiguous servable-from-head run. While a gap above
+  ## `runTop` is being refilled only `[frontier+1..head]` connects to the head;
+  ## the run below the gap does not, so it must not be advertised yet.
+  let head = self.dag.head.slot
+  if self.runTop == FAR_FUTURE_SLOT:
+    head + 1
+  elif self.runTop >= head:
+    self.runBottom
+  else:
+    self.frontier + 1
+
 proc updateEarliestAvailableSlot(self: ColumnReconstructionBackfillerRef) =
+  ## Advertise the earliest slot from which we can serve the full column matrix.
+  ## Set both ways: a reorg that breaks the trail retracts the advertisement
+  ## instead of over-claiming slots we can no longer serve.
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/fulu/p2p-interface.md#status-v2
-  ## If the node is able to serve all blocks throughout the entire sidecars
-  ## retention period (as defined by both MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
-  ## and MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS), but is NOT able to
-  ## serve all sidecars during this period, it should advertise the earliest
-  ## slot from which it can serve all sidecars.
-  ## Lower `dag.eaSlot` to `runBottom`, the durable bottom of the servable run,
-  ## so peers learn of the longer history. We only ever lower it here: other
-  ## writers (prune, custody) own raising it. During a reorg refill
-  ## `[runBottom..head]` is briefly not fully head-anchored again; we accept
-  ## that transient over-advertisement (a peer sees a miss, never wrong data)
-  ## rather than retract history we have already guaranteed.
-  if self.runBottom == FAR_FUTURE_SLOT or self.runBottom >= self.dag.eaSlot:
+  let bottom = self.servableBottom()
+  if bottom == self.dag.eaSlot:
     return
-  self.dag.eaSlot = self.runBottom
-  beacon_column_reconstruction_earliest_available_slot.set(
-    int64(self.runBottom))
-  debug "Extended earliest available slot to reconstructed trail",
-    eaSlot = self.runBottom, head = self.dag.head.slot
+  self.dag.eaSlot = bottom
+  beacon_column_reconstruction_earliest_available_slot.set(int64(bottom))
+  debug "Updated earliest available slot",
+    eaSlot = bottom, head = self.dag.head.slot
 
 func onColumnsStored*(
     self: ColumnReconstructionBackfillerRef, slot: Slot) =
@@ -365,8 +369,11 @@ proc step(
     self.frontier = FAR_FUTURE_SLOT
     self.frontierBlocked = false  # the blocked slot aged out of retention
 
+  # Refresh the advertisement before awaiting work, so a reorg that just broke
+  # the trail retracts now rather than over-claiming across the refill.
+  self.updateEarliestAvailableSlot()
+
   if self.frontier == FAR_FUTURE_SLOT or self.frontierBlocked:
-    self.updateEarliestAvailableSlot()
     return false
 
   # The descending frontier reached the established run: the gap above it is
