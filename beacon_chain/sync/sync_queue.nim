@@ -274,6 +274,53 @@ func getShortMap*[T](
     slider = slider + 1
   res
 
+func getShortMap*[T](
+    req: SyncRequest[T],
+    map: ColumnMap,
+    data: openArray[ref gloas.DataColumnSidecar]
+): string =
+  # Provides short map of columns where
+  # `+` means that all requested columns for the block was received
+  # `O` means that excessive amount of columns for the block was received
+  # `1-f` means (number of requested columns) - ord(`1-f`) being received
+  # `-` some amount of requested columns being received but it was
+  # less than (number of requested columns) - 15.
+  let
+    alphabet =
+      "0123456789abcdef"
+    maplen = len(map)
+
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      var counter = 0
+      for k in last ..< len(data):
+        if slider < data[k][].slot:
+          break
+        elif slider == data[k][].slot:
+          if data[k][].index in map:
+            inc(counter)
+      last = last + counter
+      if counter == 0:
+        res.add('.')
+      else:
+        if counter == maplen:
+          res.add('+')
+        elif counter > maplen:
+          res.add('O')
+        elif (maplen - counter) < 16:
+          res.add(alphabet[maplen - counter])
+        else:
+          res.add('-')
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
 func init(
     t: typedesc[ColumnItem],
     map: ColumnMap,
