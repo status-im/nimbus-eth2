@@ -1369,7 +1369,7 @@ proc prepareRegistrationList*(
   debug "Validator registrations prepared", total = total, succeed = succeed,
         cached = cached, bad = bad, errors = errors,
         index_missing = indexMissing, fee_missing = feeMissing,
-        incorrect_time = timed, stale
+        incorrect_time = timed, stale = stale
 
   registrations
 
