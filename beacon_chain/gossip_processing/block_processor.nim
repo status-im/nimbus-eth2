@@ -251,7 +251,7 @@ proc storeSidecars(
     self.consensusManager.dag.db.putDataColumnSidecars(value)
     if self.onDataColumnsStored != nil and value.len > 0:
       let slot =
-        when sidecarsOpt is Opt[gloas.DataColumnSidecars]:
+        when value is gloas.DataColumnSidecars:
           # [Modified in Gloas:EIP7732] carries `slot` directly.
           value[0][].slot
         else:

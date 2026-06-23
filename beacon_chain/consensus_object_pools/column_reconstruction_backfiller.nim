@@ -156,17 +156,16 @@ proc existingColumns(
     consensusFork: ConsensusFork,
     blockRoot: Eth2Digest
 ): ColumnMap =
-  ## Early exit out as soon as too few columns remain for reconstruction to ever be
-  ## possible, so the returned set is exhaustive only when it holds at least
-  ## `ColumnsRequiredForReconstruction` columns; below that the outcome is "too
-  ## few" regardless of the exact set, and the caller only checks the count.
-  var
-    present: ColumnMap
-    remaining = NUMBER_OF_COLUMNS  # columns not yet looked up
+  ## The columns currently persisted for `blockRoot`. Early exit as soon as too few
+  ## columns remain for reconstruction to ever be possible, so the returned set
+  ## is exhaustive only when it holds at least `ColumnsRequiredForReconstruction`
+  ## columns; below that the outcome is "too few" regardless of the exact set,
+  ## and the caller only checks the count.
+  var present: ColumnMap
   for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
     if db.containsDataColumnSidecar(consensusFork, blockRoot, i):
       present.incl(i)
-    dec remaining
+    let remaining = NUMBER_OF_COLUMNS - int(i) - 1  # columns not yet looked up
     if present.len + remaining < ColumnsRequiredForReconstruction:
       break
   present
