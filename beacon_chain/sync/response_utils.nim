@@ -10,36 +10,39 @@
 import std/[sequtils, strutils],
        results,
        ../spec/[helpers, forks, peerdas_helpers, column_map],
-       ../spec/datatypes/[deneb, electra, fulu],
+       ../spec/datatypes/[deneb, electra, fulu, gloas],
        ../consensus_object_pools/column_quarantine,
        ./sync_queue
 
 export results, sync_queue
 
 type
-  SidecarType = fulu.DataColumnSidecar
+  SidecarType = fulu.DataColumnSidecar | gloas.DataColumnSidecar
   SidecarResponseRecord*[T: SidecarType] = object
     block_root*: Eth2Digest
     sidecar*: ref T
 
-  DataColumnSidecarResponseRecord* =
+  FuluColumnSidecarResponseRecord* =
     SidecarResponseRecord[fulu.DataColumnSidecar]
+  GloasColumnSidecarResponseRecord* =
+    SidecarResponseRecord[gloas.DataColumnSidecar]
 
 func shortLog*[T: SidecarType](
     a: openArray[SidecarResponseRecord[T]]
 ): string =
-  "[" & a.mapIt(shortLog(it.block_root) & "/" & $it.sidecar[].index).join(",") & "]"
+  "[" & a.mapIt(shortLog(it.block_root) & "/" &
+     $it.sidecar[].index).join(",") & "]"
 
 func groupSidecars*(
     srange: SyncRange,
     map: ColumnMap,
     columns: openArray[ref fulu.DataColumnSidecar]
-): Result[seq[DataColumnSidecarResponseRecord], cstring] =
+): Result[seq[FuluColumnSidecarResponseRecord], cstring] =
   # We do not do signature verifications here, just because it will be done
   # later by block_processor. So the only thing we validating is that we
   # received sidecars in proper order and in proper range.
   var
-    grouped: seq[DataColumnSidecarResponseRecord]
+    grouped: seq[FuluColumnSidecarResponseRecord]
     slot = srange.start_slot()
 
   for sidecar in columns:
@@ -62,7 +65,42 @@ func groupSidecars*(
     ? verify_data_column_sidecar_inclusion_proof(sidecar[])
 
     grouped.add(
-      DataColumnSidecarResponseRecord(block_root: block_root, sidecar: sidecar))
+      FuluColumnSidecarResponseRecord(
+        block_root: block_root, sidecar: sidecar))
+
+  ok(grouped)
+
+func groupSidecars*(
+    srange: SyncRange,
+    map: ColumnMap,
+    columns: openArray[ref gloas.DataColumnSidecar]
+): Result[seq[GloasColumnSidecarResponseRecord], cstring] =
+  # We do not do signature verifications here, just because it will be done
+  # later by block_processor. So the only thing we validating is that we
+  # received sidecars in proper order and in proper range.
+  var
+    grouped: seq[GloasColumnSidecarResponseRecord]
+    slot = srange.start_slot()
+
+  for sidecar in columns:
+    let
+      block_root = sidecar[].beacon_block_root
+      block_slot = sidecar[].slot
+
+    if (block_slot < slot) or (block_slot > srange.last_slot()):
+      return err("Invalid data column sidecar slot")
+    if sidecar[].index notin map:
+      return err("Invalid data column index")
+
+    slot = block_slot
+    if len(grouped) != 0:
+      if grouped[^1].block_root == block_root:
+        if uint64(grouped[^1].sidecar[].index) >= uint64(sidecar[].index):
+          return err("Invalid order or duplicate data column sidecars found")
+
+    grouped.add(
+      GloasColumnSidecarResponseRecord(
+        block_root: block_root, sidecar: sidecar))
 
   ok(grouped)
 
@@ -70,7 +108,7 @@ func groupSidecars*(
     idents: openArray[DataColumnsByRootIdentifier],
     columnsRequested: int,
     columns: openArray[ref fulu.DataColumnSidecar]
-): Result[seq[DataColumnSidecarResponseRecord], cstring] =
+): Result[seq[FuluColumnSidecarResponseRecord], cstring] =
   if len(columns) > columnsRequested:
     return err(
       "Number of data columns received is greater than number of requested")
@@ -85,7 +123,7 @@ func groupSidecars*(
               DataColumnIdentifier(
                 block_root: rident.block_root, index: rindex))
         res
-    grouped: seq[DataColumnSidecarResponseRecord]
+    grouped: seq[FuluColumnSidecarResponseRecord]
 
   for sidecar in columns:
     let
@@ -100,13 +138,50 @@ func groupSidecars*(
     ? verify_data_column_sidecar_inclusion_proof(sidecar[])
 
     grouped.add(
-      DataColumnSidecarResponseRecord(block_root: block_root, sidecar: sidecar))
+      FuluColumnSidecarResponseRecord(
+        block_root: block_root, sidecar: sidecar))
+
+  ok(grouped)
+
+func groupSidecars*(
+    idents: openArray[DataColumnsByRootIdentifier],
+    columnsRequested: int,
+    columns: openArray[ref gloas.DataColumnSidecar]
+): Result[seq[GloasColumnSidecarResponseRecord], cstring] =
+  if len(columns) > columnsRequested:
+    return err(
+      "Number of data columns received is greater than number of requested")
+
+  var
+    checks =
+      block:
+        var res: HashSet[DataColumnIdentifier]
+        for rident in idents:
+          for rindex in rident.indices:
+            res.incl(
+              DataColumnIdentifier(
+                block_root: rident.block_root, index: rindex))
+        res
+    grouped: seq[GloasColumnSidecarResponseRecord]
+
+  for sidecar in columns:
+    let
+      block_root = sidecar[].beacon_block_root
+      sidecarIdent =
+        DataColumnIdentifier(block_root: block_root, index: sidecar[].index)
+
+    if checks.missingOrExcl(sidecarIdent):
+      return err("Received data column outside the request")
+
+    grouped.add(
+      GloasColumnSidecarResponseRecord(
+        block_root: block_root, sidecar: sidecar))
 
   ok(grouped)
 
 func validateBlocks*(
     items: openArray[SyncResponseItem],
-    sidecars: openArray[DataColumnSidecarResponseRecord],
+    sidecars: openArray[FuluColumnSidecarResponseRecord],
     map: ColumnMap
 ): Result[tuple[sidecars: int, blocks: int], cstring] =
   var
@@ -115,8 +190,35 @@ func validateBlocks*(
   for item in items:
     withBlck(item.signedBlock[]):
       when consensusFork == ConsensusFork.Fulu:
-        let columnsCount = len(forkyBlck.message.body.blob_kzg_commitments)
-        if columnsCount == 0:
+        let commitmentsLen = len(forkyBlck.message.body.blob_kzg_commitments)
+        if commitmentsLen == 0:
+          continue
+        inc(bcount)
+        while sindex < len(sidecars):
+          let record = sidecars[sindex]
+          if record.block_root != forkyBlck.root:
+            break
+          inc(sindex)
+      else:
+        return err("Found block with incorrect fork")
+
+  ok((sindex, bcount))
+
+func validateBlocks*(
+    items: openArray[SyncResponseItem],
+    sidecars: openArray[GloasColumnSidecarResponseRecord],
+    map: ColumnMap
+): Result[tuple[sidecars: int, blocks: int], cstring] =
+  var
+    sindex = 0
+    bcount = 0
+  for item in items:
+    withBlck(item.signedBlock[]):
+      when consensusFork == ConsensusFork.Gloas:
+        let commitmentsLen =
+          len(forkyBlck.message.body.signed_execution_payload_bid.
+              message.blob_kzg_commitments)
+        if commitmentsLen == 0:
           continue
         inc(bcount)
         while sindex < len(sidecars):
