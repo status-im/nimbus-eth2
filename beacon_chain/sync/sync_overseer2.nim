@@ -2469,7 +2469,13 @@ proc doRangeSidecarsStep(
                          SyncProcessError.UnviableFork,
                          SyncProcessError.NoRelevant]:
       for item in items:
-        overseer.columnQuarantine[].remove(item.signedBlock[].root)
+        case consensusFork
+        of ConsensusFork.Fulu:
+          overseer.columnQuarantine[].remove(item.signedBlock[].root)
+        of ConsensusFork.Gloas:
+          overseer.gloasColumnQuarantine[].remove(item.signedBlock[].root)
+        else:
+          raiseAssert("Unsupported fork!")
 
     let rewindPoint = overseer.tssqueue(direction).inpSlot
 
