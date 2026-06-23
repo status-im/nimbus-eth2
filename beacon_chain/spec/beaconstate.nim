@@ -2370,8 +2370,10 @@ func get_inclusion_list_committee*(
   for i in 0'u64 ..< committees_per_slot:
     indices.add get_beacon_committee(state, slot, CommitteeIndex(i), cache)
   doAssert indices.len > 0, "get_inclusion_list_committee: no active validators"
+  var res: array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64]
   for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
-    result[i] = indices[i mod indices.len].uint64
+    res[i] = indices[i mod indices.len].uint64
+  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/beacon-chain.md#new-is_valid_inclusion_list_signature
 proc is_valid_inclusion_list_signature*(
