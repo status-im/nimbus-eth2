@@ -8,13 +8,13 @@
 {.push raises: [].}
 
 import
-  std/[typetraits, sets],
+  std/[algorithm, options, tables, typetraits, sets],
   stew/base10,
   chronicles, metrics,
   ./rest_utils,
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
-  ../spec/[forks, state_transition]
+  ../spec/[beaconstate, forks, state_transition, state_transition_epoch]
 
 export rest_utils
 
@@ -242,4 +242,174 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
       response,
       node.getBlockOptimistic(bdata),
       node.dag.isFinalized(bid)
+    )
+
+  # https://ethereum.github.io/beacon-APIs/#/Rewards/getAttestationsRewards
+  router.api2(
+    MethodPost, "/eth/v1/beacon/rewards/attestations/{epoch}") do (
+      epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      qepoch = epoch.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                         $error)
+
+      idents =
+        if contentBody.isSome():
+          decodeBody(seq[ValidatorIdent], contentBody.get()).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, InvalidRequestBodyError, $error)
+        else:
+          default(seq[ValidatorIdent])
+
+    if qepoch + 2 >= MaxEpoch:
+      return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+
+    # Attestation rewards for `epoch` are applied during the transition at the
+    # end of `epoch + 1`, so the pre-transition state at its last slot is needed.
+    let stateSlot = (qepoch + 2).start_slot() - 1
+    if stateSlot > node.dag.head.slot:
+      return RestApiResponse.jsonError(
+        Http404, StateNotFoundError,
+        "Requested epoch rewards are not available yet")
+
+    let bsi = node.dag.getBlockIdAtSlot(stateSlot).valueOr:
+      return RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+    var
+      cache = StateCache()
+      tmpState = assignClone(node.dag.headState)
+
+    if not updateState(
+      node.dag, tmpState[], bsi, false, cache, node.dag.updateFlags):
+        return RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+    let response =
+      withState(tmpState[]):
+        when consensusFork >= ConsensusFork.Altair:
+          var
+            selected: HashSet[ValidatorIndex]
+            keyIdents: seq[ValidatorPubKey]
+          for item in idents:
+            case item.kind
+            of ValidatorQueryKind.Index:
+              let vindex = item.index.toValidatorIndex().valueOr:
+                case error
+                of ValidatorIndexError.TooHighValue:
+                  return RestApiResponse.jsonError(
+                    Http400, TooHighValidatorIndexValueError)
+                of ValidatorIndexError.UnsupportedValue:
+                  return RestApiResponse.jsonError(
+                    Http500, UnsupportedValidatorIndexValueError)
+              if uint64(vindex) >= lenu64(forkyState.data.validators):
+                return RestApiResponse.jsonError(
+                  Http400, ValidatorNotFoundError)
+              selected.incl(vindex)
+            of ValidatorQueryKind.Key:
+              keyIdents.add(item.key)
+
+          if keyIdents.len > 0:
+            let wanted = toHashSet(keyIdents)
+            for vindex in forkyState.data.validators.vindices:
+              if forkyState.data.validators.item(vindex).pubkey in wanted:
+                selected.incl(vindex)
+
+          let selectAll = idents.len == 0
+
+          var info: altair.EpochInfo
+          info.init(forkyState.data, cache)
+          process_justification_and_finalization(
+            forkyState.data, info.balances, node.dag.updateFlags)
+          process_inactivity_updates(node.dag.cfg, forkyState.data, info)
+
+          let
+            baseRewardPerIncrement =
+              get_base_reward_per_increment(info.balances.current_epoch)
+            finalityDelay = get_finality_delay(forkyState.data)
+            activeIncrements = get_active_increments(info)
+            participatingIncrements = [
+              get_unslashed_participating_increment(
+                info, TIMELY_SOURCE_FLAG_INDEX),
+              get_unslashed_participating_increment(
+                info, TIMELY_TARGET_FLAG_INDEX),
+              get_unslashed_participating_increment(
+                info, TIMELY_HEAD_FLAG_INDEX)]
+
+          var
+            totalRewards: seq[RestTotalAttestationReward]
+            seen: HashSet[ValidatorIndex]
+            balances: HashSet[uint64]
+
+          for vidx, srcReward, tgtReward, headReward, srcPenalty, tgtPenalty,
+              inactPenalty in get_flag_and_inactivity_deltas(
+                node.dag.cfg, forkyState.data, baseRewardPerIncrement, info,
+                finalityDelay):
+            if not (selectAll or vidx in selected):
+              continue
+            totalRewards.add RestTotalAttestationReward(
+              validator_index: RestValidatorIndex(vidx),
+              head: RestReward(int64(uint64(headReward))),
+              target: RestReward(
+                int64(uint64(tgtReward)) - int64(uint64(tgtPenalty))),
+              source: RestReward(
+                int64(uint64(srcReward)) - int64(uint64(srcPenalty))),
+              inclusion_delay: none(uint64),
+              inactivity: RestReward(-int64(uint64(inactPenalty))))
+            balances.incl(
+              uint64(forkyState.data.validators.item(vidx).effective_balance))
+            if not selectAll:
+              seen.incl(vidx)
+
+          if not selectAll:
+            for vidx in selected:
+              if vidx notin seen:
+                totalRewards.add RestTotalAttestationReward(
+                  validator_index: RestValidatorIndex(vidx),
+                  head: RestReward(0), target: RestReward(0),
+                  source: RestReward(0), inclusion_delay: none(uint64),
+                  inactivity: RestReward(0))
+                balances.incl(uint64(
+                  forkyState.data.validators.item(vidx).effective_balance))
+
+          var idealRewards: seq[RestIdealAttestationReward]
+          for eb in balances:
+            let
+              increments = eb.Gwei div EFFECTIVE_BALANCE_INCREMENT.Gwei
+              baseReward = increments * baseRewardPerIncrement
+            idealRewards.add RestIdealAttestationReward(
+              effective_balance: eb,
+              head: RestReward(int64(uint64(get_flag_index_reward(
+                forkyState.data, baseReward, activeIncrements,
+                participatingIncrements[ord(TIMELY_HEAD_FLAG_INDEX)],
+                PARTICIPATION_FLAG_WEIGHTS[TIMELY_HEAD_FLAG_INDEX],
+                finalityDelay)))),
+              target: RestReward(int64(uint64(get_flag_index_reward(
+                forkyState.data, baseReward, activeIncrements,
+                participatingIncrements[ord(TIMELY_TARGET_FLAG_INDEX)],
+                PARTICIPATION_FLAG_WEIGHTS[TIMELY_TARGET_FLAG_INDEX],
+                finalityDelay)))),
+              source: RestReward(int64(uint64(get_flag_index_reward(
+                forkyState.data, baseReward, activeIncrements,
+                participatingIncrements[ord(TIMELY_SOURCE_FLAG_INDEX)],
+                PARTICIPATION_FLAG_WEIGHTS[TIMELY_SOURCE_FLAG_INDEX],
+                finalityDelay)))),
+              inclusion_delay: none(uint64),
+              inactivity: RestReward(0))
+
+          idealRewards.sort do (a, b: RestIdealAttestationReward) -> int:
+            cmp(a.effective_balance, b.effective_balance)
+          totalRewards.sort do (
+              a, b: RestTotalAttestationReward) -> int:
+            cmp(uint64(a.validator_index), uint64(b.validator_index))
+
+          RestAttestationsRewards(
+            ideal_rewards: idealRewards, total_rewards: totalRewards)
+        else:
+          return RestApiResponse.jsonError(
+            Http404, StateNotFoundError,
+            "Attestation rewards are not available before the Altair fork")
+
+    RestApiResponse.jsonResponseFinalized(
+      response,
+      node.getStateOptimistic(tmpState[]),
+      node.dag.isFinalized(bsi.bid)
     )

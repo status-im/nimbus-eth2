@@ -14,7 +14,7 @@
 # carefully!
 
 import
-  std/[json, tables],
+  std/[json, options, tables],
   results,
   stew/base10, httputils, stew/bitops2,
   ../forks
@@ -540,6 +540,26 @@ type
   RestSyncCommitteeReward* = object
     validator_index*: RestValidatorIndex
     reward*: RestReward
+
+  RestIdealAttestationReward* = object
+    effective_balance*: uint64
+    head*: RestReward
+    target*: RestReward
+    source*: RestReward
+    inclusion_delay*: Option[uint64]
+    inactivity*: RestReward
+
+  RestTotalAttestationReward* = object
+    validator_index*: RestValidatorIndex
+    head*: RestReward
+    target*: RestReward
+    source*: RestReward
+    inclusion_delay*: Option[uint64]
+    inactivity*: RestReward
+
+  RestAttestationsRewards* = object
+    ideal_rewards*: seq[RestIdealAttestationReward]
+    total_rewards*: seq[RestTotalAttestationReward]
 
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
