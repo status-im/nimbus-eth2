@@ -145,7 +145,7 @@ proc loadHead(
   var
     blocks: seq[BlockRef]
     cur = head
-  while cur != dag.finalizedHead.blck:
+  while cur != nil and cur.root notin forkChoice.backend:
     blocks.add cur
     cur = cur.parent
 
@@ -211,12 +211,16 @@ proc init*(
     finalizedEpochRef, dag.finalizedHead.blck, currentSlot, wallTime)
 
   # Feed fork choice with unfinalized history
-  info "Initializing fork choice", head = dag.head
+  info "Initializing fork choice", head = dag.head, heads = dag.heads
 
   var shallow: HashSet[BlockRef]
   shallow.collectShallowAncestors(dag.head)
-  
+  for additionalHead in dag.heads:
+    shallow.collectShallowAncestors(additionalHead)
+
   forkChoice.loadHead(dag, dag.head, shallow)
+  for additionalHead in dag.heads:
+    forkChoice.loadHead(dag, additionalHead, shallow)
 
   info "Fork choice initialized",
     justified = shortLog(dag.headState.current_justified_checkpoint),
@@ -901,8 +905,7 @@ proc getBeaconHead*(
   # choice marked the slot's block full; the bid's `parent_block` must be on it.
   let
     isGloas =
-      pool.dag.cfg.consensusForkAtEpoch(
-        pool.dag.finalizedHead.slot.epoch) >= ConsensusFork.Gloas
+      pool.dag.finalizedHead.slot.epoch >= pool.dag.cfg.GLOAS_FORK_EPOCH
     finalizedExecutionBlockHash =
       if isGloas:
         pool.dag.loadExecutionAndParentBlockHash(pool.dag.finalizedHead.blck)
@@ -921,7 +924,7 @@ proc getBeaconHead*(
         # Because a different fork already finalized a later point,
         # report the finalized execution payload hash instead.
         finalizedExecutionBlockHash
-      elif isGloas:
+      elif safeBlock.get.slot.epoch >= pool.dag.cfg.GLOAS_FORK_EPOCH:
         pool.dag.loadExecutionAndParentBlockHash(safeBlock.get)
           .parentHash.get(finalizedExecutionBlockHash)
       else:

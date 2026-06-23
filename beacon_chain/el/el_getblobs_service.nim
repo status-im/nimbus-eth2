@@ -117,9 +117,7 @@ proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     columns: seq[ref T],
     skipIndex = Opt.none(ColumnIndex)
 ) {.async: (raises: [CancelledError]).} =
-  ## Publish each reconstructed column to its respective gossip subnet.
-  ## `skipIndex` lets the column-first path avoid re-publishing the column
-  ## that already arrived via gossip.
+  ## Publish each column to its respective gossip subnet.
   var workers = newSeqOfCap[Future[SendResult]](columns.len)
   for col in columns:
     if skipIndex.isSome and col[].index == skipIndex.get():
@@ -260,17 +258,14 @@ proc attemptGetBlobs*(
       let recovered_columns = assemble_data_column_sidecars(
         forkyBlck, blobs, flat_proof)
 
-      # Redistribute every reconstructed column to its subnet before any
-      # custody-based filtering — peers on subnets we don't custody still
-      # need them.
-      await self.redistributeColumns(recovered_columns)
-
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
       # make use of it.
       let
         custodyMap = self.validatorCustody.getMap()
         batch = recovered_columns.filterIt(it[].index in custodyMap)
+
+      await self.redistributeColumns(batch)
 
       if batch.len == 0:
         return
@@ -334,14 +329,11 @@ proc attemptGetBlobs*(
   let recovered_columns = assemble_data_column_sidecars(
     blck, blobs, flat_proof)
 
-  # Redistribute every reconstructed column to its subnet before any
-  # custody-based filtering — peers on subnets we don't custody still
-  # need them.
-  await self.redistributeColumns(recovered_columns)
-
   let
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
+
+  await self.redistributeColumns(batch)
 
   if batch.len == 0:
     return
@@ -408,16 +400,12 @@ proc attemptGetBlobsFromColumn*(
     sidecar[].kzg_commitments_inclusion_proof,
     blobs, flat_proof)
 
-  # Redistribute reconstructed columns to their subnets. Skip the trigger
-  # column: it already reached us via gossip and was published by its
-  # originator, so re-broadcasting it is wasted work (gossipsub would
-  # dedupe at peers anyway).
-  await self.redistributeColumns(
-    recovered_columns, skipIndex = Opt.some(sidecar[].index))
-
   let
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
+
+  await self.redistributeColumns(
+    batch, skipIndex = Opt.some(sidecar[].index))
 
   if batch.len == 0:
     return

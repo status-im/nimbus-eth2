@@ -109,7 +109,9 @@ func shortLog*(x: seq[Eth2Digest]): string =
 func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
-func shortLog*(x: HashSet[DataColumnsByRootIdentifier]): string =
+func shortLog*(
+    x: HashSet[DataColumnsByRootIdentifier] | DataColumnsByRootIdentifierList
+): string =
   var pieces: seq[string]
   for it in x:
     pieces.add(shortLog(it.block_root) & "/" & it.indices.mapIt($it).join(","))
@@ -437,15 +439,16 @@ func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
 
 func filterByIntersection(
     colIdList: HashSet[DataColumnsByRootIdentifier],
-    intersection: DataColumnIndices): seq[DataColumnsByRootIdentifier] =
-  var res: seq[DataColumnsByRootIdentifier]
+    intersection: DataColumnIndices): DataColumnsByRootIdentifierList =
+  var res: DataColumnsByRootIdentifierList
   for it in colIdList:
     let entry = DataColumnsByRootIdentifier(
       block_root: it.block_root,
       indices: DataColumnIndices(
         filterIt(it.indices.asSeq, it in intersection)))
     if entry.indices.len > 0:
-      res.add entry
+      if not res.add entry:
+        break
   res
 
 template fetchDataColumnsFromNetworkImpl(
@@ -478,13 +481,13 @@ template fetchDataColumnsFromNetworkImpl(
       peer = peer,
       columns = shortLog(intColIdList),
       peer_score = peer.getScore()
-    let expectedColumnCount = block:
-      var n = 0
-      for id in intColIdList: n += id.indices.len
-      n
-    let columns = await requestProc(
-      peer, DataColumnsByRootIdentifierList intColIdList,
-      maxResponseItems = expectedColumnCount)
+    let
+      expectedColumnCount = block:
+        var n = 0
+        for id in intColIdList: n += id.indices.len
+        n
+      columns = await requestProc(
+        peer, intColIdList, maxResponseItems = expectedColumnCount)
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)

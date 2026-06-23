@@ -20,7 +20,6 @@ from ./spec/datatypes/electra import
 from ./spec/datatypes/gloas import
   Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
   BUILDER_PENDING_WITHDRAWALS_LIMIT
-from ./spec/datatypes/heze import ExecutionPayloadBid
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -610,7 +609,7 @@ type
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
 
     # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+    latest_execution_payload_bid*: ExecutionPayloadBid
       ## [Modified in Gloas:EIP7732]
 
     # [New in Gloas:EIP7732]
@@ -712,7 +711,7 @@ type
       HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
 
     # Execution
-    latest_execution_payload_bid*: heze.ExecutionPayloadBid
+    latest_execution_payload_bid*: ExecutionPayloadBid
 
     payload_expected_withdrawals*:
       HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]

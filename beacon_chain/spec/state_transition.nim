@@ -346,11 +346,10 @@ proc makeBeaconBlockWithRewards*(
     execution_payload: ForkyExecutionPayloadOrHeader,
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
-    execution_requests: ExecutionRequests,
-    signed_execution_payload_bid:
-        gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
+    execution_requests: consensusFork.ExecutionRequests,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
-    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
+    parent_execution_requests = default(consensusFork.ExecutionRequests)
 ): Result[
     tuple[
       blck: consensusFork.BeaconBlock(typeof(execution_payload)), rewards: BlockRewards
@@ -444,11 +443,10 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     execution_payload: EP,
     verificationFlags: UpdateFlags,
     kzg_commitments: KzgCommitments,
-    execution_requests: ExecutionRequests,
-    signed_execution_payload_bid:
-        gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
+    execution_requests: consensusFork.ExecutionRequests,
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
-    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
+    parent_execution_requests = default(consensusFork.ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   ok (
     ?makeBeaconBlockWithRewards(
@@ -475,11 +473,10 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     eps: ForkyExecutionPayloadForSigning,
     verificationFlags: UpdateFlags,
-    execution_requests: ExecutionRequests = default(ExecutionRequests),
-    signed_execution_payload_bid:
-        gloas.SignedExecutionPayloadBid | heze.SignedExecutionPayloadBid,
+    execution_requests = default(consensusFork.ExecutionRequests),
+    signed_execution_payload_bid: SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
-    parent_execution_requests: ExecutionRequests = default(ExecutionRequests)
+    parent_execution_requests = default(consensusFork.ExecutionRequests)
 ): Result[consensusFork.BeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, consensusFork, state, cache, proposer_index, randao_reveal, eth1_data,
