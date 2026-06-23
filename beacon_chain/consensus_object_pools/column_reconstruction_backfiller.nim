@@ -156,13 +156,19 @@ proc existingColumns(
     consensusFork: ConsensusFork,
     blockRoot: Eth2Digest
 ): ColumnMap =
-  ## The set of columns currently persisted for `blockRoot`. Columns are stored
-  ## in a per-fork table keyed by fork, which `containsDataColumnSidecar`
-  ## already dispatches on, so no per-fork branching is needed here.
-  var present: ColumnMap
+  ## Early exit out as soon as too few columns remain for reconstruction to ever be
+  ## possible, so the returned set is exhaustive only when it holds at least
+  ## `ColumnsRequiredForReconstruction` columns; below that the outcome is "too
+  ## few" regardless of the exact set, and the caller only checks the count.
+  var
+    present: ColumnMap
+    remaining = NUMBER_OF_COLUMNS  # columns not yet looked up
   for i in 0'u64 ..< NUMBER_OF_COLUMNS.uint64:
     if db.containsDataColumnSidecar(consensusFork, blockRoot, i):
       present.incl(i)
+    dec remaining
+    if present.len + remaining < ColumnsRequiredForReconstruction:
+      break
   present
 
 proc loadExistingColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
