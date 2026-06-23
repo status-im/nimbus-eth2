@@ -1,3 +1,63 @@
+2026-06-22 v26.6.0
+==================
+
+The Nimbus consensus client `v26.6.0` is a `medium-urgency` release which improves performance and resilience.
+
+### Improvements
+
+- Add column index to light client database to improve pruning performance:
+  https://github.com/status-im/nimbus-eth2/pull/8626
+
+- Initiate execution client processing of block payloads while waiting for columns:
+  https://github.com/status-im/nimbus-eth2/pull/8561
+
+- Avoid redundant KZG column verification:
+  https://github.com/status-im/nimbus-eth2/pull/8542
+
+- Require at most 64 columns for block data availability during head update:
+  https://github.com/status-im/nimbus-eth2/pull/8417
+
+- Trigger getting blobs via execution client mempool more aggressively:
+  https://github.com/status-im/nimbus-eth2/pull/8393
+
+- Use separate beacon node and validator client API default ports:
+  https://github.com/status-im/nimbus-eth2/pull/8499
+
+- Add fast confirmation rule beacon API SSE:
+  https://github.com/status-im/nimbus-eth2/pull/8479
+
+- Show `Block resolved` logs at default logging level:
+  https://github.com/status-im/nimbus-eth2/pull/8539
+
+- Allow more time to prepare for upcoming slots:
+  https://github.com/status-im/nimbus-eth2/pull/8621
+
+- More efficiently compute RANDAO mix:
+  https://github.com/status-im/nimbus-eth2/pull/8608
+
+- Validate keymanager API tokens in constant time:
+  https://github.com/status-im/nimbus-eth2/pull/8448
+
+- Broadcast light client optimistic and finality updates simultaneously:
+  https://github.com/status-im/nimbus-eth2/pull/8624
+
+### Fixes
+
+- Avoid crash when in limited column custody mode:
+  https://github.com/status-im/nimbus-eth2/pull/8491
+
+- Fix WebSocket reconnection across execution client restarts:
+  https://github.com/status-im/nimbus-eth2/pull/8597
+
+- Remove overzealous consistency check while backfilling alongside Era files:
+  https://github.com/status-im/nimbus-eth2/pull/8575
+
+- Harden against malformed Era files:
+  https://github.com/status-im/nimbus-eth2/pull/8465
+
+- Avoid debug log crash when receiving blocks older than backfill:
+  https://github.com/status-im/nimbus-eth2/pull/8463
+
 2026-05-11 v26.5.0
 ==================
 
