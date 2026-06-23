@@ -265,8 +265,6 @@ proc attemptGetBlobs*(
         custodyMap = self.validatorCustody.getMap()
         batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-      # Redistribute our custody columns to their subnets — those are exactly
-      # the subnets we are subscribed to.
       await self.redistributeColumns(batch)
 
       if batch.len == 0:
@@ -335,8 +333,6 @@ proc attemptGetBlobs*(
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-  # Redistribute our custody columns to their subnets — those are exactly the
-  # subnets we are subscribed to.
   await self.redistributeColumns(batch)
 
   if batch.len == 0:
