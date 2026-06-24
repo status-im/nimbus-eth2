@@ -41,7 +41,7 @@ in stdenv.mkDerivation rec {
     root = ./..;
     fileset = lib.fileset.unions [
       ./../Makefile ./../beacon_chain.nimble ./../config.nims
-      ./../beacon_chain ./../ncli ./../scripts ./../vendor ./../tools
+      ./../beacon_chain ./../ncli ./../research ./../tests ./../scripts ./../vendor ./../tools
     ];
   };
 
