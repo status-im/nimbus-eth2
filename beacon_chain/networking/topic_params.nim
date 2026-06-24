@@ -377,8 +377,9 @@ func getBlsToExecutionChangeTopicParams*(timeParams: TimeParams): TopicParams =
     Opt.none(MeshMessageInfo))
 
 func getExecutionPayloadBidTopicParams*(timeParams: TimeParams): TopicParams =
+  let messageRate = 5.0'f64
   timeParams.topicParams(
-    ExecutionPayloadBidWeight, 1.0'f64, timeParams.epochsDuration(20),
+    ExecutionPayloadBidWeight, messageRate, timeParams.epochsDuration(20),
     Opt.none(MeshMessageInfo))
 
 func getPayloadAttestationTopicParams*(timeParams: TimeParams): TopicParams =
