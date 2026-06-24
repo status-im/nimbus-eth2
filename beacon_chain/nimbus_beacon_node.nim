@@ -1394,13 +1394,15 @@ proc addCapellaMessageHandlers(
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
-  debugGloasComment "default gossipsub config"
   node.network.subscribe(
-    getExecutionPayloadBidTopic(forkDigest), basicParams())
+    getExecutionPayloadBidTopic(forkDigest),
+    getExecutionPayloadBidTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getPayloadAttestationMessageTopic(forkDigest), basicParams())
+    getPayloadAttestationMessageTopic(forkDigest),
+    getPayloadAttestationTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getProposerPreferencesTopic(forkDigest), basicParams())
+    getProposerPreferencesTopic(forkDigest),
+    getProposerPreferencesTopicParams(node.dag.timeParams))
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
