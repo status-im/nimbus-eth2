@@ -310,6 +310,27 @@ proc stepOnBlock(
 
       return err VerifierError.Invalid
 
+  debugGloasComment " "
+  # Mock the block processor's verified-store check: a block idx present in
+  # fullBlockIndices is guaranteed to have its payload already verified.
+  # TODO: the spec enforces this assert in `on_block`, but onBlock falls
+  # back to the EMPTY parent (instead of rejecting) when the parent payload is
+  # unverified, and that path is shared with loadHead reload; so the reject is
+  # mocked here. Enforcing it for real also needs the "Gloas chain with no
+  # envelopes delivered" test (tests/test_block_processor.nim) updated, since it
+  # relies on that fallback.
+  when consensusFork >= ConsensusFork.Gloas:
+    let parentRoot = signedBlock.message.parent_root
+    let parentRef = dag.getBlockRef(parentRoot)
+    if parentRef.isSome:
+      let (parentBlockHash, _) =
+        dag.loadExecutionAndParentBlockHash(parentRef.get)
+      if parentBlockHash.isSome and
+          signedBlock.message.body.signed_execution_payload_bid.message
+            .parent_block_hash == parentBlockHash.get() and
+          parentRoot notin fkChoice[].backend.proto_array.fullBlockIndices:
+        return err VerifierError.Invalid
+
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: consensusFork.TrustedSignedBeaconBlock,
       state: consensusFork.BeaconState,
@@ -557,10 +578,6 @@ proc runTest(
     "is_one_confirmed_slashing_non_supporters_helps",
     "is_one_confirmed_slashing_supporters_does_not_hurt",
     "reconfirmation_passes_with_empty_slots_prior_first_block",
-
-    # TODO Gloas/ePBS: reveals an invalid execution payload envelope and a
-    # child block built as if that parent payload were FULL
-    "on_execution_payload_envelope_invalid_full_child",
   ]
 
   test suiteName & " - " & path.relativeTestPathComponent():

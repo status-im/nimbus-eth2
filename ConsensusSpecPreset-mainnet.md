@@ -6449,6 +6449,8 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/genesis                       OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/get_head_empty_payload_tiebre OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/get_head_full_payload_tiebrea OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
 + ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
 + ForkChoice - mainnet/gloas/fork_choice/get_parent_payload_status/pyspec_tests/get_parent_p OK
@@ -6460,10 +6462,12 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
   ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_parent_full_accepts_ OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_parent_full_rejects_ OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost                OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
-  ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu Skip
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
 + ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
 + ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
 + ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
@@ -6485,6 +6489,12 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
 + ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
 + ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
 ```
 ## Sync
 ```diff
