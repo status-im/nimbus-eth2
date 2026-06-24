@@ -348,7 +348,8 @@ suite "Block processor" & preset():
 
         when consensusFork == ConsensusFork.Gloas:
           check (await processor.addPayload(
-            b0.blck, b0.envelope)).isOk()
+            b0.blck, b0.envelope, Opt.none(gloas.DataColumnSidecars)
+          )).isOk()
 
   asyncTest "Process Deneb block without blob sidecars" & preset():
     # Advance to Deneb fork
