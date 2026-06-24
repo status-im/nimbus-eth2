@@ -712,7 +712,23 @@ proc initFullNode(
           # the block should be the source of truth. We should notify receiving
           # bad value from the peer.
           return err(VerifierError.Invalid)
-      await blockProcessor.addPayload(blck, envelope)
+        sidecarsOpt =
+          block:
+            template bid(): auto =
+              blck.message.body.signed_execution_payload_bid
+            let sidecarsOpt =
+              if bid.message.blob_kzg_commitments.len() == 0:
+                Opt.some(default(gloas.DataColumnSidecars))
+              else:
+                gloasColumnQuarantine[].popSidecars(blockRoot)
+            if sidecarsOpt.isNone():
+              # As sidecars are missing, put envelope back to quarantine.
+              consensusManager.quarantine[].addSidecarless(blck)
+              envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
+              # Return ok() as columns may arrive late.
+              return ok()
+            sidecarsOpt
+      await blockProcessor.addPayload(blck, envelope, sidecarsOpt)
     rmanEnvelopeLoader = proc(blockRoot: Eth2Digest):
         Opt[gloas.TrustedSignedExecutionPayloadEnvelope] =
       dag.db.getExecutionPayloadEnvelope(blockRoot)

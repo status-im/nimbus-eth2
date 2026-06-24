@@ -64,12 +64,12 @@ type
     # TODO this belongs somewhere else, ie sync committee pool
     onSyncCommitteeMessage*: proc(slot: Slot) {.gcsafe, raises: [].}
 
-  SomeSidecarsToRoute = seq[BlobSidecar] | fulu.DataColumnSidecars |
-    gloas.DataColumnSidecars
+  SomeSidecarsToRoute =
+    seq[BlobSidecar] |
+    fulu.DataColumnSidecars
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
-    Opt[gloas.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -723,11 +723,11 @@ proc routeExecutionPayloadEnvelope*(
       envelope = shortLog(signedEnvelope.message)
 
   # Publish sidecars
-  discard await publishSidecars(router, signedBlock, sidecarsOpt)
+  let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
 
   # Add envelope and sidecars to DAG
   (await router[].blockProcessor.addPayload(
-      signedBlock, signedEnvelope)).isOkOr:
+      signedBlock, signedEnvelope, finalSidecars)).isOkOr:
     return err("Proposed envelope failed to add to the chain")
 
   ok()

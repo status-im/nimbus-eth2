@@ -263,9 +263,6 @@ proc storeBackfillBlock(
 
   when consensusFork == ConsensusFork.Fulu:
     ?verifySidecars(signedBlock, sidecarsOpt)
-  elif (consensusFork == ConsensusFork.Gloas) and
-    (sidecarsOpt is not NoSidecars):
-    ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -457,12 +454,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
 
     withBlck(quarantined):
       when consensusFork >= ConsensusFork.Gloas:
-        let sidecarsOpt =
-          if len(forkyBlck.message.body.signed_execution_payload_bid.
-                 message.blob_kzg_commitments) == 0:
-            Opt.some(default(gloas.DataColumnSidecars))
-          else:
-            self.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
+        const sidecarsOpt = noSidecars
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
@@ -485,18 +477,6 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
               blck = shortLog(forkyBlck), error = error.msg
             continue
 
-          discard quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck)
-          continue
-      elif consensusFork == ConsensusFork.Gloas:
-        if not sidecarsOpt.isSome():
-          dag.verifyBlockProposer(
-            parent, forkyBlck.message.slot, forkyBlck.message.proposer_index,
-            forkyBlck.root, forkyBlck.signature,
-            quarantine[].latest_sidecar_signatures
-          ).isOkOr:
-            warn "Failed to verify signature of unorphaned blobless block",
-              blck = shortLog(forkyBlck), error = error.msg
-            continue
           discard quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck)
           continue
 
@@ -612,17 +592,8 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
     var sidecarsOk = true
 
     let sidecarsOpt =
-      when consensusFork > ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Gloas:
         noSidecars
-      elif consensusFork == ConsensusFork.Gloas:
-        var data_column_sidecars: gloas.DataColumnSidecars
-        for i in self.gloasColumnQuarantine[].custodyColumns:
-          let data_column = gloas.DataColumnSidecar.new()
-          if not dag.db.getDataColumnSidecar(root, i, data_column[]):
-            sidecarsOk = false # Pruned, or inconsistent DB
-            break
-          data_column_sidecars.add data_column
-        Opt.some data_column_sidecars
       elif consensusFork == ConsensusFork.Fulu:
         var data_column_sidecars: fulu.DataColumnSidecars
         for i in self.fuluColumnQuarantine[].custodyColumns:
@@ -739,19 +710,6 @@ proc storeBlock(
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
       blockRoot = shortLog(signedBlock.root)
-  elif (consensusFork == ConsensusFork.Gloas) and
-       (sidecarsOpt is not NoSidecars):
-    let pendingVerify =
-      self.gloasColumnQuarantine[].popPendingVerify(signedBlock.root)
-    if not pendingVerify.empty:
-      sidecarsOpt.isErrOr:
-        let toVerify = value.filterIt(it[].index in pendingVerify)
-        if toVerify.len > 0:
-          ?verifySidecars(signedBlock, Opt.some(toVerify))
-    debug "block_processor verifySidecars completed",
-      verifySidecarsDur = Moment.now() - newPayloadTick,
-      blck = shortLog(signedBlock.message),
-      blockRoot = shortLog(signedBlock.root)
 
   let blck =
     ?dag.addHeadBlockWithParent(
@@ -779,7 +737,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Gloas:
+  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
     self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
@@ -955,9 +913,7 @@ proc addBlock*(
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
         # In Gloas, block is enqueued with NoSidecar so we need not to care
         # about quarantine.
-        if sidecarsOpt.isSome:
-          self.gloasColumnQuarantine[].put(
-            blockRoot, sidecarsOpt.get, verified = false)
+        discard
       elif sidecarsOpt is NoSidecars | Opt[BlobSidecars]:
         discard
       else:
@@ -993,15 +949,21 @@ proc storeBackfillPayload(
     self: var BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Result[void, VerifierError] =
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
+
+  ?verifySidecars(signedBlock, sidecarsOpt)
   ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
+
+  self.storeSidecars(sidecarsOpt)
   ok()
 
 proc storePayload(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   let
     dag = self.consensusManager.dag
@@ -1024,6 +986,8 @@ proc storePayload(
   # validate it by the clearance state transition.
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
+
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")
@@ -1056,6 +1020,7 @@ proc storePayload(
     slot = signedBlock.message.slot
 
   # Store sidecars into db.
+  self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
 
   ok(blck)
@@ -1064,11 +1029,12 @@ proc addPayload*(
     self: ref BlockProcessor,
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-    return self[].storeBackfillPayload(signedBlock, signedEnvelope)
+    return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
-  let res = await self.storePayload(signedBlock, signedEnvelope)
+  let res = await self.storePayload(signedBlock, signedEnvelope, sidecarsOpt)
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res.get())
@@ -1082,6 +1048,9 @@ proc addPayload*(
       # the next try.
       self.envelopeQuarantine[].addOrphan(
         self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
+      if sidecarsOpt.isSome():
+        self.gloasColumnQuarantine[].put(
+          signedBlock.root, sidecarsOpt.get(), verified = false)
     of VerifierError.Invalid, VerifierError.UnviableFork:
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
@@ -1096,6 +1065,7 @@ proc addPayload*(
     self: ref BlockProcessor,
     signedBlock: heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   debugHezeComment "stub: heze addPayload not yet implemented"
   ok()
@@ -1110,8 +1080,22 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
       # We have not received the envelope yet so mark it as missing.
       self.envelopeQuarantine[].addMissing(blck.root)
       return
+    sidecarsOpt =
+      block:
+        let sidecarsOpt =
+          if bid.message.blob_kzg_commitments.len() == 0:
+            Opt.some(default(gloas.DataColumnSidecars))
+          else:
+            self.gloasColumnQuarantine[].popSidecars(blck.root)
+        if sidecarsOpt.isNone():
+          # As sidecars are missing, put envelope back to quarantine.
+          self.consensusManager.quarantine[].addSidecarless(blck)
+          self.envelopeQuarantine[].addOrphan(
+            self.consensusManager.dag.finalizedHead.slot, envelope)
+          return
+        sidecarsOpt
 
-  discard self.addPayload(blck, envelope)
+  discard self.addPayload(blck, envelope, sidecarsOpt)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock) =
   debugHezeComment "stub: heze enqueuePayload not yet implemented"
