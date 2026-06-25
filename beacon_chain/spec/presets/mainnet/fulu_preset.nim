@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Fulu
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0/presets/mainnet/fulu.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/fulu.yaml
 const
   # Networking
   # ---------------------------------------------------------------

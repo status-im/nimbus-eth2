@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/presets/mainnet/phase0.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/phase0.yaml
 const
   # Misc
   # ---------------------------------------------------------------
