@@ -265,7 +265,7 @@ proc attemptGetBlobs*(
         custodyMap = self.validatorCustody.getMap()
         batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-      await self.redistributeColumns(batch)
+      asyncSpawn self.redistributeColumns(batch)
 
       if batch.len == 0:
         return
@@ -333,7 +333,7 @@ proc attemptGetBlobs*(
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-  await self.redistributeColumns(batch)
+  asyncSpawn self.redistributeColumns(batch)
 
   if batch.len == 0:
     return
@@ -404,7 +404,7 @@ proc attemptGetBlobsFromColumn*(
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-  await self.redistributeColumns(
+  asyncSpawn self.redistributeColumns(
     batch, skipIndex = Opt.some(sidecar[].index))
 
   if batch.len == 0:
