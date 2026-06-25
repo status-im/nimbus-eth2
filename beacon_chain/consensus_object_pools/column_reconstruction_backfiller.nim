@@ -366,13 +366,20 @@ proc step(
 
   self.reconcileHead(head, self.dag.head.root, finalized)
 
-  # Follow the advancing retention floor: pruned slots can be neither served nor
-  # reconstructed, so drop run/frontier that fall behind it.
-  if self.runBottom != FAR_FUTURE_SLOT and self.runBottom < retentionStart:
+  # Follow the advancing retention floor
+  if self.runBottom < retentionStart:
     self.runBottom = retentionStart
-  if self.frontier != FAR_FUTURE_SLOT and self.frontier < retentionStart:
+  if self.frontier < retentionStart:
     self.frontier = FAR_FUTURE_SLOT
     self.frontierBlocked = false  # the blocked slot aged out of retention
+
+  # Step the frontier to the slot just below `anchor`, or retire it
+  # (`FAR_FUTURE_SLOT`) when that next slot would fall on/under the retention
+  # floor — there's nothing older left worth reconstructing.
+  template descendFrontierBelow(anchor: Slot) =
+    self.frontier =
+      if anchor <= retentionStart: FAR_FUTURE_SLOT
+      else: anchor - 1
 
   # Refresh the advertisement before awaiting work, so a reorg that just broke
   # the trail retracts now rather than over-claiming across the refill.
@@ -386,9 +393,7 @@ proc step(
   if self.runTop != FAR_FUTURE_SLOT and self.runBottom != FAR_FUTURE_SLOT and
       self.frontier >= self.runBottom and self.frontier <= self.runTop:
     self.runTop = head
-    self.frontier =
-      if self.runBottom <= retentionStart: FAR_FUTURE_SLOT
-      else: self.runBottom - 1
+    descendFrontierBelow(self.runBottom)
     if self.frontier == FAR_FUTURE_SLOT:
       self.updateEarliestAvailableSlot()
       return false
@@ -409,9 +414,7 @@ proc step(
     else:
       # extend the run into history
       self.runBottom = self.frontier
-    self.frontier =
-      if self.frontier <= retentionStart: FAR_FUTURE_SLOT
-      else: self.frontier - 1
+    descendFrontierBelow(self.frontier)
 
   self.updateEarliestAvailableSlot()
   state == SlotRecon.Servable
