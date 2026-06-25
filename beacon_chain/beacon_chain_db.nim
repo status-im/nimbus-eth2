@@ -209,8 +209,6 @@ type
       ## for future deposits, beyond the `finalized` branch from EIP-4881.
       ## Those extra hashes may be set to ZERO_HASH when importing from a
       ## compressed EIP-4881 `DepositTreeSnapshot`.
-    kHeadBlocks
-      ## List of pointers to all head blocks in the fork choice. v26.7.0+
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -1092,10 +1090,6 @@ proc delStateDiff*(db: BeaconChainDB, root: Eth2Digest) =
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kHeadBlock), key)
 
-proc putHeadBlocks*(db: BeaconChainDB, keys: seq[Eth2Digest]) =
-  doAssert keys.len > 0
-  db.keyValues.putSSZ(subkey(kHeadBlocks), keys)
-
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kTailBlock), key)
 
@@ -1407,10 +1401,6 @@ proc getHeadBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
 proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kHeadBlock), Eth2Digest) or
     db.v0.getHeadBlock()
-
-proc getHeadBlocks*(db: BeaconChainDB): seq[Eth2Digest] =
-  if db.keyValues.getSSZ(subkey(kHeadBlocks), result) != GetResult.found:
-    result.reset()
 
 proc getTailBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(kTailBlock), Eth2Digest)
