@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/mainnet/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/deneb.yaml
 const
   # Execution
   # ---------------------------------------------------------------

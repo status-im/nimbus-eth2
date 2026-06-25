@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Gnosis preset - Bellatrix
-# https://github.com/gnosischain/specs/blob/5a3b1d21705d3cb79be95fcf9a9a1745faf10050/consensus/preset/gnosis/bellatrix.yaml
+# https://github.com/gnosischain/specs/blob/045d46d6db96a39b4d91485f9783474c13546ac9/consensus/preset/gnosis/bellatrix.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------
