@@ -61,12 +61,11 @@ for preset in mainnet minimal; do
   for nim in beacon_chain/spec/presets/"${preset}"/*_preset.nim; do
     fork="$(basename "${nim}" _preset.nim)"
     yaml="presets/${preset}/${fork}.yaml"
-    url="https://raw.githubusercontent.com/${SPEC_REPO}/v${SPEC_VERSION}/${yaml}"
-    if curl -fsSL "${url}" -o "${tmp}/yaml"; then
+    if curl -fsSL "https://raw.githubusercontent.com/${SPEC_REPO}/v${SPEC_VERSION}/${yaml}" -o "${tmp}/yaml"; then
       compare "${nim}" "# $(capitalize "${preset}") preset - $(capitalize "${fork}")" \
         "# https://github.com/${SPEC_REPO}/blob/v${SPEC_VERSION}/${yaml}"
     else
-      echo "Error: cannot fetch ${url}" >&2
+      echo "Error: cannot fetch ${preset} ${fork}" >&2
       status=1
     fi
   done
