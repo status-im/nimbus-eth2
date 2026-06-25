@@ -29,7 +29,7 @@ pipeline {
     choice(
       name: 'NIX_TARGET',
       description: 'Flake target to build. "auto" derives it from the job name, pick a target to force it.',
-      choices: ['auto', 'beacon_node', 'validator_client']
+      choices: ['auto', 'beacon_node', 'validator_client', 'ncli_db']
     )
   }
 
@@ -65,7 +65,10 @@ pipeline {
 
     stage('Version check') {
       steps { script {
-        sh "${result}/bin/nimbus_${resolveTarget()} --version"
+        def target = resolveTarget()
+        /* ncli/ncli_db ship as bare binaries and only implement --help. */
+        def flag = (target in ['ncli', 'ncli_db']) ? '--help' : '--version'
+        sh "${result}/bin/${binaryName(target)} ${flag}"
       } }
     }
 
@@ -81,6 +84,11 @@ pipeline {
     }
 
     stage('Service check') {
+      when {
+        expression {
+          resolveTarget() in ['beacon_node', 'validator_client']
+        }
+      }
       steps { script {
         sh 'nix run ".#checks.x86_64-linux.beacon-node.driver"'
       } }
@@ -110,5 +118,20 @@ def nixTarget() {
   if (env.BRANCH_NAME) {
     return 'beacon_node'
   }
-  return env.JOB_NAME.toLowerCase().contains('validator-client') ? 'validator_client' : 'beacon_node'
+
+  def job = env.JOB_NAME.toLowerCase()
+  if (job.contains('ncli-db')) {
+    return 'ncli_db'
+  }
+
+  if (job.contains('validator-client')) {
+    return 'validator_client'
+  }
+
+  return 'beacon_node'
+}
+
+def binaryName(target) {
+  /* ncli and ncli_db are unprefixed; node targets are nimbus_<target>. */
+  return (target in ['ncli', 'ncli_db']) ? target : "nimbus_${target}"
 }
