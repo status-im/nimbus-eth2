@@ -131,11 +131,10 @@ proc tick(c: var BackfillCursors, chain: var DummyBeaconChain): bool =
   ## frontier, "reconstruct" it synthetically, fold the outcome back. Returns
   ## false when the cursors are idle (nothing to do).
   c.reconcileHead(chain.head, chain.finalized, chain.headRoot, chain.extension)
-  let target = c.nextFrontier(chain.head, chain.finalized, chain.retentionStart)
-  if target.isNone:
+  let target = c.nextFrontier(chain.head, chain.finalized, chain.retentionStart).valueOr:
     return false
-  chain.probed.add target.get
-  c.recordResult(chain.head, chain.retentionStart, chain.outcome(target.get))
+  chain.probed.add target
+  c.recordResult(chain.head, chain.retentionStart, chain.outcome(target))
   true
 
 proc runToIdle(c: var BackfillCursors, chain: var DummyBeaconChain) =
