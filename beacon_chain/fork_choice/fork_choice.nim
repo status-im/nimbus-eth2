@@ -212,11 +212,11 @@ proc update_confirmed(
     else:
       trace "Updating 'safe' block",
         previousSafe = prev, currentSafe = curr
-    prev = curr
   if dag.onFastConfirmation != nil:
     if curr != prev or current_slot != self.latest_fcr_event_slot:
       self.latest_fcr_event_slot = current_slot
       dag.onFastConfirmation FastConfirmationInfoObject.init(curr, current_slot)
+  prev = curr
 
 proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
   result.slot = self.proto_array.slot(checkpoint.root).valueOr:
