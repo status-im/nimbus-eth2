@@ -29,14 +29,14 @@ yaml_expected() {  # $1: yaml file, $2: title, $3: spec-reference comment
 }
 
 capitalize() {  # $1: string
-  printf '%s%s' "$(printf %s "${1:0:1}" | tr a-z A-Z)" "${1:1}";
+  printf '%s%s' "$(printf %s "${1:0:1}" | tr '[:lower:]' '[:upper:]')" "${1:1}"
 }
 
 status=0
 compare() {  # $1: nim file, $2: title, $3: spec-reference ($tmp/yaml download)
   nim_to_yaml "$1" > "${tmp}/nim"
   yaml_expected "${tmp}/yaml" "$2" "$3" > "${tmp}/expected"
-  if ! git diff "${tmp}/nim" "${tmp}/expected" >"${tmp}/diff"; then
+  if ! git diff --no-index "${tmp}/nim" "${tmp}/expected" >"${tmp}/diff"; then
     if (( !status )); then
       echo "The following preset files do not match the specs:" >&2
     fi
@@ -44,7 +44,7 @@ compare() {  # $1: nim file, $2: title, $3: spec-reference ($tmp/yaml download)
     echo "================================================================================" >&2
     echo "   $1" >&2
     echo "================================================================================" >&2
-    cat "${tmp}/diff" | tail -n +5 >&2
+    tail -n +5 "${tmp}/diff" >&2
     status=1
   fi
 }
@@ -61,7 +61,7 @@ for preset in mainnet minimal; do
   for nim in beacon_chain/spec/presets/"${preset}"/*_preset.nim; do
     fork="$(basename "${nim}" _preset.nim)"
     yaml="presets/${preset}/${fork}.yaml"
-    if curl -fsSL "https://raw.githubusercontent.com/${SPEC_REPO}/v${SPEC_VERSION}/${yaml}" -o "${tmp}/yaml"; then
+    if curl -fsSL --retry 3 "https://raw.githubusercontent.com/${SPEC_REPO}/v${SPEC_VERSION}/${yaml}" -o "${tmp}/yaml"; then
       compare "${nim}" "# $(capitalize "${preset}") preset - $(capitalize "${fork}")" \
         "# https://github.com/${SPEC_REPO}/blob/v${SPEC_VERSION}/${yaml}"
     else
@@ -72,17 +72,21 @@ for preset in mainnet minimal; do
 done
 
 GNOSIS_REPO="gnosischain/specs"
-GNOSIS_VERSION="$(git ls-remote "https://github.com/${GNOSIS_REPO}.git" refs/heads/master | cut -f1)"
+GNOSIS_VERSION="$(git ls-remote "https://github.com/${GNOSIS_REPO}.git" refs/heads/master | cut -f1 || true)"
+if [[ -z "${GNOSIS_VERSION}" ]]; then
+  echo "Error: could not resolve ${GNOSIS_REPO} master commit" >&2
+  exit 1
+fi
 
 for nim in beacon_chain/spec/presets/gnosis/*_preset.nim; do
   fork="$(basename "${nim}" _preset.nim)"
   yaml="consensus/preset/gnosis/${fork}.yaml"
-  if curl -fsSL "https://raw.githubusercontent.com/${GNOSIS_REPO}/${GNOSIS_VERSION}/${yaml}" -o "${tmp}/yaml" 2>/dev/null; then
+  if curl -fsSL --retry 3 "https://raw.githubusercontent.com/${GNOSIS_REPO}/${GNOSIS_VERSION}/${yaml}" -o "${tmp}/yaml" 2>/dev/null; then
     compare "${nim}" "# Gnosis preset - $(capitalize "${fork}")" \
       "# https://github.com/${GNOSIS_REPO}/blob/${GNOSIS_VERSION}/${yaml}"
   else
     yaml="presets/mainnet/${fork}.yaml"
-    if curl -fsSL "https://raw.githubusercontent.com/${SPEC_REPO}/v${SPEC_VERSION}/${yaml}" -o "${tmp}/yaml"; then
+    if curl -fsSL --retry 3 "https://raw.githubusercontent.com/${SPEC_REPO}/v${SPEC_VERSION}/${yaml}" -o "${tmp}/yaml"; then
       compare "${nim}" \
         "# Mainnet preset - $(capitalize "${fork}") (Gnosis version not available yet; EF mainnet for now)" \
         "# https://github.com/${SPEC_REPO}/blob/v${SPEC_VERSION}/${yaml}"
