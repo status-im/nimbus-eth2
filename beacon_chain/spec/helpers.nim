@@ -474,6 +474,35 @@ func computeRequestsHash*(
 
   requestsHash.to(EthHash32)
 
+# https://eips.ethereum.org/EIPS/eip-7685
+# [Modified in Gloas:EIP8282] also commits to builder deposit/exit requests
+func computeRequestsHash*(
+    requests: gloas.ExecutionRequests): EthHash32 =
+
+  template individualHash(requestType, requestList): Digest =
+    computeDigest:
+      h.update([requestType.byte])
+      for request in requestList:
+        h.update SSZ.encode(request)
+
+  let requestsHash = computeDigest:
+    template mixInRequests(requestType, requestList): untyped =
+      if requestList.len > 0:
+        h.update(individualHash(requestType, requestList).data)
+
+    static:
+      doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+      doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+      doAssert CONSOLIDATION_REQUEST_TYPE < BUILDER_DEPOSIT_REQUEST_TYPE
+      doAssert BUILDER_DEPOSIT_REQUEST_TYPE < BUILDER_EXIT_REQUEST_TYPE
+    mixInRequests(DEPOSIT_REQUEST_TYPE, requests.deposits)
+    mixInRequests(WITHDRAWAL_REQUEST_TYPE, requests.withdrawals)
+    mixInRequests(CONSOLIDATION_REQUEST_TYPE, requests.consolidations)
+    mixInRequests(BUILDER_DEPOSIT_REQUEST_TYPE, requests.builder_deposits)
+    mixInRequests(BUILDER_EXIT_REQUEST_TYPE, requests.builder_exits)
+
+  requestsHash.to(EthHash32)
+
 func toExecutionBlockHeader(
     payload: ForkyExecutionPayload,
     parentRoot: Opt[Eth2Digest],

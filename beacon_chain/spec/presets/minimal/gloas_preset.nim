@@ -20,6 +20,13 @@ const
   # 2**2 (= 4) attestations
   MAX_PAYLOAD_ATTESTATIONS* = 4
 
+  # Execution
+  # ---------------------------------------------------------------
+  # 2**8 (= 256) builder deposit requests
+  MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD* = 256
+  # 2**4 (= 16) builder exit requests
+  MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD* = 16
+
   # State list lengths
   # ---------------------------------------------------------------
   # 2**40 (= 1,099,511,627,776) builder spots

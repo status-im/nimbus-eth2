@@ -283,8 +283,8 @@ cli do(validatorsDir: string, secretsDir: string,
               syncAggregate,
               payload,
               {},
-              default(ExecutionRequests),
-              default(gloas.SignedExecutionPayloadBid),
+              default(consensusFork.ExecutionRequests),
+              default(SignedExecutionPayloadBid),
               newSeq[PayloadAttestation]() ).expect("block")
 
           blockRoot = message.hash_tree_root()

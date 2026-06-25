@@ -473,7 +473,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 consensusFork, state[].forky(consensusFork), cache[],
                 proposer, qrandao, qgraffiti, qhead, qslot,
                 engineBid.eps, engineBid.execution_requests,
-                default(ExecutionRequests), {})).valueOr:
+                default(consensusFork.ExecutionRequests), {})).valueOr:
               return RestApiResponse.jsonError(
                 Http500, "Engine block production failed: " & error)
           blockContents = electra.BlockContents(

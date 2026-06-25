@@ -595,7 +595,7 @@ proc initFullNode(
       node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 
   let
-    dataColumnQuarantine = newClone(ColumnQuarantine.init(
+    fuluColumnQuarantine = newClone(FuluColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded, onFuluColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
@@ -603,7 +603,7 @@ proc initFullNode(
       onColumnSidecarAdded))
     partialColumnQuarantine = newClone(FuluPartialColumnQuarantine.init())
 
-  validatorCustody.setQuarantine(dataColumnQuarantine)
+  validatorCustody.setQuarantine(fuluColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
 
   let
@@ -616,7 +616,7 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       batchVerifier, consensusManager, node.validatorMonitor,
-      dataColumnQuarantine, gloasColumnQuarantine,
+      fuluColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
@@ -624,10 +624,7 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Heze:
           # TODO document why there are no columns here
-          when consensusFork == ConsensusFork.Heze:
-            # Disable sidecars processing at block time.
-            const sidecarsOpt = noSidecars
-          elif consensusFork == ConsensusFork.Gloas:
+          when consensusFork >= ConsensusFork.Gloas:
             # Disable sidecars processing at block time.
             const sidecarsOpt = noSidecars
           else:
@@ -657,7 +654,7 @@ proc initFullNode(
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
               Opt.some(default(fulu.DataColumnSidecars))
             else:
-              dataColumnQuarantine[].popSidecars(forkyBlck.root)
+              fuluColumnQuarantine[].popSidecars(forkyBlck.root)
           if sidecarsOpt.isNone():
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
@@ -756,7 +753,7 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, dataColumnQuarantine, gloasColumnQuarantine,
+      quarantine, fuluColumnQuarantine, gloasColumnQuarantine,
       envelopeQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
@@ -801,7 +798,7 @@ proc initFullNode(
       dag.cfg.DENEB_FORK_EPOCH, getBeaconTime,
       (proc(): bool = syncManager.inProgress),
       quarantine, envelopeQuarantine,
-      dataColumnQuarantine, gloasColumnQuarantine, rmanBlockVerifier,
+      fuluColumnQuarantine, gloasColumnQuarantine, rmanBlockVerifier,
       rmanBlockLoader, rmanEnvelopeVerifier, rmanEnvelopeLoader,
       rmanDataColumnLoader, rmanGloasDataColumnLoader)
 
@@ -852,7 +849,7 @@ proc initFullNode(
   node.dag = dag
   node.dag.eaSlot = eaSlot
   node.list = clist
-  node.dataColumnQuarantine = dataColumnQuarantine
+  node.fuluColumnQuarantine = fuluColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
@@ -883,7 +880,7 @@ proc initFullNode(
   node.getBlobsService = GetBlobsServiceRef.new(node.eventBus.blockGossipPeerQueue,
                                                 node.eventBus.columnSidecarFullQueue,
                                                 node.blockProcessor,
-                                                node.dataColumnQuarantine,
+                                                node.fuluColumnQuarantine,
                                                 gloasColumnQuarantine,
                                                 partialColumnQuarantine,
                                                 config.partialColumns,
@@ -1411,13 +1408,15 @@ proc addCapellaMessageHandlers(
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addCapellaMessageHandlers(forkDigest, slot)
-  debugGloasComment "default gossipsub config"
   node.network.subscribe(
-    getExecutionPayloadBidTopic(forkDigest), basicParams())
+    getExecutionPayloadBidTopic(forkDigest),
+    getExecutionPayloadBidTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getPayloadAttestationMessageTopic(forkDigest), basicParams())
+    getPayloadAttestationMessageTopic(forkDigest),
+    getPayloadAttestationTopicParams(node.dag.timeParams))
   node.network.subscribe(
-    getProposerPreferencesTopic(forkDigest), basicParams())
+    getProposerPreferencesTopic(forkDigest),
+    getProposerPreferencesTopicParams(node.dag.timeParams))
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -1515,82 +1514,22 @@ proc maybeUpdateActionTrackerNextEpoch(
   let nextEpoch = currentSlot.epoch + 1
   if node.consensusManager[].actionTracker.needsUpdate(
       forkyState, nextEpoch):
-    template epochRefFallback() =
+    when typeof(forkyState).kind < ConsensusFork.Fulu:
       let epochRef =
         node.dag.getEpochRef(node.dag.head, nextEpoch, false).expect(
           "Getting head EpochRef should never fail")
       node.consensusManager[].actionTracker.updateActions(
         epochRef.shufflingRef, epochRef.beacon_proposers)
-
-    when forkyState is phase0.HashedBeaconState:
-      # The previous_epoch_participation-based logic requires Altair or newer
-      epochRefFallback()
     else:
       let
         shufflingRef = node.dag.getShufflingRef(node.dag.head, nextEpoch, false).valueOr:
-          # epochRefFallback() won't work in this case either
           return
-        # using the separate method of proposer indices calculation in Fulu
         nextEpochProposers = get_beacon_proposer_indices(
           forkyState.data, shufflingRef.shuffled_active_validator_indices,
           nextEpoch)
-        nextEpochFirstProposer = nextEpochProposers[0].valueOr:
-          # All proposers except the first can be more straightforwardly and
-          # efficiently (re)computed correctly once in that epoch.
-          epochRefFallback()
-          return
 
-      # Has to account for potential epoch transition TIMELY_SOURCE_FLAG_INDEX,
-      # TIMELY_TARGET_FLAG_INDEX, and inactivity penalties, resulting from spec
-      # functions get_flag_index_deltas() and get_inactivity_penalty_deltas().
-      #
-      # There are no penalties associated with TIMELY_HEAD_FLAG_INDEX, but a
-      # reward exists. effective_balance == MAX_EFFECTIVE_BALANCE.Gwei ensures
-      # if even so, then the effective balance cannot change as a result.
-      #
-      # It's not truly necessary to avoid all rewards and penalties, but only
-      # to bound them to ensure they won't unexpected alter effective balance
-      # during the upcoming epoch transition.
-      #
-      # During genesis epoch, the check for epoch participation is against
-      # current, not previous, epoch, and therefore there's a possibility of
-      # checking for if a validator has participated in an epoch before it will
-      # happen.
-      #
-      # Because process_rewards_and_penalties() in epoch processing happens
-      # before the current/previous participation swap, previous is correct
-      # even here, and consistent with what the epoch transition uses.
-      #
-      # Whilst slashing, proposal, and sync committee rewards and penalties do
-      # update the balances as they occur, they don't update effective_balance
-      # until the end of epoch, so detect via effective_balance_might_update.
-      #
-      # On EF mainnet epoch 233906, this matches 99.5% of active validators;
-      # with Holesky epoch 2041, 83% of active validators.
-      let
-        participation_flags =
-          forkyState.data.previous_epoch_participation[nextEpochFirstProposer]
-        effective_balance =
-          forkyState.data.validators[nextEpochFirstProposer].effective_balance
-
-      # Maximal potential accuracy primarily useful during the last slot of
-      # each epoch to prepare for a possible proposal the first slot of the
-      # next epoch. Otherwise, epochRefFallback is potentially very slow as
-      # it can induce a lengthy state replay.
-      if (not (currentSlot + 1).is_epoch) or
-         (participation_flags.has_flag(TIMELY_SOURCE_FLAG_INDEX) and
-          participation_flags.has_flag(TIMELY_TARGET_FLAG_INDEX) and
-          effective_balance == MAX_EFFECTIVE_BALANCE.Gwei and
-          forkyState.data.slot.epoch != GENESIS_EPOCH and
-          forkyState.data.inactivity_scores.item(
-            nextEpochFirstProposer) == 0 and
-          not effective_balance_might_update(
-            forkyState.data.balances.item(nextEpochFirstProposer),
-            effective_balance)):
-        node.consensusManager[].actionTracker.updateActions(
-          shufflingRef, nextEpochProposers)
-      else:
-        epochRefFallback()
+      node.consensusManager[].actionTracker.updateActions(
+        shufflingRef, nextEpochProposers)
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating

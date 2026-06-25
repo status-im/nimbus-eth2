@@ -17,7 +17,7 @@ import
   std/[os, tables],
 
   # Nimble packages
-  stew/byteutils,
+  stew/[assign2, byteutils],
   chronos,
   metrics,
   chronicles,
@@ -48,7 +48,7 @@ from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
 from ../consensus_object_pools/execution_payload_pool import
-  getHighestBidForSlotAndParent, payloadAvailability
+  getHighestBidForProposalState, payloadAvailability
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -264,8 +264,8 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
         return
 
       let
-        finalized_slot =
-          forkyFinalityUpdate.finalized_header.beacon.slot
+        attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
+        finalized_slot = forkyFinalityUpdate.finalized_header.beacon.slot
         has_supermajority =
           hasSupermajoritySyncParticipation(num_active_participants.uint64)
         newFinality =
@@ -277,37 +277,52 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
             false
           else:
             has_supermajority
-      if newFinality:
-        template msg(): auto = forkyFinalityUpdate
-        let sendResult =
-          await node.network.broadcastLightClientFinalityUpdate(msg)
-
-        # Optimization for message with ephemeral validity, whether sent or not
-        pool.latestForwardedFinalitySlot = finalized_slot
-        pool.latestForwardedFinalityHasSupermajority = has_supermajority
-
-        if sendResult.isOk:
-          beacon_light_client_finality_updates_sent.inc()
-          notice "LC finality update sent", message = shortLog(msg)
-        else:
-          warn "LC finality update failed to send",
-            error = sendResult.error()
-
-      let attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
-      if attested_slot > pool.latestForwardedOptimisticSlot:
-        let msg = forkyFinalityUpdate.toOptimistic
-        let sendResult =
-          await node.network.broadcastLightClientOptimisticUpdate(msg)
-
-        # Optimization for message with ephemeral validity, whether sent or not
-        pool.latestForwardedOptimisticSlot = attested_slot
-
-        if sendResult.isOk:
-          beacon_light_client_optimistic_updates_sent.inc()
-          notice "LC optimistic update sent", message = shortLog(msg)
-        else:
-          warn "LC optimistic update failed to send",
-            error = sendResult.error()
+      var
+        sentFinUpdate {.noinit.}: lcDataFork.LightClientFinalityUpdate
+        sentOptUpdate {.noinit.}: lcDataFork.LightClientOptimisticUpdate
+      let
+        sendFinalityUpdateFut =
+          if newFinality:
+            sentFinUpdate.assign(forkyFinalityUpdate)
+            pool.latestForwardedFinalitySlot = finalized_slot
+            pool.latestForwardedFinalityHasSupermajority = has_supermajority
+            node.network.broadcastLightClientFinalityUpdate(sentFinUpdate)
+          else:
+            nil
+        sendOptimisticUpdateFut =
+          if attested_slot > pool.latestForwardedOptimisticSlot:
+            sentOptUpdate.assign(forkyFinalityUpdate.toOptimistic)
+            pool.latestForwardedOptimisticSlot = attested_slot
+            node.network.broadcastLightClientOptimisticUpdate(sentOptUpdate)
+          else:
+            nil
+      try:
+        if sendFinalityUpdateFut != nil:
+          let sendResult = await sendFinalityUpdateFut
+          if sendResult.isOk:
+            beacon_light_client_finality_updates_sent.inc()
+            notice "LC finality update sent",
+              message = shortLog(sentFinUpdate)
+          else:
+            warn "LC finality update failed to send",
+              error = sendResult.error()
+        if sendOptimisticUpdateFut != nil:
+          let sendResult = await sendOptimisticUpdateFut
+          if sendResult.isOk:
+            beacon_light_client_optimistic_updates_sent.inc()
+            notice "LC optimistic update sent",
+              message = shortLog(sentOptUpdate)
+          else:
+            warn "LC optimistic update failed to send",
+              error = sendResult.error()
+      except CancelledError as exc:
+        var futs = newSeqOfCap[Future[void].Raising([])](2)
+        if sendFinalityUpdateFut != nil:
+          futs.add sendFinalityUpdateFut.cancelAndWait()
+        if sendOptimisticUpdateFut != nil:
+          futs.add sendOptimisticUpdateFut.cancelAndWait()
+        await noCancel allFutures(futs)
+        raise exc
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
@@ -430,7 +445,7 @@ proc proposeBlockAux(
               # For parent in pre-Gloas, we should extend the payload with empty
               # execution requests.
               else:
-                default(ExecutionRequests)
+                default(gloas.ExecutionRequests)
 
           apply_parent_execution_payload(
             node.dag.cfg,
@@ -445,9 +460,9 @@ proc proposeBlockAux(
           parentExecutionRequests
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          default(ExecutionRequests)
+          default(gloas.ExecutionRequests)
       else:
-        default(ExecutionRequests)
+        default(electra.ExecutionRequests)
 
     engineBid =
       when fork == ConsensusFork.Heze:
@@ -592,8 +607,8 @@ proc proposeBlockAux(
       payloadAvailability = node.dag.payloadAvailability(head, executionHead)
       poolBid =
         if payloadAvailability.isSome:
-          node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
-            slot, head.root, payloadAvailability.unsafeGet)
+          node.executionPayloadBidPool[].getHighestBidForProposalState(
+            state[].forky(fork).data, payloadAvailability.unsafeGet)
         else:
           Opt.none gloas.SignedExecutionPayloadBid
       localBlockValueBoost =
@@ -1000,7 +1015,7 @@ proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
       if forkyBlck.message.body.signed_execution_payload_bid.message
           .blob_kzg_commitments.len() == 0:
         return true
-      for columnIdx in node.dataColumnQuarantine.custodyColumns:
+      for columnIdx in node.fuluColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
             consensusFork, blck.root, columnIdx):
           return false
@@ -1118,8 +1133,9 @@ proc sendProposerPreferences(
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#broadcasting-signedproposerpreferences
           let dependent_root =
-            forkyState.dependent_root(proposal_slot.epoch)
+            forkyState.get_proposer_dependent_root(proposal_slot.epoch)
           let data = ProposerPreferences(
             dependent_root: dependent_root,
             validator_index: validator_index.uint64,
@@ -1276,7 +1292,7 @@ proc getValidatorRegistration(
   if validator.index.isNone:
     # The validator index will be missing when the validator was not
     # activated for duties yet. We can safely skip the registration then.
-    return
+    return err("Validator not yet activated")
 
   let
     feeRecipient = node.getFeeRecipient(validator.pubkey, validator.index, epoch)
@@ -1299,6 +1315,16 @@ proc getValidatorRegistration(
     )
 
   ok validatorRegistration
+
+proc isConsistent(
+    node: BeaconNode,
+    validatorRegistration: SignedValidatorRegistrationV1,
+    validator: AttachedValidator,
+    epoch: Epoch): bool =
+  validatorRegistration.message.fee_recipient ==
+    node.getFeeRecipient(validator.pubkey, validator.index, epoch) and
+  validatorRegistration.message.gas_limit ==
+    node.getGasLimit(validator.pubkey)
 
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
@@ -1397,22 +1423,18 @@ proc registerValidatorsPerBuilder(
       addValidatorRegistration validator.externalBuilderRegistration.get
     else:
       let validatorRegistration =
-        await node.getValidatorRegistration(validator, epoch)
-      if validatorRegistration.isErr:
-        error "registerValidators: validatorRegistration failed",
-                validatorRegistration
+          (await node.getValidatorRegistration(validator, epoch)).valueOr:
+        error "registerValidators: validatorRegistration failed", reason = error
         continue
 
-      # Time passed during await; REST keymanager API might have removed it
-      if key notin node.attachedValidators[].validators:
+      # Time passed during await; REST keymanager API might change / remove it
+      node.attachedValidators[].validators.withValue(key, validator):
+        if not node.isConsistent(validatorRegistration, validator[], epoch):
+          continue
+        validator[].externalBuilderRegistration.ok validatorRegistration
+        addValidatorRegistration validatorRegistration
+      do:
         continue
-      let validator = try:
-        node.attachedValidators[].validators[key]
-      except KeyError:
-        raiseAssert "just checked"
-
-      validator.externalBuilderRegistration = Opt.some validatorRegistration.get
-      addValidatorRegistration validatorRegistration.get
 
   if validatorRegistrations == emptyNestedSeq:
     return

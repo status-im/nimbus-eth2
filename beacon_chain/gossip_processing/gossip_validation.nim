@@ -450,7 +450,7 @@ template validateBeaconBlockGloas(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref ColumnQuarantine,
+    fuluColumnQuarantine: ref FuluColumnQuarantine,
     data_column_sidecar: ref fulu.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
@@ -487,7 +487,7 @@ proc validateDataColumnSidecar*(
   # (block_header.slot, block_header.proposer_index, data_column_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
-  if dataColumnQuarantine[].hasSidecar(
+  if fuluColumnQuarantine[].hasSidecar(
       block_root, block_header.slot, block_header.proposer_index,
       data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
@@ -568,7 +568,7 @@ proc validateDataColumnSidecar*(
 
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
-    dataColumnQuarantine[].onDataColumnSidecarCallback()
+    fuluColumnQuarantine[].onDataColumnSidecarCallback()
 
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
@@ -581,7 +581,7 @@ proc validateDataColumnSidecar*(
   # getBlobs service can derive header/commitments/inclusion proof when the
   # block has not yet been seen via gossip.
   let onFuluColumnAddedCallback =
-    dataColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
+    fuluColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
   if not(isNil(onFuluColumnAddedCallback)):
     onFuluColumnAddedCallback newClone(data_column_sidecar)
 
@@ -1840,12 +1840,12 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     seenProposerPreferences:
-      var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
+      var array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]],
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[PayloadAvailability, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
@@ -1902,15 +1902,16 @@ proc validateExecutionPayloadBid*(
         return errIgnore(
           "ExecutionPayloadBid: insufficient builder balance")
 
-      let seenPref = block:
-        let
-          seenBucket = uint64(bid.slot.epoch()) mod 2
-          seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
-        try:
-          seenProposerPreferences[seenBucket][seenKey].valueOr:
-            return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
-        except KeyError:
-          return dag.checkedReject("ExecutionPayloadBid: preferences have not seen")
+      let bidDependentRoot = dag.get_dependent_root(parentBlck.bid, bid.slot)
+      let
+        seenBucket = uint64(bid.slot.epoch()) mod 2
+        seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
+      var seenPref: ProposerPreferences
+      seenProposerPreferences[seenBucket][seenKey].withValue(
+          bidDependentRoot, pref):
+        seenPref = pref[]
+      do:
+        return dag.checkedReject("ExecutionPayloadBid: matching preferences not seen")
 
       # [IGNORE]
       # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
@@ -1938,6 +1939,18 @@ proc validateExecutionPayloadBid*(
       # proposer's `SignedProposerPreferences` associated with `bid.slot`.
       if not (bid.fee_recipient == seenPref.fee_recipient):
         return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
+
+      # Extra check to prevent unincludable bids from purging legitimate ones
+      # from the execution payload pool
+      # https://github.com/ethereum/consensus-specs/pull/5360
+      # [REJECT] bid.prev_randao is the correct RANDAO mix -- i.e.
+      # validate that bid.prev_randao ==
+      # get_randao_mix(parent_state, get_current_epoch(parent_state)).
+      let expectedPrevRandao = executionPayloadBidPool[]
+          .getPrevRandao(bid.slot, parentBlck.bid).valueOr:
+        return errIgnore("ExecutionPayloadBid: unknown RANDAO mix")
+      if not (bid.prev_randao == expectedPrevRandao):
+        return errReject("ExecutionPayloadBid: incorrect RANDAO mix")
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
@@ -2045,7 +2058,7 @@ proc validatePayloadAttestationMessage*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
-    seen: var array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]],
+    seen: var array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]],
     signed_preferences: SignedProposerPreferences,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template preferences: untyped = signed_preferences.message
@@ -2094,11 +2107,8 @@ proc validateProposerPreferences*(
   let
     bucket = proposalEpoch.uint64 mod 2
     slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
-  if seen[bucket][slotInEpoch].isSome:
-    let existing = seen[bucket][slotInEpoch].get
-    if existing.dependent_root == preferences.dependent_root and
-        existing.validator_index == preferences.validator_index:
-      return errIgnore("ProposerPreferences: already seen")
+  if preferences.dependent_root in seen[bucket][slotInEpoch]:
+    return errIgnore("ProposerPreferences: already seen")
 
   # [REJECT] signed_proposer_preferences.signature is valid with
   # respect to the validator's public key.
@@ -2111,5 +2121,5 @@ proc validateProposerPreferences*(
       pubkey, signed_preferences.signature):
     return dag.checkedReject("ProposerPreferences: invalid signature")
 
-  seen[bucket][slotInEpoch] = Opt.some(preferences)
+  seen[bucket][slotInEpoch][preferences.dependent_root] = preferences
   ok()

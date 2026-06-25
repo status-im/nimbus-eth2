@@ -89,7 +89,7 @@ type
     dag*: ChainDAGRef
     list*: ChainListRef
     quarantine*: ref Quarantine
-    dataColumnQuarantine*: ref ColumnQuarantine
+    fuluColumnQuarantine*: ref FuluColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
     columnReconstructionBackfiller*: ColumnReconstructionBackfillerRef
     attestationPool*: ref AttestationPool

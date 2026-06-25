@@ -419,6 +419,13 @@ proc doRunTest(
       initialLoad(
         path, db, consensusFork.BeaconState, consensusFork.BeaconBlock)
     steps = loadOps(path, fork)
+
+  # https://github.com/ethereum/consensus-specs/pull/5376 ("Enable FCR tests for
+  # Gloas and Heze") added `@never_bls` to every fast_confirmation test so as of
+  # v1.7.0-alpha.11 these vectors ship blocks with an empty proposer signature.
+  if "fast_confirmation" in path:
+    stores.dag.updateFlags.incl skipBlsValidation
+
   var time = stores.fkChoice.checkpoints.time
   var invalidatedHashes: Table[Eth2Digest, Eth2Digest]
   # Keep the gloas signed blocks around so a later `execution_payload`
@@ -532,6 +539,30 @@ proc runTest(
     "should_override_forkchoice_update__true",
     "basic_is_parent_root",
     "basic_is_head_root",
+
+    # TODO https://github.com/ethereum/consensus-specs/pull/5288
+    "fcr_no_restart_when_gu_block_is_epoch_older",
+    "fcr_previous_epoch_030",
+    "fcr_previous_epoch_031",
+    "fcr_previous_epoch_032",
+    "fcr_previous_epoch_033",
+    "fcr_previous_epoch_034",
+    "fcr_previous_epoch_035",
+    "fcr_previous_epoch_036",
+    "fcr_previous_epoch_037",
+    "fcr_previous_epoch_038",
+    "fcr_previous_epoch_039",
+    "fcr_previous_epoch_040",
+    "fcr_restarts_to_gu_and_confirms_beyond_gu",
+    "fcr_restarts_to_gu_when_all_conditions_met",
+    "fcr_reverts_when_reconfirmation_fails_at_epoch_start_due_to_late_equivocations",
+    "is_one_confirmed_slashing_non_supporters_helps",
+    "is_one_confirmed_slashing_supporters_does_not_hurt",
+    "reconfirmation_passes_with_empty_slots_prior_first_block",
+
+    # TODO Gloas/ePBS: reveals an invalid execution payload envelope and a
+    # child block built as if that parent payload were FULL
+    "on_execution_payload_envelope_invalid_full_child",
   ]
 
   test suiteName & " - " & path.relativeTestPathComponent():

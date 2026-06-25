@@ -125,6 +125,10 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "BeaconState": checkSSZ(gloas.BeaconState, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Builder": checkSSZ(Builder, path, hash)
+          of "BuilderDepositRequest":
+            checkSSZ(gloas.BuilderDepositRequest, path, hash)
+          of "BuilderExitRequest":
+            checkSSZ(gloas.BuilderExitRequest, path, hash)
           of "BuilderPendingPayment": checkSSZ(BuilderPendingPayment, path, hash)
           of "BuilderPendingWithdrawal":
             checkSSZ(BuilderPendingWithdrawal, path, hash)
@@ -146,10 +150,9 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
             checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
-          of "ExecutionPayloadBid":
-            checkSSZ(gloas.ExecutionPayloadBid, path, hash)
+          of "ExecutionPayloadBid": checkSSZ(ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
-            checkSSZ(electra.ExecutionRequests, path, hash)
+            checkSSZ(gloas.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
@@ -197,7 +200,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "SignedExecutionPayloadEnvelope":
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
-            checkSSZ(gloas.SignedExecutionPayloadBid, path, hash)
+            checkSSZ(SignedExecutionPayloadBid, path, hash)
           of "SignedProposerPreferences":
             checkSSZ(SignedProposerPreferences, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)

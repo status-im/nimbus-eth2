@@ -29,7 +29,7 @@ from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/column_quarantine import
-  ColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot,
+  FuluColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot,
   popPendingVerify
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
@@ -111,7 +111,7 @@ type
 
     # Quarantines
     # ----------------------------------------------------------------
-    dataColumnQuarantine*: ref ColumnQuarantine
+    fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
@@ -144,7 +144,7 @@ proc new*(T: type BlockProcessor,
           batchVerifier: ref BatchVerifier,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
-          dataColumnQuarantine: ref ColumnQuarantine,
+          fuluColumnQuarantine: ref FuluColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           getBeaconTime: GetBeaconTimeFn,
@@ -161,7 +161,7 @@ proc new*(T: type BlockProcessor,
     storeLock: newAsyncLock(),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
-    dataColumnQuarantine: dataColumnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
@@ -474,7 +474,7 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
             Opt.some(default(fulu.DataColumnSidecars))
           else:
-            self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+            self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
       elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
         const sidecarsOpt = noSidecars
       else:
@@ -610,7 +610,7 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
         noSidecars
       elif consensusFork == ConsensusFork.Fulu:
         var data_column_sidecars: fulu.DataColumnSidecars
-        for i in self.dataColumnQuarantine[].custodyColumns:
+        for i in self.fuluColumnQuarantine[].custodyColumns:
           let data_column = fulu.DataColumnSidecar.new()
           if not dag.db.getDataColumnSidecar(root, i, data_column[]):
             sidecarsOk = false # Pruned, or inconsistent DB
@@ -714,7 +714,7 @@ proc storeBlock(
     # Only request manager-sourced columns arrive unverified; getBlobsV2/V3/V4
     # and CL gossip are both either trusted or verified.
     let pendingVerify =
-      self.dataColumnQuarantine[].popPendingVerify(signedBlock.root)
+      self.fuluColumnQuarantine[].popPendingVerify(signedBlock.root)
     if not pendingVerify.empty:
       sidecarsOpt.isErrOr:
         let toVerify = value.filterIt(it[].index in pendingVerify)
@@ -922,7 +922,7 @@ proc addBlock*(
 
       when sidecarsOpt is Opt[fulu.DataColumnSidecars]:
         if sidecarsOpt.isSome:
-          self.dataColumnQuarantine[].put(
+          self.fuluColumnQuarantine[].put(
             blockRoot, sidecarsOpt.get, verified = false)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
         # In Gloas, block is enqueued with NoSidecar so we need not to care

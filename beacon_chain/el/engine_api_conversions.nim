@@ -310,21 +310,42 @@ proc asEngineVersionedHashes*(
   mapIt(blob_kzg_commitments, kzg_commitment_to_versioned_hash(it))
 
 proc asEngineExecutionRequests*(
-    execution_requests: electra.ExecutionRequests
-): seq[seq[byte]] =
-  # https://github.com/ethereum/execution-apis/blob/7c9772f95c2472ccfc6f6128dc2e1b568284a2da/src/engine/prague.md#request
+    execution_requests: electra.ExecutionRequests): seq[seq[byte]] =
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.7/src/engine/prague.md#request
   # "Each list element is a `requests` byte array as defined by
   # EIP-7685. The first byte of each element is the `request_type`
   # and the remaining bytes are the `request_data`. Elements of
   # the list MUST be ordered by `request_type` in ascending order.
   # Elements with empty `request_data` MUST be excluded from the
   # list."
-
   var requests: seq[seq[byte]]
   for request_type, request_data in [
     SSZ.encode(execution_requests.deposits),
     SSZ.encode(execution_requests.withdrawals),
     SSZ.encode(execution_requests.consolidations),
+  ]:
+    if request_data.len > 0:
+      requests.add @[request_type.byte] & request_data
+  requests
+
+# https://eips.ethereum.org/EIPS/eip-7685
+# [Modified in Gloas:EIP8282] also emits builder deposit/exit requests
+proc asEngineExecutionRequests*(
+    execution_requests: gloas.ExecutionRequests): seq[seq[byte]] =
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.7/src/engine/prague.md#request
+  # "Each list element is a `requests` byte array as defined by
+  # EIP-7685. The first byte of each element is the `request_type`
+  # and the remaining bytes are the `request_data`. Elements of
+  # the list MUST be ordered by `request_type` in ascending order.
+  # Elements with empty `request_data` MUST be excluded from the
+  # list."
+  var requests: seq[seq[byte]]
+  for request_type, request_data in [
+    SSZ.encode(execution_requests.deposits),
+    SSZ.encode(execution_requests.withdrawals),
+    SSZ.encode(execution_requests.consolidations),
+    SSZ.encode(execution_requests.builder_deposits),
+    SSZ.encode(execution_requests.builder_exits),
   ]:
     if request_data.len > 0:
       requests.add @[request_type.byte] & request_data

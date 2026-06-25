@@ -52,7 +52,7 @@ type
     curGroupsCount: CgcCount
     curColumnMap: ColumnMap
     totalNodeBalance: Gwei
-    fuluColumnQuarantine: ref ColumnQuarantine
+    fuluColumnQuarantine: ref FuluColumnQuarantine
     gloasColumnQuarantine: ref GloasColumnQuarantine
     state: ValidatorCustodyState
     stabilitySlot: Opt[Slot]
@@ -213,7 +213,7 @@ proc init*(
     state: ValidatorCustodyState.Init
   )
 
-func setQuarantine*(vcus: ValidatorCustodyRef, q: ref ColumnQuarantine) =
+func setQuarantine*(vcus: ValidatorCustodyRef, q: ref FuluColumnQuarantine) =
   vcus.fuluColumnQuarantine = q
 
 func setQuarantine*(vcus: ValidatorCustodyRef, q: ref GloasColumnQuarantine) =

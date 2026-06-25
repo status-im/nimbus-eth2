@@ -442,17 +442,6 @@ func record_block_timeliness(
   isCurrentSlot and self.checkpoints.time <
     blck.slot.attestation_deadline(timeParams, consensusFork)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_dependent_root
-func get_dependent_root(
-    dag: ChainDAGRef, bid: BlockId, current_slot: Slot): Eth2Digest =
-  let epoch = current_slot.epoch
-  if epoch <= MIN_SEED_LOOKAHEAD:
-    return ZERO_HASH
-  # spec's `start_slot(epoch - MIN_SEED_LOOKAHEAD) - 1` == attester_dependent_slot
-  let dependent = dag.atSlot(bid, epoch.attester_dependent_slot).valueOr:
-    return ZERO_HASH
-  dependent.bid.root
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 func update_proposer_boost_root(
     self: var ForkChoice, dag: ChainDAGRef,
