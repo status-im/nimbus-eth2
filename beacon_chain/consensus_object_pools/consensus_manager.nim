@@ -387,19 +387,14 @@ proc prepareNextSlot*(
 
       # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
       if self.onPayloadAttributes != nil:
+        # https://github.com/ethereum/beacon-APIs/pull/621
+        # parent_block_number is removed post-Gloas; the version field
+        # distinguishes the fork variant.
         let parentBlockNumber =
           when consensusFork >= ConsensusFork.Gloas:
-            debugGloasComment "0 when not extending head: parent payload number is not on head"
-            if dag.shouldExtendPayload(head):
-              let envelope = dag.db.getExecutionPayloadEnvelope(head.bid.root)
-              if envelope.isSome:
-                envelope.get.message.payload.block_number
-              else:
-                0'u64
-            else:
-              0'u64
+            Opt.none(uint64)
           else:
-            forkyState.data.latest_execution_payload_header.block_number
+            Opt.some(forkyState.data.latest_execution_payload_header.block_number)
         self.onPayloadAttributes(EventPayloadAttributesObject(
           version: consensusFork.toString(),
           data: PayloadAttributesEventData(

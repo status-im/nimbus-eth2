@@ -402,7 +402,7 @@ type
   PayloadAttributesEventData* = object
     proposer_index*: uint64
     proposal_slot*: Slot
-    parent_block_number*: uint64
+    parent_block_number*: Opt[uint64]
     parent_block_root*: Eth2Digest
     parent_block_hash*: Eth2Digest
     payload_attributes*: RestPayloadAttributes
