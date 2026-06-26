@@ -1788,7 +1788,7 @@ suite "Engine API conversions":
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
         base_fee_per_gas: UInt256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9"),
         block_hash:       Eth2Digest.fromHex("0xc2b2bc39ed0cf5764800d3c91401828ed32d0eea58f9d336c32f9e6f7200ac8d"),
-        transactions:     newSeq[gloas.Transaction](),
+        transactions:     @[gloas.Transaction(@[])],
         withdrawals:      @[
           capella.Withdrawal(index: 802141'u64, validator_index: 7520769587588158114'u64, address: ExecutionAddress.fromHex("0xce1fcedcc47b22d7e38f76c1cba49c2c20da09eb"), amount: 5845756482608800263'u64.Gwei),
           capella.Withdrawal(index: 4169028257817284566'u64, validator_index: 496485'u64, address: ExecutionAddress.fromHex("0xf99805deece4ff418b55557b45060e88035f755a"), amount: 4870783513883486430'u64.Gwei),

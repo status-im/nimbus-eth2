@@ -453,7 +453,7 @@ func computeTransactionsTrieRoot(payload: ForkyExecutionPayload): EthHash32 =
 
 # https://eips.ethereum.org/EIPS/eip-7685
 func computeRequestsHash*(
-    requests: electra.ExecutionRequests | gloas.ExecutionRequests): EthHash32 =
+    requests: electra.ExecutionRequests): EthHash32 =
 
   template individualHash(requestType, requestList): Digest =
     computeDigest:
