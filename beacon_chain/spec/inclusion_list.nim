@@ -60,13 +60,13 @@ func get_inclusion_list_transactions*(
     state: heze.BeaconState,
     slot: Slot,
     cache: var StateCache,
-    only_timely = true): seq[bellatrix.Transaction] =
+    only_timely = true): seq[gloas.Transaction] =
   let
     committee = get_inclusion_list_committee(state, slot, cache)
     key = hash_tree_root(committee)
 
   var
-    transactions: seq[bellatrix.Transaction]
+    transactions: seq[gloas.Transaction]
     seen: HashSet[Eth2Digest]
 
   let equivocators = store.equivocators.getOrDefault(key)
