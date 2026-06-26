@@ -226,16 +226,16 @@ proc installApiHandlers*(node: SigningNodeRef) =
       of Web3SignerRequestKind.AggregateAndProofV2:
         let
           forkInfo = request.forkInfo.get()
-          forked = request.aggregateAndProofV2
           signature =
-            if forked.kind >= ConsensusFork.Gloas:
+            if request.aggregateAndProofV2.kind >= ConsensusFork.Gloas:
               get_aggregate_and_proof_signature(forkInfo.fork,
-                forkInfo.genesis_validators_root, forked.data,
+                forkInfo.genesis_validators_root,
+                request.aggregateAndProofV2.gloasData,
                 validator.data.privateKey).toHex()
             else:
               get_aggregate_and_proof_signature(forkInfo.fork,
                 forkInfo.genesis_validators_root,
-                isomorphicCast[electra.AggregateAndProof](forked.data),
+                request.aggregateAndProofV2.electraData,
                 validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:

@@ -913,12 +913,10 @@ func init*(
     aggregateAndProofV2:
       when data is gloas.AggregateAndProof:
         Web3SignerForkedAggregateAndProof(
-          kind: ConsensusFork.Gloas,
-          data: data)
+          kind: ConsensusFork.Gloas, gloasData: data)
       else:
         Web3SignerForkedAggregateAndProof(
-          kind: ConsensusFork.Electra,
-          data: isomorphicCast[gloas.AggregateAndProof](data))
+          kind: ConsensusFork.Electra, electraData: data)
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,

@@ -742,7 +742,11 @@ proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
       w.writeField("aggregate_and_proof", VersionedData(
         version: value.aggregateAndProofV2.kind,
-        data: JsonString(RestJson.encode(value.aggregateAndProofV2.data))))
+        data:
+          if value.aggregateAndProofV2.kind >= ConsensusFork.Gloas:
+            JsonString(RestJson.encode(value.aggregateAndProofV2.gloasData))
+          else:
+            JsonString(RestJson.encode(value.aggregateAndProofV2.electraData))))
     of Web3SignerRequestKind.Attestation:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
       w.writeField("attestation", value.attestation)
@@ -839,10 +843,19 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
         kind: Web3SignerRequestKind.AggregateAndProofV2,
         forkInfo: expectedForkInfo,
         signingRoot: v.signingRoot,
-        aggregateAndProofV2: Web3SignerForkedAggregateAndProof(
-          kind: versioned.version,
-          data: RestJson.decode(
-            string(versioned.data), gloas.AggregateAndProof)),
+        aggregateAndProofV2: (block: withConsensusFork(versioned.version):
+          when consensusFork >= ConsensusFork.Gloas:
+            Web3SignerForkedAggregateAndProof(
+              kind: consensusFork,
+              gloasData: RestJson.decode(
+                string(versioned.data), gloas.AggregateAndProof))
+          elif consensusFork >= ConsensusFork.Electra:
+            Web3SignerForkedAggregateAndProof(
+              kind: consensusFork,
+              electraData: RestJson.decode(
+                string(versioned.data), electra.AggregateAndProof))
+          else:
+            raiseAssert "Just checked above"),
       )
     of Web3SignerRequestKind.Attestation:
       Web3SignerRequest(

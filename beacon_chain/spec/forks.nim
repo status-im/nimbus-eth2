@@ -245,18 +245,6 @@ type
     of ConsensusFork.Gloas:     gloasData*:     gloas.Attestation
     of ConsensusFork.Heze:      hezeData*:      gloas.Attestation
 
-  ForkedAggregateAndProof* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.AggregateAndProof
-    of ConsensusFork.Altair:    altairData*:    phase0.AggregateAndProof
-    of ConsensusFork.Bellatrix: bellatrixData*: phase0.AggregateAndProof
-    of ConsensusFork.Capella:   capellaData*:   phase0.AggregateAndProof
-    of ConsensusFork.Deneb:     denebData*:     phase0.AggregateAndProof
-    of ConsensusFork.Electra:   electraData*:   electra.AggregateAndProof
-    of ConsensusFork.Fulu:      fuluData*:      electra.AggregateAndProof
-    of ConsensusFork.Gloas:     gloasData*:     gloas.AggregateAndProof
-    of ConsensusFork.Heze:      hezeData*:      gloas.AggregateAndProof
-
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
@@ -298,9 +286,13 @@ type
       ## From Bellatrix onwards, a header is all that's needed
 
   Web3SignerForkedAggregateAndProof* = object
-    kind*: ConsensusFork
-    data*: gloas.AggregateAndProof
-      ## electra.AggregateAndProof is isomorphic
+    case kind*: ConsensusFork
+    of ConsensusFork.Gloas .. ConsensusFork.high:
+      gloasData*: gloas.AggregateAndProof
+    of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      electraData*: electra.AggregateAndProof
+    of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+      discard
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
@@ -1994,35 +1986,6 @@ template init*(
     ForkedAttestation(kind: ConsensusFork.Gloas, gloasData: attestation)
   of ConsensusFork.Heze:
     ForkedAttestation(kind: ConsensusFork.Heze, hezeData: attestation)
-
-template init*(
-    T: type ForkedAggregateAndProof,
-    proof: electra.AggregateAndProof,
-    fork: ConsensusFork): T =
-  case fork
-  of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-    raiseAssert $fork &
-      " fork should not be used for this type of aggregate and proof"
-  of ConsensusFork.Electra:
-    ForkedAggregateAndProof(kind: ConsensusFork.Electra, electraData: proof)
-  of ConsensusFork.Fulu:
-    ForkedAggregateAndProof(kind: ConsensusFork.Fulu, fuluData: proof)
-  of ConsensusFork.Gloas .. ConsensusFork.high:
-    raiseAssert $fork &
-      " fork should not be used for this type of aggregate and proof"
-
-template init*(
-    T: type ForkedAggregateAndProof,
-    proof: gloas.AggregateAndProof,
-    fork: ConsensusFork): T =
-  case fork
-  of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
-    raiseAssert $fork &
-      " fork should not be used for this type of aggregate and proof"
-  of ConsensusFork.Gloas:
-    ForkedAggregateAndProof(kind: ConsensusFork.Gloas, gloasData: proof)
-  of ConsensusFork.Heze:
-    ForkedAggregateAndProof(kind: ConsensusFork.Heze, hezeData: proof)
 
 func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): auto =
   when typeof(eps).kind >= ConsensusFork.Gloas:
