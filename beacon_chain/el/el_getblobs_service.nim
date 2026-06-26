@@ -114,16 +114,14 @@ proc recordEngineGetBlobs(
 
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
-    columns: seq[ref T],
-    skipIndex = Opt.none(ColumnIndex)
+    columns: seq[ref T]
 ) {.async: (raises: [CancelledError]).} =
   ## Publish each column to its respective gossip subnet.
   var workers = newSeqOfCap[Future[SendResult]](columns.len)
   for col in columns:
-    if skipIndex.isSome and col[].index == skipIndex.get():
-      continue
     let subnet = compute_subnet_for_data_column_sidecar(col[].index)
     workers.add self.network.broadcastDataColumnSidecar(subnet, col)
+    await sleepAsync(5.milliseconds)
   let results = await allFinished(workers)
   for r in results:
     doAssert r.finished()
@@ -265,10 +263,11 @@ proc attemptGetBlobs*(
         custodyMap = self.validatorCustody.getMap()
         batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-      asyncSpawn self.redistributeColumns(batch)
-
       if batch.len == 0:
         return
+
+      asyncSpawn self.redistributeColumns(batch.filterIt(
+        not self.fuluColumnQuarantine[].hasSidecar(forkyBlck.root, it[].index)))
 
       # Claim the block now that we are committed to enqueueing it. If it
       # was already removed in the meantime (e.g. gossip delivered sidecars
@@ -333,10 +332,11 @@ proc attemptGetBlobs*(
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-  asyncSpawn self.redistributeColumns(batch)
-
   if batch.len == 0:
     return
+
+  asyncSpawn self.redistributeColumns(batch.filterIt(
+    not self.gloasColumnQuarantine[].hasSidecar(blck.root, it[].index)))
 
   debug "Added data columns from EL blobpool to gloas quarantine",
     root = blck.root,
@@ -404,11 +404,11 @@ proc attemptGetBlobsFromColumn*(
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
 
-  asyncSpawn self.redistributeColumns(
-    batch, skipIndex = Opt.some(sidecar[].index))
-
   if batch.len == 0:
     return
+
+  asyncSpawn self.redistributeColumns(batch.filterIt(
+    not self.fuluColumnQuarantine[].hasSidecar(block_root, it[].index)))
 
   debug "Added data columns from EL blobpool to quarantine (column-first)",
     root = block_root,
