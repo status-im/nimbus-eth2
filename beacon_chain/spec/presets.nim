@@ -49,6 +49,7 @@ type TimeParams* = object
   CONTRIBUTION_DUE_BPS_GLOAS*: uint16
   PAYLOAD_DUE_BPS*: uint16
   PAYLOAD_ATTESTATION_DUE_BPS*: uint16
+  INCLUSION_LIST_DUE_BPS*: uint16
 
 const
   MIN_SLOT_DURATION* = seconds(1)
@@ -81,7 +82,9 @@ func isValid*(timeParams: TimeParams): bool =
   timeParams.CONTRIBUTION_DUE_BPS_GLOAS ==
     timeParams.AGGREGATE_DUE_BPS_GLOAS and
   timeParams.PAYLOAD_ATTESTATION_DUE_BPS in
-    timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS
+    timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS and
+  timeParams.INCLUSION_LIST_DUE_BPS in
+    0'u16 ..< MAX_BPS
 
 type
   Version* = distinct array[4, byte]
@@ -197,6 +200,10 @@ type
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
     BLOB_SCHEDULE*: seq[BlobParameters]
+
+    # Heze
+    MAX_REQUEST_INCLUSION_LIST*: uint64
+    MAX_BYTES_PER_INCLUSION_LIST*: uint64
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD*: uint64
@@ -326,7 +333,9 @@ when const_preset == "mainnet":
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_DUE_BPS: 7500,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      INCLUSION_LIST_DUE_BPS: 6667),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -430,6 +439,12 @@ when const_preset == "mainnet":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
+    # Heze
+    # 2**4 (= 16)
+    MAX_REQUEST_INCLUSION_LIST: 16,
+    # 2**13 (= 8192) bytes
+    MAX_BYTES_PER_INCLUSION_LIST: 8192,
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD: 25,
@@ -537,7 +552,9 @@ elif const_preset == "gnosis":
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_DUE_BPS: 7500,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      INCLUSION_LIST_DUE_BPS: 6667),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 5,
@@ -639,6 +656,12 @@ elif const_preset == "gnosis":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
+    # Heze
+    # 2**4 (= 16)
+    MAX_REQUEST_INCLUSION_LIST: 16,
+    # 2**13 (= 8192) bytes
+    MAX_BYTES_PER_INCLUSION_LIST: 8192,
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD: 25,
@@ -744,7 +767,9 @@ elif const_preset == "minimal":
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_DUE_BPS: 7500,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_ATTESTATION_DUE_BPS: 7500),
+      PAYLOAD_ATTESTATION_DUE_BPS: 7500,
+      # 6667 basis points, ~67% of SLOT_DURATION_MS
+      INCLUSION_LIST_DUE_BPS: 6667),
 
     # 14 (estimate from Eth1 mainnet)
     SECONDS_PER_ETH1_BLOCK: 14,
@@ -849,6 +874,12 @@ elif const_preset == "minimal":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
+    # Heze
+    # 2**4 (= 16)
+    MAX_REQUEST_INCLUSION_LIST: 16,
+    # 2**13 (= 8192) bytes
+    MAX_BYTES_PER_INCLUSION_LIST: 8192,
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD: 25,
@@ -1244,6 +1275,9 @@ proc readRuntimeConfig*(
     checkParsedValue(
       "PAYLOAD_ATTESTATION_DUE_BPS", cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
       cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+    checkParsedValue(
+      "INCLUSION_LIST_DUE_BPS", cfg.timeParams.INCLUSION_LIST_DUE_BPS,
+      0'u16 ..< MAX_BPS, `in`)
   doAssert cfg.timeParams.isValid
 
   # Requires initialized `cfg`

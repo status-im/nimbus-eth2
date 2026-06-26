@@ -562,8 +562,8 @@ func get_beacon_proposer_index*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_beacon_proposer_indices
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/beacon-chain.md#modified-get_beacon_proposer_indices
 func get_beacon_proposer_indices*(
-    state: ForkyBeaconState, epoch: Epoch
-): seq[Opt[ValidatorIndex]] =
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState, epoch: Epoch): seq[Opt[ValidatorIndex]] =
   ## Return the proposer indices for the given `epoch`.
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
 

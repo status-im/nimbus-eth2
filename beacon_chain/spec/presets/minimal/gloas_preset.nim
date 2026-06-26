@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 # Minimal preset - Gloas
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/presets/minimal/gloas.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/minimal/gloas.yaml
 const
   # Misc
   # ---------------------------------------------------------------

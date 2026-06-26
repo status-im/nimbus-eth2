@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Minimal preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/minimal/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/minimal/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------

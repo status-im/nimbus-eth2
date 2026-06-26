@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 # Mainnet preset - Gloas
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/presets/mainnet/gloas.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/gloas.yaml
 const
   # Misc
   # ---------------------------------------------------------------

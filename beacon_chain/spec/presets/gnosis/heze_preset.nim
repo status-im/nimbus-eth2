@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 # Mainnet preset - Heze (Gnosis version not available yet; EF mainnet for now)
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/presets/mainnet/heze.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/heze.yaml
 const
   # Inclusion list committee
   # ---------------------------------------------------------------

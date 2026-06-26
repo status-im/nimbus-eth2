@@ -78,7 +78,7 @@ suite "Block processor" & preset():
       dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
-      dataColumnQuarantine = newClone(ColumnQuarantine())
+      dataColumnQuarantine = newClone(FuluColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
       envelopeQuarantine = newClone(EnvelopeQuarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
@@ -579,7 +579,7 @@ suite "Block processor" & preset():
         state2[].slot.start_beacon_time(cfg.timeParams)
       processor2 = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager2, validatorMonitor2,
-        newClone(ColumnQuarantine()), newClone(GloasColumnQuarantine()),
+        newClone(FuluColumnQuarantine()), newClone(GloasColumnQuarantine()),
         newClone(EnvelopeQuarantine()), getTimeFn2)
 
     # updateState should replay through b1-b3 from
