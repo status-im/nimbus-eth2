@@ -991,15 +991,17 @@ proc validateExecutionPayload*(
 
   # [REJECT] The counts of `execution_requests` are within their respective
   # limits.
-  template execution_requests: untyped = envelope.execution_requests
-  if execution_requests.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("ExecutionPayload: too many deposit requests")
-  if execution_requests.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("ExecutionPayload: too many withdrawal requests")
-  if execution_requests.consolidations.lenu64 >
-      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject(
-      "ExecutionPayload: too many consolidation requests")
+  template reqs: untyped = envelope.execution_requests
+  if reqs.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many deposit reqs")
+  if reqs.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many withdrawal reqs")
+  if reqs.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many consolidation reqs")
+  if reqs.builder_deposits.lenu64 > MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many builder deposit reqs")
+  if reqs.builder_exits.lenu64 > MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many builder exit reqs")
 
   # [REJECT] The number of withdrawals is within the limit.
   if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
