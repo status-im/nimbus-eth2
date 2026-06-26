@@ -1859,6 +1859,12 @@ proc validateExecutionPayloadBid*(
       if not is_active_builder(forkyState.data, bid.builder_index):
         return dag.checkedReject("ExecutionPayloadBid: builder not active")
 
+      # [REJECT] The builder version is PAYLOAD_BUILDER_VERSION -- i.e.
+      # state.builders[bid.builder_index].version == PAYLOAD_BUILDER_VERSION.
+      let builder = forkyState.data.builders.item(bid.builder_index)
+      if not (builder.version == PAYLOAD_BUILDER_VERSION):
+        return dag.checkedReject("ExecutionPayloadBid: wrong builder version")
+
       # [REJECT] bid.execution_payment is zero
       if bid.execution_payment != 0.Gwei:
         return dag.checkedReject(
@@ -1954,15 +1960,12 @@ proc validateExecutionPayloadBid*(
 
       # [REJECT] signed_execution_payload_bid.signature is valid with respect
       # to the bid.builder_index
-      let builderPubkey =
-        forkyState.data.builders.item(bid.builder_index).pubkey
-
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
           dag.genesis_validators_root,
           bid.slot.epoch,
           bid,
-          builderPubkey,
+          builder.pubkey,
           signed_execution_payload_bid.signature):
         return dag.checkedReject(
           "ExecutionPayloadBid: invalid signature")
