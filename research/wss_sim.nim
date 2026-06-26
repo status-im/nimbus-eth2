@@ -29,6 +29,7 @@ from ../beacon_chain/gossip_processing/block_processor import
   newExecutionPayload
 from ../beacon_chain/spec/engine_authentication import loadJwtSecretFile
 from ../beacon_chain/spec/state_transition import makeBeaconBlock, process_slots
+from ../beacon_chain/spec/beaconstate import proposalExecutionHead
 
 func findValidator(validators: seq[Validator], pubkey: ValidatorPubKey):
     Opt[ValidatorIndex] =
@@ -102,7 +103,6 @@ cli do(validatorsDir: string, secretsDir: string,
   # The EL may otherwise refuse to produce new heads
   elManager.start()
   withBlck(blck[]):
-    debugGloasComment ""
     when consensusFork >= ConsensusFork.Bellatrix and
          consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
       if forkyBlck.message.is_execution_block:
@@ -124,6 +124,27 @@ cli do(validatorsDir: string, secretsDir: string,
 
             notice "EL synced", elUrl, jwtSecret
             break
+    elif consensusFork >= ConsensusFork.Gloas:
+      # Post Gloas blocks carry only the `execution payload bid`, not the
+      # payload itself (revealed separately in an envelope that isn't available
+      # here), so it can't be re-inserted via newPayload. Point the EL head at
+      # the committed execution block instead; it must already be present in the
+      # EL (e.g. synced from a matching EL checkpoint).
+      let blockHash =
+        forkyBlck.message.body.signed_execution_payload_bid.message.block_hash
+      if not blockHash.isZero:
+        notice "Syncing EL", elUrl, jwtSecret
+        while true:
+          waitFor noCancel sleepAsync(chronos.seconds(2))
+          let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
+            ForkchoiceStateV1.init(blockHash, blockHash, ZERO_HASH),
+            Opt.none(consensusFork.PayloadAttributes),
+          )
+          if status != PayloadExecutionStatus.valid:
+            continue
+
+          notice "EL synced", elUrl, jwtSecret
+          break
 
   var
     genesisTime = state[].genesis_time
@@ -233,24 +254,34 @@ cli do(validatorsDir: string, secretsDir: string,
           validators.getOrDefault(
             proposer, default(ValidatorPrivKey))).toValidatorSig()
       withState(state[]):
-        debugGloasComment ""
-        when consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
+        when consensusFork in ConsensusFork.Electra .. ConsensusFork.Gloas:
           let
             payload = block:
               let
                 executionHead =
-                  forkyState.data.latest_execution_payload_header.block_hash
+                  when consensusFork >= ConsensusFork.Gloas:
+                    proposalExecutionHead(forkyState.data)
+                  else:
+                    forkyState.data.latest_execution_payload_header.block_hash
                 timestamp = cfg.timeParams.compute_timestamp_at_slot(
                   forkyState.data, forkyState.data.slot
                 )
                 prevRandao =
                   get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
 
-              let attributes = PayloadAttributesV3.init(
-                timestamp, prevRandao, feeRecipient,
-                get_expected_withdrawals(forkyState.data),
-                forkyState.latest_block_root
-              )
+              let attributes =
+                when consensusFork >= ConsensusFork.Gloas:
+                  PayloadAttributesV4.init(
+                    timestamp, prevRandao, feeRecipient,
+                    get_expected_withdrawals(forkyState.data).withdrawals,
+                    forkyState.latest_block_root, forkyState.data.slot,
+                    forkyState.data.latest_execution_payload_bid.gas_limit)
+                else:
+                  PayloadAttributesV3.init(
+                    timestamp, prevRandao, feeRecipient,
+                    get_expected_withdrawals(forkyState.data),
+                    forkyState.latest_block_root
+                  )
 
               var pl: consensusFork.ExecutionPayloadForSigning
               while true:
@@ -265,6 +296,26 @@ cli do(validatorsDir: string, secretsDir: string,
                   continue
                 break
               pl
+            signed_execution_payload_bid =
+              when consensusFork >= ConsensusFork.Gloas:
+                SignedExecutionPayloadBid(
+                  message: ExecutionPayloadBid(
+                    parent_block_hash: payload.executionPayload.parent_hash,
+                    parent_block_root: forkyState.latest_block_root,
+                    block_hash: payload.executionPayload.block_hash,
+                    prev_randao: payload.executionPayload.prev_randao,
+                    fee_recipient: payload.executionPayload.fee_recipient,
+                    gas_limit: payload.executionPayload.gas_limit,
+                    builder_index: BUILDER_INDEX_SELF_BUILD,
+                    slot: forkyState.data.slot,
+                    value: 0.Gwei,
+                    execution_payment: 0.Gwei,
+                    blob_kzg_commitments: payload.kzg_commitments,
+                    execution_requests_root:
+                      hash_tree_root(default(consensusFork.ExecutionRequests))),
+                  signature: ValidatorSig.infinity())
+              else:
+                default(SignedExecutionPayloadBid)
             message = makeBeaconBlock(
               cfg,
               consensusFork,
@@ -284,7 +335,7 @@ cli do(validatorsDir: string, secretsDir: string,
               payload,
               {},
               default(consensusFork.ExecutionRequests),
-              default(SignedExecutionPayloadBid),
+              signed_execution_payload_bid,
               newSeq[PayloadAttestation]() ).expect("block")
 
           blockRoot = message.hash_tree_root()
@@ -308,12 +359,29 @@ cli do(validatorsDir: string, secretsDir: string,
             for blob in blobs:
               dump(".", blob)
 
+          when consensusFork >= ConsensusFork.Gloas:
+            let signedEnvelope = gloas.SignedExecutionPayloadEnvelope(
+              message: gloas.ExecutionPayloadEnvelope(
+                payload: payload.executionPayload,
+                execution_requests: default(consensusFork.ExecutionRequests),
+                builder_index: BUILDER_INDEX_SELF_BUILD,
+                beacon_block_root: blockRoot,
+                parent_beacon_block_root: signedBlock.message.parent_root),
+              signature: ValidatorSig.infinity())
+            dump(".", signedEnvelope)
+
           notice "Block proposed", message, blockRoot
 
           when consensusFork >= ConsensusFork.Bellatrix:
             while true:
-              let status = waitFor noCancel elManager
-                .newExecutionPayload(signedBlock.message)
+              let status =
+                when consensusFork >= ConsensusFork.Gloas:
+                  waitFor noCancel elManager.newExecutionPayload(
+                    signedBlock.message, signedEnvelope.message,
+                    sleepAsync(chronos.seconds(8)), retry = true)
+                else:
+                  waitFor noCancel elManager
+                    .newExecutionPayload(signedBlock.message)
               if status.isNone:
                 waitFor noCancel sleepAsync(chronos.seconds(2))
                 continue
