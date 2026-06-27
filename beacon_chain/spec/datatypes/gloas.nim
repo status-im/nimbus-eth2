@@ -144,7 +144,8 @@ type
     executionRequests*: seq[seq[byte]]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#executionpayloadbid
-  ExecutionPayloadBid* = object
+  ExecutionPayloadBid* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     parent_block_hash*: Eth2Digest
     parent_block_root*: Eth2Digest
     block_hash*: Eth2Digest
@@ -165,14 +166,14 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#executionpayloadenvelope
-  ExecutionPayloadEnvelope* = object
+  ExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
     payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
     beacon_block_root*: Eth2Digest
     parent_beacon_block_root*: Eth2Digest
 
-  TrustedExecutionPayloadEnvelope* = object
+  TrustedExecutionPayloadEnvelope* {.sszActiveFields: [1, 1, 1, 1, 1].} = object
     payload*: ExecutionPayload
     execution_requests*: ExecutionRequests
     builder_index*: uint64
@@ -196,7 +197,7 @@ type
     blob_data_available*: bool
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestation
-  PayloadAttestation* = object
+  PayloadAttestation* {.sszActiveFields: [1, 1, 1].} = object
     aggregation_bits*: BitArray[int PTC_SIZE]
     data*: PayloadAttestationData
     signature*: ValidatorSig
@@ -208,7 +209,7 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#indexedpayloadattestation
-  IndexedPayloadAttestation* = object
+  IndexedPayloadAttestation* {.sszActiveFields: [1, 1, 1].} = object
     attesting_indices*: List[uint64, Limit PTC_SIZE]
     data*: PayloadAttestationData
     signature*: ValidatorSig
@@ -914,7 +915,7 @@ const
 static:
   doAssert EXECUTION_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
-  doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 11424.GeneralizedIndex
+  doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 2856.GeneralizedIndex
   doAssert FINALIZED_ROOT_GINDEX_GLOAS == 735.GeneralizedIndex
   doAssert CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS == 2945.GeneralizedIndex
   doAssert NEXT_SYNC_COMMITTEE_GINDEX_GLOAS == 2946.GeneralizedIndex
