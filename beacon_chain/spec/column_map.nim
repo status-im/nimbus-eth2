@@ -21,6 +21,9 @@ type
   ColumnMap* = object
     data: array[2, uint64]
 
+const supernodeMap* =
+  ColumnMap(data: [0xFFFF_FFFF_FFFF_FFFF'u64, 0xFFFF_FFFF_FFFF_FFFF'u64])
+
 template getPos(column: ColumnIndex): tuple[index: int, offset: int] =
   (int(uint64(column) shr 6), int(uint64(column) and 0x3F'u64))
 
@@ -109,9 +112,3 @@ func shortLog*(a: ColumnMap): string =
   if len(a) > NUMBER_OF_COLUMNS div 2:
     return "[supernode]"
   $a
-
-func supernodeMap*(): ColumnMap =
-  ColumnMap(data: [0xFFFF_FFFF_FFFF_FFFF'u64, 0xFFFF_FFFF_FFFF_FFFF'u64])
-
-func lightSupernodeMap*(): ColumnMap =
-  ColumnMap(data: [0xFFFF_FFFF_FFFF_FFFF'u64, 0'u64])

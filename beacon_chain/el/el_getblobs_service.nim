@@ -43,20 +43,20 @@ declareGauge beacon_engine_getblobs_slot_hit_rate,
 
 type
   GetBlobsService* = object
-    blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
-    fuluColumnSidecarBus*: AsyncEventQueue[ref fulu.DataColumnSidecar]
-    blockProcessor*: ref BlockProcessor
-    fuluColumnQuarantine*: ref FuluColumnQuarantine
-    gloasColumnQuarantine*: ref GloasColumnQuarantine
+    blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
+    fuluColumnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar]
+    blockProcessor: ref BlockProcessor
+    fuluColumnQuarantine: ref FuluColumnQuarantine
+    gloasColumnQuarantine: ref GloasColumnQuarantine
     partialColumnQuarantine: ref FuluPartialColumnQuarantine
       # Sink for partial column cells reconstructed from a partial
       # engine_getBlobsV3 response on Fulu.
-    partialColumns*: bool
+    partialColumns: bool
       # Mirrors `--debug-partial-columns`: when true the Fulu path issues
       # `engine_getBlobsV3` and routes partial responses into the partial
       # column quarantine, instead of issuing `engine_getBlobsV2`.
-    validatorCustody*: ValidatorCustodyRef
-    network*: Eth2Node
+    validatorCustody: ValidatorCustodyRef
+    network: Eth2Node
     # Per-slot engine_getBlobs accounting. `slotInFlight` is the slot whose
     # counts are currently accumulating; when a request lands for a different
     # slot we flush the previous slot's ratio to the gauge and reset.
@@ -253,15 +253,11 @@ proc attemptGetBlobs*(
           for proof in item.proofs:
             flat_proof.add kzg.KzgProof(bytes: proof.data)
 
-      let recovered_columns = assemble_data_column_sidecars(
-        forkyBlck, blobs, flat_proof)
-
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
       # make use of it.
-      let
-        custodyMap = self.validatorCustody.getMap()
-        batch = recovered_columns.filterIt(it[].index in custodyMap)
+      let batch = assemble_data_column_sidecars(
+        forkyBlck, blobs, flat_proof, self.validatorCustody.getMap())
 
       if batch.len == 0:
         return
@@ -325,12 +321,8 @@ proc attemptGetBlobs*(
     blobs.add kzg.KzgBlob(bytes: item.blob.data)
     for proof in item.proofs:
       flat_proof.add kzg.KzgProof(bytes: proof.data)
-  let recovered_columns = assemble_data_column_sidecars(
-    blck, blobs, flat_proof)
-
-  let
-    custodyMap = self.validatorCustody.getMap()
-    batch = recovered_columns.filterIt(it[].index in custodyMap)
+  let batch = assemble_data_column_sidecars(
+    blck, blobs, flat_proof, self.validatorCustody.getMap())
 
   if batch.len == 0:
     return
@@ -394,15 +386,11 @@ proc attemptGetBlobsFromColumn*(
     for proof in item.proofs:
       flat_proof.add kzg.KzgProof(bytes: proof.data)
 
-  let recovered_columns = assemble_data_column_sidecars(
+  let batch = assemble_data_column_sidecars(
     sidecar[].signed_block_header,
     sidecar[].kzg_commitments,
     sidecar[].kzg_commitments_inclusion_proof,
-    blobs, flat_proof)
-
-  let
-    custodyMap = self.validatorCustody.getMap()
-    batch = recovered_columns.filterIt(it[].index in custodyMap)
+    blobs, flat_proof, self.validatorCustody.getMap())
 
   if batch.len == 0:
     return
