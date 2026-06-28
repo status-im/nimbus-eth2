@@ -146,13 +146,14 @@ cli do(validatorsDir: string, secretsDir: string,
           notice "EL synced", elUrl, jwtSecret
           break
 
-  var
+  let
     genesisTime = state[].genesis_time
     beaconClock = BeaconClock.init(cfg.timeParams, genesisTime).valueOr:
       error "Invalid genesis time in state",
         genesis_time = genesisTime,
         slot_duration_ms = cfg.timeParams.SLOT_DURATION.milliseconds
       quit 1
+  var
     validators: Table[ValidatorIndex, ValidatorPrivKey]
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
 

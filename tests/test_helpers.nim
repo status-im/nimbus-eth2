@@ -33,10 +33,10 @@ suite "Spec helpers":
       integer_squareroot(18446744073709551615'u64) == 4294967295'u64
 
   test "build_proof - BeaconState":
+    let forked = newClone(initGenesisState(defaultRuntimeConfig))
     var
-      forked = newClone(initGenesisState(defaultRuntimeConfig))
-      cache = StateCache()
-      info = ForkedEpochInfo()
+      cache: StateCache
+      info: ForkedEpochInfo
     process_slots(
       defaultRuntimeConfig, forked[], Slot(100), cache, info,
       flags = {}).expect("no failure")

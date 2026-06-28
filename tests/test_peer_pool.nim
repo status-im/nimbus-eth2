@@ -60,14 +60,14 @@ suite "PeerPool testing suite":
     for item in peersCount:
       var pool = newPeerPool[PeerTest, PeerTestID](item[0], item[1], item[2])
       for i in 0 ..< item[4]:
-        var peer = PeerTest.init("idInc" & $i)
+        let peer = PeerTest.init("idInc" & $i)
         check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
 
       for i in 0 ..< item[5]:
-        var peer = PeerTest.init("idOut" & $i)
+        let peer = PeerTest.init("idOut" & $i)
         check pool.addPeerNoWait(peer, PeerType.Outgoing) == PeerStatus.Success
 
-      var peer = PeerTest.init("idCheck")
+      let peer = PeerTest.init("idCheck")
       if item[1] != -1:
         for i in 0 ..< item[3]:
           check pool.addPeerNoWait(peer, PeerType.Incoming) ==
@@ -86,12 +86,12 @@ suite "PeerPool testing suite":
       var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 1,
                                                    maxIncomingPeers = 1,
                                                    maxOutgoingPeers = 0)
-      var peer0 = PeerTest.init("idInc0")
-      var peer1 = PeerTest.init("idOut0")
-      var peer2 = PeerTest.init("idInc1")
-      var fut0 = pool.addPeer(peer0, PeerType.Incoming)
-      var fut1 = pool.addPeer(peer1, PeerType.Outgoing)
-      var fut2 = pool.addPeer(peer2, PeerType.Incoming)
+      let peer0 = PeerTest.init("idInc0")
+      let peer1 = PeerTest.init("idOut0")
+      let peer2 = PeerTest.init("idInc1")
+      let fut0 = pool.addPeer(peer0, PeerType.Incoming)
+      let fut1 = pool.addPeer(peer1, PeerType.Outgoing)
+      let fut2 = pool.addPeer(peer2, PeerType.Incoming)
       doAssert(fut0.finished == true and fut0.failed == false)
       doAssert(fut1.finished == false)
       doAssert(fut2.finished == false)
@@ -105,14 +105,14 @@ suite "PeerPool testing suite":
       var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 2,
                                                    maxIncomingPeers = 1,
                                                    maxOutgoingPeers = 1)
-      var peer0 = PeerTest.init("idInc0")
-      var peer1 = PeerTest.init("idOut0")
-      var peer2 = PeerTest.init("idInc1")
-      var peer3 = PeerTest.init("idOut1")
-      var fut0 = pool.addPeer(peer0, PeerType.Incoming)
-      var fut1 = pool.addPeer(peer1, PeerType.Outgoing)
-      var fut2 = pool.addPeer(peer2, PeerType.Incoming)
-      var fut3 = pool.addPeer(peer3, PeerType.Outgoing)
+      let peer0 = PeerTest.init("idInc0")
+      let peer1 = PeerTest.init("idOut0")
+      let peer2 = PeerTest.init("idInc1")
+      let peer3 = PeerTest.init("idOut1")
+      let fut0 = pool.addPeer(peer0, PeerType.Incoming)
+      let fut1 = pool.addPeer(peer1, PeerType.Outgoing)
+      let fut2 = pool.addPeer(peer2, PeerType.Incoming)
+      let fut3 = pool.addPeer(peer3, PeerType.Outgoing)
       doAssert(fut0.finished == true and fut0.failed == false)
       doAssert(fut1.finished == true and fut1.failed == false)
       doAssert(fut2.finished == false)
@@ -130,15 +130,15 @@ suite "PeerPool testing suite":
       var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 3,
                                                    maxIncomingPeers = 1,
                                                    maxOutgoingPeers = 1)
-      var peer0 = PeerTest.init("idInc0")
-      var peer1 = PeerTest.init("idInc1")
-      var peer2 = PeerTest.init("idOut0")
-      var peer3 = PeerTest.init("idOut1")
+      let peer0 = PeerTest.init("idInc0")
+      let peer1 = PeerTest.init("idInc1")
+      let peer2 = PeerTest.init("idOut0")
+      let peer3 = PeerTest.init("idOut1")
 
-      var fut0 = pool.addPeer(peer0, PeerType.Incoming)
-      var fut1 = pool.addPeer(peer1, PeerType.Incoming)
-      var fut2 = pool.addPeer(peer2, PeerType.Outgoing)
-      var fut3 = pool.addPeer(peer3, PeerType.Outgoing)
+      let fut0 = pool.addPeer(peer0, PeerType.Incoming)
+      let fut1 = pool.addPeer(peer1, PeerType.Incoming)
+      let fut2 = pool.addPeer(peer2, PeerType.Outgoing)
+      let fut3 = pool.addPeer(peer3, PeerType.Outgoing)
       doAssert(fut0.finished == true and fut0.failed == false)
       doAssert(fut1.finished == false)
       doAssert(fut2.finished == true and fut2.failed == false)
@@ -155,19 +155,19 @@ suite "PeerPool testing suite":
     proc testAddPeer4(): Future[bool] {.async.} =
       var pool = newPeerPool[PeerTest, PeerTestID](maxPeers = 3)
 
-      var peer0 = PeerTest.init("idInc0")
-      var peer1 = PeerTest.init("idInc1")
-      var peer2 = PeerTest.init("idOut0")
-      var peer3 = PeerTest.init("idOut1")
-      var peer4 = PeerTest.init("idOut2")
-      var peer5 = PeerTest.init("idInc2")
+      let peer0 = PeerTest.init("idInc0")
+      let peer1 = PeerTest.init("idInc1")
+      let peer2 = PeerTest.init("idOut0")
+      let peer3 = PeerTest.init("idOut1")
+      let peer4 = PeerTest.init("idOut2")
+      let peer5 = PeerTest.init("idInc2")
 
-      var fut0 = pool.addPeer(peer0, PeerType.Incoming)
-      var fut1 = pool.addPeer(peer1, PeerType.Incoming)
-      var fut2 = pool.addPeer(peer2, PeerType.Outgoing)
-      var fut3 = pool.addPeer(peer3, PeerType.Outgoing)
-      var fut4 = pool.addPeer(peer4, PeerType.Outgoing)
-      var fut5 = pool.addPeer(peer5, PeerType.Incoming)
+      let fut0 = pool.addPeer(peer0, PeerType.Incoming)
+      let fut1 = pool.addPeer(peer1, PeerType.Incoming)
+      let fut2 = pool.addPeer(peer2, PeerType.Outgoing)
+      let fut3 = pool.addPeer(peer3, PeerType.Outgoing)
+      let fut4 = pool.addPeer(peer4, PeerType.Outgoing)
+      let fut5 = pool.addPeer(peer5, PeerType.Incoming)
 
       doAssert(fut0.finished == true and fut0.failed == false)
       doAssert(fut1.finished == true and fut1.failed == false)
@@ -201,18 +201,18 @@ suite "PeerPool testing suite":
       waitFor(testAddPeer4()) == true
 
   test "Acquire from empty pool":
-    var pool0 = newPeerPool[PeerTest, PeerTestID]()
-    var pool1 = newPeerPool[PeerTest, PeerTestID]()
-    var pool2 = newPeerPool[PeerTest, PeerTestID]()
+    let pool0 = newPeerPool[PeerTest, PeerTestID]()
+    let pool1 = newPeerPool[PeerTest, PeerTestID]()
+    let pool2 = newPeerPool[PeerTest, PeerTestID]()
 
-    var itemFut01 = pool0.acquire({PeerType.Incoming})
-    var itemFut02 = pool0.acquire({PeerType.Outgoing})
-    var itemFut03 = pool0.acquire({PeerType.Incoming, PeerType.Outgoing})
-    var itemFut04 = pool0.acquire()
-    var itemFut05 = pool0.acquire(5, {PeerType.Incoming})
-    var itemFut06 = pool0.acquire(5, {PeerType.Outgoing})
-    var itemFut07 = pool0.acquire(5, {PeerType.Incoming, PeerType.Outgoing})
-    var itemFut08 = pool0.acquire(5)
+    let itemFut01 = pool0.acquire({PeerType.Incoming})
+    let itemFut02 = pool0.acquire({PeerType.Outgoing})
+    let itemFut03 = pool0.acquire({PeerType.Incoming, PeerType.Outgoing})
+    let itemFut04 = pool0.acquire()
+    let itemFut05 = pool0.acquire(5, {PeerType.Incoming})
+    let itemFut06 = pool0.acquire(5, {PeerType.Outgoing})
+    let itemFut07 = pool0.acquire(5, {PeerType.Incoming, PeerType.Outgoing})
+    let itemFut08 = pool0.acquire(5)
     check:
       itemFut01.finished == false
       itemFut02.finished == false
@@ -223,25 +223,25 @@ suite "PeerPool testing suite":
       itemFut07.finished == false
       itemFut08.finished == false
 
-    var peer11 = PeerTest.init("peer11")
-    var peer12 = PeerTest.init("peer12")
-    var peer21 = PeerTest.init("peer21")
-    var peer22 = PeerTest.init("peer22")
+    let peer11 = PeerTest.init("peer11")
+    let peer12 = PeerTest.init("peer12")
+    let peer21 = PeerTest.init("peer21")
+    let peer22 = PeerTest.init("peer22")
     check:
       pool1.addPeerNoWait(peer11, PeerType.Incoming) == PeerStatus.Success
       pool1.addPeerNoWait(peer12, PeerType.Incoming) == PeerStatus.Success
       pool2.addPeerNoWait(peer21, PeerType.Outgoing) == PeerStatus.Success
       pool2.addPeerNoWait(peer22, PeerType.Outgoing) == PeerStatus.Success
 
-    var itemFut11 = pool1.acquire({PeerType.Outgoing})
-    var itemFut12 = pool1.acquire(10, {PeerType.Outgoing})
-    var itemFut13 = pool1.acquire(3, {PeerType.Incoming})
-    var itemFut14 = pool1.acquire({PeerType.Incoming})
+    let itemFut11 = pool1.acquire({PeerType.Outgoing})
+    let itemFut12 = pool1.acquire(10, {PeerType.Outgoing})
+    let itemFut13 = pool1.acquire(3, {PeerType.Incoming})
+    let itemFut14 = pool1.acquire({PeerType.Incoming})
 
-    var itemFut21 = pool2.acquire({PeerType.Incoming})
-    var itemFut22 = pool2.acquire(10, {PeerType.Incoming})
-    var itemFut23 = pool2.acquire(3, {PeerType.Outgoing})
-    var itemFut24 = pool1.acquire({PeerType.Outgoing})
+    let itemFut21 = pool2.acquire({PeerType.Incoming})
+    let itemFut22 = pool2.acquire(10, {PeerType.Incoming})
+    let itemFut23 = pool2.acquire(3, {PeerType.Outgoing})
+    let itemFut24 = pool1.acquire({PeerType.Outgoing})
     check:
       itemFut11.finished == false
       itemFut12.finished == false
@@ -266,12 +266,12 @@ suite "PeerPool testing suite":
 
       incoming.setLen(0)
       for i in 0 ..< pool.lenAvailable({PeerType.Incoming}):
-        var peer = await pool.acquire({PeerType.Incoming})
+        let peer = await pool.acquire({PeerType.Incoming})
         incoming.add(peer)
 
       outgoing.setLen(0)
       for i in 0 ..< pool.lenAvailable({PeerType.Outgoing}):
-        var peer = await pool.acquire({PeerType.Outgoing})
+        let peer = await pool.acquire({PeerType.Outgoing})
         outgoing.add(peer)
 
       weight = MaxNumber + 1
@@ -293,7 +293,7 @@ suite "PeerPool testing suite":
         pool.release(outgoing[i])
 
       for i in 0 ..< pool.lenAvailable():
-        var peer = await pool.acquire()
+        let peer = await pool.acquire()
         total.add(peer)
 
       weight = MaxNumber + 1
@@ -312,7 +312,7 @@ suite "PeerPool testing suite":
 
     randomize()
     for i in 0 ..< TestsCount:
-      var peer = PeerTest.init("peer" & $i, rand(MaxNumber))
+      let peer = PeerTest.init("peer" & $i, rand(MaxNumber))
       # echo repr peer
       if rand(100) mod 2 == 0:
         check pool.addPeerNoWait(peer, PeerType.Incoming) == PeerStatus.Success
@@ -484,7 +484,7 @@ suite "PeerPool testing suite":
       doAssert(pool.lenAvailable == 1)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
       doAssert(pool.lenAvailable({PeerType.Incoming}) == 1)
-      var apeer = await pool.acquire()
+      let apeer = await pool.acquire()
       doAssert(pool.len == 1)
       doAssert(pool.lenAvailable == 0)
       doAssert(pool.lenAvailable({PeerType.Outgoing}) == 0)
@@ -507,9 +507,9 @@ suite "PeerPool testing suite":
 
   test "Safe/Clear test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
-    var peer1 = PeerTest.init("peer1", 10)
-    var peer2 = PeerTest.init("peer2", 9)
-    var peer3 = PeerTest.init("peer3", 8)
+    let peer1 = PeerTest.init("peer1", 10)
+    let peer2 = PeerTest.init("peer2", 9)
+    let peer3 = PeerTest.init("peer3", 8)
 
     check:
       pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
@@ -541,7 +541,7 @@ suite "PeerPool testing suite":
       pool.len == 3
 
     proc testConsumer() {.async.} =
-      var p = await pool.acquire()
+      let p = await pool.acquire()
       await sleepAsync(100.milliseconds)
       pool.release(p)
 
@@ -554,9 +554,9 @@ suite "PeerPool testing suite":
 
   test "Access peers by key test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
-    var peer1 = PeerTest.init("peer1", 10)
-    var peer2 = PeerTest.init("peer2", 9)
-    var peer3 = PeerTest.init("peer3", 8)
+    let peer1 = PeerTest.init("peer1", 10)
+    let peer2 = PeerTest.init("peer2", 9)
+    let peer3 = PeerTest.init("peer3", 8)
 
     check:
       pool.addPeerNoWait(peer1, PeerType.Incoming) == PeerStatus.Success
@@ -577,21 +577,21 @@ suite "PeerPool testing suite":
       pool["peer3"].id == "peer3"
       pool["peer3"].weight == 8
 
-    var ppeer = addr(pool["peer1"])
+    let ppeer = addr(pool["peer1"])
     ppeer[].weight = 100
     check pool["peer1"].weight == 100
 
   test "Iterators test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
-    var peer1 = PeerTest.init("peer1", 10)
-    var peer2 = PeerTest.init("peer2", 9)
-    var peer3 = PeerTest.init("peer3", 8)
-    var peer4 = PeerTest.init("peer4", 7)
-    var peer5 = PeerTest.init("peer5", 6)
-    var peer6 = PeerTest.init("peer6", 5)
-    var peer7 = PeerTest.init("peer7", 4)
-    var peer8 = PeerTest.init("peer8", 3)
-    var peer9 = PeerTest.init("peer9", 2)
+    let peer1 = PeerTest.init("peer1", 10)
+    let peer2 = PeerTest.init("peer2", 9)
+    let peer3 = PeerTest.init("peer3", 8)
+    let peer4 = PeerTest.init("peer4", 7)
+    let peer5 = PeerTest.init("peer5", 6)
+    let peer6 = PeerTest.init("peer6", 5)
+    let peer7 = PeerTest.init("peer7", 4)
+    let peer8 = PeerTest.init("peer8", 3)
+    let peer9 = PeerTest.init("peer9", 2)
 
     check:
       pool.addPeerNoWait(peer2, PeerType.Incoming) == PeerStatus.Success
@@ -967,11 +967,11 @@ suite "PeerPool testing suite":
         result = true
       else:
         result = false
-    var peer1 = PeerTest.init("peer1", 100)
-    var peer2 = PeerTest.init("peer2", 50)
-    var peer3 = PeerTest.init("peer3", 1)
-    var peer4 = PeerTest.init("peer4", -50)
-    var peer5 = PeerTest.init("peer5", -100)
+    let peer1 = PeerTest.init("peer1", 100)
+    let peer2 = PeerTest.init("peer2", 50)
+    let peer3 = PeerTest.init("peer3", 1)
+    let peer4 = PeerTest.init("peer4", -50)
+    let peer5 = PeerTest.init("peer5", -100)
 
     pool.setScoreCheck(scoreCheck)
 
@@ -1035,16 +1035,16 @@ suite "PeerPool testing suite":
                                                    maxOutgoingPeers = 0)
       pool.setScoreCheck(scoreCheck)
 
-      var peer0 = PeerTest.init("idInc0", 100)
-      var peer1 = PeerTest.init("idOut0", 100)
-      var peer2 = PeerTest.init("idInc1", 100)
-      var fut0 = pool.addPeer(peer0, PeerType.Incoming)
-      var fut1 = pool.addPeer(peer1, PeerType.Outgoing)
-      var fut2 = pool.addPeer(peer2, PeerType.Incoming)
+      let peer0 = PeerTest.init("idInc0", 100)
+      let peer1 = PeerTest.init("idOut0", 100)
+      let peer2 = PeerTest.init("idInc1", 100)
+      let fut0 = pool.addPeer(peer0, PeerType.Incoming)
+      let fut1 = pool.addPeer(peer1, PeerType.Outgoing)
+      let fut2 = pool.addPeer(peer2, PeerType.Incoming)
       doAssert(fut0.finished == true and fut0.failed == false)
       doAssert(fut1.finished == false)
       doAssert(fut2.finished == false)
-      var p = await pool.acquire()
+      let p = await pool.acquire()
       doAssert(p.id == "idInc0")
       p.weight = -200
       pool.release(p)
@@ -1057,23 +1057,23 @@ suite "PeerPool testing suite":
     check waitFor(testDeleteOnRelease()) == true
 
   test "Space tests":
-    var pool1 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79)
-    var pool2 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+    let pool1 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79)
+    let pool2 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
                                                   maxIncomingPeers = 39)
-    var pool3 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+    let pool3 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
                                                   maxOutgoingPeers = 40)
-    var pool4 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+    let pool4 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
                                                   maxOutgoingPeers = 40,
                                                   maxIncomingPeers = 0)
-    var pool5 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+    let pool5 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
                                                   maxIncomingPeers = 39,
                                                   maxOutgoingPeers = 0)
-    var pool6 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
+    let pool6 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,
                                                   maxIncomingPeers = 39,
                                                   maxOutgoingPeers = 40)
-    var pool7 = newPeerPool[PeerTest, PeerTestID](maxIncomingPeers = 39)
-    var pool8 = newPeerPool[PeerTest, PeerTestID](maxOutgoingPeers = 40)
-    var pool9 = newPeerPool[PeerTest, PeerTestID]()
+    let pool7 = newPeerPool[PeerTest, PeerTestID](maxIncomingPeers = 39)
+    let pool8 = newPeerPool[PeerTest, PeerTestID](maxOutgoingPeers = 40)
+    let pool9 = newPeerPool[PeerTest, PeerTestID]()
 
     check:
       pool1.lenSpace() == 79

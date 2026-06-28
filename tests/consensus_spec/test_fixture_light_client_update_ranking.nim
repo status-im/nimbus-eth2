@@ -29,7 +29,7 @@ proc runTest(suiteName, path: string, lcDataFork: static LightClientDataFork) =
   let relativePathComponent = path.relativeTestPathComponent()
   test "Light client - Update ranking - " & relativePathComponent:
     let meta = block:
-      var s = openFileStream(path/"meta.yaml")
+      let s = openFileStream(path/"meta.yaml")
       defer: close(s)
       var res: TestMeta
       yaml.load(s, res)

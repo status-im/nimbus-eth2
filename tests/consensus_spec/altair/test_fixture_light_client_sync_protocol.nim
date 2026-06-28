@@ -78,8 +78,8 @@ proc get_sync_aggregate(
         signature_slot
 
   # Ensure correct sync committee and fork version are selected
+  let signature_forked = assignClone(forked)
   var
-    signature_forked = assignClone(forked)
     cache: StateCache
     info: ForkedEpochInfo
   template signature_state(): auto = signature_forked.altairData.data
@@ -203,7 +203,7 @@ proc runTest(storeDataFork: static LightClientDataFork) =
 
     # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L64-L96
     test "test_process_light_client_update_at_period_boundary":
-      var forked = assignClone(genesisState[])
+      let forked = assignClone(genesisState[])
       template state(): auto = forked[].altairData.data
       var store = initialize_light_client_store(state, storeDataFork)
 
