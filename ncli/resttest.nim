@@ -761,7 +761,7 @@ proc validateHeaders(resp: HttpResponseHeader, expect: HeadersExpect): bool =
     true
 
 proc jsonBody(body: openArray[byte]): Result[JsonNode, cstring] =
-  var sbody = cast[string](@body)
+  let sbody = cast[string](@body)
   let res =
     try:
       parseJson(sbody)
@@ -1049,10 +1049,10 @@ proc workerLoop(address: TransportAddress, uri: Uri, worker: int,
 proc startTests(conf: RestTesterConf, uri: Uri,
                 rules: seq[JsonNode]): Future[int] {.async.} =
   var workers = newSeq[Future[void]](conf.connectionsCount)
-  var inputQueue = newAsyncQueue[TestCase](len(rules))
-  var outputQueue = newAsyncQueue[TestCaseResult](conf.connectionsCount)
+  let inputQueue = newAsyncQueue[TestCase](len(rules))
+  let outputQueue = newAsyncQueue[TestCaseResult](conf.connectionsCount)
   var results = newSeq[TestResult](len(rules))
-  var restarts = 0
+  let restarts = 0
 
   let address =
     block:
@@ -1178,5 +1178,5 @@ proc run(conf: RestTesterConf): int =
 
 when isMainModule:
   echo RestTesterHeader
-  var conf = RestTesterConf.load(version = RestTesterVersion)
+  let conf = RestTesterConf.load(version = RestTesterVersion)
   quit run(conf)
