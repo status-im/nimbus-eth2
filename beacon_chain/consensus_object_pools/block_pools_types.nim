@@ -355,8 +355,9 @@ type
     optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
 
   FastConfirmationInfoObject* = object
-    slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
+    slot*: Slot
+    current_slot*: Slot
 
   EventBeaconBlockObject* = object
     slot*: Slot
@@ -520,8 +521,9 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
 
 func init*(
     t: typedesc[FastConfirmationInfoObject],
-    bid: BlockId): FastConfirmationInfoObject =
-  FastConfirmationInfoObject(slot: bid.slot, block_root: bid.root)
+    bid: BlockId, current_slot: Slot): FastConfirmationInfoObject =
+  FastConfirmationInfoObject(
+    block_root: bid.root, slot: bid.slot, current_slot: current_slot)
 
 func init*(
     t: typedesc[EventBeaconBlockObject],

@@ -168,6 +168,7 @@ type
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     confirmed*: BlockId
+    latest_fcr_event_slot*: Slot
     current_epoch_observed_justified*: BalanceSource
     previous_epoch_greatest_unrealized_checkpoint*: Checkpoint
     previous_slot_head*, current_slot_head*: Eth2Digest

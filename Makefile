@@ -57,7 +57,6 @@ TOOLS_CORE_CUSTOMCOMPILE := \
 
 TOOLS_CORE := \
 	resttest \
-	mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \

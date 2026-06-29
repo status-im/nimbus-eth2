@@ -8,8 +8,7 @@
 {.push raises: [].}
 
 # Minimal preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/minimal/phase0.yaml
-
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/minimal/phase0.yaml
 const
   # Misc
   # ---------------------------------------------------------------
