@@ -24,11 +24,9 @@ from std/algorithm import sort
 from std/sequtils import anyIt, mapIt, newSeqWith, repeat, toSeq
 from stew/staticfor import staticFor
 
-# Generics sandwich via `recover_cells_and_proofs_parallel`: its
-# `seq[ref fulu...] | seq[ref gloas...]` input makes it generic, so the chronos
-# `threadsync` symbols (ThreadSignalPtr, Flowvar, ...) it uses must be in scope
-# at the instantiation callsite. Re-export them here so callers get them for
-# free. See https://github.com/nim-lang/Nim/issues/11225
+# `recover_cells_and_proofs_parallel` is generic, so the chronos `threadsync`
+# symbols it uses must be in scope at each instantiation callsite; re-export
+# them for callers. See https://github.com/nim-lang/Nim/issues/11225
 export threadsync
 
 type
