@@ -72,6 +72,9 @@ proc putBlock*(
     dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
+proc didUpdateHeads(dag: ChainDAGRef) =
+  dag.db.putHeadBlocks(dag.heads.mapIt(it.bid.root))
+
 proc updateState*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
     save: bool, cache: var StateCache,
@@ -1144,7 +1147,7 @@ proc applyBlock(
 proc genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
   dag.headState.genesis_validators_root
 
-proc registerHead*(dag: ChainDAGRef, headRef: BlockRef) =
+proc registerHead*(dag: ChainDAGRef, headRef: BlockRef, persistToDb = true) =
   var foundHead: bool
   for head in dag.heads.mitems():
     if head.isAncestorOf(headRef):
@@ -1153,12 +1156,14 @@ proc registerHead*(dag: ChainDAGRef, headRef: BlockRef) =
       break
   if not foundHead:
     dag.heads.add(headRef)
+  if persistToDb:
+    dag.didUpdateHeads()
 
 proc loadHead(
     dag: ChainDAGRef, headRoot: Eth2Digest, finalizedSlot: Slot,
     invalidBlockRoots: openArray[Eth2Digest]): Result[BlockRef, string] =
   template tmpState: var ForkedHashedBeaconState =
-    dag.headState
+    (if dag.head == nil: addr dag.headState else: addr dag.clearanceState)[]
 
   let head = dag.db.getBlockId(headRoot).valueOr:
     return err "head block id, database corrupt?"
@@ -1172,10 +1177,17 @@ proc loadHead(
     foundHeadState = false
     headBlocks: seq[BlockRef]
 
-  # Load head -> finalized, or all summaries in case the finalized block table
-  # hasn't been written yet
+  # Load head -> first known BlockRef (if exists), or finalized (initial head),
+  # or all summaries in case the finalized block table hasn't been written yet
   var isInvalid = false
   for blck in dag.db.getAncestorSummaries(headRoot):
+    let baseRef = dag.getBlockRef(blck.root).valueOr(nil)
+    if baseRef != nil:
+      if headRef == nil:
+        return ok baseRef
+      link(baseRef, curRef)
+      break
+
     let newRef = BlockRef.init(dag.cfg, blck.root, blck.summary.slot)
 
     if headRef == nil:
@@ -1188,11 +1200,16 @@ proc loadHead(
 
     dag.forkBlocks.incl(KeyedBlockRef.init(curRef))
 
+    let isFinalized = dag.head != nil and curRef.slot <= finalizedSlot
     isInvalid = curRef.slot > finalizedSlot and curRef.root in invalidBlockRoots
-    if isInvalid:
+    if isFinalized or isInvalid:
       while headRef != nil:
         dag.forkBlocks.excl(KeyedBlockRef.init(headRef))
         headRef = headRef.parent
+      if dag.isFinalized(curRef.bid):
+        return ok dag.finalizedHead.blck
+      if isFinalized:
+        return err "Head block orphaned"
       foundHeadState = false
       headBlocks.reset()
       continue
@@ -1211,9 +1228,13 @@ proc loadHead(
           headBlocks.add curRef
         else:
           if headBlocks.len > 0:
-            fatal "Missing a block to create head state, database corrupt?",
-              curRef = shortLog(curRef)
-            quit 1
+            if dag.head == nil:
+              fatal "Missing a block to create head state, database corrupt?",
+                curRef = shortLog(curRef)
+              quit 1
+            for blockRef in headBlocks:
+              dag.forkBlocks.excl(KeyedBlockRef.init(blockRef))
+            headBlocks.reset()
           # Without the block data we can't form a state for this root, so
           # we'll need to move the head back
           headRef = nil
@@ -1231,19 +1252,32 @@ proc loadHead(
   if headRef == nil:
     headRef = curRef
 
+  var cache: StateCache
   if not foundHeadState:
-    if not dag.getStateByParent(curRef.bid, tmpState):
-      fatal "Could not load head state, database corrupt?",
-        head = shortLog(head), tail = shortLog(dag.tail)
-      quit 1
+    foundHeadState =
+      if dag.getStateByParent(curRef.bid, tmpState):
+        true
+      elif dag.head == nil:
+        false  # DAG states not yet initialized -> updateState unavailable
+      elif (let bsi = curRef.atSlot.parent.toBlockSlotId(); bsi.isSome):
+        assign(tmpState, dag.headState)
+        dag.updateState(tmpState, bsi.unsafeGet, false, cache, dag.updateFlags)
+      else:
+        false
+    if not foundHeadState:
+      if dag.head == nil:
+        fatal "Could not load head state, database corrupt?",
+          head = shortLog(head), tail = shortLog(dag.tail)
+        quit 1
+      for blockRef in headBlocks:
+        dag.forkBlocks.excl(KeyedBlockRef.init(blockRef))
+      return err "Could not load head state, database corrupt?"
 
-  # EpochRef needs an epoch boundary state
-  assign(dag.epochRefState, tmpState)
+  if dag.head == nil:
+    # EpochRef needs an epoch boundary state
+    assign(dag.epochRefState, tmpState)
 
-  var
-    cache: StateCache
-    info: ForkedEpochInfo
-
+  var info: ForkedEpochInfo
   for i in countdown(headBlocks.high, 0):
     dag.applyBlock(
         tmpState, headBlocks[i].bid, cache, info, dag.updateFlags).isOkOr:
@@ -1253,7 +1287,7 @@ proc loadHead(
       dag.forkBlocks.excl(KeyedBlockRef.init(headRef))
       return err "head blocks should apply"
 
-  dag.registerHead(headRef)
+  dag.registerHead(headRef, persistToDb = false)
   ok headRef
 
 proc updateFinalizedBlocks(dag: ChainDAGRef, withAncestors = false) =
@@ -1384,7 +1418,7 @@ proc init*(
   dag.head = dag.loadHead(headRoot, finalizedSlot, invalidBlockRoots).valueOr:
     fatal "Error while loading head from database", reason = error, headRoot
     quit 1
-  let hasOrphans = dag.head.root != headRoot
+  var hasOrphans = dag.head.root != headRoot
 
   let summariesTick = Moment.now()
 
@@ -1492,15 +1526,30 @@ proc init*(
 
   let finalizedTick = Moment.now()
 
+  for additionalHeadRoot in db.getHeadBlocks():
+    let headRef = dag.loadHead(
+        additionalHeadRoot, finalizedSlot, invalidBlockRoots).valueOr:
+      info "Skipped loading head from database",
+        reason = error, headRoot = additionalHeadRoot
+      hasOrphans = true
+      continue
+    hasOrphans = hasOrphans or (headRef.root != additionalHeadRoot)
+
   assign(dag.clearanceState, dag.headState)
 
   if hasOrphans and not dag.db.db.readOnly:
     db.withManyWrites:
       var orphans: HashSet[BlockId]
       orphans.collectOrphanedAncestors(dag, headRoot)
+      for additionalHeadRoot in db.getHeadBlocks():
+        orphans.collectOrphanedAncestors(dag, additionalHeadRoot)
       for bid in orphans:
         dag.pruneBlockId(bid)
       dag.db.putHeadBlock(dag.head.root)
+      dag.didUpdateHeads()
+
+  let additionalHeadsTick = Moment.now()
+
   if dag.backfill.slot > GENESIS_SLOT:  # Try frontfill from era files
     let backfillSlot = dag.backfill.slot - 1
     dag.frontfillBlocks = newSeqOfCap[Eth2Digest](backfillSlot.int)
@@ -1588,7 +1637,8 @@ proc init*(
     loadDur = loadTick - startTick,
     summariesDur = summariesTick - loadTick,
     finalizedDur = finalizedTick - summariesTick,
-    frontfillDur = frontfillTick - finalizedTick,
+    additionalHeadsDur = additionalHeadsTick - finalizedTick,
+    frontfillDur = frontfillTick - additionalHeadsTick,
     keysDur = Moment.now() - frontfillTick
 
   dag.initLightClientDataCache()
@@ -2206,6 +2256,8 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
       cur = cur.parentOrSlot
 
     dag.heads.del(n)
+  if dag.heads.len != hlen:
+    dag.didUpdateHeads()
 
   debug "Pruned the blockchain DAG",
     currentCandidateHeads = dag.heads.len,
@@ -2880,6 +2932,7 @@ proc preInit*(
       db.putBlock(blck)
       db.putGenesisBlock(blck.root)
       db.putHeadBlock(blck.root)
+      db.putHeadBlocks(@[blck.root])
       db.putTailBlock(blck.root)
 
       notice "Database initialized from genesis",
@@ -2893,6 +2946,7 @@ proc preInit*(
         parent_root: forkyState.data.latest_block_header.parent_root
       ))
       db.putHeadBlock(blockRoot)
+      db.putHeadBlocks(@[blockRoot])
       db.putTailBlock(blockRoot)
 
       if db.getGenesisBlock().isSome():

@@ -141,6 +141,33 @@ suite "Beacon chain DB" & preset():
       db.getStateRef(ConsensusFork.Phase0, ZERO_HASH).isNil
       db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
 
+  test "head blocks roundtrip" & preset():
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
+    var a, b, c: Eth2Digest
+    a.data[0] = 1
+    b.data[0] = 2
+    c.data[0] = 3
+
+    check:
+      db.getHeadBlock().isNone
+      db.getHeadBlocks().len == 0
+
+    db.putHeadBlock(a)
+    db.putHeadBlocks(@[a, b])
+    check:
+      db.getHeadBlock() == Opt.some(a)
+      db.getHeadBlocks() == @[a, b]
+
+    db.putHeadBlock(c)
+    check:
+      db.getHeadBlock() == Opt.some(c)
+      db.getHeadBlocks() == @[a, b]
+
+    db.putHeadBlocks(@[c])
+    check:
+      db.getHeadBlock() == Opt.some(c)
+      db.getHeadBlocks() == @[c]
+
   template doBlockTest(consensusFork: static ConsensusFork): untyped =
     block:
       let db = BeaconChainDB.new(
