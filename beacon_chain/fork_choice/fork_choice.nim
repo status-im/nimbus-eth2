@@ -102,7 +102,8 @@ func process_attestation(
 
   if slot.epoch >= cfg.GLOAS_FORK_EPOCH:
     # slot based tracking with payload preference
-    if slot > vote.slot or vote.next_root.isZero:
+    if vote.slot != FAR_FUTURE_SLOT and
+        (slot > vote.slot or vote.next_root.isZero):
       vote.next_root = block_root
       vote.slot = slot
       vote.next_payload_present = payload_present
