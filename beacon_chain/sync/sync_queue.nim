@@ -361,10 +361,6 @@ func contains(srange: SyncRange, slot: Slot): bool {.inline.} =
   else:
     (slot >= srange.slot) and (slot < (srange.slot + srange.count))
 
-func `>`(a, b: SyncRange): bool {.inline.} =
-  ## Returns `true` if range `a` is above of range `b`.
-  (a.slot > b.slot) and (a.slot + a.count - 1 > b.slot)
-
 func `<`(a, b: SyncRange): bool {.inline.} =
   ## Returns `true` if range `a` is below of range `b`.
   (a.slot < b.slot) and (a.slot + a.count - 1 < b.slot)
