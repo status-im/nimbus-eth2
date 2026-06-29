@@ -695,7 +695,7 @@ func getMissingColumnsMap*(
 
   if supernode:
     if isNil(node):
-      supernodeMap()
+      supernodeMap
     else:
       var res: ColumnMap
       if quarantine.enoughColumns(node[].value.count):

@@ -29,6 +29,7 @@ import
 from chronos/unittest2/asynctests import asyncTest
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, init
+from ../beacon_chain/spec/column_map import supernodeMap
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker
@@ -405,7 +406,7 @@ suite "Block processor" & preset():
           raiseAssert "Failed to compute cells and proofs"
 
         # Build BlobsBundle
-        var blobsBundle = testblockutil.BlobsBundle(
+        let blobsBundle = testblockutil.BlobsBundle(
           commitments: @[commitment],
           proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
           blobs: @[kzgBlob.bytes]
@@ -419,7 +420,8 @@ suite "Block processor" & preset():
 
         # Assemble data column sidecars
         let dataColumnSidecars = assemble_data_column_sidecars(
-          engineBlock.blck, @[kzgBlob], cellsAndProofs.proofs.mapIt(kzg.KzgProof(it))
+          engineBlock.blck, @[kzgBlob],
+          cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)), supernodeMap
         )
 
         # Process the block with data columns
@@ -514,7 +516,7 @@ suite "Block processor" & preset():
           cfg, ConsensusFork.Gloas, forkyState, cache)
 
         # Envelope arrives first and gets quarantined as orphan.
-        var envelope = gloas.SignedExecutionPayloadEnvelope(
+        let envelope = gloas.SignedExecutionPayloadEnvelope(
           message: gloas.ExecutionPayloadEnvelope(
             beacon_block_root: engineBlock.blck.root,
             builder_index: BUILDER_INDEX_SELF_BUILD,

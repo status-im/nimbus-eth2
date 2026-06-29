@@ -47,6 +47,7 @@ from std/sequtils import findIt, mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
+from ../spec/column_map import supernodeMap
 from ../consensus_object_pools/execution_payload_pool import
   getHighestBidForProposalState, payloadAvailability
 
@@ -673,11 +674,13 @@ proc proposeBlockAux(
   elif fork == ConsensusFork.Gloas:
     let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
       engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
+      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)),
+      supernodeMap))
   elif fork == ConsensusFork.Fulu:
     let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
       engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)),
+      supernodeMap)
   elif fork == ConsensusFork.Electra:
     let sidecarsOpt = signedBlock.create_blob_sidecars(
       engineBlock.blobsBundle.proofs,

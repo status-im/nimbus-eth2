@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/mainnet/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
@@ -22,5 +22,5 @@ const
 
   # Withdrawals processing
   # ---------------------------------------------------------------
-  # 2**14 (= 16384) validators
+  # 2**14 (= 16,384) validators
   MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP* = 16384

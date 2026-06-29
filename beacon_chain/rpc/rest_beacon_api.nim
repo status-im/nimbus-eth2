@@ -21,6 +21,7 @@ import
   ../validators/message_router_mev
 
 from std/sequtils import mapIt, toSeq
+from ../spec/column_map import supernodeMap
 
 export rest_utils
 
@@ -1069,7 +1070,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 Http400, InvalidBlockObjectError)
             let data_columns = assemble_data_column_sidecars(
               forkyBlck, blobs.mapIt(kzg.KzgBlob(bytes: it)),
-              kzg_proofs.mapIt(kzg.KzgProof(it)))
+              kzg_proofs.mapIt(kzg.KzgProof(it)), supernodeMap)
             await node.router.routeSignedBeaconBlock(
               forkyBlck,
               data_columns,

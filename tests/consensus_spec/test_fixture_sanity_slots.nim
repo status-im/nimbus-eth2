@@ -28,9 +28,9 @@ proc runTest(
     let
       preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
       postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
-    var
       fhPreState = ForkedHashedBeaconState.new(preState[])
-      cache = StateCache()
+    var
+      cache: StateCache
       info: ForkedEpochInfo
 
     check:

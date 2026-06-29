@@ -41,7 +41,7 @@ in stdenv.mkDerivation rec {
     root = ./..;
     fileset = lib.fileset.unions [
       ./../Makefile ./../beacon_chain.nimble ./../config.nims
-      ./../beacon_chain ./../ncli ./../scripts ./../vendor ./../tools
+      ./../beacon_chain ./../ncli ./../research ./../tests ./../scripts ./../vendor ./../tools
     ];
   };
 
@@ -79,13 +79,18 @@ in stdenv.mkDerivation rec {
     mkdir -p $out/bin
     rm -f build/generate_makefile
     cp build/* $out/bin
+    for tool in ncli ncli_db; do
+      if [ -e "$out/bin/$tool" ]; then
+        mv "$out/bin/$tool" "$out/bin/nimbus_$tool"
+      fi
+    done
   '';
 
   doInstallCheck = true;
   installCheckPhase = ''
     for BINARY in $out/bin/*; do
       case "$(basename "$BINARY")" in
-        ncli|ncli_db)
+        nimbus_ncli|nimbus_ncli_db)
           # These don't support --version, just verify they execute.
           $BINARY --help > /dev/null 2>&1
           ;;

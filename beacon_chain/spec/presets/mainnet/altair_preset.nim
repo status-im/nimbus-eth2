@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/mainnet/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/altair.yaml
 const
   # Rewards and penalties
   # ---------------------------------------------------------------
