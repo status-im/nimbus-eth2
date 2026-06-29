@@ -24,9 +24,11 @@ from std/algorithm import sort
 from std/sequtils import anyIt, mapIt, newSeqWith, repeat, toSeq
 from stew/staticfor import staticFor
 
-# `recover_cells_and_proofs_parallel` is generic, so the chronos `threadsync`
-# symbols it uses must be in scope at each instantiation callsite; re-export
-# them for callers. See https://github.com/nim-lang/Nim/issues/11225
+# Generics sandwich (https://github.com/nim-lang/Nim/issues/11225): because
+# `recover_cells_and_proofs_parallel` is generic, its body is semchecked at
+# each callsite, where every symbol it references must also be visible -
+# including the `threadsync` ones. Re-export them so callers don't have to
+# import `threadsync` themselves just to instantiate it.
 export threadsync
 
 type
@@ -167,9 +169,7 @@ proc recover_cells_and_proofs_parallel*(
     Future[Result[seq[CellsAndProofs], cstring]] {.async: (raises: []).} =
   ## Recover blobs from data column sidecars in parallel.
   ## Only the `index`/`column` fields are consumed, which both the Fulu and
-  ## Gloas sidecar layouts share, so the input is a type class over either; the
-  ## proc thus instantiates concretely per fork at each callsite, sidestepping
-  ## the taskpool `spawn` below not being instantiable from a generic context.
+  ## Gloas sidecar layouts share, so the input is a type class over either.
   ## - Uses Nim sequences with pointer passing for worker inputs
   ## - Bounds in-flight tasks to limit peak memory/alloc pressure.
   ## - Checks timeout before every spawn operation.
