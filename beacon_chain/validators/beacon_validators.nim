@@ -47,6 +47,7 @@ from std/sequtils import findIt, mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
+from ../spec/column_map import supernodeMap
 from ../consensus_object_pools/execution_payload_pool import
   getHighestBidForProposalState, payloadAvailability
 
@@ -673,11 +674,13 @@ proc proposeBlockAux(
   elif fork == ConsensusFork.Gloas:
     let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
       engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
+      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)),
+      supernodeMap))
   elif fork == ConsensusFork.Fulu:
     let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
       engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)),
+      supernodeMap)
   elif fork == ConsensusFork.Electra:
     let sidecarsOpt = signedBlock.create_blob_sidecars(
       engineBlock.blobsBundle.proofs,
@@ -1015,7 +1018,7 @@ proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
       if forkyBlck.message.body.signed_execution_payload_bid.message
           .blob_kzg_commitments.len() == 0:
         return true
-      for columnIdx in node.dataColumnQuarantine.custodyColumns:
+      for columnIdx in node.fuluColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
             consensusFork, blck.root, columnIdx):
           return false
@@ -1292,7 +1295,7 @@ proc getValidatorRegistration(
   if validator.index.isNone:
     # The validator index will be missing when the validator was not
     # activated for duties yet. We can safely skip the registration then.
-    return
+    return err("Validator not yet activated")
 
   let
     feeRecipient = node.getFeeRecipient(validator.pubkey, validator.index, epoch)
@@ -1315,6 +1318,16 @@ proc getValidatorRegistration(
     )
 
   ok validatorRegistration
+
+proc isConsistent(
+    node: BeaconNode,
+    validatorRegistration: SignedValidatorRegistrationV1,
+    validator: AttachedValidator,
+    epoch: Epoch): bool =
+  validatorRegistration.message.fee_recipient ==
+    node.getFeeRecipient(validator.pubkey, validator.index, epoch) and
+  validatorRegistration.message.gas_limit ==
+    node.getGasLimit(validator.pubkey)
 
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
@@ -1413,22 +1426,18 @@ proc registerValidatorsPerBuilder(
       addValidatorRegistration validator.externalBuilderRegistration.get
     else:
       let validatorRegistration =
-        await node.getValidatorRegistration(validator, epoch)
-      if validatorRegistration.isErr:
-        error "registerValidators: validatorRegistration failed",
-                validatorRegistration
+          (await node.getValidatorRegistration(validator, epoch)).valueOr:
+        error "registerValidators: validatorRegistration failed", reason = error
         continue
 
-      # Time passed during await; REST keymanager API might have removed it
-      if key notin node.attachedValidators[].validators:
+      # Time passed during await; REST keymanager API might change / remove it
+      node.attachedValidators[].validators.withValue(key, validator):
+        if not node.isConsistent(validatorRegistration, validator[], epoch):
+          continue
+        validator[].externalBuilderRegistration.ok validatorRegistration
+        addValidatorRegistration validatorRegistration
+      do:
         continue
-      let validator = try:
-        node.attachedValidators[].validators[key]
-      except KeyError:
-        raiseAssert "just checked"
-
-      validator.externalBuilderRegistration = Opt.some validatorRegistration.get
-      addValidatorRegistration validatorRegistration.get
 
   if validatorRegistrations == emptyNestedSeq:
     return

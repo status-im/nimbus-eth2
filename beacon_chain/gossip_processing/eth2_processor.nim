@@ -168,7 +168,7 @@ type
     # Missing information
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
-    dataColumnQuarantine*: ref ColumnQuarantine
+    fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
@@ -196,7 +196,7 @@ proc new*(T: type Eth2Processor,
           executionPayloadBidPool: ref ExecutionPayloadBidPool,
           payloadAttestationPool: ref PayloadAttestationPool,
           quarantine: ref Quarantine,
-          dataColumnQuarantine: ref ColumnQuarantine,
+          fuluColumnQuarantine: ref FuluColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
@@ -218,7 +218,7 @@ proc new*(T: type Eth2Processor,
     executionPayloadBidPool: executionPayloadBidPool,
     payloadAttestationPool: payloadAttestationPool,
     quarantine: quarantine,
-    dataColumnQuarantine: dataColumnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
@@ -297,7 +297,7 @@ proc processSignedBeaconBlock*(
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:
         Opt.some(default(fulu.DataColumnSidecars))
       else:
-        self.dataColumnQuarantine[].popSidecars(signedBlock.root)
+        self.fuluColumnQuarantine[].popSidecars(signedBlock.root)
     if sidecarsOpt.isNone():
       self.blockProcessor[].startExecutionValidity(signedBlock, wallTime)
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
@@ -386,7 +386,7 @@ proc processDataColumnSidecar*(
   let
     validationStart = Moment.now()
     v =
-      self.dag.validateDataColumnSidecar(self.quarantine, self.dataColumnQuarantine,
+      self.dag.validateDataColumnSidecar(self.quarantine, self.fuluColumnQuarantine,
                                          dataColumnSidecar, wallTime, subnet_id)
 
   data_column_sidecar_validation_duration.observe(
@@ -400,16 +400,16 @@ proc processDataColumnSidecar*(
   let block_root = hash_tree_root(block_header)
 
   debug "Data column validated, putting data column in quarantine"
-  if dataColumnSidecar[].index notin self.dataColumnQuarantine[].custodyMap:
+  if dataColumnSidecar[].index notin self.fuluColumnQuarantine[].custodyMap:
     data_column_sidecars_received.inc()
     data_column_sidecar_delay.observe(delay.toFloatSeconds())
     return v
 
-  self.dataColumnQuarantine[].put(
+  self.fuluColumnQuarantine[].put(
     block_root, dataColumnSidecar, verified = true)
 
   if block_root in self.quarantine[].sidecarless:
-    let cres = self.dataColumnQuarantine[].popSidecars(block_root)
+    let cres = self.fuluColumnQuarantine[].popSidecars(block_root)
     if cres.isSome():
       let blck = self.quarantine[].popSidecarless(block_root).expect("checked above")
       withBlck(blck):

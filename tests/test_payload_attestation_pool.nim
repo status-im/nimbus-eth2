@@ -61,7 +61,7 @@ suite "Payload attestation pool" & preset():
   setup:
     # Genesis state that results in 512 members in a committee
     const TOTAL_COMMITTEES = 1
-    var
+    let
       cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = init(
@@ -71,7 +71,8 @@ suite "Payload attestation pool" & preset():
         validatorMonitor, {})
       pool = newClone(PayloadAttestationPool.init(dag))
       state = newClone(dag.headState)
-      cache = StateCache()
+    var
+      cache: StateCache
       info = ForkedEpochInfo()
     check:
       process_slots(

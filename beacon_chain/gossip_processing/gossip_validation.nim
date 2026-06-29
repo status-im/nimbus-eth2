@@ -399,7 +399,7 @@ template validateBeaconBlockGloas(
   debugHezeComment "this effectively disables gossip validation for Heze blocks currently"
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockGloas(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
@@ -447,10 +447,17 @@ template validateBeaconBlockGloas(
   if not (bid.parent_block_root == blck.parent_root):
     return dag.checkedReject("validateBeaconBlockGloas: parent block mismatch")
 
+  # [REJECT] The length of KZG commitments is less than or equal to the
+  # limitation defined in the consensus layer -- i.e. validate that
+  # `len(bid.blob_kzg_commitments) <= max_blobs_per_block`.
+  if not (bid.blob_kzg_commitments.lenu64 <=
+      dag.cfg.get_blob_parameters(blck.slot.epoch).MAX_BLOBS_PER_BLOCK):
+    return dag.checkedReject("validateBeaconBlockGloas: too many blob commitments")
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref ColumnQuarantine,
+    fuluColumnQuarantine: ref FuluColumnQuarantine,
     data_column_sidecar: ref fulu.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
@@ -487,7 +494,7 @@ proc validateDataColumnSidecar*(
   # (block_header.slot, block_header.proposer_index, data_column_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
-  if dataColumnQuarantine[].hasSidecar(
+  if fuluColumnQuarantine[].hasSidecar(
       block_root, block_header.slot, block_header.proposer_index,
       data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
@@ -568,7 +575,7 @@ proc validateDataColumnSidecar*(
 
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
-    dataColumnQuarantine[].onDataColumnSidecarCallback()
+    fuluColumnQuarantine[].onDataColumnSidecarCallback()
 
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
@@ -581,7 +588,7 @@ proc validateDataColumnSidecar*(
   # getBlobs service can derive header/commitments/inclusion proof when the
   # block has not yet been seen via gossip.
   let onFuluColumnAddedCallback =
-    dataColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
+    fuluColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
   if not(isNil(onFuluColumnAddedCallback)):
     onFuluColumnAddedCallback newClone(data_column_sidecar)
 
@@ -1840,7 +1847,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -1858,6 +1865,11 @@ proc validateExecutionPayloadBid*(
 
       if not is_active_builder(forkyState.data, bid.builder_index):
         return dag.checkedReject("ExecutionPayloadBid: builder not active")
+
+      # [REJECT] The builder version is `PAYLOAD_BUILDER_VERSION`
+      if not (forkyState.data.builders.item(bid.builder_index).version ==
+          PAYLOAD_BUILDER_VERSION):
+        return dag.checkedReject("ExecutionPayloadBid: builder version mismatch")
 
       # [REJECT] bid.execution_payment is zero
       if bid.execution_payment != 0.Gwei:
@@ -1911,7 +1923,7 @@ proc validateExecutionPayloadBid*(
           bidDependentRoot, pref):
         seenPref = pref[]
       do:
-        return dag.checkedReject("ExecutionPayloadBid: matching preferences not seen")
+        return errIgnore("ExecutionPayloadBid: matching preferences not seen")
 
       # [IGNORE]
       # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
@@ -1972,7 +1984,7 @@ proc validateExecutionPayloadBid*(
       dag.checkedReject(
         "ExecutionPayloadBid: only valid for Gloas fork or later")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.3/specs/gloas/p2p-interface.md#payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#payload_attestation_message
 proc validatePayloadAttestationMessage*(
     dag: ChainDAGRef,
     payloadAttestationPool: ref PayloadAttestationPool,
@@ -1998,8 +2010,13 @@ proc validatePayloadAttestationMessage*(
 
   # [IGNORE] The message's block `data.beacon_block_root` has been seen (via
   # gossip or non-gossip sources)
-  if dag.getBlockRef(data.beacon_block_root).isErr:
+  let attestedBlck = dag.getBlockRef(data.beacon_block_root).valueOr:
     return errIgnore("PayloadAttestationMessage: block not found")
+
+  # [IGNORE] The block referenced by `data.beacon_block_root` is at slot
+  # `data.slot` -- i.e. `block.slot == data.slot`.
+  if attestedBlck.bid.slot != data.slot:
+    return errIgnore("PayloadAttestationMessage: block slot mismatch")
 
   # [REJECT] The message's block `data.beacon_block_root` passes validation.
   # Should have been validatied by getNBlockRef above

@@ -43,20 +43,20 @@ declareGauge beacon_engine_getblobs_slot_hit_rate,
 
 type
   GetBlobsService* = object
-    blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
-    fuluColumnSidecarBus*: AsyncEventQueue[ref fulu.DataColumnSidecar]
-    blockProcessor*: ref BlockProcessor
-    dataColumnQuarantine*: ref ColumnQuarantine
-    gloasColumnQuarantine*: ref GloasColumnQuarantine
+    blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
+    fuluColumnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar]
+    blockProcessor: ref BlockProcessor
+    fuluColumnQuarantine: ref FuluColumnQuarantine
+    gloasColumnQuarantine: ref GloasColumnQuarantine
     partialColumnQuarantine: ref FuluPartialColumnQuarantine
       # Sink for partial column cells reconstructed from a partial
       # engine_getBlobsV3 response on Fulu.
-    partialColumns*: bool
+    partialColumns: bool
       # Mirrors `--debug-partial-columns`: when true the Fulu path issues
       # `engine_getBlobsV3` and routes partial responses into the partial
       # column quarantine, instead of issuing `engine_getBlobsV2`.
-    validatorCustody*: ValidatorCustodyRef
-    network*: Eth2Node
+    validatorCustody: ValidatorCustodyRef
+    network: Eth2Node
     # Per-slot engine_getBlobs accounting. `slotInFlight` is the slot whose
     # counts are currently accumulating; when a request lands for a different
     # slot we flush the previous slot's ratio to the gauge and reset.
@@ -75,7 +75,7 @@ proc new*(
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     fuluColumnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar],
     blockProcessor: ref BlockProcessor,
-    dataColumnQuarantine: ref ColumnQuarantine,
+    fuluColumnQuarantine: ref FuluColumnQuarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
     partialColumnQuarantine: ref FuluPartialColumnQuarantine,
     partialColumns: bool,
@@ -86,7 +86,7 @@ proc new*(
     blockGossipBus: blockGossipBus,
     fuluColumnSidecarBus: fuluColumnSidecarBus,
     blockProcessor: blockProcessor,
-    dataColumnQuarantine: dataColumnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     partialColumnQuarantine: partialColumnQuarantine,
     partialColumns: partialColumns,
@@ -114,16 +114,14 @@ proc recordEngineGetBlobs(
 
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
-    columns: seq[ref T],
-    skipIndex = Opt.none(ColumnIndex)
+    columns: seq[ref T]
 ) {.async: (raises: [CancelledError]).} =
   ## Publish each column to its respective gossip subnet.
   var workers = newSeqOfCap[Future[SendResult]](columns.len)
   for col in columns:
-    if skipIndex.isSome and col[].index == skipIndex.get():
-      continue
     let subnet = compute_subnet_for_data_column_sidecar(col[].index)
     workers.add self.network.broadcastDataColumnSidecar(subnet, col)
+    await sleepAsync(5.milliseconds)
   let results = await allFinished(workers)
   for r in results:
     doAssert r.finished()
@@ -152,7 +150,7 @@ proc attemptGetBlobs*(
       # skip the EL fetch and enqueue with the existing columns.
       if forkyBlck.root in self.columnFirstFetched:
         let sidecarsOpt =
-          self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+          self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
         if sidecarsOpt.isSome():
           if not quarantine[].removeSidecarless(forkyBlck.root):
             return
@@ -255,20 +253,17 @@ proc attemptGetBlobs*(
           for proof in item.proofs:
             flat_proof.add kzg.KzgProof(bytes: proof.data)
 
-      let recovered_columns = assemble_data_column_sidecars(
-        forkyBlck, blobs, flat_proof)
-
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
       # make use of it.
-      let
-        custodyMap = self.validatorCustody.getMap()
-        batch = recovered_columns.filterIt(it[].index in custodyMap)
-
-      await self.redistributeColumns(batch)
+      let batch = assemble_data_column_sidecars(
+        forkyBlck, blobs, flat_proof, self.validatorCustody.getMap())
 
       if batch.len == 0:
         return
+
+      asyncSpawn self.redistributeColumns(batch.filterIt(
+        not self.fuluColumnQuarantine[].hasSidecar(forkyBlck.root, it[].index)))
 
       # Claim the block now that we are committed to enqueueing it. If it
       # was already removed in the meantime (e.g. gossip delivered sidecars
@@ -280,12 +275,12 @@ proc attemptGetBlobs*(
         root = forkyBlck.root,
         slot = forkyBlck.message.slot,
         batch_len = batch.len
-      self.dataColumnQuarantine[].put(forkyBlck.root, batch, verified = true)
+      self.fuluColumnQuarantine[].put(forkyBlck.root, batch, verified = true)
       # Any partial-cell state for this block is now superseded by the full
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
 
-      let sidecarsOpt = self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+      let sidecarsOpt = self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
 
       self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
     elif consensusFork == ConsensusFork.Heze:
@@ -326,17 +321,14 @@ proc attemptGetBlobs*(
     blobs.add kzg.KzgBlob(bytes: item.blob.data)
     for proof in item.proofs:
       flat_proof.add kzg.KzgProof(bytes: proof.data)
-  let recovered_columns = assemble_data_column_sidecars(
-    blck, blobs, flat_proof)
-
-  let
-    custodyMap = self.validatorCustody.getMap()
-    batch = recovered_columns.filterIt(it[].index in custodyMap)
-
-  await self.redistributeColumns(batch)
+  let batch = assemble_data_column_sidecars(
+    blck, blobs, flat_proof, self.validatorCustody.getMap())
 
   if batch.len == 0:
     return
+
+  asyncSpawn self.redistributeColumns(batch.filterIt(
+    not self.gloasColumnQuarantine[].hasSidecar(blck.root, it[].index)))
 
   debug "Added data columns from EL blobpool to gloas quarantine",
     root = blck.root,
@@ -394,27 +386,23 @@ proc attemptGetBlobsFromColumn*(
     for proof in item.proofs:
       flat_proof.add kzg.KzgProof(bytes: proof.data)
 
-  let recovered_columns = assemble_data_column_sidecars(
+  let batch = assemble_data_column_sidecars(
     sidecar[].signed_block_header,
     sidecar[].kzg_commitments,
     sidecar[].kzg_commitments_inclusion_proof,
-    blobs, flat_proof)
-
-  let
-    custodyMap = self.validatorCustody.getMap()
-    batch = recovered_columns.filterIt(it[].index in custodyMap)
-
-  await self.redistributeColumns(
-    batch, skipIndex = Opt.some(sidecar[].index))
+    blobs, flat_proof, self.validatorCustody.getMap())
 
   if batch.len == 0:
     return
+
+  asyncSpawn self.redistributeColumns(batch.filterIt(
+    not self.fuluColumnQuarantine[].hasSidecar(block_root, it[].index)))
 
   debug "Added data columns from EL blobpool to quarantine (column-first)",
     root = block_root,
     slot = slot,
     batch_len = batch.len
-  self.dataColumnQuarantine[].put(block_root, batch, verified = true)
+  self.fuluColumnQuarantine[].put(block_root, batch, verified = true)
   # Any partial-cell state for this block is now superseded by the full
   # column sidecars we just installed.
   self.partialColumnQuarantine[].pruneForBlock(block_root)

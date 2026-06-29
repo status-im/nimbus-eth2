@@ -287,6 +287,10 @@ jobs:
         run: |
           scripts/check_submodule_branches.sh
 
+      - name: Check spec presets
+        run: |
+          scripts/check_presets.sh
+
   # https://github.com/EnricoMi/publish-unit-test-result-action
   event_file:
     name: "Event File"
