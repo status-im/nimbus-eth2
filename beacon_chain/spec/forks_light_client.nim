@@ -190,57 +190,37 @@ type
       gloasData*: gloas.LightClientStore
 
 template kind*(
-    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
     x: typedesc[
+      altair.SomeLightClientObject |
       altair.LightClientHeader |
-      altair.LightClientBootstrap |
-      altair.LightClientUpdate |
-      altair.LightClientFinalityUpdate |
-      altair.LightClientOptimisticUpdate |
       altair.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Altair
 
 template kind*(
-    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
     x: typedesc[
+      capella.SomeLightClientObject |
       capella.LightClientHeader |
-      capella.LightClientBootstrap |
-      capella.LightClientUpdate |
-      capella.LightClientFinalityUpdate |
-      capella.LightClientOptimisticUpdate |
       capella.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Capella
 
 template kind*(
-    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
     x: typedesc[
+      deneb.SomeLightClientObject |
       deneb.LightClientHeader |
-      deneb.LightClientBootstrap |
-      deneb.LightClientUpdate |
-      deneb.LightClientFinalityUpdate |
-      deneb.LightClientOptimisticUpdate |
       deneb.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Deneb
 
 template kind*(
-    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
     x: typedesc[
+      electra.SomeLightClientObject |
       electra.LightClientHeader |
-      electra.LightClientBootstrap |
-      electra.LightClientUpdate |
-      electra.LightClientFinalityUpdate |
-      electra.LightClientOptimisticUpdate |
       electra.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Electra
 
 template kind*(
-    # `SomeLightClientObject`: https://github.com/nim-lang/Nim/issues/18095
     x: typedesc[
+      gloas.SomeLightClientObject |
       gloas.LightClientHeader |
-      gloas.LightClientBootstrap |
-      gloas.LightClientUpdate |
-      gloas.LightClientFinalityUpdate |
-      gloas.LightClientOptimisticUpdate |
       gloas.LightClientStore]): LightClientDataFork =
   LightClientDataFork.Gloas
 

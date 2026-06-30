@@ -12,16 +12,15 @@ import
   minilru, results,
   kzg4844/[kzg, kzg_abi],
   ssz_serialization/bitseqs,
-  ../spec/[digest, forks, helpers, presets]
+  ../spec/[datatypes/base, digest, presets]
 
 # Spec references:
 # - Fulu: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md
 # - Gloas: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md
 
-from ../spec/datatypes/fulu import
-  ColumnIndex, DataColumn
-
 from ../spec/datatypes/deneb import KzgCommitments, KzgProofs
+from ../spec/datatypes/fulu import ColumnIndex, DataColumn
+from ../spec/datatypes/gloas import PartialDataColumnGroupID
 
 export results
 
@@ -29,7 +28,7 @@ const
   MaxPartialHeaders* = 3 * int(SLOTS_PER_EPOCH)
     ## Maximum number of validated headers (Fulu) or group IDs (Gloas) to
     ## cache.
-  MaxPartialEntries* = 3 * int(SLOTS_PER_EPOCH) * NUMBER_OF_COLUMNS
+  MaxPartialEntries = 3 * int(SLOTS_PER_EPOCH) * NUMBER_OF_COLUMNS
     ## Maximum number of (block_id, column_index) entries to cache.
 
 type
@@ -82,7 +81,7 @@ type
   # Type class matching any fork's partial sidecar. Both variants share
   # the same cell-bearing fields (cells_present_bitmap, partial_column,
   # kzg_proofs) per spec.
-  AnyPartialDataColumnSidecar =
+  SomePartialDataColumnSidecar =
     fulu.PartialDataColumnSidecar | gloas.PartialDataColumnSidecar
 
 func hash*(gid: gloas.PartialDataColumnGroupID): Hash =
@@ -231,7 +230,7 @@ func hasCellReceived*[K, H](
 
 # --- Cell ingestion and assembly ---
 
-func addCells*[K, H; S: AnyPartialDataColumnSidecar](
+func addCells*[K, H; S: SomePartialDataColumnSidecar](
     quarantine: var PartialColumnQuarantine[K, H],
     blockId: K,
     columnIndex: ColumnIndex,

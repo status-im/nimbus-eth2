@@ -118,7 +118,7 @@ func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # blobs may arrive before an orphan is tagged `blobless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
 
-func enoughColumns*(q: SomeColumnQuarantine, count: int): bool =
+func enoughColumns(q: SomeColumnQuarantine, count: int): bool =
   if count >= NUMBER_OF_COLUMNS div 2:
     return true
   if count == len(q.custodyMap):
