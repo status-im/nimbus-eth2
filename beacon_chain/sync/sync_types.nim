@@ -67,7 +67,7 @@ type
     fblockBuffer*: BlocksRangeBuffer
     bblockBuffer*: BlocksRangeBuffer
     blockQuarantine*: ref Quarantine
-    columnQuarantine*: ref ColumnQuarantine
+    fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     blocksQueueBus*: AsyncEventQueue[EventBeaconBlockObject]
@@ -141,7 +141,7 @@ proc new*(
     blockProcessor: ref BlockProcessor,
     validatorCustody: ref ValidatorCustody,
     blockQuarantine: ref Quarantine,
-    columnQuarantine: ref ColumnQuarantine,
+    fuluColumnQuarantine: ref FuluColumnQuarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
     gossipQueue: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     blocksQueue: AsyncEventQueue[EventBeaconBlockObject],
@@ -158,7 +158,7 @@ proc new*(
     pool: net.peerPool,
     blockProcessor: blockProcessor,
     validatorCustody: validatorCustody,
-    columnQuarantine: columnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     blockQuarantine: blockQuarantine,
     blockGossipBus: gossipQueue,

@@ -26,7 +26,7 @@ type
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
   PeerMapCallback*[T] = proc(peer: T): ColumnMap {.gcsafe, raises: [].}
   LocalColumnMapCallback* = proc(): ColumnMap {.gcsafe, raises: [].}
-  MissingMapCallback* = proc(root: Eth2Digest): ColumnMap {.gcsafe, raises: [].}
+  MissingMapCallback* = proc(bid: BlockId): ColumnMap {.gcsafe, raises: [].}
   BlockVerifier* =
     proc(signedBlock: SyncResponseItem, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
@@ -626,6 +626,9 @@ func `>=`*(a: SyncRange, b: Slot): bool {.inline.} =
   ## Returns `true` if all slots in range `a` are equal or bigger than slot `b`.
   (a.start_slot() >= b) and (a.last_slot() >= b)
 
+func `<`*(a: Slot, b: SyncRange): bool {.inline.} =
+  (a < b.start_slot()) and (a < b.last_slot())
+
 func `<`*(a: SyncRange, b: Slot): bool {.inline.} =
   ## Returns `true` if all slots in range `a` are smaller than slot `b`.
   (a.start_slot() < b) and (a.last_slot() < b)
@@ -1203,7 +1206,7 @@ proc getMissingMap*[M](
   for item in data:
     if started or (startBid.isSome() and (item.root == startBid.get().root)):
       started = true
-      let map = sq.cbGetMissingMap(item.root)
+      let map = sq.cbGetMissingMap(item.toBlockId())
       res = res or map
   res
 
