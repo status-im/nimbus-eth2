@@ -15,12 +15,17 @@ import ./sync_queue
 
 from std/sequtils import mapIt
 
+const
+  DEFAULT_BLOCKS_PER_REQUEST = 32      # MAX_REQUEST_BLOCKS_DENEB div 4
+  DEFAULT_SIDECARS_PER_REQUEST = 1024  # MAX_REQUEST_DATA_COLUMN_SIDECARS div 16
+  DEFAULT_ENVELOPES_PER_REQUEST = 32   # MAX_REQUEST_PAYLOADS div 4
+
 type
   DagEntryFlag* {.pure.} = enum
     Local, Unviable, Finalized, Pending, MissingSidecars, MissingEnvelope
 
   DagBlockSourceType* {.pure.} = enum
-    Orphan, Sidecarless, Dag, Unviable
+    Orphan, Sidecarless, Envelopeless, Dag, Unviable
 
   SyncDagEntryRef* = ref object
     blockId*: BlockId
@@ -40,6 +45,7 @@ type
     minBackCarSlot*: Opt[Slot]
     maxBlocksPerRequest*: int
     maxSidecarsPerRequest*: int
+    maxEnvelopesPerRequest*: int
     peerLoopFut*: Future[void].Raising([])
 
   SyncDag*[A, B] = object
@@ -106,6 +112,7 @@ func fullLog*(s: set[DagBlockSourceType]): string =
   if DagBlockSourceType.Unviable in s: res.add("unviable")
   if DagBlockSourceType.Dag in s: res.add("dag")
   if DagBlockSourceType.Sidecarless in s: res.add("sidecarless")
+  if DagBlockSourceType.Envelopeless in s: res.add("envelopeless")
   "[" & res.join(",") & "]"
 
 proc hash*(entry: SyncDagEntryRef): Hash =
@@ -148,8 +155,9 @@ func init*[T](
   PeerEntryRef[T](
     pendingRoots: RootQueue.init(),
     peer: peer,
-    maxBlocksPerRequest: 4,
-    maxSidecarsPerRequest: 128
+    maxBlocksPerRequest: DEFAULT_BLOCKS_PER_REQUEST,
+    maxSidecarsPerRequest: DEFAULT_SIDECARS_PER_REQUEST,
+    maxEnvelopesPerRequest: DEFAULT_ENVELOPES_PER_REQUEST
   )
 
 iterator parents*(entry: SyncDagEntryRef): SyncDagEntryRef =
@@ -395,6 +403,138 @@ proc init*(
     B: typedesc
 ): SyncDag[A, B] =
   SyncDag[A, B]()
+
+func getPeerEntry*[A, B](
+    sdag: SyncDag[A, B],
+    peerKey: B
+): Opt[PeerEntryRef[A]] =
+  let res = sdag.peers.getOrDefault(peerKey)
+  if isNil(res):
+    return Opt.none(PeerEntryRef[A])
+  Opt.some(res)
+
+func getRootEntry*[A, B](
+    sdag: SyncDag[A, B],
+    root: Eth2Digest
+): Opt[SyncDagEntryRef] =
+  let res = sdag.roots.getOrDefault(root)
+  if isNil(res):
+    return Opt.none(SyncDagEntryRef)
+  Opt.some(res)
+
+func getMissingSidecarsRoots*(entry: SyncDagEntryRef): seq[BlockId] =
+  var res: seq[BlockId]
+  if DagEntryFlag.MissingSidecars in entry.flags:
+    res.add(entry.blockId)
+  for currentEntry in entry.parents():
+    if DagEntryFlag.MissingSidecars in currentEntry.flags:
+      res.add(currentEntry.blockId)
+    if DagEntryFlag.Finalized in currentEntry.flags:
+      break
+  res.reversed()
+
+func getMissingEnvelopeRoots*(entry: SyncDagEntryRef): seq[BlockId] =
+  var res: seq[BlockId]
+  if DagEntryFlag.MissingEnvelope in entry.flags:
+    res.add(entry.blockId)
+  for currentEntry in entry.parents():
+    if DagEntryFlag.MissingEnvelope in currentEntry.flags:
+      res.add(currentEntry.blockId)
+    if DagEntryFlag.Finalized in currentEntry.flags:
+      break
+  res.reversed()
+
+func cleanMissingSidecarsRoots*(entry: SyncDagEntryRef) =
+  if DagEntryFlag.MissingSidecars in entry.flags:
+    entry.flags.excl(DagEntryFlag.MissingSidecars)
+  for currentEntry in entry.parents():
+    entry.flags.excl(DagEntryFlag.MissingSidecars)
+
+func increaseBlocksCount*[A](
+    entry: PeerEntryRef[A],
+    fork: ConsensusFork
+) =
+  # We increase by 1/4, but not bigger than fork's limit value.
+  let
+    maxCount =
+      case fork
+      of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
+        int(MAX_REQUEST_BLOCKS_DENEB)
+      of ConsensusFork.Gloas:
+        int(MAX_REQUEST_BLOCKS_DENEB)
+      of ConsensusFork.Heze:
+        raiseAssert "Unsupported fork!"
+    res =
+      entry.maxBlocksPerRequest + max(1, entry.maxBlocksPerRequest div 4)
+
+  if res > maxCount:
+    entry.maxBlocksPerRequest = maxCount
+  else:
+    entry.maxBlocksPerRequest = res
+
+func increaseSidecarsCount*[A](
+    entry: PeerEntryRef[A],
+    cfg: RuntimeConfig,
+    fork: ConsensusFork
+) =
+  # We increase by 1/4, but not bigger than fork's limit value.
+  let
+    maxCount =
+      case fork
+      of ConsensusFork.Phase0 .. ConsensusFork.Electra:
+        0
+      of ConsensusFork.Fulu:
+        int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
+      of ConsensusFork.Gloas:
+        int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
+      of ConsensusFork.Heze:
+        raiseAssert "Unsupported fork!"
+    res =
+      entry.maxSidecarsPerRequest + max(1, entry.maxSidecarsPerRequest div 4)
+  if res > maxCount:
+    entry.maxSidecarsPerRequest = maxCount
+  else:
+    entry.maxSidecarsPerRequest = res
+
+func increaseEnvelopesCount*[A](
+    entry: PeerEntryRef[A],
+    fork: ConsensusFork
+) =
+  # We increase by 1/4, but not bigger than fork's limit value.
+  let
+    maxCount =
+      case fork
+      of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
+        0
+      of ConsensusFork.Gloas:
+        int(MAX_REQUEST_PAYLOADS)
+      of ConsensusFork.Heze:
+        raiseAssert "Unsupported fork!"
+    res =
+      entry.maxEnvelopesPerRequest + max(1, entry.maxEnvelopesPerRequest div 4)
+
+  if res > maxCount:
+    entry.maxEnvelopesPerRequest = maxCount
+  else:
+    entry.maxEnvelopesPerRequest = res
+
+func decreaseEnvelopesCount*[A](entry: PeerEntryRef[A]) =
+  if entry.maxEnvelopesPerRequest <= 1:
+    entry.maxEnvelopesPerRequest = 1
+    return
+  entry.maxEnvelopesPerRequest = entry.maxEnvelopesPerRequest div 2
+
+func decreaseSidecarsCount*[A](entry: PeerEntryRef[A]) =
+  if entry.maxSidecarsPerRequest <= 1:
+    entry.maxSidecarsPerRequest = 1
+    return
+  entry.maxSidecarsPerRequest = entry.maxSidecarsPerRequest div 2
+
+func decreaseBlocksCount*[A](entry: PeerEntryRef[A]) =
+  if entry.maxBlocksPerRequest <= 1:
+    entry.maxBlocksPerRequest = 1
+    return
+  entry.maxBlocksPerRequest = entry.maxBlocksPerRequest div 2
 
 proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
   var
