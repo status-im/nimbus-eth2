@@ -30,8 +30,7 @@ type
   InclusionListPool* = object
     ## Node-level wrapper around the spec `InclusionListStore` (EIP-7805 /
     ## FOCIL). The spec store is keyed by inclusion-list committee root; here it
-    ## is additionally bucketed per slot so that stale slots can be pruned,
-    ## mirroring how `PayloadAttestationPool` buckets payload attestations.
+    ## is additionally bucketed per slot so that stale slots can be pruned.
     dag*: ChainDAGRef
     stores*: Table[Slot, InclusionListStore]
     # Distinct inclusion lists already seen per (slot, validator), used to
