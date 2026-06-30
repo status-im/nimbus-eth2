@@ -264,14 +264,28 @@ func checkResponse*(
     blocks: openArray[ref ForkedSignedBeaconBlock]
 ): Result[void, cstring] =
   ## This procedure checks peer's getBlocksByRoot() response.
-  var checks = @roots
   if len(blocks) == 0:
     return ok()
   if len(blocks) > len(roots):
     return err("Number of received blocks greater than number of requested")
+  var checks = roots.toHashSet()
   for blk in blocks:
-    let res = checks.find(blk[].root)
-    if res == -1:
+    if blk[].root notin checks:
       return err("Unexpected block root encountered")
-    checks.del(res)
+    checks.excl(blk[].root)
+  ok()
+
+func checkResponse*(
+    roots: openArray[Eth2Digest],
+    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+): Result[void, cstring] =
+  if len(envelopes) == 0:
+    return ok()
+  if len(envelopes) > len(roots):
+    return err("Number of received envelopes greater than number of requested")
+  var checks = roots.toHashSet()
+  for envelope in envelopes:
+    if envelope.message.beacon_block_root notin checks:
+      return err("Unexpected beacon block root encountered")
+    checks.excl(envelope.message.beacon_block_root)
   ok()

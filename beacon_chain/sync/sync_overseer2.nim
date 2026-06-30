@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 {.push raises: [].}
 
-import std/[sequtils, strutils, sets, algorithm]
+import std/[sequtils, strutils, sets]
 import chronos, chronicles, results
 import
   ../spec/eth2_apis/rest_types,
@@ -58,6 +58,22 @@ type
     intersectMap: ColumnMap
     missingCount: string
     missingLog: string
+
+  BlocksAndColumnRequest = object
+    columnBlocks: seq[ForkedSignedBeaconBlock]
+    idents: seq[DataColumnsByRootIdentifier]
+    columnsCount: int
+    consensusFork: ConsensusFork
+
+  BlocksAndEnvelopeRequest = object
+    blocks: seq[ForkedSignedBeaconBlock]
+    roots: seq[Eth2Digest]
+
+template slot(sidecar: ref fulu.DataColumnSidecar): Slot =
+  sidecar[].signed_block_header.message.slot
+
+template slot(sidecar: ref gloas.DataColumnSidecar): Slot =
+  sidecar[].slot
 
 func shortLog(optblkid: Opt[BlockId]): string =
   if optblkid.isNone():
@@ -114,6 +130,10 @@ func slimLog(columns: openArray[ref gloas.DataColumnSidecar]): string =
   res.add(']')
   res
 
+func slimLog(envelopes: openArray[ref SignedExecutionPayloadEnvelope]): string =
+  "[" & envelopes.mapIt(
+    shortLog(it[].message.beacon_block_root)).join(",") & "]"
+
 func slimLog(blck: ForkedSignedBeaconBlock): string =
   "(" & $blck.kind & ",slot:" & $blck.slot() &
     ",root:" & shortLog(blck.root()) &
@@ -145,66 +165,6 @@ func eraBorderSlot(overseer: SyncOverseerRef2): Opt[Slot] =
 func isGenesis(checkpoint: Checkpoint): bool =
   (checkpoint.epoch == GenesisCheckpoint.epoch) and
     (checkpoint.root == GenesisCheckpoint.root)
-
-func increaseBlocksCount(
-    overseer: SyncOverseerRef2,
-    blocksCount: var int,
-    fork: ConsensusFork
-) =
-  # We increase by 1/4, but not bigger than fork's limit value.
-  let
-    maxCount =
-      case fork
-      of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
-        int(MAX_REQUEST_BLOCKS_DENEB)
-      of ConsensusFork.Gloas:
-        int(MAX_REQUEST_BLOCKS_DENEB)
-      of ConsensusFork.Heze:
-        raiseAssert "Unsupported fork!"
-    res = blocksCount + max(1, blocksCount div 4)
-
-  if res > maxCount:
-    blocksCount = maxCount
-  else:
-    blocksCount = res
-
-func increaseSidecarsCount(
-    overseer: SyncOverseerRef2,
-    sidecarsCount: var int,
-    fork: ConsensusFork
-) =
-  # We increase by 1/4, but not bigger than fork's limit value.
-  let
-    cfg = overseer.consensusManager.dag.cfg
-    maxCount =
-      case fork
-      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        int(cfg.MAX_REQUEST_BLOB_SIDECARS)
-      of ConsensusFork.Electra:
-        int(cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
-      of ConsensusFork.Fulu:
-        int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
-      of ConsensusFork.Gloas:
-        int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
-      of ConsensusFork.Heze:
-        raiseAssert "Unsupported fork!"
-
-    res = sidecarsCount + max(1, sidecarsCount div 4)
-
-  if res > maxCount:
-    sidecarsCount = maxCount
-  else:
-    sidecarsCount = res
-
-func decreaseSidecarsCount(sidecarsCount: var int) =
-  if sidecarsCount == 1:
-    return
-  sidecarsCount = sidecarsCount div 2
-
-func decreaseBlocksCount(blocksCount: var int) =
-  if blocksCount == 1:
-    return
-  blocksCount = blocksCount div 2
 
 proc getColumnsDistribution(overseer: SyncOverseerRef2): ColumnsDistribution =
   var
@@ -1058,10 +1018,10 @@ proc syncDistance*(
 
 proc verifyBlock(
     overseer: SyncOverseerRef2,
-    signedBlock: ref ForkedSignedBeaconBlock,
+    signedBlock: ForkedSignedBeaconBlock,
     maybeFinalized: bool
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  withBlck(signedBlock[]):
+  withBlck(signedBlock):
     when consensusFork < ConsensusFork.Fulu:
       await overseer.blockProcessor.addBlock(
         MsgSource.sync, forkyBlck, noSidecars, maybeFinalized = maybeFinalized)
@@ -1090,41 +1050,39 @@ proc verifyBlock(
           MsgSource.sync, forkyBlck, Opt.none(fulu.DataColumnSidecars),
           maybeFinalized = maybeFinalized)
     elif consensusFork == ConsensusFork.Gloas:
+      # Gloas fork processes blocks without sidecars, but block is the only
+      # source of information about sidecars. So here we going to emulate
+      # Fulu and store block in sidecarless quarantine if block missing
+      # sidecars.
       if overseer.shouldGetColumns(forkyBlck.message.slot):
-        let cres =
-          if len(forkyBlck.message.body.signed_execution_payload_bid.
-                 message.blob_kzg_commitments) == 0:
-            Opt.some(default(gloas.DataColumnSidecars))
-          else:
-            overseer.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
-        if cres.isSome():
-          let res =
-            await overseer.blockProcessor.addBlock(
-              MsgSource.sync, forkyBlck, cres,
-              maybeFinalized = maybeFinalized)
-          if res.isErr() and (res.error == VerifierError.MissingParent):
-            # In this case block will be stored in quarantine, so we need to
-            # preserve columns in column quarantine.
-            overseer.gloasColumnQuarantine[].put(
-              forkyBlck.root, cres.get(), false)
-          res
+        if len(forkyBlck.message.body.signed_execution_payload_bid.
+               message.blob_kzg_commitments) == 0:
+          await overseer.blockProcessor.addBlock(
+            MsgSource.sync, forkyBlck, noSidecars,
+            maybeFinalized = maybeFinalized)
         else:
-          overseer.blockQuarantine[].addSidecarless(forkyBlck)
-          Result[void, VerifierError].err(VerifierError.MissingSidecars)
+          if overseer.gloasColumnQuarantine[].hasSidecars(forkyBlck.root):
+            await overseer.blockProcessor.addBlock(
+              MsgSource.sync, forkyBlck, noSidecars,
+              maybeFinalized = maybeFinalized)
+          else:
+            # We temporarily store block inside sidecarless quarantine.
+            overseer.blockQuarantine[].addSidecarless(forkyBlck)
+            Result[void, VerifierError].err(VerifierError.MissingSidecars)
       else:
         await overseer.blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, Opt.none(gloas.DataColumnSidecars),
+          MsgSource.sync, forkyBlck, noSidecars,
           maybeFinalized = maybeFinalized)
     else:
       raiseAssert "Unsupported fork"
 
 proc verifyBlock(
     overseer: SyncOverseerRef2,
-    signedBlock: ForkedSignedBeaconBlock,
+    signedBlock: ref ForkedSignedBeaconBlock,
     maybeFinalized: bool
 ): Future[Result[void, VerifierError]] {.
   async: (raw: true, raises: [CancelledError]).} =
-  verifyBlock(overseer, newClone signedBlock, maybeFinalized)
+  verifyBlock(overseer, signedBlock[], maybeFinalized)
 
 proc getStatusPeriod(
     overseer: SyncOverseerRef2,
@@ -1176,23 +1134,6 @@ proc getMetadataPeriod(
   else:
     5.minutes
 
-func getMissingSidecarsRoots(entry: SyncDagEntryRef): seq[BlockId] =
-  var res: seq[BlockId]
-  if DagEntryFlag.MissingSidecars in entry.flags:
-    res.add(entry.blockId)
-  for currentEntry in entry.parents():
-    if DagEntryFlag.MissingSidecars in currentEntry.flags:
-      res.add(currentEntry.blockId)
-    if DagEntryFlag.Finalized in currentEntry.flags:
-      break
-  res.reversed()
-
-func cleanMissingSidecarsRoots(entry: SyncDagEntryRef) =
-  if DagEntryFlag.MissingSidecars in entry.flags:
-    entry.flags.excl(DagEntryFlag.MissingSidecars)
-  for currentEntry in entry.parents():
-    entry.flags.excl(DagEntryFlag.MissingSidecars)
-
 func getBlock(
     items: openArray[SyncResponseItem],
     root: Eth2Digest,
@@ -1202,6 +1143,162 @@ func getBlock(
     if (item.root == root) and (item.slot == slot):
       return item.signedBlock
   nil
+
+proc getForkedBlock(
+    overseer: SyncOverseerRef2,
+    root: Eth2Digest
+): Opt[ForkedSignedBeaconBlock] =
+  let
+    dag = overseer.consensusManager.dag
+    res = overseer.blockQuarantine[].peekSidecarless(root)
+  if res.isSome():
+    return res
+  let bid = dag.getBlockId(root).valueOr:
+    return Opt.none(ForkedSignedBeaconBlock)
+  for blck in overseer.blockQuarantine[].peek(bid.root):
+    if bid.slot == blck.slot():
+      return Opt.some(blck)
+  let blck = dag.getForkedBlock(bid).valueOr:
+    return Opt.none(ForkedSignedBeaconBlock)
+  Opt.some(blck.asSigned())
+
+proc getForkedBlock(
+    overseer: SyncOverseerRef2,
+    bid: BlockId
+): Opt[ForkedSignedBeaconBlock] =
+  let
+    dag = overseer.consensusManager.dag
+    res = overseer.blockQuarantine[].peekSidecarless(bid.root)
+  if res.isSome():
+    return res
+  for blck in overseer.blockQuarantine[].peek(bid.root):
+    if bid.slot == blck.slot():
+      return Opt.some(blck)
+  let blck = dag.getForkedBlock(bid).valueOr:
+    return Opt.none(ForkedSignedBeaconBlock)
+  Opt.some(blck.asSigned())
+
+proc getMissingColumnsBlocksAndRequest(
+    overseer: SyncOverseerRef2,
+    peer: Peer,
+    peerEntry: PeerEntryRef,
+    bids: openArray[BlockId]
+): BlocksAndColumnRequest =
+  var bres: BlocksAndColumnRequest
+  let peerMap = peer.getColumnMapOrDefault()
+  bres.columnBlocks =
+    block:
+      var
+        res: seq[ForkedSignedBeaconBlock]
+        duplicates: HashSet[Eth2Digest]
+      # Global missing sidecars
+      for root in overseer.missingSidecars:
+        let
+          signedBlock = overseer.getForkedBlock(root).valueOr:
+            debug "Block without sidecars disappeared",
+              block_root = shortLog(root)
+            overseer.missingRoots.incl(root)
+            continue
+          root = signedBlock.root()
+        if root notin duplicates:
+          duplicates.incl(root)
+          res.add(signedBlock)
+      # Peer's missing sidecars
+      for bid in bids:
+        let
+          signedBlock = overseer.getForkedBlock(bid).valueOr:
+            debug "Block without sidecars disappeared",
+              bid = shortLog(bid)
+            overseer.missingRoots.incl(bid.root)
+            continue
+          root = signedBlock.root()
+        if root notin duplicates:
+          duplicates.incl(root)
+          res.add(signedBlock)
+      res
+
+  if len(bres.columnBlocks) > 0:
+    # This function is only used for byRoot calls, so we assume that all the
+    # blocks has equal fork.
+    bres.consensusFork = bres.columnBlocks[0].kind
+
+  for signedBlock in bres.columnBlocks:
+    withBlck(signedBlock):
+      when consensusFork == ConsensusFork.Fulu:
+        let
+          blockRoot = signedBlock.root
+          request =
+            if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+              DataColumnsByRootIdentifier()
+            else:
+              overseer.columnQuarantine[].fetchMissingSidecars(
+                blockRoot, peerMap)
+        if len(request.indices) > 0:
+          bres.idents.add(request)
+          bres.columnsCount.inc(len(request.indices))
+          if bres.columnsCount >= peerEntry.maxSidecarsPerRequest:
+            break
+      elif consensusFork == ConsensusFork.Gloas:
+        let
+          blockRoot = signedBlock.root
+          request =
+            if len(forkyBlck.message.body.signed_execution_payload_bid.
+                  message.blob_kzg_commitments) == 0:
+              DataColumnsByRootIdentifier()
+            else:
+              overseer.gloasColumnQuarantine[].fetchMissingSidecars(
+                blockRoot, peerMap)
+        if len(request.indices) > 0:
+          bres.idents.add(request)
+          bres.columnsCount.inc(len(request.indices))
+          if bres.columnsCount >= peerEntry.maxSidecarsPerRequest:
+            break
+      elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
+        raiseAssert "Should not be happen!"
+      else:
+        raiseAssert "Unsupported fork"
+  bres
+
+proc getMissingEnvelopeBlocksAndRequest(
+    overseer: SyncOverseerRef2,
+    peer: Peer,
+    peerEntry: PeerEntryRef,
+    bids: openArray[BlockId]
+): BlocksAndEnvelopeRequest =
+  var bres: BlocksAndEnvelopeRequest
+  bres.blocks =
+    block:
+      var
+        res: seq[ForkedSignedBeaconBlock]
+        duplicates: HashSet[Eth2Digest]
+      # Global missing envelopes
+      for root in overseer.missingEnvelopes:
+        let
+          signedBlock = overseer.getForkedBlock(root).valueOr:
+            debug "Block without envelopes disappeared",
+              block_root = shortLog(root)
+            overseer.missingRoots.incl(root)
+            continue
+          root = signedBlock.root()
+        if root notin duplicates:
+          duplicates.incl(root)
+          res.add(signedBlock)
+      # Peer's missing sidecars
+      for bid in bids:
+        let
+          signedBlock = overseer.getForkedBlock(bid).valueOr:
+            debug "Block without envelopes disappeared",
+              bid = shortLog(bid)
+            overseer.missingRoots.incl(bid.root)
+            continue
+          root = signedBlock.root()
+        if root notin duplicates:
+          duplicates.incl(root)
+          res.add(signedBlock)
+      res
+  for signedBlock in bres.blocks:
+    bres.roots.add(signedBlock.root)
+  bres
 
 proc doPeerPause(
     overseer: SyncOverseerRef2,
@@ -1484,11 +1581,10 @@ proc doRootSyncStep(
 
   if len(roots) > len(blocks):
     # Number of requested roots is bigger than number of received blocks.
-    peerEntry.maxBlocksPerRequest.decreaseBlocksCount()
+    peerEntry.decreaseBlocksCount()
   else:
     let consensusFork = blocks[0][].kind
-    overseer.increaseBlocksCount(
-      peerEntry.maxBlocksPerRequest, consensusFork)
+    peerEntry.increaseBlocksCount(consensusFork)
 
   for signedBlock in blocks.asSeq():
     # maybeFinalized = false because we are working in range `>finalizedEpoch`.
@@ -1514,6 +1610,13 @@ proc doRootSyncStep(
     let
       missingSidecars =
         if res.isErr() and (res.error == VerifierError.MissingSidecars):
+          true
+        else:
+          false
+      missingEnvelope =
+        # There is no way to check that block has envelope or not, so in this
+        # case we assume that all blocks of Gloas+ fork has envelopes.
+        if signedBlock[].kind >= ConsensusFork.Gloas:
           true
         else:
           false
@@ -1553,10 +1656,141 @@ proc doRootSyncStep(
     # Update SyncDAG with block
     overseer.updatePeer(
       peer.getKey(), true, signedBlock, missingSidecars,
-      missingEnvelope = true, source)
+      missingEnvelope = missingEnvelope, source)
     removeRoot(signedBlock[].root)
 
   true
+
+proc doFuluRootSidecarsRequest(
+    overseer: SyncOverseerRef2,
+    peer: Peer,
+    peerEntry: PeerEntryRef[Peer],
+    request: seq[DataColumnsByRootIdentifier],
+    columnsCount: int
+): Future[Result[void, bool]] {.async: (raises: [CancelledError]).} =
+  let
+    dag = overseer.consensusManager.dag
+    peerMap = peer.getColumnMapOrDefault()
+
+  logScope:
+    peer = peer
+    peer_map = shortLog(peerMap)
+    max_blocks_per_request = peerEntry.maxBlocksPerRequest
+    max_sidecars_per_request = peerEntry.maxSidecarsPerRequest
+    peer_agent = $peer.getRemoteAgent()
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    head = shortLog(dag.head)
+    roots = shortLog(request)
+    roots_count = columnsCount
+    data_type = "columns"
+
+  debug "Requesting data column sidecars by root from peer"
+
+  let
+    columnSidecars =
+      (await dataColumnSidecarsByRoot(peer,
+        DataColumnsByRootIdentifierList request)).valueOr:
+          debug "Data columns by root request failed", reason = error
+          peer.updateScore(PeerScoreNoValues)
+          return err(false)
+
+  debug "Received data column sidecars by root on request",
+    columns_count = len(columnSidecars),
+    columns = slimLog(columnSidecars.asSeq())
+
+  var
+    records =
+      groupSidecars(request, columnsCount, columnSidecars.asSeq()).valueOr:
+        debug "Response to data columns by root is incorrect",
+          columns = slimLog(columnSidecars.asSeq()),
+          columns_count = len(columnSidecars), reason = error
+        peer.updateScore(PeerScoreBadResponse)
+        return err(false)
+
+  for record in records:
+    overseer.columnQuarantine[].put(record.block_root, record.sidecar, false)
+
+  if len(records) == 0:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Empty response received for root request"
+    return err(true)
+
+  if len(records) < columnsCount:
+    # Number of received sidecars is less than number of requested.
+    peerEntry.decreaseSidecarsCount()
+  else:
+    peerEntry.increaseSidecarsCount(dag.cfg, ConsensusFork.Fulu)
+
+  # Peer provided at least some sidecars, so we award it with reward.
+  peer.updateScore(PeerScoreGoodValues)
+  ok()
+
+proc doGloasRootSidecarsRequest(
+    overseer: SyncOverseerRef2,
+    peer: Peer,
+    peerEntry: PeerEntryRef[Peer],
+    request: seq[DataColumnsByRootIdentifier],
+    columnsCount: int
+): Future[Result[void, bool]] {.async: (raises: [CancelledError]).} =
+  let
+    dag = overseer.consensusManager.dag
+    peerMap = peer.getColumnMapOrDefault()
+
+  logScope:
+    peer = peer
+    peer_map = shortLog(peerMap)
+    max_blocks_per_request = peerEntry.maxBlocksPerRequest
+    max_sidecars_per_request = peerEntry.maxSidecarsPerRequest
+    peer_agent = $peer.getRemoteAgent()
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    head = shortLog(dag.head)
+    roots = shortLog(request)
+    roots_count = columnsCount
+    data_type = "columns"
+
+  debug "Requesting data column sidecars by root from peer"
+
+  let
+    columnSidecars =
+      (await dataColumnSidecarsByRootGloas(peer,
+        DataColumnsByRootIdentifierList request, columnsCount)).valueOr:
+          debug "Data columns by root request failed", reason = error
+          peer.updateScore(PeerScoreNoValues)
+          return err(false)
+
+  debug "Received data column sidecars by root on request",
+    columns_count = len(columnSidecars),
+    columns = slimLog(columnSidecars.asSeq())
+
+  var
+    records =
+      groupSidecars(request, columnsCount, columnSidecars.asSeq()).valueOr:
+        debug "Response to data columns by root is incorrect",
+          columns = slimLog(columnSidecars.asSeq()),
+          columns_count = len(columnSidecars), reason = error
+        peer.updateScore(PeerScoreBadResponse)
+        return err(false)
+
+  for record in records:
+    overseer.gloasColumnQuarantine[].put(
+      record.block_root, record.sidecar, false)
+
+  if len(records) == 0:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Empty response received for root request"
+    return err(true)
+
+  if len(records) < columnsCount:
+    # Number of received sidecars is less than number of requested.
+    peerEntry.decreaseSidecarsCount()
+  else:
+    peerEntry.increaseSidecarsCount(dag.cfg, ConsensusFork.Gloas)
+
+  # Peer provided at least some sidecars, so we award it with reward.
+  peer.updateScore(PeerScoreGoodValues)
+  ok()
 
 proc doRootSidecarsSyncStep(
     overseer: SyncOverseerRef2,
@@ -1564,17 +1798,11 @@ proc doRootSidecarsSyncStep(
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
-    peerEntry =
-      block:
-        let res = overseer.sdag.peers.getOrDefault(peer.getKey())
-        if isNil(res): return false
-        res
+    peerEntry = overseer.sdag.getPeerEntry(peer.getKey).valueOr:
+      return false
     peerHead = peer.getHeadBlockId()
-    headEntry =
-      block:
-        let res = overseer.sdag.roots.getOrDefault(peerHead.root)
-        if isNil(res): return false
-        res
+    headEntry = overseer.sdag.getRootEntry(peerHead.root).valueOr:
+      return false
     bids = headEntry.getMissingSidecarsRoots()
     peerMap = peer.getColumnMapOrDefault()
 
@@ -1587,137 +1815,46 @@ proc doRootSidecarsSyncStep(
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
 
-  if len(bids) == 0:
+  if (len(bids) == 0) and (len(overseer.missingSidecars) == 0):
     debug "No pending sidecars available for peer"
     return true
 
   debug "Preparing sidecars by root for peer",
     block_ids = shortLog(bids), block_ids_count = len(bids)
 
-  let
-    columnBlocks =
-      block:
-        var
-          res: seq[ForkedSignedBeaconBlock]
-          checks: HashSet[Eth2Digest]
-        # Global missing sidecars
-        for root in overseer.missingSidecars:
-          let
-            signedBlock =
-              overseer.blockQuarantine[].peekSidecarless(root).valueOr:
-                debug "Block without sidecars disappeared from quarantine",
-                  block_root = shortLog(root)
-                overseer.missingRoots.incl(root)
-                continue
-            root = signedBlock.root()
-          if root notin checks:
-            checks.incl(root)
-            res.add(signedBlock)
-        # Peer's missing sidecars
-        for bid in bids:
-          let
-            signedBlock =
-              overseer.blockQuarantine[].peekSidecarless(bid.root).valueOr:
-                debug "Block without sidecars disappeared from quarantine",
-                  bid = shortLog(bid)
-                overseer.missingRoots.incl(bid.root)
-                continue
-            root = signedBlock.root()
-          if root notin checks:
-            checks.incl(root)
-            res.add(signedBlock)
-        res
-    (columnRoots, columnCount) =
-      block:
-        var
-          resRoots: seq[DataColumnsByRootIdentifier]
-          resCount = 0
-        for signedBlock in columnBlocks:
-          withBlck(signedBlock):
-            when consensusFork == ConsensusFork.Fulu:
-              let
-                blockRoot = signedBlock.root
-                request =
-                  if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-                    DataColumnsByRootIdentifier()
-                  else:
-                    overseer.columnQuarantine[].fetchMissingSidecars(
-                      blockRoot, peerMap)
-              if len(request.indices) > 0:
-                resRoots.add(request)
-                resCount.inc(len(request.indices))
-                if resCount >= peerEntry.maxSidecarsPerRequest:
-                  break
-            elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
-              raiseAssert "Should not be happen!"
-            else:
-              raiseAssert "Unsupported fork"
-        (resRoots, resCount)
-  ##
-  ## Data column sidecars processing.
-  ##
-  if len(columnRoots) == 0:
+  let request =
+    overseer.getMissingColumnsBlocksAndRequest(peer, peerEntry, bids)
+
+  if len(request.idents) == 0:
     debug "No pending data column sidecars available for peer"
     return true
 
+  case request.consensusFork
+  of ConsensusFork.Fulu:
+    (await overseer.doFuluRootSidecarsRequest(
+      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
+      return error
+  of ConsensusFork.Gloas:
+    (await overseer.doGloasRootSidecarsRequest(
+      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
+      return error
+  else:
+    raiseAssert("Unsupported fork!")
+
   logScope:
     head = shortLog(dag.head)
-    roots = shortLog(columnRoots)
-    roots_count = columnCount
+    roots = shortLog(request.idents)
+    roots_count = request.columnsCount
     data_type = "columns"
 
-  debug "Requesting data column sidecars by root from peer"
-
-  let
-    columnSidecars =
-      (await dataColumnSidecarsByRoot(peer,
-        DataColumnsByRootIdentifierList columnRoots)).valueOr:
-          debug "Data columns by root request failed", reason = error
-          peer.updateScore(PeerScoreNoValues)
-          return false
-
-  debug "Received data column sidecars by root on request",
-    columns_count = len(columnSidecars),
-    columns = slimLog(columnSidecars.asSeq())
-
-  var
-    records =
-      groupSidecars(
-        columnRoots, columnCount, columnSidecars.asSeq()).valueOr:
-          debug "Response to data columns by root is incorrect",
-            columns = slimLog(columnSidecars.asSeq()),
-            columns_count = len(columnSidecars), reason = error
-          peer.updateScore(PeerScoreBadResponse)
-          return false
-
-  for record in records:
-    overseer.columnQuarantine[].put(record.block_root, record.sidecar, false)
-
-  if len(records) == 0:
-    peer.updateScore(PeerScoreNoValues)
-    debug "Empty response received for root request",
-      columns = slimLog(columnSidecars.asSeq()),
-      columns_count = len(columnSidecars)
-    return true
-
-  if len(records) < columnCount:
-    # Number of received sidecars is less than number of requested.
-    peerEntry.maxSidecarsPerRequest.decreaseSidecarsCount()
-  else:
-    overseer.increaseSidecarsCount(
-      peerEntry.maxSidecarsPerRequest, ConsensusFork.Fulu)
-
-  # Peer provided at least some sidecars, so we award it with reward.
-  peer.updateScore(PeerScoreGoodValues)
-
   debug "Processing blocks and sidecars by root",
-    blocks = slimLog(columnBlocks)
+    blocks = slimLog(request.columnBlocks)
 
-  for signedBlock in columnBlocks:
+  for signedBlock in request.columnBlocks:
     debug "Processing single block and sidecars by root",
       blck = slimLog(signedBlock)
     withBlck(signedBlock):
-      when consensusFork == ConsensusFork.Fulu:
+      when consensusFork in [ConsensusFork.Fulu, ConsensusFork.Gloas]:
         let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
         if not(isNil(entry)):
           let res = await overseer.verifyBlock(signedBlock, false)
@@ -1731,18 +1868,19 @@ proc doRootSidecarsSyncStep(
                 {DagEntryFlag.Pending, DagEntryFlag.MissingSidecars})
               entry.parent = nil
               overseer.blockQuarantine[].remove(forkyBlck)
-              overseer.columnQuarantine[].remove(forkyBlck.root)
+              if consensusFork == ConsensusFork.Fulu:
+                overseer.columnQuarantine[].remove(forkyBlck.root)
+              elif consensusFork == ConsensusFork.Gloas:
+                overseer.gloasColumnQuarantine[].remove(forkyBlck.root)
               # We add this block's root into global missing root table, so
               # all other peers will try to re-download it again.
               overseer.missingRoots.incl(forkyBlck.root)
               return false
             of VerifierError.UnviableFork:
-              # TODO (cheatfate): Think about this part!
               peer.updateScore(PeerScoreUnviableFork)
               entry.flags.excl(DagEntryFlag.MissingSidecars)
               entry.flags.incl(DagEntryFlag.Unviable)
-              discard overseer.blockQuarantine[].addUnviable(
-                forkyBlck.root, UnviableKind.UnviableFork)
+              overseer.missingSidecars.excl(forkyBlck.root)
               return false
             of VerifierError.MissingParent:
               peer.updateScore(PeerScoreGoodValues)
@@ -1767,6 +1905,82 @@ proc doRootSidecarsSyncStep(
       else:
         raiseAssert "Should not be happen!"
   true
+
+proc doRootEnvelopeSyncStep(
+    overseer: SyncOverseerRef2,
+    peer: Peer
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    dag = overseer.consensusManager.dag
+    peerEntry = overseer.sdag.getPeerEntry(peer.getKey).valueOr:
+      return false
+    peerHead = peer.getHeadBlockId()
+    peerMap = peer.getColumnMapOrDefault()
+    headEntry = overseer.sdag.getRootEntry(peerHead.root).valueOr:
+      return false
+    bids = headEntry.getMissingEnvelopeRoots()
+
+  logScope:
+    peer = peer
+    peer_map = shortLog(peerMap)
+    max_blocks_per_request = peerEntry.maxBlocksPerRequest
+    max_sidecars_per_request = peerEntry.maxSidecarsPerRequest
+    peer_agent = $peer.getRemoteAgent()
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+
+  if (len(bids) == 0) and (len(overseer.missingEnvelopes) == 0):
+    debug "No pending envelopes available for peer"
+    return true
+
+  debug "Preparing envelopes by root for peer",
+    block_ids = shortLog(bids), block_ids_count = len(bids)
+
+  let request =
+    overseer.getMissingEnvelopeBlocksAndRequest(peer, peerEntry, bids)
+
+  if len(request.roots) == 0:
+    debug "No pending envelopes available for peer"
+    return true
+
+  let
+    envelopes =
+      (await executionPayloadEnvelopesByRoot(peer,
+        BlockRootsList request.roots)).valueOr:
+          debug "Envelopes by root request failed", reason = error
+          peer.updateScore(PeerScoreNoValues)
+          return false
+
+  debug "Received envelopes by root on request",
+    envelopes = slimLog(envelopes.asSeq()), envelopes_count = len(envelopes)
+
+  checkResponse(request.roots, envelopes.asSeq()).isOkOr:
+    debug "Incorrect envelopes by root received",
+      envelopes = slimLog(envelopes.asSeq()), envelopes_count = len(envelopes),
+      reason = $error
+    peer.updateScore(PeerScoreBadResponse)
+    return false
+
+  if len(envelopes) == 0:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Empty response received for root request"
+    return true
+
+  if len(envelopes) < len(request.roots):
+    # Number of received sidecars is less than number of requested.
+    peerEntry.decreaseEnvelopesCount()
+  else:
+    peerEntry.increaseEnvelopesCount(ConsensusFork.Gloas)
+
+  # Peer provided at least some sidecars, so we award it with reward.
+  peer.updateScore(PeerScoreGoodValues)
+
+  for signedBlock in request.blocks:
+    let res = await overseer.verifyBlock(signedBlock, maybeFinalized = false)
+    if res.isErr():
+      case res.error
+      of VerifierError.
+
 
 proc doRangeSyncStep(
     overseer: SyncOverseerRef2,

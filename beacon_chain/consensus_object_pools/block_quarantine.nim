@@ -345,6 +345,15 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest): ForkedSignedBeaconB
       toRemove.add(k)
       yield v
 
+iterator peek*(
+    quarantine: var Quarantine,
+    root: Eth2Digest
+): ForkedSignedBeaconBlock =
+  # Peek orphans whose root is the block identified by `root`.
+  for k, v in quarantine.orphans.mpairs():
+    if v.root == root:
+      yield v
+
 iterator popSidecarlessBlocks*(
     quarantine: var Quarantine,
     root: Eth2Digest
