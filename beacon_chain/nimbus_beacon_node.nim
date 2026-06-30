@@ -877,6 +877,7 @@ proc initFullNode(
   node.dag.eaSlot = eaSlot
   node.list = clist
   node.fuluColumnQuarantine = fuluColumnQuarantine
+  node.gloasColumnQuarantine = gloasColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
@@ -897,7 +898,7 @@ proc initFullNode(
     SyncOverseerRef2.new(node.network, node.consensusManager, config,
                          getBeaconTime, node.beaconClock, blockProcessor,
                          validatorCustody, quarantine,
-                         dataColumnQuarantine, gloasColumnQuarantine,
+                         fuluColumnQuarantine, gloasColumnQuarantine,
                          node.eventBus.blockGossipPeerQueue,
                          node.eventBus.blocksQueue,
                          node.eventBus.finalQueue)
@@ -1781,8 +1782,18 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         Opt.some(node.dag.backfill.slot)
       else:
         Opt.none(Slot)
-    node.dataColumnQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), backfillSlot)
+    withConsensusFork(
+      node.dag.cfg.consensusForkAtEpoch(node.dag.finalizedHead.slot.epoch())):
+      when consensusFork < ConsensusFork.Fulu:
+        discard
+      elif consensusFork == ConsensusFork.Fulu:
+        node.fuluColumnQuarantine[].pruneAfterFinalization(
+          node.dag.finalizedHead.slot.epoch(), backfillSlot)
+      elif consensusFork == ConsensusFork.Gloas:
+        node.gloasColumnQuarantine[].pruneAfterFinalization(
+          node.dag.finalizedHead.slot.epoch(), backfillSlot)
+      else:
+        raiseAssert "Unsupported fork!"
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.

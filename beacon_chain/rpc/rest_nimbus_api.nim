@@ -688,7 +688,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of "unviables":
         node.quarantine[].debugUnviablesJsonDump()
       of "fulu_column_quarantine":
-        node.dataColumnQuarantine[].debugJsonDump()
+        node.fuluColumnQuarantine[].debugJsonDump()
+      of "gloas_column_quarantine":
+        node.gloasColumnQuarantine[].debugJsonDump()
       of "sync_dag":
         node.syncOverseer.sdag.debugJsonDump(node.dag)
       else:

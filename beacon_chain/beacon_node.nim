@@ -93,6 +93,7 @@ type
     list*: ChainListRef
     quarantine*: ref Quarantine
     fuluColumnQuarantine*: ref FuluColumnQuarantine
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
     columnReconstructionBackfiller*: ColumnReconstructionBackfillerRef
     attestationPool*: ref AttestationPool

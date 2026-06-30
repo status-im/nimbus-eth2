@@ -977,7 +977,7 @@ func shortLog[A](rec: RootTableRecord[A]): string =
     "\"count\":" & $rec.count & "," &
     "\"sidecars\":[" & sidecars.join(",") & "]}"
 
-func debugJsonDump*[A, B](q: SidecarQuarantine[A, B]): string =
+func debugJsonDump*[A, B, C](q: SidecarQuarantine[A, B, C]): string =
   var
     records: seq[string]
     minSlot = FAR_FUTURE_SLOT

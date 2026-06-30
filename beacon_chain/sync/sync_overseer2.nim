@@ -230,10 +230,12 @@ func getMissingColumnsLog(
 
   for item in items:
     withBlck(item.signedBlock[]):
+      when consensusFork < ConsensusFork.Fulu:
+        ("0.00%", "[]")
       when consensusFork == ConsensusFork.Fulu:
         if len(forkyBlck.message.body.blob_kzg_commitments) > 0:
           let map =
-            overseer.columnQuarantine[].getMissingColumnsMap(forkyBlck.root)
+            overseer.fuluColumnQuarantine[].getMissingColumnsMap(forkyBlck.root)
           res.add(shortLog(forkyBlck.root) & ":" & $map)
           missingCount += float(len(map))
           totalCount += blocksColumnsCount
@@ -372,7 +374,7 @@ func getMissingIndicesLog(
         if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
           default(ColumnMap)
         else:
-          overseer.columnQuarantine[].getMissingColumnsMap(forkyBlck.root)
+          overseer.fuluColumnQuarantine[].getMissingColumnsMap(forkyBlck.root)
       shortLog(map)
     elif consensusFork == ConsensusFork.Gloas:
       let map =
@@ -474,8 +476,16 @@ proc createQueues(
   proc peerMap(peer: Peer): ColumnMap =
     peer.getColumnMapOrDefault()
 
-  func missingMap(blockRoot: Eth2Digest): ColumnMap =
-    overseer.columnQuarantine[].getMissingColumnsMap(blockRoot)
+  func missingMap(bid: BlockId): ColumnMap =
+    withConsensusFork(dag.cfg.consensusForkAtEpoch(bid.slot.epoch())):
+      when consensusFork < ConsensusFork.Fulu:
+        default(ColumnMap)
+      elif consensusFork == ConsensusFork.Fulu:
+        overseer.fuluColumnQuarantine[].getMissingColumnsMap(bid.root)
+      elif consensusFork == ConsensusFork.Gloas:
+        overseer.gloasColumnQuarantine[].getMissingColumnsMap(bid.root)
+      else:
+        raiseAssert "Unsupported fork!"
 
   func localMap(): ColumnMap =
     overseer.validatorCustody.getMap()
@@ -592,7 +602,7 @@ proc createQueues(
             if commitmentsLen > 0:
               if overseer.shouldGetColumns(forkyBlck.message.slot):
                 let res =
-                  overseer.columnQuarantine[].popSidecars(forkyBlck.root)
+                  overseer.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
                 if res.isNone():
                   debug "Block verification failed, because sidecars missing",
                     fork = consensusFork,
@@ -1031,7 +1041,7 @@ proc verifyBlock(
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
             Opt.some(default(fulu.DataColumnSidecars))
           else:
-            overseer.columnQuarantine[].popSidecars(forkyBlck.root)
+            overseer.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
         if cres.isSome():
           let res =
             await overseer.blockProcessor.addBlock(
@@ -1040,7 +1050,8 @@ proc verifyBlock(
           if res.isErr() and (res.error == VerifierError.MissingParent):
             # In this case block will be stored in quarantine, so we need to
             # preserve columns in column quarantine.
-            overseer.columnQuarantine[].put(forkyBlck.root, cres.get(), false)
+            overseer.fuluColumnQuarantine[].put(
+              forkyBlck.root, cres.get(), false)
           res
         else:
           overseer.blockQuarantine[].addSidecarless(forkyBlck)
@@ -1231,7 +1242,7 @@ proc getMissingColumnsBlocksAndRequest(
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
               DataColumnsByRootIdentifier()
             else:
-              overseer.columnQuarantine[].fetchMissingSidecars(
+              overseer.fuluColumnQuarantine[].fetchMissingSidecars(
                 blockRoot, peerMap)
         if len(request.indices) > 0:
           bres.idents.add(request)
@@ -1709,7 +1720,8 @@ proc doFuluRootSidecarsRequest(
         return err(false)
 
   for record in records:
-    overseer.columnQuarantine[].put(record.block_root, record.sidecar, false)
+    overseer.fuluColumnQuarantine[].put(
+      record.block_root, record.sidecar, false)
 
   if len(records) == 0:
     peer.updateScore(PeerScoreNoValues)
@@ -1869,7 +1881,7 @@ proc doRootSidecarsSyncStep(
               entry.parent = nil
               overseer.blockQuarantine[].remove(forkyBlck)
               if consensusFork == ConsensusFork.Fulu:
-                overseer.columnQuarantine[].remove(forkyBlck.root)
+                overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
               elif consensusFork == ConsensusFork.Gloas:
                 overseer.gloasColumnQuarantine[].remove(forkyBlck.root)
               # We add this block's root into global missing root table, so
@@ -1977,10 +1989,9 @@ proc doRootEnvelopeSyncStep(
 
   for signedBlock in request.blocks:
     let res = await overseer.verifyBlock(signedBlock, maybeFinalized = false)
-    if res.isErr():
-      case res.error
-      of VerifierError.
-
+    # if res.isErr():
+    #   case res.error
+    #   of VerifierError.
 
 proc doRangeSyncStep(
     overseer: SyncOverseerRef2,
@@ -2198,7 +2209,8 @@ proc checkPeerColumnSidecars(
     block_buffer = shortLog(overseer.tsbuffer(direction))
     blocks_queue = shortLog(overseer.tbsqueue(direction))
     sidecars_queue = shortLog(overseer.tssqueue(direction))
-    column_quarantine = shortLog(overseer.columnQuarantine[])
+    fulu_column_quarantine = shortLog(overseer.fuluColumnQuarantine[])
+    gloas_column_quarantine = shortLog(overseer.gloasColumnQuarantine[])
     peer_checkpoint = shortLog(checkpoint)
     peer_head = shortLog(peer.getHeadBlockId())
     peer_ea_slot = getEaSlotLog(peer)
@@ -2233,7 +2245,7 @@ proc checkPeerColumnSidecars(
                 if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
                   ColumnMap()
                 else:
-                  overseer.columnQuarantine[].getMissingColumnsMap(
+                  overseer.fuluColumnQuarantine[].getMissingColumnsMap(
                     forkyBlck.root)
               elif consensusFork == ConsensusFork.Gloas:
                 if len(forkyBlck.message.body.signed_execution_payload_bid.
@@ -2303,7 +2315,7 @@ proc doFuluRangeSidecarsRequest(
     block_buffer = shortLog(overseer.tsbuffer(direction))
     blocks_queue = shortLog(overseer.tbsqueue(direction))
     sidecars_queue = shortLog(overseer.tssqueue(direction))
-    column_quarantine = shortLog(overseer.columnQuarantine[])
+    column_quarantine = shortLog(overseer.fuluColumnQuarantine[])
     peer_map = shortLog(peerMap)
     peer_checkpoint = shortLog(checkpoint)
     peer_head = shortLog(peer.getHeadBlockId())
@@ -2377,7 +2389,7 @@ proc doFuluRangeSidecarsRequest(
     return err(false)
 
   for record in grouped:
-    overseer.columnQuarantine[].put(
+    overseer.fuluColumnQuarantine[].put(
       record.block_root, record.sidecar, false)
 
   peer.updateScore(PeerScoreGoodValues)
@@ -2555,7 +2567,8 @@ proc doRangeSidecarsStep(
     block_buffer = shortLog(overseer.tsbuffer(direction))
     blocks_queue = shortLog(overseer.tbsqueue(direction))
     sidecars_queue = shortLog(overseer.tssqueue(direction))
-    column_quarantine = shortLog(overseer.columnQuarantine[])
+    fulu_column_quarantine = shortLog(overseer.fuluColumnQuarantine[])
+    gloas_column_quarantine = shortLog(overseer.gloasColumnQuarantine[])
     peer_map = shortLog(peerMap)
     peer_checkpoint = shortLog(checkpoint)
     peer_head = shortLog(peer.getHeadBlockId())
@@ -2685,7 +2698,7 @@ proc doRangeSidecarsStep(
       for item in items:
         case consensusFork
         of ConsensusFork.Fulu:
-          overseer.columnQuarantine[].remove(item.signedBlock[].root)
+          overseer.fuluColumnQuarantine[].remove(item.signedBlock[].root)
         of ConsensusFork.Gloas:
           overseer.gloasColumnQuarantine[].remove(item.signedBlock[].root)
         else:
@@ -3084,7 +3097,8 @@ proc timeMonitoringLoop(
         backfill_blocks_queue = shortLog(overseer.bqueue),
         backfill_sidecars_queue = shortLog(overseer.bsqueue),
         sidecarless_quarantine = len(overseer.blockQuarantine.sidecarless),
-        column_quarantine = shortLog(overseer.columnQuarantine[]),
+        fulu_column_quarantine = shortLog(overseer.fuluColumnQuarantine[]),
+        gloas_column_quarantine = shortLog(overseer.gloasColumnQuarantine[]),
         useful_peers = dist.usefulPeers,
         useless_peers = dist.uselessPeers,
         supernodes_peers = dist.supernodePeers,
@@ -3104,6 +3118,7 @@ proc timeMonitoringLoop(
 proc gossipMonitoringLoop(
     overseer: SyncOverseerRef2
 ): Future[void] {.async: (raises: []).} =
+  # TODO (cheatfate): Gloas
   try:
     let eventKey = overseer.blockGossipBus.register()
     debug "Gossip block monitoring established"
@@ -3113,26 +3128,39 @@ proc gossipMonitoringLoop(
         event = events[0]
 
         consensusFork = event.blck.kind
-        (blockId, missingSidecars) =
+        (blockId, missingSidecars, missingEnvelope) =
           withBlck(event.blck):
             when consensusFork < ConsensusFork.Fulu:
-              (
-                BlockId(slot: forkyBlck.message.slot, root: forkyBlck.root),
-                true
-              )
+              (forkyBlck.toBlockId(), true, false)
             elif consensusFork == ConsensusFork.Fulu:
               let res =
-                if forkyBlck.root in overseer.blockQuarantine[].sidecarless:
-                  if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-                    false
-                  else:
-                    if overseer.columnQuarantine[].hasSidecars(forkyBlck.root):
+                if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
+                  false
+                else:
+                  if forkyBlck.root in overseer.blockQuarantine[].sidecarless:
+                    if overseer.fuluColumnQuarantine[].hasSidecars(
+                      forkyBlck.root):
                       false
                     else:
                       true
-                else:
+                  else:
+                    false
+              (forkyBlck.toBlockId(), res, false)
+            elif consensusFork == ConsensusFork.Gloas:
+              let res =
+                if len(forkyBlck.message.body.signed_execution_payload_bid.
+                  message.blob_kzg_commitments) == 0:
                   false
-              (BlockId(slot: forkyBlck.message.slot, root: forkyBlck.root), res)
+                else:
+                  if forkyBlck.root in overseer.blockQuarantine[].sidecarless:
+                    if overseer.gloasColumnQuarantine[].hasSidecars(
+                      forkyBlck.root):
+                      false
+                    else:
+                      true
+                  else:
+                    true
+              (forkyBlck.toBlockId(), res, true)
             else:
               raiseAssert "Unsupported fork"
 
@@ -3150,7 +3178,7 @@ proc gossipMonitoringLoop(
 
       overseer.updatePeer(
         event.src, false, event.blck, missingSidecars,
-        missingEnvelope = false, src)
+        missingEnvelope, src)
   except AsyncEventQueueFullError:
     raiseAssert "Unlimited AsyncEventQueue should not raise exception"
   except CancelledError:
@@ -3685,7 +3713,18 @@ proc debugRootSyncJsonDump*(overseer: SyncOverseerRef2): string =
     if currentHead(entry):
       "[]"
     else:
-      $(overseer.columnQuarantine[].getMissingColumnsMap(entry.blockId.root))
+      withConsensusFork(
+        overseer.consensusForkAtEpoch(entry.blockId.slot.epoch())):
+        when consensusFork < ConsensusFork.Fulu:
+          "[]"
+        elif consensusFork == ConsensusFork.Fulu:
+          $(overseer.fuluColumnQuarantine[].getMissingColumnsMap(
+            entry.blockId.root))
+        elif consensusFork == ConsensusFork.Gloas:
+          $(overseer.gloasColumnQuarantine[].getMissingColumnsMap(
+            entry.blockId.root))
+        else:
+          raiseAssert "Unsupported fork!"
 
   func getFlags(entry: SyncDagEntryRef): string =
     var res: seq[string]
