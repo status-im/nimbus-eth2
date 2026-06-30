@@ -13,9 +13,9 @@ import
   unittest2,
   # Internal
   ../beacon_chain/consensus_object_pools/[
-    blockchain_dag, inclusion_list_pool, spec_cache],
+    blockchain_dag, inclusion_list_pool],
   ../beacon_chain/spec/[
-    beaconstate, eth2_merkleization, forks, helpers, inclusion_list,
+    beaconstate, eth2_merkleization, forks, inclusion_list,
     state_transition],
   ../beacon_chain/beacon_clock,
   # Test utilities
@@ -72,7 +72,8 @@ suite "Inclusion list pool" & preset():
       pool[].addInclusionList(il, is_timely = true, wallTime)
       pool[].numSeen(slot, member) == 1
 
-    let txs = pool[].getInclusionListTransactions(hezeState[], slot, cache)
+    let txs = pool[].getInclusionListTransactions(
+      hezeState[], slot, cache, only_timely = true)
     check:
       txs.len == 1
       txs[0] == makeTx([byte 0x01, 0x02])
@@ -105,8 +106,9 @@ suite "Inclusion list pool" & preset():
 
     check pool[].addInclusionList(il, is_timely = false, wallTime)
 
-    # default only_timely = true drops it ...
-    check pool[].getInclusionListTransactions(hezeState[], slot, cache).len == 0
+    # only_timely = true drops it ...
+    check pool[].getInclusionListTransactions(
+      hezeState[], slot, cache, only_timely = true).len == 0
 
     # ... only_timely = false includes it.
     let all = pool[].getInclusionListTransactions(
@@ -121,7 +123,8 @@ suite "Inclusion list pool" & preset():
 
     check:
       pool[].addInclusionList(il, is_timely = true, wallTime)
-      pool[].getInclusionListTransactions(hezeState[], slot, cache).len == 1
+      pool[].getInclusionListTransactions(
+        hezeState[], slot, cache, only_timely = true).len == 1
 
     # Adding at a much later wall time prunes the original slot's store.
     let
@@ -131,4 +134,5 @@ suite "Inclusion list pool" & preset():
 
     check:
       pool[].addInclusionList(future, is_timely = true, futureTime)
-      pool[].getInclusionListTransactions(hezeState[], slot, cache).len == 0
+      pool[].getInclusionListTransactions(
+        hezeState[], slot, cache, only_timely = true).len == 0
