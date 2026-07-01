@@ -553,7 +553,7 @@ proc verify_proposer_preferences_signature*(
     fork, genesis_validators_root, data)
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/heze/beacon-chain.md#new-is_valid_inclusion_list_signature
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/beacon-chain.md#new-is_valid_inclusion_list_signature
 func compute_inclusion_list_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: InclusionList): Eth2Digest =

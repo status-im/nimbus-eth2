@@ -50,22 +50,23 @@ suite "Gossip validation " & preset():
     let
       rng = HmacDrbgContext.new()
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
-    var
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    let
       quarantine = newClone(Quarantine.init(dag.cfg))
       envQuarantine = newClone(EnvelopeQuarantine.init())
       pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
-      cache = StateCache()
+    var
+      cache: StateCache
       info = ForkedEpochInfo()
-      batchCrypto {.used.} = BatchCrypto.new(
-        rng, cfg.timeParams, eager = proc(): bool = false,
-        genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-          "working batcher")
+    let batchCrypto {.used.} = BatchCrypto.new(
+      rng, cfg.timeParams, eager = proc(): bool = false,
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check cfg.process_slots(
       state[], state[].slot + 1, cache, info, {}).isOk()
@@ -104,7 +105,7 @@ suite "Gossip validation " & preset():
       dag.updateHead(added[], quarantine[], [])
       pruneAtFinalization(dag, pool[])
 
-    var
+    let
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
         dag.headState, dag.head.slot, 0.CommitteeIndex, cache)
@@ -493,14 +494,14 @@ suite "Gossip validation - Altair":
 
 suite "Proposer preferences validation " & preset():
   setup:
-    var
+    let
       cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
-      seen: array[2, array[
-        SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
+    var seen: array[2, array[
+      SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
 
     # Pick an upcoming slot and its scheduled proposer from the head state's
     # proposer_lookahead.

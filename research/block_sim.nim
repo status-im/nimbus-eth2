@@ -80,8 +80,8 @@ cli do(
     true
 
   ChainDAGRef.preInit(db, genesisState[])
-  let rng = HmacDrbgContext.new()
-  var
+  let
+    rng = HmacDrbgContext.new()
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     taskpool =
@@ -89,19 +89,21 @@ cli do(
         Taskpool.new()
       except Exception as exc:
         raiseAssert "Failed to initialize Taskpool: " & exc.msg
-    verifier = BatchVerifier.init(rng, taskpool)
-    quarantine = newClone(Quarantine.init(cfg))
-    attPool = AttestationPool.init(dag, quarantine)
+  var verifier = BatchVerifier.init(rng, taskpool)
+  let quarantine = newClone(Quarantine.init(cfg))
+  var attPool = AttestationPool.init(dag, quarantine)
+  let
     batchCrypto = BatchCrypto.new(
       rng, cfg.timeParams, eager,
       genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
         "working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
+  var
     payloadAttestationPool = PayloadAttestationPool.init(dag)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
-    tmpState = assignClone(dag.headState)
+  let tmpState = assignClone(dag.headState)
 
   let replayState = assignClone(dag.headState)
 

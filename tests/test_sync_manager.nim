@@ -91,7 +91,7 @@ proc setupVerifier(
 ): tuple[collector: BlockVerifier, verifier: Future[void]] =
   doAssert(len(sc) > 0, "Empty scenarios are not allowed")
 
-  var
+  let
     scenario = @sc
     aq = newAsyncQueue[BlockEntry]()
 
@@ -1162,7 +1162,7 @@ suite "SyncManager test suite":
             ]
 
       func epochManager(epochs: openArray[ConsensusFork]): ForkAtEpochCallback =
-        var epochsSeq = @epochs
+        let epochsSeq = @epochs
         func forkAtEpoch(epoch: Epoch): ConsensusFork =
           let index = int(epoch)
           if index >= len(epochsSeq):

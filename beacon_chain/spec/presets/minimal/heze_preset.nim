@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 # Minimal preset - Heze
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/presets/minimal/heze.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/minimal/heze.yaml
 const
   # Inclusion list committee
   # ---------------------------------------------------------------
