@@ -490,7 +490,7 @@ proc new*(T: type BeaconChainDBV0,
           db: SqStoreRef,
           readOnly = false
     ): BeaconChainDBV0 =
-  var
+  let
     # V0 compatibility tables - these were created WITHOUT ROWID which is slow
     # for large blobs
     backendV0 = kvStore db.openKvStore(
@@ -526,13 +526,13 @@ proc new*(T: type BeaconChainDB,
 
   debugGloasComment "use actual names when closer"
 
-  var
-    genesisDepositsSeq =
-      DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
-    immutableValidatorsDb =
-      DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
+  let genesisDepositsSeq =
+    DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
+  var immutableValidatorsDb =
+    DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
 
-    # V1 - expected-to-be small rows get without rowid optimizations
+  # V1 - expected-to-be small rows get without rowid optimizations
+  let
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
     blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
@@ -576,7 +576,7 @@ proc new*(T: type BeaconChainDB,
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
     finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
 
-    lcData = db.initLightClientDataDB(LightClientDataDBNames(
+  let lcData = db.initLightClientDataDB(LightClientDataDBNames(
       altairHeaders: "lc_altair_headers",
       capellaHeaders:
         if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
@@ -610,9 +610,9 @@ proc new*(T: type BeaconChainDB,
       sealedPeriods: "lc_sealed_periods")).expectDb()
   static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
 
-  var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
+  let blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
-  var columns = [
+  let columns = [
     nil, # Phase0
     nil, # Altair
     nil, # Bellatrix

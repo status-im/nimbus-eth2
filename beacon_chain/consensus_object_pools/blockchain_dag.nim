@@ -2359,10 +2359,9 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     # head, as we might frequently be asked to replay states from the
     # finalized checkpoint and onwards (for example when validating blocks and
     # attestations)
-    var
-      finPoint = dag.finalizedHead.toBlockSlotId().expect("not nil")
-      cur = dag.parentOrSlot(dag.stateCheckpoint(finPoint))
-      prev = dag.parentOrSlot(dag.stateCheckpoint(dag.lastPrunePoint))
+    let finPoint = dag.finalizedHead.toBlockSlotId().expect("not nil")
+    var cur = dag.parentOrSlot(dag.stateCheckpoint(finPoint))
+    let prev = dag.parentOrSlot(dag.stateCheckpoint(dag.lastPrunePoint))
 
     while cur.isSome and prev.isSome and cur.get() != prev.get():
       let bs = cur.get()

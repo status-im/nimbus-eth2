@@ -174,8 +174,8 @@ func getOrCreateEntry*[K, H](
   quarantine.entries.get(key).isErrOr:
     return value
 
-  var cellOpts = newSeq[Opt[KzgCell]](numBlobs)
-  var proofOpts = newSeq[Opt[KzgProof]](numBlobs)
+  let cellOpts = newSeq[Opt[KzgCell]](numBlobs)
+  let proofOpts = newSeq[Opt[KzgProof]](numBlobs)
   let entry = PartialColumnEntry(
     headerValidated: quarantine.hasPartialHeader(blockId),
     cellsReceived: BitSeq.init(numBlobs),
