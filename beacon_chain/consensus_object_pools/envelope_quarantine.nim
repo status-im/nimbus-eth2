@@ -9,7 +9,7 @@
 
 import
   std/tables,
-  minilru,
+  minilru, chronos,
   ./quarantine_types,
   ../spec/[digest, forks]
 
@@ -40,15 +40,21 @@ type
     unviable*: UnviableLru
       ## List of block roots whose canonical envelopes are unviable.
 
-func init*(T: typedesc[EnvelopeQuarantine]): T =
+    missingEvent*: AsyncEvent
+      ## This asynchronous event is triggered when a new orphaned block is added
+      ## to the quarantine.
+
+proc init*(T: typedesc[EnvelopeQuarantine]): T =
   T(
     orphans: OrphanLru.init(MaxOrphans),
     unviable: UnviableLru.init(MaxUnviables),
     missing: MissingTable.init(),
+    missingEvent: newAsyncEvent()
   )
 
-func addMissing*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+proc addMissing*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.missing.add(root)
+  self.missingEvent.fire()
 
 func checkMissing*(self: var EnvelopeQuarantine, max: int): seq[FetchRecord] =
   self.missing.checkMissing(max)

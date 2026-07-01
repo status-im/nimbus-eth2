@@ -13,7 +13,7 @@ import
   ../spec/[helpers, forks, network, column_map],
   ../networking/[peer_pool, eth2_network],
   ../consensus_object_pools/[consensus_manager, block_pools_types,
-      blockchain_dag, block_quarantine, column_quarantine],
+      blockchain_dag, block_quarantine, column_quarantine, envelope_quarantine],
   ../gossip_processing/block_processor,
   ../[beacon_clock],
   ./[sync_types, sync_dag, sync_queue, sync_protocol, response_utils,
@@ -231,7 +231,7 @@ func getMissingColumnsLog(
   for item in items:
     withBlck(item.signedBlock[]):
       when consensusFork < ConsensusFork.Fulu:
-        ("0.00%", "[]")
+        discard
       when consensusFork == ConsensusFork.Fulu:
         if len(forkyBlck.message.body.blob_kzg_commitments) > 0:
           let map =
@@ -293,14 +293,15 @@ func getSidecarsHorizon(
     fork: ConsensusFork
 ): uint64 =
   let dag = overseer.consensusManager.dag
-  if fork < ConsensusFork.Fulu:
-    raiseAssert "Incorrect fork"
-  elif fork == ConsensusFork.Fulu:
-    dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
-  elif fork == ConsensusFork.Gloas:
-    dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
-  else:
-    raiseAssert "Unsupported fork"
+  withConsensusFork(fork):
+    when consensusFork < ConsensusFork.Fulu:
+      raiseAssert "Incorrect fork"
+    elif consensusFork == ConsensusFork.Fulu:
+      dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
+    elif consensusFork == ConsensusFork.Gloas:
+      dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS * SLOTS_PER_EPOCH
+    else:
+      raiseAssert "Unsupported fork"
 
 proc getColumnsHorizon(overseer: SyncOverseerRef2): Epoch =
   let
@@ -1095,6 +1096,30 @@ proc verifyBlock(
   async: (raw: true, raises: [CancelledError]).} =
   verifyBlock(overseer, signedBlock[], maybeFinalized)
 
+proc verifyPayload(
+    overseer: SyncOverseerRef2,
+    signedBlock: ForkedSignedBeaconBlock,
+    payload: ref gloas.SignedExecutionPayloadEnvelope
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  doAssert(not(isNil(payload)), "Payload should not be nil")
+  withBlck(signedBlock):
+    when consensusFork < ConsensusFork.Gloas:
+      ok()
+    elif consensusFork == ConsensusFork.Gloas:
+      let sidecars =
+        if len(forkyBlck.message.body.signed_execution_payload_bid.
+          message.blob_kzg_commitments) == 0:
+          Opt.some(default(seq[ref gloas.DataColumnSidecar]))
+        else:
+          let res =
+            overseer.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
+          if res.isNone():
+            return err(VerifierError.MissingSidecars)
+          res
+      await overseer.blockProcessor.addPayload(forkyBlck, payload[], sidecars)
+    else:
+      raiseAssert "Unsupported fork!"
+
 proc getStatusPeriod(
     overseer: SyncOverseerRef2,
     peer: Peer
@@ -1264,7 +1289,7 @@ proc getMissingColumnsBlocksAndRequest(
           bres.columnsCount.inc(len(request.indices))
           if bres.columnsCount >= peerEntry.maxSidecarsPerRequest:
             break
-      elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
+      elif consensusFork < ConsensusFork.Fulu:
         raiseAssert "Should not be happen!"
       else:
         raiseAssert "Unsupported fork"
@@ -1627,10 +1652,13 @@ proc doRootSyncStep(
       missingEnvelope =
         # There is no way to check that block has envelope or not, so in this
         # case we assume that all blocks of Gloas+ fork has envelopes.
-        if signedBlock[].kind >= ConsensusFork.Gloas:
-          true
-        else:
-          false
+        withBlck(signedBlock[]):
+          when consensusFork < ConsensusFork.Gloas:
+            false
+          elif consensusFork == ConsensusFork.Gloas:
+            true
+          else:
+            raiseAssert "Unsupported fork!"
       source =
         if res.isErr():
           case res.error
@@ -1841,17 +1869,19 @@ proc doRootSidecarsSyncStep(
     debug "No pending data column sidecars available for peer"
     return true
 
-  case request.consensusFork
-  of ConsensusFork.Fulu:
-    (await overseer.doFuluRootSidecarsRequest(
-      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
-      return error
-  of ConsensusFork.Gloas:
-    (await overseer.doGloasRootSidecarsRequest(
-      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
-      return error
-  else:
-    raiseAssert("Unsupported fork!")
+  withConsensusFork(request.consensusFork):
+    when consensusFork < ConsensusFork.Fulu:
+      raiseAssert "Incorrect fork!"
+    elif consensusFork == ConsensusFork.Fulu:
+      (await overseer.doFuluRootSidecarsRequest(
+        peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
+        return error
+    elif consensusFork == ConsensusFork.Gloas:
+      (await overseer.doGloasRootSidecarsRequest(
+        peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
+        return error
+    else:
+      raiseAssert("Unsupported fork!")
 
   logScope:
     head = shortLog(dag.head)
@@ -1923,7 +1953,6 @@ proc doRootEnvelopeSyncStep(
     peer: Peer
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
-    dag = overseer.consensusManager.dag
     peerEntry = overseer.sdag.getPeerEntry(peer.getKey).valueOr:
       return false
     peerHead = peer.getHeadBlockId()
@@ -1987,11 +2016,57 @@ proc doRootEnvelopeSyncStep(
   # Peer provided at least some sidecars, so we award it with reward.
   peer.updateScore(PeerScoreGoodValues)
 
-  for signedBlock in request.blocks:
-    let res = await overseer.verifyBlock(signedBlock, maybeFinalized = false)
-    # if res.isErr():
-    #   case res.error
-    #   of VerifierError.
+  let records = groupEnvelopes(request.blocks, envelopes.asSeq())
+
+  for record in records:
+    block:
+      let res = await overseer.verifyBlock(
+        record.signedBlock, maybeFinalized = false)
+      if res.isErr():
+        if res.error != VerifierError.Duplicate:
+          debug "Block processor response",
+            reason = res.error, blck = slimLog(record.signedBlock)
+          continue
+
+    withBlck(record.signedBlock):
+      when consensusFork < ConsensusFork.Gloas:
+        discard
+      elif consensusFork == ConsensusFork.Gloas:
+        let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
+        if not(isNil(entry)):
+          if record.signedEnvelope.isNil() and
+             (len(forkyBlck.message.body.signed_execution_payload_bid.
+               message.blob_kzg_commitments) == 0):
+            # No envelope and no sidecars
+            peer.updateScore(PeerScoreGoodValues)
+            entry.flags.excl(DagEntryFlag.MissingSidecars)
+            entry.flags.excl(DagEntryFlag.MissingEnvelope)
+            overseer.missingSidecars.excl(forkyBlck.root)
+            overseer.missingEnvelopes.excl(forkyBlck.root)
+            continue
+
+          if record.signedEnvelope.isNil():
+            # There is an envelope in the block, but it is not in the record.
+            peer.updateScore(PeerScoreNoValues)
+            continue
+
+          let res = await overseer.verifyPayload(
+            record.signedBlock, record.signedEnvelope)
+          if res.isErr():
+            debug "Envelope and sidecars by root processor response",
+              reason = res.error, bid = record.signedBlock.toBlockId()
+            continue
+          else:
+            peer.updateScore(PeerScoreGoodValues)
+            debug "Envelope and sidecars by root processor response",
+              reason = "ok", bid = record.signedBlock.toBlockId()
+            overseer.blockQuarantine[].remove(forkyBlck)
+            entry.flags.excl(DagEntryFlag.MissingSidecars)
+            entry.flags.excl(DagEntryFlag.MissingEnvelope)
+            overseer.missingSidecars.excl(forkyBlck.root)
+            overseer.missingEnvelopes.excl(forkyBlck.root)
+      else:
+        raiseAssert "Unsupported fork!"
 
 proc doRangeSyncStep(
     overseer: SyncOverseerRef2,
@@ -2076,24 +2151,25 @@ proc doRangeSyncStep(
       return false
 
     let combined =
-      if consensusFork == ConsensusFork.Gloas:
-        let
-          payloads =
-            (await executionPayloadEnvelopesByRange(
-              peer, request.data.slot, request.data.count)).valueOr:
-                debug "Failed to get payloads range from peer", reason = error
-                overseer.tbsqueue(direction).push(request)
-                if direction.isBackward() and rsrcUnavailable(error):
-                  # `ResourceUnavailable` is not critical for backfilling.
-                  return true
-                else:
-                  peer.updateScore(PeerScoreNoValues)
-                  return false
-        items.toResponse(payloads.asSeq())
-      elif consensusFork < ConsensusFork.Gloas:
-        0
-      else:
-        raiseAssert("Unsupported fork!")
+      withConsensusFork(consensusFork):
+        when consensusFork < ConsensusFork.Gloas:
+          0
+        elif consensusFork == ConsensusFork.Gloas:
+          let
+            payloads =
+              (await executionPayloadEnvelopesByRange(
+                peer, request.data.slot, request.data.count)).valueOr:
+                  debug "Failed to get payloads range from peer", reason = error
+                  overseer.tbsqueue(direction).push(request)
+                  if direction.isBackward() and rsrcUnavailable(error):
+                    # `ResourceUnavailable` is not critical for backfilling.
+                    return true
+                  else:
+                    peer.updateScore(PeerScoreNoValues)
+                    return false
+          items.toResponse(payloads.asSeq())
+        else:
+          raiseAssert("Unsupported fork!")
 
     debug "Sending blocks range to processor",
       blocks_count = len(items),
@@ -2157,13 +2233,10 @@ proc peekBackfillRange(
 
   for i in startIndex .. endIndex:
     withConsensusFork(dag.cfg.consensusForkAtEpoch(bids[i].slot.epoch())):
-      when consensusFork == ConsensusFork.Fulu:
-        let blck = dag.getBlock(bids[i], consensusFork.SignedBeaconBlock)
-        if blck.isNone():
+      when consensusFork in [ConsensusFork.Fulu, ConsensusFork.Gloas]:
+        let signedBlock = dag.getForkedBlock(bids[i]).valueOr:
           continue
-        res.add(
-          SyncResponseItem.init(
-            newClone ForkedSignedBeaconBlock.init(blck.get()), nil))
+        res.add(SyncResponseItem.init(newClone signedBlock.asSigned(), nil))
       else:
         raiseAssert "Unsupported fork"
   res
@@ -2602,42 +2675,42 @@ proc doRangeSidecarsStep(
       peer.updateScore(PeerScoreNoValues)
     return true
 
-  let consensusFork = dag.cfg.consensusForkAtEpoch(
+  let fork = dag.cfg.consensusForkAtEpoch(
     request.data.start_slot().epoch)
 
   var items = overseer.peekRange(direction, request.data)
 
   let response =
     try:
-      case consensusFork
-      of ConsensusFork.Phase0 .. ConsensusFork.Electra:
-        discard
-      of ConsensusFork.Fulu:
-        let pdata =
-          overseer.checkPeerColumnSidecars(
-            peer, items, request, direction).valueOr:
-            for mitem in items.mitems():
-              mitem = default(SyncResponseItem)
-            overseer.tssqueue(direction).push(request)
-            return error
+      withConsensusFork(fork):
+        when consensusFork < ConsensusFork.Fulu:
+          discard
+        elif consensusFork == ConsensusFork.Fulu:
+          let pdata =
+            overseer.checkPeerColumnSidecars(
+              peer, items, request, direction).valueOr:
+              for mitem in items.mitems():
+                mitem = default(SyncResponseItem)
+              overseer.tssqueue(direction).push(request)
+              return error
 
-        (await overseer.doFuluRangeSidecarsRequest(
-          peer, peerEntry, request, pdata, items, direction)).isOkOr:
-          return error
-      of ConsensusFork.Gloas:
-        let pdata =
-          overseer.checkPeerColumnSidecars(
-            peer, items, request, direction).valueOr:
-            for mitem in items.mitems():
-              mitem = default(SyncResponseItem)
-            overseer.tssqueue(direction).push(request)
+          (await overseer.doFuluRangeSidecarsRequest(
+            peer, peerEntry, request, pdata, items, direction)).isOkOr:
             return error
+        elif consensusFork == ConsensusFork.Gloas:
+          let pdata =
+            overseer.checkPeerColumnSidecars(
+              peer, items, request, direction).valueOr:
+              for mitem in items.mitems():
+                mitem = default(SyncResponseItem)
+              overseer.tssqueue(direction).push(request)
+              return error
 
-        (await overseer.doGloasRangeSidecarsRequest(
-          peer, peerEntry, request, pdata, items, direction)).isOkOr:
-          return error
-      else:
-        raiseAssert("Unsupported fork!")
+          (await overseer.doGloasRangeSidecarsRequest(
+            peer, peerEntry, request, pdata, items, direction)).isOkOr:
+            return error
+        else:
+          raiseAssert("Unsupported fork!")
 
       debug "Sending sidecars range to processor",
         peer_map = shortLog(peerMap),
@@ -2696,13 +2769,13 @@ proc doRangeSidecarsStep(
                          SyncProcessError.UnviableFork,
                          SyncProcessError.NoRelevant]:
       for item in items:
-        case consensusFork
-        of ConsensusFork.Fulu:
-          overseer.fuluColumnQuarantine[].remove(item.signedBlock[].root)
-        of ConsensusFork.Gloas:
-          overseer.gloasColumnQuarantine[].remove(item.signedBlock[].root)
-        else:
-          raiseAssert("Unsupported fork!")
+        withConsensusFork(fork):
+          when consensusFork == ConsensusFork.Fulu:
+            overseer.fuluColumnQuarantine[].remove(item.signedBlock[].root)
+          elif consensusFork == ConsensusFork.Gloas:
+            overseer.gloasColumnQuarantine[].remove(item.signedBlock[].root)
+          else:
+            raiseAssert("Unsupported fork!")
 
     let rewindPoint = overseer.tssqueue(direction).inpSlot
 
@@ -2807,6 +2880,11 @@ proc startPeer(
           break
 
         if not(await overseer.doRootSidecarsSyncStep(peer)):
+          break
+        if not(overseer.pool.checkPeerScore(peer)):
+          break
+
+        if not(await overseer.doRootEnvelopeSyncStep(peer)):
           break
         if not(overseer.pool.checkPeerScore(peer)):
           break
@@ -3349,34 +3427,63 @@ proc missingSidecarsMonitoringLoop(
     let dag = overseer.consensusManager.dag
     while true:
       await overseer.blockQuarantine[].sidecarlessEvent.wait()
-
       let missingSidecars =
         block:
-          var res: seq[Eth2Digest]
+          var res: seq[tuple[consensusFork: ConsensusFork, bid: BlockId]]
           for signedBlock in overseer.blockQuarantine[].peekSidecarless():
-            withBlck(signedBlock):
-              let
-                slot = forkyBlck.message.slot
-                root = forkyBlck.root
-              if slot >= dag.head.slot:
-                res.add(root)
+            let bid = signedBlock.toBlockId()
+            if bid.slot >= dag.head.slot:
+              let consensusFork =
+                dag.cfg.consensusForkAtEpoch(bid.slot.epoch())
+              res.add((consensusFork, bid))
           res
-
-      for root in missingSidecars:
-        let entry = overseer.sdag.roots.getOrDefault(root)
+      for record in missingSidecars:
+        let entry = overseer.sdag.roots.getOrDefault(record.bid.root)
         if not(isNil(entry)):
           entry.flags.incl(DagEntryFlag.MissingSidecars)
+          withConsensusFork(record.consensusFork):
+            when consensusFork < ConsensusFork.Gloas:
+              discard
+            elif consensusFork == ConsensusFork.Gloas:
+              entry.flags.incl(DagEntryFlag.MissingEnvelope)
+            else:
+              raiseAssert "Unsupported fork!"
         else:
-          overseer.missingSidecars.incl(root)
+          overseer.missingSidecars.incl(record.bid.root)
+          withConsensusFork(record.consensusFork):
+            when consensusFork < ConsensusFork.Gloas:
+              discard
+            elif consensusFork == ConsensusFork.Gloas:
+              overseer.missingEnvelopes.incl(record.bid.root)
+            else:
+              raiseAssert "Unsupported fork!"
           debug "Missing sidecars block root inserted into queue",
-             block_root = shortLog(root)
-
+            bid = shortLog(record.bid)
       overseer.blockQuarantine[].sidecarlessEvent.clear()
-
   except CancelledError:
     discard
 
   debug "Sidecarless quarantine monitoring stopped"
+
+proc missingEnvelopesMonitoringLoop(
+    overseer: SyncOverseerRef2
+): Future[void] {.async: (raises: []).} =
+
+  debug "Envelope quarantine monitoring established"
+
+  try:
+    let dag = overseer.consensusManager.dag
+    while true:
+      await overseer.gloasEnvelopeQuarantine[].missingEvent.wait()
+      for record in overseer.gloasEnvelopeQuarantine[].checkMissing(high(int)):
+        overseer.missingEnvelopes.incl(record.root)
+        debug "Missing envelope block root inserted into queue",
+          block_root = shortLog(record.root)
+      overseer.gloasEnvelopeQuarantine[].missingEvent.clear()
+  except CancelledError:
+    discard
+
+  debug "Envelope quarantine monitoring stopped"
 
 iterator popBlocks(
     overseer: SyncOverseerRef2,
@@ -3424,7 +3531,7 @@ proc checkData(
             raiseAssert "Incorrect block's fork"
 
   for blck in overseer.popBlocks(src, head.root):
-    let blockId = BlockId(slot: blck.slot, root: blck.root)
+    let blockId = blck.toBlockId()
     logScope:
       bid = shortLog(blockId)
 
@@ -3555,6 +3662,8 @@ proc mainLoop*(
     lateBlockMonitoringLoopFut = overseer.lateBlockMonitoringLoop()
     missingBlocksMonitoringLoopFut = overseer.missingBlocksMonitoringLoop()
     missingSidecarsMonitoringLoopFut = overseer.missingSidecarsMonitoringLoop()
+    missingEnvelopesMonitoringLoopFut =
+      overseer.missingEnvelopesMonitoringLoop()
 
   while true:
     let peer =
@@ -3570,7 +3679,7 @@ proc mainLoop*(
           gossipMonitoringLoopFut, blockMonitoringLoopFut,
           finalMonitoringLoopFut, timeMonitoringLoopFut,
           lateBlockMonitoringLoopFut, missingBlocksMonitoringLoopFut,
-          missingSidecarsMonitoringLoopFut)
+          missingSidecarsMonitoringLoopFut, missingEnvelopesMonitoringLoopFut)
         return
     var entry = overseer.initPeer(peer)
     overseer.updatePeerStatus(peer)
