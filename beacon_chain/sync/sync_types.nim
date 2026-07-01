@@ -12,7 +12,7 @@ import results, chronos,
        ".."/consensus_object_pools/[block_pools_types, blockchain_dag,
                                     attestation_pool, blockchain_list,
                                     column_quarantine, block_quarantine,
-                                    consensus_manager],
+                                    envelope_quarantine, consensus_manager],
        ".."/gossip_processing/block_processor,
        ".."/validators/validator_monitor,
        ".."/[beacon_clock, conf],
@@ -69,6 +69,7 @@ type
     blockQuarantine*: ref Quarantine
     fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
+    gloasEnvelopeQuarantine*: ref EnvelopeQuarantine
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     blocksQueueBus*: AsyncEventQueue[EventBeaconBlockObject]
     blockFinalizationBus*: AsyncEventQueue[FinalizationInfoObject]
@@ -143,6 +144,7 @@ proc new*(
     blockQuarantine: ref Quarantine,
     fuluColumnQuarantine: ref FuluColumnQuarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
+    gloasEnvelopeQuarantine: ref EnvelopeQuarantine,
     gossipQueue: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     blocksQueue: AsyncEventQueue[EventBeaconBlockObject],
     finalizationQueue: AsyncEventQueue[FinalizationInfoObject],
@@ -160,6 +162,7 @@ proc new*(
     validatorCustody: validatorCustody,
     fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
+    gloasEnvelopeQuarantine: gloasEnvelopeQuarantine,
     blockQuarantine: blockQuarantine,
     blockGossipBus: gossipQueue,
     blocksQueueBus: blocksQueue,

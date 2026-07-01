@@ -27,6 +27,10 @@ type
   GloasColumnSidecarResponseRecord* =
     SidecarResponseRecord[gloas.DataColumnSidecar]
 
+  GloasEnvelopeResponseRecord* = object
+    signedBlock*: ForkedSignedBeaconBlock
+    signedEnvelope*: ref SignedExecutionPayloadEnvelope
+
 func shortLog*[T: SidecarType](
     a: openArray[SidecarResponseRecord[T]]
 ): string =
@@ -178,6 +182,19 @@ func groupSidecars*(
         block_root: block_root, sidecar: sidecar))
 
   ok(grouped)
+
+func groupEnvelopes*(
+    blocks: openArray[ForkedSignedBeaconBlock],
+    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+): seq[GloasEnvelopeResponseRecord] =
+  var res: seq[GloasEnvelopeResponseRecord]
+  let envelopesTable =
+    envelopes.mapIt((it[].message.beacon_block_root, it)).toTable()
+  for signedBlock in blocks:
+    let envelope = envelopesTable.getOrDefault(signedBlock.root)
+    res.add(GloasEnvelopeResponseRecord(
+      signedBlock: signedBlock, signedEnvelope: envelope))
+  res
 
 func validateBlocks*(
     items: openArray[SyncResponseItem],
