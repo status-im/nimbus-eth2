@@ -1558,9 +1558,9 @@ suite "SyncManager test suite":
       func getLocalMap(): ColumnMap =
         localMap
 
-      func getMissingMap(root: Eth2Digest): ColumnMap =
+      func getMissingMap(bid: BlockId): ColumnMap =
         let
-          map = verifier.quarantine.getOrDefault(root)
+          map = verifier.quarantine.getOrDefault(bid.root)
           localMap = getLocalMap()
         localMap and not(localMap and map)
 
@@ -1799,9 +1799,9 @@ suite "SyncManager test suite":
       func getLocalMap(): ColumnMap =
         localMap
 
-      func getMissingMap(root: Eth2Digest): ColumnMap =
+      func getMissingMap(bid: BlockId): ColumnMap =
         let
-          map = verifier.quarantine.getOrDefault(root)
+          map = verifier.quarantine.getOrDefault(bid.root)
           localMap = getLocalMap()
         localMap and not(localMap and map)
 
