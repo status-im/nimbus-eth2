@@ -97,12 +97,12 @@ suite "Light client processor" & preset():
       var numOnStoreInitializedCalls = 0
       func onStoreInitialized() = inc numOnStoreInitializedCalls
 
-      let store = (ref ForkedLightClientStore)()
-      var
+      let
+        store = (ref ForkedLightClientStore)()
         processor = LightClientProcessor.new(
           false, "", "", cfg, genesis_validators_root, finalizationMode,
           store, getBeaconTime, getTrustedBlockRoot, onStoreInitialized)
-        res: Result[bool, LightClientVerifierError]
+      var res: Result[bool, LightClientVerifierError]
 
     test "Sync" & testNameSuffix:
       var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)

@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -159,8 +159,8 @@ suite "Validator pool":
         return RestApiResponse.response("INCORRECT TEST STAGE", Http400,
                                         "text/plain")
 
-    var sres = RestServerRef.new(router, initTAddress("127.0.0.1:0"))
     let
+      sres = RestServerRef.new(router, initTAddress("127.0.0.1:0"))
       server = sres.get()
       serverAddress = server.server.instance.localAddress()
       config =
@@ -222,7 +222,7 @@ suite "Validator pool":
       for index, value in attachedKeystores:
         check cmp(value, sortedExpected[index]) == 0
 
-    var pool = (ref ValidatorPool)()
+    let pool = (ref ValidatorPool)()
     discard pool[].addValidator(createLocal(createPubKey(1)), fee, gas)
     discard pool[].addValidator(createRemote(createPubKey(2)), fee, gas)
     discard pool[].addValidator(createDynamic(remoteSignerUrl.url, createPubKey(3)), fee, gas)

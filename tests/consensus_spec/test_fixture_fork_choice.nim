@@ -469,14 +469,14 @@ proc doRunTest(
             gloasBlocks[forkyBlck.root] = step.blck
     of opOnPhase0AttesterSlashing:
       let indices = check_attester_slashing(
-        state[], step.phase0AttesterSlashing, flags = {})
+        state[], step.phase0AttesterSlashing, flags = stores.dag.updateFlags)
       if indices.isOk:
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
       doAssert indices.isOk == step.valid
     of opOnElectraAttesterSlashing:
       let indices = check_attester_slashing(
-        state[], step.electraAttesterSlashing, flags = {})
+        state[], step.electraAttesterSlashing, flags = stores.dag.updateFlags)
       if indices.isOk:
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
@@ -539,26 +539,6 @@ proc runTest(
     "should_override_forkchoice_update__true",
     "basic_is_parent_root",
     "basic_is_head_root",
-
-    # TODO https://github.com/ethereum/consensus-specs/pull/5288
-    "fcr_no_restart_when_gu_block_is_epoch_older",
-    "fcr_previous_epoch_030",
-    "fcr_previous_epoch_031",
-    "fcr_previous_epoch_032",
-    "fcr_previous_epoch_033",
-    "fcr_previous_epoch_034",
-    "fcr_previous_epoch_035",
-    "fcr_previous_epoch_036",
-    "fcr_previous_epoch_037",
-    "fcr_previous_epoch_038",
-    "fcr_previous_epoch_039",
-    "fcr_previous_epoch_040",
-    "fcr_restarts_to_gu_and_confirms_beyond_gu",
-    "fcr_restarts_to_gu_when_all_conditions_met",
-    "fcr_reverts_when_reconfirmation_fails_at_epoch_start_due_to_late_equivocations",
-    "is_one_confirmed_slashing_non_supporters_helps",
-    "is_one_confirmed_slashing_supporters_does_not_hurt",
-    "reconfirmation_passes_with_empty_slots_prior_first_block",
 
     # TODO Gloas/ePBS: reveals an invalid execution payload envelope and a
     # child block built as if that parent payload were FULL

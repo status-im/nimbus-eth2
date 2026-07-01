@@ -82,9 +82,9 @@ suite "Attestation pool electra processing" & preset():
 
   setup:
     # Genesis state that results in 6 members per committee (2 committees total)
-    let rng = HmacDrbgContext.new()
     const TOTAL_COMMITTEES = 2
-    var
+    let
+      rng = HmacDrbgContext.new()
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = init(
@@ -93,12 +93,14 @@ suite "Attestation pool electra processing" & preset():
           TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
         validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    let
       quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
-      cache = StateCache()
-      info = ForkedEpochInfo()
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
@@ -132,7 +134,7 @@ suite "Attestation pool electra processing" & preset():
     # Create two alternate histories with different shufflings
     check process_slots(
       dag.cfg, state[], (SLOTS_PER_EPOCH - 2).Slot, cache, info, {}).isOk
-    var state2 = newClone(state[])
+    let state2 = newClone(state[])
 
     const epoch = 3.Epoch
     template fillToEpoch(
@@ -503,16 +505,15 @@ suite "Attestation pool electra processing" & preset():
       attestations.len == 1
 
   test "Attestations may overlap, bigger first" & preset():
-    var cache = StateCache()
+    var cache: StateCache
 
-    var
-      # Create an attestation for slot 1!
-      bc0 = get_beacon_committee(
-        state[], state[].slot, 0.CommitteeIndex, cache)
-      attestation0 = makeElectraAttestation(
-        state[], state[].latest_block_root, bc0[0], cache)
-      attestation1 = makeElectraAttestation(
-        state[], state[].latest_block_root, bc0[1], cache)
+    # Create an attestation for slot 1!
+    let bc0 = get_beacon_committee(
+      state[], state[].slot, 0.CommitteeIndex, cache)
+    var attestation0 = makeElectraAttestation(
+      state[], state[].latest_block_root, bc0[0], cache)
+    let attestation1 = makeElectraAttestation(
+      state[], state[].latest_block_root, bc0[1], cache)
 
     attestation0.combine(attestation1)
 
@@ -533,15 +534,14 @@ suite "Attestation pool electra processing" & preset():
       attestations.len == 1
 
   test "Attestations may overlap, smaller first" & preset():
-    var cache = StateCache()
-    var
-      # Create an attestation for slot 1!
-      bc0 = get_beacon_committee(state[],
-        state[].slot, 0.CommitteeIndex, cache)
-      attestation0 = makeElectraAttestation(
-        state[], state[].latest_block_root, bc0[0], cache)
-      attestation1 = makeElectraAttestation(
-        state[], state[].latest_block_root, bc0[1], cache)
+    var cache: StateCache
+    # Create an attestation for slot 1!
+    let bc0 = get_beacon_committee(state[],
+      state[].slot, 0.CommitteeIndex, cache)
+    var attestation0 = makeElectraAttestation(
+      state[], state[].latest_block_root, bc0[0], cache)
+    let attestation1 = makeElectraAttestation(
+      state[], state[].latest_block_root, bc0[1], cache)
 
     attestation0.combine(attestation1)
 
@@ -864,10 +864,9 @@ suite "Attestation pool electra processing" & preset():
     check proto_array.checkpoints(root).get().unrealized_justified == unrealized
 
   test "Working with electra aggregates" & preset():
-    let
-      # Create an attestation for slot 1!
-      bc0 = get_beacon_committee(
-        state[], state[].slot, 0.CommitteeIndex, cache)
+    # Create an attestation for slot 1!
+    let bc0 = get_beacon_committee(
+      state[], state[].slot, 0.CommitteeIndex, cache)
 
     var
       att0 = makeElectraAttestation(
@@ -875,6 +874,7 @@ suite "Attestation pool electra processing" & preset():
       att0x = att0
       att1 = makeElectraAttestation(
         state[], state[].latest_block_root, bc0[1], cache)
+    let
       att2 = makeElectraAttestation(
         state[], state[].latest_block_root, bc0[2], cache)
       att3 = makeElectraAttestation(
@@ -1088,8 +1088,8 @@ suite "Attestation pool electra processing" & preset():
           state[], state[].slot, i.CommitteeIndex, cache)
         att = makeElectraAttestation(
           state[], state[].latest_block_root, bc[0], cache)
-      var att2 = makeElectraAttestation(
-        state[], state[].latest_block_root, bc[1], cache)
+        att2 = makeElectraAttestation(
+          state[], state[].latest_block_root, bc[1], cache)
 
       pool[].addAttestation(
         att, @[bc[0]], att.aggregation_bits.len,

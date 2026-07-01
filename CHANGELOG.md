@@ -1,3 +1,16 @@
+2026-06-29 v26.6.2
+==================
+
+The Nimbus consensus client `v26.6.2` is a `medium-urgency` release which mitigates regressions in attestation performance and bandwidth usage in `v26.6.0`.
+
+### Fixes
+
+- Don't redistribute columns outside custody set from execution client mempool:
+  https://github.com/status-im/nimbus-eth2/pull/8648
+
+- Don't redistribute already-broadcast columns from execution client mempool:
+  https://github.com/status-im/nimbus-eth2/pull/8668
+
 2026-06-22 v26.6.0
 ==================
 

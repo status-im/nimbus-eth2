@@ -153,7 +153,7 @@ suite "Light client" & preset():
     var store: ForkedLightClientStore
     withForkyBootstrap(bootstrap):
       when lcDataFork > LightClientDataFork.None:
-        var storeRes = newClone(initialize_light_client_store(
+        let storeRes = newClone(initialize_light_client_store(
           trusted_block_root, forkyBootstrap, cfg))
         check storeRes[].isOk
         store = newClone(ForkedLightClientStore.init(storeRes[].get))[]

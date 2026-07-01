@@ -318,7 +318,7 @@ suite "Block processor" & preset():
           raiseAssert "Failed to compute cells and proofs"
 
         # Build BlobsBundle
-        var blobsBundle = testblockutil.BlobsBundle(
+        let blobsBundle = testblockutil.BlobsBundle(
           commitments: @[commitment],
           proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
           blobs: @[kzgBlob.bytes]
@@ -427,7 +427,7 @@ suite "Block processor" & preset():
           cfg, ConsensusFork.Gloas, forkyState, cache)
 
         # Envelope arrives first and gets quarantined as orphan.
-        var envelope = gloas.SignedExecutionPayloadEnvelope(
+        let envelope = gloas.SignedExecutionPayloadEnvelope(
           message: gloas.ExecutionPayloadEnvelope(
             beacon_block_root: engineBlock.blck.root,
             builder_index: BUILDER_INDEX_SELF_BUILD,

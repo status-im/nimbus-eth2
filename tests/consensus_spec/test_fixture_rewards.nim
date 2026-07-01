@@ -44,8 +44,8 @@ proc runRewardsTest*(
   var
     cache: StateCache
     info: phase0.EpochInfo
-    finality_delay =
-      state[].get_previous_epoch() - state[].finalized_checkpoint.epoch
+  let finality_delay =
+    state[].get_previous_epoch() - state[].finalized_checkpoint.epoch
 
   info.init(state[])
   info.process_attestations(state[], cache)
