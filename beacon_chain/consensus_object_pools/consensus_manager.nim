@@ -24,9 +24,6 @@ from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 logScope: topics = "cman"
 
 type
-  OnPayloadAttributesCallback* =
-    proc(data: EventPayloadAttributesObject) {.gcsafe, raises: [].}
-
   ConsensusManager* = object
     expectedSlot: Slot
     expectedBlockReceived: Future[bool].Raising([CancelledError])
@@ -63,9 +60,6 @@ type
 
     forkchoiceInflight: bool
       ## True when there's an async `forkchoiceUpdated` in flight
-
-    onPayloadAttributes*: OnPayloadAttributesCallback
-      ## Notifies the event bus when proposal payload attributes are computed
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -386,43 +380,23 @@ proc prepareNextSlot*(
       debug "Fork-choice updated for proposal", status, executionHead, attributes
 
       # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
-      if self.onPayloadAttributes != nil:
-        # https://github.com/ethereum/beacon-APIs/pull/621
-        # parent_block_number is removed post-Gloas; the version field
-        # distinguishes the fork variant.
-        let parentBlockNumber =
-          when consensusFork >= ConsensusFork.Gloas:
-            Opt.none(uint64)
-          else:
-            Opt.some(forkyState.data.latest_execution_payload_header.block_number)
-        self.onPayloadAttributes(EventPayloadAttributesObject(
-          version: consensusFork.toString(),
-          data: PayloadAttributesEventData(
-            proposer_index: uint64(validatorIndex),
-            proposal_slot: proposalSlot,
-            parent_block_number: parentBlockNumber,
-            parent_block_root: beaconHead.blck.bid.root,
-            parent_block_hash: executionHead,
-            payload_attributes: RestPayloadAttributes(
-              timestamp: timestamp,
-              prev_randao: prevRandao,
-              suggested_fee_recipient: feeRecipient,
-              withdrawals:
-                when consensusFork >= ConsensusFork.Gloas:
-                  get_expected_withdrawals(forkyState.data).withdrawals
-                else:
-                  get_expected_withdrawals(forkyState.data),
-              parent_beacon_block_root: beaconHead.blck.bid.root,
-              slot_number:
-                when consensusFork >= ConsensusFork.Gloas:
-                  Opt.some(uint64(proposalSlot))
-                else:
-                  Opt.none(uint64),
-              target_gas_limit:
-                when consensusFork >= ConsensusFork.Gloas:
-                  Opt.some(self[].getGasLimit(nextProposer))
-                else:
-                  Opt.none(uint64)))))
+      when consensusFork >= ConsensusFork.Gloas:
+        if dag.onPayloadAttributes != nil:
+          dag.onPayloadAttributes(EventPayloadAttributesObject(
+            version: consensusFork.toString(),
+            data: PayloadAttributesEventData(
+              proposer_index: uint64(validatorIndex),
+              proposal_slot: proposalSlot,
+              parent_block_root: beaconHead.blck.bid.root,
+              parent_block_hash: executionHead,
+              payload_attributes: RestPayloadAttributes(
+                timestamp: timestamp,
+                prev_randao: prevRandao,
+                suggested_fee_recipient: feeRecipient,
+                withdrawals: get_expected_withdrawals(forkyState.data).withdrawals,
+                parent_beacon_block_root: beaconHead.blck.bid.root,
+                slot_number: uint64(proposalSlot),
+                target_gas_limit: self[].getGasLimit(nextProposer)))))
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:

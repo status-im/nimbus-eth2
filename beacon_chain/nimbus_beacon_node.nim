@@ -844,7 +844,7 @@ proc initFullNode(
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
   dag.setFastConfirmationCb(onFastConfirmation)
-  consensusManager.onPayloadAttributes = onPayloadAttributes
+  dag.setPayloadAttributesCb(onPayloadAttributes)
   dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
