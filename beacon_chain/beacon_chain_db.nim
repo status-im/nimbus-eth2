@@ -576,7 +576,7 @@ proc new*(T: type BeaconChainDB,
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
     finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
 
-  let lcData = db.initLightClientDataDB(LightClientDataDBNames(
+    lcData = db.initLightClientDataDB(LightClientDataDBNames(
       altairHeaders: "lc_altair_headers",
       capellaHeaders:
         if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
