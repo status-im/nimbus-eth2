@@ -78,7 +78,7 @@ suite "Block processor" & preset():
       dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init(cfg))
-      dataColumnQuarantine = newClone(ColumnQuarantine())
+      dataColumnQuarantine = newClone(FuluColumnQuarantine())
       gloasColumnQuarantine = newClone(GloasColumnQuarantine())
       envelopeQuarantine = newClone(EnvelopeQuarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
@@ -318,7 +318,7 @@ suite "Block processor" & preset():
           raiseAssert "Failed to compute cells and proofs"
 
         # Build BlobsBundle
-        var blobsBundle = testblockutil.BlobsBundle(
+        let blobsBundle = testblockutil.BlobsBundle(
           commitments: @[commitment],
           proofs: cellsAndProofs.proofs.mapIt(kzg.KzgProof(it)),
           blobs: @[kzgBlob.bytes]
@@ -427,7 +427,7 @@ suite "Block processor" & preset():
           cfg, ConsensusFork.Gloas, forkyState, cache)
 
         # Envelope arrives first and gets quarantined as orphan.
-        var envelope = gloas.SignedExecutionPayloadEnvelope(
+        let envelope = gloas.SignedExecutionPayloadEnvelope(
           message: gloas.ExecutionPayloadEnvelope(
             beacon_block_root: engineBlock.blck.root,
             builder_index: BUILDER_INDEX_SELF_BUILD,
@@ -579,7 +579,7 @@ suite "Block processor" & preset():
         state2[].slot.start_beacon_time(cfg.timeParams)
       processor2 = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager2, validatorMonitor2,
-        newClone(ColumnQuarantine()), newClone(GloasColumnQuarantine()),
+        newClone(FuluColumnQuarantine()), newClone(GloasColumnQuarantine()),
         newClone(EnvelopeQuarantine()), getTimeFn2)
 
     # updateState should replay through b1-b3 from

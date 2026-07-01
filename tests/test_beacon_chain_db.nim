@@ -136,7 +136,7 @@ doAssert testStates.toOpenArray(0, testStates.len - 2).allIt(it.len > 8)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
     check:
       db.getStateRef(ConsensusFork.Phase0, ZERO_HASH).isNil
       db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
@@ -255,13 +255,14 @@ suite "Beacon chain DB" & preset():
 
   template doRollbackTest(consensusFork: static ConsensusFork): untyped =
     block:
-      var
+      let
         db = cfg.makeTestDB(SLOTS_PER_EPOCH)
         validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-        dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      var dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      let
         state = ForkedHashedBeaconState.new(
           (ref consensusFork.BeaconState)(slot: 10.Slot)[])
-        root = Eth2Digest()
+        root = ZERO_HASH
 
       db.putCorruptState(consensusFork, root)
 
@@ -291,7 +292,7 @@ suite "Beacon chain DB" & preset():
         consensusFork.doRollbackTest()
 
   test "find ancestors" & preset():
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
 
     let
       a0 = withDigest(
@@ -326,7 +327,7 @@ suite "Beacon chain DB" & preset():
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
 
     let
       state = newClone(initialize_hashed_beacon_state_from_eth1(
@@ -345,7 +346,7 @@ suite "Beacon chain DB" & preset():
       hash_tree_root(state2[]) == state[].root
 
   test "sanity check state diff roundtrip" & preset():
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
 
     # TODO htr(diff) probably not interesting/useful, but stand-in
     let
@@ -1086,7 +1087,7 @@ suite "Quarantine" & preset():
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():
-    var
+    let
       db = SqStoreRef.init("", "test", inMemory = true).expect(
         "working database (out of memory?)")
 

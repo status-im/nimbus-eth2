@@ -234,9 +234,9 @@ func findValidatorIndexBruteforce(
 
 suite "ValidatorPubKey bucket sort":
   setup:
-    var hashedPubkeyItems = mapIt(pubkeys, HashedValidatorPubKeyItem(
-      key: it.get, root: hash_tree_root(it.get)))
     let
+      hashedPubkeyItems = mapIt(pubkeys, HashedValidatorPubKeyItem(
+        key: it.get, root: hash_tree_root(it.get)))
       hashedPubkeys = mapIt(hashedPubkeyItems, HashedValidatorPubKey(
         value: unsafeAddr it))
       validators = mapIt(hashedPubkeys, Validator(pubkeyData: it))

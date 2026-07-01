@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Gnosis preset - Electra
-# https://github.com/gnosischain/specs/blob/5a3b1d21705d3cb79be95fcf9a9a1745faf10050/consensus/preset/gnosis/electra.yaml
+# https://github.com/gnosischain/specs/blob/045d46d6db96a39b4d91485f9783474c13546ac9/consensus/preset/gnosis/electra.yaml
 const
   # Gwei values
   # ---------------------------------------------------------------
@@ -51,7 +51,7 @@ const
 
   # Withdrawals processing
   # ---------------------------------------------------------------
-  # 2**3 ( = 8) pending withdrawals
+  # 6 pending withdrawals
   MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP* = 6
 
   # Pending deposits processing

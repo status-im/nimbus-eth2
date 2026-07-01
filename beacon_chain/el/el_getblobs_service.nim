@@ -46,7 +46,7 @@ type
     blockGossipBus*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
     fuluColumnSidecarBus*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     blockProcessor*: ref BlockProcessor
-    dataColumnQuarantine*: ref ColumnQuarantine
+    fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     partialColumnQuarantine: ref FuluPartialColumnQuarantine
       # Sink for partial column cells reconstructed from a partial
@@ -75,7 +75,7 @@ proc new*(
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject],
     fuluColumnSidecarBus: AsyncEventQueue[ref fulu.DataColumnSidecar],
     blockProcessor: ref BlockProcessor,
-    dataColumnQuarantine: ref ColumnQuarantine,
+    fuluColumnQuarantine: ref FuluColumnQuarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
     partialColumnQuarantine: ref FuluPartialColumnQuarantine,
     partialColumns: bool,
@@ -86,7 +86,7 @@ proc new*(
     blockGossipBus: blockGossipBus,
     fuluColumnSidecarBus: fuluColumnSidecarBus,
     blockProcessor: blockProcessor,
-    dataColumnQuarantine: dataColumnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     partialColumnQuarantine: partialColumnQuarantine,
     partialColumns: partialColumns,
@@ -114,18 +114,14 @@ proc recordEngineGetBlobs(
 
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
-    columns: seq[ref T],
-    skipIndex = Opt.none(ColumnIndex)
+    columns: seq[ref T]
 ) {.async: (raises: [CancelledError]).} =
-  ## Publish each reconstructed column to its respective gossip subnet.
-  ## `skipIndex` lets the column-first path avoid re-publishing the column
-  ## that already arrived via gossip.
+  ## Publish each column to its respective gossip subnet.
   var workers = newSeqOfCap[Future[SendResult]](columns.len)
   for col in columns:
-    if skipIndex.isSome and col[].index == skipIndex.get():
-      continue
     let subnet = compute_subnet_for_data_column_sidecar(col[].index)
     workers.add self.network.broadcastDataColumnSidecar(subnet, col)
+    await sleepAsync(5.milliseconds)
   let results = await allFinished(workers)
   for r in results:
     doAssert r.finished()
@@ -154,7 +150,7 @@ proc attemptGetBlobs*(
       # skip the EL fetch and enqueue with the existing columns.
       if forkyBlck.root in self.columnFirstFetched:
         let sidecarsOpt =
-          self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+          self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
         if sidecarsOpt.isSome():
           if not quarantine[].removeSidecarless(forkyBlck.root):
             return
@@ -260,11 +256,6 @@ proc attemptGetBlobs*(
       let recovered_columns = assemble_data_column_sidecars(
         forkyBlck, blobs, flat_proof)
 
-      # Redistribute every reconstructed column to its subnet before any
-      # custody-based filtering — peers on subnets we don't custody still
-      # need them.
-      await self.redistributeColumns(recovered_columns)
-
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
       # make use of it.
@@ -274,6 +265,9 @@ proc attemptGetBlobs*(
 
       if batch.len == 0:
         return
+
+      asyncSpawn self.redistributeColumns(batch.filterIt(
+        not self.fuluColumnQuarantine[].hasSidecar(forkyBlck.root, it[].index)))
 
       # Claim the block now that we are committed to enqueueing it. If it
       # was already removed in the meantime (e.g. gossip delivered sidecars
@@ -285,12 +279,12 @@ proc attemptGetBlobs*(
         root = forkyBlck.root,
         slot = forkyBlck.message.slot,
         batch_len = batch.len
-      self.dataColumnQuarantine[].put(forkyBlck.root, batch, verified = true)
+      self.fuluColumnQuarantine[].put(forkyBlck.root, batch, verified = true)
       # Any partial-cell state for this block is now superseded by the full
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
 
-      let sidecarsOpt = self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+      let sidecarsOpt = self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
 
       self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
     elif consensusFork == ConsensusFork.Heze:
@@ -334,17 +328,15 @@ proc attemptGetBlobs*(
   let recovered_columns = assemble_data_column_sidecars(
     blck, blobs, flat_proof)
 
-  # Redistribute every reconstructed column to its subnet before any
-  # custody-based filtering — peers on subnets we don't custody still
-  # need them.
-  await self.redistributeColumns(recovered_columns)
-
   let
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
 
   if batch.len == 0:
     return
+
+  asyncSpawn self.redistributeColumns(batch.filterIt(
+    not self.gloasColumnQuarantine[].hasSidecar(blck.root, it[].index)))
 
   debug "Added data columns from EL blobpool to gloas quarantine",
     root = blck.root,
@@ -408,13 +400,6 @@ proc attemptGetBlobsFromColumn*(
     sidecar[].kzg_commitments_inclusion_proof,
     blobs, flat_proof)
 
-  # Redistribute reconstructed columns to their subnets. Skip the trigger
-  # column: it already reached us via gossip and was published by its
-  # originator, so re-broadcasting it is wasted work (gossipsub would
-  # dedupe at peers anyway).
-  await self.redistributeColumns(
-    recovered_columns, skipIndex = Opt.some(sidecar[].index))
-
   let
     custodyMap = self.validatorCustody.getMap()
     batch = recovered_columns.filterIt(it[].index in custodyMap)
@@ -422,11 +407,14 @@ proc attemptGetBlobsFromColumn*(
   if batch.len == 0:
     return
 
+  asyncSpawn self.redistributeColumns(batch.filterIt(
+    not self.fuluColumnQuarantine[].hasSidecar(block_root, it[].index)))
+
   debug "Added data columns from EL blobpool to quarantine (column-first)",
     root = block_root,
     slot = slot,
     batch_len = batch.len
-  self.dataColumnQuarantine[].put(block_root, batch, verified = true)
+  self.fuluColumnQuarantine[].put(block_root, batch, verified = true)
   # Any partial-cell state for this block is now superseded by the full
   # column sidecars we just installed.
   self.partialColumnQuarantine[].pruneForBlock(block_root)

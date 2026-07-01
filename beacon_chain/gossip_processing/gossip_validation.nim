@@ -450,7 +450,7 @@ template validateBeaconBlockGloas(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    dataColumnQuarantine: ref ColumnQuarantine,
+    fuluColumnQuarantine: ref FuluColumnQuarantine,
     data_column_sidecar: ref fulu.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64):
     Result[void, ValidationError] =
@@ -487,7 +487,7 @@ proc validateDataColumnSidecar*(
   # (block_header.slot, block_header.proposer_index, data_column_sidecar.index)
   # with valid header signature, sidecar inclusion proof, and kzg proof.
   let block_root = hash_tree_root(block_header)
-  if dataColumnQuarantine[].hasSidecar(
+  if fuluColumnQuarantine[].hasSidecar(
       block_root, block_header.slot, block_header.proposer_index,
       data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
@@ -568,7 +568,7 @@ proc validateDataColumnSidecar*(
 
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
-    dataColumnQuarantine[].onDataColumnSidecarCallback()
+    fuluColumnQuarantine[].onDataColumnSidecarCallback()
 
   if not(isNil(onDataColumnSidecarCallback)):
     onDataColumnSidecarCallback DataColumnSidecarInfoObject(
@@ -581,7 +581,7 @@ proc validateDataColumnSidecar*(
   # getBlobs service can derive header/commitments/inclusion proof when the
   # block has not yet been seen via gossip.
   let onFuluColumnAddedCallback =
-    dataColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
+    fuluColumnQuarantine[].onFuluDataColumnSidecarAddedCallback()
   if not(isNil(onFuluColumnAddedCallback)):
     onFuluColumnAddedCallback newClone(data_column_sidecar)
 

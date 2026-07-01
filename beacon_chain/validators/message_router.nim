@@ -195,7 +195,7 @@ proc publishSidecars(
         data_column = shortLog(cols[i][])
 
   Opt.some(cols.filterIt(
-    it[].index in router[].processor.dataColumnQuarantine[].custodyMap))
+    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,

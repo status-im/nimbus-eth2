@@ -111,10 +111,9 @@ proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
 suite "EIP-7594 Unit Tests":
   test "EIP-7594: Compute Matrix":
     proc testComputeExtendedMatrix() =
-      var
-        rng = initRand(126)
-        blob_count = rng.rand(1..(deneb.MAX_BLOB_COMMITMENTS_PER_BLOCK.int))
+      var rng = initRand(126)
       let
+        blob_count = rng.rand(1..(deneb.MAX_BLOB_COMMITMENTS_PER_BLOCK.int))
         input_blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
         extended_matrix = compute_matrix(input_blobs)
       doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
@@ -139,7 +138,7 @@ suite "EIP-7594 Unit Tests":
       # Construct a matrix with some entries missing
       var partial_matrix: seq[MatrixEntry]
       for blob_entries in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
-        var blb_entry = blob_entries
+        let blb_entry = blob_entries
         partial_matrix.add(blb_entry[0..N_SAMPLES-1])
 
       # Given the partial matrix, recover the missing entries

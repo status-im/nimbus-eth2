@@ -1288,6 +1288,16 @@ proc getValidatorRegistration(
   else:
     ok(PendingValidatorRegistration(registration: registration, future: sigfut))
 
+proc isConsistent(
+    vc: ValidatorClientRef,
+    validatorRegistration: SignedValidatorRegistrationV1,
+    validator: AttachedValidator,
+    epoch: Epoch): bool =
+  validatorRegistration.message.fee_recipient ==
+    vc.getFeeRecipient(validator, epoch) and
+  validatorRegistration.message.gas_limit ==
+    vc.getGasLimit(validator)
+
 proc prepareRegistrationList*(
     vc: ValidatorClientRef,
     timestamp: Time,
@@ -1309,6 +1319,7 @@ proc prepareRegistrationList*(
     gasLimit = 0
     cached = 0
     timed = 0
+    stale = 0
 
   for validator in vc.attachedValidators[].items():
     let res = vc.getValidatorRegistration(validator, timestamp, genesis_fork_version)
@@ -1341,8 +1352,14 @@ proc prepareRegistrationList*(
       if sres.isOk():
         var reg = messages[index]
         reg.signature = sres.get()
+        let
+          validator = validators[index]
+          currentSlot = vc.beaconClock.toSlot(timestamp).slot
+        if not vc.isConsistent(reg, validator, currentSlot.epoch()):
+          inc(stale)
+          continue
         registrations.add(reg)
-        validators[index].externalBuilderRegistration = Opt.some(reg)
+        validator.externalBuilderRegistration = Opt.some(reg)
         inc(succeed)
       else:
         inc(bad)
@@ -1352,7 +1369,7 @@ proc prepareRegistrationList*(
   debug "Validator registrations prepared", total = total, succeed = succeed,
         cached = cached, bad = bad, errors = errors,
         index_missing = indexMissing, fee_missing = feeMissing,
-        incorrect_time = timed
+        incorrect_time = timed, stale = stale
 
   registrations
 

@@ -814,7 +814,7 @@ iterator makeTestBlocks*(
   syncCommitteeRatio = 0.0,
   graffiti = default(GraffitiBytes),
   cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
-  var state = assignClone(state)
+  let state = assignClone(state)
   for _ in 0..<blocks:
     let
       parent_root = withState(state[]): forkyState.latest_block_root

@@ -91,7 +91,7 @@ type
     inhibit: InhibitFn
     quarantine: ref Quarantine
     envelopeQuarantine: ref EnvelopeQuarantine
-    dataColumnQuarantine: ref ColumnQuarantine
+    fuluColumnQuarantine: ref FuluColumnQuarantine
     gloasColumnQuarantine: ref GloasColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
@@ -131,7 +131,7 @@ func init*(T: type RequestManager, network: Eth2Node,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
               envelopeQuarantine: ref EnvelopeQuarantine,
-              dataColumnQuarantine: ref ColumnQuarantine,
+              fuluColumnQuarantine: ref FuluColumnQuarantine,
               gloasColumnQuarantine: ref GloasColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
@@ -147,7 +147,7 @@ func init*(T: type RequestManager, network: Eth2Node,
     inhibit: inhibit,
     quarantine: quarantine,
     envelopeQuarantine: envelopeQuarantine,
-    dataColumnQuarantine: dataColumnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
@@ -525,7 +525,7 @@ proc fetchFuluDataColumns(
     ) {.async: (raises: [CancelledError]).} =
   fetchDataColumnsFromNetworkImpl(
     rman, colIdList,
-    dataColumnSidecarsByRoot, checkColumnResponse, rman.dataColumnQuarantine)
+    dataColumnSidecarsByRoot, checkColumnResponse, rman.fuluColumnQuarantine)
 
 proc fetchGloasDataColumns(
     rman: RequestManager, colIdList: HashSet[DataColumnsByRootIdentifier]
@@ -693,7 +693,7 @@ proc getMissingDataColumns(rman: RequestManager):
           let
             commitmentsCount =
               len(forkyBlck.message.body.blob_kzg_commitments)
-            ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
+            ident = rman.fuluColumnQuarantine[].fetchMissingSidecars(
               columnless.root)
           if len(ident.indices) > 0:
             fuluFetches.incl(ident)
@@ -767,7 +767,7 @@ proc requestManagerDataColumnLoop(
       fuluColumnIds = missingFulu
     else:
       processBucket(missingFulu, fuluColumnIds,
-                    rman.dataColumnLoader, rman.dataColumnQuarantine)
+                    rman.dataColumnLoader, rman.fuluColumnQuarantine)
 
     if rman.gloasDataColumnLoader == nil:
       gloasColumnIds = missingGloas

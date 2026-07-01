@@ -357,9 +357,10 @@ func createELManager(
 
 suite "EL Manager - Async Operations":
   setup:
-    var mockState = createMockEngineState(chainId = 1.u256)
-    var mockPort = allocatePort()
-    var server = newMockRpcServer(mockState, mockPort)
+    let
+      mockState = createMockEngineState(chainId = 1.u256)
+      mockPort = allocatePort()
+      server = newMockRpcServer(mockState, mockPort)
 
   teardown:
     try:
@@ -515,7 +516,7 @@ suite "EL Manager - forkchoiceUpdated":
 
 suite "EL Manager - getPayload":
   setup:
-    var setup = mockSetup()
+    let setup = mockSetup()
 
   teardown:
     setup.close()
@@ -550,7 +551,7 @@ suite "EL Manager - getPayload":
 
 suite "EL Manager - newPayload":
   setup:
-    var setup = mockSetup()
+    let setup = mockSetup()
 
   teardown:
     setup.close()
@@ -822,7 +823,7 @@ suite "EL Manager - Payload Request Caching":
 
 suite "EL Manager - Multiple Engines":
   setup:
-    var
+    let
       setup1 = mockSetup()
       setup2 = mockSetup()
 

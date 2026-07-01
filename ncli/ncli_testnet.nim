@@ -425,7 +425,7 @@ proc doCreateTestnet*(config: CliConfig,
       quit 1
 
   template createAndSaveState(): Eth2Digest =
-    var initialState =
+    let initialState =
       initGenesisState(cfg, eth1Hash, startTime, deposits, {skipBlsValidation})
     withState(initialState[]):
       # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
