@@ -669,7 +669,7 @@ suite "Block processor" & preset():
       processor2 = BlockProcessor.new(
         false, "", "", batchVerifier, consensusManager2, validatorMonitor2,
         newClone(FuluColumnQuarantine()), newClone(GloasColumnQuarantine()),
-        newClone(EnvelopeQuarantine()), getTimeFn2)
+        newClone(EnvelopeQuarantine.init()), getTimeFn2)
 
     check:
       dag2.head.root == b1.root
