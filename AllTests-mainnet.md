@@ -175,16 +175,6 @@ AllTests-mainnet
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
 ```
-## Column reconstruction backfiller cursors
-```diff
-+ a TooFew slot blocks the trail until its columns arrive                                    OK
-+ a head extension reconstructs only the new slot, not the whole run                         OK
-+ a reorg refills only the post-finalized window                                             OK
-+ a reorg retracts the advertised slot, then re-extends it                                   OK
-+ a reorg whose run is entirely post-finalized resets it                                     OK
-+ an advancing retention floor lifts runBottom                                               OK
-+ fresh backfill descends from head to the retention floor                                   OK
-```
 ## BlocksRangeBuffer test suite
 ```diff
 + Add and query blocks test [backward]                                                       OK
@@ -198,6 +188,16 @@ AllTests-mainnet
 + Range peek real test cases [forward]                                                       OK
 + Range peek test [backward]                                                                 OK
 + Range peek test [forward]                                                                  OK
+```
+## Column reconstruction backfiller cursors
+```diff
++ a TooFew slot blocks the trail until its columns arrive                                    OK
++ a head extension reconstructs only the new slot, not the whole run                         OK
++ a reorg refills only the post-finalized window                                             OK
++ a reorg retracts the advertised slot, then re-extends it                                   OK
++ a reorg whose run is entirely post-finalized resets it                                     OK
++ an advancing retention floor lifts runBottom                                               OK
++ fresh backfill descends from head to the retention floor                                   OK
 ```
 ## ColumnMap test suite
 ```diff
