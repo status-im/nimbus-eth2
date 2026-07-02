@@ -31,7 +31,8 @@ import
   ./validators/[keystore_management, beacon_validators],
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
-    nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
+    nimbus_binary_common, nimbus_rest_common, process_state, statusbar,
+    trusted_node_sync, wallets]
 
 from std/sequtils import filterIt, mapIt, toSeq
 #from std/strutils import
