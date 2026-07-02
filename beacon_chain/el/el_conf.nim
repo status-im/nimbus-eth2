@@ -85,7 +85,7 @@ proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
     toml_serialization.readValue(reader, value)
 
 proc fixupWeb3Urls*(web3Url: var string) =
-  var normalizedUrl = toLowerAscii(web3Url)
+  let normalizedUrl = toLowerAscii(web3Url)
   if not (normalizedUrl.startsWith("https://") or
           normalizedUrl.startsWith("http://") or
           normalizedUrl.startsWith("wss://") or

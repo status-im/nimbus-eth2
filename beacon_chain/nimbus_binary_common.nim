@@ -11,17 +11,18 @@
 
 import
   # Standard library
-  std/[cpuinfo, exitprocs, os, tables, terminal, typetraits],
+  std/[cpuinfo, exitprocs, terminal],
 
   # Nimble packages
-  chronos, confutils, presto, toml_serialization, metrics,
+  chronos, confutils, toml_serialization, metrics, taskpools,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
-  stew/io2, metrics/chronos_httpserver, taskpools,
 
   # Local modules
   ./spec/keystore,
   ./buildinfo
 
+from std/strutils import capitalizeAscii, join, parseEnum, split
+from std/os import commandLineParams, getEnv, splitFile, `/`
 from ./spec/datatypes/base import SPEC_VERSION
 
 const specBanner* = "Ethereum consensus spec v" & SPEC_VERSION
@@ -30,8 +31,7 @@ from system/ansi_c import c_malloc
 
 when defaultChroniclesStream.outputs.type.arity == 2:
   from ./filepath import secureCreatePath
-
-  import stew/staticfor
+  from stew/staticfor import staticFor
 
 export
   confutils, toml_serialization
@@ -224,7 +224,6 @@ proc loadWithBanners*(
       else:
         @environment
 
-  {.push warning[ProveInit]: off.}
   let config =
     try:
       ConfType.load(
@@ -256,7 +255,6 @@ proc loadWithBanners*(
             "have more than one value, please make sure to supply " &
             "a properly formatted TOML array\p"
       return err(msg)
-  {.pop.}
   ok(config)
 
 proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
@@ -285,131 +283,6 @@ proc sleepAsync*(t: TimeDiff): Future[void] {.
      async: (raises: [CancelledError], raw: true).} =
   sleepAsync(nanoseconds(
     if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
-
-proc init*(T: type RestServerRef,
-           ip: IpAddress,
-           port: Port,
-           allowedOrigin: Option[string],
-           validateFn: PatternCallback,
-           ident: string,
-           config: auto): T =
-  let
-    address = initTAddress(ip, port)
-    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                   HttpServerFlags.NotifyDisconnect}
-  # We increase default timeout to help validator clients who poll our server
-  # at least once per slot (12.seconds).
-  let
-    headersTimeout =
-      if config.restRequestTimeout == 0:
-        chronos.InfiniteDuration
-      else:
-        seconds(int64(config.restRequestTimeout))
-    maxHeadersSize = config.restMaxRequestHeadersSize * 1024
-    maxRequestBodySize = config.restMaxRequestBodySize * 1024
-
-  let res = RestServerRef.new(RestRouter.init(validateFn, allowedOrigin),
-                              address, serverFlags = serverFlags,
-                              serverIdent = ident,
-                              httpHeadersTimeout = headersTimeout,
-                              maxHeadersSize = maxHeadersSize,
-                              maxRequestBodySize = maxRequestBodySize,
-                              errorType = string)
-  if res.isErr():
-    notice "REST HTTP server could not be started", address = $address,
-           reason = res.error()
-    nil
-  else:
-    let server = res.get()
-    notice "Starting REST HTTP server", url = "http://" & $server.localAddress()
-    server
-
-type
-  KeymanagerInitResult* = object
-    server*: RestServerRef
-    token*: string
-
-proc initKeymanagerServer*(
-    config: auto,
-    existingRestServer: RestServerRef = nil): KeymanagerInitResult
-    {.raises: [].} =
-
-  var token: string
-  let keymanagerServer = if config.keymanagerEnabled:
-    if config.keymanagerTokenFile.isNone:
-      echo "To enable the Keymanager API, you must also specify " &
-           "the --keymanager-token-file option."
-      quit 1
-
-    let
-      tokenFilePath = config.keymanagerTokenFile.get.string
-      tokenFileReadRes = readAllChars(tokenFilePath)
-
-    if tokenFileReadRes.isErr:
-      fatal "Failed to read the keymanager token file",
-            error = $tokenFileReadRes.error
-      quit 1
-
-    token = tokenFileReadRes.value.strip
-    if token.len == 0:
-      fatal "The keymanager token should not be empty", tokenFilePath
-      quit 1
-
-    when compiles(config.restPort):
-      if existingRestServer != nil and
-         config.restAddress == config.keymanagerAddress and
-        config.restPort == config.keymanagerPort:
-        existingRestServer
-      else:
-        RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                           config.keymanagerAllowedOrigin,
-                           validateKeymanagerApiQueries,
-                           nimbusAgentStr,
-                           config)
-    else:
-      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                         config.keymanagerAllowedOrigin,
-                         validateKeymanagerApiQueries,
-                         nimbusAgentStr,
-                         config)
-  else:
-    nil
-
-  KeymanagerInitResult(server: keymanagerServer, token: token)
-
-proc initMetricsServer*(
-    config: auto
-): Future[Result[Opt[MetricsHttpServerRef], string]] {.
-  async: (raises: [CancelledError]).} =
-  if config.metricsEnabled:
-    let
-      metricsAddress = config.metricsAddress
-      metricsPort = config.metricsPort
-      url = "http://" & $metricsAddress & ":" & $metricsPort & "/metrics"
-
-    info "Starting metrics HTTP server", url = url
-
-    let server = MetricsHttpServerRef.new($metricsAddress, metricsPort).valueOr:
-      fatal "Could not start metrics HTTP server",
-            url = url, reason = error
-      return err($error)
-
-    try:
-      await server.start()
-    except MetricsError as exc:
-      fatal "Could not start metrics HTTP server",
-            url = url, reason = exc.msg
-      return err(exc.msg)
-
-    ok(Opt.some(server))
-  else:
-    ok(Opt.none(MetricsHttpServerRef))
-
-proc stopMetricsServer*(v: Opt[MetricsHttpServerRef]) {.
-     async: (raises: []).} =
-  if v.isSome():
-    info "Shutting down metrics HTTP server"
-    await v.get().close()
 
 proc quitDoppelganger*() =
   # Avoid colliding with

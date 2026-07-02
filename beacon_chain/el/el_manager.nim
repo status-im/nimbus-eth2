@@ -836,11 +836,11 @@ template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
     var
       res = Opt.none PayloadExecutionStatus
       responseProcessor = ELConsensusViolationDetector.init()
-      requests = m.elConnections.mapIt:
-        let req = unpackVarargs(it.newPayload, payload, args)
-        it.engineApiRequest(req, "newPayload", startTime)
-      pending = requests
-      earlyDeadline = sleepAsync(multiTimeout)
+    let requests = m.elConnections.mapIt:
+      let req = unpackVarargs(it.newPayload, payload, args)
+      it.engineApiRequest(req, "newPayload", startTime)
+    var pending = requests
+    let earlyDeadline = sleepAsync(multiTimeout)
 
     defer:
       await cancelAndWait(pending)
@@ -1016,13 +1016,12 @@ proc forkchoiceUpdated*(
 
   let startTime = Moment.now
 
-  var
-    responseProcessor = ELConsensusViolationDetector.init()
-    requests = m.elConnections.mapIt:
+  var responseProcessor = ELConsensusViolationDetector.init()
+  let requests = m.elConnections.mapIt:
       let req = it.forkchoiceUpdated(state, payloadAttributes, retry)
       engineApiRequest(it, req, "forkchoiceUpdated", startTime)
-    pending = requests
-    earlyDeadline = sleepAsync(multiTimeout)
+  var pending = requests
+  let earlyDeadline = sleepAsync(multiTimeout)
 
   defer:
     await cancelAndWait(pending)

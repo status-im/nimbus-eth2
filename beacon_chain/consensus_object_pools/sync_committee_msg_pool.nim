@@ -296,8 +296,8 @@ proc produceSyncAggregateAux(
   var
     aggregateSig {.noinit.}: AggregateSignature
     initialized = false
-    startTime = Moment.now
     aggregate: SyncAggregate
+  let startTime = Moment.now
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if contributions.subnets[subcommitteeIdx].totalParticipants == 0:
       continue
