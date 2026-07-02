@@ -18,7 +18,7 @@ import
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb, gloas],
   ./[
     beacon_clock, buildinfo, filepath, light_client, light_client_db,
-    nimbus_binary_common, process_state, version]
+    nimbus_binary_common, nimbus_rest_common, process_state, version]
 
 from ./consensus_object_pools/blockchain_dag import
   updateFinalizedBlockMetrics, updateHeadBlockMetrics

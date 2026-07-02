@@ -378,6 +378,25 @@ proc prepareNextSlot*(
           state, Opt.some(attributes), deadline, false
         )
       debug "Fork-choice updated for proposal", status, executionHead, attributes
+
+      # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
+      when consensusFork >= ConsensusFork.Gloas:
+        if dag.onPayloadAttributes != nil:
+          dag.onPayloadAttributes(EventPayloadAttributesObject(
+            version: consensusFork.toString(),
+            data: PayloadAttributesEventData(
+              proposer_index: uint64(validatorIndex),
+              proposal_slot: proposalSlot,
+              parent_block_root: beaconHead.blck.bid.root,
+              parent_block_hash: executionHead,
+              payload_attributes: RestPayloadAttributes(
+                timestamp: timestamp,
+                prev_randao: prevRandao,
+                suggested_fee_recipient: feeRecipient,
+                withdrawals: get_expected_withdrawals(forkyState.data).withdrawals,
+                parent_beacon_block_root: beaconHead.blck.bid.root,
+                slot_number: uint64(proposalSlot),
+                target_gas_limit: self[].getGasLimit(nextProposer)))))
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:

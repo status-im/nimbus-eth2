@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/sets,
+  std/tables,
 
   # Status libraries
   chronicles,
@@ -66,7 +66,7 @@ type
     # Roots for which the column-first path has already invoked the EL.
     # Bounds the per-block fan-out: each custody column arriving via gossip
     # would otherwise trigger a redundant getBlobsV2 roundtrip.
-    columnFirstFetched: HashSet[Eth2Digest]
+    columnFirstFetched: Table[Eth2Digest, Slot]
 
   GetBlobsServiceRef* = ref GetBlobsService
 
@@ -156,7 +156,7 @@ proc attemptGetBlobs*(
             return
           debug "Added data columns from EL blobpool to quarantine",
             root = forkyBlck.root, slot = forkyBlck.message.slot
-          self.columnFirstFetched.excl(forkyBlck.root)
+          self.columnFirstFetched.del(forkyBlck.root)
           self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
@@ -355,6 +355,18 @@ proc attemptGetBlobsFromColumn*(
   let
     elManager = self.blockProcessor[].consensusManager.elManager
     quarantine = self.blockProcessor[].consensusManager.quarantine
+    dag = self.blockProcessor[].consensusManager.dag
+
+  # Prune roots whose block never showed up.
+  block:
+    var toDelete: seq[Eth2Digest]
+    for block_root, slot in self.columnFirstFetched:
+      if slot <= dag.finalizedHead.slot:
+        toDelete.add block_root
+    for block_root in toDelete:
+      self.columnFirstFetched.del(block_root)
+
+  let
     block_root = hash_tree_root(sidecar[].signed_block_header.message)
     slot = sidecar[].signed_block_header.message.slot
 
@@ -408,7 +420,7 @@ proc attemptGetBlobsFromColumn*(
   self.partialColumnQuarantine[].pruneForBlock(block_root)
   # Mark only after a successful put so failed attempts can be retried by
   # subsequent column arrivals for the same root.
-  self.columnFirstFetched.incl(block_root)
+  self.columnFirstFetched[block_root] = slot
 
 proc consumeBlockGossip(
     self: GetBlobsServiceRef) {.async: (raises: []).} =

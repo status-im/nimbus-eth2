@@ -551,7 +551,7 @@ proc popSidecars*[
   ## If some of the column sidecars are missing Opt.none() is returned.
   ## Note: Blocks should be checked for sidecars count first, otherwise
   ## result of this function would be always Opt.none().
-  var node = quarantine.roots.getOrDefault(blockRoot)
+  let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return Opt.none(seq[ref A])
 

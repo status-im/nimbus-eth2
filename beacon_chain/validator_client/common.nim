@@ -14,20 +14,20 @@ import
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
-  ".."/spec/datatypes/[base, phase0, altair],
-  ".."/spec/[eth2_merkleization, helpers, signatures, validator],
-  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
+  ../spec/datatypes/[base, phase0, altair],
+  ../spec/[eth2_merkleization, helpers, signatures, validator],
+  ../spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
-  ".."/consensus_object_pools/[block_pools_types, common_tools],
-  ".."/validators/[keystore_management, validator_pool, slashing_protection,
+  ../consensus_object_pools/[block_pools_types, common_tools],
+  ../validators/[keystore_management, validator_pool, slashing_protection,
                    validator_duties],
-  ".."/[conf, beacon_clock, version, nimbus_binary_common]
+  ../[conf, beacon_clock, version, nimbus_binary_common, nimbus_rest_common]
 
 from std/times import Time, toUnix, fromUnix, getTime
 
 export
-  os, sets, sequtils, chronos, chronicles, confutils,
-  nimbus_binary_common, version, conf, tables, results, base10,
+  os, sets, sequtils, chronos, chronicles, confutils, nimbus_binary_common,
+  nimbus_rest_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,

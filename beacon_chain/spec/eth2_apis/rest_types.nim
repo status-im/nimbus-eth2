@@ -62,7 +62,7 @@ type
     LightClientFinalityUpdate, LightClientOptimisticUpdate,
     ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
     ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage,
-    FastConfirmation
+    FastConfirmation, PayloadAttributes
 
 
   EventTopics* = set[EventTopic]

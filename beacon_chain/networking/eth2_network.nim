@@ -1445,8 +1445,8 @@ proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async: (raises: [
     return
 
   debug "Connecting to discovered peer"
-  var deadline = sleepAsync(node.connectTimeout)
-  var workfut = node.switch.connect(
+  let deadline = sleepAsync(node.connectTimeout)
+  let workfut = node.switch.connect(
     peerAddr.peerId,
     peerAddr.addrs,
     forceDial = true
@@ -2051,7 +2051,7 @@ func registerMsg(protocol: ProtocolInfo,
                                     libp2pCodecName: libp2pCodecName)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
-  var
+  let
     Format = ident "SSZ"
     Connection = bindSym "Connection"
     Peer = bindSym "Peer"
@@ -2157,7 +2157,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## Implement Senders and Handshake
     ##
 
-    var sendProc = msg.createSendProc()
+    let sendProc = msg.createSendProc()
     if maxResponseItems.isSome:
       sendProc.def.params.insert(
         sendProc.def.params.len - 1, # Insert before implicit `timeout` param
