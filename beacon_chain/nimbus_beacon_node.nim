@@ -1724,6 +1724,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
+    node.processor.fuluColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+    node.processor.gloasColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
     node.processor.quarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 
