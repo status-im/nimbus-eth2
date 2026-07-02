@@ -31,7 +31,8 @@ import
   ./validators/[keystore_management, beacon_validators],
   ./[
     beacon_node, beacon_node_light_client, buildinfo, deposits, era_db,
-    nimbus_binary_common, process_state, statusbar, trusted_node_sync, wallets]
+    nimbus_binary_common, nimbus_rest_common, process_state, statusbar,
+    trusted_node_sync, wallets]
 
 from std/sequtils import filterIt, mapIt, toSeq
 #from std/strutils import
@@ -508,6 +509,8 @@ proc initFullNode(
     node.eventBus.reorgQueue.emit(eventData)
   proc onFastConfirmation(data: FastConfirmationInfoObject) =
     node.eventBus.fastConfirmationQueue.emit(data)
+  proc onPayloadAttributes(data: EventPayloadAttributesObject) =
+    node.eventBus.payloadAttributesQueue.emit(data)
   proc onEnvelopeAdded(data: SignedExecutionPayloadEnvelope) =
     let optimistic = node.dag.is_optimistic(BlockId(
       root: data.message.beacon_block_root,
@@ -842,6 +845,7 @@ proc initFullNode(
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
   dag.setFastConfirmationCb(onFastConfirmation)
+  dag.setPayloadAttributesCb(onPayloadAttributes)
   dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
@@ -1723,6 +1727,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
+    node.processor.fuluColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+    node.processor.gloasColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
     node.processor.quarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
 

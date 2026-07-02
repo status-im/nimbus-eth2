@@ -217,6 +217,7 @@ type
       name: "agent-string" .}: string
 
     subscribeAllSubnets* {.
+      hidden
       defaultValue: false,
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool

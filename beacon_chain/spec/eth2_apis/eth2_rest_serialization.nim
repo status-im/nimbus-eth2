@@ -1082,6 +1082,8 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.PayloadAttestationMessage)
   of "fast_confirmation":
     ok(EventTopic.FastConfirmation)
+  of "payload_attributes":
+    ok(EventTopic.PayloadAttributes)
   else:
     err("Incorrect event's topic value")
 
@@ -1127,6 +1129,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("execution_payload_bid,")
   if EventTopic.PayloadAttestationMessage in value:
     res.add("payload_attestation_message,")
+  if EventTopic.PayloadAttributes in value:
+    res.add("payload_attributes,")
   if len(res) == 0:
     return err("Topics set must not be empty")
   res.setLen(len(res) - 1)
