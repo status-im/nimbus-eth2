@@ -42,6 +42,7 @@ proc eventHandler*[T](response: HttpResponseRef,
                       serverEvent: string) {.async.} =
   var empty: seq[T]
   let key = eventQueue.register()
+  defer: eventQueue.unregister(key)
 
   while true:
     var exitLoop = false
@@ -79,8 +80,6 @@ proc eventHandler*[T](response: HttpResponseRef,
 
     if exitLoop or len(events) == 0:
       break
-
-  eventQueue.unregister(key)
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
