@@ -1683,6 +1683,30 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error)
     RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
+  router.api(MethodPost, "/eth/v1/beacon/execution_payload_envelopes") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    let dres = decodeBodyJsonOrSsz(
+      SignedExecutionPayloadEnvelope, contentBody.get())
+    if dres.isErr():
+      return RestApiResponse.jsonError(dres.error())
+    let signedEnvelope = dres.get()
+
+    if node.dag.cfg.consensusForkAtEpoch(
+        signedEnvelope.message.slot.epoch) < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+
+    let res = await node.router.routeExecutionPayloadEnvelope(signedEnvelope)
+    if res.isErr():
+      return RestApiResponse.jsonError(Http400,
+                                       ExecutionPayloadEnvelopeValidationError,
+                                       $res.error)
+    RestApiResponse.jsonMsgResponse(ExecutionPayloadEnvelopeValidationSuccess)
+
   # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
   router.api2(MethodGet, "/eth/v1/beacon/execution_payload_envelopes/{block_id}") do (
       block_id: BlockIdent) -> RestApiResponse:

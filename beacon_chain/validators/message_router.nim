@@ -778,3 +778,26 @@ proc routeExecutionPayloadBid*(
       bid = shortLog(signedBid.message), error = res.error()
 
   ok()
+
+proc routeExecutionPayloadEnvelope*(
+    router: ref MessageRouter,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res =
+      router[].processor[].processExecutionPayloadEnvelope(
+        MsgSource.api, signedEnvelope)
+    if not res.isGoodForSending:
+      warn "Execution payload envelope failed validation",
+        envelope = shortLog(signedEnvelope.message), error = res.error()
+      return err(res.error()[1])
+
+  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  if res.isOk():
+    notice "Execution payload envelope sent",
+      envelope = shortLog(signedEnvelope.message)
+  else:
+    notice "Execution payload envelope not sent",
+      envelope = shortLog(signedEnvelope.message), error = res.error()
+
+  ok()
