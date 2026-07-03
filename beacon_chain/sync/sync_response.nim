@@ -7,59 +7,120 @@
 
 {.push raises: [].}
 
-import ../spec/[helpers, forks]
-
-from std/sequtils import mapIt
-from std/strutils import join
+import std/[sequtils, strutils],
+       results,
+       ../spec/[helpers, forks, peerdas_helpers, column_map],
+       ../spec/datatypes/[deneb, electra, fulu, gloas]
 
 type
-  SyncResponseItem* = object
-    signedBlock*: ref ForkedSignedBeaconBlock
-    signedPayloadEnvelope*: ref SignedExecutionPayloadEnvelope
+  ForkedSignedBeaconBlocks =
+    ForkedSignedBeaconBlock | ref ForkedSignedBeaconBlock
 
-func slot*(r: SyncResponseItem): Slot {.inline.} =
-  r.signedBlock[].slot
+  GloasSyncResponseRecord*[T: ForkedSignedBeaconBlocks] = object
+    signedBlock*: T
+    signedEnvelope*: ref SignedExecutionPayloadEnvelope
 
-func root*(r: SyncResponseItem): Eth2Digest {.inline.} =
-  r.signedBlock[].root
+  SyncResponseItem* = GloasSyncResponseRecord[ref ForkedSignedBeaconBlock]
 
-func parent_root*(r: SyncResponseItem): Eth2Digest {.inline.} =
-  r.signedBlock[].parent_root
+func slot*[T: ForkedSignedBeaconBlocks](
+    r: GloasSyncResponseRecord[T]
+): Slot {.inline.} =
+  when T is ForkedSignedBeaconBlock:
+    r.signedBlock.slot
+  else:
+    r.signedBlock[].slot
 
-func toBlockId*(r: SyncResponseItem): BlockId {.inline.} =
-  r.signedBlock[].toBlockId()
+func root*[T: ForkedSignedBeaconBlocks](
+    r: GloasSyncResponseRecord[T]
+): Eth2Digest {.inline.} =
+  when T is ForkedSignedBeaconBlock:
+    r.signedBlock.root
+  else:
+    r.signedBlock[].root
+
+func parent_root*[T: ForkedSignedBeaconBlocks](
+    r: GloasSyncResponseRecord[T]
+): Eth2Digest {.inline.} =
+  when T is ForkedSignedBeaconBlock:
+    r.signedBlock.parent_root
+  else:
+    r.signedBlock[].parent_root
+
+func toBlockId*[T: ForkedSignedBeaconBlocks](
+    r: GloasSyncResponseRecord[T]
+): BlockId {.inline.} =
+  when T is ForkedSignedBeaconBlock:
+    r.signedBlock.toBlockId()
+  else:
+    r.signedBlock[].toBlockId()
+
+func privLog(a: ref SignedExecutionPayloadEnvelope): string =
+  if isNil(a): "(0)" else: "(X)"
+
+func shortLog*[T: ForkedSignedBeaconBlocks](
+    a: openArray[GloasSyncResponseRecord[T]]
+): string =
+  when T is ForkedSignedBeaconBlock:
+    "[" & a.mapIt(
+      shortLog(it.signedBlock.toBlockId()) & ":" &
+        privLog(it.signedEnvelope)).join(",") &
+    "]"
+  else:
+    "[" & a.mapIt(
+      shortLog(it.signedBlock[].toBlockId()) & ":" &
+        privLog(it.signedEnvelope)).join(",") &
+    "]"
+
+func init*(
+    t: typedesc[GloasSyncResponseRecord],
+    blck: ref ForkedSignedBeaconBlock,
+    payload: ref SignedExecutionPayloadEnvelope
+): GloasSyncResponseRecord[ref ForkedSignedBeaconBlock] =
+  GloasSyncResponseRecord[ref ForkedSignedBeaconBlock](
+    signedBlock: blck,
+    signedEnvelope: payload
+  )
+
+func init*(
+    t: typedesc[GloasSyncResponseRecord],
+    blck: ForkedSignedBeaconBlock,
+    payload: ref SignedExecutionPayloadEnvelope
+): GloasSyncResponseRecord[ForkedSignedBeaconBlock] =
+  GloasSyncResponseRecord[ForkedSignedBeaconBlock](
+    signedBlock: blck,
+    signedEnvelope: payload
+  )
 
 func init*(
     t: typedesc[SyncResponseItem],
     blck: ref ForkedSignedBeaconBlock,
     payload: ref SignedExecutionPayloadEnvelope
 ): SyncResponseItem =
-  SyncResponseItem(signedBlock: blck, signedPayloadEnvelope: payload)
+  GloasSyncResponseRecord.init(blck, payload)
+
+func init*(
+    t: typedesc[GloasSyncResponseRecord],
+    blck: ref ForkedSignedBeaconBlock,
+): SyncResponseItem =
+  GloasSyncResponseRecord.init(blck, nil)
+
+func `==`*(a, b: SyncResponseItem): bool =
+  (cast[pointer](a.signedBlock) == cast[pointer](b.signedBlock)) and
+    (cast[pointer](a.signedEnvelope) == cast[pointer](b.signedEnvelope))
 
 func toResponse*(
     a: openArray[ref ForkedSignedBeaconBlock]
 ): seq[SyncResponseItem] =
-  a.mapIt(SyncResponseItem.init(it, nil))
+  a.mapIt(GloasSyncResponseRecord.init(it, nil))
 
 func toResponse*(
-    items: var seq[SyncResponseItem],
+    blocks: openArray[ForkedSignedBeaconBlock],
     envelopes: openArray[ref SignedExecutionPayloadEnvelope]
-): int =
-  var count = 0
-  for envelope in envelopes:
-    for item in items.mitems():
-      if item.signedBlock[].root == envelope[].message.beacon_block_root:
-        item.signedPayloadEnvelope = envelope
-        inc(count)
-  count
-
-func `==`*(a, b: SyncResponseItem): bool =
-  (cast[pointer](a.signedBlock) == cast[pointer](b.signedBlock)) and
-    (cast[pointer](a.signedPayloadEnvelope) ==
-      cast[pointer](b.signedPayloadEnvelope))
-
-func shortLog*(items: openArray[SyncResponseItem]): string =
-  "[" &
-    items.mapIt("(slot:" & $it.slot & ",root:" & shortLog(it.root) &
-      ",parent_root:" & shortLog(it.parent_root) & ")").join(",") &
-  "]"
+): seq[GloasSyncResponseRecord[ForkedSignedBeaconBlock]] =
+  var res: seq[GloasSyncResponseRecord[ForkedSignedBeaconBlock]]
+  let envelopesTable =
+    envelopes.mapIt((it[].message.beacon_block_root, it)).toTable()
+  for signedBlock in blocks:
+    let envelope = envelopesTable.getOrDefault(signedBlock.root)
+    res.add(GloasSyncResponseRecord.init(signedBlock, envelope))
+  res
