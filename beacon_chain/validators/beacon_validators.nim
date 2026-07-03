@@ -1102,7 +1102,19 @@ proc signAndSendProposerPreference(
       (data.validator_index, data.proposal_slot))
     return
   let signed = SignedProposerPreferences(message: data, signature: signature)
-  await node.router.routeProposerPreferences(signed)
+
+  node.eventBus.proposerPreferencesQueue.emit(
+    EventProposerPreferencesObject(
+      data: RestSignedProposerPreferences(
+        message: RestProposerPreferences(
+          dependent_root: data.dependent_root,
+          validator_index: data.validator_index,
+          proposal_slot: data.proposal_slot,
+          fee_recipient: data.fee_recipient,
+          target_gas_limit: data.target_gas_limit),
+        signature: signature)))
+
+  discard await node.router.routeProposerPreferences(signed)
 
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,

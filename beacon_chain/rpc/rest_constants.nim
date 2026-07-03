@@ -191,6 +191,12 @@ const
     "Some errors happened while validating contribution and proof(s)"
   ContributionAndProofValidationSuccess* =
     "Contribution and proof(s) was broadcast"
+  InvalidProposerPreferencesError* =
+    "Unable to decode proposer preferences message(s)"
+  ProposerPreferencesValidationError* =
+    "Some errors happened while validating proposer preferences"
+  ProposerPreferencesValidationSuccess* =
+    "Proposer preferences were broadcast"
   ProduceContributionError* =
     "Unable to produce contribution using the passed parameters"
   InternalServerError* =

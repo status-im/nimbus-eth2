@@ -734,8 +734,8 @@ proc routeExecutionPayloadEnvelope*(
 
 proc routeProposerPreferences*(
     router: ref MessageRouter,
-    signed_preferences: SignedProposerPreferences
-) {.async: (raises: [CancelledError]).} =
+    signed_preferences: SignedProposerPreferences):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = router.processor.processProposerPreferences(
       MsgSource.api, signed_preferences)
@@ -743,7 +743,7 @@ proc routeProposerPreferences*(
     if not res.isGoodForSending:
       warn "Proposer preferences failed validation",
         message = shortLog(signed_preferences), error = res.error()
-      return
+      return err(res.error()[1])
 
   let res =
     await router[].network.broadcastProposerPreferences(signed_preferences)
@@ -756,6 +756,8 @@ proc routeProposerPreferences*(
     notice "Proposer preferences not sent",
       proposal_slot = signed_preferences.message.proposal_slot,
       error = res.error()
+
+  ok()
 
 proc routeExecutionPayloadBid*(
     router: ref MessageRouter,

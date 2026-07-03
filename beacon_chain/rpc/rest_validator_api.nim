@@ -955,6 +955,53 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.response(Http200)
 
+  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/proposer_preferences.yaml
+  router.api2(MethodPost,
+              "/eth/v1/validator/submit_proposer_preferences") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let preferences =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBodyJsonOrSsz(seq[SignedProposerPreferences],
+                                       contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidProposerPreferencesError)
+        dres.get()
+
+    let pending =
+      block:
+        var res: seq[Future[SendResult]]
+        for preference in preferences:
+          res.add(node.router.routeProposerPreferences(preference))
+        res
+
+    let failures =
+      block:
+        var res: seq[RestIndexedErrorMessageItem]
+        await allFutures(pending)
+        for index, future in pending:
+          if future.completed():
+            let fres = future.value()
+            if fres.isErr():
+              let failure = RestIndexedErrorMessageItem(index: index,
+                                                        message: $fres.error())
+              res.add(failure)
+          elif future.failed() or future.cancelled():
+            # This is unexpected failure, so we log the error message.
+            let exc = future.error()
+            let failure = RestIndexedErrorMessageItem(index: index,
+                                                      message: $exc.msg)
+            res.add(failure)
+        res
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(
+        Http400, ProposerPreferencesValidationError, failures)
+    else:
+      RestApiResponse.jsonMsgResponse(ProposerPreferencesValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
   router.api2(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
