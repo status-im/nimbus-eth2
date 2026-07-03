@@ -23,7 +23,8 @@ import
   ./networking/eth2_network,
   ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
-    blockchain_dag, block_quarantine, column_quarantine, consensus_manager,
+    blockchain_dag, block_quarantine, column_quarantine,
+    column_reconstruction_backfiller, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
     sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
@@ -61,6 +62,7 @@ type
     columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     fastConfirmationQueue*: AsyncEventQueue[FastConfirmationInfoObject]
+    payloadAttributesQueue*: AsyncEventQueue[EventPayloadAttributesObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
@@ -90,6 +92,7 @@ type
     quarantine*: ref Quarantine
     fuluColumnQuarantine*: ref FuluColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
+    columnReconstructionBackfiller*: ColumnReconstructionBackfillerRef
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
@@ -208,6 +211,8 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[FinalizationInfoObject](),
     fastConfirmationQueue:
       newAsyncEventQueue[FastConfirmationInfoObject](),
+    payloadAttributesQueue:
+      newAsyncEventQueue[EventPayloadAttributesObject](),
     reorgQueue:
       newAsyncEventQueue[ReorgInfoObject](),
     contribQueue:

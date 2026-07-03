@@ -23,7 +23,6 @@ import
   libp2p/protocols/pubsub/[
       pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
-  libp2p/services/wildcardresolverservice,
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ../[version, conf, beacon_clock, conf_light_client],
@@ -1459,8 +1458,8 @@ proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async: (raises: [
     return
 
   debug "Connecting to discovered peer"
-  var deadline = sleepAsync(node.connectTimeout)
-  var workfut = node.switch.connect(
+  let deadline = sleepAsync(node.connectTimeout)
+  let workfut = node.switch.connect(
     peerAddr.peerId,
     peerAddr.addrs,
     forceDial = true
@@ -2065,7 +2064,7 @@ func registerMsg(protocol: ProtocolInfo,
                                     libp2pCodecName: libp2pCodecName)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
-  var
+  let
     Format = ident "SSZ"
     Connection = bindSym "Connection"
     Peer = bindSym "Peer"
@@ -2171,7 +2170,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
     ## Implement Senders and Handshake
     ##
 
-    var sendProc = msg.createSendProc()
+    let sendProc = msg.createSendProc()
     if maxResponseItems.isSome:
       sendProc.def.params.insert(
         sendProc.def.params.len - 1, # Insert before implicit `timeout` param
@@ -2293,14 +2292,14 @@ func initNetKeys(privKey: PrivateKey): NetKeyPair =
   let pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-proc getRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
-  let privKey = PrivateKey.random(Secp256k1, rng).valueOr:
+proc getRandomNetKeys*(rng: ref HmacDrbgContext): NetKeyPair =
+  let privKey = PrivateKey.random(Secp256k1, newBearSslRng(rng)).valueOr:
     fatal "Could not generate random network key file"
     quit QuitFailure
   initNetKeys(privKey)
 
 proc getPersistentNetKeys*(
-    rng: var HmacDrbgContext,
+    rng: ref HmacDrbgContext,
     dataDir, netKeyFile: string,
     netKeyInsecurePassword: bool,
     allowLoadExisting: bool): NetKeyPair =
@@ -2346,7 +2345,7 @@ proc getPersistentNetKeys*(
             key_path = keyPath
       let
         keys = rng.getRandomNetKeys()
-        sres = saveNetKeystore(rng, keyPath, keys.seckey, insecurePassword)
+        sres = saveNetKeystore(rng[], keyPath, keys.seckey, insecurePassword)
       if sres.isErr():
         fatal "Could not create network key file"
         quit QuitFailure
@@ -2356,7 +2355,7 @@ proc getPersistentNetKeys*(
       keys
 
 proc getPersistentNetKeys*(
-    rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
+    rng: ref HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
   case config.cmd
   of BNStartUpCmd.beaconNode, BNStartUpCmd.record:
     rng.getPersistentNetKeys(
@@ -2388,19 +2387,17 @@ proc newBeaconSwitch(
     addresses: seq[MultiAddress],
     rng: ref HmacDrbgContext,
 ): Result[Switch, string] =
-  let service: Service = WildcardAddressResolverService.new()
-
   var sb = SwitchBuilder.new()
   # Order of multiplexers matters, the first will be default
   try:
     sb = sb
     .withPrivateKey(seckey)
-    .withAddresses(addresses)
-    .withRng(rng)
+    .withAddresses(addresses, enableWildcardResolver = true)
+    .withIdentifyPusher(false)
+    .withRng(newBearSslRng(rng))
     .withNoise()
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
-    .withServices(@[service])
 
     if config.tcpEnabled:
       sb = sb.withMplex(chronos.minutes(5), chronos.minutes(5))
@@ -2557,6 +2554,7 @@ proc createEth2Node*(
           verifySignature = false,
           anonymize = true,
           maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
+          rng = switch.rng,
           parameters = params,
         )
       except InitializationError as exc:

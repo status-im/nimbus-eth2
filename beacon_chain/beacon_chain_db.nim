@@ -209,6 +209,8 @@ type
       ## for future deposits, beyond the `finalized` branch from EIP-4881.
       ## Those extra hashes may be set to ZERO_HASH when importing from a
       ## compressed EIP-4881 `DepositTreeSnapshot`.
+    kHeadBlocks
+      ## List of pointers to all head blocks in the fork choice. v26.7.0+
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -488,7 +490,7 @@ proc new*(T: type BeaconChainDBV0,
           db: SqStoreRef,
           readOnly = false
     ): BeaconChainDBV0 =
-  var
+  let
     # V0 compatibility tables - these were created WITHOUT ROWID which is slow
     # for large blobs
     backendV0 = kvStore db.openKvStore(
@@ -524,13 +526,13 @@ proc new*(T: type BeaconChainDB,
 
   debugGloasComment "use actual names when closer"
 
-  var
-    genesisDepositsSeq =
-      DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
-    immutableValidatorsDb =
-      DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
+  let genesisDepositsSeq =
+    DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
+  var immutableValidatorsDb =
+    DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
 
-    # V1 - expected-to-be small rows get without rowid optimizations
+  # V1 - expected-to-be small rows get without rowid optimizations
+  let
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
     blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
@@ -613,9 +615,9 @@ proc new*(T: type BeaconChainDB,
       sealedPeriods: "lc_sealed_periods")).expectDb()
   static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
 
-  var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
+  let blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
-  var columns = [
+  let columns = [
     nil, # Phase0
     nil, # Altair
     nil, # Bellatrix
@@ -1095,6 +1097,10 @@ proc delStateDiff*(db: BeaconChainDB, root: Eth2Digest) =
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kHeadBlock), key)
 
+proc putHeadBlocks*(db: BeaconChainDB, keys: seq[Eth2Digest]) =
+  doAssert keys.len > 0
+  db.keyValues.putSSZ(subkey(kHeadBlocks), keys)
+
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kTailBlock), key)
 
@@ -1407,6 +1413,10 @@ proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kHeadBlock), Eth2Digest) or
     db.v0.getHeadBlock()
 
+proc getHeadBlocks*(db: BeaconChainDB): seq[Eth2Digest] =
+  if db.keyValues.getSSZ(subkey(kHeadBlocks), result) != GetResult.found:
+    result.reset()
+
 proc getTailBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(kTailBlock), Eth2Digest)
 
@@ -1476,7 +1486,7 @@ proc containsExecutionPayloadEnvelope*(
   db.envelopes.contains(root.data).expectDb()
 
 proc containsDataColumnSidecar*(
-    db: BeaconChainDB, consensusFork: static ConsensusFork,
+    db: BeaconChainDB, consensusFork: ConsensusFork,
     root: Eth2Digest, index: ColumnIndex): bool =
   if db.columns[consensusFork] == nil:
     return false

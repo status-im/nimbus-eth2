@@ -1014,16 +1014,10 @@ proc process_execution_payload*(
 
   ok()
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of datatypes/deneb.nim
-type SomeDenebBeaconBlockBody =
-  deneb.BeaconBlockBody | deneb.SigVerifiedBeaconBlockBody |
-  deneb.TrustedBeaconBlockBody
-
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var deneb.BeaconState,
-    body: SomeDenebBeaconBlockBody,
+    body: deneb.SomeBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.execution_payload
 
@@ -1055,16 +1049,10 @@ proc process_execution_payload*(
 
   ok()
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of datatypes/electra.nim
-type SomeElectraBeaconBlockBody =
-  electra.BeaconBlockBody | electra.SigVerifiedBeaconBlockBody |
-  electra.TrustedBeaconBlockBody
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var electra.BeaconState,
-    body: SomeElectraBeaconBlockBody | electra_mev.SigVerifiedBlindedBeaconBlockBody,
+    body: electra.SomeBeaconBlockBody | electra_mev.SigVerifiedBlindedBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.payload
 
@@ -1100,16 +1088,10 @@ proc process_execution_payload*(
 
   ok()
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of datatypes/fulu.nim
-type SomeFuluBeaconBlockBody =
-  fulu.BeaconBlockBody | fulu.SigVerifiedBeaconBlockBody |
-  fulu.TrustedBeaconBlockBody
-
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     cfg: RuntimeConfig, state: var fulu.BeaconState,
-    body: SomeFuluBeaconBlockBody | fulu_mev.SigVerifiedBlindedBeaconBlockBody,
+    body: fulu.SomeBeaconBlockBody | fulu_mev.SigVerifiedBlindedBeaconBlockBody,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   template payload: auto = body.payload()
 
@@ -1597,13 +1579,9 @@ proc validate_blobs*(
 
   ok()
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of datatypes/phase0.nim
-type SomePhase0Block =
-  phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var phase0.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
+    state: var phase0.BeaconState, blck: phase0.SomeBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1616,13 +1594,9 @@ proc process_block*(
   ok(? process_operations(cfg, state, blck.body, 0.Gwei, flags, cache))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/altair/beacon-chain.md#block-processing
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of datatypes/altair.nim
-type SomeAltairBlock =
-  altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
+    state: var altair.BeaconState, blck: altair.SomeBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1645,12 +1619,9 @@ proc process_block*(
   ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#block-processing
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeBellatrixBlock =
-  bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var bellatrix.BeaconState, blck: SomeBellatrixBlock,
+    state: var bellatrix.BeaconState, blck: bellatrix.SomeBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1676,12 +1647,9 @@ proc process_block*(
   ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#block-processing
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeCapellaBlock =
-  capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var capella.BeaconState, blck: SomeCapellaBlock,
+    state: var capella.BeaconState, blck: capella.SomeBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1713,12 +1681,9 @@ proc process_block*(
   ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#block-processing
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeDenebBlock =
-  deneb.BeaconBlock | deneb.SigVerifiedBeaconBlock | deneb.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var deneb.BeaconState, blck: SomeDenebBlock,
+    state: var deneb.BeaconState, blck: deneb.SomeBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1748,13 +1713,9 @@ proc process_block*(
   ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.1/specs/electra/beacon-chain.md#block-processing
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeElectraBlock =
-  electra.BeaconBlock | electra.SigVerifiedBeaconBlock | electra.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var electra.BeaconState,
-    blck: SomeElectraBlock,
+    state: var electra.BeaconState, blck: electra.SomeBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1783,12 +1744,9 @@ proc process_block*(
 
   ok(operations_rewards)
 
-type SomeFuluBlock =
-  fulu.BeaconBlock | fulu.SigVerifiedBeaconBlock | fulu.TrustedBeaconBlock
 proc process_block*(
-    cfg: RuntimeConfig,
-    state: var fulu.BeaconState,
-    blck: SomeFuluBlock | fulu_mev.SigVerifiedBlindedBeaconBlock,
+    cfg: RuntimeConfig, state: var fulu.BeaconState,
+    blck: fulu.SomeBeaconBlock | fulu_mev.SigVerifiedBlindedBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1887,12 +1845,9 @@ proc verify_execution_payload_envelope*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#block-processing
 debugGloasComment "readd gloas_mev block and, well the rest too"
-type SomeGloasBlock =
-  gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var gloas.BeaconState,
-    blck: SomeGloasBlock,
+    state: var gloas.BeaconState, blck: gloas.SomeBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -1917,12 +1872,9 @@ proc process_block*(
 
   ok(operations_rewards)
 
-type SomeHezeBlock =
-  heze.BeaconBlock | heze.SigVerifiedBeaconBlock | heze.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var heze.BeaconState,
-    blck: SomeHezeBlock,
+    state: var heze.BeaconState, blck: heze.SomeBeaconBlock,
     flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when

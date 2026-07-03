@@ -12,7 +12,7 @@
 const
   # Networking
   # ---------------------------------------------------------------
-  # floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) (= 4)
+  # floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments') (= 4)
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH*: uint64 = 4
 
   # Blob

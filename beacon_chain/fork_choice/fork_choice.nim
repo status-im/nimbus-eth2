@@ -197,25 +197,26 @@ proc update_checkpoints(
 
 proc update_confirmed(
     self: var ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
-    reason = "", diag = default(FcrDiagnostics)) =
+    current_slot: Slot, reason = "", diag = default(FcrDiagnostics)) =
   template prev: BlockId = self.confirmed
   template curr: BlockId = confirmed
-  if curr == prev:
-    return
-  if reason != "" and (prev.slot > curr.slot or not dag.isCanonical(prev)):
-    incSafeReorgs()
-    if diag.chain_len > 0:
-      notice "Previous 'safe' block no longer safe",
-        previousSafe = prev, currentSafe = curr, reason, diag
+  if curr != prev:
+    if reason != "" and (prev.slot > curr.slot or not dag.isCanonical(prev)):
+      incSafeReorgs()
+      if diag.chain_len > 0:
+        notice "Previous 'safe' block no longer safe",
+          previousSafe = prev, currentSafe = curr, reason, diag
+      else:
+        notice "Previous 'safe' block no longer safe",
+          previousSafe = prev, currentSafe = curr, reason
     else:
-      notice "Previous 'safe' block no longer safe",
-        previousSafe = prev, currentSafe = curr, reason
-  else:
-    trace "Updating 'safe' block",
-      previousSafe = prev, currentSafe = curr
-  prev = curr
+      trace "Updating 'safe' block",
+        previousSafe = prev, currentSafe = curr
   if dag.onFastConfirmation != nil:
-    dag.onFastConfirmation FastConfirmationInfoObject.init(curr)
+    if curr != prev or current_slot != self.latest_fcr_event_slot:
+      self.latest_fcr_event_slot = current_slot
+      dag.onFastConfirmation FastConfirmationInfoObject.init(curr, current_slot)
+  prev = curr
 
 proc to_block_id(self: ForkChoiceBackend, checkpoint: Checkpoint): BlockId =
   result.slot = self.proto_array.slot(checkpoint.root).valueOr:
@@ -322,7 +323,7 @@ proc on_tick(
         reason = "reconfirm"
         confirmed = self.backend.to_block_id(self.checkpoints.finalized)
         incSafeErrors()
-      self.backend.update_confirmed(dag, confirmed, reason, diag)
+      self.backend.update_confirmed(dag, confirmed, current_slot, reason, diag)
 
     else:
       discard
@@ -621,7 +622,7 @@ proc will_select_head*(
     reason = "advance"
     confirmed = self.backend.to_block_id(self.checkpoints.finalized)
     incSafeErrors()
-  self.backend.update_confirmed(dag, confirmed, reason)
+  self.backend.update_confirmed(dag, confirmed, current_slot, reason)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/fork_choice/safe-block.md#get_safe_execution_block_hash
@@ -633,7 +634,7 @@ func retrieve_fast_confirmed_root*(self: ForkChoice): lent Eth2Digest =
 
 proc prune(
     self: var ForkChoiceBackend, dag: ChainDAGRef,
-    checkpoints: FinalityCheckpoints): FcResult[void] =
+    checkpoints: FinalityCheckpoints, current_slot: Slot): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
   ? self.proto_array.prune(checkpoints)
   if self.previous_slot_head notin self.proto_array:
@@ -641,7 +642,8 @@ proc prune(
   if self.current_slot_head notin self.proto_array:
     self.current_slot_head = checkpoints.finalized.root
   if self.confirmed.root notin self.proto_array:
-    self.update_confirmed(dag, self.to_block_id(checkpoints.finalized), "prune")
+    template confirmed: BlockId = self.to_block_id(checkpoints.finalized)
+    self.update_confirmed(dag, confirmed, current_slot, "prune")
 
   # Drop per-block fork-choice state for blocks no longer in the proto-array.
   var staleRoots: seq[Eth2Digest]
@@ -661,9 +663,10 @@ proc prune(
   ok()
 
 proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
+  let current_slot = self.checkpoints.time.slotOrZero(dag.timeParams)
   self.backend.prune(dag, FinalityCheckpoints(
     justified: self.checkpoints.justified.checkpoint,
-    finalized: self.checkpoints.finalized))
+    finalized: self.checkpoints.finalized), current_slot)
 
 func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
   try:

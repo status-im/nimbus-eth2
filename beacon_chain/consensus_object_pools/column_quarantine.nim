@@ -118,7 +118,7 @@ func maxSidecars(maxSidecarsPerBlock: uint64): int =
   # blobs may arrive before an orphan is tagged `blobless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
 
-func enoughColumns*(q: SomeColumnQuarantine, count: int): bool =
+func enoughColumns(q: SomeColumnQuarantine, count: int): bool =
   if count >= NUMBER_OF_COLUMNS div 2:
     return true
   if count == len(q.custodyMap):
@@ -551,7 +551,7 @@ proc popSidecars*[
   ## If some of the column sidecars are missing Opt.none() is returned.
   ## Note: Blocks should be checked for sidecars count first, otherwise
   ## result of this function would be always Opt.none().
-  var node = quarantine.roots.getOrDefault(blockRoot)
+  let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return Opt.none(seq[ref A])
 
@@ -695,7 +695,7 @@ func getMissingColumnsMap*(
 
   if supernode:
     if isNil(node):
-      supernodeMap()
+      supernodeMap
     else:
       var res: ColumnMap
       if quarantine.enoughColumns(node[].value.count):

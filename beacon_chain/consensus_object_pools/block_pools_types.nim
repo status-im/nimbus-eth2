@@ -55,6 +55,8 @@ type
     proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFastConfirmationCallback* =
     proc(data: FastConfirmationInfoObject) {.gcsafe, raises: [].}
+  OnPayloadAttributesCallback* =
+    proc(data: EventPayloadAttributesObject) {.gcsafe, raises: [].}
   OnFinalizedCallback* =
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
@@ -267,6 +269,8 @@ type
       ## On beacon chain reorganization
     onFastConfirmation*: OnFastConfirmationCallback
       ## On fast confirmation callback
+    onPayloadAttributes*: OnPayloadAttributesCallback
+      ## On proposal payload attributes callback
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
     onEnvelopeAdded*: OnExecutionPayloadCallback
@@ -355,8 +359,9 @@ type
     optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
 
   FastConfirmationInfoObject* = object
-    slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
+    slot*: Slot
+    current_slot*: Slot
 
   EventBeaconBlockObject* = object
     slot*: Slot
@@ -389,6 +394,26 @@ type
   EventExecutionPayloadAvailableObject* = object
     slot*: Slot
     block_root*: Eth2Digest
+
+  RestPayloadAttributes* = object
+    timestamp*: uint64
+    prev_randao*: Eth2Digest
+    suggested_fee_recipient*: Eth1Address
+    withdrawals*: seq[Withdrawal]
+    parent_beacon_block_root*: Eth2Digest
+    slot_number*: uint64
+    target_gas_limit*: uint64
+
+  PayloadAttributesEventData* = object
+    proposer_index*: uint64
+    proposal_slot*: Slot
+    parent_block_root*: Eth2Digest
+    parent_block_hash*: Eth2Digest
+    payload_attributes*: RestPayloadAttributes
+
+  EventPayloadAttributesObject* = object
+    version*: string
+    data*: PayloadAttributesEventData
 
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams
@@ -448,6 +473,10 @@ template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
 template setFastConfirmationCb*(
     dag: ChainDAGRef, cb: OnFastConfirmationCallback) =
   dag.onFastConfirmation = cb
+
+template setPayloadAttributesCb*(
+    dag: ChainDAGRef, cb: OnPayloadAttributesCallback) =
+  dag.onPayloadAttributes = cb
 
 template setEnvelopeCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeAdded = cb
@@ -520,8 +549,9 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
 
 func init*(
     t: typedesc[FastConfirmationInfoObject],
-    bid: BlockId): FastConfirmationInfoObject =
-  FastConfirmationInfoObject(slot: bid.slot, block_root: bid.root)
+    bid: BlockId, current_slot: Slot): FastConfirmationInfoObject =
+  FastConfirmationInfoObject(
+    block_root: bid.root, slot: bid.slot, current_slot: current_slot)
 
 func init*(
     t: typedesc[EventBeaconBlockObject],

@@ -40,6 +40,7 @@ AllTests-mainnet
 + batch put data columns [Preset: mainnet]                                                   OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
++ head blocks roundtrip [Preset: mainnet]                                                    OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check altair blocks [Preset: mainnet]                                               OK
 + sanity check altair states [Preset: mainnet]                                               OK
@@ -143,6 +144,7 @@ AllTests-mainnet
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
 + Invalidate existing block root [Preset: mainnet]                                           OK
++ Multiple heads [Preset: mainnet]                                                           OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
@@ -172,6 +174,16 @@ AllTests-mainnet
 ```diff
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
+```
+## Column reconstruction backfiller cursors
+```diff
++ a TooFew slot blocks the trail until its columns arrive                                    OK
++ a head extension reconstructs only the new slot, not the whole run                         OK
++ a reorg refills only the post-finalized window                                             OK
++ a reorg retracts the advertised slot, then re-extends it                                   OK
++ a reorg whose run is entirely post-finalized resets it                                     OK
++ an advancing retention floor lifts runBottom                                               OK
++ fresh backfill descends from head to the retention floor                                   OK
 ```
 ## ColumnMap test suite
 ```diff
@@ -1234,6 +1246,7 @@ AllTests-mainnet
 ```
 ## Starting states
 ```diff
++ Checkpoint with missed epoch start slot                                                    OK
 + Starting state without block                                                               OK
 ```
 ## State history
@@ -1328,6 +1341,7 @@ AllTests-mainnet
 ```
 ## chain DAG finalization tests [Preset: mainnet]
 ```diff
++ discard unloadable and duplicate heads on init [Preset: mainnet]                           OK
 + init with gaps [Preset: mainnet]                                                           OK
 + orphaned epoch block [Preset: mainnet]                                                     OK
 + prune heads on finalization [Preset: mainnet]                                              OK

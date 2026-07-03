@@ -177,7 +177,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   # inputs are correct:
   var validators: seq[ValidatorStorage]
   if config.exitAllValidatorsFlag:
-    var keystoreCache = KeystoreCacheRef.init()
+    let keystoreCache = KeystoreCacheRef.init()
     for keystore in listLoadableKeystores(config, keystoreCache):
       validators.add ValidatorStorage(kind: ValidatorStorageKind.Keystore,
                                       privateKey: keystore.privateKey)

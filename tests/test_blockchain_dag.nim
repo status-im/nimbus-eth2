@@ -474,6 +474,8 @@ suite "chain DAG finalization tests" & preset():
 
     check:
       dag.heads.len() == 1
+      dag.forkBlocksMatchHeads()
+      db.getHeadBlocks() == dag.heads.mapIt(it.root)
       dag.getBlockIdAtSlot(0.Slot).get().bid.slot == 0.Slot
       dag.getBlockIdAtSlot(2.Slot).get() ==
         BlockSlotId.init(dag.getBlockIdAtSlot(1.Slot).get().bid, 2.Slot)
@@ -590,6 +592,7 @@ suite "chain DAG finalization tests" & preset():
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       dag2.headState.root == dag.headState.root
+      dag2.forkBlocksMatchHeads()
 
     # No canonical block data should be pruned by the removal of the fork
     for i in Slot(0)..dag2.head.slot:
@@ -599,6 +602,28 @@ suite "chain DAG finalization tests" & preset():
 
     # The unviable block should have been pruned however
     check: dag2.getForkedBlock(lateBlock.root).isNone
+
+  test "discard unloadable and duplicate heads on init" & preset():
+    let blck = makeTestBlock(dag.headState, cache).phase0Data
+    block:
+      let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine, [])
+
+    # Add separate head to database, but don't store block data
+    let
+      headRoot = dag.head.root
+      staleState = assignClone(dag.headState)
+      staleRoot = makeTestBlock(staleState[], cache).phase0Data.root
+    db.putHeadBlocks(@[headRoot, staleRoot, headRoot])  # Also add duplicate
+
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+    check:
+      dag2.heads.mapIt(it.bid.root) == @[headRoot]
+      db.getHeadBlocks() == @[headRoot]
+      dag2.forkBlocksMatchHeads()
 
   test "orphaned epoch block" & preset():
     let prestate = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Phase0)
@@ -634,8 +659,10 @@ suite "chain DAG finalization tests" & preset():
       dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
 
     # check that we can apply the block after the orphaning
-    let added2 = dag2.addHeadBlock(verifier, blck, nilPhase0Callback)
-    check: added2.isOk()
+    check:
+      dag2.getBlockRef(blck.root).isSome
+      dag2.addHeadBlock(verifier, blck, nilPhase0Callback) ==
+        AddHeadRes.err VerifierError.Duplicate
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
@@ -689,7 +716,10 @@ suite "chain DAG finalization tests" & preset():
       dag2.headState.root == dag.headState.root
 
   test "shutdown during finalization" & preset():
-    var testPassed: bool
+    var
+      testPassed: bool
+      forkRoot: Eth2Digest
+      firstCanonicalRoot: Eth2Digest
 
     # Configure a hook that is called during finalization while the
     # database has been partially written, to test behaviour if the
@@ -710,15 +740,36 @@ suite "chain DAG finalization tests" & preset():
 
         # If the beacon node were to exit _now_, this is what the DB looks like.
         # Validate that we can initialize a new DAG from this database.
-        let validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
-        discard ChainDAGRef.init(cfg, db, validatorMonitor2, {})
+        let
+          validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+          dag2 = ChainDAGRef.init(cfg, db, validatorMonitor2, {})
+        if dag2.finalizedHead.slot > GENESIS_SLOT:
+          # Orphans and pre-finalized should lose their BlockRef
+          doAssert dag2.heads.len == 1
+          doAssert dag2.getBlockRef(forkRoot).isNone
+          doAssert dag2.getForkedBlock(forkRoot).isNone
+          doAssert dag2.getBlockRef(firstCanonicalRoot).isNone
+          doAssert dag2.forkBlocksMatchHeads()
         testPassed = true
     dag.setHeadCb(onHeadChanged)
+
+    # Add an extra block that will be orphaned and purged on finality
+    block:
+      var cache: StateCache
+      let
+        tmpState = assignClone(dag.headState)
+        forkBlock = addTestBlock(
+          tmpState[], cache, graffiti = "fork".graffiti).phase0Data
+        added = dag.addHeadBlock(verifier, forkBlock, nilPhase0Callback)
+      check: added.isOk()
+      forkRoot = forkBlock.root
 
     for blck in makeTestBlocks(
         dag.headState, cache, int(SLOTS_PER_EPOCH * 4), attested = true):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check: added.isOk
+      if firstCanonicalRoot.isZero:
+        firstCanonicalRoot = added[].root
       dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
@@ -1217,6 +1268,52 @@ suite "Starting states":
 
     check:
       dag.getFinalizedEpochRef() != nil
+
+  test "Checkpoint with missed epoch start slot":
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+    while tailState[].slot.uint64 + 1 < SLOTS_PER_EPOCH:
+      discard addTestBlock(tailState[], cache)
+
+    # The epoch start slot is missed, state checkpoint not stored at block slot
+    check cfg.process_slots(
+      tailState[], Slot(SLOTS_PER_EPOCH), cache, info, {}).isOk()
+
+    ChainDAGRef.preInit(db, tailState[])
+
+    let
+      rng = HmacDrbgContext.new()
+      taskpool = Taskpool.new()
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+    var verifier = BatchVerifier.init(rng, taskpool)
+
+    # Create two heads on top of the checkpoint
+    let
+      forkState = assignClone(tailState[])
+      b1 = addTestBlock(tailState[], cache).phase0Data
+    block:
+      let added = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine[], [])
+    var cache2: StateCache
+    let bFork = addTestBlock(
+      forkState[], cache2, graffiti = "fork".graffiti).phase0Data
+    block:
+      let added = dag.addHeadBlock(verifier, bFork, nilPhase0Callback)
+      check: added.isOk()
+    check dag.heads.len == 2
+
+    # Reload: `bFork` builds on the tail, whose state is not stored at its own
+    # slot - the head must be reconstructed, not dropped
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init(cfg))
+      dag2 = init(ChainDAGRef, cfg, db, validatorMonitor2, {})
+    check:
+      dag2.head.root == b1.root
+      dag2.heads.mapIt(it.bid).toHashSet == dag.heads.mapIt(it.bid).toHashSet
+      dag2.forkBlocksMatchHeads()
 
 suite "Latest valid hash" & preset():
   setup:
