@@ -543,11 +543,10 @@ proc createQueues(
                 overseer.bblockBuffer.add(item)
             if res.isOk():
               let payloadLog =
-                if isNil(item.signedPayloadEnvelope):
+                if isNil(item.signedEnvelope):
                   "not available"
                 else:
-                  shortLog(
-                    item.signedPayloadEnvelope[].message.beacon_block_root)
+                  shortLog(item.signedEnvelope[].message.beacon_block_root)
               debug "Block and payload buffered",
                 fork = consensusFork,
                 block_root = forkyBlck.root,
@@ -570,16 +569,16 @@ proc createQueues(
                     forkyBlck, Opt.some(default(gloas.DataColumnSidecars)),
                     maybeFinalized = maybeFinalized))
 
-            if bres.isErr() or isNil(item.signedPayloadEnvelope):
+            if bres.isErr() or isNil(item.signedEnvelope):
               return bres
 
             if commitmentsLen > 0:
               (await overseer.blockProcessor.addPayload(
-                forkyBlck, item.signedPayloadEnvelope[],
+                forkyBlck, item.signedEnvelope[],
                 Opt.none(gloas.DataColumnSidecars)))
             else:
               (await overseer.blockProcessor.addPayload(
-                forkyBlck, item.signedPayloadEnvelope[],
+                forkyBlck, item.signedEnvelope[],
                 Opt.some(default(gloas.DataColumnSidecars))))
         else:
           raiseAssert "Unsupported fork"

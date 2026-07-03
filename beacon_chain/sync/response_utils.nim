@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2025-2026 Status Research & Development GmbH
+# Copyright (c) 2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -27,24 +27,11 @@ type
   GloasColumnSidecarResponseRecord* =
     SidecarResponseRecord[gloas.DataColumnSidecar]
 
-  GloasEnvelopeResponseRecord* = object
-    signedBlock*: ForkedSignedBeaconBlock
-    signedEnvelope*: ref SignedExecutionPayloadEnvelope
-
 func shortLog*[T: SidecarType](
     a: openArray[SidecarResponseRecord[T]]
 ): string =
   "[" & a.mapIt(shortLog(it.block_root) & "/" &
      $it.sidecar[].index).join(",") & "]"
-
-func privLog(a: ref SignedExecutionPayloadEnvelope): string =
-  if isNil(a): "(0)" else: "(X)"
-
-func shortLog*(a: openArray[GloasEnvelopeResponseRecord]): string =
-  "[" & a.mapIt(
-    shortLog(it.signedBlock.toBlockId()) & ":" &
-      privLog(it.signedEnvelope)).join(",") &
-  "]"
 
 func groupSidecars*(
     srange: SyncRange,
@@ -195,15 +182,8 @@ func groupSidecars*(
 func groupEnvelopes*(
     blocks: openArray[ForkedSignedBeaconBlock],
     envelopes: openArray[ref SignedExecutionPayloadEnvelope]
-): seq[GloasEnvelopeResponseRecord] =
-  var res: seq[GloasEnvelopeResponseRecord]
-  let envelopesTable =
-    envelopes.mapIt((it[].message.beacon_block_root, it)).toTable()
-  for signedBlock in blocks:
-    let envelope = envelopesTable.getOrDefault(signedBlock.root)
-    res.add(GloasEnvelopeResponseRecord(
-      signedBlock: signedBlock, signedEnvelope: envelope))
-  res
+): seq[GloasSyncResponseRecord[forks.ForkedSignedBeaconBlock]] =
+  toResponse(blocks, envelopes)
 
 func validateBlocks*(
     items: openArray[SyncResponseItem],
