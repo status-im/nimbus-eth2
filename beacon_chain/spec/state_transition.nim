@@ -323,10 +323,9 @@ template toAttesterSlashings(
   when consensusFork >= ConsensusFork.Gloas:
     changes.attester_slashings
   elif consensusFork >= ConsensusFork.Electra:
-    var s = newSeqOfCap[electra.AttesterSlashing](changes.attester_slashings.len)
-    for x in changes.attester_slashings:
-      s.add downgrade_attester_slashing_to_electra(x)
-    List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA](s)
+    List[electra.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS_ELECTRA](
+      changes.attester_slashings.mapIt(
+        downgrade_attester_slashing_to_electra(it)))
   else:
     default(List[phase0.AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS])
 
