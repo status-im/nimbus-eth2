@@ -1378,10 +1378,10 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
     node.lastColumnCustodyIndices
 
   for i in node.validatorCustody.custodyGroups():
+    subscribeSubnets.add(i)
     if i notin prevSubnets:
       let topic = getDataColumnSidecarTopic(forkDigest, i)
       node.network.subscribe(topic, basicParams())
-      subscribeSubnets.add(i)
 
   for i in prevSubnets:
     if i notin subscribeSubnets:
