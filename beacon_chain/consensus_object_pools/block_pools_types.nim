@@ -395,6 +395,9 @@ type
     slot*: Slot
     block_root*: Eth2Digest
 
+  EventProposerPreferencesObject* = object
+    data*: SignedProposerPreferences
+
   RestPayloadAttributes* = object
     timestamp*: uint64
     prev_randao*: Eth2Digest
@@ -414,20 +417,6 @@ type
   EventPayloadAttributesObject* = object
     version*: string
     data*: PayloadAttributesEventData
-
-  RestProposerPreferences* = object
-    dependent_root*: Eth2Digest
-    validator_index*: uint64
-    proposal_slot*: Slot
-    fee_recipient*: Eth1Address
-    target_gas_limit*: uint64
-
-  RestSignedProposerPreferences* = object
-    message*: RestProposerPreferences
-    signature*: ValidatorSig
-
-  EventProposerPreferencesObject* = object
-    data*: RestSignedProposerPreferences
 
 template timeParams*(dag: ChainDAGRef): TimeParams =
   dag.cfg.timeParams

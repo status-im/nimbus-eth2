@@ -955,7 +955,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.response(Http200)
 
-  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/proposer_preferences.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/31140d7d11fa0bf9aa0017c67c54ab5b1809bede/apis/validator/proposer_preferences.yaml
   router.api2(MethodPost,
               "/eth/v1/validator/submit_proposer_preferences") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -970,12 +970,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidProposerPreferencesError)
         dres.get()
 
-    let pending =
-      block:
-        var res: seq[Future[SendResult]]
-        for preference in preferences:
-          res.add(node.router.routeProposerPreferences(preference))
-        res
+    let pending = preferences.mapIt(node.router.routeProposerPreferences(it))
 
     let failures =
       block:
