@@ -45,7 +45,7 @@ suite "Inclusion list pool" & preset():
         ChainDAGRef, cfg,
         cfg.makeTestDB(TOTAL_COMMITTEES * PTC_SIZE),
         validatorMonitor, {})
-      pool = newClone(InclusionListPool.init(dag))
+      pool = newClone(InclusionListPool.init(dag.timeParams))
       state = newClone(dag.headState)
     var
       cache: StateCache

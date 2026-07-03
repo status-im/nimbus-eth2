@@ -8,10 +8,9 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[sequtils, sets, tables],
+  std/[sequtils, tables],
   chronicles,
-  ../spec/[eth2_merkleization, inclusion_list],
-  ./blockchain_dag,
+  ../spec/[eth2_ssz_serialization, inclusion_list],
   ../beacon_clock
 
 logScope: topics = "ilpool"
@@ -26,8 +25,7 @@ const
   # validator (so a single equivocation can still be propagated).
   MAX_INCLUSION_LISTS_PER_VALIDATOR = 2
 
-  emptySeenSet = default(HashSet[Eth2Digest])
-  emptySeenValidators = default(Table[uint64, HashSet[Eth2Digest]])
+  emptySeenRoots = default(seq[Eth2Digest])
   emptyInclusionListStore = default(InclusionListStore)
 
 type
@@ -35,32 +33,32 @@ type
     ## Node-level wrapper around the spec `InclusionListStore` (EIP-7805 /
     ## FOCIL). The spec store is keyed by inclusion-list committee root; here it
     ## is additionally bucketed per slot so that stale slots can be pruned.
-    dag: ChainDAGRef
+    timeParams: TimeParams
     stores: Table[Slot, InclusionListStore]
     # Distinct inclusion lists already seen per (slot, validator), used to
     # enforce the gossip "first or second valid message" bound.
-    seen: Table[Slot, Table[uint64, HashSet[Eth2Digest]]]
+    seen: Table[(Slot, uint64), seq[Eth2Digest]]
 
-func init*(T: type InclusionListPool, dag: ChainDAGRef): T =
-  T(dag: dag)
+func init*(T: type InclusionListPool, timeParams: TimeParams): T =
+  T(timeParams: timeParams)
 
 func pruneOldEntries(pool: var InclusionListPool, wallTime: BeaconTime) =
-  let current_slot = wallTime.slotOrZero(pool.dag.timeParams)
+  let current_slot = wallTime.slotOrZero(pool.timeParams)
 
   # keep only recent slots - an inclusion list is only valid for its own slot
-  let slotsToRemove = toSeq(pool.stores.keys).filterIt(
-    it + IL_RETAIN_SLOTS < current_slot)
+  for slot in toSeq(pool.stores.keys):
+    if slot + IL_RETAIN_SLOTS < current_slot:
+      pool.stores.del(slot)
 
-  for slot in slotsToRemove:
-    pool.stores.del(slot)
-    pool.seen.del(slot)
+  for key in toSeq(pool.seen.keys):
+    if key[0] + IL_RETAIN_SLOTS < current_slot:
+      pool.seen.del(key)
 
 func numSeen*(
     pool: InclusionListPool, slot: Slot, validator_index: uint64): int =
   ## Number of distinct inclusion lists already accepted from `validator_index`
   ## for `slot`. Gossip validation uses this to enforce the per-validator bound.
-  pool.seen.getOrDefault(slot, emptySeenValidators).getOrDefault(
-    validator_index, emptySeenSet).len
+  pool.seen.getOrDefault((slot, validator_index), emptySeenRoots).len
 
 func addInclusionList*(
     pool: var InclusionListPool, inclusion_list: InclusionList,
@@ -74,16 +72,23 @@ func addInclusionList*(
   let
     slot = inclusion_list.slot
     validator_index = inclusion_list.validator_index
-    il_root = hash_tree_root(inclusion_list)
-    roots = addr pool.seen.mgetOrPut(slot).mgetOrPut(
-      validator_index, emptySeenSet)
+    roots = addr pool.seen.mgetOrPut(
+      (slot, validator_index),
+      newSeqOfCap[Eth2Digest](MAX_INCLUSION_LISTS_PER_VALIDATOR))
 
-  # A byte-identical resubmission is a no-op, and the third distinct list from a
-  # validator is dropped (the first two already cover any equivocation).
-  if roots[].len >= MAX_INCLUSION_LISTS_PER_VALIDATOR or il_root in roots[]:
+  # The first two distinct lists from a validator already cover any equivocation;
+  # drop any further ones before spending a hash on them.
+  if roots[].len >= MAX_INCLUSION_LISTS_PER_VALIDATOR:
     return false
 
-  roots[].incl il_root
+  # A byte-identical resubmission is a no-op. A plain digest of the SSZ bytes
+  # suffices to detect duplicates; the canonical `hash_tree_root` is needlessly
+  # slower here.
+  let il_digest = eth2digest(SSZ.encode(inclusion_list))
+  if il_digest in roots[]:
+    return false
+
+  roots[].add il_digest
   pool.stores.mgetOrPut(slot, emptyInclusionListStore).process_inclusion_list(
     inclusion_list, is_timely)
 
