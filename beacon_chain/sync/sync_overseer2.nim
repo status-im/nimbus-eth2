@@ -1963,9 +1963,7 @@ proc doRootEnvelopeSyncStep(
 
   logScope:
     peer = peer
-    peer_map = shortLog(peerMap)
-    max_blocks_per_request = peerEntry.maxBlocksPerRequest
-    max_sidecars_per_request = peerEntry.maxSidecarsPerRequest
+    max_envelopes_per_request = peerEntry.maxEnvelopesPerRequest
     peer_agent = $peer.getRemoteAgent()
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
@@ -1974,15 +1972,15 @@ proc doRootEnvelopeSyncStep(
     debug "No pending envelopes available for peer"
     return true
 
-  debug "Preparing envelopes by root for peer",
-    block_ids = shortLog(bids), block_ids_count = len(bids)
-
   let request =
     overseer.getMissingEnvelopeBlocksAndRequest(peer, peerEntry, bids)
 
   if len(request.roots) == 0:
     debug "No pending envelopes available for peer"
     return true
+
+  debug "Preparing envelopes by root for peer",
+    roots = shortLog(request.roots), roots_count = len(request.roots)
 
   let
     envelopes =
@@ -2004,7 +2002,7 @@ proc doRootEnvelopeSyncStep(
 
   if len(envelopes) == 0:
     peer.updateScore(PeerScoreNoValues)
-    debug "Empty response received for root request"
+    debug "Empty response received for envelopes by root request"
     return true
 
   if len(envelopes) < len(request.roots):
@@ -2018,13 +2016,16 @@ proc doRootEnvelopeSyncStep(
 
   let records = groupEnvelopes(request.blocks, envelopes.asSeq())
 
+  debug "Preparing envelope verification",
+    records = shortLog(records), records_count = len(records)
+
   for record in records:
     block:
       let res = await overseer.verifyBlock(
         record.signedBlock, maybeFinalized = false)
       if res.isErr():
         if res.error != VerifierError.Duplicate:
-          debug "Block processor response",
+          debug "Envelope's block processor response",
             reason = res.error, blck = slimLog(record.signedBlock)
           continue
 
@@ -3472,13 +3473,14 @@ proc missingEnvelopesMonitoringLoop(
   debug "Envelope quarantine monitoring established"
 
   try:
-    let dag = overseer.consensusManager.dag
     while true:
       await overseer.gloasEnvelopeQuarantine[].missingEvent.wait()
+      var roots: seq[Eth2Digest]
       for record in overseer.gloasEnvelopeQuarantine[].checkMissing(high(int)):
-        overseer.missingEnvelopes.incl(record.root)
-        debug "Missing envelope block root inserted into queue",
-          block_root = shortLog(record.root)
+        if overseer.missingEnvelopes.containsOrIncl(record.root):
+          roots.add(record.root)
+      debug "Missing envelope block roots inserted into queue",
+        block_roots = shortLog(roots), block_roots_length = len(roots)
       overseer.gloasEnvelopeQuarantine[].missingEvent.clear()
   except CancelledError:
     discard

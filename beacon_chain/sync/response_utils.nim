@@ -37,6 +37,15 @@ func shortLog*[T: SidecarType](
   "[" & a.mapIt(shortLog(it.block_root) & "/" &
      $it.sidecar[].index).join(",") & "]"
 
+func privLog(a: ref SignedExecutionPayloadEnvelope): string =
+  if isNil(a): "(0)" else: "(X)"
+
+func shortLog*(a: openArray[GloasEnvelopeResponseRecord]): string =
+  "[" & a.mapIt(
+    shortLog(it.signedBlock.toBlockId()) & ":" &
+      privLog(it.signedEnvelope)).join(",") &
+  "]"
+
 func groupSidecars*(
     srange: SyncRange,
     map: ColumnMap,
