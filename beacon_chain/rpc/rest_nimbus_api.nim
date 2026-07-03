@@ -136,9 +136,9 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
     outbound: v.outbound,
     appScore: v.appScore,
     behaviourPenalty: v.behaviourPenalty,
-    sendConnAvail: v.sendConn != nil,
-    closed: v.sendConn != nil and v.sendConn.closed,
-    atEof: v.sendConn != nil and v.sendConn.atEof,
+    sendConnAvail: v.sendStream != nil,
+    closed: v.sendStream != nil and v.sendStream.closed,
+    atEof: v.sendStream != nil and v.sendStream.atEof,
     address:
       if v.address.isSome():
         $v.address.get()
