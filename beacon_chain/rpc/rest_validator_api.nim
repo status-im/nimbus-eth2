@@ -959,37 +959,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodPost,
               "/eth/v1/validator/submit_proposer_preferences") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let preferences =
-      block:
-        if contentBody.isNone():
-          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBodyJsonOrSsz(seq[SignedProposerPreferences],
-                                       contentBody.get())
-        if dres.isErr():
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidProposerPreferencesError)
-        dres.get()
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+    let
+      preferences = decodeBodyJsonOrSsz(seq[SignedProposerPreferences],
+                                        contentBody.get()).valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidProposerPreferencesError)
+      pending = preferences.mapIt(node.router.routeProposerPreferences(it))
 
-    let pending = preferences.mapIt(node.router.routeProposerPreferences(it))
-
-    let failures =
-      block:
-        var res: seq[RestIndexedErrorMessageItem]
-        await allFutures(pending)
-        for index, future in pending:
-          if future.completed():
-            let fres = future.value()
-            if fres.isErr():
-              let failure = RestIndexedErrorMessageItem(index: index,
-                                                        message: $fres.error())
-              res.add(failure)
-          elif future.failed() or future.cancelled():
-            # This is unexpected failure, so we log the error message.
-            let exc = future.error()
-            let failure = RestIndexedErrorMessageItem(index: index,
-                                                      message: $exc.msg)
-            res.add(failure)
-        res
+    var failures: seq[RestIndexedErrorMessageItem]
+    for index, future in pending:
+      let res = await future
+      if res.isErr():
+        failures.add(RestIndexedErrorMessageItem(
+          index: index, message: $res.error()))
 
     if len(failures) > 0:
       RestApiResponse.jsonErrorList(
