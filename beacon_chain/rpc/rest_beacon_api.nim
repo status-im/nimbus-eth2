@@ -1684,6 +1684,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
+  # https://github.com/ethereum/beacon-APIs/blob/e46367867f207237ecb4839b333431144a08899b/apis/beacon/execution_payload/envelope_post.yaml
   router.api(MethodPost, "/eth/v1/beacon/execution_payload_envelopes") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
