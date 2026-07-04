@@ -440,13 +440,21 @@ proc processDataColumnSidecar*(
     notice "Data column before genesis"
     return errIgnore("Data column before genesis")
 
-  debug "Data column received (Gloas - quarantine not implemented)"
+  debug "Data column received"
 
   let v = self.dag.validateDataColumnSidecar(
     self.quarantine, self.gloasColumnQuarantine, self.executionPayloadBidPool,
     dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
+    # "If not yet seen, a client SHOULD queue the sidecar for deferred
+    # validation and possible processing once the block is received or
+    # retrieved."
+    if v.error[0] == ValidationResult.Ignore:
+      self.gloasColumnQuarantine[].put(
+        dataColumnSidecar[].beacon_block_root, dataColumnSidecar,
+        verified = false)
     debug "Dropping data column", error = v.error()
     data_column_sidecars_dropped.inc(1, [$v.error[0]])
     return v
