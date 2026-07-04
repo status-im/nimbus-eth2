@@ -1799,7 +1799,8 @@ func is_builder_index*(validator_index: uint64): bool =
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#new-get_builder_withdrawals
 func get_builder_withdrawals(
     state: gloas.BeaconState | heze.BeaconState,
-    withdrawal_index: WithdrawalIndex, prior_withdrawals: seq[Withdrawal]):
+    withdrawal_index: WithdrawalIndex, prior_withdrawals: seq[Withdrawal],
+    extra_pending = Opt.none(BuilderPendingWithdrawal)):
     (seq[Withdrawal], WithdrawalIndex, uint64) =
   const withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD - 1
 
@@ -1813,8 +1814,8 @@ func get_builder_withdrawals(
     withdrawals: seq[Withdrawal]
   for withdrawal in state.builder_pending_withdrawals:
     let
-      all_withdrawals = prior_withdrawals & withdrawals
-      has_reached_limit = len(all_withdrawals) == withdrawals_limit
+      all_withdrawals_len = len(prior_withdrawals) + len(withdrawals)
+      has_reached_limit = all_withdrawals_len >= withdrawals_limit
     if has_reached_limit:
       break
 
@@ -1826,6 +1827,21 @@ func get_builder_withdrawals(
       amount: withdrawal.amount))
     withdrawal_index += WithdrawalIndex(1)
     processed_count += 1
+
+  # A pending withdrawal used to predict the next proposal's withdrawals after
+  # parent bid's builder payment's applied by `apply_parent_execution_payload`
+  # before `get_expected_withdrawals` runs in the state transition.
+  extra_pending.isErrOr:
+    if value.amount > 0.Gwei and
+        len(prior_withdrawals) + len(withdrawals) < withdrawals_limit:
+      withdrawals.add(Withdrawal(
+        index: withdrawal_index,
+        validator_index:
+          convert_builder_index_to_validator_index(value.builder_index),
+        address: value.fee_recipient,
+        amount: value.amount))
+      inc withdrawal_index
+      inc processed_count
 
   (withdrawals, withdrawal_index, processed_count)
 
@@ -1998,12 +2014,15 @@ func get_validators_sweep_withdrawals(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-get_expected_withdrawals
 func get_expected_withdrawals*(
-    state: gloas.BeaconState | heze.BeaconState): ExpectedWithdrawals =
-  # [New in Gloas:EIP7732]
+    state: gloas.BeaconState | heze.BeaconState,
+    extra_builder_payment = Opt.none(BuilderPendingWithdrawal)):
+    ExpectedWithdrawals =
   # Get builder withdrawals
+  # `extra_builder_payment` gets proposal withdrawals from pre-proposal states
   let (builder_withdrawals, builder_withdrawal_index,
        processed_builder_withdrawals_count) =
-    get_builder_withdrawals(state, state.next_withdrawal_index, @[])
+    get_builder_withdrawals(
+      state, state.next_withdrawal_index, @[], extra_builder_payment)
   var withdrawals = builder_withdrawals
 
   # Get partial withdrawals

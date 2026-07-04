@@ -594,7 +594,7 @@ proc validateDataColumnSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#data_column_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
@@ -605,8 +605,16 @@ proc validateDataColumnSidecar*(
 
   template blockRoot(): auto = data_column_sidecar[].beacon_block_root
 
+  # [REJECT] The sidecar is for the correct subnet -- i.e.
+  # `compute_subnet_for_data_column_sidecar(sidecar.index) == subnet_id`.
+  #
+  # Keep before block-seen [IGNORE] so the [REJECT] occurs properly
+  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) ==
+      subnet_id):
+    return dag.checkedReject("DataColumnSidecar: not for correct subnet")
+
   # [IGNORE] A valid block for the sidecar's `slot` has been seen (via gossip or
-  # non-gossip sources). If not yet seen, a client MUST queue the sidecar for
+  # non-gossip sources). If not yet seen, a client SHOULD queue the sidecar for
   # deferred validation and possible processing once the block is received or
   # retrieved.
   let blck =
@@ -642,12 +650,6 @@ proc validateDataColumnSidecar*(
     if v.isErr:
       return dag.checkedReject(v.error)
 
-  # [REJECT] The sidecar is for the correct subnet -- i.e.
-  # `compute_subnet_for_data_column_sidecar(sidecar.index) == subnet_id`.
-  if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) ==
-      subnet_id):
-    return dag.checkedReject("DataColumnSidecar: not for correct subnet")
-
   # [REJECT] The sidecar's column data is valid as verified by
   # `verify_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments)`.
   block:
@@ -658,7 +660,9 @@ proc validateDataColumnSidecar*(
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # `(sidecar.beacon_block_root, sidecar.index)` with valid kzg proof.
-  if gloasColumnQuarantine[].hasSidecar(
+  # An unverified sidecar at the same index (queued before its block was
+  # seen) does not count: this one has a valid kzg proof and supersedes it.
+  if gloasColumnQuarantine[].hasVerifiedSidecar(
       blockRoot, data_column_sidecar[].index):
     return errIgnore("DataColumnSidecar: already have valid data column")
 
