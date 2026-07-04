@@ -206,6 +206,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(
             node.eventBus.payloadAttributesQueue, "payload_attributes")
           res.add(handler)
+        if EventTopic.ProposerPreferences in eventTopics:
+          let handler = response.eventHandler(
+            node.eventBus.proposerPreferencesQueue, "proposer_preferences")
+          res.add(handler)
         res
 
     try:
