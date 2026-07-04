@@ -2017,7 +2017,7 @@ func get_expected_withdrawals*(
     state: gloas.BeaconState | heze.BeaconState,
     extra_builder_payment = Opt.none(BuilderPendingWithdrawal)):
     ExpectedWithdrawals =
-  ## Get builder withdrawals
+  # Get builder withdrawals
   # `extra_builder_payment` gets proposal withdrawals from pre-proposal states
   let (builder_withdrawals, builder_withdrawal_index,
        processed_builder_withdrawals_count) =
