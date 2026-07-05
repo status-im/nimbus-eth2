@@ -939,6 +939,12 @@ proc processPayloadAttestationMessage*(
   discard self.payloadAttestationPool[].addPayloadAttestation(
     payload_attestation_message, wallTime)
 
+  # Record the PTC vote in fork choice.
+  self.attestationPool[].forkChoice.on_payload_attestation_message(
+      self.dag, payload_attestation_message.validator_index,
+      payload_attestation_message.data).isOkOr:
+    debug "on_payload_attestation_message failed", error
+
   trace "Payload attestation validated"
   return ok()
 
