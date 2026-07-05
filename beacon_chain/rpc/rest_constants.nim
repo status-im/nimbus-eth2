@@ -310,3 +310,7 @@ const
     "Invalid execution payload bid, it won't validate, so it's rejected"
   ExecutionPayloadBidValidationSuccess* =
     "The execution payload bid was validated successfully and has been broadcast"
+  ExecutionPayloadEnvelopeValidationError* =
+    "Invalid execution payload envelope, it won't validate, so it's rejected"
+  ExecutionPayloadEnvelopeValidationSuccess* =
+    "The execution payload envelope was validated successfully and has been broadcast"
