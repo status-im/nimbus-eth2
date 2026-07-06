@@ -109,6 +109,11 @@ type
       ## The column reconstruction backfiller registers this to re-evaluate a
       ## slot precisely when new columns arrive, rather than polling on a timer.
 
+    getSyncInProgress*: proc(): bool {.gcsafe, raises: [].}
+      ## Optional predicate reporting whether the sync manager is actively
+      ## backfilling. The data availability delay metric is skipped while sync
+      ## is in progress, as historical blocks would otherwise skew it.
+
     # Quarantines
     # ----------------------------------------------------------------
     fuluColumnQuarantine*: ref FuluColumnQuarantine
@@ -738,10 +743,12 @@ proc storeBlock(
 
   # The block has just been resolved (see the "Block resolved" log): all of its
   # data (incl. blobs / data columns) is available and it has been imported into
-  # the dag. Measure how long after the slot start that happened.
-  let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
-    dag.timeParams)
-  beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
+  # the dag. Measure how long after the slot start that happened - but only
+  # while synced, as historical blocks processed during sync would skew it.
+  if self.getSyncInProgress.isNil or not self.getSyncInProgress():
+    let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
+      dag.timeParams)
+    beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL

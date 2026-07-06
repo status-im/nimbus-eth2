@@ -904,6 +904,9 @@ proc initFullNode(
       proc(slot: Slot) {.gcsafe, raises: [].} =
         backfiller.onColumnsStored(slot)
 
+  blockProcessor.getSyncInProgress =
+    proc(): bool {.gcsafe, raises: [].} = syncManager.inProgress
+
   node.router = router
 
   await node.addValidators()
