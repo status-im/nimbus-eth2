@@ -738,12 +738,10 @@ proc storeBlock(
 
   # The block has just been resolved (see the "Block resolved" log): all of its
   # data (incl. blobs / data columns) is available and it has been imported into
-  # the dag. Measure how long after the slot start that happened - for live
-  # gossip blocks this is the data-availability latency for the slot.
-  if fromGossip:
-    let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
-      dag.timeParams)
-    beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
+  # the dag. Measure how long after the slot start that happened.
+  let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
+    dag.timeParams)
+  beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL
