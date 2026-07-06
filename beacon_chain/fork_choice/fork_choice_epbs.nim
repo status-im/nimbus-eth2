@@ -159,10 +159,10 @@ proc on_payload_attestation_message*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
 func on_execution_payload*(
     self: var ForkChoice, cfg: RuntimeConfig, timeParams: TimeParams,
-    signedEnvelope: SignedExecutionPayloadEnvelope): FcResult[void] =
+    trustedEnvelope: TrustedSignedExecutionPayloadEnvelope): FcResult[void] =
   ## Run ``on_execution_payload_envelope`` upon receiving a new execution
   ## payload envelope.
-  template envelope: untyped = signedEnvelope.message
+  template envelope: untyped = trustedEnvelope.message
   template beacon_block_root: untyped = envelope.beacon_block_root
   let current_slot = self.checkpoints.time.slotOrZero(timeParams)
 

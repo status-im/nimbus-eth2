@@ -736,8 +736,13 @@ template asTrusted*(
   isomorphicCast[TrustedSignedExecutionPayloadEnvelope](x)
 
 # Helpers to frequently used values
-template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
-template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
+template slot*(
+    v: ExecutionPayloadEnvelope | TrustedExecutionPayloadEnvelope): Slot =
+  v.payload.slot_number
+template slot*(
+    v: SignedExecutionPayloadEnvelope |
+       TrustedSignedExecutionPayloadEnvelope): Slot =
+  v.message.slot
 
 template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
   if v.body.signed_execution_payload_bid.message.builder_index ==

@@ -535,6 +535,7 @@ proc onBlockAdded*(
 
 proc onPayloadAdded*(
     dag: ChainDAGRef,
+    attestationPool: ref AttestationPool,
 ): OnPayloadAdded =
   ## Actions to perform when a payload is successfully added to the DAG
 
@@ -542,7 +543,12 @@ proc onPayloadAdded*(
       blckRef: BlockRef,
       envelope: TrustedSignedExecutionPayloadEnvelope,
   ) =
-    debugGloasComment("handlers, e.g. fork choice, attestations")
+    # Notify fork choice so it materializes the block's FULL node.
+    attestationPool[].forkChoice.on_execution_payload(
+        dag.cfg, dag.timeParams, envelope).isOkOr:
+      warn "on_execution_payload failed", error,
+        blck = shortLog(envelope.message.beacon_block_root),
+        slot = envelope.message.slot
 
 proc verifyPayload(
     self: ref BlockProcessor,
@@ -1017,7 +1023,8 @@ proc storePayload(
 
   # Try adding the envelope to clearance state.
   let blck = ?addHeadExecutionPayload(
-    dag, signedBlock, signedEnvelope, onPayloadAdded(dag))
+    dag, signedBlock, signedEnvelope,
+    onPayloadAdded(dag, self.consensusManager.attestationPool))
 
   # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
   # execution_payload_available: The node has verified that the execution
@@ -1029,12 +1036,6 @@ proc storePayload(
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
   let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
-
-  # Notify fork choice so it materializes the block's FULL node.
-  self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
-      dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
-    warn "on_execution_payload failed", error,
-      blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")
