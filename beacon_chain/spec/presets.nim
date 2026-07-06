@@ -1271,10 +1271,10 @@ proc readRuntimeConfig*(
       cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS)
     checkParsedValue(
       "PAYLOAD_DUE_BPS", cfg.timeParams.PAYLOAD_DUE_BPS,
-      cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
+      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
     checkParsedValue(
       "PAYLOAD_ATTESTATION_DUE_BPS", cfg.timeParams.PAYLOAD_ATTESTATION_DUE_BPS,
-      cfg.timeParams.AGGREGATE_DUE_BPS_GLOAS ..< MAX_BPS, `in`)
+      cfg.timeParams.PAYLOAD_DUE_BPS ..< MAX_BPS, `in`)
     checkParsedValue(
       "INCLUSION_LIST_DUE_BPS", cfg.timeParams.INCLUSION_LIST_DUE_BPS,
       0'u16 ..< MAX_BPS, `in`)
