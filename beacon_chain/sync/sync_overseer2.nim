@@ -41,6 +41,11 @@ const
   GenesisCheckpoint = Checkpoint(root: Eth2Digest(), epoch: GENESIS_EPOCH)
 
 type
+  PreFuluForkySignedBlock* =
+    phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+    bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+    deneb.SignedBeaconBlock | electra.SignedBeaconBlock
+
   BlocksSource {.pure.} = enum
     OrphansQuarantine,
     SidecarlessQuarantine
@@ -666,17 +671,27 @@ proc createQueues(
            (forkyBlck.message.slot < overseer.eraBid.get().slot):
           # In case if sidecars present, we are in backfill mode and block's
           # slot is already present in ERA files, we going to verify sidecars
-          # only and store sidecars in database.
-          # TODO (cheatfate)
-          (await overseer.blockProcessor.addBlock(
-            MsgSource.sync, forkyBlck, cres,
-            maybeFinalized = maybeFinalized))
-          #overseer.blockProcessor.addBackfillSidecars(
-          #  forkyBlck, cres.get(), Opt.some(item.signedPayloadEnvelope[]))
+          # and envelope only.
+          if isNil(item.signedEnvelope) and (commitmentsLen == 0):
+            # Block does not have envelope and sidecars.
+            return ok()
+          (await overseer.blockProcessor.addPayload(
+            forkyBlck, item.signedEnvelope[], cres))
         else:
-          (await overseer.blockProcessor.addBlock(
-            MsgSource.sync, forkyBlck, cres,
-            maybeFinalized = maybeFinalized))
+          let res = await overseer.blockProcessor.addBlock(
+            MsgSource.sync, forkyBlck, noSidecars,
+            maybeFinalized = maybeFinalized)
+
+          if res.isErr():
+            if res.error != VerifierError.Duplicate:
+              return res
+
+          if isNil(item.signedEnvelope) and (commitmentsLen == 0):
+            # Block does not have envelope and sidecars.
+            return res
+
+          (await overseer.blockProcessor.addPayload(
+            forkyBlck, item.signedEnvelope[], cres))
       else:
         raiseAssert "Unsupported fork"
 
@@ -1026,66 +1041,83 @@ proc syncDistance*(
   else:
     0'u64
 
+proc verifyEnvelope(
+    overseer: SyncOverseerRef2,
+    gloasBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: SignedExecutionPayloadEnvelope
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  let
+    bid = gloasBlock.toBlockId()
+    commitmentsLen =
+      len(gloasBlock.message.body.signed_execution_payload_bid.
+          message.blob_kzg_commitments)
+
+  if overseer.shouldGetColumns(bid.slot):
+    let
+      sidecars =
+        if commitmentsLen == 0:
+          Opt.some(default(gloas.DataColumnSidecars))
+        else:
+          overseer.gloasColumnQuarantine[].popSidecars(bid.root)
+    if sidecars.isNone():
+      overseer.blockQuarantine[].addSidecarless(gloasBlock)
+      return Result[void, VerifierError].err(
+        VerifierError.MissingSidecars)
+    await overseer.blockProcessor.addPayload(
+      gloasBlock, signedEnvelope, sidecars)
+  else:
+    await overseer.blockProcessor.addPayload(
+      gloasBlock, signedEnvelope, Opt.none(gloas.DataColumnSidecars))
+
 proc verifyBlock(
     overseer: SyncOverseerRef2,
-    signedBlock: ForkedSignedBeaconBlock,
+    fuluBlock: fulu.SignedBeaconBlock,
     maybeFinalized: bool
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  withBlck(signedBlock):
-    when consensusFork < ConsensusFork.Fulu:
-      await overseer.blockProcessor.addBlock(
-        MsgSource.sync, forkyBlck, noSidecars, maybeFinalized = maybeFinalized)
-    elif consensusFork == ConsensusFork.Fulu:
-      if overseer.shouldGetColumns(forkyBlck.message.slot):
-        let cres =
-          if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-            Opt.some(default(fulu.DataColumnSidecars))
-          else:
-            overseer.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
-        if cres.isSome():
-          let res =
-            await overseer.blockProcessor.addBlock(
-              MsgSource.sync, forkyBlck, cres,
-              maybeFinalized = maybeFinalized)
-          if res.isErr() and (res.error == VerifierError.MissingParent):
-            # In this case block will be stored in quarantine, so we need to
-            # preserve columns in column quarantine.
-            overseer.fuluColumnQuarantine[].put(
-              forkyBlck.root, cres.get(), false)
-          res
-        else:
-          overseer.blockQuarantine[].addSidecarless(forkyBlck)
-          Result[void, VerifierError].err(VerifierError.MissingSidecars)
+  if overseer.shouldGetColumns(fuluBlock.message.slot):
+    let cres =
+      if len(fuluBlock.message.body.blob_kzg_commitments) == 0:
+        Opt.some(default(fulu.DataColumnSidecars))
       else:
+        overseer.fuluColumnQuarantine[].popSidecars(fuluBlock.root)
+    if cres.isSome():
+      let res =
         await overseer.blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, Opt.none(fulu.DataColumnSidecars),
+          MsgSource.sync, fuluBlock, cres,
           maybeFinalized = maybeFinalized)
-    elif consensusFork == ConsensusFork.Gloas:
-      # Gloas fork processes blocks without sidecars, but block is the only
-      # source of information about sidecars. So here we going to emulate
-      # Fulu and store block in sidecarless quarantine if block missing
-      # sidecars.
-      if overseer.shouldGetColumns(forkyBlck.message.slot):
-        if len(forkyBlck.message.body.signed_execution_payload_bid.
-               message.blob_kzg_commitments) == 0:
-          await overseer.blockProcessor.addBlock(
-            MsgSource.sync, forkyBlck, noSidecars,
-            maybeFinalized = maybeFinalized)
-        else:
-          if overseer.gloasColumnQuarantine[].hasSidecars(forkyBlck.root):
-            await overseer.blockProcessor.addBlock(
-              MsgSource.sync, forkyBlck, noSidecars,
-              maybeFinalized = maybeFinalized)
-          else:
-            # We temporarily store block inside sidecarless quarantine.
-            overseer.blockQuarantine[].addSidecarless(forkyBlck)
-            Result[void, VerifierError].err(VerifierError.MissingSidecars)
-      else:
-        await overseer.blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, noSidecars,
-          maybeFinalized = maybeFinalized)
+      if res.isErr() and (res.error == VerifierError.MissingParent):
+        # In this case block will be stored in quarantine, so we need to
+        # preserve columns in column quarantine.
+        overseer.fuluColumnQuarantine[].put(
+          fuluBlock.root, cres.get(), false)
+      res
     else:
-      raiseAssert "Unsupported fork"
+      overseer.blockQuarantine[].addSidecarless(fuluBlock)
+      Result[void, VerifierError].err(VerifierError.MissingSidecars)
+  else:
+    await overseer.blockProcessor.addBlock(
+      MsgSource.sync, fuluBlock, Opt.none(fulu.DataColumnSidecars),
+      maybeFinalized = maybeFinalized)
+
+proc verifyBlock(
+    overseer: SyncOverseerRef2,
+    gloasBlock: gloas.SignedBeaconBlock,
+    maybeFinalized: bool
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  # Gloas fork processes blocks without sidecars.
+  let res = await overseer.blockProcessor.addBlock(
+    MsgSource.sync, gloasBlock, noSidecars, maybeFinalized = maybeFinalized)
+  if res.isOk() or (res.isErr() and res.error == VerifierError.Duplicate):
+    overseer.rblockBuffer.add(ForkedSignedBeaconBlock.init(gloasBlock))
+  res
+
+proc verifyBlock(
+    overseer: SyncOverseerRef2,
+    signedBlock: PreFuluForkySignedBlock,
+    maybeFinalized: bool
+): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+  await overseer.blockProcessor.addBlock(
+    MsgSource.sync, signedBlock, noSidecars, maybeFinalized = maybeFinalized)
 
 proc verifyBlock(
     overseer: SyncOverseerRef2,
@@ -1093,29 +1125,9 @@ proc verifyBlock(
     maybeFinalized: bool
 ): Future[Result[void, VerifierError]] {.
   async: (raw: true, raises: [CancelledError]).} =
-  verifyBlock(overseer, signedBlock[], maybeFinalized)
-
-proc verifyPayload(
-    overseer: SyncOverseerRef2,
-    signedBlock: ForkedSignedBeaconBlock,
-    payload: ref gloas.SignedExecutionPayloadEnvelope
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
-  doAssert(not(isNil(payload)), "Payload should not be nil")
-  withBlck(signedBlock):
-    when consensusFork < ConsensusFork.Gloas:
-      ok()
-    elif consensusFork == ConsensusFork.Gloas:
-      let sidecars =
-        if len(forkyBlck.message.body.signed_execution_payload_bid.
-          message.blob_kzg_commitments) == 0:
-          Opt.some(default(seq[ref gloas.DataColumnSidecar]))
-        else:
-          let res =
-            overseer.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
-          if res.isNone():
-            return err(VerifierError.MissingSidecars)
-          res
-      await overseer.blockProcessor.addPayload(forkyBlck, payload[], sidecars)
+  withBlck(signedBlock[]):
+    when consensusFork <= ConsensusFork.Gloas:
+      verifyBlock(overseer, forkyBlck, maybeFinalized)
     else:
       raiseAssert "Unsupported fork!"
 
@@ -1183,34 +1195,61 @@ proc getForkedBlock(
     overseer: SyncOverseerRef2,
     root: Eth2Digest
 ): Opt[ForkedSignedBeaconBlock] =
+  block:
+    # All recently added blocks.
+    let res = overseer.rblockBuffer.getBlock(root)
+    if res.isSome():
+      return res
+
+  block:
+    # Blocks which missing sidecars.
+    let res = overseer.blockQuarantine[].peekSidecarless(root)
+    if res.isSome():
+      return res
+
+  block:
+    # Blocks from quarantine.
+    for blck in overseer.blockQuarantine[].peek(root):
+      return Opt.some(blck)
+
+  # Blocks from database.
   let
     dag = overseer.consensusManager.dag
-    res = overseer.blockQuarantine[].peekSidecarless(root)
-  if res.isSome():
-    return res
-  let bid = dag.getBlockId(root).valueOr:
-    return Opt.none(ForkedSignedBeaconBlock)
-  for blck in overseer.blockQuarantine[].peek(bid.root):
-    if bid.slot == blck.slot():
-      return Opt.some(blck)
-  let blck = dag.getForkedBlock(bid).valueOr:
-    return Opt.none(ForkedSignedBeaconBlock)
+    bid = dag.getBlockId(root).valueOr:
+      return Opt.none(ForkedSignedBeaconBlock)
+    blck = dag.getForkedBlock(bid).valueOr:
+      return Opt.none(ForkedSignedBeaconBlock)
+
   Opt.some(blck.asSigned())
 
 proc getForkedBlock(
     overseer: SyncOverseerRef2,
     bid: BlockId
 ): Opt[ForkedSignedBeaconBlock] =
+  block:
+    # All recently added blocks.
+    let res = overseer.rblockBuffer.getBlock(bid.root)
+    if res.isSome():
+      return res
+
+  block:
+    # Blocks which missing sidecars.
+    let res = overseer.blockQuarantine[].peekSidecarless(bid.root)
+    if res.isSome():
+      return res
+
+  block:
+    # Blocks from quarantine.
+    for blck in overseer.blockQuarantine[].peek(bid.root):
+      if bid.slot == blck.slot():
+        return Opt.some(blck)
+
+  # Blocks from database.
   let
     dag = overseer.consensusManager.dag
-    res = overseer.blockQuarantine[].peekSidecarless(bid.root)
-  if res.isSome():
-    return res
-  for blck in overseer.blockQuarantine[].peek(bid.root):
-    if bid.slot == blck.slot():
-      return Opt.some(blck)
-  let blck = dag.getForkedBlock(bid).valueOr:
-    return Opt.none(ForkedSignedBeaconBlock)
+    blck = dag.getForkedBlock(bid).valueOr:
+      return Opt.none(ForkedSignedBeaconBlock)
+
   Opt.some(blck.asSigned())
 
 proc getMissingColumnsBlocksAndRequest(
@@ -1892,13 +1931,13 @@ proc doRootSidecarsSyncStep(
     blocks = slimLog(request.columnBlocks)
 
   for signedBlock in request.columnBlocks:
-    debug "Processing single block and sidecars by root",
-      blck = slimLog(signedBlock)
     withBlck(signedBlock):
-      when consensusFork in [ConsensusFork.Fulu, ConsensusFork.Gloas]:
+      when consensusFork == ConsensusFork.Fulu:
+        debug "Processing single block and sidecars by root",
+          blck = slimLog(signedBlock)
         let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
         if not(isNil(entry)):
-          let res = await overseer.verifyBlock(signedBlock, false)
+          let res = await overseer.verifyBlock(forkyBlck, false)
           if res.isErr():
             debug "Block and sidecars by root processor response",
               reason = res.error, blck = slimLog(signedBlock)
@@ -1909,10 +1948,7 @@ proc doRootSidecarsSyncStep(
                 {DagEntryFlag.Pending, DagEntryFlag.MissingSidecars})
               entry.parent = nil
               overseer.blockQuarantine[].remove(forkyBlck)
-              if consensusFork == ConsensusFork.Fulu:
-                overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
-              elif consensusFork == ConsensusFork.Gloas:
-                overseer.gloasColumnQuarantine[].remove(forkyBlck.root)
+              overseer.fuluColumnQuarantine[].remove(forkyBlck.root)
               # We add this block's root into global missing root table, so
               # all other peers will try to re-download it again.
               overseer.missingRoots.incl(forkyBlck.root)
@@ -1943,6 +1979,10 @@ proc doRootSidecarsSyncStep(
             overseer.blockQuarantine[].remove(forkyBlck)
             entry.flags.excl(DagEntryFlag.MissingSidecars)
             overseer.missingSidecars.excl(forkyBlck.root)
+      elif consensusFork == ConsensusFork.Gloas:
+        # For Gloas fork, we do not do any processing, all the processing will
+        # happen later in doRootEnvelopeSyncStep().
+        discard
       else:
         raiseAssert "Should not be happen!"
   true
@@ -2019,52 +2059,52 @@ proc doRootEnvelopeSyncStep(
     records = shortLog(records), records_count = len(records)
 
   for record in records:
-    block:
-      let res = await overseer.verifyBlock(
-        record.signedBlock, maybeFinalized = false)
-      if res.isErr():
-        if res.error != VerifierError.Duplicate:
-          debug "Envelope's block processor response",
-            reason = res.error, blck = slimLog(record.signedBlock)
-          continue
-
     withBlck(record.signedBlock):
       when consensusFork < ConsensusFork.Gloas:
         discard
       elif consensusFork == ConsensusFork.Gloas:
+        let res = await overseer.verifyBlock(forkyBlck, maybeFinalized = false)
+        if res.isErr():
+          if res.error != VerifierError.Duplicate:
+            debug "Envelope's block processor response",
+              reason = res.error, blck = slimLog(record.signedBlock)
+            continue
+
         let entry = overseer.sdag.roots.getOrDefault(forkyBlck.root)
-        if not(isNil(entry)):
-          if record.signedEnvelope.isNil() and
-             (len(forkyBlck.message.body.signed_execution_payload_bid.
-               message.blob_kzg_commitments) == 0):
-            # No envelope and no sidecars
-            peer.updateScore(PeerScoreGoodValues)
-            entry.flags.excl(DagEntryFlag.MissingSidecars)
-            entry.flags.excl(DagEntryFlag.MissingEnvelope)
-            overseer.missingSidecars.excl(forkyBlck.root)
-            overseer.missingEnvelopes.excl(forkyBlck.root)
-            continue
+        if isNil(entry):
+          continue
 
-          if record.signedEnvelope.isNil():
-            # There is an envelope in the block, but it is not in the record.
-            peer.updateScore(PeerScoreNoValues)
-            continue
+        if record.signedEnvelope.isNil() and
+           (len(forkyBlck.message.body.signed_execution_payload_bid.
+             message.blob_kzg_commitments) == 0):
+          # No envelope and no sidecars
+          peer.updateScore(PeerScoreGoodValues)
+          entry.flags.excl(DagEntryFlag.MissingSidecars)
+          entry.flags.excl(DagEntryFlag.MissingEnvelope)
+          overseer.missingSidecars.excl(forkyBlck.root)
+          overseer.missingEnvelopes.excl(forkyBlck.root)
+          continue
 
-          let res = await overseer.verifyPayload(
-            record.signedBlock, record.signedEnvelope)
-          if res.isErr():
-            debug "Envelope and sidecars by root processor response",
-              reason = res.error, bid = record.signedBlock.toBlockId()
-            continue
-          else:
-            peer.updateScore(PeerScoreGoodValues)
-            debug "Envelope and sidecars by root processor response",
-              reason = "ok", bid = record.signedBlock.toBlockId()
-            overseer.blockQuarantine[].remove(forkyBlck)
-            entry.flags.excl(DagEntryFlag.MissingSidecars)
-            entry.flags.excl(DagEntryFlag.MissingEnvelope)
-            overseer.missingSidecars.excl(forkyBlck.root)
-            overseer.missingEnvelopes.excl(forkyBlck.root)
+        if record.signedEnvelope.isNil():
+          # There is an envelope in the block, but it is not in the record.
+          peer.updateScore(PeerScoreNoValues)
+          continue
+
+        let eres = await overseer.verifyEnvelope(
+          forkyBlck, record.signedEnvelope[])
+        if eres.isErr():
+          debug "Envelope and sidecars by root processor response",
+            reason = eres.error, bid = record.signedBlock.toBlockId()
+          continue
+        else:
+          peer.updateScore(PeerScoreGoodValues)
+          debug "Envelope and sidecars by root processor response",
+            reason = "ok", bid = record.signedBlock.toBlockId()
+          overseer.blockQuarantine[].remove(forkyBlck)
+          entry.flags.excl(DagEntryFlag.MissingSidecars)
+          entry.flags.excl(DagEntryFlag.MissingEnvelope)
+          overseer.missingSidecars.excl(forkyBlck.root)
+          overseer.missingEnvelopes.excl(forkyBlck.root)
       else:
         raiseAssert "Unsupported fork!"
 
@@ -3502,6 +3542,192 @@ iterator popBlocks(
     for blck in quarantine[].popSidecarlessBlocks(root):
       yield blck
 
+proc doLateBlockProcessing(
+    overseer: SyncOverseerRef2,
+    preFuluBlock: PreFuluForkySignedBlock,
+    src: BlocksSource
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    bid = preFuluBlock.toBlockId()
+    entry = overseer.sdag.roots.mgetOrPut(bid.root, SyncDagEntryRef.init(bid))
+    pres =
+      await overseer.verifyBlock(preFuluBlock, maybeFinalized = false)
+
+  logScope:
+    bid = shortLog(bid)
+    fork = kind(typeof(preFuluBlock))
+
+  if pres.isErr():
+    debug "Late block processor response", reason = pres.error
+  else:
+    debug "Late block processor response", reason = "ok"
+
+  let
+    dagSrc =
+      case src
+      of BlocksSource.OrphansQuarantine:
+        DagBlockSourceType.Orphan
+      of BlocksSource.SidecarlessQuarantine:
+        DagBlockSourceType.Sidecarless
+
+  overseer.updatePeer(
+    overseer.localPeerId,
+    peerMustPresent = false,
+    bid.slot, bid.root,
+    preFuluBlock.message.parent_root,
+    sidecarsMissed = false,
+    envelopeMissed = false,
+    dagSrc)
+
+  pres.isOk() or (pres.isErr() and pres.error == VerifierError.Duplicate)
+
+proc doLateBlockProcessing(
+    overseer: SyncOverseerRef2,
+    fuluBlock: fulu.SignedBeaconBlock,
+    src: BlocksSource
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    bid = fuluBlock.toBlockId()
+    commitmentsLen = len(fuluBlock.message.body.blob_kzg_commitments)
+    pres =
+      await overseer.verifyBlock(fuluBlock, maybeFinalized = false)
+
+  logScope:
+    bid = shortLog(bid)
+    fork = ConsensusFork.Fulu
+
+  if pres.isErr():
+    debug "Late block processor response", reason = pres.error
+  else:
+    debug "Late block processor response", reason = "ok"
+
+  let
+    dagSrc =
+      case src
+      of BlocksSource.OrphansQuarantine:
+        DagBlockSourceType.Orphan
+      of BlocksSource.SidecarlessQuarantine:
+        DagBlockSourceType.Sidecarless
+    missingSidecars =
+      if pres.isOk():
+        false
+      else:
+        if commitmentsLen == 0:
+          false
+        else:
+          not(overseer.fuluColumnQuarantine[].hasSidecars(fuluBlock.root))
+
+  overseer.updatePeer(
+    overseer.localPeerId,
+    peerMustPresent = false,
+    bid.slot, bid.root,
+    fuluBlock.message.parent_root,
+    sidecarsMissed = missingSidecars,
+    envelopeMissed = false,
+    dagSrc)
+
+  pres.isOk() or (pres.isErr() and pres.error == VerifierError.Duplicate)
+
+proc doLateBlockProcessing(
+    overseer: SyncOverseerRef2,
+    gloasBlock: gloas.SignedBeaconBlock,
+    src: BlocksSource
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    dag = overseer.consensusManager.dag
+    bid = gloasBlock.toBlockId()
+    entry = overseer.sdag.roots.mgetOrPut(bid.root, SyncDagEntryRef.init(bid))
+    commitmentsLen =
+      len(gloasBlock.message.body.signed_execution_payload_bid.message.
+        blob_kzg_commitments)
+    pres =
+      await overseer.verifyBlock(gloasBlock, maybeFinalized = false)
+    sidecars =
+      if commitmentsLen == 0:
+        Opt.some(default(gloas.DataColumnSidecars))
+      else:
+        overseer.gloasColumnQuarantine[].popSidecars(gloasBlock.root)
+    envelope =
+      overseer.gloasEnvelopeQuarantine[].popOrphan(gloasBlock)
+
+  logScope:
+    bid = shortLog(bid)
+    fork = ConsensusFork.Gloas
+
+  if pres.isErr():
+    debug "Late block processor response", reason = pres.error
+  else:
+    debug "Late block processor response", reason = "ok"
+
+  let eres =
+    if pres.isOk() or (pres.isErr() and pres.error == VerifierError.Duplicate):
+      if envelope.isSome():
+        if sidecars.isSome():
+          let eres =
+            await overseer.verifyEnvelope(gloasBlock, envelope.get())
+          if eres.isOk():
+            debug "Late envelope and sidecars processor response",
+              reason = "ok"
+            true
+          else:
+            debug "Late envelope and sidecars processor response",
+              reason = eres.error
+            entry.flags.incl(DagEntryFlag.MissingSidecars)
+            entry.flags.incl(DagEntryFlag.MissingEnvelope)
+            # Sidecars and envelope was removed from quarantine.
+            overseer.missingSidecars.incl(gloasBlock.root)
+            overseer.missingEnvelopes.incl(gloasBlock.root)
+            false
+        else:
+          overseer.missingSidecars.incl(gloasBlock.root)
+          if not(isNil(entry)):
+            entry.flags.incl(DagEntryFlag.MissingSidecars)
+          # Preserve envelope
+          overseer.gloasEnvelopeQuarantine[].addOrphan(
+            dag.finalizedHead.slot, envelope.get())
+          false
+      else:
+        if commitmentsLen > 0:
+          # We missing envelope.
+          overseer.missingEnvelopes.incl(gloasBlock.root)
+          entry.flags.incl(DagEntryFlag.MissingEnvelope)
+          if sidecars.isSome():
+            # Preserve sidecars
+            overseer.gloasColumnQuarantine[].put(
+              gloasBlock.root, sidecars.get(), false)
+          false
+        else:
+          true
+    else:
+      false
+
+  let
+    dagSrc =
+      case src
+      of BlocksSource.OrphansQuarantine:
+        DagBlockSourceType.Orphan
+      of BlocksSource.SidecarlessQuarantine:
+        DagBlockSourceType.Sidecarless
+    missingSidecars =
+      if eres:
+        false
+      else:
+        if commitmentsLen == 0:
+          false
+        else:
+          not(overseer.gloasColumnQuarantine[].hasSidecars(gloasBlock.root))
+
+  overseer.updatePeer(
+    overseer.localPeerId,
+    peerMustPresent = false,
+    bid.slot, bid.root,
+    gloasBlock.message.parent_root,
+    sidecarsMissed = missingSidecars,
+    envelopeMissed = false,
+    dagSrc)
+
+  eres
+
 proc checkData(
     overseer: SyncOverseerRef2,
     head: BlockId,
@@ -3531,45 +3757,25 @@ proc checkData(
           else:
             raiseAssert "Incorrect block's fork"
 
-  for blck in overseer.popBlocks(src, head.root):
-    let blockId = blck.toBlockId()
-    logScope:
-      bid = shortLog(blockId)
+  for signedBlock in overseer.popBlocks(src, head.root):
+    withBlck(signedBlock):
+      let blockId = forkyBlck.toBlockId()
+      logScope:
+        bid = shortLog(blockId)
+        fork = consensusFork
 
-    debug "Processing late block"
-    let res = await overseer.verifyBlock(blck, maybeFinalized = false)
-    if res.isErr():
-      debug "Late block processor response", reason = res.error
-      # In case of error we should recover block in data structure.
-      recovery.add(blck)
-
-      if res.error == VerifierError.MissingSidecars:
-        let entry = overseer.sdag.roots.getOrDefault(blockId.root)
-        if not(isNil(entry)):
-          debug "Late block is already known, updating flags",
-            reason = res.error,
-            missing_sidecars = (DagEntryFlag.MissingSidecars in entry.flags)
-          entry.flags.incl(DagEntryFlag.MissingSidecars)
-          continue
-
-        debug "Late block is not known, adding new entry"
-
-        discard
-          overseer.sdag.roots.mgetOrPut(
-            blockId.root, SyncDagEntryRef.init(blockId))
-        overseer.updatePeer(
-          overseer.localPeerId,
-          peerMustPresent = false,
-          blockId.slot, blockId.root,
-          blck.parent_root,
-          sidecarsMissed = true,
-          envelopeMissed = true,
-          DagBlockSourceType.Dag)
-    else:
-      debug "Late block processor response", reason = "ok"
-      # If block was added succesfully block processor will continue
-      # process of adding blocks from quarantine.
-      return true
+      debug "Processing late block"
+      when consensusFork < ConsensusFork.Fulu:
+        if not(await overseer.doLateBlockProcessing(forkyBlck, src)):
+          recovery.add(signedBlock)
+      elif consensusFork == ConsensusFork.Fulu:
+        if not(await overseer.doLateBlockProcessing(forkyBlck, src)):
+          recovery.add(signedBlock)
+      elif consensusFork == ConsensusFork.Gloas:
+        if not(await overseer.doLateBlockProcessing(forkyBlck, src)):
+          recovery.add(signedBlock)
+      else:
+        raiseAssert("Unsupported fork!")
 
   false
 
