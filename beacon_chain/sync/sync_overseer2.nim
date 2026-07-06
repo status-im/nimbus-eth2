@@ -868,13 +868,14 @@ proc updatePeerStatus(overseer: SyncOverseerRef2, peer: Peer) =
   else:
     if checkpoint.epoch > overseer.lastSeenCheckpoint.get().epoch:
       overseer.lastSeenCheckpoint = Opt.some(checkpoint)
-      overseer.updateQueues()
+
 
   if overseer.lastSeenHead.isNone():
     overseer.lastSeenHead = Opt.some(blockId)
   else:
     if blockId.slot > overseer.lastSeenHead.get().slot:
       overseer.lastSeenHead = Opt.some(blockId)
+      overseer.updateQueues()
 
   let entry = overseer.sdag.peers.getOrDefault(peer.getKey())
   if isNil(entry):
@@ -2207,6 +2208,9 @@ proc doRangeSyncStep(
                   else:
                     peer.updateScore(PeerScoreNoValues)
                     return false
+          debug "Received payloads range on request",
+            payloads_count = len(payloads),
+            payloads_map = getShortMap(request, payloads.asSeq())
           items.toResponse(payloads.asSeq())
         else:
           raiseAssert("Unsupported fork!")
@@ -2568,6 +2572,7 @@ proc doGloasRangeSidecarsRequest(
 
   debug "Received data columns sidecars range from peer",
     columns_map = getShortMap(request, pdata.intersectMap, data.toSeq()),
+    items_map = getShortMap(request, items),
     map = shortLog(pdata.intersectMap),
     columns = slimLog(data.asSeq()),
     missing_log = pdata.missingLog
@@ -2605,7 +2610,11 @@ proc doGloasRangeSidecarsRequest(
   if (sindex == 0) and (bcount > 0):
     # Empty response case, when we sure that blocks with sidecars
     # exists in the range.
-    debug "Received empty columns range"
+    debug "Received empty columns range",
+      columns_map = getShortMap(request, pdata.intersectMap, data.toSeq()),
+      items_map = getShortMap(request, items),
+      items = shortLog(items),
+      columns = slimLog(data.asSeq())
     peer.updateScore(PeerScoreMissingValues)
     overseer.tssqueue(direction).push(request)
     return err(false)
@@ -3549,9 +3558,7 @@ proc doLateBlockProcessing(
 ): Future[bool] {.async: (raises: [CancelledError]).} =
   let
     bid = preFuluBlock.toBlockId()
-    entry = overseer.sdag.roots.mgetOrPut(bid.root, SyncDagEntryRef.init(bid))
-    pres =
-      await overseer.verifyBlock(preFuluBlock, maybeFinalized = false)
+    pres = await overseer.verifyBlock(preFuluBlock, maybeFinalized = false)
 
   logScope:
     bid = shortLog(bid)

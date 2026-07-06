@@ -197,10 +197,30 @@ proc shortLog*[M, N](sq: SyncQueue[M, N]): string =
         "[B:"
     start & $sq.startSlot & ":" & $sq.finalSlot & "@" & $sq.inpSlot & "]"
 
-# func slimLog*(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
-#   "[" & blocks.mapIt(
-#     "(slot: " & $it[].slot() & ", root: " & shortLog(it[].root()) &
-#     ", parent_root: " & shortLog(it[].parent_root()) & ")").join(",") & "]"
+func getShortMap*[T](
+    req: SyncRequest[T],
+    data: openArray[ref SignedExecutionPayloadEnvelope]
+): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      for k in last ..< len(data):
+        if slider == data[k][].slot:
+          res.add('x')
+          last = k + 1
+          break
+        elif slider < data[k][].slot:
+          res.add('.')
+          break
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
 
 func getShortMap*[T](
     req: SyncRequest[T],
@@ -216,7 +236,8 @@ func getShortMap*[T](
     if last < len(data):
       for k in last ..< len(data):
         if slider == data[k].slot:
-          res.add('x')
+          let ch = if isNil(data[k].signedEnvelope): 'x' else: 'X'
+          res.add(ch)
           last = k + 1
           break
         elif slider < data[k].slot:
