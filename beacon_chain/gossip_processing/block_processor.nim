@@ -238,11 +238,6 @@ proc verifySidecars(
         return err(VerifierError.Invalid)
   ok()
 
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
-  if sidecarsOpt.isSome():
-    for b in sidecarsOpt[]:
-      self.consensusManager.dag.db.putBlobSidecar(b[])
-
 proc storeSidecars(
     self: BlockProcessor,
     sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
@@ -257,9 +252,6 @@ proc storeSidecars(
         else:
           value[0][].signed_block_header.message.slot
       self.onDataColumnsStored(slot)
-
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
-  discard
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
 proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock)
@@ -306,7 +298,7 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    when consensusFork <= ConsensusFork.Fulu:
+    when consensusFork == ConsensusFork.Fulu:
       # Only store side cars after successfully establishing block viability.
       self[].storeSidecars(sidecarsOpt)
 
@@ -752,7 +744,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
+  when consensusFork == ConsensusFork.Fulu:
     self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
