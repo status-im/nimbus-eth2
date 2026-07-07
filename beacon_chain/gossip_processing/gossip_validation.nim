@@ -1927,6 +1927,20 @@ proc validateExecutionPayloadBid*(
           bidDependentRoot, pref):
         seenPref = pref[]
       do:
+        var cached: seq[string]
+        for k in seenProposerPreferences[seenBucket][seenKey].keys:
+          let keyRef = dag.getBlockRef(k)
+          cached.add($shortLog(k) & "@" &
+            (if keyRef.isSome: $keyRef.get.slot else: "nil"))
+        let bdr = dag.getBlockRef(bidDependentRoot)
+        debug "ExecutionPayloadBid: matching preferences not seen",
+          bidSlot = bid.slot,
+          builderIndex = bid.builder_index,
+          parentRoot = shortLog(bid.parent_block_root),
+          parentSlot = parentBlck.slot,
+          bidDependentRoot = shortLog(bidDependentRoot),
+          bidDependentSlot = (if bdr.isSome: $bdr.get.slot else: "nil"),
+          cachedPrefKeys = cached
         return errIgnore("ExecutionPayloadBid: matching preferences not seen")
 
       # [IGNORE]
