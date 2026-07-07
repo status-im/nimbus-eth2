@@ -1102,7 +1102,11 @@ proc signAndSendProposerPreference(
       (data.validator_index, data.proposal_slot))
     return
   let signed = SignedProposerPreferences(message: data, signature: signature)
-  await node.router.routeProposerPreferences(signed)
+
+  node.eventBus.proposerPreferencesQueue.emit(
+    EventProposerPreferencesObject(data: signed))
+
+  discard await node.router.routeProposerPreferences(signed)
 
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
@@ -1599,15 +1603,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
 
-  let payloadAttestationCutOff = node.beaconClock.fromNow(
-    slot.payload_attestation_deadline(node.dag.timeParams))
-  if payloadAttestationCutOff.inFuture:
-    debug "Waiting to send payload attestations",
-      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
-    await sleepAsync(payloadAttestationCutOff.offset)
-
-  sendPayloadAttestations(node, head, slot)
-
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
@@ -1626,6 +1621,15 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
+
+  let payloadAttestationCutOff = node.beaconClock.fromNow(
+    slot.payload_attestation_deadline(node.dag.timeParams))
+  if payloadAttestationCutOff.inFuture:
+    debug "Waiting to send payload attestations",
+      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
+    await sleepAsync(payloadAttestationCutOff.offset)
+
+  sendPayloadAttestations(node, head, slot)
 
   await node.sendProposerPreferences(head, slot)
 

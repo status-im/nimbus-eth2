@@ -1000,9 +1000,10 @@ proc willSelectNewHead*(
 proc selectOptimisticHead*(
     pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
+  let newHead = pool.forkChoice.get_head(pool.dag, wallTime).valueOr:
     error "Couldn't select head", err = error
     return Opt.none(BeaconHead)
+  template newHeadRoot: Eth2Digest = newHead.root
 
   let headBlock = pool.dag.getBlockRef(newHeadRoot).valueOr:
     # This should normally not happen, but if the chain dag and fork choice
@@ -1018,6 +1019,9 @@ proc selectOptimisticHead*(
 
     warn "Fork choice selected unknown head, trying to sync", newHeadRoot
     return Opt.none(BeaconHead)
+
+  debug "Fork choice selected head",
+    head = shortLog(headBlock), payloadFull = newHead.full
 
   ? pool.willSelectNewHead(headBlock, wallTime)
   ok pool.getBeaconHead(headBlock)

@@ -58,8 +58,9 @@ type
   SignedBLSToExecutionChangeList* = seq[SignedBLSToExecutionChange]
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/fork-choice.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.10/specs/gloas/fork-choice.md#constants
   PAYLOAD_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
+  DATA_AVAILABILITY_TIMELY_THRESHOLD*: uint64 = PTC_SIZE div 2
   PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
   PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
   PAYLOAD_STATUS_FULL* = PayloadStatus(2)

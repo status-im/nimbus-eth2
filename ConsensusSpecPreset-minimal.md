@@ -7873,6 +7873,176 @@ ConsensusSpecPreset-minimal
 + Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/observed_justifi OK
 + Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/observed_justifi OK
 + Fast Confirmation - minimal/fulu/fast_confirmation/variables/pyspec_tests/slot_head_variab OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/basic/pyspec_tests/fast_confirm_an_epo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/current_epoch/pyspec_tests/fcr_current OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/empty_slots/pyspec_tests/fcr_empty_slo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_m OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/empty_slots/pyspec_tests/fcr_handles_s OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/empty_slots/pyspec_tests/fcr_slot_head OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/ffg/pyspec_tests/will_current_target_b OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/ffg/pyspec_tests/will_no_conflicting_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_confi OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/previous_epoch/pyspec_tests/fcr_previo OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/reconfirmation/pyspec_tests/reconfirma OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/reconfirmation/pyspec_tests/reconfirma OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/restart_gu/pyspec_tests/fcr_no_restart OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_t OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/restart_gu/pyspec_tests/fcr_restarts_t OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/fcr_no_re OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/fcr_no_re OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/fcr_reset OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/fcr_rever OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/revert_finality/pyspec_tests/reset_to_ OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/fcr_invariants_ OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/gu_snapshot_ini OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/observed_justif OK
++ Fast Confirmation - minimal/gloas/fast_confirmation/variables/pyspec_tests/slot_head_varia OK
 ```
 ## ForkChoice
 ```diff
@@ -8197,7 +8367,53 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_en OK
 + ForkChoice - minimal/fulu/fork_choice/withholding/pyspec_tests/withholding_attack          OK
 + ForkChoice - minimal/fulu/fork_choice/withholding/pyspec_tests/withholding_attack_unviable OK
-  ForkChoice - minimal/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu Skip
++ ForkChoice - minimal/gloas/fork_choice/deposit_with_reorg/pyspec_tests/new_validator_depos OK
++ ForkChoice - minimal/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
++ ForkChoice - minimal/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
++ ForkChoice - minimal/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/discard_equivocations_slashed OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/filtered_block_tree           OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/genesis                       OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/get_head_empty_payload_tiebre OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/get_head_full_payload_tiebrea OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/voting_source_beyond_two_epoc OK
++ ForkChoice - minimal/gloas/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoc OK
++ ForkChoice - minimal/gloas/fork_choice/get_parent_payload_status/pyspec_tests/get_parent_p OK
++ ForkChoice - minimal/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - minimal/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - minimal/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - minimal/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - minimal/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/justification_update_beginnin OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/justification_update_end_of_e OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/justification_withholding     OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/justification_withholding_rev OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/justified_update_always_if_be OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/justified_update_monotonic    OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/justified_update_not_realized OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifi OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/not_pull_up_current_epoch_blo OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_before_finalized     OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_checkpoints          OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
+  ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_parent_full_accepts_ OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/on_block_parent_full_rejects_ OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/pull_up_on_tick               OK
++ ForkChoice - minimal/gloas/fork_choice/on_block/pyspec_tests/pull_up_past_epoch_block      OK
++ ForkChoice - minimal/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
 + ForkChoice - minimal/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
 + ForkChoice - minimal/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
 + ForkChoice - minimal/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
@@ -8219,6 +8435,22 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
 + ForkChoice - minimal/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
 + ForkChoice - minimal/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - minimal/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - minimal/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - minimal/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - minimal/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
++ ForkChoice - minimal/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
++ ForkChoice - minimal/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/delayed_justification_current_ep OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/delayed_justification_previous_e OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/include_votes_another_empty_chai OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
++ ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_e OK
++ ForkChoice - minimal/gloas/fork_choice/withholding/pyspec_tests/withholding_attack         OK
++ ForkChoice - minimal/gloas/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 ```
 ## Sync
 ```diff

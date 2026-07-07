@@ -238,11 +238,6 @@ proc verifySidecars(
         return err(VerifierError.Invalid)
   ok()
 
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
-  if sidecarsOpt.isSome():
-    for b in sidecarsOpt[]:
-      self.consensusManager.dag.db.putBlobSidecar(b[])
-
 proc storeSidecars(
     self: BlockProcessor,
     sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
@@ -257,9 +252,6 @@ proc storeSidecars(
         else:
           value[0][].signed_block_header.message.slot
       self.onDataColumnsStored(slot)
-
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
-  discard
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
 proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock)
@@ -306,7 +298,7 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    when consensusFork <= ConsensusFork.Fulu:
+    when consensusFork == ConsensusFork.Fulu:
       # Only store side cars after successfully establishing block viability.
       self[].storeSidecars(sidecarsOpt)
 
@@ -314,7 +306,8 @@ proc storeBackfillBlock(
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../el/el_manager import ELManager, DeadlineFuture, newPayload
-from ../consensus_object_pools/attestation_pool import AttestationPool, addForkChoice
+from ../consensus_object_pools/attestation_pool import
+  AttestationPool, addForkChoice, on_execution_payload
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 proc newExecutionPayload*(
@@ -751,7 +744,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
+  when consensusFork == ConsensusFork.Fulu:
     self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
@@ -1017,6 +1010,12 @@ proc storePayload(
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
   let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
+
+  # Notify fork choice so it materializes the block's FULL node.
+  self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
+      dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
+    warn "on_execution_payload failed", error,
+      blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")

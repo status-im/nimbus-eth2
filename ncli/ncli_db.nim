@@ -242,19 +242,19 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     dag = withTimerRet(timers[tInit]):
       ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
-  var
+  let
     (start, ends) = dag.getSlotRange(conf.benchSlot, conf.benchSlots)
     blockRefs = dag.getBlockRange(max(start, Slot 1), ends)
-    blocks: (
-      seq[phase0.TrustedSignedBeaconBlock],
-      seq[altair.TrustedSignedBeaconBlock],
-      seq[bellatrix.TrustedSignedBeaconBlock],
-      seq[capella.TrustedSignedBeaconBlock],
-      seq[deneb.TrustedSignedBeaconBlock],
-      seq[electra.TrustedSignedBeaconBlock],
-      seq[fulu.TrustedSignedBeaconBlock],
-      seq[gloas.TrustedSignedBeaconBlock],
-      seq[heze.TrustedSignedBeaconBlock])
+  var blocks: (
+    seq[phase0.TrustedSignedBeaconBlock],
+    seq[altair.TrustedSignedBeaconBlock],
+    seq[bellatrix.TrustedSignedBeaconBlock],
+    seq[capella.TrustedSignedBeaconBlock],
+    seq[deneb.TrustedSignedBeaconBlock],
+    seq[electra.TrustedSignedBeaconBlock],
+    seq[fulu.TrustedSignedBeaconBlock],
+    seq[gloas.TrustedSignedBeaconBlock],
+    seq[heze.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -296,18 +296,18 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   let stateData = newClone(dag.headState)
 
   var
-    cache = StateCache()
-    info = ForkedEpochInfo()
-    loadedState = (
-      (ref phase0.HashedBeaconState)(),
-      (ref altair.HashedBeaconState)(),
-      (ref bellatrix.HashedBeaconState)(),
-      (ref capella.HashedBeaconState)(),
-      (ref deneb.HashedBeaconState)(),
-      (ref electra.HashedBeaconState)(),
-      (ref fulu.HashedBeaconState)(),
-      (ref gloas.HashedBeaconState)(),
-      (ref heze.HashedBeaconState)())
+    cache: StateCache
+    info: ForkedEpochInfo
+  let loadedState = (
+    (ref phase0.HashedBeaconState)(),
+    (ref altair.HashedBeaconState)(),
+    (ref bellatrix.HashedBeaconState)(),
+    (ref capella.HashedBeaconState)(),
+    (ref deneb.HashedBeaconState)(),
+    (ref electra.HashedBeaconState)(),
+    (ref fulu.HashedBeaconState)(),
+    (ref gloas.HashedBeaconState)(),
+    (ref heze.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -325,7 +325,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
             dag.cfg, stateData[], stateData[].slot + 1, cache,
             info, {}).expect("Slot processing can't fail with correct inputs")
 
-      var start = Moment.now()
+      let start = Moment.now()
       withTimer(timers[tApplyBlock]):
         if conf.resetCache:
           cache = StateCache()
@@ -764,14 +764,12 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   let
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
-
-  var
     (start, ends) = dag.getSlotRange(conf.perfSlot, conf.perfSlots)
     blockRefs = dag.getBlockRange(start, ends)
-    perfs = newSeq[ValidatorPerformance](
-      dag.headState.validators.len())
-    cache = StateCache()
-    info = ForkedEpochInfo()
+  var
+    perfs = newSeq[ValidatorPerformance](dag.headState.validators.len())
+    cache: StateCache
+    info: ForkedEpochInfo
     blck: phase0.TrustedSignedBeaconBlock
 
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -1159,7 +1157,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
       if nextSlot.is_epoch:
         withState(tmpState[]):
-          var stateData = newClone(forkyState.data)
+          let stateData = newClone(forkyState.data)
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
             stateData[], cache, cfg, flags)
 
@@ -1217,7 +1215,7 @@ when isMainModule:
   when defined(posix):
     c_signal(SIGTERM, exitOnSigterm)
 
-  var
+  let
     conf = DbConf.load()
     cfg = getRuntimeConfig(conf.eth2Network)
 

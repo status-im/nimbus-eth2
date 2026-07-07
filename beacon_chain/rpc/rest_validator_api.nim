@@ -964,6 +964,31 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.response(Http200)
 
+  # https://github.com/ethereum/beacon-APIs/blob/31140d7d11fa0bf9aa0017c67c54ab5b1809bede/apis/validator/proposer_preferences.yaml
+  router.api2(MethodPost,
+              "/eth/v1/validator/submit_proposer_preferences") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+    let
+      preferences = decodeBodyJsonOrSsz(seq[SignedProposerPreferences],
+                                        contentBody.get()).valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidProposerPreferencesError)
+      pending = preferences.mapIt(node.router.routeProposerPreferences(it))
+
+    var failures: seq[RestIndexedErrorMessageItem]
+    for index, future in pending:
+      let res = await future
+      if res.isErr():
+        failures.add(RestIndexedErrorMessageItem(
+          index: index, message: $res.error()))
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(
+        Http400, ProposerPreferencesValidationError, failures)
+    else:
+      RestApiResponse.jsonMsgResponse(ProposerPreferencesValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
   router.api2(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:

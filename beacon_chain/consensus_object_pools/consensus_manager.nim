@@ -282,6 +282,19 @@ proc getFeeRecipient*(
 proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
+func pendingBuilderPayment(
+    state: gloas.BeaconState | heze.BeaconState
+): Opt[BuilderPendingWithdrawal] =
+  ## The `BuilderPendingPayment` from `process_execution_payload_bid`
+  template bid: untyped = state.latest_execution_payload_bid
+  if bid.value > 0.Gwei:
+    Opt.some(BuilderPendingWithdrawal(
+      fee_recipient: bid.fee_recipient,
+      amount: bid.value,
+      builder_index: bid.builder_index))
+  else:
+    Opt.none(BuilderPendingWithdrawal)
+
 proc prepareNextSlot*(
     self: ref ConsensusManager, proposalSlot: Slot, deadline: DeadlineFuture
 ) {.async: (raises: [CancelledError]).} =
@@ -332,6 +345,8 @@ proc prepareNextSlot*(
   withState(dag.clearanceState):
     when consensusFork >= ConsensusFork.Electra:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
+      when consensusFork >= ConsensusFork.Gloas:
+        let shouldExtend = dag.shouldExtendPayload(head)
       let
         timestamp = dag.timeParams
           .compute_timestamp_at_slot(forkyState.data, proposalSlot)
@@ -345,7 +360,7 @@ proc prepareNextSlot*(
         beaconHead = self.attestationPool[].getBeaconHead(head)
         executionHead =
           when consensusFork >= ConsensusFork.Gloas:
-            if dag.shouldExtendPayload(head):
+            if shouldExtend:
               proposalExecutionHead(forkyState.data)
             else:
               dag.loadExecutionAndParentBlockHash(head).parentHash.valueOr:
@@ -358,6 +373,19 @@ proc prepareNextSlot*(
         return
 
       let
+        withdrawals =
+          when consensusFork >= ConsensusFork.Gloas:
+            if shouldExtend:
+              get_expected_withdrawals(
+                forkyState.data, pendingBuilderPayment(forkyState.data)
+              ).withdrawals
+            else:
+              # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/validator.md#executionpayload
+              # if should_build_on_full(store, head): ...
+              # else: withdrawals = state.payload_expected_withdrawals
+              forkyState.data.payload_expected_withdrawals.asSeq
+          else:
+            get_expected_withdrawals(forkyState.data)
         state = ForkchoiceStateV1.init(
           executionHead, beaconHead.safeExecutionBlockHash,
           beaconHead.finalizedExecutionBlockHash,
@@ -365,14 +393,12 @@ proc prepareNextSlot*(
         attributes =
           when consensusFork >= ConsensusFork.Gloas:
             PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
-              get_expected_withdrawals(forkyState.data).withdrawals,
-              beaconHead.blck.bid.root, proposalSlot,
+              withdrawals, beaconHead.blck.bid.root, proposalSlot,
               self[].getGasLimit(nextProposer))
           else:
             # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
             PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
-              get_expected_withdrawals(forkyState.data),
-              beaconHead.blck.bid.root)
+              withdrawals, beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
           state, Opt.some(attributes), deadline, false
@@ -393,7 +419,7 @@ proc prepareNextSlot*(
                 timestamp: timestamp,
                 prev_randao: prevRandao,
                 suggested_fee_recipient: feeRecipient,
-                withdrawals: get_expected_withdrawals(forkyState.data).withdrawals,
+                withdrawals: withdrawals,
                 parent_beacon_block_root: beaconHead.blck.bid.root,
                 slot_number: uint64(proposalSlot),
                 target_gas_limit: self[].getGasLimit(nextProposer)))))

@@ -1161,7 +1161,7 @@ template withContext*(dbParam: SlashingProtectionDB_v2, body: untyped): untyped 
   var
     commit = false
     res: Result[typeof(body), string]
-    beginRes = db.backend.exec("BEGIN TRANSACTION;")
+  let beginRes = db.backend.exec("BEGIN TRANSACTION;")
   if beginRes.isErr(): # always lovely handling errors in templates
     res.err(beginRes.error())
   else:
