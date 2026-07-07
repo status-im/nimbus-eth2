@@ -755,8 +755,6 @@ proc updateQueues(
 
   block:
     logScope:
-      forward_blocks_queue = shortLog(overseer.fqueue)
-      forward_sidecars_queue = shortLog(overseer.fsqueue)
       forward_block_buffer = shortLog(overseer.fblockBuffer)
 
     let
@@ -765,57 +763,65 @@ proc updateQueues(
       old_forward_blocks_queue = shortLog(overseer.fqueue)
       old_forward_sidecars_queue = shortLog(overseer.fsqueue)
 
-    if overseer.fqueue.running() or overseer.fsqueue.running():
-      # Forward syncing is in progress.
+    # Blocks queue
+    if overseer.fqueue.running():
       overseer.fqueue.updateLastSlot(lastSlot)
-      overseer.fsqueue.updateLastSlot(lastSlot)
-
-      debug "Forward queues has been expanded", last_slot = lastSlot,
-        old_forward_blocks_queue = old_forward_blocks_queue,
-        old_forward_sidecars_queue = old_forward_sidecars_queue
-    else:
-      # Forward sync is not active, but we keep it up-to date.
-      let
-        localHead = dag.finalizedHead.slot
-        startBlocksSlot = localHead
-        startSidecarsSlot = overseer.getForwardSidecarStartSlot()
-
-      overseer.fqueue.reset(startBlocksSlot, lastSlot)
-      overseer.fsqueue.reset(startSidecarsSlot, lastSlot)
-      overseer.fblockBuffer.reset()
-
-      debug "Forward queues has been reset",
-        start_blocks_slot = startBlocksSlot,
-        start_sidecars_slot = startSidecarsSlot,
+      debug "Forward blocks queue has been expanded",
         last_slot = lastSlot,
         old_forward_blocks_queue = old_forward_blocks_queue,
-        old_forward_sidecars_queue = old_forward_sidecars_queue
+        new_forward_blocks_queue = shortLog(overseer.fqueue)
+    else:
+      overseer.fqueue.reset(dag.finalizedHead.slot, lastSlot)
+      # Reset forward block buffer too.
+      overseer.fblockBuffer.reset()
+      debug "Forward blocks queue has been reset",
+        start_slot = dag.finalizedHead.slot, last_slot = lastSlot,
+        old_forward_blocks_queue = old_forward_blocks_queue,
+        new_forward_blocks_queue = shortLog(overseer.fqueue)
+
+    # Sidecars queue
+    if overseer.fsqueue.running():
+      overseer.fsqueue.updateLastSlot(lastSlot)
+      debug "Forward sidecars queue has been expanded",
+        last_slot = lastSlot,
+        old_forward_sidecars_queue = old_forward_sidecars_queue,
+        new_forward_sidecars_queue = shortLog(overseer.fsqueue)
+    else:
+      let startSlot = overseer.getForwardSidecarStartSlot()
+      overseer.fsqueue.reset(startSlot, lastSlot)
+      debug "Forward sidecars queue has been reset",
+        start_slot = startSlot, last_slot = lastSlot,
+        old_forward_sidecars_queue = old_forward_sidecars_queue,
+        new_forward_sidecars_queue = shortLog(overseer.fsqueue)
 
   block:
     logScope:
-      backward_blocks_queue = shortLog(overseer.bqueue)
-      backward_sidecars_queue = shortLog(overseer.bsqueue)
       backward_block_buffer = shortLog(overseer.bblockBuffer)
 
     if not(isNil(overseer.bqueue)):
-      if not(overseer.bqueue.running()) and not(overseer.bsqueue.running()):
+      if not(overseer.bqueue.running()):
         let
           startSlot = overseer.getLastAddedBackfillSlot()
-          lastBlocksSlot = overseer.getFrontfillSlot()
-          lastSidecarsSlot = overseer.getBackfillSidecarFinalSlot()
+          lastSlot = overseer.getFrontfillSlot()
           old_backward_blocks_queue = shortLog(overseer.bqueue)
-          old_backward_sidecars_queue = shortLog(overseer.bsqueue)
-
-        overseer.bqueue.reset(startSlot, lastBlocksSlot)
-        overseer.bsqueue.reset(startSlot, lastSidecarsSlot)
+        overseer.bqueue.reset(startSlot, lastSlot)
+        # Reset backward block buffer too.
         overseer.bblockBuffer.reset()
-
-        debug "Backfill queues has been reset",
-          start_slot = startSlot,
-          last_blocks_slot = lastBlocksSlot,
-          last_sidecars_slot = lastSidecarsSlot,
+        debug "Backfill block queue has been reset",
+          start_slot = startSlot, last_slot = lastSlot,
           old_backward_blocks_queue = old_backward_blocks_queue,
-          old_backward_sidecars_queue = old_backward_sidecars_queue
+          new_backward_blocks_queue = shortLog(overseer.bqueue)
+
+      if not(overseer.bsqueue.running()):
+        let
+          startSlot = overseer.getLastAddedBackfillSlot()
+          lastSlot = overseer.getBackfillSidecarFinalSlot()
+          old_backward_sidecars_queue = shortLog(overseer.bsqueue)
+        overseer.bsqueue.reset(startSlot, lastSlot)
+        debug "Backfill sidecars queue has been reset",
+          start_slot = startSlot, last_slot = lastSlot,
+          old_backward_sidecars_queue = old_backward_sidecars_queue,
+          new_backward_sidecars_queue = shortLog(overseer.bsqueue)
 
 proc initPeer(
     overseer: SyncOverseerRef2,
