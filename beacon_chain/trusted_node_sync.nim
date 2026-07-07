@@ -262,7 +262,7 @@ proc fetchCheckpointState*(
   syncTarget: TrustedNodeSyncTarget,
   genesisState: ref ForkedHashedBeaconState,
 ): Future[ref ForkedHashedBeaconState] {.async: (raises: [CancelledError]).} =
-  var
+  let
     client = createNewRestClient(restUrl).valueOr:
       error "Cannot connect to server", url = restUrl, reason = error
       quit 1
