@@ -933,6 +933,8 @@ AllTests-mainnet
 ## ListKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
++ Different Authorization Header spelling [Beacon Node] [Preset: mainnet]                    OK
++ Empty Authorization Token [Beacon Node] [Preset: mainnet]                                  OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK

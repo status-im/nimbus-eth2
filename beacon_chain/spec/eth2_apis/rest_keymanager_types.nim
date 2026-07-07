@@ -97,6 +97,7 @@ type
 
   AuthorizationError* = enum
     noAuthorizationHeader = "Missing Authorization Header"
+    invalidAuthorizationHeader = "Malformed Authorization Header"
     missingBearerScheme = "Bearer Authentication is not included in request"
     incorrectToken = "Authentication token is incorrect"
 
