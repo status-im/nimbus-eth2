@@ -47,6 +47,35 @@ proc getHeader*(
     restAcceptType = "application/octet-stream,application/json;q=0.5",
   )
 
+proc getExecutionPayloadBidPlain*(
+    slot: Slot,
+    parent_hash: Eth2Digest,
+    parent_root: Eth2Digest,
+    proposer_pubkey: ValidatorPubKey
+): RestPlainResponse {.
+  rest, endpoint:
+    "/eth/v1/builder/execution_payload_bid/{slot}/{parent_hash}/{parent_root}/{proposer_pubkey}",
+  meth: MethodPost, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/execution_payload_bid.yaml
+
+proc getExecutionPayloadBid*(
+    client: RestClientRef,
+    slot: Slot,
+    parent_hash: Eth2Digest,
+    parent_root: Eth2Digest,
+    proposer_pubkey: ValidatorPubKey
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  debugGloasComment""
+  # The `SignedRequestAuthV1` request body is optional to send; a builder MAY
+  # still refuse unauthenticated requests (401). We send none for now. Request
+  # the SSZ (octet-stream) encoding of the bare `SignedExecutionPayloadBid`.
+  client.getExecutionPayloadBidPlain(
+    slot, parent_hash, parent_root, proposer_pubkey,
+    restAcceptType = "application/octet-stream",
+  )
+
 proc submitBlindedBlockV2Plain*(
     body: fulu_mev.SignedBlindedBeaconBlock
 ): RestPlainResponse {.
