@@ -462,6 +462,39 @@ proc getSignedBuilderBid(
     )
   ok res.data
 
+# https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/execution_payload_bid.yaml
+proc getExecutionPayloadBidFromBuilder*(
+    payloadBuilderClient: RestClientRef,
+    slot: Slot,
+    parent_hash: Eth2Digest,
+    parent_root: Eth2Digest,
+    proposer_pubkey: ValidatorPubKey,
+): Future[Result[gloas.SignedExecutionPayloadBid, string]] {.
+    async: (raises: [CancelledError]).} =
+  info "Requesting execution payload bid",
+    slot, parent_hash = shortLog(parent_hash), pubkey = shortLog(proposer_pubkey)
+
+  let response =
+    try:
+      await payloadBuilderClient.getExecutionPayloadBid(
+        slot, parent_hash, parent_root, proposer_pubkey)
+    except RestDecodingError as exc:
+      return err("getExecutionPayloadBid REST decoding error: " & exc.msg)
+    except RestError as exc:
+      return err("getExecutionPayloadBid REST error: " & exc.msg)
+
+  if response.status == 204:
+    return err("builder has no execution payload bid available")
+  if response.status != 200:
+    return err("getExecutionPayloadBid: HTTP error " & $response.status)
+
+  let bid =
+    try:
+      SSZ.decode(response.data, gloas.SignedExecutionPayloadBid)
+    except CatchableError as exc:
+      return err("getExecutionPayloadBid SSZ decode error: " & exc.msg)
+  ok(bid)
+
 proc getBuilderBid(
     node: BeaconNode,
     consensusFork: static ConsensusFork,

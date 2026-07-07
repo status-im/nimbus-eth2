@@ -69,8 +69,7 @@ proc getExecutionPayloadBid*(
                    RestCommunicationError], raw: true).} =
   debugGloasComment""
   # The `SignedRequestAuthV1` request body is optional to send; a builder MAY
-  # still refuse unauthenticated requests (401). We send none for now. Request
-  # the SSZ (octet-stream) encoding of the bare `SignedExecutionPayloadBid`.
+  # still refuse unauthenticated requests (401). None sentt for now.
   client.getExecutionPayloadBidPlain(
     slot, parent_hash, parent_root, proposer_pubkey,
     restAcceptType = "application/octet-stream",
