@@ -8,7 +8,11 @@
 {.push raises: [], gcsafe.}
 
 import
+<<<<<<< HEAD
   std/[sequtils, tables],
+=======
+  std/[sets, tables],
+>>>>>>> 48a392df9 (reviews)
   chronicles,
   ../spec/[eth2_ssz_serialization, inclusion_list],
   ../beacon_clock
@@ -16,13 +20,20 @@ import
 logScope: topics = "ilpool"
 
 const
-  # An inclusion list is only relevant for its own slot; keep a small margin
-  # before pruning, matching `PayloadAttestationPool`.
+  # A payload at slot N is constrained by the inclusion lists of slot N-1: the
+  # fork-choice `record_payload_inclusion_list_satisfaction` reads
+  # `get_inclusion_list_transactions(store, state, Slot(state.slot - 1))`. So an
+  # inclusion list for slot S is consumed when processing a block/payload at
+  # slot S+1, and - since the ePBS payload is revealed late in the slot and a
+  # node may lag - as late as wall slot S+2. Pruning drops slot S once
+  # `S + IL_RETAIN_SLOTS < current_slot`, so 2 retains S through S+2, the last
+  # slot it can still be needed. (`InclusionListByCommitteeIndices` serving adds
+  # no tighter bound: the spec sets no request slot-range.)
   IL_RETAIN_SLOTS = 2
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/p2p-interface.md
-  # Gossip accepts at most the first two valid inclusion lists from a given
-  # validator (so a single equivocation can still be propagated).
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/p2p-interface.md#new-inclusion_list
+  # [IGNORE] The `message` is either the first or second valid message
+  # received from the validator with index `message.validator_index`.
   MAX_INCLUSION_LISTS_PER_VALIDATOR = 2
 
   emptySeenRoots = default(seq[Eth2Digest])
@@ -45,10 +56,12 @@ func init*(T: type InclusionListPool, timeParams: TimeParams): T =
 func pruneOldEntries(pool: var InclusionListPool, wallTime: BeaconTime) =
   let current_slot = wallTime.slotOrZero(pool.timeParams)
 
-  # keep only recent slots - an inclusion list is only valid for its own slot
-  for slot in toSeq(pool.stores.keys):
+  # collect only the stale slots (a table can't be mutated while iterating),
+  # rather than copying every key
+  var slotsToRemove: seq[Slot]
+  for slot in pool.stores.keys:
     if slot + IL_RETAIN_SLOTS < current_slot:
-      pool.stores.del(slot)
+      slotsToRemove.add slot
 
   for key in toSeq(pool.seen.keys):
     if key[0] + IL_RETAIN_SLOTS < current_slot:
