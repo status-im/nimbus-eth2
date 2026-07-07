@@ -960,5 +960,7 @@ proc processProposerPreferences*(
     debug "Dropping proposer preferences", reason = $v.error
     return err(v.error())
 
-  trace "Proposer preferences validated"
+  debug "Proposer preferences validated",
+    proposalSlot = signed_preferences.message.proposal_slot,
+    dependentRoot = shortLog(signed_preferences.message.dependent_root)
   ok()
