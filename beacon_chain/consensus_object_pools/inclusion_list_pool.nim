@@ -8,11 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-<<<<<<< HEAD
-  std/[sequtils, tables],
-=======
   std/[sets, tables],
->>>>>>> 48a392df9 (reviews)
   chronicles,
   ../spec/[eth2_ssz_serialization, inclusion_list],
   ../beacon_clock
