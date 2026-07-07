@@ -81,7 +81,7 @@ jobs:
       - name: Restore llvm-mingw (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-mingw-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: external/mingw-${{ matrix.target.cpu }}
           key: 'mingw-llvm-17-${{ matrix.target.cpu }}'
@@ -174,7 +174,7 @@ jobs:
       - name: Restore prebuilt Nim from cache
         if: matrix.branch == null
         id: nim-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: NimBinCache
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
