@@ -473,6 +473,9 @@ proc createQueues(
   func getFirstSlotAtFinalizedEpoch(): Slot =
     dag.finalizedHead.slot
 
+  func getFirstSidecarsSlot(): Slot =
+    overseer.getForwardSidecarStartSlot()
+
   func getLastAddedBackfillSlot(): Slot =
     overseer.getLastAddedBackfillSlot()
 
@@ -716,7 +719,7 @@ proc createQueues(
       ConcurrentRequestsCount,
       RepeatingFailuresCount,
       maxSidecars(1'u64), # 3 * SLOTS_PER_EPOCH distance
-      getFirstSlotAtFinalizedEpoch,
+      getFirstSidecarsSlot,
       sidecarsVerifier, forkAtEpoch,
       localMap, peerMap, missingMap, "fsidecar")
   overseer.bqueue =
