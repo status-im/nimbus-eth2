@@ -857,10 +857,9 @@ type
           name: "debug-quic" .}: bool
 
         quicPortExt* {.
-          hidden
           desc: "External QUIC port"
           defaultValue: defaultEth2QuicPort
-          name: "debug-quic-port" .}: Port
+          name: "quic-port" .}: Port
 
         seqNumber* {.
           desc: "Record sequence number"
