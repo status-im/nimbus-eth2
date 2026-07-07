@@ -1583,13 +1583,6 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
   mixin getKey
   var res: seq[string]
 
-  func peerLog(pid: string): string =
-    var spid = pid
-    if len(spid) > 10:
-      spid[3] = '*'
-    spid.delete(4 .. spid.high - 6)
-    spid
-
   let moment = Moment.now()
 
   for item in sq.requests:
@@ -1612,6 +1605,12 @@ proc debugJsonDump*[M, N](sq: SyncQueue[M, N]): string =
             "\"done\":" & $item.completeness.done &
           "}"
         elif N is ColumnCompleteness:
+          func peerLog(pid: string): string =
+            var spid = pid
+            if len(spid) > 10:
+              spid[3] = '*'
+            spid.delete(4 .. spid.high - 6)
+            spid
           let
             localMap = sq.cbGetLocalColumnMap()
             missingMap = item.completeness.missingMap

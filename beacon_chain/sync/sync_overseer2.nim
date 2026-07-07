@@ -473,7 +473,7 @@ proc createQueues(
   func getFirstSlotAtFinalizedEpoch(): Slot =
     dag.finalizedHead.slot
 
-  func getFirstSidecarsSlot(): Slot =
+  proc getFirstSidecarsSlot(): Slot =
     overseer.getForwardSidecarStartSlot()
 
   func getLastAddedBackfillSlot(): Slot =
@@ -2005,7 +2005,6 @@ proc doRootEnvelopeSyncStep(
     peerEntry = overseer.sdag.getPeerEntry(peer.getKey).valueOr:
       return false
     peerHead = peer.getHeadBlockId()
-    peerMap = peer.getColumnMapOrDefault()
     headEntry = overseer.sdag.getRootEntry(peerHead.root).valueOr:
       return false
     bids = headEntry.getMissingEnvelopeRoots()
