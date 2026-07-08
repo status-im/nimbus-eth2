@@ -192,8 +192,6 @@ suite baseDescription & "Deposit Request " & preset():
 from ../../../beacon_chain/spec/datatypes/gloas import
   BuilderDepositRequest, BuilderExitRequest, PayloadAttestation,
   SignedExecutionPayloadEnvelope
-from ../../../beacon_chain/spec/datatypes/heze import
-  SignedExecutionPayloadBid
 
 suite baseDescription & "Builder Deposit Request " & preset():
   func applyBuilderDepositRequest(
