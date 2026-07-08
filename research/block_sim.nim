@@ -294,8 +294,26 @@ cli do(
 
       epb =
         when consensusFork >= ConsensusFork.Heze:
-          debugHezeComment "Heze has different SignedExecutionPayloadBid"
-          default(heze.SignedExecutionPayloadBid)
+          debugHezeComment "Heze inclusion_list_bits"
+          let bid =
+            heze.ExecutionPayloadBid(
+              parent_block_hash: state.data.latest_block_hash,
+              parent_block_root: hash_tree_root(state.data.latest_block_header),
+              block_hash: ZERO_HASH,
+              prev_randao:
+                get_randao_mix(state.data, get_current_epoch(state.data)),
+              fee_recipient: static(default(ExecutionAddress)),
+              gas_limit: 30000000'u64,
+              builder_index: BUILDER_INDEX_SELF_BUILD,
+              slot: slot,
+              value: 0.Gwei,
+              execution_payment: 0.Gwei,
+              blob_kzg_commitments: default(gloas.KzgCommitments),
+              execution_requests_root:
+                hash_tree_root(default(gloas.ExecutionRequests)),
+              inclusion_list_bits: default(InclusionListBits))
+          heze.SignedExecutionPayloadBid(
+            message: bid, signature: ValidatorSig.infinity())
         elif consensusFork >= ConsensusFork.Gloas:
           let bid =
             gloas.ExecutionPayloadBid(
