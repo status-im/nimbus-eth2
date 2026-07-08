@@ -118,7 +118,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
   server.rpc("engine_forkchoiceUpdatedV3", EthJson) do(
     fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV3]
-  ) -> ForkchoiceUpdatedResponse:
+  ) -> ForkchoiceUpdatedResponseV1:
     inc state.forkchoiceCallCount
     if state.responseDelay > 0.milliseconds:
       await sleepAsync(state.responseDelay)
@@ -128,7 +128,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
         code: -32603, msg: "Internal error: forkchoiceUpdatedV3 failed"
       )
 
-    ForkchoiceUpdatedResponse(
+    ForkchoiceUpdatedResponseV1(
       payloadStatus: PayloadStatusV1(
         status: PayloadExecutionStatus.valid,
         latestValidHash: Opt.some(fcState.headBlockHash),
@@ -142,7 +142,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
   server.rpc("engine_forkchoiceUpdatedV4", EthJson) do(
     fcState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV4]
-  ) -> ForkchoiceUpdatedResponse:
+  ) -> ForkchoiceUpdatedResponseV1:
     inc state.forkchoiceV4CallCount
     if state.responseDelay > 0.milliseconds:
       await sleepAsync(state.responseDelay)
@@ -152,7 +152,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
         code: -32603, msg: "Internal error: forkchoiceUpdatedV4 failed"
       )
 
-    ForkchoiceUpdatedResponse(
+    ForkchoiceUpdatedResponseV1(
       payloadStatus: PayloadStatusV1(
         status: PayloadExecutionStatus.valid,
         latestValidHash: Opt.some(fcState.headBlockHash),
