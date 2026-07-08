@@ -314,8 +314,20 @@ proc addTestEngineBlock*(
 
     signed_execution_payload_bid =
       when consensusFork >= ConsensusFork.Heze:
-        debugHezeComment "Heze has different SignedExecutionPayloadBid"
-        default(heze.SignedExecutionPayloadBid)
+        debugHezeComment "Heze inclusion_list_bits"
+        heze.SignedExecutionPayloadBid(
+          message: heze.ExecutionPayloadBid(
+            builder_index: BUILDER_INDEX_SELF_BUILD,
+            slot: state.data.slot,
+            block_hash: eps.executionPayload.block_hash,
+            parent_block_hash: eps.executionPayload.parent_hash,
+            parent_block_root: state.latest_block_root,
+            prev_randao: get_randao_mix(state.data, get_current_epoch(state.data)),
+            gas_limit: eps.executionPayload.gas_limit,
+            execution_requests_root: hash_tree_root(execution_requests),
+            value: 0.Gwei,
+            inclusion_list_bits: default(InclusionListBits)),
+          signature: ValidatorSig.infinity())
       elif consensusFork >= ConsensusFork.Gloas:
         gloas.SignedExecutionPayloadBid(
           message: gloas.ExecutionPayloadBid(
@@ -814,15 +826,15 @@ proc makeSyncAggregate(
   syncCommitteePool[].produceSyncAggregate(latest_block_id, slot + 1)
 
 iterator makeTestBlocks*(
-  state: ForkedHashedBeaconState,
-  cache: var StateCache,
-  blocks: int,
-  eth1_data = Eth1Data(),
-  attested = false,
-  allDeposits = newSeq[Deposit](),
-  syncCommitteeRatio = 0.0,
-  graffiti = default(GraffitiBytes),
-  cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
+    state: ForkedHashedBeaconState,
+    cache: var StateCache,
+    blocks: int,
+    eth1_data = Eth1Data(),
+    attested = false,
+    allDeposits = newSeq[Deposit](),
+    syncCommitteeRatio = 0.0,
+    graffiti = default(GraffitiBytes),
+    cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   let state = assignClone(state)
   for _ in 0..<blocks:
     let
