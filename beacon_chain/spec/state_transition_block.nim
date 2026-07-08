@@ -1134,6 +1134,10 @@ func process_builder_deposit_request*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
     request: gloas.BuilderDepositRequest) =
+  # Ignore deposits with unexpected withdrawal credential prefixes
+  if not is_builder_withdrawal_credential(request.withdrawal_credentials):
+    return
+
   ## Builder indices are reusable: a deposit for a new pubkey registers a
   ## builder; a deposit for an existing builder's pubkey tops up its balance.
   let builder_index = findValidatorIndex(
@@ -1145,7 +1149,7 @@ func process_builder_deposit_request*(
         request.withdrawal_credentials, request.amount, request.signature):
       add_builder_to_registry(
         state, bucket_sorted_builders, request.pubkey,
-        uint8(request.withdrawal_credentials.data[0]),
+        PAYLOAD_BUILDER_VERSION,
         builder_execution_address(request.withdrawal_credentials),
         request.amount, state.slot)
     return
