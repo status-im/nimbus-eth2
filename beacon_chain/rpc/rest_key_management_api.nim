@@ -11,7 +11,7 @@
 # please keep imports clear of `rest_utils` or any other module which imports
 # beacon node's specific networking code.
 
-import std/[strutils, tables]
+import std/tables
 import chronos, chronicles, confutils,
        results, stew/[base10, io2], blscurve, presto,
        nimcrypto/utils
@@ -86,9 +86,10 @@ func checkAuthorization*(
   let authorizations = request.headers.getList("authorization")
   if authorizations.len > 0:
     for authHeader in authorizations:
-      let parts = authHeader.split(' ', maxsplit = 1)
-      if parts.len == 2 and parts[0] == "Bearer":
-        if equalMemFull(parts[1], host.keymanagerToken):
+      let auth = getAuthorization(authHeader).valueOr:
+        return err invalidAuthorizationHeader
+      if auth.scheme == "bearer":
+        if equalMemFull(auth.credentials, host.keymanagerToken):
           return ok()
         else:
           return err incorrectToken
@@ -98,7 +99,7 @@ func checkAuthorization*(
 
 proc authErrorResponse(error: AuthorizationError): RestApiResponse =
   let status = case error:
-    of missingBearerScheme, noAuthorizationHeader:
+    of missingBearerScheme, invalidAuthorizationHeader, noAuthorizationHeader:
       Http401
     of incorrectToken:
       Http403
