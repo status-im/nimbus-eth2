@@ -969,6 +969,9 @@ proc selectOptimisticHead*(
     warn "Fork choice selected unknown head, trying to sync", newHeadRoot
     return Opt.none(BeaconHead)
 
+  debug "Fork choice selected head",
+    head = shortLog(headBlock), payloadFull = newHead.full
+
   ? pool.willSelectNewHead(headBlock, wallTime)
   ok pool.getBeaconHead(headBlock)
 
