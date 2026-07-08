@@ -2369,6 +2369,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnHeader                                                       OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
@@ -2620,6 +2621,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 ```
 ## EF - Gloas - Operations - Builder Exit Request  [Preset: mainnet]
 ```diff
@@ -2690,13 +2693,12 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_builder_de OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_builder_ex OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_consolidat OK
-+ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_deposit_re OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_withdrawal OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - deposit_requests_greater_th OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_deposit_request OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_exit_requests   OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_consolidation_requests  OK
-+ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_deposit_requests        OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_withdrawal_requests     OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -3060,6 +3062,7 @@ ConsensusSpecPreset-mainnet
 ```diff
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: mainnet]   OK
 + EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
+  EF - Heze - Fork - fork_base_state [Preset: mainnet]                                       Skip
 ```
 ## EF - Heze - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -3206,6 +3209,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 ```
 ## EF - Heze - Operations - Builder Exit Request  [Preset: mainnet]
 ```diff
@@ -3270,19 +3275,19 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_s OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
++ [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
 ```
 ## EF - Heze - Operations - Parent Execution Payload  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_builder_dep OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_builder_exi OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_consolidati OK
-+ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_deposit_req OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_withdrawal_ OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - deposit_requests_greater_tha OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_deposit_requests OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_exit_requests    OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_consolidation_requests   OK
-+ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_deposit_requests         OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_withdrawal_requests      OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
