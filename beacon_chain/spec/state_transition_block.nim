@@ -1154,12 +1154,15 @@ func process_builder_deposit_request*(
         request.amount, state.slot)
     return
 
-  # Increase balance by deposit amount
-  state.builders.mitem(builder_index).balance += request.amount
-  # If exited, reset the withdrawable epoch
-  if state.builders.item(builder_index).withdrawable_epoch != FAR_FUTURE_EPOCH:
+  # If exited and swept, reset the withdrawable epoch
+  let builder = state.builders.item(builder_index)
+  if builder.withdrawable_epoch != FAR_FUTURE_EPOCH and
+      builder.balance == 0.Gwei:
     state.builders.mitem(builder_index).withdrawable_epoch =
       get_current_epoch(state) + cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY
+
+  # Increase balance by deposit amount
+  state.builders.mitem(builder_index).balance += request.amount
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_builder_exit_request
 func process_builder_exit_request*(
