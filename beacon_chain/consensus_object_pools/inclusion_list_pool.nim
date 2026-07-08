@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[sets, tables],
+  std/tables,
   chronicles,
   ../spec/[eth2_ssz_serialization, inclusion_list],
   ../beacon_clock
@@ -52,16 +52,21 @@ func init*(T: type InclusionListPool, timeParams: TimeParams): T =
 func pruneOldEntries(pool: var InclusionListPool, wallTime: BeaconTime) =
   let current_slot = wallTime.slotOrZero(pool.timeParams)
 
-  # collect only the stale slots (a table can't be mutated while iterating),
+  # collect only the stale keys (a table can't be mutated while iterating),
   # rather than copying every key
   var slotsToRemove: seq[Slot]
   for slot in pool.stores.keys:
     if slot + IL_RETAIN_SLOTS < current_slot:
       slotsToRemove.add slot
+  for slot in slotsToRemove:
+    pool.stores.del(slot)
 
-  for key in toSeq(pool.seen.keys):
+  var seenToRemove: seq[(Slot, uint64)]
+  for key in pool.seen.keys:
     if key[0] + IL_RETAIN_SLOTS < current_slot:
-      pool.seen.del(key)
+      seenToRemove.add key
+  for key in seenToRemove:
+    pool.seen.del(key)
 
 func numSeen*(
     pool: InclusionListPool, slot: Slot, validator_index: uint64): int =
