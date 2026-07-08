@@ -51,6 +51,10 @@ declareCounter beacon_contributions_dropped_queue_full,
 type
   ValidationError* = (ValidationResult, cstring)
 
+  SeenProposerPreferences* =
+    array[MIN_SEED_LOOKAHEAD + 2,
+      array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
+
 template errIgnore*(msg: cstring): untyped =
   err((ValidationResult.Ignore, msg))
 template errReject*(msg: cstring): untyped =
@@ -1855,8 +1859,7 @@ proc validateLightClientOptimisticUpdate*(
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
-    seenProposerPreferences:
-      var array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]],
+    seenProposerPreferences: var SeenProposerPreferences,
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[PayloadAvailability, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
@@ -1920,7 +1923,7 @@ proc validateExecutionPayloadBid*(
 
       let bidDependentRoot = dag.get_dependent_root(parentBlck.bid, bid.slot)
       let
-        seenBucket = uint64(bid.slot.epoch()) mod 2
+        seenBucket = uint64(bid.slot.epoch()) mod (MIN_SEED_LOOKAHEAD + 2)
         seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
       var seenPref: ProposerPreferences
       seenProposerPreferences[seenBucket][seenKey].withValue(
@@ -2079,7 +2082,7 @@ proc validatePayloadAttestationMessage*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
-    seen: var array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]],
+    seen: var SeenProposerPreferences,
     signed_preferences: SignedProposerPreferences,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template preferences: untyped = signed_preferences.message
@@ -2126,7 +2129,7 @@ proc validateProposerPreferences*(
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,
   # preferences.validator_index).
   let
-    bucket = proposalEpoch.uint64 mod 2
+    bucket = proposalEpoch.uint64 mod (MIN_SEED_LOOKAHEAD + 2)
     slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
   if preferences.dependent_root in seen[bucket][slotInEpoch]:
     return errIgnore("ProposerPreferences: already seen")
