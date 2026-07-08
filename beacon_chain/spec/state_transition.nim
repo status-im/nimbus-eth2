@@ -354,7 +354,7 @@ proc makeBeaconBlockWithRewards*(
     verificationFlags: UpdateFlags,
     kzg_commitments: consensusFork.KzgCommitments,
     execution_requests: consensusFork.ExecutionRequests,
-    signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
+    signed_execution_payload_bid: consensusFork.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
     parent_execution_requests: consensusFork.ExecutionRequests =
       default(consensusFork.ExecutionRequests)
@@ -475,7 +475,7 @@ proc makeBeaconBlock*[EP: ForkyExecutionPayload | ForkyExecutionPayloadHeader](
     verificationFlags: UpdateFlags,
     kzg_commitments: consensusFork.KzgCommitments,
     execution_requests: consensusFork.ExecutionRequests,
-    signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
+    signed_execution_payload_bid: consensusFork.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
     parent_execution_requests: consensusFork.ExecutionRequests =
       default(consensusFork.ExecutionRequests)
@@ -509,7 +509,7 @@ proc makeBeaconBlock*(
     verificationFlags: UpdateFlags,
     execution_requests: consensusFork.ExecutionRequests =
       default(consensusFork.ExecutionRequests),
-    signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
+    signed_execution_payload_bid: consensusFork.SignedExecutionPayloadBid,
     payload_attestations: seq[PayloadAttestation],
     parent_execution_requests: consensusFork.ExecutionRequests =
       default(consensusFork.ExecutionRequests)

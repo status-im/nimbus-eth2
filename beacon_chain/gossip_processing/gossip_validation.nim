@@ -2042,6 +2042,14 @@ proc validateExecutionPayloadBid*(
       let builderPubkey =
         forkyState.data.builders.item(bid.builder_index).pubkey
 
+      debugHezeComment """
+- _[IGNORE]_ `bid.inclusion_list_bits` is inclusive of the node's view of
+inclusion lists for the slot preceding the bid's slot -- i.e.
+`is_inclusion_list_bits_inclusive(get_inclusion_list_store(), state, Slot(bid.slot - 1), bid.inclusion_list_bits, only_timely=False)`
+returns `True`, where `state` is the head state corresponding to processing
+the block up to the current slot as determined by the fork choice.
+"""
+
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
           dag.genesis_validators_root,

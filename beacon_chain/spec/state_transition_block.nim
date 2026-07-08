@@ -1298,7 +1298,15 @@ proc can_process_execution_payload_bid_impl[S, B](
 
 template can_process_execution_payload_bid*(
     cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
-    signed_bid: SignedExecutionPayloadBid,
+    signed_bid: gloas.SignedExecutionPayloadBid,
+    proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
+  debugGloasComment "proposal_slot only for spec tests of unreachable combos"
+  cfg.can_process_execution_payload_bid_impl(
+    state, signed_bid, proposal_slot, flags)
+
+template can_process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: heze.BeaconState,
+    signed_bid: heze.SignedExecutionPayloadBid,
     proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
   debugGloasComment "proposal_slot only for spec tests of unreachable combos"
   cfg.can_process_execution_payload_bid_impl(
@@ -1309,9 +1317,8 @@ type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
-proc process_execution_payload_bid*(
-    cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
-    signed_bid: SignedExecutionPayloadBid,
+proc process_execution_payload_bid_impl[S, B](
+    cfg: RuntimeConfig, state: var S, signed_bid: B,
     cache: var StateCache): Result[void, cstring] =
   template bid: untyped = signed_bid.message
   let
@@ -1340,6 +1347,18 @@ proc process_execution_payload_bid*(
   state.latest_execution_payload_bid = bid
 
   ok()
+
+proc process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    signed_bid: gloas.SignedExecutionPayloadBid,
+    cache: var StateCache): Result[void, cstring] =
+  cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
+
+proc process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: var heze.BeaconState,
+    signed_bid: heze.SignedExecutionPayloadBid,
+    cache: var StateCache): Result[void, cstring] =
+  cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
 
 # copy of datatypes/heze.nim
 type SomeHezeBeaconBlock =

@@ -150,7 +150,8 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
             checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
-          of "ExecutionPayloadBid": checkSSZ(ExecutionPayloadBid, path, hash)
+          of "ExecutionPayloadBid":
+            checkSSZ(gloas.ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
             checkSSZ(gloas.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
@@ -200,7 +201,7 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "SignedExecutionPayloadEnvelope":
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
-            checkSSZ(SignedExecutionPayloadBid, path, hash)
+            checkSSZ(gloas.SignedExecutionPayloadBid, path, hash)
           of "SignedProposerPreferences":
             checkSSZ(SignedProposerPreferences, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)

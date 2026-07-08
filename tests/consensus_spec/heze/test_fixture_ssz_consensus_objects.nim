@@ -151,7 +151,8 @@ suite "EF - Heze - SSZ consensus objects " & preset():
             checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
-          of "ExecutionPayloadBid": checkSSZ(ExecutionPayloadBid, path, hash)
+          of "ExecutionPayloadBid":
+            checkSSZ(heze.ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
             checkSSZ(gloas.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
@@ -202,7 +203,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "SignedExecutionPayloadEnvelope":
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
-            checkSSZ(SignedExecutionPayloadBid, path, hash)
+            checkSSZ(heze.SignedExecutionPayloadBid, path, hash)
           of "SignedInclusionList":
             checkSSZ(heze.SignedInclusionList, path, hash)
           of "SignedProposerPreferences":

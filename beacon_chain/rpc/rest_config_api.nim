@@ -518,8 +518,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(INCLUSION_LIST_COMMITTEE_SIZE)),
           MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE:
             Base10.toString(MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE),
-          MAX_SIGNED_INCLUSION_LIST_SIZE_HEZE:
-            Base10.toString(MAX_SIGNED_INCLUSION_LIST_SIZE_HEZE),
+          MAX_SIGNED_INCLUSION_LIST_SIZE:
+            Base10.toString(MAX_SIGNED_INCLUSION_LIST_SIZE),
         )
       )
     cachedDepositContract =

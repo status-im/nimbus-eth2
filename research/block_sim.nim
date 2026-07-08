@@ -293,7 +293,10 @@ cli do(
       sync_aggregate = syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
 
       epb =
-        when consensusFork >= ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Heze:
+          debugHezeComment "Heze has different SignedExecutionPayloadBid"
+          default(heze.SignedExecutionPayloadBid)
+        elif consensusFork >= ConsensusFork.Gloas:
           let bid =
             gloas.ExecutionPayloadBid(
               parent_block_hash: state.data.latest_block_hash,

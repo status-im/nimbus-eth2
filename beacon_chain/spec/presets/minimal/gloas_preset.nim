@@ -36,7 +36,7 @@ const
   # ---------------------------------------------------------------
   # 1,462 bytes, ~1 KiB
   MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE*: uint64 = 1462
-  # 131,536 bytes, ~128 KiB
+  # [customized] 131,536 bytes, ~128 KiB
   MAX_ATTESTER_SLASHING_SIZE*: uint64 = 131536
   # 8,585,272 bytes, ~8 MiB
   MAX_DATA_COLUMN_SIDECAR_SIZE*: uint64 = 8585272
@@ -44,4 +44,3 @@ const
   MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE*: uint64 = 8585741
   # 196,932 bytes, ~192 KiB
   MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE*: uint64 = 196932
-  

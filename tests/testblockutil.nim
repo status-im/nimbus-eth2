@@ -313,9 +313,12 @@ proc addTestEngineBlock*(
       when consensusFork >= ConsensusFork.Electra: electraAttestations else: attestations
 
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
-        SignedExecutionPayloadBid(
-          message: ExecutionPayloadBid(
+      when consensusFork >= ConsensusFork.Heze:
+        debugHezeComment "Heze has different SignedExecutionPayloadBid"
+        default(heze.SignedExecutionPayloadBid)
+      elif consensusFork >= ConsensusFork.Gloas:
+        gloas.SignedExecutionPayloadBid(
+          message: gloas.ExecutionPayloadBid(
             builder_index: BUILDER_INDEX_SELF_BUILD,
             slot: state.data.slot,
             block_hash: eps.executionPayload.block_hash,
@@ -327,7 +330,7 @@ proc addTestEngineBlock*(
             value: 0.Gwei),
           signature: ValidatorSig.infinity())
       else:
-        default(SignedExecutionPayloadBid)
+        default(gloas.SignedExecutionPayloadBid)
 
     message = makeBeaconBlock(
         cfg,

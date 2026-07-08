@@ -235,13 +235,13 @@ suite baseDescription & "Parent Execution Payload " & preset():
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(
       preState: var gloas.BeaconState,
-      signedBid: SignedExecutionPayloadBid): Result[void, cstring] =
+      signedBid: gloas.SignedExecutionPayloadBid): Result[void, cstring] =
     var cache: StateCache
     process_execution_payload_bid(
       defaultRuntimeConfig, preState, signedBid, cache)
 
   for path in walkTests(OpExecutionPayloadBidDir):
-    runTest[SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
+    runTest[gloas.SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
       OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
       "execution_payload_bid", applyExecutionPayloadBid, path)
 

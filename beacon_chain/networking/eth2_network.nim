@@ -873,7 +873,7 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is heze.SignedExecutionPayloadBid:
       MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE
     elif T is heze.SignedInclusionList:
-      MAX_SIGNED_INCLUSION_LIST_SIZE_HEZE
+      MAX_SIGNED_INCLUSION_LIST_SIZE
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or

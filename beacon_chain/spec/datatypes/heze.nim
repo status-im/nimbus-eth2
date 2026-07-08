@@ -33,9 +33,8 @@ from ./capella import
 from ./deneb import Blobs
 from ./gloas import
   Builder, BuilderPendingPayment, BuilderPendingWithdrawal,
-  EpochParticipationFlags, ExecutionPayloadBid, ExecutionRequests,
-  InactivityScores, PayloadAttestation, SignedBLSToExecutionChangeList,
-  SignedExecutionPayloadBid
+  EpochParticipationFlags, ExecutionRequests, InactivityScores, KzgCommitments,
+  PayloadAttestation, SignedBLSToExecutionChangeList
 
 export json_serialization, base
 
@@ -52,7 +51,33 @@ type
     message*: InclusionList
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#beaconstate
+  InclusionListBits* = BitArray[INCLUSION_LIST_COMMITTEE_SIZE]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#executionpayloadbid
+  ExecutionPayloadBid* {.sszActiveFields: [
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
+    parent_block_hash*: Eth2Digest
+    parent_block_root*: Eth2Digest
+    block_hash*: Eth2Digest
+    prev_randao*: Eth2Digest
+    fee_recipient*: ExecutionAddress
+    gas_limit*: uint64
+    builder_index*: uint64
+    slot*: Slot
+    value*: Gwei
+    execution_payment*: Gwei
+    blob_kzg_commitments*: KzgCommitments
+    execution_requests_root*: Eth2Digest
+    # [New in Heze:EIP7805]
+    inclusion_list_bits*: InclusionListBits
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#signedexecutionpayloadbid
+  SignedExecutionPayloadBid* = object
+    # [Modified in Heze:EIP7805]
+    message*: ExecutionPayloadBid
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#beaconstate
   BeaconState* {.sszActiveFields: [
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -384,6 +409,18 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: ExecutionPayloadBid): auto =
+  (
+    parent_block_hash: shortLog(v.parent_block_hash),
+    parent_block_root: shortLog(v.parent_block_root),
+    block_hash: shortLog(v.block_hash),
+    fee_recipient: $v.fee_recipient,
+    gas_limit: v.gas_limit,
+    builder_index: v.builder_index,
+    slot: v.slot,
+    value: v.value,
   )
 
 template asSigned*(
