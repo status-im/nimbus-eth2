@@ -812,6 +812,13 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       check filesystemKeys == apiKeys
 
+    asyncTest "Different Authorization Header spelling" & testFlavour:
+      let
+        response = await client.listKeysPlain(
+          extraHeaders = @[("Authorization", "BEARER  " & correctTokenValue)])
+
+      check response.status == 200
+
     asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.listKeysPlain()
@@ -829,6 +836,16 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       check:
         response.status == 401
+        responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Empty Authorization Token" & testFlavour:
+      let
+        response = await client.listKeysPlain(
+          extraHeaders = @[("Authorization", "Bearer")])
+        responseJson = Json.decode(response.data, JsonNode)
+
+      check:
+        response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & testFlavour:
