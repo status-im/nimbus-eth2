@@ -1362,8 +1362,6 @@ proc process_parent_execution_payload*(
       return err("process_parent_execution_payload: execution requests not empty")
     return ok()
 
-  if requests.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return err("process_parent_execution_payload: too many deposit requests")
   if requests.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
     return err("process_parent_execution_payload: too many withdrawal requests")
   if requests.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:

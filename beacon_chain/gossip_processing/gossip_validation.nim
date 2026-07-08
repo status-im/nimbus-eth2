@@ -458,10 +458,6 @@ template validateBeaconBlockGloas(
   # their respective limits.
   template parent_execution_requests: untyped =
     blck.body.parent_execution_requests
-  if parent_execution_requests.deposits.lenu64 >
-      MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject(
-      "validateBeaconBlockGloas: too many deposit requests")
   if parent_execution_requests.withdrawals.lenu64 >
       MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
     return dag.checkedReject(
