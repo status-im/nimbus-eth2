@@ -22,8 +22,8 @@ const
 
   # Execution
   # ---------------------------------------------------------------
-  # 2**8 (= 256) builder deposit requests
-  MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD* = 256
+  # 2**6 (= 64) builder deposit requests
+  MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD* = 64
   # 2**4 (= 16) builder exit requests
   MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD* = 16
 
@@ -44,5 +44,4 @@ const
   MAX_PARTIAL_DATA_COLUMN_SIDECAR_SIZE*: uint64 = 8585741
   # 196,932 bytes, ~192 KiB
   MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE*: uint64 = 196932
-  # 4,082,504 bytes, ~4 MiB
-  MAX_SIGNED_BEACON_BLOCK_SIZE*: uint64 = 4082504
+  

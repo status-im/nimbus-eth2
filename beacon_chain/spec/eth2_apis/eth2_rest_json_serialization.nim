@@ -332,6 +332,8 @@ RestJson.useDefaultSerializationFor(
   heze.BeaconBlockBody,
   heze.BeaconState,
   heze.BlockContents,
+  heze.ExecutionPayloadBid,
+  heze.SignedExecutionPayloadBid,
   phase0.AggregateAndProof,
   phase0.Attestation,
   phase0.AttesterSlashing,

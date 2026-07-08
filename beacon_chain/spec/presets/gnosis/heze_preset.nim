@@ -19,7 +19,5 @@ const
   # ---------------------------------------------------------------
   # 196,934 bytes, ~192 KiB
   MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE*: uint64 = 196934
-  # 4,027,338 bytes, ~4 MiB
-  MAX_SIGNED_BEACON_BLOCK_SIZE_HEZE*: uint64 = 4027338
-  # 8,344 bytes, ~8 KiB
-  MAX_SIGNED_INCLUSION_LIST_SIZE_HEZE*: uint64 = 8344
+  # 8,348 bytes, ~8 KiB
+  MAX_SIGNED_INCLUSION_LIST_SIZE*: uint64 = 8348

@@ -640,7 +640,7 @@ func get_initial_beacon_block*(state: gloas.HashedBeaconState):
     slot: state.data.slot,
     state_root: state.root,
     body: gloas.TrustedBeaconBlockBody(
-      signed_execution_payload_bid: SignedExecutionPayloadBid(
+      signed_execution_payload_bid: gloas.SignedExecutionPayloadBid(
         message: state.data.latest_execution_payload_bid)))
   gloas.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
@@ -652,7 +652,7 @@ func get_initial_beacon_block*(state: heze.HashedBeaconState):
     slot: state.data.slot,
     state_root: state.root,
     body: heze.TrustedBeaconBlockBody(
-      signed_execution_payload_bid: SignedExecutionPayloadBid(
+      signed_execution_payload_bid: heze.SignedExecutionPayloadBid(
         message: state.data.latest_execution_payload_bid)))
   heze.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
@@ -3102,8 +3102,6 @@ func upgrade_to_next*(
     next_sync_committee: pre.next_sync_committee,
 
     # Execution
-    # [Modified in Heze:EIP7805]
-    latest_execution_payload_bid: pre.latest_execution_payload_bid,
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,
@@ -3125,6 +3123,26 @@ func upgrade_to_next*(
     builder_pending_payments: pre.builder_pending_payments,
     builder_pending_withdrawals: pre.builder_pending_withdrawals,
     latest_block_hash: pre.latest_block_hash,
+    # [Modified in Heze:EIP7805]
+    latest_execution_payload_bid: heze.ExecutionPayloadBid(
+      parent_block_hash: pre.latest_execution_payload_bid.parent_block_hash,
+      parent_block_root: pre.latest_execution_payload_bid.parent_block_root,
+      block_hash: pre.latest_execution_payload_bid.block_hash,
+      prev_randao: pre.latest_execution_payload_bid.prev_randao,
+      fee_recipient: pre.latest_execution_payload_bid.fee_recipient,
+      gas_limit: pre.latest_execution_payload_bid.gas_limit,
+      builder_index: pre.latest_execution_payload_bid.builder_index,
+      slot: pre.latest_execution_payload_bid.slot,
+      value: pre.latest_execution_payload_bid.value,
+      execution_payment: pre.latest_execution_payload_bid.execution_payment,
+      blob_kzg_commitments:
+        pre.latest_execution_payload_bid.blob_kzg_commitments,
+      execution_requests_root:
+        pre.latest_execution_payload_bid.execution_requests_root,
+      # [New in Heze:EIP7805]
+      inclusion_list_bits:
+        static(default(BitArray[INCLUSION_LIST_COMMITTEE_SIZE])),
+    ),
     payload_expected_withdrawals: pre.payload_expected_withdrawals,
     ptc_window: pre.ptc_window
   )

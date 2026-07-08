@@ -852,8 +852,6 @@ func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
-  elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock:
-    MAX_SIGNED_BEACON_BLOCK_SIZE.uint32
   elif T is gloas.DataColumnSidecar:
     MAX_DATA_COLUMN_SIDECAR_SIZE.uint32
   else:
@@ -864,8 +862,6 @@ template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T).uint32
-    elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock:
-      MAX_SIGNED_BEACON_BLOCK_SIZE
     elif T is gloas.SignedAggregateAndProof:
       MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE
     elif T is gloas.AttesterSlashing:
@@ -877,7 +873,7 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is heze.SignedExecutionPayloadBid:
       MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE
     elif T is heze.SignedInclusionList:
-      MAX_SIGNED_INCLUSION_LIST_SIZE_HEZE
+      MAX_SIGNED_INCLUSION_LIST_SIZE
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
@@ -887,7 +883,8 @@ template gossipMaxSize(T: untyped): uint32 =
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than MAX_PAYLOAD_SIZE.
-    elif T is phase0.Attestation or T is phase0.AttesterSlashing or
+    elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock or
+         T is phase0.Attestation or T is phase0.AttesterSlashing or
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or

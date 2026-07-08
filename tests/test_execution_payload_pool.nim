@@ -22,8 +22,9 @@ func makeBid(
     builderIndex: uint64,
     parentBlockRoot: Eth2Digest,
     parentBlockHash: Eth2Digest,
-    value: Gwei): SignedExecutionPayloadBid =
-  SignedExecutionPayloadBid(
+    value: Gwei): gloas.SignedExecutionPayloadBid =
+  debugHezeComment "Heze has different SignedExecutionPayloadBid"
+  gloas.SignedExecutionPayloadBid(
     message: gloas.ExecutionPayloadBid(
       slot: slot,
       builder_index: builderIndex,

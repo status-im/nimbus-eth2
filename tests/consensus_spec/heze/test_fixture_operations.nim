@@ -191,7 +191,7 @@ suite baseDescription & "Deposit Request " & preset():
 
 from ../../../beacon_chain/spec/datatypes/gloas import
   BuilderDepositRequest, BuilderExitRequest, PayloadAttestation,
-  SignedExecutionPayloadBid, SignedExecutionPayloadEnvelope
+  SignedExecutionPayloadEnvelope
 
 suite baseDescription & "Builder Deposit Request " & preset():
   func applyBuilderDepositRequest(
@@ -239,13 +239,13 @@ suite baseDescription & "Parent Execution Payload " & preset():
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(
       preState: var heze.BeaconState,
-      signedBid: SignedExecutionPayloadBid): Result[void, cstring] =
+      signedBid: heze.SignedExecutionPayloadBid): Result[void, cstring] =
     var cache: StateCache
     process_execution_payload_bid(
       defaultRuntimeConfig, preState, signedBid, cache)
 
   for path in walkTests(OpExecutionPayloadBidDir):
-    runTest[SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
+    runTest[heze.SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
       OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
       "execution_payload_bid", applyExecutionPayloadBid, path)
 

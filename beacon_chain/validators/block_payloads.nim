@@ -265,13 +265,16 @@ proc makeEngineBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Heze:
+        debugHezeComment "Heze has different SignedExecutionPayloadBid"
+        default(heze.SignedExecutionPayloadBid)
+      elif consensusFork >= ConsensusFork.Gloas:
         builderBid.valueOr:
           makeSignedExecutionPayloadBid(
             eps.executionPayload, execution_requests, eps.kzg_commitments,
             state.latest_block_root, slot)
       else:
-        default(SignedExecutionPayloadBid)
+        default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(
@@ -538,8 +541,9 @@ proc makeBuilderBlock*(
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
   debugGloasComment "make signed bid from engine payload"
+  debugHezeComment "Heze has different SignedExecutionPayloadBid"
   let
-    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
+    signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(

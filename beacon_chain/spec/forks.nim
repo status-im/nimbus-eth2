@@ -701,6 +701,12 @@ template KzgCommitments*(kind: static ConsensusFork): typedesc =
   else:
     deneb.KzgCommitments
 
+template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Heze:
+    heze.SignedExecutionPayloadBid
+  else:
+    gloas.SignedExecutionPayloadBid
+
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
     fulu_mev.BlindedBeaconBlock

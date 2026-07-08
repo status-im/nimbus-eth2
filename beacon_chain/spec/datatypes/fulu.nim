@@ -107,6 +107,10 @@ type
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
+  PartialDataColumnGroupID* = object
+    beacon_block_root*: Eth2Digest
+
   CellsPresentBits* = BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnsidecar

@@ -92,13 +92,14 @@ type
     slot*: Slot
     kzg_commitments*: KzgCommitments
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
   # [New in Gloas] Replaces the role of Fulu's PartialDataColumnHeader: it
   # carries the per-block metadata (slot + beacon_block_root) needed to
   # assemble a Gloas `DataColumnSidecar` from accumulated partial cells.
   PartialDataColumnGroupID* = object
-    slot*: Slot
     beacon_block_root*: Eth2Digest
+    # [New in Gloas:EIP7732]
+    slot*: Slot
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
   # [Modified in Gloas] Compared to Fulu, the `header` field is removed

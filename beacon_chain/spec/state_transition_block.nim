@@ -1134,6 +1134,10 @@ func process_builder_deposit_request*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
     request: gloas.BuilderDepositRequest) =
+  # Ignore deposits with unexpected withdrawal credential prefixes
+  if not is_builder_withdrawal_credential(request.withdrawal_credentials):
+    return
+
   ## Builder indices are reusable: a deposit for a new pubkey registers a
   ## builder; a deposit for an existing builder's pubkey tops up its balance.
   let builder_index = findValidatorIndex(
@@ -1145,17 +1149,20 @@ func process_builder_deposit_request*(
         request.withdrawal_credentials, request.amount, request.signature):
       add_builder_to_registry(
         state, bucket_sorted_builders, request.pubkey,
-        uint8(request.withdrawal_credentials.data[0]),
+        PAYLOAD_BUILDER_VERSION,
         builder_execution_address(request.withdrawal_credentials),
         request.amount, state.slot)
     return
 
-  # Increase balance by deposit amount
-  state.builders.mitem(builder_index).balance += request.amount
-  # If exited, reset the withdrawable epoch
-  if state.builders.item(builder_index).withdrawable_epoch != FAR_FUTURE_EPOCH:
+  # If exited and swept, reset the withdrawable epoch
+  let builder = state.builders.item(builder_index)
+  if builder.withdrawable_epoch != FAR_FUTURE_EPOCH and
+      builder.balance == 0.Gwei:
     state.builders.mitem(builder_index).withdrawable_epoch =
       get_current_epoch(state) + cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY
+
+  # Increase balance by deposit amount
+  state.builders.mitem(builder_index).balance += request.amount
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_builder_exit_request
 func process_builder_exit_request*(
@@ -1298,7 +1305,15 @@ proc can_process_execution_payload_bid_impl[S, B](
 
 template can_process_execution_payload_bid*(
     cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
-    signed_bid: SignedExecutionPayloadBid,
+    signed_bid: gloas.SignedExecutionPayloadBid,
+    proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
+  debugGloasComment "proposal_slot only for spec tests of unreachable combos"
+  cfg.can_process_execution_payload_bid_impl(
+    state, signed_bid, proposal_slot, flags)
+
+template can_process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: heze.BeaconState,
+    signed_bid: heze.SignedExecutionPayloadBid,
     proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
   debugGloasComment "proposal_slot only for spec tests of unreachable combos"
   cfg.can_process_execution_payload_bid_impl(
@@ -1309,9 +1324,8 @@ type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
-proc process_execution_payload_bid*(
-    cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
-    signed_bid: SignedExecutionPayloadBid,
+proc process_execution_payload_bid_impl[S, B](
+    cfg: RuntimeConfig, state: var S, signed_bid: B,
     cache: var StateCache): Result[void, cstring] =
   template bid: untyped = signed_bid.message
   let
@@ -1341,6 +1355,18 @@ proc process_execution_payload_bid*(
 
   ok()
 
+proc process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    signed_bid: gloas.SignedExecutionPayloadBid,
+    cache: var StateCache): Result[void, cstring] =
+  cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
+
+proc process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: var heze.BeaconState,
+    signed_bid: heze.SignedExecutionPayloadBid,
+    cache: var StateCache): Result[void, cstring] =
+  cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
+
 # copy of datatypes/heze.nim
 type SomeHezeBeaconBlock =
   heze.BeaconBlock | heze.SigVerifiedBeaconBlock | heze.TrustedBeaconBlock
@@ -1362,8 +1388,6 @@ proc process_parent_execution_payload*(
       return err("process_parent_execution_payload: execution requests not empty")
     return ok()
 
-  if requests.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return err("process_parent_execution_payload: too many deposit requests")
   if requests.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
     return err("process_parent_execution_payload: too many withdrawal requests")
   if requests.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
