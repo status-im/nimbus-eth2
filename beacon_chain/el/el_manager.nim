@@ -77,7 +77,7 @@ type
       # V4 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
-  PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponse]]
+  PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponseV1]]
 
   ELManager* = ref object
     eth1Network: Opt[Eth1Network]
