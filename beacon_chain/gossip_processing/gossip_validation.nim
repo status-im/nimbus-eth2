@@ -1855,7 +1855,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -1954,10 +1954,10 @@ proc validateExecutionPayloadBid*(
           dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
         return dag.checkedReject("ExecutionPayloadBid: invalid kzg commitments")
 
-      # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
+      # [IGNORE] `bid.fee_recipient` matches the `fee_recipient` from the
       # proposer's `SignedProposerPreferences` associated with `bid.slot`.
       if not (bid.fee_recipient == seenPref.fee_recipient):
-        return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
+        return errIgnore("ExecutionPayloadBid: fee recipient mismatch")
 
       # Extra check to prevent unincludable bids from purging legitimate ones
       # from the execution payload pool
@@ -2079,7 +2079,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var SeenProposerPreferences,
