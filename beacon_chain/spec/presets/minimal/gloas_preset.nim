@@ -34,7 +34,7 @@ const
 
   # Type-specific SSZ bounds
   # ---------------------------------------------------------------
-  # 1,462 bytes, ~1 KiB
+  # [customized] 1,462 bytes, ~1 KiB
   MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE*: uint64 = 1462
   # [customized] 131,536 bytes, ~128 KiB
   MAX_ATTESTER_SLASHING_SIZE*: uint64 = 131536
