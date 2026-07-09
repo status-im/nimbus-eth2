@@ -246,6 +246,13 @@ proc checkHeadBlock*(
 
     return err(VerifierError.Invalid)
 
+  when typeof(signedBlock).kind >= ConsensusFork.Gloas:
+    template bid(): auto =
+      blck.body.signed_execution_payload_bid
+    dag.executionParent(parent, bid.message.parent_block_hash).isOkOr:
+      debug "Execution parent unknown"
+      return err(VerifierError.MissingParent)
+
   ok(parent)
 
 proc addHeadBlockWithParent*(
@@ -500,9 +507,7 @@ proc addHeadExecutionPayload*(
   template envelopeSlot(): auto = signedEnvelope.message.slot
 
   logScope:
-    blockRoot = shortLog(envelopeBlockRoot)
-    builderIdx = signedEnvelope.message.builder_index
-    slot = envelopeSlot
+    envelope = shortLog(signedEnvelope.message)
     signature = shortLog(signedEnvelope.signature)
 
   const consensusFork = typeof(signedBlock).kind
