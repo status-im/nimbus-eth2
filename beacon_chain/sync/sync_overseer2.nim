@@ -693,9 +693,9 @@ proc createQueues(
           # Block does not have envelope and sidecars.
           return res
 
-        if isNil(item.signedEnvelope) (and commitmentsLen > 0):
+        if isNil(item.signedEnvelope) and (commitmentsLen != 0):
           # Block has sidecars, but missing envelope.
-          return VerifierError.Invalid
+          return err(VerifierError.Invalid)
 
         (await overseer.blockProcessor.addPayload(
           forkyBlck, item.signedEnvelope[], cres))
