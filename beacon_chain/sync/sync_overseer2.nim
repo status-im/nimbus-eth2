@@ -678,23 +678,27 @@ proc createQueues(
           if isNil(item.signedEnvelope) and (commitmentsLen == 0):
             # Block does not have envelope and sidecars.
             return ok()
-          (await overseer.blockProcessor.addPayload(
+          return (await overseer.blockProcessor.addPayload(
             forkyBlck, item.signedEnvelope[], cres))
-        else:
-          let res = await overseer.blockProcessor.addBlock(
-            MsgSource.sync, forkyBlck, noSidecars,
-            maybeFinalized = maybeFinalized)
 
-          if res.isErr():
-            if res.error != VerifierError.Duplicate:
-              return res
+        let res = await overseer.blockProcessor.addBlock(
+          MsgSource.sync, forkyBlck, noSidecars,
+          maybeFinalized = maybeFinalized)
 
-          if isNil(item.signedEnvelope) and (commitmentsLen == 0):
-            # Block does not have envelope and sidecars.
+        if res.isErr():
+          if res.error != VerifierError.Duplicate:
             return res
 
-          (await overseer.blockProcessor.addPayload(
-            forkyBlck, item.signedEnvelope[], cres))
+        if isNil(item.signedEnvelope) and (commitmentsLen == 0):
+          # Block does not have envelope and sidecars.
+          return res
+
+        if isNil(item.signedEnvelope) (and commitmentsLen > 0):
+          # Block has sidecars, but missing envelope.
+          return VerifierError.Invalid
+
+        (await overseer.blockProcessor.addPayload(
+          forkyBlck, item.signedEnvelope[], cres))
       else:
         raiseAssert "Unsupported fork"
 
