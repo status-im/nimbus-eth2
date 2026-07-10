@@ -437,8 +437,7 @@ func compute_timestamp_at_slot*(
   state.genesis_time +
     slots_since_genesis * timeParams.SLOT_DURATION.seconds.uint64
 
-template append*(
-    w: var RlpWriter, v: bellatrix.Transaction | gloas.Transaction) =
+template append*(w: var RlpWriter, v: bellatrix.Transaction) =
   w.appendRawBytes(distinctBase v)
 
 template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =

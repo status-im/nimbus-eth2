@@ -95,7 +95,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var heze.BeaconState, attestation: gloas.Attestation):
+      preState: var heze.BeaconState, attestation: electra.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
@@ -110,14 +110,14 @@ suite baseDescription & "Attestation " & preset():
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[gloas.Attestation, typeof applyAttestation](
+    runTest[electra.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var heze.BeaconState,
-      attesterSlashing: gloas.AttesterSlashing): Result[void, cstring] =
+      attesterSlashing: electra.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {},
@@ -125,7 +125,7 @@ suite baseDescription & "Attester Slashing " & preset():
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[gloas.AttesterSlashing, typeof applyAttesterSlashing](
+    runTest[electra.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 
@@ -191,7 +191,7 @@ suite baseDescription & "Deposit Request " & preset():
 
 from ../../../beacon_chain/spec/datatypes/gloas import
   BuilderDepositRequest, BuilderExitRequest, PayloadAttestation,
-  SignedExecutionPayloadEnvelope
+  SignedExecutionPayloadBid, SignedExecutionPayloadEnvelope
 
 suite baseDescription & "Builder Deposit Request " & preset():
   func applyBuilderDepositRequest(
@@ -239,13 +239,13 @@ suite baseDescription & "Parent Execution Payload " & preset():
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(
       preState: var heze.BeaconState,
-      signedBid: heze.SignedExecutionPayloadBid): Result[void, cstring] =
+      signedBid: SignedExecutionPayloadBid): Result[void, cstring] =
     var cache: StateCache
     process_execution_payload_bid(
       defaultRuntimeConfig, preState, signedBid, cache)
 
   for path in walkTests(OpExecutionPayloadBidDir):
-    runTest[heze.SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
+    runTest[SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
       OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
       "execution_payload_bid", applyExecutionPayloadBid, path)
 

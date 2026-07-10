@@ -420,8 +420,7 @@ proc scheduleAttestationCheck*(
 proc scheduleAggregateChecks*(
     batchCrypto: ref BatchCrypto,
     fork: Fork,
-    signedAggregateAndProof:
-      electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
+    signedAggregateAndProof: electra.SignedAggregateAndProof,
     aggregateSig: CookedSig,
     dag: ChainDAGRef,
     attesting_indices: openArray[ValidatorIndex],

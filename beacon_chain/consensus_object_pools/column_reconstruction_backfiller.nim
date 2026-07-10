@@ -225,8 +225,8 @@ proc reconstructAndStore[
     when T is gloas.DataColumnSidecar:
       reconstructed.add (ref gloas.DataColumnSidecar)(
         index: ColumnIndex(i),
-        column: cells,
-        kzg_proofs: proofs,
+        column: DataColumn.init(cells),
+        kzg_proofs: deneb.KzgProofs.init(proofs),
         slot: columns[0][].slot,
         beacon_block_root: columns[0][].beacon_block_root)
     else:

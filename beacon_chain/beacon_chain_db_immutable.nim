@@ -18,8 +18,8 @@ from ./spec/datatypes/electra import
   PendingConsolidation, PendingDeposit,
   PendingPartialWithdrawal
 from ./spec/datatypes/gloas import
-  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid
-from ./spec/datatypes/heze import ExecutionPayloadBid
+  Builder, BuilderPendingPayment, BuilderPendingWithdrawal, ExecutionPayloadBid,
+  BUILDER_PENDING_WITHDRAWALS_LIMIT
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#beaconstate
@@ -510,10 +510,7 @@ type
 
   # Memory-representation-equivalent to a Gloas BeaconState for in-place SSZ
   # reading and writing
-  GloasBeaconStateNoImmutableValidators* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1].} = object
+  GloasBeaconStateNoImmutableValidators* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -538,10 +535,9 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    # [Modified in Gloas:EIP7688]
-    validators*: HashSeq[ValidatorStatusCapella]
-    # [Modified in Gloas:EIP7688]
-    balances*: HashSeq[Gwei]
+    validators*:
+      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
@@ -551,10 +547,8 @@ type
       ## Per-epoch sums of slashed effective balances
 
     # Participation
-    # [Modified in Gloas:EIP7688]
-    previous_epoch_participation*: gloas.EpochParticipationFlags
-    # [Modified in Gloas:EIP7688]
-    current_epoch_participation*: gloas.EpochParticipationFlags
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
 
     # Finality
     justification_bits*: JustificationBits
@@ -565,8 +559,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    # [Modified in Gloas:EIP7688]
-    inactivity_scores*: gloas.InactivityScores
+    inactivity_scores*: InactivityScores
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee
@@ -589,22 +582,21 @@ type
     earliest_exit_epoch*: Epoch  # [New in Electra:EIP7251]
     consolidation_balance_to_consume*: Gwei  # [New in Electra:EIP7251]
     earliest_consolidation_epoch*: Epoch  # [New in Electra:EIP7251]
-    # [Modified in Gloas:EIP7688]
-    pending_deposits*: HashSeq[PendingDeposit]
+    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
       ## [New in Electra:EIP7251]
 
     # [New in Electra:EIP7251]
-    # [Modified in Gloas:EIP7688]
-    pending_partial_withdrawals*: HashSeq[PendingPartialWithdrawal]
-    # [Modified in Gloas:EIP7688]
-    pending_consolidations*: HashSeq[PendingConsolidation]
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
 
     # [New in Fulu:EIP7917]
     proposer_lookahead*:
       HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
     # [New in Gloas:EIP7732]
-    builders*: HashSeq[Builder]
+    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
     # [New in Gloas:EIP7732]
     next_withdrawal_builder_index*: uint64
     # [New in Gloas:EIP7732]
@@ -613,24 +605,23 @@ type
     builder_pending_payments*:
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
     # [New in Gloas:EIP7732]
-    builder_pending_withdrawals*: HashSeq[BuilderPendingWithdrawal]
+    builder_pending_withdrawals*:
+      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
 
     # Execution
-    latest_execution_payload_bid*: gloas.ExecutionPayloadBid
+    latest_execution_payload_bid*: ExecutionPayloadBid
       ## [Modified in Gloas:EIP7732]
 
     # [New in Gloas:EIP7732]
-    payload_expected_withdrawals*: HashSeq[Withdrawal]
+    payload_expected_withdrawals*:
+      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
     ptc_window*:
       HashArray[Limit ((2 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH),
         HashArray[Limit PTC_SIZE, uint64]]
 
   # Memory-representation-equivalent to a Heze BeaconState for in-place SSZ
   # reading and writing
-  HezeBeaconStateNoImmutableValidators* {.sszActiveFields: [
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1].} = object
+  HezeBeaconStateNoImmutableValidators* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
@@ -655,8 +646,9 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: HashSeq[ValidatorStatusCapella]
-    balances*: HashSeq[Gwei]
+    validators*:
+      HashList[ValidatorStatusCapella, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
@@ -666,8 +658,8 @@ type
       ## Per-epoch sums of slashed effective balances
 
     # Participation
-    previous_epoch_participation*: gloas.EpochParticipationFlags
-    current_epoch_participation*: gloas.EpochParticipationFlags
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
 
     # Finality
     justification_bits*: JustificationBits
@@ -678,7 +670,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: gloas.InactivityScores
+    inactivity_scores*: InactivityScores
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee
@@ -700,25 +692,29 @@ type
     earliest_exit_epoch*: Epoch
     consolidation_balance_to_consume*: Gwei
     earliest_consolidation_epoch*: Epoch
-    pending_deposits*: HashSeq[PendingDeposit]
+    pending_deposits*: HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT]
 
-    pending_partial_withdrawals*: HashSeq[PendingPartialWithdrawal]
-    pending_consolidations*: HashSeq[PendingConsolidation]
+    pending_partial_withdrawals*:
+      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT]
+    pending_consolidations*:
+      HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT]
 
     proposer_lookahead*:
       HashArray[Limit ((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64]
 
-    builders*: HashSeq[Builder]
+    builders*: HashList[Builder, Limit BUILDER_REGISTRY_LIMIT]
     next_withdrawal_builder_index*: uint64
     execution_payload_availability*: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
     builder_pending_payments*:
       HashArray[Limit 2 * SLOTS_PER_EPOCH, BuilderPendingPayment]
-    builder_pending_withdrawals*: HashSeq[BuilderPendingWithdrawal]
+    builder_pending_withdrawals*:
+      HashList[BuilderPendingWithdrawal, Limit BUILDER_PENDING_WITHDRAWALS_LIMIT]
 
     # Execution
-    latest_execution_payload_bid*: heze.ExecutionPayloadBid
+    latest_execution_payload_bid*: ExecutionPayloadBid
 
-    payload_expected_withdrawals*: HashSeq[Withdrawal]
+    payload_expected_withdrawals*:
+      HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
     ptc_window*:
       HashArray[Limit ((2 + MIN_SEED_LOOKAHEAD) * SLOTS_PER_EPOCH),
         HashArray[Limit PTC_SIZE, uint64]]

@@ -2369,7 +2369,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
-+   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnHeader                                                       OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
@@ -2621,8 +2620,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
-+ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
-+ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 ```
 ## EF - Gloas - Operations - Builder Exit Request  [Preset: mainnet]
 ```diff
@@ -2690,16 +2687,7 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Parent Execution Payload  [Preset: mainnet]
 ```diff
-+ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_builder_de OK
-+ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_builder_ex OK
-+ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_consolidat OK
-+ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_withdrawal OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
-+ [Valid]   EF - Gloas - Operations - Parent Execution Payload - deposit_requests_greater_th OK
-+ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_deposit_request OK
-+ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_exit_requests   OK
-+ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_consolidation_requests  OK
-+ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_withdrawal_requests     OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -3062,7 +3050,6 @@ ConsensusSpecPreset-mainnet
 ```diff
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: mainnet]   OK
 + EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
-  EF - Heze - Fork - fork_base_state [Preset: mainnet]                                       Skip
 ```
 ## EF - Heze - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -3209,8 +3196,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
-+ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
-+ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 ```
 ## EF - Heze - Operations - Builder Exit Request  [Preset: mainnet]
 ```diff
@@ -3275,20 +3260,10 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_s OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
-+ [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
 ```
 ## EF - Heze - Operations - Parent Execution Payload  [Preset: mainnet]
 ```diff
-+ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_builder_dep OK
-+ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_builder_exi OK
-+ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_consolidati OK
-+ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_withdrawal_ OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
-+ [Valid]   EF - Heze - Operations - Parent Execution Payload - deposit_requests_greater_tha OK
-+ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_deposit_requests OK
-+ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_exit_requests    OK
-+ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_consolidation_requests   OK
-+ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_withdrawal_requests      OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
@@ -5761,13 +5736,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_attestations [Preset: mainnet]   OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_attester_slashings [Preset: main OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_bls_to_execution_changes [Preset OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_deposits [Preset: mainnet]       OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_payload_attestations [Preset: ma OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_proposer_slashings [Preset: main OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_voluntary_exits [Preset: mainnet OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
 + [Invalid] EF - gloas - Sanity - Blocks - process_parent_execution_payload__wrong_execution OK
@@ -5791,13 +5759,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]       OK
 + [Valid]   EF - gloas - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
-+ [Valid]   EF - gloas - Sanity - Blocks - max_attestations [Preset: mainnet]                OK
-+ [Valid]   EF - gloas - Sanity - Blocks - max_attester_slashings [Preset: mainnet]          OK
-+ [Valid]   EF - gloas - Sanity - Blocks - max_bls_to_execution_changes [Preset: mainnet]    OK
-+ [Valid]   EF - gloas - Sanity - Blocks - max_deposits [Preset: mainnet]                    OK
-+ [Valid]   EF - gloas - Sanity - Blocks - max_payload_attestations [Preset: mainnet]        OK
-+ [Valid]   EF - gloas - Sanity - Blocks - max_proposer_slashings [Preset: mainnet]          OK
-+ [Valid]   EF - gloas - Sanity - Blocks - max_voluntary_exits [Preset: mainnet]             OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisf OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsati OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sat OK
@@ -6084,13 +6045,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - heze - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attestations [Preset: mainnet]    OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attester_slashings [Preset: mainn OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_bls_to_execution_changes [Preset: OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_deposits [Preset: mainnet]        OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_payload_attestations [Preset: mai OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_proposer_slashings [Preset: mainn OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_voluntary_exits [Preset: mainnet] OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
 + [Invalid] EF - heze - Sanity - Blocks - process_parent_execution_payload__wrong_execution_ OK
@@ -6114,13 +6068,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
 + [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]        OK
 + [Valid]   EF - heze - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_attestations [Preset: mainnet]                 OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_attester_slashings [Preset: mainnet]           OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_bls_to_execution_changes [Preset: mainnet]     OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_deposits [Preset: mainnet]                     OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_payload_attestations [Preset: mainnet]         OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_proposer_slashings [Preset: mainnet]           OK
-+ [Valid]   EF - heze - Sanity - Blocks - max_voluntary_exits [Preset: mainnet]              OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisfy OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsatis OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sati OK

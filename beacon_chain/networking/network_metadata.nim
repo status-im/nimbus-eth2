@@ -34,11 +34,10 @@ from std/strutils import
 
 export RuntimeConfig
 
-when IsMainnetSupported or IsGnosisSupported:
-  const vendorDir =
-    currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
+const
+  vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
-const incbinEnabled* = sizeof(pointer) == 8
+  incbinEnabled* = sizeof(pointer) == 8
 
 type
   Eth1Network* = enum

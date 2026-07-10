@@ -120,34 +120,22 @@ func get_validator_from_deposit*(
 func add_validator_to_registry*(
     state: var ForkyBeaconState, deposit_data: DepositData, amount: Gwei):
     Result[void, cstring] =
-  const consensusFork = typeof(state).kind
-
   # New validator! Add validator and balance entries
   if not state.validators.add(get_validator_from_deposit(
       state, deposit_data.pubkey, deposit_data.withdrawal_credentials, amount)):
     return err("apply_deposit: too many validators")
 
-  when consensusFork >= ConsensusFork.Gloas:
-    state.balances.add amount
-  else:
+  if not state.balances.add(amount):
     static: doAssert state.balances.maxLen == state.validators.maxLen
-    if not state.balances.add(amount):
-      raiseAssert "adding validator succeeded, so should balances"
+    raiseAssert "adding validator succeeded, so should balances"
 
-  when consensusFork >= ConsensusFork.Gloas:
-    state.previous_epoch_participation.add ParticipationFlags(0)
-    state.current_epoch_participation.add ParticipationFlags(0)
-    state.inactivity_scores.add(0'u64)
-  elif consensusFork >= ConsensusFork.Altair:
+  when typeof(state).kind >= ConsensusFork.Altair:
     if not state.previous_epoch_participation.add(ParticipationFlags(0)):
-      return err(
-        "apply_deposit: too many validators (previous_epoch_participation)")
+      return err("apply_deposit: too many validators (previous_epoch_participation)")
     if not state.current_epoch_participation.add(ParticipationFlags(0)):
-      return err(
-        "apply_deposit: too many validators (current_epoch_participation)")
+      return err("apply_deposit: too many validators (current_epoch_participation)")
     if not state.inactivity_scores.add(0'u64):
-      return err(
-        "apply_deposit: too many validators (inactivity_scores)")
+      return err("apply_deposit: too many validators (inactivity_scores)")
 
   ok()
 
@@ -640,7 +628,7 @@ func get_initial_beacon_block*(state: gloas.HashedBeaconState):
     slot: state.data.slot,
     state_root: state.root,
     body: gloas.TrustedBeaconBlockBody(
-      signed_execution_payload_bid: gloas.SignedExecutionPayloadBid(
+      signed_execution_payload_bid: SignedExecutionPayloadBid(
         message: state.data.latest_execution_payload_bid)))
   gloas.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
@@ -652,7 +640,7 @@ func get_initial_beacon_block*(state: heze.HashedBeaconState):
     slot: state.data.slot,
     state_root: state.root,
     body: heze.TrustedBeaconBlockBody(
-      signed_execution_payload_bid: heze.SignedExecutionPayloadBid(
+      signed_execution_payload_bid: SignedExecutionPayloadBid(
         message: state.data.latest_execution_payload_bid)))
   heze.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
@@ -722,13 +710,8 @@ func is_eligible_for_activation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: ForkyBeaconState,
-    # phase0.SomeIndexedAttestation | electra.SomeIndexedAttestation |
-    # gloas.SomeIndexedAttestation:
-    # https://github.com/nim-lang/Nim/issues/18095
     indexed_attestation:
-      phase0.IndexedAttestation | phase0.TrustedIndexedAttestation |
-      electra.IndexedAttestation | electra.TrustedIndexedAttestation |
-      gloas.IndexedAttestation | gloas.TrustedIndexedAttestation,
+      phase0.SomeIndexedAttestation | electra.SomeIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.
@@ -743,9 +726,6 @@ proc is_valid_indexed_attestation*(
 
   if len(indexed_attestation.attesting_indices) == 0:
     return err("indexed_attestation: no attesting indices")
-  if indexed_attestation.attesting_indices.lenu64 >
-      MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT:
-    return err("indexed_attestation: too many attesting indices")
 
   # Not from spec, but this function gets used in front-line roles, not just
   # behind firewall.
@@ -789,7 +769,7 @@ iterator get_attesting_indices*(
     state: ForkyBeaconState,
     slot: Slot,
     committee_bits: AttestationCommitteeBits,
-    aggregation_bits: electra.AggregationBits | gloas.AggregationBits,
+    aggregation_bits: AggregationBits,
     cache: var StateCache): ValidatorIndex =
   ## Return the set of attesting indices corresponding to ``aggregation_bits``
   ## and ``committee_bits``.
@@ -870,9 +850,7 @@ iterator get_attesting_indices*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/beacon-chain.md#modified-get_attesting_indices
 iterator get_attesting_indices*(
     state: ForkyBeaconState,
-    attestation:
-      electra.Attestation | electra.TrustedAttestation |
-      gloas.Attestation | gloas.TrustedAttestation,
+    attestation: electra.Attestation | electra.TrustedAttestation,
     cache: var StateCache,
 ): ValidatorIndex =
   block iter:
@@ -890,7 +868,7 @@ func get_attesting_indices*(
     state: ForkyBeaconState,
     attestation:
       phase0.Attestation | phase0.TrustedAttestation | electra.Attestation |
-      electra.TrustedAttestation | gloas.Attestation | gloas.TrustedAttestation,
+      electra.TrustedAttestation,
     cache: var StateCache,
 ): seq[ValidatorIndex] =
   ## Return the set of attesting indices corresponding to ``attestation``
@@ -902,8 +880,7 @@ proc is_valid_indexed_attestation(
     state: ForkyBeaconState,
     attestation:
       phase0.Attestation | phase0.TrustedAttestation |
-      electra.Attestation | electra.TrustedAttestation |
-      gloas.Attestation | gloas.TrustedAttestation,
+      electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
   # with an attestation instead of first constructing an `IndexedAttestation`
@@ -1166,9 +1143,7 @@ proc check_attestation*(
 proc check_attestation*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
            heze.BeaconState,
-    attestation:
-      electra.Attestation | electra.TrustedAttestation |
-      gloas.Attestation | gloas.TrustedAttestation,
+    attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, cache: var StateCache):
     Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
@@ -1268,12 +1243,10 @@ func get_proposer_reward*(
     state: ForkyBeaconState,
     attestation:
       phase0.Attestation | phase0.TrustedAttestation |
-      electra.Attestation | electra.TrustedAttestation |
-      gloas.Attestation | gloas.TrustedAttestation,
+      electra.Attestation | electra.TrustedAttestation,
     base_reward_per_increment: Gwei,
     cache: var StateCache,
-    epoch_participation: var (
-      altair.EpochParticipationFlags | seq[ParticipationFlags])): Gwei =
+    epoch_participation: var EpochParticipationFlags): Gwei =
   let participation_flag_indices = get_attestation_participation_flag_indices(
     state, attestation.data, state.slot - attestation.data.slot)
   for vidx in state.get_attesting_indices(attestation, cache):
@@ -1376,7 +1349,7 @@ proc process_attestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_attestation
 proc process_attestation*(
     state: var (gloas.BeaconState | heze.BeaconState),
-    attestation: gloas.Attestation | gloas.TrustedAttestation,
+    attestation: electra.Attestation | electra.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
     cache: var StateCache): Result[Gwei, cstring] =
   ? check_attestation(state, attestation, flags, cache)
@@ -2451,7 +2424,7 @@ func initialize_ptc_window(
 func upgrade_to_next*(cfg: RuntimeConfig, pre: phase0.BeaconState, _: var StateCache):
     altair.BeaconState =
   var
-    empty_participation: altair.EpochParticipationFlags
+    empty_participation: EpochParticipationFlags
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
 
   doAssert empty_participation.asList.setLen(pre.validators.len)
@@ -2985,8 +2958,8 @@ func upgrade_to_next*(
     eth1_deposit_index: pre.eth1_deposit_index,
 
     # Registry
-    validators: HashSeq[Validator].init(pre.validators.asSeq),
-    balances: HashSeq[Gwei].init(pre.balances.asSeq),
+    validators: pre.validators,
+    balances: pre.balances,
 
     # Randomness
     randao_mixes: pre.randao_mixes,
@@ -2995,8 +2968,8 @@ func upgrade_to_next*(
     slashings: pre.slashings,
 
     # Participation
-    previous_epoch_participation: pre.previous_epoch_participation.asSeq,
-    current_epoch_participation: pre.current_epoch_participation.asSeq,
+    previous_epoch_participation: pre.previous_epoch_participation,
+    current_epoch_participation: pre.current_epoch_participation,
 
     # Finality
     justification_bits: pre.justification_bits,
@@ -3005,7 +2978,7 @@ func upgrade_to_next*(
     finalized_checkpoint: pre.finalized_checkpoint,
 
     # Inactivity
-    inactivity_scores: HashSeq[uint64].init(pre.inactivity_scores.asSeq),
+    inactivity_scores: pre.inactivity_scores,
 
     # Sync
     current_sync_committee: pre.current_sync_committee,
@@ -3027,12 +3000,9 @@ func upgrade_to_next*(
     earliest_exit_epoch: pre.earliest_exit_epoch,
     consolidation_balance_to_consume: pre.consolidation_balance_to_consume,
     earliest_consolidation_epoch: pre.earliest_consolidation_epoch,
-    pending_deposits: HashSeq[PendingDeposit].init(pre.pending_deposits.asSeq),
-    pending_partial_withdrawals:
-      HashSeq[PendingPartialWithdrawal].init(
-        pre.pending_partial_withdrawals.asSeq),
-    pending_consolidations:
-      HashSeq[PendingConsolidation].init(pre.pending_consolidations.asSeq),
+    pending_deposits: pre.pending_deposits,
+    pending_partial_withdrawals: pre.pending_partial_withdrawals,
+    pending_consolidations: pre.pending_consolidations,
     proposer_lookahead: pre.proposer_lookahead,
 
     # [New in Gloas:EIP7732]
@@ -3102,6 +3072,8 @@ func upgrade_to_next*(
     next_sync_committee: pre.next_sync_committee,
 
     # Execution
+    # [Modified in Heze:EIP7805]
+    latest_execution_payload_bid: pre.latest_execution_payload_bid,
     next_withdrawal_index: pre.next_withdrawal_index,
     next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
     historical_summaries: pre.historical_summaries,
@@ -3123,26 +3095,6 @@ func upgrade_to_next*(
     builder_pending_payments: pre.builder_pending_payments,
     builder_pending_withdrawals: pre.builder_pending_withdrawals,
     latest_block_hash: pre.latest_block_hash,
-    # [Modified in Heze:EIP7805]
-    latest_execution_payload_bid: heze.ExecutionPayloadBid(
-      parent_block_hash: pre.latest_execution_payload_bid.parent_block_hash,
-      parent_block_root: pre.latest_execution_payload_bid.parent_block_root,
-      block_hash: pre.latest_execution_payload_bid.block_hash,
-      prev_randao: pre.latest_execution_payload_bid.prev_randao,
-      fee_recipient: pre.latest_execution_payload_bid.fee_recipient,
-      gas_limit: pre.latest_execution_payload_bid.gas_limit,
-      builder_index: pre.latest_execution_payload_bid.builder_index,
-      slot: pre.latest_execution_payload_bid.slot,
-      value: pre.latest_execution_payload_bid.value,
-      execution_payment: pre.latest_execution_payload_bid.execution_payment,
-      blob_kzg_commitments:
-        pre.latest_execution_payload_bid.blob_kzg_commitments,
-      execution_requests_root:
-        pre.latest_execution_payload_bid.execution_requests_root,
-      # [New in Heze:EIP7805]
-      inclusion_list_bits:
-        static(default(BitArray[INCLUSION_LIST_COMMITTEE_SIZE])),
-    ),
     payload_expected_withdrawals: pre.payload_expected_withdrawals,
     ptc_window: pre.ptc_window
   )

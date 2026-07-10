@@ -85,6 +85,12 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  DataColumnSidecarInfoObject* = object
+    block_root*: Eth2Digest
+    index*: ColumnIndex
+    slot*: Slot
+    kzg_commitments*: KzgCommitments
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
@@ -97,8 +103,8 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
   PartialDataColumnPartsMetadata* = object
-    available*: BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    requests*: BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnheader
   PartialDataColumnHeader* = object
@@ -106,10 +112,6 @@ type
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
-  PartialDataColumnGroupID* = object
-    beacon_block_root*: Eth2Digest
 
   CellsPresentBits* = BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 

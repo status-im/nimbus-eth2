@@ -35,7 +35,7 @@ func gen[T](index: int): T =
 proc genPartialDataColumnHeader(
     slot: int, proposerIndex: int, numCommitments: int
 ): ref fulu.PartialDataColumnHeader =
-  var commitments: deneb.KzgCommitments
+  var commitments: KzgCommitments
   for i in 0 ..< numCommitments:
     check commitments.add(gen[KzgCommitment](i))
   result = new fulu.PartialDataColumnHeader
@@ -85,7 +85,7 @@ func genGloasPartialDataColumnSidecar(
   ## Build a Gloas PartialDataColumnSidecar (singular `partial_column`,
   ## no `header` field).
   var
-    bitmap = gloas.CellsPresentBits.init(
+    bitmap = fulu.CellsPresentBits.init(
       if blobIndices.len == 0: 0 else: max(blobIndices) + 1)
     cells = newSeqOfCap[KzgCell](blobIndices.len)
     proofs = newSeqOfCap[KzgProof](blobIndices.len)
@@ -96,8 +96,8 @@ func genGloasPartialDataColumnSidecar(
   result = new gloas.PartialDataColumnSidecar
   result[] = gloas.PartialDataColumnSidecar(
     cells_present_bitmap: bitmap,
-    partial_column: cells,
-    kzg_proofs: proofs)
+    partial_column: DataColumn.init(cells),
+    kzg_proofs: deneb.KzgProofs.init(proofs))
 
 suite "Partial Column Quarantine (Fulu)":
   test "Init creates empty quarantine":
