@@ -205,14 +205,11 @@ proc serveAggregateAndProofV2(
       raise exc
 
   let signedProof =
-    when proof is gloas.AggregateAndProof:
-      gloas.SignedAggregateAndProof(
+    when proof is phase0.AggregateAndProof:
+      phase0.SignedAggregateAndProof(
         message: proof, signature: signature)
     elif proof is electra.AggregateAndProof:
       electra.SignedAggregateAndProof(
-        message: proof, signature: signature)
-    elif proof is phase0.AggregateAndProof:
-      phase0.SignedAggregateAndProof(
         message: proof, signature: signature)
     else:
       static:
@@ -416,15 +413,7 @@ proc produceAndPublishAggregatesV2(
       var res: seq[Future[bool].Raising([CancelledError])]
       for item in aggregateItems:
         withAttestation(attestation):
-          when consensusFork >= ConsensusFork.Gloas:
-            let proof =
-              gloas.AggregateAndProof(
-                aggregator_index: item.aggregator_index,
-                aggregate: forkyAttestation,
-                selection_proof: item.selection_proof
-              )
-            res.add(service.serveAggregateAndProofV2(proof, item.validator))
-          elif consensusFork >= ConsensusFork.Electra:
+          when consensusFork > ConsensusFork.Deneb:
             let proof =
               electra.AggregateAndProof(
                 aggregator_index: item.aggregator_index,

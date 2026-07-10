@@ -38,8 +38,8 @@ type
     inclusion_delay*: Opt[uint64]
 
   ParticipationFlags* = object
-    currentEpochParticipation: gloas.EpochParticipationFlags
-    previousEpochParticipation: gloas.EpochParticipationFlags
+    currentEpochParticipation: EpochParticipationFlags
+    previousEpochParticipation: EpochParticipationFlags
 
   PubkeyToIndexTable = Table[ValidatorPubKey, ValidatorIndex]
 
@@ -57,9 +57,9 @@ func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
     when consensusFork > ConsensusFork.Phase0:
       template flags: untyped = auxiliaryState.epochParticipationFlags
       flags.currentEpochParticipation =
-        forkyState.data.current_epoch_participation.asSeq
+        forkyState.data.current_epoch_participation
       flags.previousEpochParticipation =
-        forkyState.data.previous_epoch_participation.asSeq
+        forkyState.data.previous_epoch_participation
 
 from std/sequtils import allIt
 

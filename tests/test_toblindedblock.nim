@@ -56,13 +56,9 @@ template bellatrix_steps() =
       b.message.body.attester_slashings.len + 1)
   do_check
   check:
-    when typeof(b).kind >= ConsensusFork.Gloas:
-      b.message.body.attestations.add(gloas.Attestation(
-        aggregation_bits: gloas.AggregationBits.init(1)))
-      true
-    elif typeof(b).kind >= ConsensusFork.Electra:
+    when typeof(b).kind >= ConsensusFork.Electra:
       b.message.body.attestations.add(electra.Attestation(
-        aggregation_bits: electra.AggregationBits.init(1)))
+        aggregation_bits: AggregationBits.init(1)))
     else:
       b.message.body.attestations.add(phase0.Attestation(
         aggregation_bits: CommitteeValidatorsBits.init(1)))
@@ -106,8 +102,7 @@ template bellatrix_steps() =
   b.message.body.execution_payload.block_hash = Eth2Digest.fromHex(
     "0x4b1aed517ac48bfbf6ab19846923d5256897fbc934c20ca5b8c486bfe71c6ef1")
   do_check
-  check: b.message.body.execution_payload.transactions.add(
-    default(bellatrix.Transaction))
+  check: b.message.body.execution_payload.transactions.add default(Transaction)
   do_check
 
 template capella_steps() =

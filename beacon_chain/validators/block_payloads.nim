@@ -48,6 +48,12 @@ from ../spec/beaconstate import get_expected_withdrawals
 
 export results
 
+template executionRequestsTypeForPayload(EPS: typedesc): typedesc =
+  when EPS.kind >= ConsensusFork.Gloas:
+    gloas.ExecutionRequests
+  else:
+    electra.ExecutionRequests
+
 type
   BuilderBidResult[BB: ForkyBuilderBid] = Result[BB, string]
 
@@ -69,7 +75,7 @@ type
   EngineBid*[EPS: ForkyExecutionPayloadForSigning] = object
     eps*: EPS
     # [Modified in Gloas:EIP8282]
-    execution_requests*: EPS.kind.ExecutionRequests
+    execution_requests*: executionRequestsTypeForPayload(EPS)
 
   Bids[consensusFork: static ConsensusFork] = object
     engineBid*: Opt[EngineBid[consensusFork.ExecutionPayloadForSigning]]
@@ -156,10 +162,10 @@ template validateRequestType(request_type_and_payload, prev_type): untyped =
 func decodePayloadRequests[EPS: electra.ExecutionPayloadForSigning |
     fulu.ExecutionPayloadForSigning | gloas.ExecutionPayloadForSigning](
     eps: EPS
-): Result[EPS.kind.ExecutionRequests, string] =
+): Result[executionRequestsTypeForPayload(EPS), string] =
   try:
     var
-      execution_requests_buffer: EPS.kind.ExecutionRequests
+      execution_requests_buffer: executionRequestsTypeForPayload(EPS)
       prev_type: Opt[byte]
 
     # TODO why aren't these decoded already?
@@ -172,25 +178,36 @@ func decodePayloadRequests[EPS: electra.ExecutionPayloadForSigning |
       case request_type_and_payload[0]
       of DEPOSIT_REQUEST_TYPE:
         execution_requests_buffer.deposits = SSZ.decode(
-          request_payload, typeof(execution_requests_buffer.deposits))
+          request_payload, List[DepositRequest, Limit MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]
+        )
       of WITHDRAWAL_REQUEST_TYPE:
         execution_requests_buffer.withdrawals = SSZ.decode(
-          request_payload, typeof(execution_requests_buffer.withdrawals))
+          request_payload,
+          List[WithdrawalRequest, Limit MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD],
+        )
       of CONSOLIDATION_REQUEST_TYPE:
         execution_requests_buffer.consolidations = SSZ.decode(
-          request_payload, typeof(execution_requests_buffer.consolidations))
+          request_payload,
+          List[ConsolidationRequest, Limit MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD],
+        )
       # [New in Gloas:EIP8282]
       of BUILDER_DEPOSIT_REQUEST_TYPE:
         when EPS.kind >= ConsensusFork.Gloas:
           execution_requests_buffer.builder_deposits = SSZ.decode(
-            request_payload, typeof(execution_requests_buffer.builder_deposits))
+            request_payload,
+            List[gloas.BuilderDepositRequest,
+              Limit MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD],
+          )
         else:
           return err("Execution layer invalid request type")
       # [New in Gloas:EIP8282]
       of BUILDER_EXIT_REQUEST_TYPE:
         when EPS.kind >= ConsensusFork.Gloas:
           execution_requests_buffer.builder_exits = SSZ.decode(
-            request_payload, typeof(execution_requests_buffer.builder_exits))
+            request_payload,
+            List[gloas.BuilderExitRequest,
+              Limit MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD],
+          )
         else:
           return err("Execution layer invalid request type")
       else:
@@ -218,11 +235,11 @@ func makeExecutionPayloadEnvelope*(
 func makeSignedExecutionPayloadBid(
     executionPayload: gloas.ExecutionPayload,
     execution_requests: gloas.ExecutionRequests,
-    blob_kzg_commitments: gloas.KzgCommitments,
+    blob_kzg_commitments: KzgCommitments,
     parentBlockRoot: Eth2Digest,
     slot: Slot,
-): gloas.SignedExecutionPayloadBid =
-  let bid = gloas.ExecutionPayloadBid(
+): SignedExecutionPayloadBid =
+  let bid = ExecutionPayloadBid(
     parent_block_hash: executionPayload.parent_hash,
     parent_block_root: parentBlockRoot,
     block_hash: executionPayload.block_hash,
@@ -236,7 +253,7 @@ func makeSignedExecutionPayloadBid(
     blob_kzg_commitments: blob_kzg_commitments,
     execution_requests_root: hash_tree_root(execution_requests),
   )
-  gloas.SignedExecutionPayloadBid(
+  SignedExecutionPayloadBid(
     message: bid,
     signature: ValidatorSig.infinity()
   )
@@ -255,8 +272,8 @@ proc makeEngineBlock*(
     execution_requests: consensusFork.ExecutionRequests,
     parent_execution_requests: consensusFork.ExecutionRequests,
     verification_flags: UpdateFlags,
-    builderBid: Opt[gloas.SignedExecutionPayloadBid] = Opt.none(
-      gloas.SignedExecutionPayloadBid),
+    builderBid: Opt[SignedExecutionPayloadBid] = Opt.none(
+      SignedExecutionPayloadBid),
 ): EngineBlockResult[consensusFork.BeaconBlock, consensusFork.BlobsBundle] =
   let
     attestations = node.attestationPool[].getAttestationsForBlock(state, cache)
@@ -265,16 +282,13 @@ proc makeEngineBlock*(
     )
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
     signed_execution_payload_bid =
-      when consensusFork >= ConsensusFork.Heze:
-        debugHezeComment "Heze has different SignedExecutionPayloadBid"
-        default(heze.SignedExecutionPayloadBid)
-      elif consensusFork >= ConsensusFork.Gloas:
+      when consensusFork >= ConsensusFork.Gloas:
         builderBid.valueOr:
           makeSignedExecutionPayloadBid(
             eps.executionPayload, execution_requests, eps.kzg_commitments,
             state.latest_block_root, slot)
       else:
-        default(gloas.SignedExecutionPayloadBid)
+        default(SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(
@@ -541,9 +555,8 @@ proc makeBuilderBlock*(
     sync_aggregate = node.syncCommitteeMsgPool[].produceSyncAggregate(head.bid, slot)
 
   debugGloasComment "make signed bid from engine payload"
-  debugHezeComment "Heze has different SignedExecutionPayloadBid"
   let
-    signed_execution_payload_bid = default(gloas.SignedExecutionPayloadBid)
+    signed_execution_payload_bid = default(SignedExecutionPayloadBid)
     payload_attestations =
       when consensusFork >= ConsensusFork.Gloas:
         node.payloadAttestationPool[].getPayloadAttestationsForBlock(

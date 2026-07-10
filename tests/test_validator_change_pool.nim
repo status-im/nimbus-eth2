@@ -94,7 +94,7 @@ suite "Validator change pool testing suite":
 
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS_ELECTRA + 5:
       for j in 0'u64 .. i:
-        let msg = dag.headState.makeAttesterSlashing(
+        let msg = dag.headState.makeElectraAttesterSlashing(
           [j], Slot(1), makeFakeHash(0), makeFakeHash(1))
 
         if i == 0:
@@ -106,7 +106,7 @@ suite "Validator change pool testing suite":
         when consensusFork >= ConsensusFork.Electra:
           check:
             pool[].getBeaconBlockValidatorChanges(
-                cfg, forkyState.data).attester_slashings.lenu64 ==
+                cfg, forkyState.data).electra_attester_slashings.lenu64 ==
               min(i + 1, MAX_ATTESTER_SLASHINGS_ELECTRA)
 
   test "addValidatorChangeMessage/getVoluntaryExitMessage":

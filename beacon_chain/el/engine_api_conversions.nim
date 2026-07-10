@@ -111,8 +111,8 @@ func asConsensusType*(
 func asConsensusType*(
     rpcExecutionPayload: ExecutionPayloadV4):
     gloas.ExecutionPayload =
-  template getTransaction(tt: TypedTransaction): gloas.Transaction =
-    gloas.Transaction(tt.distinctBase)
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
 
   gloas.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
@@ -125,17 +125,17 @@ func asConsensusType*(
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(
-      rpcExecutionPayload.extraData.data),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.data),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: mapIt(rpcExecutionPayload.transactions, it.getTransaction),
-    withdrawals:
-      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal),
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
     blob_gas_used: rpcExecutionPayload.blobGasUsed.uint64,
     excess_blob_gas: rpcExecutionPayload.excessBlobGas.uint64,
-    block_access_list:
-      gloas.BlockAccessList(rpcExecutionPayload.blockAccessList),
+    block_access_list: List[byte, MAX_BYTES_PER_TRANSACTION].init(
+      rpcExecutionPayload.blockAccessList),
     slot_number: Slot(rpcExecutionPayload.slotNumber))
 
 func asConsensusType*(
@@ -277,8 +277,8 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
 
 func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     ExecutionPayloadV4 =
-  template getTypedTransaction(tt: gloas.Transaction): TypedTransaction =
-    TypedTransaction(distinctBase(tt))
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
 
   engine_api.ExecutionPayloadV4(
     parentHash: executionPayload.parent_hash.asBlockHash,
@@ -303,7 +303,7 @@ func asEngineExecutionPayload*(executionPayload: gloas.ExecutionPayload):
     slotNumber: Quantity(executionPayload.slot_number))
 
 proc asEngineVersionedHashes*(
-    blob_kzg_commitments: deneb.KzgCommitments | gloas.KzgCommitments
+    blob_kzg_commitments: KzgCommitments
 ): seq[VersionedHash] =
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.1/specs/deneb/beacon-chain.md#process_execution_payload
 
