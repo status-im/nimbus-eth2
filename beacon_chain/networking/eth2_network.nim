@@ -767,10 +767,18 @@ proc uncompressFramedStream(conn: Connection,
   static:
     doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
 
+  # A reader MUST NOT read more than max_compressed_len(n) bytes after
+  # reading the SSZ length-prefix n from the header.
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/phase0/p2p-interface.md#ssz-snappy-encoding-strategy
+  static: doAssert maxUncompressedLen <= uint32.high
+  let maxBytesToRead = snappy.maxCompressedLen(
+    min(max(expectedSize, 0).uint64, maxUncompressedLen.uint64).uint32)
+
   var
     frameData = newSeqUninit[byte](maxCompressedFrameDataLen + 4)
     output = newSeqUninit[byte](expectedSize)
     written = 0
+    readBytes = framingHeader.lenu64
 
   while written < expectedSize:
     var frameHeader: array[4, byte]
@@ -788,6 +796,10 @@ proc uncompressFramedStream(conn: Connection,
       # valid, small snappy frame, but this would mean they are not getting
       # compressed correctly
       return err "Snappy frame too big"
+
+    readBytes += frameHeader.lenu64 + dataLen.uint64
+    if readBytes > maxBytesToRead:
+      return err "Snappy data exceeds max compressed length"
 
     if dataLen > 0:
       try:
