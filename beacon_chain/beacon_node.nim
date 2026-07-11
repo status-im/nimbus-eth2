@@ -49,6 +49,7 @@ export
 type
   EventBus* = object
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
+    headV2Queue*: AsyncEventQueue[HeadV2ChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
     blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
@@ -186,6 +187,8 @@ func init*(T: type EventBus): T =
   T(
     headQueue:
       newAsyncEventQueue[HeadChangeInfoObject](),
+    headV2Queue:
+      newAsyncEventQueue[HeadV2ChangeInfoObject](),
     blocksQueue:
       newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue:

@@ -1042,6 +1042,8 @@ func decodeString*(t: typedesc[EventTopic],
   case value
   of "head":
     ok(EventTopic.Head)
+  of "head_v2":
+    ok(EventTopic.HeadV2)
   of "block":
     ok(EventTopic.Block)
   of "block_gossip":
@@ -1093,6 +1095,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
   var res: string
   if EventTopic.Head in value:
     res.add("head,")
+  if EventTopic.HeadV2 in value:
+    res.add("head_v2,")
   if EventTopic.Block in value:
     res.add("block,")
   if EventTopic.BlockGossip in value:

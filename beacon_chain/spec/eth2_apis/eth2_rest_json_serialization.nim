@@ -129,6 +129,8 @@ RestJson.useDefaultSerializationFor(
   GloasSignedBlockContents,
   HezeSignedBlockContents,
   HeadChangeInfoObject,
+  HeadV2ChangeInfoObject,
+  HeadV2ChangeInfoObjectData,
   HistoricalSummary,
   ImportDistributedKeystoresBody,
   ImportRemoteKeystoresBody,
