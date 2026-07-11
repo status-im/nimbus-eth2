@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2026 Status Research & Development GmbH
+# Copyright (c) 2018-2025 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -77,8 +77,7 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
     inspectType(tImpl[0], xSubField, ySubField, stmts)
   of {nnkSym, nnkBracketExpr}:
     if tImpl.kind == nnkBracketExpr:
-      if tImpl[0].eqIdent"HashList" or tImpl[0].eqIdent"HashArray" or
-          tImpl[0].eqIdent"HashSeq":
+      if tImpl[0].eqIdent"HashList" or tImpl[0].eqIdent"HashArray":
         # TODO  resolve trouble with overloaded `[]` template
         discard
       elif tImpl[0].eqIdent"BitArray":

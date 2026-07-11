@@ -23,8 +23,7 @@ type
 
   ForkyCurrentSyncCommitteeBranch* =
     altair.CurrentSyncCommitteeBranch |
-    electra.CurrentSyncCommitteeBranch |
-    gloas.CurrentSyncCommitteeBranch
+    electra.CurrentSyncCommitteeBranch
 
   ForkyLightClientHeader* =
     altair.LightClientHeader |
@@ -234,9 +233,7 @@ template execution_block_hash*(
 
 template finalized_root_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
-  when kind >= LightClientDataFork.Gloas:
-    FINALIZED_ROOT_GINDEX_GLOAS
-  elif kind >= LightClientDataFork.Electra:
+  when kind >= LightClientDataFork.Electra:
     FINALIZED_ROOT_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
     FINALIZED_ROOT_GINDEX
@@ -245,9 +242,7 @@ template finalized_root_gindex*(
 
 template FinalityBranch*(
     kind: static LightClientDataFork): typedesc =
-  when kind >= LightClientDataFork.Gloas:
-    gloas.FinalityBranch
-  elif kind >= LightClientDataFork.Electra:
+  when kind >= LightClientDataFork.Electra:
     electra.FinalityBranch
   elif kind >= LightClientDataFork.Altair:
     altair.FinalityBranch
@@ -256,9 +251,7 @@ template FinalityBranch*(
 
 template current_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
-  when kind >= LightClientDataFork.Gloas:
-    CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS
-  elif kind >= LightClientDataFork.Electra:
+  when kind >= LightClientDataFork.Electra:
     CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
     CURRENT_SYNC_COMMITTEE_GINDEX
@@ -267,9 +260,7 @@ template current_sync_committee_gindex*(
 
 template CurrentSyncCommitteeBranch*(
     kind: static LightClientDataFork): typedesc =
-  when kind >= LightClientDataFork.Gloas:
-    gloas.CurrentSyncCommitteeBranch
-  elif kind >= LightClientDataFork.Electra:
+  when kind >= LightClientDataFork.Electra:
     electra.CurrentSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
     altair.CurrentSyncCommitteeBranch
@@ -278,9 +269,7 @@ template CurrentSyncCommitteeBranch*(
 
 template next_sync_committee_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
-  when kind >= LightClientDataFork.Gloas:
-    NEXT_SYNC_COMMITTEE_GINDEX_GLOAS
-  elif kind >= LightClientDataFork.Electra:
+  when kind >= LightClientDataFork.Electra:
     NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA
   elif kind >= LightClientDataFork.Altair:
     NEXT_SYNC_COMMITTEE_GINDEX
@@ -289,9 +278,7 @@ template next_sync_committee_gindex*(
 
 template NextSyncCommitteeBranch*(
     kind: static LightClientDataFork): typedesc =
-  when kind >= LightClientDataFork.Gloas:
-    gloas.NextSyncCommitteeBranch
-  elif kind >= LightClientDataFork.Electra:
+  when kind >= LightClientDataFork.Electra:
     electra.NextSyncCommitteeBranch
   elif kind >= LightClientDataFork.Altair:
     altair.NextSyncCommitteeBranch

@@ -366,7 +366,7 @@ proc routeAttestation*(
 
 proc routeSignedAggregateAndProof*(
     router: ref MessageRouter,
-    proof: electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
+    proof: electra.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
@@ -591,8 +591,7 @@ proc routeSignedVoluntaryExit*(
   return ok()
 
 proc routeAttesterSlashing*(
-    router: ref MessageRouter,
-    slashing: electra.AttesterSlashing | gloas.AttesterSlashing):
+    router: ref MessageRouter, slashing: electra.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =

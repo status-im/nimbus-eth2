@@ -116,10 +116,10 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": checkSSZ(gloas.AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(gloas.Attestation, path, hash)
+          of "AggregateAndProof": checkSSZ(electra.AggregateAndProof, path, hash)
+          of "Attestation": checkSSZ(electra.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(gloas.AttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(heze.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(heze.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
@@ -151,8 +151,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
             checkSSZ(deneb.ExecutionPayloadHeader, path, hash)
           of "ExecutionPayloadEnvelope":
             checkSSZ(ExecutionPayloadEnvelope, path, hash)
-          of "ExecutionPayloadBid":
-            checkSSZ(heze.ExecutionPayloadBid, path, hash)
+          of "ExecutionPayloadBid": checkSSZ(ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
             checkSSZ(gloas.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
@@ -161,7 +160,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "InclusionList": checkSSZ(heze.InclusionList, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation":
-            checkSSZ(gloas.IndexedAttestation, path, hash)
+            checkSSZ(electra.IndexedAttestation, path, hash)
           of "IndexedPayloadAttestation":
             checkSSZ(IndexedPayloadAttestation, path, hash)
           of "LightClientBootstrap":
@@ -191,7 +190,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "ProposerPreferences": checkSSZ(ProposerPreferences, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            checkSSZ(gloas.SignedAggregateAndProof, path, hash)
+            checkSSZ(electra.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(heze.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
@@ -203,7 +202,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "SignedExecutionPayloadEnvelope":
             checkSSZ(SignedExecutionPayloadEnvelope, path, hash)
           of "SignedExecutionPayloadBid":
-            checkSSZ(heze.SignedExecutionPayloadBid, path, hash)
+            checkSSZ(SignedExecutionPayloadBid, path, hash)
           of "SignedInclusionList":
             checkSSZ(heze.SignedInclusionList, path, hash)
           of "SignedProposerPreferences":
@@ -222,11 +221,8 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
-          of "PartialDataColumnGroupID":
-            checkSSZ(gloas.PartialDataColumnGroupID, path, hash)
-          of "PartialDataColumnSidecar":
-            checkSSZ(gloas.PartialDataColumnSidecar, path, hash)
-          of "PartialDataColumnPartsMetadata":
-            checkSSZ(fulu.PartialDataColumnPartsMetadata, path, hash)
+          of "PartialDataColumnGroupID", "PartialDataColumnPartsMetadata",
+             "PartialDataColumnSidecar":
+            debugHezeComment "Skipping PartialDataColumn tests for now"
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

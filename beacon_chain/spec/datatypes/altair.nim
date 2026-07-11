@@ -409,9 +409,6 @@ template asList*(epochFlags: EpochParticipationFlags): untyped =
 template asList*(epochFlags: var EpochParticipationFlags): untyped =
   List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
 
-template asSeq*(epochFlags: EpochParticipationFlags): seq[ParticipationFlags] =
-  asList(epochFlags).asSeq
-
 template `[]`*(
     epochFlags: EpochParticipationFlags,
     idx: ValidatorIndex|uint64|int): ParticipationFlags =

@@ -113,8 +113,7 @@ type
   BranchFork {.pure.} = enum
     None = 0,
     Altair,
-    Electra,
-    Gloas
+    Electra
 
   CurrentSyncCommitteeBranchStore = object
     containsStmt: SqliteStmt[int64, int64]
@@ -302,9 +301,6 @@ template kind(x: typedesc[altair.CurrentSyncCommitteeBranch]): BranchFork =
 
 template kind(x: typedesc[electra.CurrentSyncCommitteeBranch]): BranchFork =
   BranchFork.Electra
-
-template kind(x: typedesc[gloas.CurrentSyncCommitteeBranch]): BranchFork =
-  BranchFork.Gloas
 
 func hasCurrentSyncCommitteeBranch*[T: ForkyCurrentSyncCommitteeBranch](
     db: LightClientDataDB, slot: Slot): bool =
@@ -690,7 +686,6 @@ type LightClientDataDBNames* = object
   gloasHeaders*: string
   altairCurrentBranches*: string
   electraCurrentBranches*: string
-  gloasCurrentBranches*: string
   altairSyncCommittees*: string
   legacyAltairBestUpdates*: string
   bestUpdates*: string
@@ -729,9 +724,6 @@ proc initLightClientDataDB*(
       # BranchFork.Electra
       ? backend.initCurrentBranchesStore(
         names.electraCurrentBranches, "electra.CurrentSyncCommitteeBranch"),
-      # BranchFork.Gloas
-      ? backend.initCurrentBranchesStore(
-        names.gloasCurrentBranches, "gloas.CurrentSyncCommitteeBranch"),
     ]
     syncCommittees =
       ? backend.initSyncCommitteesStore(names.altairSyncCommittees)

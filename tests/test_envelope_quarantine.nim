@@ -37,13 +37,12 @@ suite "Envelope Quarantine":
     check (root1, 1'u64) notin quarantine.orphans
 
   test "Pop orphan":
-    debugHezeComment "Heze has different SignedExecutionPayloadBid"
     let
       envelope = SignedExecutionPayloadEnvelope(
         message: ExecutionPayloadEnvelope(
           beacon_block_root: root1,
           builder_index: 1'u64))
-      blckBid = gloas.SignedExecutionPayloadBid(
+      blckBid = SignedExecutionPayloadBid(
         message: gloas.ExecutionPayloadBid(
           builder_index: 1'u64))
       blck = gloas.BeaconBlock(

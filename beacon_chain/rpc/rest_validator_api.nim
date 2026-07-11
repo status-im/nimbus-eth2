@@ -612,20 +612,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let
       qfork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
       forked =
-        if qfork >= ConsensusFork.Gloas:
-          let attestation =
-            node.attestationPool[].getGloasAggregatedAttestation(
-              qslot, root, committee_index).valueOr:
-              return RestApiResponse.jsonError(Http404,
-                UnableToGetAggregatedAttestationError)
-          ForkedAttestation.init(attestation, qfork)
-        elif qfork >= ConsensusFork.Electra:
-          let attestation =
+        if qfork >= ConsensusFork.Electra:
+          let electra_attestation =
             node.attestationPool[].getElectraAggregatedAttestation(
               qslot, root, committee_index).valueOr:
               return RestApiResponse.jsonError(Http404,
                 UnableToGetAggregatedAttestationError)
-          ForkedAttestation.init(attestation, qfork)
+          ForkedAttestation.init(electra_attestation, qfork)
         else:
           return RestApiResponse.jsonError(Http404,
             UnableToGetAggregatedAttestationError)
@@ -663,10 +656,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          UnsupportedForkError,
                                          $UnsupportedForkError)
-      of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      of ConsensusFork.Electra .. ConsensusFork.Heze:
         addDecodedProofs(electra.SignedAggregateAndProof)
-      of ConsensusFork.Gloas .. ConsensusFork.Heze:
-        addDecodedProofs(gloas.SignedAggregateAndProof)
 
     await allFutures(proofs)
     for future in proofs:
