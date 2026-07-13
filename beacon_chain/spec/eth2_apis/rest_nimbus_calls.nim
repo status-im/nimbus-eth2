@@ -24,6 +24,13 @@ func decodeSszResponse(
     cfg: RuntimeConfig,
 ): T {.raises: [RestDecodingError].} =
   case historicalSummariesFork
+  of HistoricalSummariesFork.Gloas:
+    let summaries =
+      try:
+        SSZ.decode(data, GetHistoricalSummariesV1ResponseGloas)
+      except SerializationError as exc:
+        raise newException(RestDecodingError, exc.msg)
+    ForkedHistoricalSummariesWithProof.init(summaries)
   of HistoricalSummariesFork.Electra:
     let summaries =
       try:
@@ -46,6 +53,12 @@ proc decodeJsonResponse(
     cfg: RuntimeConfig,
 ): T {.raises: [RestDecodingError].} =
   case historicalSummariesFork
+  of HistoricalSummariesFork.Gloas:
+    let summaries = decodeBytes(
+      GetHistoricalSummariesV1ResponseGloas, data, Opt.none(ContentTypeData)
+    ).valueOr:
+      raise newException(RestDecodingError, $error)
+    ForkedHistoricalSummariesWithProof.init(summaries)
   of HistoricalSummariesFork.Electra:
     let summaries = decodeBytes(
       GetHistoricalSummariesV1ResponseElectra, data, Opt.none(ContentTypeData)
