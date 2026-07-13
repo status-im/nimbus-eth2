@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2026 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -72,7 +72,7 @@ exec ${WINPTY} build/${NBC_BINARY} \
   --udp-port=${UDP_PORT} \
   --debug-tcp=true \
   --debug-quic=false \
-  --quic-port=${QUIC_PORT} \
+  --debug-quic-port=${QUIC_PORT} \
   --rest \
   --rest-port=$(( ${BASE_REST_PORT} + ${NODE_ID} )) \
   --metrics \
