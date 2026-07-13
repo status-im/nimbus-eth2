@@ -604,6 +604,11 @@ proc new*(T: type BeaconChainDB,
           "lc_electra_current_branches"
         else:
           "",
+      gloasCurrentBranches:
+        if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_gloas_current_branches"
+        else:
+          "",
       altairSyncCommittees: "lc_altair_sync_committees",
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",

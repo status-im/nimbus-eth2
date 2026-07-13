@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-alpha.11"
+const SPEC_VERSION* = "1.7.0-alpha.12"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -684,13 +684,16 @@ template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
 iterator vindices*(
-    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT] |
+       HashSeq[Validator]): ValidatorIndex =
   static: doAssert distinctBase(ValidatorIndex) is uint32
   for i in 0..<a.len.uint32:
     yield i.ValidatorIndex
 
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
+
+template asSeq*[T](x: seq[T]): seq[T] = x
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
