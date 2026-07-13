@@ -2329,3 +2329,68 @@ suite "Gloas block validity":
           bRef.parent,
           b.envelope.message.payload.parent_hash)
         bRef.executionValid
+
+  test "Execution valid after checkpoint sync":
+    let state = assignClone(dag.clearanceState)
+    const currentFork = ConsensusFork.Gloas
+
+    process_slots(
+      cfg, state[], cfg.GLOAS_FORK_EPOCH.start_slot,
+      cache, info, {}).expect("gloas fork")
+
+    # Slot 0 - 7, build on FULL Payload
+    for i in 0 ..< SLOTS_PER_EPOCH:
+      process_slots(
+        cfg, state[], state[].slot + 1,
+        cache, info, {}).expect("next slot")
+
+      let
+        b = addTestEngineBlock(
+          cfg, currentFork, state[].gloasData, cache)
+        bRef = block:
+          let res = dag.addHeadBlockWithParent(
+            verifier, b.blck, dag.head,
+            OptimisticStatus.notValidated, nilGloasCallback)
+          check res.isOk()
+          dag.updateHead(res.get(), quarantine, @[])
+          res.get()
+      # Mock that it is execution valid
+      bRef.markExecutionValid(true)
+
+      check:
+        Opt.some(bRef.parent) == bRef.executionParent
+        Opt.some(bRef.parent) == dag.executionParent(
+          bRef.parent,
+          b.envelope.message.payload.parent_hash)
+        bRef.executionValid
+      if i == 0:
+        check bRef.parent.slot == GENESIS_SLOT
+
+    # Checkpoint synced DAG
+    let dbCp = cfg.makeTestDB(SLOTS_PER_EPOCH)
+    ChainDAGRef.preInit(dbCp, state[])
+    let
+      validatorMonitorCp = newClone(ValidatorMonitor.init(cfg))
+      dagCp = ChainDAGRef.init(cfg, dbCp, validatorMonitorCp, {})
+      stateCp = assignClone(dagCp.clearanceState)
+
+    # Add block based on the checkpoint head
+    for i in 0 ..< 4:
+      process_slots(
+        cfg, stateCp[], stateCp[].slot + SLOTS_PER_EPOCH,
+        cache, info, {}).expect("next slot")
+
+      let
+        b = addTestEngineBlock(
+          cfg, currentFork, stateCp[].gloasData, cache,
+          shouldExtendPayload = i == 0)
+        bRef = block:
+          let res = dagCp.addHeadBlockWithParent(
+            verifier, b.blck, dagCp.head,
+            OptimisticStatus.notValidated, nilGloasCallback)
+          check res.isOk()
+          dagCp.updateHead(res.get(), quarantine, @[])
+          res.get()
+
+      check:
+        dag.head.executionBlockHash == bRef.executionParentHash

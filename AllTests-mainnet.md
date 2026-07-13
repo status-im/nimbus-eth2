@@ -788,6 +788,7 @@ AllTests-mainnet
 ## Gloas block validity
 ```diff
 + Execution valid                                                                            OK
++ Execution valid after checkpoint sync                                                      OK
 ```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
