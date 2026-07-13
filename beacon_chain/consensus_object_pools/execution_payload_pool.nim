@@ -131,6 +131,10 @@ proc getHighestBidForProposalState*(
   res.isErrOr:
     if pool.dag.cfg.can_process_execution_payload_bid(
         state, value, state.slot, {skipBlsValidation}).isErr:
+      debugHezeComment """
+- The `bid.inclusion_list_bits` must satisfy
+  `is_inclusion_list_bits_inclusive(get_inclusion_list_store(), state, slot - 1, bid.inclusion_list_bits, only_timely=False)`.
+"""
       return static(Opt.none gloas.SignedExecutionPayloadBid)
   res
 

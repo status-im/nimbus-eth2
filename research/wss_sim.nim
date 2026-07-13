@@ -299,8 +299,9 @@ cli do(validatorsDir: string, secretsDir: string,
               pl
             signed_execution_payload_bid =
               when consensusFork >= ConsensusFork.Gloas:
-                SignedExecutionPayloadBid(
-                  message: ExecutionPayloadBid(
+                debugHezeComment "Heze has different SignedExecutionPayloadBid"
+                gloas.SignedExecutionPayloadBid(
+                  message: gloas.ExecutionPayloadBid(
                     parent_block_hash: payload.executionPayload.parent_hash,
                     parent_block_root: forkyState.latest_block_root,
                     block_hash: payload.executionPayload.block_hash,
@@ -316,7 +317,7 @@ cli do(validatorsDir: string, secretsDir: string,
                       hash_tree_root(default(consensusFork.ExecutionRequests))),
                   signature: ValidatorSig.infinity())
               else:
-                default(SignedExecutionPayloadBid)
+                default(gloas.SignedExecutionPayloadBid)
             message = makeBeaconBlock(
               cfg,
               consensusFork,

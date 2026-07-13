@@ -221,11 +221,13 @@ type
 
   ForkyAggregateAndProof* =
     phase0.AggregateAndProof |
-    electra.AggregateAndProof
+    electra.AggregateAndProof |
+    gloas.AggregateAndProof
 
   ForkySignedAggregateAndProof* =
     phase0.SignedAggregateAndProof |
-    electra.SignedAggregateAndProof
+    electra.SignedAggregateAndProof |
+    gloas.SignedAggregateAndProof
 
   ForkyAttestation* =
     phase0.Attestation |
@@ -240,8 +242,8 @@ type
     of ConsensusFork.Deneb:     denebData*:     phase0.Attestation
     of ConsensusFork.Electra:   electraData*:   electra.Attestation
     of ConsensusFork.Fulu:      fuluData*:      electra.Attestation
-    of ConsensusFork.Gloas:     gloasData*:     electra.Attestation
-    of ConsensusFork.Heze:      hezeData*:      electra.Attestation
+    of ConsensusFork.Gloas:     gloasData*:     gloas.Attestation
+    of ConsensusFork.Heze:      hezeData*:      gloas.Attestation
 
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -282,6 +284,15 @@ type
     kind*: ConsensusFork
     data*: BeaconBlockHeader
       ## From Bellatrix onwards, a header is all that's needed
+
+  Web3SignerForkedAggregateAndProof* = object
+    case kind*: ConsensusFork
+    of ConsensusFork.Gloas .. ConsensusFork.high:
+      gloasData*: gloas.AggregateAndProof
+    of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      electraData*: electra.AggregateAndProof
+    of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+      discard
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
@@ -521,7 +532,8 @@ template kind*(
       gloas.SigVerifiedBeaconBlockBody |
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
-      gloas.TrustedSignedBeaconBlock]): ConsensusFork =
+      gloas.TrustedSignedBeaconBlock |
+      gloas.AggregateAndProof]): ConsensusFork =
   ConsensusFork.Gloas
 
 template kind*(
@@ -682,6 +694,18 @@ template ExecutionRequests*(kind: static ConsensusFork): typedesc =
     gloas.ExecutionRequests
   else:
     electra.ExecutionRequests
+
+template KzgCommitments*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Gloas:
+    gloas.KzgCommitments
+  else:
+    deneb.KzgCommitments
+
+template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Heze:
+    heze.SignedExecutionPayloadBid
+  else:
+    gloas.SignedExecutionPayloadBid
 
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
@@ -1943,9 +1967,10 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
     consensusValue: cvalue,
     executionValue: evalue)
 
-template init*(T: type ForkedAttestation,
-               attestation: electra.Attestation,
-               fork: ConsensusFork): T =
+template init*(
+    T: type ForkedAttestation,
+    attestation: electra.Attestation,
+    fork: ConsensusFork): T =
   case fork
   of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
     raiseAssert $fork & " fork should not be used for this type of attestation"
@@ -1953,16 +1978,28 @@ template init*(T: type ForkedAttestation,
     ForkedAttestation(kind: ConsensusFork.Electra, electraData: attestation)
   of ConsensusFork.Fulu:
     ForkedAttestation(kind: ConsensusFork.Fulu, fuluData: attestation)
+  of ConsensusFork.Gloas .. ConsensusFork.high:
+    raiseAssert $fork & " fork should not be used for this type of attestation"
+
+template init*(
+    T: type ForkedAttestation,
+    attestation: gloas.Attestation,
+    fork: ConsensusFork): T =
+  case fork
+  of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
+    raiseAssert $fork & " fork should not be used for this type of attestation"
   of ConsensusFork.Gloas:
     ForkedAttestation(kind: ConsensusFork.Gloas, gloasData: attestation)
   of ConsensusFork.Heze:
     ForkedAttestation(kind: ConsensusFork.Heze, hezeData: attestation)
 
-func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
-  when typeof(eps).kind >= ConsensusFork.Deneb:
+func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): auto =
+  when typeof(eps).kind >= ConsensusFork.Gloas:
+    eps.blobsBundle.commitments.asSeq
+  elif typeof(eps).kind >= ConsensusFork.Deneb:
     eps.blobsBundle.commitments
   else:
-    default(KzgCommitments)
+    default(deneb.KzgCommitments)
 
 # These need access to eth_merkleization indirectly
 func toSignedBlindedBeaconBlock*(

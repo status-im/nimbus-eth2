@@ -789,7 +789,7 @@ proc compute_on_chain_aggregate*(
   prev_committee_index.reset()
 
   var
-    aggregation_bits = AggregationBits.init(totalLen)
+    aggregation_bits = gloas.AggregationBits.init(totalLen)
     pos = 0
     filledLen = 0
   for i, a in aggregates:
@@ -821,7 +821,7 @@ proc compute_on_chain_aggregate*(
   let signature = agg.finish()
 
   ok electra.Attestation(
-      aggregation_bits: aggregation_bits,
+      aggregation_bits: toElectraAggregationBits(aggregation_bits),
       data: data,
       committee_bits: committee_bits,
       signature: signature.toValidatorSig(),

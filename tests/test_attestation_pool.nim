@@ -766,7 +766,7 @@ suite "Attestation pool electra processing" & preset():
 
           # Create a bitfield filled with the given count per attestation,
           # exactly on the right-most part of the committee field.
-          var aggregation_bits = init(AggregationBits, committee.len)
+          var aggregation_bits = init(electra.AggregationBits, committee.len)
           for v in 0 ..< committee.len * 2 div 3 + 1:
             aggregation_bits[v] = true
 
@@ -828,8 +828,8 @@ suite "Attestation pool electra processing" & preset():
       cfg, state[], state[].slot + 1, cache, info, {}).isOk
 
     var validator_changes: BeaconBlockValidatorChanges
-    doAssert validator_changes.electra_attester_slashings.add(
-      state[].makeElectraAttesterSlashing([0'u64], state[].slot))
+    validator_changes.attester_slashings.add(
+      state[].makeAttesterSlashing([0'u64], state[].slot))
     state[].addElectraBlock(
       dag, pool, verifier, quarantine, cache,
       attested = false, validator_changes = validator_changes)
@@ -855,8 +855,8 @@ suite "Attestation pool electra processing" & preset():
     for i in 0'u64 ..< dag.headState.validators.lenu64 div 2:
       slashed_indices.add i
     var validator_changes: BeaconBlockValidatorChanges
-    doAssert validator_changes.electra_attester_slashings.add(
-      state[].makeElectraAttesterSlashing(slashed_indices, state[].slot))
+    validator_changes.attester_slashings.add(
+      state[].makeAttesterSlashing(slashed_indices, state[].slot))
     state[].addElectraBlock(
       dag, pool, verifier, quarantine, cache,
       validator_changes = validator_changes)

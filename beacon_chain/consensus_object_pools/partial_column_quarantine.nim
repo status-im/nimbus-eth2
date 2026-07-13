@@ -341,8 +341,8 @@ func assembleDataColumnSidecar*(
 
   Opt.some(gloas.DataColumnSidecar(
     index: columnIndex,
-    column: column,
-    kzg_proofs: proofs,
+    column: column.asSeq,
+    kzg_proofs: proofs.asSeq,
     slot: stored.slot,
     beacon_block_root: stored.beacon_block_root))
 
