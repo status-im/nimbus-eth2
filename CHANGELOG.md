@@ -1,3 +1,31 @@
+2026-07-13 v26.7.0
+==================
+
+The Nimbus consensus client `v26.7.0` is a `medium-urgency` release which optimizes CPU and memory usage.
+
+### Improvements
+
+- Implements backfilled column reconstruction:
+  https://github.com/status-im/nimbus-eth2/pull/8533
+
+- Reply with correct error message in block req/resp for unavailable blocks:
+  https://github.com/status-im/nimbus-eth2/pull/8719
+
+- Reassemble only custodied columns from execution client mempool:
+  https://github.com/status-im/nimbus-eth2/pull/8672
+
+### Fixes
+
+- Prevents libp2p pubsub peer leakage:
+  https://github.com/status-im/nimbus-eth2/pull/8699
+  https://github.com/status-im/nimbus-eth2/pull/8701
+
+- Prune colunm quarantines:
+  https://github.com/status-im/nimbus-eth2/pull/8691
+
+- Avoid unbounded column quarantine growth when blocks don't arrive:
+  https://github.com/status-im/nimbus-eth2/pull/8693
+
 2026-06-29 v26.6.2
 ==================
 
