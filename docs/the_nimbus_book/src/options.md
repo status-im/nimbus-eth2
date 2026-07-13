@@ -61,7 +61,6 @@ The following options are available:
      --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=*].
      --tcp-port                Listening TCP port for Ethereum LibP2P traffic [=9000].
-     --quic-port               Listening UDP port for Ethereum LibP2P traffic over QUIC [=9001].
      --udp-port                Listening UDP port for node discovery [=9000].
      --max-peers               The target number of peers to connect to [=160].
      --hard-max-peers          The maximum number of peers to connect to. Defaults to maxPeers * 1.5.

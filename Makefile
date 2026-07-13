@@ -491,7 +491,7 @@ GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--debug-tcp=true \
 	--debug-quic=true \
-	--quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
+	--debug-quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--metrics \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \

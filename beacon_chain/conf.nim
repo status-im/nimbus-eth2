@@ -324,14 +324,15 @@ type
       quicEnabled* {.
         hidden
         desc: "Enable QUIC transport"
-        defaultValue: true
+        defaultValue: false
         name: "debug-quic" .}: bool
 
       quicPort* {.
+        hidden
         desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
-        name: "quic-port" .}: Port
+        name: "debug-quic-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
@@ -857,9 +858,10 @@ type
           name: "debug-quic" .}: bool
 
         quicPortExt* {.
+          hidden
           desc: "External QUIC port"
           defaultValue: defaultEth2QuicPort
-          name: "quic-port" .}: Port
+          name: "debug-quic-port" .}: Port
 
         seqNumber* {.
           desc: "Record sequence number"

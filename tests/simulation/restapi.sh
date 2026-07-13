@@ -249,7 +249,7 @@ ${NIMBUS_BEACON_NODE_BIN} \
   --udp-port=${BASE_PORT} \
   --debug-tcp=true \
   --debug-quic=false \
-  --quic-port=$((BASE_PORT + 2000)) \
+  --debug-quic-port=$((BASE_PORT + 2000)) \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --network="${TEST_DIR}" \
   --data-dir="${TEST_DIR}" \
