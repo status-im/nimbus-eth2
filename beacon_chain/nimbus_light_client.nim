@@ -43,6 +43,8 @@ proc main() {.noinline, raises: [CatchableError].} =
     writePanicLine error # Logging not yet set up
     quit QuitFailure
 
+  setupFileLimits()
+
   notice "Launching light client",
     version = fullVersionStr, cmdParams = commandLineParams(), config
 
