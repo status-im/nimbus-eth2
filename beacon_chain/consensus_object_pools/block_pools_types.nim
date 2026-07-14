@@ -488,6 +488,9 @@ template setBlockGossipCb*(dag: ChainDAGRef, cb: OnBlockGossipCallback) =
 template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
   dag.onHeadChanged = cb
 
+template setHeadV2Cb*(dag: ChainDAGRef, cb: OnHeadV2Callback) =
+  dag.onHeadV2Changed = cb
+
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
 
