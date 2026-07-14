@@ -917,6 +917,9 @@ proc processExecutionPayloadBid*(
     self.executionPayloadBidPool[].addBid(
       signedBid, payloadAvailability, wallTime)
 
+    if not isNil(self.dag.onExecutionPayloadBidAdded):
+      self.dag.onExecutionPayloadBidAdded(signedBid)
+
     beacon_execution_payload_bids_received.inc()
 
     ok()
@@ -943,6 +946,9 @@ proc processPayloadAttestationMessage*(
   discard self.payloadAttestationPool[].addPayloadAttestation(
     payload_attestation_message, wallTime)
 
+  if not isNil(self.dag.onPayloadAttestationMessageAdded):
+    self.dag.onPayloadAttestationMessageAdded(payload_attestation_message)
+
   # Record the PTC vote in fork choice.
   self.attestationPool[].forkChoice.on_payload_attestation_message(
       self.dag, payload_attestation_message.validator_index,
@@ -963,6 +969,9 @@ proc processProposerPreferences*(
   if v.isErr():
     debug "Dropping proposer preferences", reason = $v.error
     return err(v.error())
+
+  if not isNil(self.dag.onProposerPreferencesAdded):
+    self.dag.onProposerPreferencesAdded(signed_preferences)
 
   trace "Proposer preferences validated"
   ok()
