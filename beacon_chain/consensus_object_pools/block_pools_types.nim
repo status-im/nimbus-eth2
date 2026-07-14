@@ -51,8 +51,6 @@ type
     proc(data: ForkedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnHeadCallback* =
     proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
-  OnHeadV2Callback* =
-    proc(data: HeadV2ChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
     proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFastConfirmationCallback* =
@@ -267,8 +265,6 @@ type
       ## On block gossip added callback
     onHeadChanged*: OnHeadCallback
       ## On head changed callback
-    onHeadV2Changed*: OnHeadV2Callback
-      ## On head_v2 changed callback
     onReorgHappened*: OnReorgCallback
       ## On beacon chain reorganization
     onFastConfirmation*: OnFastConfirmationCallback
@@ -346,20 +342,6 @@ type
     previous_duty_dependent_root*: Eth2Digest
     current_duty_dependent_root*: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
-
-  HeadV2ChangeInfoObjectData* = object
-    slot*: Slot
-    block_root* {.serializedFieldName: "block".}: Eth2Digest
-    state_root* {.serializedFieldName: "state".}: Eth2Digest
-    payload_status*: string
-    epoch_transition*: bool
-    current_epoch_dependent_root*: Eth2Digest
-    next_epoch_dependent_root*: Eth2Digest
-    optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
-
-  HeadV2ChangeInfoObject* = object
-    version*: string
-    data*: HeadV2ChangeInfoObjectData
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -545,28 +527,6 @@ func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
     current_duty_dependent_root: currentDutyDepRoot
-  )
-
-func init*(
-    T: typedesc[HeadV2ChangeInfoObject],
-    version: ConsensusFork,
-    slot: Slot,
-    blockRoot: Eth2Digest,
-    stateRoot: Eth2Digest,
-    epochTransition: bool,
-    currentEpochDepRoot: Eth2Digest,
-    nextEpochDepRoot: Eth2Digest
-): HeadV2ChangeInfoObject =
-  HeadV2ChangeInfoObject(
-    version: $version,
-    data: HeadV2ChangeInfoObjectData(
-      slot: slot,
-      block_root: blockRoot,
-      state_root: stateRoot,
-      epoch_transition: epochTransition,
-      current_epoch_dependent_root: currentEpochDepRoot,
-      next_epoch_dependent_root: nextEpochDepRoot
-    )
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
