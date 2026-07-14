@@ -465,6 +465,20 @@ proc proposeBlockAux(
       else:
         default(fork.ExecutionRequests)
 
+  # Start the builder-API execution-payload-bid request now so it
+  # runs concurrently with the local execution payload build below
+  var builderApiBidFut: Future[Opt[gloas.SignedExecutionPayloadBid]]
+  when fork >= ConsensusFork.Gloas:
+    let payloadBuilderClient =
+      node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
+    if not payloadBuilderClient.isNil:
+      builderApiBidFut = node.getBuilderExecutionPayloadBid(
+        fork, payloadBuilderClient, state, slot,
+        proposalExecutionHead(state[].forky(fork).data),
+        state[].forky(fork).data.get_block_root_at_slot(slot - 1),
+        validator.pubkey)
+
+  let
     engineBid =
       when fork == ConsensusFork.Heze:
         debugHezeComment "stub: heze block proposals"
@@ -599,6 +613,8 @@ proc proposeBlockAux(
         static: raiseAssert "Unsupported fork " & $fork
 
   if engineBid.isNone():
+    if not builderApiBidFut.isNil and not builderApiBidFut.finished:
+      await builderApiBidFut.cancelAndWait()
     beacon_block_production_errors.inc()
     return head
 
@@ -614,21 +630,39 @@ proc proposeBlockAux(
           Opt.none gloas.SignedExecutionPayloadBid
       localBlockValueBoost =
         BoostFactor.init(node.config.localBlockValueBoost)
-      usePoolBid =
-        poolBid.isSome and
+
+    let builderApiBid =
+      if builderApiBidFut.isNil:
+        Opt.none(gloas.SignedExecutionPayloadBid)
+      else:
+        await builderApiBidFut
+
+    let
+      bestBuilderBid =
+        if poolBid.isSome and builderApiBid.isSome:
+          if builderApiBid.get().message.value > poolBid.get().message.value:
+            builderApiBid
+          else:
+            poolBid
+        elif builderApiBid.isSome:
+          builderApiBid
+        else:
+          poolBid
+      useBuilderBid =
+        bestBuilderBid.isSome and
         builderBetterBid(
           localBlockValueBoost,
-          poolBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
+          bestBuilderBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
           engineBid[].eps.blockValue)
       selectedBuilderBid =
-        if usePoolBid:
-          info "Using builder bid from pool",
+        if useBuilderBid:
+          info "Using builder bid",
             slot,
-            builderIndex = poolBid.get().message.builder_index,
-            bidValue = poolBid.get().message.value,
+            builderIndex = bestBuilderBid.get().message.builder_index,
+            bidValue = bestBuilderBid.get().message.value,
             engineValue = engineBid[].eps.blockValue,
             localBlockValueBoost
-          Opt.some(poolBid.get())
+          bestBuilderBid
         else:
           Opt.none(gloas.SignedExecutionPayloadBid)
 
