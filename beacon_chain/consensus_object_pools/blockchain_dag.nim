@@ -2714,6 +2714,16 @@ proc processVanityLogs(dag: ChainDAGRef, vanityState: auto) =
         dag.headState, vanityState.lastKnownCompoundingChangeStatuses):
     dag.vanityLogs.onKnownCompoundingChange()
 
+proc getEpochDepRoot(
+    dag: ChainDAGRef, headEpoch: Epoch, delta: uint64): Eth2Digest =
+  ## Used for head_v2 SSE events, to return genesis block root when it is
+  ## underflow.
+
+  if headEpoch <= GENESIS_EPOCH + delta:
+    dag.db.getGenesisBlock().get(ZERO_HASH)
+  else:
+    get_block_root_at_slot(dag.headState, (headEpoch - delta).start_slot - 1)
+
 proc updateHead*(
     dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
     knownValidators: openArray[ValidatorIndex]) =
@@ -2839,10 +2849,8 @@ proc updateHead*(
       # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
       let
         headEpoch = dag.head.slot.epoch()
-        curEpochDepRoot = get_block_root_at_slot(
-          dag.headState, (headEpoch - 1).start_slot - 1)
-        nextEpochDepRoot = get_block_root_at_slot(
-          dag.headState, headEpoch.start_slot - 1)
+        curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
+        nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
 
       dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
         dag.headState.kind, dag.head.slot, dag.head.root,
@@ -2922,10 +2930,8 @@ proc updateHeadExecutionPayload*(
       epochTransition = (finalizedHead != dag.finalizedHead)
 
       headEpoch = dag.head.slot.epoch()
-      curEpochDepRoot = get_block_root_at_slot(
-        dag.headState, (headEpoch - 1).start_slot - 1)
-      nextEpochDepRoot = get_block_root_at_slot(
-        dag.headState, headEpoch.start_slot - 1)
+      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
+      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
 
     dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
       dag.headState.kind, dag.head.slot, dag.head.root,
