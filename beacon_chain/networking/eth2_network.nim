@@ -1414,7 +1414,7 @@ func toPeerAddr*(r: enr.TypedRecord,
   for proto in peerAddrProto:
     case proto
     of PeerAddrProto.TCP:
-      if r.ip.isSome and r.tcp.isSome:
+      if r.ip.isSome and r.tcp.isSome and r.tcp.get != 0:
         let ip = IpAddress(
           family: IpAddressFamily.IPv4,
           address_v4: r.ip.get)
@@ -1424,9 +1424,9 @@ func toPeerAddr*(r: enr.TypedRecord,
         let ip = IpAddress(
           family: IpAddressFamily.IPv6,
           address_v6: r.ip6.get)
-        if r.tcp6.isSome:
+        if r.tcp6.isSome and r.tcp6.get != 0:
           addrs.add tcpEndPoint(ip, Port r.tcp6.get)
-        elif r.tcp.isSome:
+        elif r.tcp.isSome and r.tcp.get != 0:
           addrs.add tcpEndPoint(ip, Port r.tcp.get)
         else:
           discard
@@ -1450,7 +1450,7 @@ func toPeerAddr*(r: enr.TypedRecord,
           discard
 
     of PeerAddrProto.QUIC:
-      if r.ip.isSome and r.quic.isSome:
+      if r.ip.isSome and r.quic.isSome and r.quic.get != 0:
         let ip = IpAddress(
             family: IpAddressFamily.IPv4,
             address_v4: r.ip.get)
@@ -1460,9 +1460,9 @@ func toPeerAddr*(r: enr.TypedRecord,
         let ip = IpAddress(
           family: IpAddressFamily.IPv6,
           address_v6: r.ip6.get)
-        if r.quic6.isSome:
+        if r.quic6.isSome and r.quic6.get != 0:
           addrs.add quicEndPoint(ip, Port r.quic6.get)
-        elif r.quic.isSome:
+        elif r.quic.isSome and r.quic.get != 0:
           addrs.add quicEndPoint(ip, Port r.quic.get)
         else:
           discard
