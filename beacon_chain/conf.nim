@@ -322,7 +322,6 @@ type
         name: "debug-quic" .}: bool
 
       quicPort* {.
-        hidden
         desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
@@ -852,7 +851,6 @@ type
           name: "debug-quic" .}: bool
 
         quicPortExt* {.
-          hidden
           desc: "External QUIC port"
           defaultValue: defaultEth2QuicPort
           name: "quic-port" .}: Port
