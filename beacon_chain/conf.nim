@@ -318,7 +318,7 @@ type
       quicEnabled* {.
         hidden
         desc: "Enable QUIC transport"
-        defaultValue: false
+        defaultValue: true
         name: "debug-quic" .}: bool
 
       quicPort* {.
@@ -848,7 +848,7 @@ type
         quicExtEnabled* {.
           hidden
           desc: "Enable QUIC transport"
-          defaultValue: false
+          defaultValue: true
           name: "debug-quic" .}: bool
 
         quicPortExt* {.
