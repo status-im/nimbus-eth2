@@ -466,8 +466,9 @@ proc proposeBlockAux(
         default(fork.ExecutionRequests)
 
   # Start the builder-API execution-payload-bid request now so it
-  # runs concurrently with the local execution payload build below
-  var builderApiBidFut: Future[Opt[gloas.SignedExecutionPayloadBid]]
+  # runs concurrently with the local execution payload build below.
+  var builderApiBidFut:
+    Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])
   when fork >= ConsensusFork.Gloas:
     let payloadBuilderClient =
       node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
