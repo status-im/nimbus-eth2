@@ -1370,23 +1370,31 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
-proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
-  let
-    forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
-    prevSubnets = move(node.lastColumnCustodyIndices)
+proc updateDataColumnSidecarHandlers(node: BeaconNode) =
+  let prevSubnets = move(node.lastColumnCustodyIndices)
   template subscribeSubnets: var seq[CustodyIndex] =
     node.lastColumnCustodyIndices
 
   for i in node.validatorCustody.custodyGroups():
     subscribeSubnets.add(i)
     if i notin prevSubnets:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      node.network.subscribe(topic, basicParams())
+      for gossipEpoch in node.gossipState:
+        if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
+          let
+            forkDigest = node.dag.forkDigests[].atEpoch(
+              gossipEpoch, node.dag.cfg)
+            topic = getDataColumnSidecarTopic(forkDigest, i)
+          node.network.subscribe(topic, basicParams())
 
   for i in prevSubnets:
     if i notin subscribeSubnets:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      node.network.unsubscribe(topic)
+      for gossipEpoch in node.gossipState:
+        if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
+          let
+            forkDigest = node.dag.forkDigests[].atEpoch(
+              gossipEpoch, node.dag.cfg)
+            topic = getDataColumnSidecarTopic(forkDigest, i)
+          node.network.unsubscribe(topic)
 
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1673,9 +1681,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   # subscribe to potentially new column topics and unsubscribe from stale ones.
   # Do this after node.gossipState is updated to avoid adding immediately
   # unsubscribed subscriptions.
-  for gossipEpoch in node.gossipState:
-    if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
-      node.updateDataColumnSidecarHandlers(gossipEpoch)
+  node.updateDataColumnSidecarHandlers()
 
   node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
