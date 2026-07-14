@@ -495,6 +495,36 @@ proc getExecutionPayloadBidFromBuilder*(
       return err("getExecutionPayloadBid SSZ decode error: " & exc.msg)
   ok(bid)
 
+proc getBuilderExecutionPayloadBid*(
+    node: BeaconNode,
+    consensusFork: static ConsensusFork,
+    payloadBuilderClient: RestClientRef,
+    proposalState: ref ForkedHashedBeaconState,
+    slot: Slot,
+    parent_block_hash: Eth2Digest,
+    parent_block_root: Eth2Digest,
+    proposer_pubkey: ValidatorPubKey,
+): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
+    async: (raises: [CancelledError]).} =
+  let
+    bidRes = awaitWithTimeout(
+      getExecutionPayloadBidFromBuilder(
+        payloadBuilderClient, slot, parent_block_hash, parent_block_root,
+        proposer_pubkey),
+      BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        return Opt.none(gloas.SignedExecutionPayloadBid)
+
+    signedBid = bidRes.valueOr:
+      debug "No builder-API execution payload bid", slot, err = error
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+
+  node.dag.cfg.can_process_execution_payload_bid(
+      proposalState[].forky(consensusFork).data, signedBid, slot).isOkOr:
+    notice "Discarding invalid builder-API bid", slot, err = error
+    return Opt.none(gloas.SignedExecutionPayloadBid)
+
+  Opt.some(signedBid)
+
 proc getBuilderBid(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
