@@ -254,25 +254,29 @@ proc checkHeadBlock*(
       # current head, we can check hashes with the headState. Otherwise, it
       # needs to be quarantined until its parents are backfilled (handled by
       # BlockProcessor).
-      if parent == dag.head:
-        let (latestBlockHash, latestParentHash) = withState(dag.headState):
-          when consensusFork >= ConsensusFork.Gloas:
-            template stateBid(): auto =
-              forkyState.data.latest_execution_payload_bid
-            (stateBid.block_hash, stateBid.parent_block_hash)
-          else:
-            return err(VerifierError.Invalid)
-
-        # Capture both FULL and EMPTY cases here. It means that the execution
-        # parent exists in this fork.
-        if latestBlockHash == bid.message.parent_block_hash or
-            latestParentHash == bid.message.parent_block_hash:
-          debugGloasComment("request missing payload")
+      let (parentBlockHash, parentParentHash) =
+        if parent == dag.head:
+          withState(dag.headState):
+            when consensusFork >= ConsensusFork.Gloas:
+              template stateBid(): auto =
+                forkyState.data.latest_execution_payload_bid
+              (stateBid.block_hash, stateBid.parent_block_hash)
+            else:
+              return err(VerifierError.Invalid)
+        elif parent.executionBlockHash.isSome() and
+            parent.executionParentHash.isSome():
+          (parent.executionBlockHash.get(), parent.executionParentHash.get())
         else:
-          debug "Execution parent unknown due to initialized from checkpoint"
+          debug "Execution parent unknown"
           return err(VerifierError.MissingParent)
+
+      # Capture both FULL and EMPTY cases here. It means that the execution
+      # parent exists in this fork.
+      if parentBlockHash == bid.message.parent_block_hash or
+          parentParentHash == bid.message.parent_block_hash:
+        debugGloasComment("request missing payload")
       else:
-        debug "Execution parent unknown"
+        debug "Execution parent unknown due to initialized from checkpoint"
         return err(VerifierError.MissingParent)
 
   ok(parent)
