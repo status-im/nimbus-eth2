@@ -6638,6 +6638,10 @@ AllTests-mainnet
 + uints        - valid - uint_8_random_4                                                     OK
 + uints        - valid - uint_8_zero                                                         OK
 ```
+## toPeerAddr port handling
+```diff
++ Skips zero tcp/quic ports                                                                  OK
+```
 ## weak-subjectivity-checkpoint
 ```diff
 + Correct values                                                                             OK
