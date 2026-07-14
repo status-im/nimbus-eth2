@@ -258,11 +258,15 @@ proc checkHeadBlock*(
         if parent == dag.head:
           withState(dag.headState):
             when consensusFork >= ConsensusFork.Gloas:
-              template stateBid(): auto =
+              template latestBid(): auto =
                 forkyState.data.latest_execution_payload_bid
-              (stateBid.block_hash, stateBid.parent_block_hash)
+              (latestBid.block_hash, latestBid.parent_block_hash)
+            elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
+              template latestPayload(): auto =
+                forkyState.data.latest_execution_payload_header
+              (latestPayload.block_hash, latestPayload.parent_hash)
             else:
-              return err(VerifierError.Invalid)
+              return err(VerifierError.UnviableFork)
         elif parent.executionBlockHash.isSome() and
             parent.executionParentHash.isSome():
           (parent.executionBlockHash.get(), parent.executionParentHash.get())
