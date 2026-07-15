@@ -3105,4 +3105,3 @@ suite "SyncManager test suite":
         check:
           vector[3].isErr()
           vector[3].error == res.error
-
