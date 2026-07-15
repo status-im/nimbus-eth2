@@ -362,7 +362,7 @@ func combineResponse*(
     res: seq[SyncResponseItem]
     bindex = 0
     eindex = 0
-    parentRoot: Opt[Eth2Digest]
+    parentEnvelope: Opt[ref gloas.SignedExecutionPayloadEnvelope]
 
   for slot in srange:
     var check = SyncResponseItem()
@@ -398,25 +398,20 @@ func combineResponse*(
     else:
       let bid = check.signedBlock[].toBlockHid()
       if isNil(check.signedEnvelope):
-        withBlck(check.signedBlock[]):
-          when consensusFork == ConsensusFork.Gloas:
-            if len(forkyBlck.message.body.signed_execution_payload_bid.
-                   message.blob_kzg_commitments) > 0:
-              return err("Some envelopes are missing in range")
-          else:
-            raiseAssert("All non-Gloas blocks should be filtered")
+        # At this case we could not know if envelope is present or not.
         res.add(check)
       else:
         let eid = check.signedEnvelope[].toEnvelopeHid()
         if bid.root != eid.root:
           return err(
             "The root of the block and the root of the envelope do not match")
-        if parentRoot.isSome():
-          if eid.parent_root != parentRoot.get():
+        if parentEnvelope.isSome():
+          let pid = parentEnvelope.get()[].toEnvelopeHid()
+          if eid.parent_root != pid.root:
             return err(
               "The parent root of the envelope and the root of the parent " &
-              "block do not match")
-        parentRoot = Opt.some(bid.root)
+              "envelope do not match")
+        parentEnvelope = Opt.some(check.signedEnvelope)
         res.add(check)
 
   ok(res)

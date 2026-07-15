@@ -3032,35 +3032,6 @@ suite "SyncManager test suite":
         Slot(31)..Slot(36),
         @[
           (ConsensusFork.Gloas, 31, 31, 0, 0),
-          (ConsensusFork.Gloas, 32, 32, 31, 0),
-          (ConsensusFork.Gloas, 33, 33, 32, 1)
-        ],
-        @[(31, 31, 0), (32, 32, 31)],
-         Result[seq[GloasBlockChainResultItem], string].err("Some envelopes are missing in range")
-      ),
-      (
-        Slot(31)..Slot(36),
-        @[
-          (ConsensusFork.Gloas, 31, 31, 0, 1),
-          (ConsensusFork.Gloas, 32, 32, 31, 0),
-        ],
-        @[(32, 32, 31)],
-         Result[seq[GloasBlockChainResultItem], string].err("Some envelopes are missing in range")
-      ),
-      (
-        Slot(31)..Slot(36),
-        @[
-          (ConsensusFork.Gloas, 31, 31, 0, 0),
-          (ConsensusFork.Gloas, 32, 32, 31, 1),
-          (ConsensusFork.Gloas, 33, 33, 32, 0)
-        ],
-        @[(31, 31, 0), (33, 33, 32)],
-         Result[seq[GloasBlockChainResultItem], string].err("Some envelopes are missing in range")
-      ),
-      (
-        Slot(31)..Slot(36),
-        @[
-          (ConsensusFork.Gloas, 31, 31, 0, 0),
           (ConsensusFork.Fulu, 32, 32, 31, 1)
         ],
         @[(31, 31, 0), (32, 32, 31)],
@@ -3082,7 +3053,7 @@ suite "SyncManager test suite":
           (ConsensusFork.Gloas, 32, 32, 31, 1)
         ],
         @[(31, 31, 0), (32, 32, 30)],
-         Result[seq[GloasBlockChainResultItem], string].err("The parent root of the envelope and the root of the parent block do not match")
+         Result[seq[GloasBlockChainResultItem], string].err("The parent root of the envelope and the root of the parent envelope do not match")
       ),
       (
         Slot(31)..Slot(36),
