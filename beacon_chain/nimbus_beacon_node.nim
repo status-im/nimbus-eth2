@@ -1709,7 +1709,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
-  node.updateEnvelopeGossipStatus(slot, isBehind)
+  if slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
+    node.updateEnvelopeGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
 proc pruneBlobs(node: BeaconNode, slot: Slot) =
