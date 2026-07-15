@@ -2242,6 +2242,8 @@ proc doRangeSyncStep(
               blocks_map = getShortMap(request, blocks.asSeq()),
               payloads_count = len(payloads),
               payloads_map = getShortMap(request, payloads.asSeq())
+            peer.updateScore(PeerScoreBadResponse)
+            overseer.tbsqueue(direction).push(request)
             return false
         else:
           raiseAssert("Unsupported fork!")

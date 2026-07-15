@@ -1314,6 +1314,7 @@ AllTests-mainnet
 + [SyncQueue#Forward] partial ranges test                                                    OK
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] hasEndGap() test                                                               OK
++ combineResponse() test                                                                     OK
 ```
 ## Type helpers
 ```diff
