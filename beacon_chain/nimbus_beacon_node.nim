@@ -535,6 +535,13 @@ proc initFullNode(
   proc onEnvelopeAvailable(data: SignedExecutionPayloadEnvelope) =
     node.eventBus.execPayloadAvlQueue.emit(
       EventExecutionPayloadAvailableObject.init(data))
+  proc onExecutionPayloadBidAdded(data: gloas.SignedExecutionPayloadBid) =
+    node.eventBus.execPayloadBidQueue.emit(data)
+  proc onPayloadAttestationMessageAdded(data: PayloadAttestationMessage) =
+    node.eventBus.payloadAttMsgQueue.emit(data)
+  proc onProposerPreferencesAdded(data: SignedProposerPreferences) =
+    node.eventBus.proposerPreferencesQueue.emit(
+      EventProposerPreferencesObject(data: data))
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
@@ -862,6 +869,9 @@ proc initFullNode(
   dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
+  dag.setExecutionPayloadBidCb(onExecutionPayloadBidAdded)
+  dag.setPayloadAttestationMessageCb(onPayloadAttestationMessageAdded)
+  dag.setProposerPreferencesCb(onProposerPreferencesAdded)
 
   node.dag = dag
   node.dag.eaSlot = eaSlot

@@ -63,6 +63,12 @@ type
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
     proc(data: SignedExecutionPayloadEnvelope) {.gcsafe, raises: [].}
+  OnExecutionPayloadBidCallback* =
+    proc(data: gloas.SignedExecutionPayloadBid) {.gcsafe, raises: [].}
+  OnPayloadAttestationMessageCallback* =
+    proc(data: PayloadAttestationMessage) {.gcsafe, raises: [].}
+  OnProposerPreferencesCallback* =
+    proc(data: SignedProposerPreferences) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -283,6 +289,12 @@ type
       ## On envelope gossip added callback
     onEnvelopeAvailable*: OnExecutionPayloadCallback
       ## On envelope available callback
+    onExecutionPayloadBidAdded*: OnExecutionPayloadBidCallback
+      ## On execution payload bid gossip added callback
+    onPayloadAttestationMessageAdded*: OnPayloadAttestationMessageCallback
+      ## On payload attestation message gossip added callback
+    onProposerPreferencesAdded*: OnProposerPreferencesCallback
+      ## On proposer preferences gossip/API added callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -510,6 +522,18 @@ template setEnvelopeGossipCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) 
 
 template setEnvelopeAvailableCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeAvailable = cb
+
+template setExecutionPayloadBidCb*(
+    dag: ChainDAGRef, cb: OnExecutionPayloadBidCallback) =
+  dag.onExecutionPayloadBidAdded = cb
+
+template setPayloadAttestationMessageCb*(
+    dag: ChainDAGRef, cb: OnPayloadAttestationMessageCallback) =
+  dag.onPayloadAttestationMessageAdded = cb
+
+template setProposerPreferencesCb*(
+    dag: ChainDAGRef, cb: OnProposerPreferencesCallback) =
+  dag.onProposerPreferencesAdded = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
