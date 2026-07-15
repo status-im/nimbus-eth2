@@ -22,10 +22,37 @@ type
     block_root*: Eth2Digest
     sidecar*: ref T
 
+  EnvelopeHid* = object
+    root*: Eth2Digest
+    parent_root*: Eth2Digest
+    slot*: Slot
+
+  BlockHid* = object
+    root*: Eth2Digest
+    parent_root*: Eth2Digest
+    slot*: Slot
+
   FuluColumnSidecarResponseRecord* =
     SidecarResponseRecord[fulu.DataColumnSidecar]
   GloasColumnSidecarResponseRecord* =
     SidecarResponseRecord[gloas.DataColumnSidecar]
+
+func toEnvelopeHid*(
+  envelope: gloas.SignedExecutionPayloadEnvelope
+): EnvelopeHid =
+  EnvelopeHid(
+    root: envelope.message.beacon_block_root,
+    parent_root: envelope.message.parent_beacon_block_root,
+    slot: envelope.message.payload.slot_number)
+
+func toBlockHid*(
+  blck: ForkedSignedBeaconBlock
+): BlockHid =
+  withBlck(blck):
+    BlockHid(
+      root: forkyBlck.root,
+      parent_root: forkyBlck.message.parent_root,
+      slot: forkyBlck.message.slot)
 
 func shortLog*[T: SidecarType](
     a: openArray[SidecarResponseRecord[T]]
@@ -239,7 +266,7 @@ func validateBlocks*(
 
 func checkResponse*(
     srange: SyncRange,
-    items: openArray[SyncResponseItem]
+    items: openArray[ref ForkedSignedBeaconBlock]
 ): Result[void, cstring] =
   ## This procedure checks peer's getBlockByRange() response.
   if len(items) == 0:
@@ -253,16 +280,39 @@ func checkResponse*(
     root: Eth2Digest
 
   for ritem in items:
-    let block_slot = ritem.slot
-    if block_slot notin srange:
+    let bid = ritem[].toBlockHid()
+    if bid.slot notin srange:
       return err("Some of the blocks are outside the requested range")
     if slot != FAR_FUTURE_SLOT:
-      if slot >= block_slot:
+      if slot >= bid.slot:
         return err("Incorrect order or duplicate blocks found")
-      if ritem.parent_root() != root:
+      if bid.parent_root != root:
         return err("Incorrect order or chain of blocks, invalid parent_root")
-    root = ritem.root
-    slot = ritem.slot
+    root = bid.root
+    slot = bid.slot
+  ok()
+
+func checkResponse*(
+    srange: SyncRange,
+    items: openArray[ref gloas.SignedExecutionPayloadEnvelope]
+): Result[void, cstring] =
+  ## This procedure checks peer's getEnvelopeByRange() response.
+  if len(items) == 0:
+    return ok()
+
+  if lenu64(items) > srange.count:
+    return err("Number of received envelopes greater than number of requested")
+
+  var slot = FAR_FUTURE_SLOT
+
+  for ritem in items:
+    let eid = ritem[].toEnvelopeHid()
+    if eid.slot notin srange:
+      return err("Some of the envelopes are outside the requested range")
+    if slot != FAR_FUTURE_SLOT:
+      if slot >= eid.slot:
+        return err("Incorrect order or duplicate envelopes found")
+    slot = eid.slot
   ok()
 
 func checkResponse*(
@@ -295,3 +345,78 @@ func checkResponse*(
       return err("Unexpected beacon block root encountered")
     checks.excl(envelope.message.beacon_block_root)
   ok()
+
+func combineResponse*(
+    srange: SyncRange,
+    blocks: openArray[ref ForkedSignedBeaconBlock],
+    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
+): Result[seq[SyncResponseItem], string] =
+  ## Important: This procedure assume that the block and envelope lists passed
+  ## corresponding `checkResponse()` call. It means that list is ordered by
+  ## slot number and does not contain duplicate items.
+  if (len(blocks) == 0) and (len(envelopes) == 0):
+    return ok(
+      default(seq[GloasSyncResponseRecord[ref ForkedSignedBeaconBlock]]))
+
+  var
+    res: seq[SyncResponseItem]
+    bindex = 0
+    eindex = 0
+    parentRoot: Opt[Eth2Digest]
+
+  for slot in srange:
+    var check = SyncResponseItem()
+    if bindex >= len(blocks):
+      check.signedBlock = nil
+    else:
+      let bid = blocks[bindex][].toBlockHid()
+      if blocks[bindex][].kind != ConsensusFork.Gloas:
+        return err("Received block from incorrect fork")
+      if bid.slot < slot:
+        return err("The range of received blocks is not ordered correctly")
+      if bid.slot > slot:
+        check.signedBlock = nil
+      else:
+        check.signedBlock = blocks[bindex]
+        inc(bindex)
+
+    if eindex >= len(envelopes):
+      check.signedEnvelope = nil
+    else:
+      let eid = envelopes[eindex][].toEnvelopeHid()
+      if eid.slot < slot:
+        return err("The range of received envelopes is not ordered correctly")
+      if eid.slot > slot:
+        check.signedEnvelope = nil
+      else:
+        check.signedEnvelope = envelopes[eindex]
+        inc(eindex)
+
+    if isNil(check.signedBlock):
+      if not(isNil(check.signedEnvelope)):
+        return err("Some blocks are missing in range")
+    else:
+      let bid = check.signedBlock[].toBlockHid()
+      if isNil(check.signedEnvelope):
+        withBlck(check.signedBlock[]):
+          when consensusFork == ConsensusFork.Gloas:
+            if len(forkyBlck.message.body.signed_execution_payload_bid.
+                   message.blob_kzg_commitments) > 0:
+              return err("Some envelopes are missing in range")
+          else:
+            raiseAssert("All non-Gloas blocks should be filtered")
+        res.add(check)
+      else:
+        let eid = check.signedEnvelope[].toEnvelopeHid()
+        if bid.root != eid.root:
+          return err(
+            "The root of the block and the root of the envelope do not match")
+        if parentRoot.isSome():
+          if eid.parent_root != parentRoot.get():
+            return err(
+              "The parent root of the envelope and the root of the parent " &
+              "block do not match")
+        parentRoot = Opt.some(bid.root)
+        res.add(check)
+
+  ok(res)

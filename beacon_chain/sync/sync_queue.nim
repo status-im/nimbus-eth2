@@ -224,6 +224,31 @@ func getShortMap*[T](
 
 func getShortMap*[T](
     req: SyncRequest[T],
+    data: openArray[ref ForkedSignedBeaconBlock]
+): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      for k in last ..< len(data):
+        let blockSlot = data[k][].slot
+        if slider == blockSlot:
+          res.add('x')
+          last = k + 1
+        elif slider < blockSlot:
+          res.add('.')
+        break
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
+func getShortMap*[T](
+    req: SyncRequest[T],
     data: openArray[SyncResponseItem]
 ): string =
   ## Returns all slot numbers in ``data`` as placement map.
@@ -1131,6 +1156,10 @@ iterator items(
   of SyncQueueKind.Backward:
     for i in countdown(len(items) - 1, 0):
       yield items[i]
+
+iterator items*(srange: SyncRange): Slot =
+  for slot in srange.slot .. (srange.slot + srange.count - 1):
+    yield slot
 
 proc push*[M, N](sq: SyncQueue[M, N], requests: openArray[SyncRequest[M]]) =
   ## Push multiple failed requests back to queue.

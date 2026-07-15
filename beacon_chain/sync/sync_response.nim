@@ -98,6 +98,12 @@ func init*(
 ): SyncResponseItem =
   GloasSyncResponseRecord.init(blck, payload)
 
+func init*(
+    t: typedesc[GloasSyncResponseRecord],
+    blck: ref ForkedSignedBeaconBlock,
+): SyncResponseItem =
+  GloasSyncResponseRecord.init(blck, nil)
+
 func `==`*(a, b: SyncResponseItem): bool =
   (cast[pointer](a.signedBlock) == cast[pointer](b.signedBlock)) and
     (cast[pointer](a.signedEnvelope) == cast[pointer](b.signedEnvelope))
@@ -106,20 +112,6 @@ func toResponse*(
     a: openArray[ref ForkedSignedBeaconBlock]
 ): seq[SyncResponseItem] =
   a.mapIt(GloasSyncResponseRecord.init(it, nil))
-
-func toResponse*(
-    items: var seq[SyncResponseItem],
-    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
-): int =
-  var count = 0
-  let envelopesTable =
-    envelopes.mapIt((it[].message.beacon_block_root, it)).toTable()
-  for item in items.mitems():
-    let envelope = envelopesTable.getOrDefault(item.root())
-    item.signedEnvelope = envelope
-    if not(isNil(envelope)):
-      inc(count)
-  count
 
 func toResponse*(
     blocks: openArray[ForkedSignedBeaconBlock],

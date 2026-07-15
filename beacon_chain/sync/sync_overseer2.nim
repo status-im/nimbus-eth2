@@ -2189,24 +2189,24 @@ proc doRangeSyncStep(
             else:
               peer.updateScore(PeerScoreNoValues)
               return false
-    var items = blocks.toSeq().toResponse()
 
     debug "Received blocks range on request",
-      blocks_count = len(items),
-      blocks_map = getShortMap(request, items)
+      blocks_count = len(blocks),
+      blocks_map = getShortMap(request, blocks.asSeq())
 
-    checkResponse(request.data, items).isOkOr:
+    checkResponse(request.data, blocks.asSeq()).isOkOr:
       debug "Incorrect range of blocks received",
-        blocks_count = len(items),
-        blocks_map = getShortMap(request, items), reason = $error
+        blocks_count = len(blocks),
+        blocks_map = getShortMap(request, blocks.asSeq()),
+        reason = $error
       peer.updateScore(PeerScoreBadResponse)
       overseer.tbsqueue(direction).push(request)
       return false
 
-    let combined =
+    let items =
       withConsensusFork(consensusFork):
         when consensusFork < ConsensusFork.Gloas:
-          0
+          toResponse(blocks.asSeq())
         elif consensusFork == ConsensusFork.Gloas:
           let
             payloads =
@@ -2220,17 +2220,35 @@ proc doRangeSyncStep(
                   else:
                     peer.updateScore(PeerScoreNoValues)
                     return false
+
           debug "Received payloads range on request",
             payloads_count = len(payloads),
             payloads_map = getShortMap(request, payloads.asSeq())
-          items.toResponse(payloads.asSeq())
+
+          checkResponse(request.data, payloads.asSeq()).isOkOr:
+            debug "Incorrect range of payloads received",
+              blocks_count = len(payloads),
+              blocks_map = getShortMap(request, payloads.asSeq()),
+              reason = $error
+            peer.updateScore(PeerScoreBadResponse)
+            overseer.tbsqueue(direction).push(request)
+            return false
+
+          combineResponse(
+            request.data, blocks.asSeq(), payloads.asSeq()).valueOr:
+            debug "Incorrect range of blocks/envelopes received",
+              reason = error,
+              blocks_count = len(blocks),
+              blocks_map = getShortMap(request, blocks.asSeq()),
+              payloads_count = len(payloads),
+              payloads_map = getShortMap(request, payloads.asSeq())
+            return false
         else:
           raiseAssert("Unsupported fork!")
 
     debug "Sending blocks range to processor",
-      blocks_count = len(items),
-      blocks_combined = combined,
-      blocks_map = getShortMap(request, items)
+      items_count = len(items),
+      items_map = getShortMap(request, items)
 
     let resp =
       await overseer.tbsqueue(direction).push(
@@ -3539,8 +3557,9 @@ proc missingEnvelopesMonitoringLoop(
       for record in overseer.gloasEnvelopeQuarantine[].checkMissing(high(int)):
         if overseer.missingEnvelopes.containsOrIncl(record.root):
           roots.add(record.root)
-      debug "Missing envelope block roots inserted into queue",
-        block_roots = shortLog(roots), block_roots_length = len(roots)
+      if len(roots) > 0:
+        debug "Missing envelope block roots inserted into queue",
+          block_roots = shortLog(roots), block_roots_length = len(roots)
       overseer.gloasEnvelopeQuarantine[].missingEvent.clear()
   except CancelledError:
     discard
@@ -3821,27 +3840,20 @@ proc lateBlockMonitoringLoop*(
 
   debug "Late block monitoring established"
 
+  logScope:
+    head = shortLog(dag.head.bid)
+
   try:
     while true:
       let
         wallSlot = overseer.beaconClock.currentSlot()
-        syncedSlot =
-          if overseer.lastSeenHead.isNone():
-            wallSlot
-          else:
-            overseer.lastSeenHead.get.slot
         head = dag.head.bid
 
       if wallSlot > dag.head.slot:
-        debug "Check for late blocks", synced_slot = syncedSlot,
-          head = shortLog(head), distance = syncedSlot - dag.head.slot
-
         if not(await overseer.checkData(
           head, BlocksSource.OrphansQuarantine)):
-          debug "No ancestor orphan blocks found for current head"
           if not(await overseer.checkData(
             head, BlocksSource.SidecarlessQuarantine)):
-            debug "No ancestor sidecarless blocks found for current head"
             # Recover missing blocks from the network.
             overseer.recoverBlocks(head)
         await sleepAsync(500.milliseconds)
