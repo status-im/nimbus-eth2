@@ -855,6 +855,7 @@ proc initFullNode(
   dag.setBlockCb(onBlockAdded)
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
+  dag.setHeadV2Cb(onHeadV2Changed)
   dag.setReorgCb(onChainReorg)
   dag.setFastConfirmationCb(onFastConfirmation)
   dag.setPayloadAttributesCb(onPayloadAttributes)
