@@ -9,7 +9,9 @@
 {.used.}
 
 import unittest2
-import chronos, stew/base10, chronos/unittest2/asynctests, libp2p/peerid
+import chronos, stew/base10, chronos/unittest2/asynctests, libp2p/peerid,
+       libp2p/crypto/rng
+import kzg4844/[kzg, kzg_abi]
 import ../beacon_chain/networking/[peer_scores, eth2_agents]
 import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/[sync_queue, response_utils],
@@ -30,7 +32,7 @@ func init(t: typedesc[SomeTPeer], id: string, score = 1000): SomeTPeer =
   SomeTPeer(id: id, score: score)
 
 proc init(t: typedesc[SomeTPeer], id: string, map: ColumnMap): SomeTPeer =
-  SomeTPeer(id: id, map: map, peerId: PeerId.random().get())
+  SomeTPeer(id: id, map: map, peerId: PeerId.random(newRng()).get())
 
 func init(t: typedesc[ColumnMap], columns: openArray[int]): ColumnMap =
   var res = columns.mapIt(ColumnIndex(it))
@@ -160,11 +162,11 @@ func genKzgCommitment(index: int): KzgCommitment =
   copyMem(addr res.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
   res
 
-func genKzgCommitments(count: int): KzgCommitments =
+func genKzgCommitments(count: int): gloas.KzgCommitments =
   var res: seq[KzgCommitment]
   for i in 0 ..< count:
     res.add(genKzgCommitment(i))
-  KzgCommitments.init(res)
+  gloas.KzgCommitments(res)
 
 func createForkedBlock(
     fork: ConsensusFork,
