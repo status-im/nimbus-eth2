@@ -16,3 +16,4 @@ updates:
     schedule:
       interval: daily
     target-branch: unstable
+    open-pull-requests-limit: 2
