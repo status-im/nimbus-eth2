@@ -1772,17 +1772,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
-    node.processor.fuluColumnQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
-    node.processor.gloasColumnQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
-    node.processor.quarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch())
     let backfillSlot =
       if node.dag.needsBackfill():
         Opt.some(node.dag.backfill.slot)
       else:
         Opt.none(Slot)
+    node.processor.fuluColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), backfillSlot)
+    node.processor.gloasColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch(), backfillSlot)
+    node.processor.quarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch())
     withConsensusFork(
       node.dag.cfg.consensusForkAtEpoch(node.dag.finalizedHead.slot.epoch())):
       when consensusFork < ConsensusFork.Fulu:
