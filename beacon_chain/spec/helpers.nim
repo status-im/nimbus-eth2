@@ -264,8 +264,7 @@ template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
-  store.next_sync_committee !=
-    static(default(typeof(store.next_sync_committee)))
+  not store.next_sync_committee.isZero
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: ForkyLightClientStore): uint64 =

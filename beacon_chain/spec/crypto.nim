@@ -33,6 +33,7 @@ from std/sequtils import mapIt
 from std/tables import Table, withValue, `[]=`
 
 from nimcrypto/utils import burnMem
+from stew/staticfor import staticFor
 
 export results, blscurve, rand, json_serialization
 
@@ -409,6 +410,15 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
 
 func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
   equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
+
+func isZero*(x: ValidatorPubKey): bool =
+  var tmp {.noinit.}: uint64
+  var tmp2 = 0'u64
+  static: doAssert sizeof(x.blob) mod sizeof(tmp) == 0
+  staticFor i, 0 ..< sizeof(x.blob) div sizeof(tmp):
+    copyMem(addr tmp, addr x.blob[i * sizeof(tmp)], sizeof(tmp))
+    tmp2 = tmp2 or tmp
+  tmp2 == 0
 
 func `==`*(a, b: ValidatorPrivKey): bool {.error: "Secret keys should stay secret".}
 
