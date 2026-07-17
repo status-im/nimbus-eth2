@@ -68,7 +68,7 @@ func replaceOrAddEncodeEth1Votes[T, maxLength](
       else:
         num_votes0
 
-  let res = (lower_bound == 0, default(List[T, maxLength]))
+  var res = (lower_bound == 0, default(List[T, maxLength]))
   for i in lower_bound ..< votes1.len:
     if not result[1].add votes1[i]:
       raiseAssert "same limit"
