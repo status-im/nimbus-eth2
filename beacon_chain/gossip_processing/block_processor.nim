@@ -526,64 +526,86 @@ proc onBlockAdded*(
           blck.message.slot, blck.root, state.current_sync_committee.pubkeys.data[i]
         )
 
-proc verifyPayload(
-    self: ref BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock,
-    signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
-): Result[OptimisticStatus, VerifierError] =
+proc verifyPayloadOnCL(
+    signedBlock: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                 deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+                 fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
+                 heze.SignedBeaconBlock,
+    signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope):
+    Result[void, void] =
   const consensusFork = typeof(signedBlock).kind
   # When the execution layer is not available to verify the payload, we do the
   # required checks on the CL instead and proceed as if the EL was syncing
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-  when consensusFork >= ConsensusFork.Bellatrix:
-    # Since Gloas, is_execution_block should always be true.
-    if signedBlock.message.is_execution_block:
-      template payload(): auto =
-        when consensusFork >= ConsensusFork.Gloas:
-          signedEnvelope.message.payload
-        else:
-          signedBlock.message.body.execution_payload
 
-      template returnWithError(msg: string, extraMsg = ""): untyped =
-        if extraMsg != "":
-          debug msg, reason = extraMsg, executionPayload = shortLog(payload)
-        else:
-          debug msg, executionPayload = shortLog(payload)
-        return err(VerifierError.Invalid)
+  template payload(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      signedEnvelope.message.payload
+    else:
+      signedBlock.message.body.execution_payload
 
-      if payload.transactions.anyIt(it.len == 0):
-        returnWithError "Execution block contains zero length transactions"
+  template returnWithError(msg: string, extraMsg = ""): untyped =
+    if extraMsg != "":
+      debug msg, reason = extraMsg, executionPayload = shortLog(payload)
+    else:
+      debug msg, executionPayload = shortLog(payload)
+    return err()
 
-      template computedBlockHash(): auto =
-        when consensusFork >= ConsensusFork.Gloas:
-          signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
-        else:
-          signedBlock.message.compute_execution_block_hash()
-      if payload.block_hash != computedBlockHash:
-        returnWithError "Execution block hash validation failed"
+  if payload.transactions.anyIt(it.len == 0):
+    returnWithError "Execution block contains zero length transactions"
 
-      # [New in Deneb:EIP4844]
-      when consensusFork >= ConsensusFork.Deneb:
-        let blobsRes =
-          when consensusFork >= ConsensusFork.Gloas:
-            signedBlock.message.is_valid_versioned_hashes(signedEnvelope.message)
-          else:
-            signedBlock.message.is_valid_versioned_hashes()
-        if blobsRes.isErr:
-          returnWithError "Blob versioned hashes invalid", blobsRes.error
+  template computedBlockHash(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
+    else:
+      signedBlock.message.compute_execution_block_hash()
+  if payload.block_hash != computedBlockHash:
+    returnWithError "Execution block hash validation failed"
+
+  # [New in Deneb:EIP4844]
+  when consensusFork >= ConsensusFork.Deneb:
+    let blobsRes =
+      when consensusFork >= ConsensusFork.Gloas:
+        signedBlock.message.is_valid_versioned_hashes(signedEnvelope.message)
       else:
-        # If there are EIP-4844 (type 3) transactions in the payload with
-        # versioned hashes, the transactions would be rejected by the EL
-        # based on payload timestamp (only allowed post Deneb);
-        # There are no `blob_kzg_commitments` before Deneb to compare against
-        discard
+        signedBlock.message.is_valid_versioned_hashes()
+    if blobsRes.isErr:
+      returnWithError "Blob versioned hashes invalid", blobsRes.error
+  else:
+    # If there are EIP-4844 (type 3) transactions in the payload with
+    # versioned hashes, the transactions would be rejected by the EL
+    # based on payload timestamp (only allowed post Deneb);
+    # There are no `blob_kzg_commitments` before Deneb to compare against
+    discard
 
+  ok()
+
+proc verifyPayload(
+    self: ref BlockProcessor,
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                 deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+                 fulu.SignedBeaconBlock,
+): Result[OptimisticStatus, VerifierError] =
+  when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    if signedBlock.message.is_execution_block:
+      verifyPayloadOnCL(signedBlock, noEnvelope).isOkOr:
+        return err(VerifierError.Invalid)
       ok OptimisticStatus.notValidated
     else:
       ok OptimisticStatus.valid
   else:
     ok OptimisticStatus.valid
+
+proc verifyPayload(
+    self: ref BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+): Result[OptimisticStatus, PayloadVerifierError] =
+  verifyPayloadOnCL(signedBlock, signedEnvelope).isOkOr:
+    return err(PayloadVerifierError.Invalid)
+  ok(OptimisticStatus.notValidated)
 
 proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
   # TODO This logic can be removed if the database schema is extended
@@ -697,7 +719,7 @@ proc storeBlock(
       # `notValidated` and skip verifying payload.
       OptimisticStatus.notValidated
     else:
-      ?(optimisticStatusRes or verifyPayload(self, signedBlock, noEnvelope))
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock))
 
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
