@@ -24,7 +24,8 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
+  ChainDAGRef, EpochRef, OnBlockAdded, PayloadVerifierError,
+  VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
@@ -208,7 +209,7 @@ from ../consensus_object_pools/block_clearance import
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Result[void, VerifierError] =
+): Result[void, PayloadVerifierError] =
   sidecarsOpt.isErrOr:
     template bid(): auto =
       signedBlock.message.body.signed_execution_payload_bid
@@ -220,7 +221,7 @@ proc verifySidecars(
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature),
           msg = error
-        return err(VerifierError.Invalid)
+        return err(PayloadVerifierError.InvalidSidecars)
   ok()
 
 proc verifySidecars(
@@ -957,7 +958,7 @@ proc storeBackfillPayload(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Result[void, VerifierError] =
+): Result[void, PayloadVerifierError] =
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
   ?verifySidecars(signedBlock, sidecarsOpt)
@@ -971,7 +972,7 @@ proc storePayload(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
+): Future[Result[BlockRef, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
@@ -992,7 +993,7 @@ proc storePayload(
   # optimisticStatus could be valid or notValidated at this point. We will
   # validate it by the clearance state transition.
   if OptimisticStatus.invalidated == optimisticStatus:
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
 
   ?verifySidecars(signedBlock, sidecarsOpt)
 
@@ -1043,7 +1044,7 @@ proc addPayload*(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+): Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
@@ -1053,7 +1054,7 @@ proc addPayload*(
     self.enqueueQuarantine(res.get())
   else:
     case res.error()
-    of VerifierError.MissingParent:
+    of PayloadVerifierError.MissingParent:
       # MissingParent is returned when block or parents cannot be found in the
       # DAG. This could happen if we process envelope before block, or there is
       # any missing parents. In either case, they should be caught when
@@ -1064,12 +1065,13 @@ proc addPayload*(
       if sidecarsOpt.isSome():
         self.gloasColumnQuarantine[].put(
           signedBlock.root, sidecarsOpt.get(), verified = false)
-    of VerifierError.Invalid, VerifierError.UnviableFork:
+    of PayloadVerifierError.Invalid, PayloadVerifierError.InvalidSidecars,
+        PayloadVerifierError.UnviableFork:
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
       # gossip or skip processing the same one.
       self.envelopeQuarantine[].addUnviable(signedBlock.root)
-    of VerifierError.Duplicate:
+    of PayloadVerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
 
   res.mapConvert(void)
