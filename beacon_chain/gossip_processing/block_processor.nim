@@ -1101,10 +1101,11 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           else:
             self.gloasColumnQuarantine[].popSidecars(blck.root)
         if sidecarsOpt.isNone():
+          let dag = self.consensusManager.dag
           # As sidecars are missing, put envelope back to quarantine.
-          self.consensusManager.quarantine[].addSidecarless(blck)
-          self.envelopeQuarantine[].addOrphan(
-            self.consensusManager.dag.finalizedHead.slot, envelope)
+          discard self.consensusManager.quarantine[].addSidecarless(
+            dag.finalizedHead.slot, blck)
+          self.envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
           return
         sidecarsOpt
 
