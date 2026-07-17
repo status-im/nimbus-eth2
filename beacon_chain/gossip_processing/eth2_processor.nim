@@ -90,6 +90,13 @@ declareCounter beacon_execution_payload_bids_dropped,
   "Number of invalid execution payload bids dropped by this node",
   labels = ["reason"]
 
+declareCounter beacon_payload_attestations_received,
+  "Number of valid payload attestations processed by this node"
+
+declareCounter beacon_payload_attestations_dropped,
+  "Number of invalid payload attestations dropped by this node",
+  labels = ["reason"]
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -941,6 +948,7 @@ proc processPayloadAttestationMessage*(
 
   if v.isErr():
     debug "Dropping payload attestation", reason = $v.error
+    beacon_payload_attestations_dropped.inc(1, [$v.error[0]])
     return err(v.error())
 
   discard self.payloadAttestationPool[].addPayloadAttestation(
@@ -954,6 +962,8 @@ proc processPayloadAttestationMessage*(
       self.dag, payload_attestation_message.validator_index,
       payload_attestation_message.data).isOkOr:
     debug "on_payload_attestation_message failed", error
+
+  beacon_payload_attestations_received.inc()
 
   trace "Payload attestation validated"
   return ok()
