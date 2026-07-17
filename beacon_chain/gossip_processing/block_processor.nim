@@ -590,9 +590,10 @@ proc verifyPayload(
 ): Result[OptimisticStatus, VerifierError] =
   when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
     if signedBlock.message.is_execution_block:
-      verifyPayloadOnCL(signedBlock, noEnvelope).isOkOr:
-        return err(VerifierError.Invalid)
-      ok OptimisticStatus.notValidated
+      if verifyPayloadOnCL(signedBlock, noEnvelope).isOk():
+        ok OptimisticStatus.notValidated
+      else:
+        err(VerifierError.Invalid)
     else:
       ok OptimisticStatus.valid
   else:
@@ -603,9 +604,10 @@ proc verifyPayload(
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
 ): Result[OptimisticStatus, PayloadVerifierError] =
-  verifyPayloadOnCL(signedBlock, signedEnvelope).isOkOr:
-    return err(PayloadVerifierError.Invalid)
-  ok(OptimisticStatus.notValidated)
+  if verifyPayloadOnCL(signedBlock, signedEnvelope).isOk():
+    ok(OptimisticStatus.notValidated)
+  else:
+    err(PayloadVerifierError.Invalid)
 
 proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
   # TODO This logic can be removed if the database schema is extended
