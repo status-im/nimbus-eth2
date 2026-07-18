@@ -1092,8 +1092,7 @@ func is_valid_light_client_header*(
       EXECUTION_BLOCK_HASH_GINDEX, header.beacon.body_root)
 
   # [Modified in Gloas:EIP7732]
-  header.execution_block_hash.isZero and
-  header.execution_branch == static(default(ExecutionBranch))
+  header.execution_block_hash.isZero and header.execution_branch.isZero
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_gloas*(

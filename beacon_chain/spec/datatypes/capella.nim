@@ -691,7 +691,7 @@ func is_valid_light_client_header*(
   if epoch < cfg.CAPELLA_FORK_EPOCH:
     return
       header.execution == static(default(ExecutionPayloadHeader)) and
-      header.execution_branch == static(default(ExecutionBranch))
+      header.execution_branch.isZero
 
   is_valid_merkle_branch(
     get_lc_execution_root(header, cfg),
