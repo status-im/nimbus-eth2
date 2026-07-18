@@ -153,10 +153,11 @@ func isZero*(x: Eth2Digest): bool =
   tmp2 == 0
 
 func isZero*[N: static int](x: array[N, Eth2Digest]): bool =
-  var nonzero = false
+  static: doAssert N <= 32     # don't unroll too much
+  var nonzero = 0'u64
   staticFor i, 0 ..< N:
-    nonzero = nonzero or not x[i].isZero
-  not nonzero
+    nonzero = nonzero or uint64(not x[i].isZero)
+  nonzero == 0
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
