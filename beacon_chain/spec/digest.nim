@@ -152,6 +152,12 @@ func isZero*(x: Eth2Digest): bool =
     tmp2 = tmp2 or tmp
   tmp2 == 0
 
+func isZero*[N: static int](x: array[N, Eth2Digest]): bool =
+  var nonzero = false
+  staticFor i, 0 ..< N:
+    nonzero = nonzero or not x[i].isZero
+  not nonzero
+
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a
 
