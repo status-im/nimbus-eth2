@@ -238,12 +238,6 @@ type
       desc: "Backward compatible partial data column sidecar support",
       name: "debug-partial-columns" .}: bool
 
-    debugEnableReconstruction* {.
-      hidden
-      defaultValue: false,
-      desc: "Enables column reconstruction for the currently running beacon node"
-      name: "debug-enable-reconstruction" .}: bool
-
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
@@ -324,15 +318,14 @@ type
       quicEnabled* {.
         hidden
         desc: "Enable QUIC transport"
-        defaultValue: false
+        defaultValue: true
         name: "debug-quic" .}: bool
 
       quicPort* {.
-        hidden
         desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
-        name: "debug-quic-port" .}: Port
+        name: "quic-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
@@ -854,14 +847,13 @@ type
         quicExtEnabled* {.
           hidden
           desc: "Enable QUIC transport"
-          defaultValue: false
+          defaultValue: true
           name: "debug-quic" .}: bool
 
         quicPortExt* {.
-          hidden
           desc: "External QUIC port"
           defaultValue: defaultEth2QuicPort
-          name: "debug-quic-port" .}: Port
+          name: "quic-port" .}: Port
 
         seqNumber* {.
           desc: "Record sequence number"

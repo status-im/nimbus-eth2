@@ -24,6 +24,7 @@ import
 
 export base, sets
 
+from std/sequtils import allIt
 from ssz_serialization/proofs import GeneralizedIndex, get_generalized_index
 export proofs.GeneralizedIndex
 
@@ -404,10 +405,16 @@ type
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
 
+func isZero*(v: SyncCommittee): bool =
+  allIt(v.pubkeys.data, it.isZero) and v.aggregate_pubkey.isZero
+
 template asList*(epochFlags: EpochParticipationFlags): untyped =
   List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
 template asList*(epochFlags: var EpochParticipationFlags): untyped =
   List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+
+template asSeq*(epochFlags: EpochParticipationFlags): seq[ParticipationFlags] =
+  asList(epochFlags).asSeq
 
 template `[]`*(
     epochFlags: EpochParticipationFlags,
@@ -684,7 +691,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
+      not v.next_sync_committee.isZero,
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

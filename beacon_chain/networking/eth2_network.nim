@@ -219,6 +219,7 @@ type
     SizePrefixOverflow
     InvalidContextBytes
     ResponseChunkOverflow
+    ExtraBytes
 
     UnknownError
 
@@ -767,10 +768,18 @@ proc uncompressFramedStream(conn: Connection,
   static:
     doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
 
+  # A reader MUST NOT read more than max_compressed_len(n) bytes after
+  # reading the SSZ length-prefix n from the header.
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/phase0/p2p-interface.md#ssz-snappy-encoding-strategy
+  static: doAssert maxUncompressedLen <= uint32.high
+  let maxBytesToRead = snappy.maxCompressedLen(
+    min(max(expectedSize, 0).uint64, maxUncompressedLen.uint64).uint32)
+
   var
     frameData = newSeqUninit[byte](maxCompressedFrameDataLen + 4)
     output = newSeqUninit[byte](expectedSize)
     written = 0
+    readBytes = framingHeader.lenu64
 
   while written < expectedSize:
     var frameHeader: array[4, byte]
@@ -788,6 +797,10 @@ proc uncompressFramedStream(conn: Connection,
       # valid, small snappy frame, but this would mean they are not getting
       # compressed correctly
       return err "Snappy frame too big"
+
+    readBytes += frameHeader.lenu64 + dataLen.uint64
+    if readBytes > maxBytesToRead:
+      return err "Snappy data exceeds max compressed length"
 
     if dataLen > 0:
       try:
@@ -852,6 +865,8 @@ func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
+  elif T is gloas.DataColumnSidecar:
+    MAX_DATA_COLUMN_SIDECAR_SIZE.uint32
   else:
     static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
     MAX_PAYLOAD_SIZE.uint32
@@ -860,19 +875,29 @@ template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T).uint32
+    elif T is gloas.SignedAggregateAndProof:
+      MAX_SIGNED_AGGREGATE_AND_PROOF_SIZE
+    elif T is gloas.AttesterSlashing:
+      MAX_ATTESTER_SLASHING_SIZE
+    elif T is gloas.DataColumnSidecar:
+      MAX_DATA_COLUMN_SIDECAR_SIZE
+    elif T is gloas.SignedExecutionPayloadBid:
+      MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE
+    elif T is heze.SignedExecutionPayloadBid:
+      MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE
+    elif T is heze.SignedInclusionList:
+      MAX_SIGNED_INCLUSION_LIST_SIZE
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
          T is deneb.SignedBeaconBlock or T is electra.SignedBeaconBlock or
          T is fulu.SignedBeaconBlock or T is fulu.DataColumnSidecar or
-         T is gloas.SignedBeaconBlock or T is gloas.DataColumnSidecar or
-         T is gloas.SignedExecutionPayloadEnvelope or
-         T is gloas.SignedExecutionPayloadBid or
-         T is heze.SignedBeaconBlock:
+         T is gloas.SignedExecutionPayloadEnvelope:
       MAX_PAYLOAD_SIZE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
     # having max sizes significantly smaller than MAX_PAYLOAD_SIZE.
-    elif T is phase0.Attestation or T is phase0.AttesterSlashing or
+    elif T is gloas.SignedBeaconBlock or T is heze.SignedBeaconBlock or
+         T is phase0.Attestation or T is phase0.AttesterSlashing or
          T is phase0.SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is electra.SignedAggregateAndProof or T is electra.Attestation or
          T is electra.AttesterSlashing or T is altair.SignedBeaconBlock or
@@ -928,6 +953,28 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
   except SerializationError:
     neterr InvalidSszBytes
 
+proc readRequest(
+    conn: Connection, peer: Peer, MsgType: type
+): Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
+  let msg = ? await readChunkPayload(conn, peer, MsgType)
+
+  # A reader MUST consider the following cases as invalid input:
+  # - Any remaining bytes, after having read the n SSZ bytes.
+  #   An EOF is expected if more bytes are read than required.
+  # - [...]
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/phase0/p2p-interface.md#ssz-snappy-encoding-strategy
+  var extraByte: byte
+  try:
+    await conn.readExactly(addr extraByte, 1)
+    neterr ExtraBytes
+  except LPStreamEOFError:  #, LPStreamIncompleteError: nim-lang/Nim#25903
+    ok msg
+  except LPStreamIncompleteError:
+    ok msg
+  except LPStreamError as exc:
+    debug "Unexpected error reading extra bytes after payload", exc = exc.msg
+    neterr BrokenConnection
+
 proc readResponseChunk(
     conn: Connection, peer: Peer, MsgType: typedesc):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
@@ -967,7 +1014,7 @@ proc readResponseChunk(
   of Success:
     discard
 
-  return await readChunkPayload(conn, peer, MsgType)
+  await readChunkPayload(conn, peer, MsgType)
 
 proc readResponse(
     conn: Connection, peer: Peer,
@@ -1238,7 +1285,7 @@ proc handleIncomingStream(network: Eth2Node,
           let deadline = sleepAsync RESP_TIMEOUT_DUR
 
           awaitWithTimeout(
-            readChunkPayload(conn, peer, MsgRec), deadline):
+            readRequest(conn, peer, MsgRec), deadline):
               # Timeout, e.g., cancellation due to fulfillment by different peer.
               # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
               nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
@@ -1311,6 +1358,9 @@ proc handleIncomingStream(network: Eth2Node,
         of ResponseChunkOverflow:
           (InvalidRequest, errorMsgLit "Too many chunks in response")
 
+        of ExtraBytes:
+          (InvalidRequest, errorMsgLit "Extra bytes after payload")
+
         of UnknownError:
           (InvalidRequest, errorMsgLit "Unknown error while processing request")
 
@@ -1364,7 +1414,7 @@ func toPeerAddr*(r: enr.TypedRecord,
   for proto in peerAddrProto:
     case proto
     of PeerAddrProto.TCP:
-      if r.ip.isSome and r.tcp.isSome:
+      if r.ip.isSome and r.tcp.isSome and r.tcp.get != 0:
         let ip = IpAddress(
           family: IpAddressFamily.IPv4,
           address_v4: r.ip.get)
@@ -1374,9 +1424,9 @@ func toPeerAddr*(r: enr.TypedRecord,
         let ip = IpAddress(
           family: IpAddressFamily.IPv6,
           address_v6: r.ip6.get)
-        if r.tcp6.isSome:
+        if r.tcp6.isSome and r.tcp6.get != 0:
           addrs.add tcpEndPoint(ip, Port r.tcp6.get)
-        elif r.tcp.isSome:
+        elif r.tcp.isSome and r.tcp.get != 0:
           addrs.add tcpEndPoint(ip, Port r.tcp.get)
         else:
           discard
@@ -1400,7 +1450,7 @@ func toPeerAddr*(r: enr.TypedRecord,
           discard
 
     of PeerAddrProto.QUIC:
-      if r.ip.isSome and r.quic.isSome:
+      if r.ip.isSome and r.quic.isSome and r.quic.get != 0:
         let ip = IpAddress(
             family: IpAddressFamily.IPv4,
             address_v4: r.ip.get)
@@ -1410,9 +1460,9 @@ func toPeerAddr*(r: enr.TypedRecord,
         let ip = IpAddress(
           family: IpAddressFamily.IPv6,
           address_v6: r.ip6.get)
-        if r.quic6.isSome:
+        if r.quic6.isSome and r.quic6.get != 0:
           addrs.add quicEndPoint(ip, Port r.quic6.get)
-        elif r.quic.isSome:
+        elif r.quic.isSome and r.quic.get != 0:
           addrs.add quicEndPoint(ip, Port r.quic.get)
         else:
           discard
@@ -2865,7 +2915,8 @@ proc broadcastVoluntaryExit*(
   node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node, slashing: electra.AttesterSlashing):
+    node: Eth2Node,
+    slashing: electra.AttesterSlashing | gloas.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
@@ -2887,8 +2938,10 @@ proc broadcastBlsToExecutionChange*(
 
 proc broadcastAggregateAndProof*(
     node: Eth2Node,
-    proof: phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
+    proof:
+      phase0.SignedAggregateAndProof | electra.SignedAggregateAndProof |
+      gloas.SignedAggregateAndProof
+): Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, proof)

@@ -76,12 +76,12 @@ jobs:
         run: rm -rf "$GITHUB_WORKSPACE"/*
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Restore llvm-mingw (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-mingw-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: external/mingw-${{ matrix.target.cpu }}
           key: 'mingw-llvm-17-${{ matrix.target.cpu }}'
@@ -174,7 +174,7 @@ jobs:
       - name: Restore prebuilt Nim from cache
         if: matrix.branch == null
         id: nim-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: NimBinCache
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
@@ -226,7 +226,7 @@ jobs:
         run: rm -rf "$GITHUB_WORKSPACE"/*
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -253,7 +253,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
           submodules: 'recursive'

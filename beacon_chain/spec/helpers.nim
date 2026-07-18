@@ -264,8 +264,7 @@ template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
-  store.next_sync_committee !=
-    static(default(typeof(store.next_sync_committee)))
+  not store.next_sync_committee.isZero
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
@@ -437,7 +436,8 @@ func compute_timestamp_at_slot*(
   state.genesis_time +
     slots_since_genesis * timeParams.SLOT_DURATION.seconds.uint64
 
-template append*(w: var RlpWriter, v: bellatrix.Transaction) =
+template append*(
+    w: var RlpWriter, v: bellatrix.Transaction | gloas.Transaction) =
   w.appendRawBytes(distinctBase v)
 
 template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =

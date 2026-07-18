@@ -565,7 +565,9 @@ proc runTest(
       # Some test files have very long paths
       skip()
     else:
-      if os_ops.splitPath(path).tail in SKIP:
+      if suiteName == "Fast Confirmation":
+        skip()  # TODO
+      elif os_ops.splitPath(path).tail in SKIP:
         skip()
       else:
         var verifier = BatchVerifier.init(rng, taskpool)

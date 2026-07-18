@@ -759,7 +759,7 @@ static:
       path: ".graffiti",
       electraIndex: 18.GeneralizedIndex,
       fuluIndex: 18.GeneralizedIndex,
-      gloasIndex: 18.GeneralizedIndex)
+      gloasIndex: 41.GeneralizedIndex)
 
 proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError].} =

@@ -51,6 +51,10 @@ declareCounter beacon_contributions_dropped_queue_full,
 type
   ValidationError* = (ValidationResult, cstring)
 
+  SeenProposerPreferences* =
+    array[MIN_SEED_LOOKAHEAD + 2,
+      array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
+
 template errIgnore*(msg: cstring): untyped =
   err((ValidationResult.Ignore, msg))
 template errReject*(msg: cstring): untyped =
@@ -188,8 +192,8 @@ proc check_beacon_and_target_block(
   ok(target)
 
 func check_aggregation_count(
-    attestation: electra.Attestation, singular: bool):
-    Result[void, ValidationError] =
+    attestation: electra.Attestation | gloas.Attestation,
+    singular: bool): Result[void, ValidationError] =
   block:
     let ones = attestation.committee_bits.countOnes()
     if singular and ones != 1:
@@ -454,6 +458,51 @@ template validateBeaconBlockGloas(
       dag.cfg.get_blob_parameters(blck.slot.epoch).MAX_BLOBS_PER_BLOCK):
     return dag.checkedReject("validateBeaconBlockGloas: too many blob commitments")
 
+  # [REJECT] The counts of `block.body.parent_execution_requests` are within
+  # their respective limits.
+  template parent_execution_requests: untyped =
+    blck.body.parent_execution_requests
+  if parent_execution_requests.withdrawals.lenu64 >
+      MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many withdrawal requests")
+  if parent_execution_requests.consolidations.lenu64 >
+      MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many consolidation requests")
+  if parent_execution_requests.builder_deposits.lenu64 >
+      MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many builder deposit requests")
+  if parent_execution_requests.builder_exits.lenu64 >
+      MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many builder exit requests")
+
+  # [REJECT] The counts of the block body operations are within their
+  # respective limits.
+  if blck.body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many proposer slashings")
+  if blck.body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many attester slashings")
+  if blck.body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many attestations")
+  if blck.body.deposits.lenu64 != 0:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: deposits must be empty")
+  if blck.body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many voluntary exits")
+  if blck.body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many BLS to execution changes")
+  if blck.body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
+    return dag.checkedReject(
+      "validateBeaconBlockGloas: too many payload attestations")
+
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
@@ -582,7 +631,7 @@ proc validateDataColumnSidecar*(
       block_root: block_root,
       index: data_column_sidecar[].index,
       slot: data_column_sidecar[].signed_block_header.message.slot,
-      kzg_commitments: data_column_sidecar[].kzg_commitments)
+      kzg_commitments: data_column_sidecar[].kzg_commitments.asSeq)
 
   # Notify with the full sidecar so the EL (out of spec)
   # getBlobs service can derive header/commitments/inclusion proof when the
@@ -951,6 +1000,24 @@ proc validateExecutionPayload*(
       bid.execution_requests_root):
     return dag.checkedReject("ExecutionPayload: requests mismatch")
 
+  # [REJECT] The counts of `execution_requests` are within their respective
+  # limits.
+  template reqs: untyped = envelope.execution_requests
+  if reqs.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many deposit reqs")
+  if reqs.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many withdrawal reqs")
+  if reqs.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many consolidation reqs")
+  if reqs.builder_deposits.lenu64 > MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many builder deposit reqs")
+  if reqs.builder_exits.lenu64 > MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many builder exit reqs")
+
+  # [REJECT] The number of withdrawals is within the limit.
+  if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
+    return dag.checkedReject("ExecutionPayload: too many withdrawals")
+
   # [REJECT] `signed_execution_payload_envelope.signature` is valid as verified
   # by `verify_execution_payload_envelope_signature`.
   # TODO: headState may not match the envelope's fork during extended
@@ -1166,7 +1233,8 @@ proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    signedAggregateAndProof:
+      electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     wallTime: BeaconTime,
     checkSignature = true,
     checkCover = true,
@@ -1448,8 +1516,9 @@ proc validateBlsToExecutionChange*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ValidatorChangePool, attester_slashing: electra.AttesterSlashing):
-    Result[void, ValidationError] =
+    pool: ValidatorChangePool,
+    attester_slashing: electra.AttesterSlashing | gloas.AttesterSlashing
+): Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
@@ -1467,7 +1536,11 @@ proc validateAttesterSlashing*(
 
   # Send notification about new attester slashing via callback
   if not(isNil(pool.onAttesterSlashingReceived)):
-    pool.onAttesterSlashingReceived(attester_slashing)
+    when typeof(attester_slashing) is gloas.AttesterSlashing:
+      pool.onAttesterSlashingReceived(attester_slashing)
+    else:
+      pool.onAttesterSlashingReceived(
+        upgrade_attester_slashing_to_gloas(attester_slashing))
 
   ok()
 
@@ -1851,12 +1924,11 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
-    seenProposerPreferences:
-      var array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]],
+    seenProposerPreferences: var SeenProposerPreferences,
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
     wallTime: BeaconTime): Result[PayloadAvailability, ValidationError] =
   template bid: untyped = signed_execution_payload_bid.message
@@ -1920,7 +1992,7 @@ proc validateExecutionPayloadBid*(
 
       let bidDependentRoot = dag.get_dependent_root(parentBlck.bid, bid.slot)
       let
-        seenBucket = uint64(bid.slot.epoch()) mod 2
+        seenBucket = uint64(bid.slot.epoch()) mod (MIN_SEED_LOOKAHEAD + 2)
         seenKey = uint64(bid.slot) mod SLOTS_PER_EPOCH
       var seenPref: ProposerPreferences
       seenProposerPreferences[seenBucket][seenKey].withValue(
@@ -1951,10 +2023,10 @@ proc validateExecutionPayloadBid*(
           dag.cfg.get_blob_parameters(bid.slot.epoch()).MAX_BLOBS_PER_BLOCK):
         return dag.checkedReject("ExecutionPayloadBid: invalid kzg commitments")
 
-      # [REJECT] `bid.fee_recipient` matches the `fee_recipient` from the
+      # [IGNORE] `bid.fee_recipient` matches the `fee_recipient` from the
       # proposer's `SignedProposerPreferences` associated with `bid.slot`.
       if not (bid.fee_recipient == seenPref.fee_recipient):
-        return dag.checkedReject("ExecutionPayloadBid: fee recipient mismatch")
+        return errIgnore("ExecutionPayloadBid: fee recipient mismatch")
 
       # Extra check to prevent unincludable bids from purging legitimate ones
       # from the execution payload pool
@@ -1972,6 +2044,14 @@ proc validateExecutionPayloadBid*(
       # to the bid.builder_index
       let builderPubkey =
         forkyState.data.builders.item(bid.builder_index).pubkey
+
+      debugHezeComment """
+- _[IGNORE]_ `bid.inclusion_list_bits` is inclusive of the node's view of
+inclusion lists for the slot preceding the bid's slot -- i.e.
+`is_inclusion_list_bits_inclusive(get_inclusion_list_store(), state, Slot(bid.slot - 1), bid.inclusion_list_bits, only_timely=False)`
+returns `True`, where `state` is the head state corresponding to processing
+the block up to the current slot as determined by the fork choice.
+"""
 
       if not verify_execution_payload_bid_signature(
           dag.forkAtEpoch(bid.slot.epoch),
@@ -2076,10 +2156,10 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
-    seen: var array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]],
+    seen: var SeenProposerPreferences,
     signed_preferences: SignedProposerPreferences,
     wallTime: BeaconTime): Result[void, ValidationError] =
   template preferences: untyped = signed_preferences.message
@@ -2126,7 +2206,7 @@ proc validateProposerPreferences*(
   # for the tuple (preferences.dependent_root, preferences.proposal_slot,
   # preferences.validator_index).
   let
-    bucket = proposalEpoch.uint64 mod 2
+    bucket = proposalEpoch.uint64 mod (MIN_SEED_LOOKAHEAD + 2)
     slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
   if preferences.dependent_root in seen[bucket][slotInEpoch]:
     return errIgnore("ProposerPreferences: already seen")

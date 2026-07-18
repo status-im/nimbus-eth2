@@ -346,7 +346,7 @@ proc initBeaconNode(basePort: int): Future[BeaconNode] {.async: (raises: []).} =
               "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
               "--debug-tcp=true",
               "--debug-quic=true",
-              "--debug-quic-port=" & $(basePort + PortKind.PeerToPeer.ord + 2000),
+              "--quic-port=" & $(basePort + PortKind.PeerToPeer.ord + 2000),
               "--discv5=off",
               "--network=" & dataDir,
               "--data-dir=" & nodeDataDir,
@@ -812,6 +812,13 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       check filesystemKeys == apiKeys
 
+    asyncTest "Different Authorization Header spelling" & testFlavour:
+      let
+        response = await client.listKeysPlain(
+          extraHeaders = @[("Authorization", "BEARER  " & correctTokenValue)])
+
+      check response.status == 200
+
     asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.listKeysPlain()
@@ -829,6 +836,16 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
 
       check:
         response.status == 401
+        responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Empty Authorization Token" & testFlavour:
+      let
+        response = await client.listKeysPlain(
+          extraHeaders = @[("Authorization", "Bearer")])
+        responseJson = Json.decode(response.data, JsonNode)
+
+      check:
+        response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & testFlavour:
@@ -2035,7 +2052,7 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
 
   ProcessState.scheduleStop("stop")
 
-proc main(basePort: int) {.async.} =
+proc main(basePort: int) =
   # Overwrite the standard nim stop handlers
   ProcessState.setupStopHandlers()
 
@@ -2044,7 +2061,7 @@ proc main(basePort: int) {.async.} =
 
   prepareNetwork()
 
-  let node = await initBeaconNode(basePort)
+  let node = waitFor initBeaconNode(basePort)
 
   asyncSpawn delayedTests(basePort, node.attachedValidators,
                           node.keymanagerHost)
@@ -2070,4 +2087,4 @@ for topicName in [
     "state_transition"]:
   doAssert setTopicState(topicName, Disabled)
 
-waitFor main(basePort)
+main(basePort)

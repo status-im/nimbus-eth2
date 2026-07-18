@@ -680,6 +680,11 @@ p2pProtocol BeaconSync(version = 1,
           continue
         requiredBid = bsid.bid
 
+      # The requested block predates the earliest slot for which we can
+      # guarantee serving data columns - respond with `ResourceUnavailable`.
+      if requiredBid.slot < dag.earliestAvailableSlot():
+        raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
+
       if requiredBid.slot.epoch < epochBoundary:
         continue
 
@@ -735,6 +740,11 @@ p2pProtocol BeaconSync(version = 1,
             dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
 
     if startSlot.epoch < epochBoundary:
+      raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
+
+    # The requested range starts before the earliest slot for which we can
+    # guarantee serving data columns - respond with `ResourceUnavailable`.
+    if startSlot < dag.earliestAvailableSlot():
       raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
 
     var blockIds: array[int(MAX_REQUEST_DATA_COLUMN_SIDECARS), BlockId]

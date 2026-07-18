@@ -123,6 +123,9 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
                                        parentIdx: Index,
                                        childIdx: Index): FcResult[void]
 
+func payloadVariantOutranks(
+    self: ProtoArray, full, empty: ProtoNode): bool
+
 func nodeIsViableForHead(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool
 func nodeLeadsToViableHead(
@@ -443,15 +446,24 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest,
       kind: fcInvalidJustifiedIndex,
       index: justifiedIdx)
 
-  # If the justified EMPTY node has no descendants (children parented to
-  # FULL), use the FULL sibling's bestDescendant instead.
-  var bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
-  if bestDescendantIdx == justifiedIdx:
-    let fullIdx = self.fullBlockIndices.getOrDefault(justifiedRoot, -1)
-    if fullIdx >= 0:
-      let fullNode = self.nodes[fullIdx]
-      if fullNode.isSome:
-        bestDescendantIdx = fullNode.get.bestDescendant.get(fullIdx)
+  # The justified block appears as two payload variants (EMPTY and, if its payload
+  # was verified, FULL). Start at PENDING(justified) and expands to both variants:
+  # pick the better one, then follow that variant's bestDescendant.
+  # 
+  var
+    startIdx = justifiedIdx
+    startBestDescendant = justifiedNode.bestDescendant
+  let fullIdx = self.fullBlockIndices.getOrDefault(justifiedRoot, -1)
+  if fullIdx >= 0:
+    let fullNode = self.nodes[fullIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidJustifiedIndex,
+        index: fullIdx)
+    if self.payloadVariantOutranks(fullNode, justifiedNode):
+      startIdx = fullIdx
+      startBestDescendant = fullNode.bestDescendant
+
+  let bestDescendantIdx = startBestDescendant.get(startIdx)
 
   let bestNode = self.nodes[bestDescendantIdx].valueOr:
     return err ForkChoiceError(
@@ -558,6 +570,32 @@ func prune*(
 
   ok()
 
+func payloadVariantOutranks(
+    self: ProtoArray, full, empty: ProtoNode): bool =
+  ## Rank a block's two payload variants by the spec `get_head`
+  ## order `(get_weight, get_payload_status_tiebreaker)`
+  let
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/fork-choice.md#is_previous_slot_payload_decision
+    isPrevSlot = full.bid.slot + 1 == self.currentSlot
+    # The proposer boost belongs to the EMPTY node; drop it before comparing.
+    boost =
+      if empty.bid.root == self.previousProposerBoostRoot:
+        self.previousProposerBoostScore.int64
+      else: 0'i64
+    fullWeight =
+      if isPrevSlot: 0'i64 else: full.weight - full.pendingWeight
+    emptyWeight =
+      if isPrevSlot: 0'i64 else: empty.weight - empty.pendingWeight - boost
+  if fullWeight != emptyWeight:
+    fullWeight > emptyWeight
+  elif isPrevSlot:
+    # get_payload_status_tiebreaker: FULL (2) beats EMPTY (1), unless the payload
+    # should not be extended (0), captured by `emptyPreferredRoot`.
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/fork-choice.md#get_payload_status_tiebreaker
+    full.bid.root != self.emptyPreferredRoot
+  else:
+    true
+
 func maybeUpdateBestChildAndDescendant(
     self: var ProtoArray, parentIdx: Index, childIdx: Index): FcResult[void] =
   ## Observe the parent at `parentIdx` with respect to the child at `childIdx` and
@@ -627,34 +665,13 @@ func maybeUpdateBestChildAndDescendant(
             # The best child leads to a viable head, but the child doesn't
             noChange
           elif child.bid.root == bestChild.bid.root:
+            # Same block's two payload variants, rank by the spec get_head order.
             let
-              isPrevSlot = child.bid.slot + 1 == self.currentSlot
-              # drop proposer boost from the empty node before comparing `pendingWeight`
-              boost =
-                if child.bid.root == self.previousProposerBoostRoot:
-                  self.previousProposerBoostScore.int64
-                else: 0'i64
-              childWeight =
-                if isPrevSlot: 0'i64
-                else: child.weight - child.pendingWeight -
-                  (if childIsFull: 0'i64 else: boost)
-              bestWeight =
-                if isPrevSlot: 0'i64
-                else: bestChild.weight - bestChild.pendingWeight -
-                  (if childIsFull: boost else: 0'i64)
-            template statusTiebreak(isFull: bool): int =
-              if isPrevSlot:
-                if isFull:
-                  (if child.bid.root != self.emptyPreferredRoot: 2 else: 0)
-                else: 1
-              else:
-                (if isFull: 1 else: 0)
-            if childWeight != bestWeight:
-              if childWeight > bestWeight: changeToChild else: noChange
-            elif statusTiebreak(childIsFull) > statusTiebreak(not childIsFull):
-              changeToChild
-            else:
-              noChange
+              (full, empty) =
+                if childIsFull: (child, bestChild) else: (bestChild, child)
+              fullOutranks = self.payloadVariantOutranks(full, empty)
+            # The child wins iff the winning variant is the child's own variant.
+            if fullOutranks == childIsFull: changeToChild else: noChange
           elif child.weight == bestChild.weight:
             if child.bid.root.tiebreak(bestChild.bid.root):
               changeToChild
