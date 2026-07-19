@@ -25,28 +25,15 @@ from ./consensus_object_pools/blockchain_dag import
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-declareGauge beacon_slot, "Latest slot of the beacon chain state"
-declareGauge beacon_current_epoch, "Current epoch"
-
-# noinline to keep it in stack traces
-proc main() {.noinline, raises: [CatchableError].} =
-  ProcessState.setupStopHandlers()
-  const
-    banner = "Nimbus light client " & fullVersionStr
-    copyright =
-      "Copyright (c) 2022-" & compileYear & " Status Research & Development GmbH"
-
-  var config = LightClientConf.loadWithBanners(
-    banner, copyright, [specBanner], setupLogger = true
-  ).valueOr:
-    writePanicLine error # Logging not yet set up
-    quit QuitFailure
-
-  setupFileLimits()
-
-  notice "Launching light client",
-    version = fullVersionStr, cmdParams = commandLineParams(), config
+## Split out of `main` so that host binaries which embed the light client alongside
+## other components (e.g. an execution client in the same process) can drive it
+## directly: they parse and adjust the config themselves, install their own stop
+## handlers, and signal shutdown through `stop`.
+proc runLightClient*(
+    configIn: LightClientConf, stop: Future[void] = nil
+) {.raises: [CatchableError].} =
+  # `config` is mutated below (bootstrap nodes), so work on a local copy
+  var config = configIn
 
   let dbDir = config.databaseDir
   if (let res = secureCreatePath(dbDir); res.isErr):
@@ -409,7 +396,30 @@ proc main() {.noinline, raises: [CatchableError].} =
   asyncSpawn runOnSecondLoop()
 
   while not ProcessState.stopIt(notice("Shutting down", reason = it)):
+    if stop != nil and stop.finished():
+      break
     poll()
+
+# noinline to keep it in stack traces
+proc main() {.noinline, raises: [CatchableError].} =
+  ProcessState.setupStopHandlers()
+  const
+    banner = "Nimbus light client " & fullVersionStr
+    copyright =
+      "Copyright (c) 2022-" & compileYear & " Status Research & Development GmbH"
+
+  let config = LightClientConf.loadWithBanners(
+    banner, copyright, [specBanner], setupLogger = true
+  ).valueOr:
+    writePanicLine error # Logging not yet set up
+    quit QuitFailure
+
+  setupFileLimits()
+
+  notice "Launching light client",
+    version = fullVersionStr, cmdParams = commandLineParams(), config
+
+  runLightClient(config)
 
 when isMainModule:
   main()
