@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, math, tables, macrocache],
+  std/[typetraits, os, tables, macrocache],
 
   # Status libs
   results,
@@ -31,6 +31,7 @@ import
   ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
      libp2p_json_serialization, peer_pool, peer_scores]
 
+from std/math import round
 from std/sequtils import countIt, filterIt, mapIt
 
 export
@@ -1720,7 +1721,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
         minScore = [
           (if wantedAttnetsCount > 0: 1 else: 0),
           (if wantedSyncnetsCount > 0: 10 else: 0),
-          100
+          (if len(node.custodyMap) > 0: 100 else: 0)
         ]
         discoveredNodes = await node.discovery.queryRandom(
           node.cfg,
