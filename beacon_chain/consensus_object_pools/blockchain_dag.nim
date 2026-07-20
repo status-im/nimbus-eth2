@@ -2625,8 +2625,7 @@ proc hasExecutionCheckpoint*(
           return false
     # 2. The parent is not the current head - It may be built on EMPTY
     #    thoughtout the fork and so the execution parent may be a block before
-    #    the checkpoint. As the parent is built on the checkpoint head and
-    #    state, it is either EMPTY or FULL.
+    #    the checkpoint.
     else:
       let (blockHash, parentHash) =
         dag.loadExecutionAndParentBlockHash(parentRef)
@@ -2634,6 +2633,7 @@ proc hasExecutionCheckpoint*(
         return false
       (blockHash.get(), parentHash.get())
 
+  # Return true if it is either EMPTY or FULL
   parentBlockHash == latestBlockHash or parentBlockHash == latestParentHash
 
 func shouldExtendPayload*(
