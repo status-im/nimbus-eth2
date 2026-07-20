@@ -90,6 +90,13 @@ declareCounter beacon_execution_payload_bids_dropped,
   "Number of invalid execution payload bids dropped by this node",
   labels = ["reason"]
 
+declareCounter beacon_payload_attestations_received,
+  "Number of valid payload attestations processed by this node"
+
+declareCounter beacon_payload_attestations_dropped,
+  "Number of invalid payload attestations dropped by this node",
+  labels = ["reason"]
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -917,6 +924,9 @@ proc processExecutionPayloadBid*(
     self.executionPayloadBidPool[].addBid(
       signedBid, payloadAvailability, wallTime)
 
+    if not isNil(self.dag.onExecutionPayloadBidAdded):
+      self.dag.onExecutionPayloadBidAdded(signedBid)
+
     beacon_execution_payload_bids_received.inc()
 
     ok()
@@ -938,16 +948,22 @@ proc processPayloadAttestationMessage*(
 
   if v.isErr():
     debug "Dropping payload attestation", reason = $v.error
+    beacon_payload_attestations_dropped.inc(1, [$v.error[0]])
     return err(v.error())
 
   discard self.payloadAttestationPool[].addPayloadAttestation(
     payload_attestation_message, wallTime)
+
+  if not isNil(self.dag.onPayloadAttestationMessageAdded):
+    self.dag.onPayloadAttestationMessageAdded(payload_attestation_message)
 
   # Record the PTC vote in fork choice.
   self.attestationPool[].forkChoice.on_payload_attestation_message(
       self.dag, payload_attestation_message.validator_index,
       payload_attestation_message.data).isOkOr:
     debug "on_payload_attestation_message failed", error
+
+  beacon_payload_attestations_received.inc()
 
   trace "Payload attestation validated"
   return ok()
@@ -963,6 +979,9 @@ proc processProposerPreferences*(
   if v.isErr():
     debug "Dropping proposer preferences", reason = $v.error
     return err(v.error())
+
+  if not isNil(self.dag.onProposerPreferencesAdded):
+    self.dag.onProposerPreferencesAdded(signed_preferences)
 
   trace "Proposer preferences validated"
   ok()

@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronos,
@@ -13,7 +13,7 @@ import
   stew/endians2,
   presto/client,
   ../helpers,
-  "."/[rest_common, eth2_rest_serialization]
+  ./[rest_common, eth2_rest_serialization]
 
 func checkForkConsistency(
     obj: SomeForkedLightClientObject,
@@ -48,7 +48,7 @@ func decodeSszLightClientObject[T: SomeForkedLightClientObject](
   try:
     withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
       when lcDataFork > LightClientDataFork.None:
-        var obj = T.init(SSZ.decode(data, T.Forky(lcDataFork)))
+        let obj = T.init(SSZ.decode(data, T.Forky(lcDataFork)))
         obj.checkForkConsistency(cfg, consensusFork)
         obj
       else:
@@ -137,7 +137,7 @@ proc decodeSszLightClientObjects[S: seq[SomeForkedLightClientObject]](
       withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
         when lcDataFork > LightClientDataFork.None:
           type T = typeof(res[0])
-          var obj = T.init(SSZ.decode(
+          let obj = T.init(SSZ.decode(
             data.toOpenArray(begin + contextLen, after - 1),
             T.Forky(lcDataFork)))
           obj.checkForkConsistency(cfg, consensusFork)

@@ -10,7 +10,6 @@
 
 import
   chronos,
-  std/sequtils,
   unittest2,
   taskpools,
   kzg4844 as kzg,
@@ -26,6 +25,8 @@ import
   ../beacon_chain/el/el_manager,
   ./[testblockutil, testdbutil, testutil]
 
+from std/sequtils import mapIt
+from std/strutils import rsplit
 from chronos/unittest2/asynctests import asyncTest
 from ../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, init
@@ -34,8 +35,6 @@ from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker
 from ../beacon_chain/validators/keystore_management import KeymanagerHost
-
-from std/strutils import rsplit
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -136,7 +135,7 @@ suite "Block processor" & preset():
       not dag.containsForkBlock(b2.root) # Async pipeline must still run
 
     while processor[].hasBlocks():
-      poll()
+      await sleepAsync(0.milliseconds)
 
     let b2Get = dag.getBlockRef(b2.root)
 
@@ -255,7 +254,7 @@ suite "Block processor" & preset():
         dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
       while processor[].hasBlocks():
-        poll()
+        await sleepAsync(0.milliseconds)
       check:
         dag.containsForkBlock(b1.root)
         not dag.containsForkBlock(b2.root)
@@ -606,7 +605,7 @@ suite "Block processor" & preset():
 
     # Let async quarantine processing run
     while processor[].hasBlocks():
-      poll()
+      await sleepAsync(0.milliseconds)
 
     # Block N+1 should now be in the DAG (dequeued from quarantine)
     check dag.containsForkBlock(b2.root)

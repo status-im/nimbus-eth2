@@ -120,6 +120,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let handler = response.eventHandler(node.eventBus.headQueue,
                                               "head")
           res.add(handler)
+        if EventTopic.HeadV2 in eventTopics:
+          let handler = response.eventHandler(node.eventBus.headV2Queue,
+                                              "head_v2")
+          res.add(handler)
         if EventTopic.Block in eventTopics:
           let handler = response.eventHandler(node.eventBus.blocksQueue,
                                               "block")

@@ -409,9 +409,8 @@ proc compute_unrealized_finality*(
   info.process_attestations(state, cache)
   template balances(): auto = info.balances
 
-  var finalityState = state.toFinalityState()
   let jfRes = weigh_justification_and_finalization(
-    finalityState, balances.current_epoch,
+    state.toFinalityState(), balances.current_epoch,
     balances.previous_epoch_target_attesters,
     balances.current_epoch_target_attesters)
   FinalityCheckpoints(
@@ -454,9 +453,8 @@ proc compute_unrealized_finality*(
       justified: state.current_justified_checkpoint,
       finalized: state.finalized_checkpoint), balances)
 
-  var finalityState = state.toFinalityState()
   let jfRes = weigh_justification_and_finalization(
-    finalityState, balances.current_epoch,
+    state.toFinalityState(), balances.current_epoch,
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     balances.current_epoch_TIMELY_TARGET)
   (FinalityCheckpoints(
@@ -1397,7 +1395,7 @@ func process_builder_pending_payments*(
 
   for index in 0 ..< min(
       state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
-    var payment = state.builder_pending_payments.mitem(index)
+    let payment = state.builder_pending_payments.mitem(index)
     if payment.weight.distinctBase >= quorum:
       if not state.builder_pending_withdrawals.add(payment.withdrawal):
         return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")

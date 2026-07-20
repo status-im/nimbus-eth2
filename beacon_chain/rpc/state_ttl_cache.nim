@@ -30,7 +30,7 @@ const
 logScope:
   topics = "state_ttl_cache"
 
-proc init*(T: type StateTtlCache,
+func init*(T: type StateTtlCache,
            cacheSize: Natural,
            cacheTtl: Duration): T =
   doAssert cacheSize > 0
@@ -53,8 +53,8 @@ proc scheduleEntryExpiration(cache: StateTtlCache,
   discard setTimer(Moment.now + cache.ttl, removeElement)
 
 proc add*(cache: StateTtlCache, state: ref ForkedHashedBeaconState) =
+  let now = Moment.now
   var
-    now = Moment.now
     lruTime = now
     index = -1
 
@@ -113,4 +113,4 @@ proc getClosestState*(
   cache.entries[index].lastUsed = Moment.now
   cache.scheduleEntryExpiration(index)
 
-  return cache.entries[index].state
+  cache.entries[index].state

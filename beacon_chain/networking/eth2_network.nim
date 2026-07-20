@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, math, tables, macrocache],
+  std/[typetraits, os, tables, macrocache],
 
   # Status libs
   results,
@@ -31,6 +31,7 @@ import
   ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
      libp2p_json_serialization, peer_pool, peer_scores]
 
+from std/math import round
 from std/sequtils import countIt, filterIt, mapIt
 
 export
@@ -219,6 +220,7 @@ type
     SizePrefixOverflow
     InvalidContextBytes
     ResponseChunkOverflow
+    ExtraBytes
 
     UnknownError
 
@@ -952,6 +954,28 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
   except SerializationError:
     neterr InvalidSszBytes
 
+proc readRequest(
+    conn: Connection, peer: Peer, MsgType: type
+): Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
+  let msg = ? await readChunkPayload(conn, peer, MsgType)
+
+  # A reader MUST consider the following cases as invalid input:
+  # - Any remaining bytes, after having read the n SSZ bytes.
+  #   An EOF is expected if more bytes are read than required.
+  # - [...]
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/phase0/p2p-interface.md#ssz-snappy-encoding-strategy
+  var extraByte: byte
+  try:
+    await conn.readExactly(addr extraByte, 1)
+    neterr ExtraBytes
+  except LPStreamEOFError:  #, LPStreamIncompleteError: nim-lang/Nim#25903
+    ok msg
+  except LPStreamIncompleteError:
+    ok msg
+  except LPStreamError as exc:
+    debug "Unexpected error reading extra bytes after payload", exc = exc.msg
+    neterr BrokenConnection
+
 proc readResponseChunk(
     conn: Connection, peer: Peer, MsgType: typedesc):
     Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
@@ -991,7 +1015,7 @@ proc readResponseChunk(
   of Success:
     discard
 
-  return await readChunkPayload(conn, peer, MsgType)
+  await readChunkPayload(conn, peer, MsgType)
 
 proc readResponse(
     conn: Connection, peer: Peer,
@@ -1262,7 +1286,7 @@ proc handleIncomingStream(network: Eth2Node,
           let deadline = sleepAsync RESP_TIMEOUT_DUR
 
           awaitWithTimeout(
-            readChunkPayload(conn, peer, MsgRec), deadline):
+            readRequest(conn, peer, MsgRec), deadline):
               # Timeout, e.g., cancellation due to fulfillment by different peer.
               # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
               nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
@@ -1335,6 +1359,9 @@ proc handleIncomingStream(network: Eth2Node,
         of ResponseChunkOverflow:
           (InvalidRequest, errorMsgLit "Too many chunks in response")
 
+        of ExtraBytes:
+          (InvalidRequest, errorMsgLit "Extra bytes after payload")
+
         of UnknownError:
           (InvalidRequest, errorMsgLit "Unknown error while processing request")
 
@@ -1388,7 +1415,7 @@ func toPeerAddr*(r: enr.TypedRecord,
   for proto in peerAddrProto:
     case proto
     of PeerAddrProto.TCP:
-      if r.ip.isSome and r.tcp.isSome:
+      if r.ip.isSome and r.tcp.isSome and r.tcp.get != 0:
         let ip = IpAddress(
           family: IpAddressFamily.IPv4,
           address_v4: r.ip.get)
@@ -1398,9 +1425,9 @@ func toPeerAddr*(r: enr.TypedRecord,
         let ip = IpAddress(
           family: IpAddressFamily.IPv6,
           address_v6: r.ip6.get)
-        if r.tcp6.isSome:
+        if r.tcp6.isSome and r.tcp6.get != 0:
           addrs.add tcpEndPoint(ip, Port r.tcp6.get)
-        elif r.tcp.isSome:
+        elif r.tcp.isSome and r.tcp.get != 0:
           addrs.add tcpEndPoint(ip, Port r.tcp.get)
         else:
           discard
@@ -1424,7 +1451,7 @@ func toPeerAddr*(r: enr.TypedRecord,
           discard
 
     of PeerAddrProto.QUIC:
-      if r.ip.isSome and r.quic.isSome:
+      if r.ip.isSome and r.quic.isSome and r.quic.get != 0:
         let ip = IpAddress(
             family: IpAddressFamily.IPv4,
             address_v4: r.ip.get)
@@ -1434,9 +1461,9 @@ func toPeerAddr*(r: enr.TypedRecord,
         let ip = IpAddress(
           family: IpAddressFamily.IPv6,
           address_v6: r.ip6.get)
-        if r.quic6.isSome:
+        if r.quic6.isSome and r.quic6.get != 0:
           addrs.add quicEndPoint(ip, Port r.quic6.get)
-        elif r.quic.isSome:
+        elif r.quic.isSome and r.quic.get != 0:
           addrs.add quicEndPoint(ip, Port r.quic.get)
         else:
           discard
@@ -1694,7 +1721,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
         minScore = [
           (if wantedAttnetsCount > 0: 1 else: 0),
           (if wantedSyncnetsCount > 0: 10 else: 0),
-          100
+          (if len(node.custodyMap) > 0: 100 else: 0)
         ]
         discoveredNodes = await node.discovery.queryRandom(
           node.cfg,
