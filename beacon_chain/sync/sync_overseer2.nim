@@ -135,20 +135,24 @@ func slimLog(columns: openArray[ref gloas.DataColumnSidecar]): string =
   res.add(']')
   res
 
-func slimLog(envelopes: openArray[ref SignedExecutionPayloadEnvelope]): string =
-  "[" & envelopes.mapIt(
-    shortLog(it[].message.beacon_block_root)).join(",") & "]"
-
 func slimLog(blck: ForkedSignedBeaconBlock): string =
   "(" & $blck.kind & ",slot:" & $blck.slot() &
     ",root:" & shortLog(blck.root()) &
     ",parent_root:" & shortLog(blck.parent_root()) & ")"
+
+func slimLog(envelope: ref gloas.SignedExecutionPayloadEnvelope): string =
+  $envelope.message.payload.slot_number & "@" &
+  shortLog(envelope.message.beacon_block_root) & ">" &
+  shortLog(envelope.message.parent_beacon_block_root)
 
 func slimLog(blocks: openArray[ref ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it[])).join(",") & "]"
 
 func slimLog(blocks: openArray[ForkedSignedBeaconBlock]): string =
   "[" & blocks.mapIt(slimLog(it)).join(",") & "]"
+
+func slimLog(es: openArray[ref gloas.SignedExecutionPayloadEnvelope]): string =
+  "[" & es.mapIt(slimLog(it)).join(",") & "]"
 
 proc getEaSlotLog(peer: Peer): string =
   let res = peer.getEarliestAvailableSlot().valueOr:
@@ -2223,13 +2227,16 @@ proc doRangeSyncStep(
 
           debug "Received payloads range on request",
             payloads_count = len(payloads),
-            payloads_map = getShortMap(request, payloads.asSeq())
+            payloads_map = getShortMap(request, payloads.asSeq()),
+            payloads = slimLog(payloads.asSeq())
 
           checkResponse(request.data, payloads.asSeq()).isOkOr:
             debug "Incorrect range of payloads received",
+              reason = $error,
               blocks_count = len(payloads),
               blocks_map = getShortMap(request, payloads.asSeq()),
-              reason = $error
+              blocks = slimLog(blocks.asSeq()),
+              payloads = slimLog(payloads.asSeq())
             peer.updateScore(PeerScoreBadResponse)
             overseer.tbsqueue(direction).push(request)
             return false
@@ -2240,8 +2247,10 @@ proc doRangeSyncStep(
               reason = error,
               blocks_count = len(blocks),
               blocks_map = getShortMap(request, blocks.asSeq()),
+              blocks = slimLog(blocks.asSeq()),
               payloads_count = len(payloads),
-              payloads_map = getShortMap(request, payloads.asSeq())
+              payloads_map = getShortMap(request, payloads.asSeq()),
+              payloads = slimLog(payloads.asSeq())
             peer.updateScore(PeerScoreBadResponse)
             overseer.tbsqueue(direction).push(request)
             return false
