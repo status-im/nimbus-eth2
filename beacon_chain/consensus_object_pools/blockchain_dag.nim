@@ -2624,7 +2624,7 @@ proc hasExecutionCheckpoint*(
         else:
           return false
     # 2. The parent is not the current head - It may be built on EMPTY
-    #    thoughtout the fork and so the execution parent may be a block before
+    #    throughout the fork and so the execution parent may be a block before
     #    the checkpoint.
     else:
       let (blockHash, parentHash) =
