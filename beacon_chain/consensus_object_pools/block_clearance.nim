@@ -250,35 +250,8 @@ proc checkHeadBlock*(
     template bid(): auto =
       blck.body.signed_execution_payload_bid
     dag.executionParent(parent, bid.message.parent_block_hash).isOkOr:
-      # The database may be initialized from checkpoint. If the parent is the
-      # current head, we can check hashes with the headState. Otherwise, it
-      # needs to be quarantined until its parents are backfilled (handled by
-      # BlockProcessor).
-      let (parentBlockHash, parentParentHash) =
-        if parent == dag.head:
-          withState(dag.headState):
-            when consensusFork >= ConsensusFork.Gloas:
-              template latestBid(): auto =
-                forkyState.data.latest_execution_payload_bid
-              (latestBid.block_hash, latestBid.parent_block_hash)
-            elif consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
-              template latestPayload(): auto =
-                forkyState.data.latest_execution_payload_header
-              (latestPayload.block_hash, latestPayload.parent_hash)
-            else:
-              return err(VerifierError.UnviableFork)
-        elif parent.executionBlockHash.isSome() and
-            parent.executionParentHash.isSome():
-          (parent.executionBlockHash.get(), parent.executionParentHash.get())
-        else:
-          debug "Execution parent unknown"
-          return err(VerifierError.MissingParent)
-
-      # Capture both FULL and EMPTY cases here. It means that the execution
-      # parent exists in this fork.
-      if parentBlockHash == bid.message.parent_block_hash or
-          parentParentHash == bid.message.parent_block_hash:
-        debugGloasComment("request missing payload")
+      if dag.hasExecutionCheckpoint(parent, bid.message.parent_block_hash):
+        debugGloasComment("may need to backfill the missing envelope")
       else:
         debug "Execution parent unknown due to initialized from checkpoint"
         return err(VerifierError.MissingParent)
