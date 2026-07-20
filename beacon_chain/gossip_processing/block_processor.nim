@@ -532,7 +532,7 @@ proc verifyPayloadOnCL(
                  fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
                  heze.SignedBeaconBlock,
     signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope):
-    Result[void, void] =
+    Result[void, string] =
   const consensusFork = typeof(signedBlock).kind
   # When the execution layer is not available to verify the payload, we do the
   # required checks on the CL instead and proceed as if the EL was syncing
@@ -545,15 +545,8 @@ proc verifyPayloadOnCL(
     else:
       signedBlock.message.body.execution_payload
 
-  template returnWithError(msg: string, extraMsg = ""): untyped =
-    if extraMsg != "":
-      debug msg, reason = extraMsg, executionPayload = shortLog(payload)
-    else:
-      debug msg, executionPayload = shortLog(payload)
-    return err()
-
   if payload.transactions.anyIt(it.len == 0):
-    returnWithError "Execution block contains zero length transactions"
+    return err("Execution block contains zero length transactions")
 
   template computedBlockHash(): auto =
     when consensusFork >= ConsensusFork.Gloas:
@@ -561,7 +554,7 @@ proc verifyPayloadOnCL(
     else:
       signedBlock.message.compute_execution_block_hash()
   if payload.block_hash != computedBlockHash:
-    returnWithError "Execution block hash validation failed"
+    return err("Execution block hash validation failed")
 
   # [New in Deneb:EIP4844]
   when consensusFork >= ConsensusFork.Deneb:
@@ -571,7 +564,7 @@ proc verifyPayloadOnCL(
       else:
         signedBlock.message.is_valid_versioned_hashes()
     if blobsRes.isErr:
-      returnWithError "Blob versioned hashes invalid", blobsRes.error
+      return err("Blob versioned hashes invalid, reason:" & $blobsRes.error)
   else:
     # If there are EIP-4844 (type 3) transactions in the payload with
     # versioned hashes, the transactions would be rejected by the EL
@@ -590,10 +583,12 @@ proc verifyPayload(
 ): Result[OptimisticStatus, VerifierError] =
   when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
     if signedBlock.message.is_execution_block:
-      if verifyPayloadOnCL(signedBlock, noEnvelope).isOk():
-        ok OptimisticStatus.notValidated
-      else:
-        err(VerifierError.Invalid)
+      verifyPayloadOnCL(signedBlock, noEnvelope).isOkOr:
+        debug "Execution payload validation failed",
+          msg = $error,
+          executionPayload = shortLog(signedBlock.message.body.execution_payload)
+        return err(VerifierError.Invalid)
+      ok OptimisticStatus.notValidated
     else:
       ok OptimisticStatus.valid
   else:
@@ -604,10 +599,12 @@ proc verifyPayload(
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
 ): Result[OptimisticStatus, PayloadVerifierError] =
-  if verifyPayloadOnCL(signedBlock, signedEnvelope).isOk():
-    ok(OptimisticStatus.notValidated)
-  else:
-    err(PayloadVerifierError.Invalid)
+  verifyPayloadOnCL(signedBlock, signedEnvelope).isOkOr:
+    debug "Execution payload validation failed",
+      msg = $error,
+      executionPayload = shortLog(signedEnvelope.message.payload)
+    return err(PayloadVerifierError.Invalid)
+  ok(OptimisticStatus.notValidated)
 
 proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
   # TODO This logic can be removed if the database schema is extended
