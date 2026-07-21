@@ -348,7 +348,9 @@ proc prepareNextSlot*(
     when consensusFork >= ConsensusFork.Electra:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       when consensusFork >= ConsensusFork.Gloas:
-        let shouldExtend = dag.shouldExtendPayload(head)
+        let shouldExtend = self.attestationPool[].forkChoice
+          .should_build_on_full(
+            dag, head, dag.shouldExtendPayload(head), proposalSlot)
       let
         timestamp = dag.timeParams
           .compute_timestamp_at_slot(forkyState.data, proposalSlot)

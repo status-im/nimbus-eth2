@@ -76,6 +76,13 @@ func should_build_on_full*(
     return false
   true
 
+proc should_build_on_full*(
+    self: var ForkChoice, dag: ChainDAGRef, head: BlockRef, full: bool,
+    wallSlot: Slot): bool =
+  if head.slot == GENESIS_SLOT or head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return true
+  self.backend.should_build_on_full(head.root, full, wallSlot)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(
     self: var ForkChoice, head_root: Eth2Digest, dag: ChainDAGRef): bool =
