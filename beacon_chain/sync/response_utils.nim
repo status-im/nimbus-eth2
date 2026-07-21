@@ -60,6 +60,12 @@ func shortLog*[T: SidecarType](
   "[" & a.mapIt(shortLog(it.block_root) & "/" &
      $it.sidecar[].index).join(",") & "]"
 
+func shortLog*(eid: EnvelopeHid): string =
+  $eid.slot & "@" & shortLog(eid.root) & ">" & shortLog(eid.parent_root)
+
+func shortLog*(bid: BlockHid): string =
+  $bid.slot & "@" & shortLog(bid.root) & ">" & shortLog(bid.parent_root)
+
 func groupSidecars*(
     srange: SyncRange,
     map: ColumnMap,
@@ -399,6 +405,7 @@ func combineResponse*(
       let bid = check.signedBlock[].toBlockHid()
       if isNil(check.signedEnvelope):
         # At this case we could not know if envelope is present or not.
+        parentBlock = Opt.some(check.signedBlock)
         res.add(check)
       else:
         let eid = check.signedEnvelope[].toEnvelopeHid()
