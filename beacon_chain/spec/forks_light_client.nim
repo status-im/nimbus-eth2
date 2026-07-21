@@ -726,46 +726,6 @@ func toFull*(
       sync_aggregate: update.sync_aggregate,
       signature_slot: update.signature_slot)
 
-func toFull*(
-    update: SomeForkedLightClientUpdate): ForkedLightClientUpdate =
-  when update is ForkyLightClientUpdate:
-    update
-  else:
-    withForkyObject(update):
-      when lcDataFork > LightClientDataFork.None:
-        ForkedLightClientUpdate.init(forkyObject.toFull())
-      else:
-        default(ForkedLightClientUpdate)
-
-func toFinality*(
-    update: SomeForkyLightClientUpdate): auto =
-  type ResultType = typeof(update).kind.LightClientFinalityUpdate
-  when update is ForkyLightClientFinalityUpdate:
-    update
-  elif update is SomeForkyLightClientUpdateWithFinality:
-    ResultType(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    ResultType(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-func toFinality*(
-    update: SomeForkedLightClientUpdate): ForkedLightClientFinalityUpdate =
-  when update is ForkyLightClientFinalityUpdate:
-    update
-  else:
-    withForkyObject(update):
-      when lcDataFork > LightClientDataFork.None:
-        ForkedLightClientFinalityUpdate.init(forkyObject.toFinality())
-      else:
-        default(ForkedLightClientFinalityUpdate)
-
 func toOptimistic*(
     update: SomeForkyLightClientUpdate): auto =
   type ResultType = typeof(update).kind.LightClientOptimisticUpdate

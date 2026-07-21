@@ -434,7 +434,7 @@ proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   sn.installApiHandlers()
   sn.start()
 
-  var future = newFuture[void]("signing-node-mainLoop")
+  let future = newFuture[void]("signing-node-mainLoop")
   try:
     await future
   except CancelledError:

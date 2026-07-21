@@ -1086,6 +1086,7 @@ template withEpochInfo*(
   template info: untyped {.inject.} = x.altairData
   body
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind != src.kind:
     # Avoid temporary with ref
@@ -1095,6 +1096,7 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     template forkyTgt: untyped = forkyState
     template forkySrc: untyped = src.forky(consensusFork)
     assign(forkyTgt, forkySrc)
+{.pop.}
 
 func root*(state: ForkedHashedBeaconState): lent Eth2Digest =
   (block: withState(state): addr forkyState.root)[]

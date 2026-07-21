@@ -33,6 +33,7 @@ from std/sequtils import mapIt
 from std/tables import Table, withValue, `[]=`
 
 from nimcrypto/utils import burnMem
+from stew/staticfor import staticFor
 
 export results, blscurve, rand, json_serialization
 
@@ -410,6 +411,15 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
 func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
   equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
 
+func isZero*(x: ValidatorPubKey): bool =
+  var tmp {.noinit.}: uint64
+  var tmp2 = 0'u64
+  static: doAssert sizeof(x.blob) mod sizeof(tmp) == 0
+  staticFor i, 0 ..< sizeof(x.blob) div sizeof(tmp):
+    copyMem(addr tmp, addr x.blob[i * sizeof(tmp)], sizeof(tmp))
+    tmp2 = tmp2 or tmp
+  tmp2 == 0
+
 func `==`*(a, b: ValidatorPrivKey): bool {.error: "Secret keys should stay secret".}
 
 # Hashing
@@ -515,12 +525,14 @@ func infinity*(T: type ValidatorSig): T =
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
   var pubkey: blscurve.PublicKey
   let bytes = rng.generate(array[32, byte])
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
+{.pop.}
 
 func secretShareId(x: uint32): blscurve.ID =
   let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]

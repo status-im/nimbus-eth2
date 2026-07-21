@@ -45,6 +45,27 @@ type
     Duplicate
       ## We've seen this value already, can't add again
 
+  PayloadVerifierError* {.pure.} = enum
+    Invalid
+      ## Some value in the payload is broken or it doesn't match with the block
+      ## provided.
+
+    MissingParent
+      ## We know the parent block of the block as it is a valid block, but we
+      ## don't know the parent payload/envelope yet.
+
+    UnviableFork
+      ## Value is from a history / fork that does not include our most current
+      ## finalized checkpoint
+
+    Duplicate
+      ## We've seen this value already, can't add again
+
+    InvalidSidecars
+      ## Payload is verified along with sidecars. It is one of the Invalid
+      ## status from payload processing but helps syncer to distinguish which
+      ## should be discarded.
+
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnBlockGossipCallback* =

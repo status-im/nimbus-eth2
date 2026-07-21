@@ -174,16 +174,14 @@ proc setupDatabase(
   #
   # While a checkpoint state from any epoch slot is sufficient for launching
   # the client, we'll try to add the genesis state to the database as well.
-  var
-    checkpointState = ? fetchCheckpointState(
-      metadata, config.eraDir, config.finalizedCheckpointState)
-    genesisState =
-      if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
-        checkpointState
-      else:
-        ?await fetchGenesisState(
-          metadata, config.eraDir, config.genesisState, config.genesisStateUrl
-        )
+  var checkpointState = ? fetchCheckpointState(
+    metadata, config.eraDir, config.finalizedCheckpointState)
+  let genesisState =
+    if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
+      checkpointState
+    else:
+      ?await fetchGenesisState(
+        metadata, config.eraDir, config.genesisState, config.genesisStateUrl)
 
   if config.externalBeaconApiUrl.isSome():
     # When using an external beacon api, require that the checkpoint state is
@@ -502,7 +500,7 @@ proc initFullNode(
       var res = data
       res.data.optimistic = Opt.some dag.is_optimistic(
         BlockId(slot: data.data.slot, root: data.data.block_root))
-      res.data.payloadStatus =
+      res.data.payload_status =
         if dag.db.containsExecutionPayloadEnvelope(data.data.block_root):
           "full"
         else:
@@ -697,7 +695,7 @@ proc initFullNode(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
     rmanEnvelopeVerifier = proc(signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+        Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
       ## Envelope verifier contains the same logic as block_processor
       ## enqueuePayload() except when the valid block or any sidecars is
       ## missing, we will return ok() as it is not any types of VerifierError.
@@ -717,23 +715,23 @@ proc initFullNode(
               # Since no result is returned, we log for investigation.
               debug "Enqueue payload from envelope. Block is missing in DB",
                 bid = shortLog(blockRef.bid)
-              return err(VerifierError.Invalid)
+              return err(PayloadVerifierError.Invalid)
             withBlck(forkedBlock):
               when consensusFork == ConsensusFork.Heze:
                 debugHezeComment "..."
-                return err(VerifierError.Duplicate)
+                return err(PayloadVerifierError.Duplicate)
               elif consensusFork == ConsensusFork.Gloas:
                 forkyBlck.asSigned()
               else:
                 # Incorrect fork which shouldn't be happening.
                 debug "Enqueue payload from envelope. Block is in incorrect fork",
                   bid = shortLog(blockRef.bid)
-                return err(VerifierError.UnviableFork)
+                return err(PayloadVerifierError.UnviableFork)
         envelope = envelopeQuarantine[].popOrphan(blck).valueOr:
           # At this point, the signedEnvelope is from a different builder since
           # the block should be the source of truth. We should notify receiving
           # bad value from the peer.
-          return err(VerifierError.Invalid)
+          return err(PayloadVerifierError.Invalid)
         sidecarsOpt =
           block:
             template bid(): auto =
