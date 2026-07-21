@@ -1418,7 +1418,6 @@ proc init*(
   dag.head = dag.loadHead(headRoot, finalizedSlot, invalidBlockRoots).valueOr:
     fatal "Error while loading head from database", reason = error, headRoot
     quit 1
-  dag.headPayload = dag.head
   var hasOrphans = dag.head.root != headRoot
 
   let summariesTick = Moment.now()
@@ -2914,8 +2913,10 @@ proc updateHeadExecutionPayload*(
   dag.headPayload = newHeadPayload
 
   # `updateHead` already emits head_v2 on a head change; only emit here for a
-  # pure payload flip (head unchanged) to avoid double-emitting.
-  if not headChanged and not isNil(dag.onHeadV2Changed):
+  # pure payload flip (head unchanged) to avoid double-emitting. Skip pre-Gloas,
+  # where the only possible flip is the initial nil -> head transition.
+  if not headChanged and dag.head.slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
+      not isNil(dag.onHeadV2Changed):
     # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
     let
       finalized_checkpoint = dag.headState.finalized_checkpoint
