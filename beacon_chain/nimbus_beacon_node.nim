@@ -174,16 +174,14 @@ proc setupDatabase(
   #
   # While a checkpoint state from any epoch slot is sufficient for launching
   # the client, we'll try to add the genesis state to the database as well.
-  var
-    checkpointState = ? fetchCheckpointState(
-      metadata, config.eraDir, config.finalizedCheckpointState)
-    genesisState =
-      if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
-        checkpointState
-      else:
-        ?await fetchGenesisState(
-          metadata, config.eraDir, config.genesisState, config.genesisStateUrl
-        )
+  var checkpointState = ? fetchCheckpointState(
+    metadata, config.eraDir, config.finalizedCheckpointState)
+  let genesisState =
+    if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
+      checkpointState
+    else:
+      ?await fetchGenesisState(
+        metadata, config.eraDir, config.genesisState, config.genesisStateUrl)
 
   if config.externalBeaconApiUrl.isSome():
     # When using an external beacon api, require that the checkpoint state is
@@ -502,7 +500,7 @@ proc initFullNode(
       var res = data
       res.data.optimistic = Opt.some dag.is_optimistic(
         BlockId(slot: data.data.slot, root: data.data.block_root))
-      res.data.payloadStatus =
+      res.data.payload_status =
         if dag.db.containsExecutionPayloadEnvelope(data.data.block_root):
           "full"
         else:

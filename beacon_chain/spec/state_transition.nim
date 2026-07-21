@@ -180,6 +180,7 @@ proc advance_slot(
 
   ok()
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, cache: var StateCache
 ) =
@@ -200,7 +201,9 @@ func maybeUpgradeState*(
 
     withState(state):
       forkyState.root = hash_tree_root(forkyState.data)
+{.pop.}
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags):
@@ -225,6 +228,7 @@ proc process_slots*(
     maybeUpgradeState(cfg, state, cache)
 
   ok()
+{.pop.}
 
 proc state_transition_block_aux(
     cfg: RuntimeConfig,

@@ -525,12 +525,14 @@ func infinity*(T: type ValidatorSig): T =
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
   var pubkey: blscurve.PublicKey
   let bytes = rng.generate(array[32, byte])
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
+{.pop.}
 
 func secretShareId(x: uint32): blscurve.ID =
   let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]

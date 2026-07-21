@@ -997,7 +997,6 @@ proc storePayload(
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
-    wallSlot = wallTime.slotOrZero(dag.timeParams)
     deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   let
