@@ -115,12 +115,11 @@ func process_attestation(
 
     v.flags = v.flags + flags
 
-    if is_previous_epoch_attester.isSome:
-      if v.is_previous_epoch_attester.isSome:
-        if is_previous_epoch_attester.get().delay <
-            v.is_previous_epoch_attester.get().delay:
-          v.is_previous_epoch_attester = is_previous_epoch_attester
-      else:
+    is_previous_epoch_attester.isErrOr:
+      let curAtt = v.is_previous_epoch_attester.valueOr:
+        v.is_previous_epoch_attester = is_previous_epoch_attester
+        continue
+      if value.delay < curAtt.delay:
         v.is_previous_epoch_attester = is_previous_epoch_attester
 
 func process_attestations*(
@@ -1470,22 +1469,16 @@ proc init*(
            gloas.BeaconState | heze.BeaconState,
     cache = default(StateCache)) =
   # init participation, overwriting the full structure
-  info.balances =
-    if cache.participating.isSome:
-      let participating = cache.participating.unsafeGet
-      if participating.slot == state.latest_block_header.slot and
-          participating.slot.epoch == get_current_epoch(state):
-        debugGloasComment "remove + proc -> func once this got enough maturity"
-        let expected_balances = get_unslashed_participating_balances(state)
-        if participating.balances != expected_balances:
-          warn "Participating balances cache mismatch - report bug",
-            slot = state.slot, participating, expected_balances
-          incInternalErrors()
-        expected_balances  # participating.balances
-      else:
-        get_unslashed_participating_balances(state)
-    else:
-      get_unslashed_participating_balances(state)
+  info.balances = get_unslashed_participating_balances(state)
+  cache.participating.isErrOr:
+    if value.slot == state.latest_block_header.slot and
+        value.slot.epoch == get_current_epoch(state):
+      debugGloasComment "remove + proc -> func once this got enough maturity"
+      if value.balances != info.balances:
+        warn "Participating balances cache mismatch - report bug",
+          slot = state.slot, participating = value,
+          expected_balances = info.balances
+        incInternalErrors()
   info.validators.setLen(state.validators.len())
 
   let previous_epoch = get_previous_epoch(state)

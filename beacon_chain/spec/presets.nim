@@ -928,9 +928,6 @@ func parse(T: type Version, input: string): T
            {.raises: [ValueError].} =
   Version hexToByteArray(input, 4)
 
-template parse(T: type Slot, input: string): T =
-  Slot parse(uint64, input)
-
 template parse(T: type Epoch, input: string): T =
   Epoch parse(uint64, input)
 

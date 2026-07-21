@@ -778,10 +778,9 @@ proc compute_on_chain_aggregate*(
     totalLen = 0
   for i, a in aggregates:
     let committee_index = ? get_committee_index_one(a.committee_bits)
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     totalLen += a.aggregation_bits.len
@@ -797,10 +796,9 @@ proc compute_on_chain_aggregate*(
       committee_index = ? get_committee_index_one(a.committee_bits)
       first = pos == 0
 
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     for b in a.aggregation_bits:

@@ -1107,6 +1107,7 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc getPhase0Block(
     db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
@@ -1117,6 +1118,7 @@ proc getPhase0Block(
   else:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
+{.pop.}
 
 proc getBlock*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: typedesc[X]): Opt[T] =
