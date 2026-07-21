@@ -8,9 +8,10 @@
 {.push raises: [].}
 
 import
-  std/[sequtils],
   results,
   stew/shims/macros, chronos, faststreams/outputs
+
+from std/sequtils import toSeq
 
 export chronos, results
 
@@ -184,7 +185,7 @@ proc createPeerState[Peer, ProtocolState](peer: Peer): RootRef =
   var res = new ProtocolState
   mixin initProtocolState
   initProtocolState(res, peer)
-  return cast[RootRef](res)
+  return RootRef(res)
 
 proc expectBlockWithProcs*(n: NimNode): seq[NimNode] =
   template helperName: auto = $n[0]
@@ -343,12 +344,12 @@ proc augmentUserHandler(p: P2PProtocol, userHandlerProc: NimNode) =
   if PeerStateType != nil:
     prelude.add quote do:
       template state(`peerVar`: `PeerType`): `PeerStateType` =
-        cast[`PeerStateType`](`getState`(`peerVar`, `protocolInfoVar`))
+        `PeerStateType`(`getState`(`peerVar`, `protocolInfoVar`))
 
   if NetworkStateType != nil:
     prelude.add quote do:
       template networkState(`peerVar`: `PeerType`): `NetworkStateType` =
-        cast[`NetworkStateType`](`getNetworkState`(`peerVar`.network, `protocolInfoVar`))
+        `NetworkStateType`(`getNetworkState`(`peerVar`.network, `protocolInfoVar`))
 
 proc addPreludeDefs*(userHandlerProc: NimNode, definitions: NimNode) =
   userHandlerProc.body[0].add definitions

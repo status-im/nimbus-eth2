@@ -486,7 +486,7 @@ proc addHeadExecutionPayload*(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     onPayloadAdded: OnPayloadAdded = nil,
-): Result[BlockRef, VerifierError] =
+): Result[BlockRef, PayloadVerifierError] =
   ## Try adding the execution payload envelope to the head block, which should
   ## usually be invoked after the call of addHeadBlockWithParent()
   ##
@@ -495,7 +495,7 @@ proc addHeadExecutionPayload*(
 
   # Check if there is any valid envelope so that we can save some resources.
   if dag.db.containsExecutionPayloadEnvelope(signedBlock.root):
-    return err(VerifierError.Duplicate)
+    return err(PayloadVerifierError.Duplicate)
 
   template envelopeBlockRoot(): auto = signedEnvelope.message.beacon_block_root
   template envelopeSlot(): auto = signedEnvelope.message.slot
@@ -518,14 +518,14 @@ proc addHeadExecutionPayload*(
     bid.block_hash == signedEnvelope.message.payload.block_hash
   ):
     info "Envelope mismatches with this block"
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
 
   # Check if the block is valid and non-finalized.
   let blck = dag.getBlockRef(envelopeBlockRoot).valueOr:
     let blckId = dag.getBlockId(envelopeBlockRoot)
     if blckId.isSome() and blckId.get().slot < dag.finalizedHead.slot:
-      return err(VerifierError.UnviableFork)
-    return err(VerifierError.MissingParent)
+      return err(PayloadVerifierError.UnviableFork)
+    return err(PayloadVerifierError.MissingParent)
 
   # Load state cache for updateState() and state transition.
   var cache: StateCache
@@ -540,7 +540,7 @@ proc addHeadExecutionPayload*(
     # envelopes of its parents, or the database is corrupted.
     error "Unable to load clearance state for envelope, database corrupt?",
       clearanceBlock = shortLog(blckBsi)
-    return err(VerifierError.MissingParent)
+    return err(PayloadVerifierError.MissingParent)
 
   # Verify with state transition function.
   verify_execution_payload_envelope(
@@ -550,7 +550,7 @@ proc addHeadExecutionPayload*(
       signedEnvelope,
       dag.genesis_validators_root).isOkOr:
     debug "Envelope verification failed", reason = error
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
 
   # Put the envelope into db and update optimistic status for the block.
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)
@@ -570,7 +570,7 @@ proc addHeadExecutionPayload*(
 proc addBackfillExecutionPayload*(
     dag: ChainDAGRef,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-): Result[void, VerifierError] =
+): Result[void, PayloadVerifierError] =
   template blockRoot(): auto = signedEnvelope.message.beacon_block_root
   template envelope(): auto = signedEnvelope.message
 
@@ -585,35 +585,35 @@ proc addBackfillExecutionPayload*(
   # When a valid block is backfilled, dag.backfill has already moved to next
   # parent. So we need to check with finalizedHead and database.
   if envelope.slot > dag.finalizedHead.slot:
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
 
   # Check root and slot of the block
   let bsi = dag.getBlockIdAtSlot(envelope.slot).valueOr:
     # This should not be happening as we backfill envelope after the block is
     # backfilled successfully.
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
   if blockRoot != bsi.bid.root:
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
   if dag.db.containsExecutionPayloadEnvelope(blockRoot):
-    return err(VerifierError.Duplicate)
+    return err(PayloadVerifierError.Duplicate)
 
   let (builderIdx, bidBuilderIdx) = block:
     let forkedBlck = dag.getForkedBlock(bsi.bid).valueOr:
       # The block should exist as we have checked above. Database may be
       # corrupted.
       debug "Backfill envelope cannot find forked block, database corrupt?"
-      return err(VerifierError.Invalid)
+      return err(PayloadVerifierError.Invalid)
     withBlck(forkedBlck):
       when consensusFork >= ConsensusFork.Gloas:
         template bid(): auto =
           forkyBlck.message.body.signed_execution_payload_bid
         (forkyBlck.builder_index, bid.message.builder_index)
       else:
-        return err(VerifierError.UnviableFork)
+        return err(PayloadVerifierError.UnviableFork)
 
   # Check builder index is matched with the block
   if bidBuilderIdx != envelope.builder_index:
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
 
   # Verify signature
   let builderKey =
@@ -623,10 +623,10 @@ proc addBackfillExecutionPayload*(
           forkyState.data.validators.item(builderIdx).pubkey
         else:
           if bidBuilderIdx >= forkyState.data.builders.lenu64:
-            return err(VerifierError.Invalid)
+            return err(PayloadVerifierError.Invalid)
           forkyState.data.builders.item(bidBuilderIdx).pubkey
       else:
-        return err(VerifierError.UnviableFork)
+        return err(PayloadVerifierError.UnviableFork)
   if not verify_execution_payload_envelope_signature(
       dag.forkAtEpoch(envelope.slot.epoch),
       dag.genesis_validators_root,
@@ -634,7 +634,7 @@ proc addBackfillExecutionPayload*(
       envelope,
       builderKey,
       signedEnvelope.signature):
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
   let sigVerifyTick = Moment.now
 
   dag.db.putExecutionPayloadEnvelope(signedEnvelope)

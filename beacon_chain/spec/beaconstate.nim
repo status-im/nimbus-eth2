@@ -273,7 +273,7 @@ func settle_builder_payment*(
   if not (payment_index < lenu64(state.builder_pending_payments)):
     return err("settle_builder_payment: payment index incorrect")
 
-  var payment = state.builder_pending_payments.mitem(payment_index)
+  let payment = state.builder_pending_payments.mitem(payment_index)
   if uint64(payment.withdrawal.amount) > 0'u64:
     if not state.builder_pending_withdrawals.add(payment.withdrawal):
       return err("settle_builder_payment: couldn't add to builder_pending_withdrawals")
@@ -1245,7 +1245,7 @@ proc check_bls_to_execution_change*(
   if not (address_change.validator_index < state.validators.lenu64):
     return err("process_bls_to_execution_change: invalid validator index")
 
-  var withdrawal_credentials =
+  let withdrawal_credentials =
     state.validators.item(address_change.validator_index).withdrawal_credentials
 
   if not (withdrawal_credentials.data[0] == BLS_WITHDRAWAL_PREFIX):

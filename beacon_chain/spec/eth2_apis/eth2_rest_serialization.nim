@@ -259,7 +259,7 @@ func strictParse*[bits: static[int]](input: string,
 
 template withRestJsonWriter(w, typ, body: untyped): untyped =
   try:
-    var stream = memoryOutput()
+    let stream = memoryOutput()
     var w = JsonWriter[RestJson].init(stream)
     body
     stream.getOutput(typ)
@@ -535,7 +535,7 @@ proc sszResponseVersioned*[T: SomeForkedLightClientObject](
     entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
     try:
-      var stream = memoryOutput()
+      let stream = memoryOutput()
       for e in entries:
         withForkyUpdate(e.data):
           when lcDataFork > LightClientDataFork.None:
