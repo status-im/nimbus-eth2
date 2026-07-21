@@ -513,6 +513,7 @@ proc process_block*(
         pa.data.beacon_block_root, PtcVoteTally())
       for i in 0 ..< pa.aggregation_bits.len:
         if pa.aggregation_bits[i]:
+          tally.voted[i] = true
           tally.present[i] = pa.data.payload_present
           tally.available[i] = pa.data.blob_data_available
 
