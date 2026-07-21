@@ -653,24 +653,29 @@ proc createQueues(
             len(forkyBlck.message.body.signed_execution_payload_bid.
                 message.blob_kzg_commitments)
           cres =
-            if commitmentsLen > 0:
-              if overseer.shouldGetColumns(forkyBlck.message.slot):
-                let res =
-                  overseer.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
-                if res.isNone():
-                  debug "Block verification failed, because sidecars missing",
-                    fork = consensusFork,
-                    block_root = item.root,
-                    blck = shortLog(forkyBlck),
-                    missing_sidecars =
-                      overseer.getMissingIndicesLog(item.signedBlock),
-                    verifier = "sidecar"
-                  return err(VerifierError.MissingSidecars)
-                res
+            if not(isNil(item.signedEnvelope)):
+              if commitmentsLen > 0:
+                if overseer.shouldGetColumns(forkyBlck.message.slot):
+                  let res =
+                    overseer.gloasColumnQuarantine[].popSidecars(forkyBlck.root)
+                  if res.isNone():
+                    debug "Block verification failed, because sidecars missing",
+                      fork = consensusFork,
+                      block_root = item.root,
+                      blck = shortLog(forkyBlck),
+                      missing_sidecars =
+                        overseer.getMissingIndicesLog(item.signedBlock),
+                      verifier = "sidecar"
+                    return err(VerifierError.MissingSidecars)
+                  res
+                else:
+                  Opt.none(seq[ref gloas.DataColumnSidecar])
               else:
-                Opt.none(seq[ref gloas.DataColumnSidecar])
+                Opt.some(default(seq[ref gloas.DataColumnSidecar]))
             else:
-              Opt.some(default(seq[ref gloas.DataColumnSidecar]))
+              # In Gloas when envelope is missing we should not query for
+              # sidecars.
+              Opt.none(seq[ref gloas.DataColumnSidecar])
 
         if cres.isSome() and overseer.eraBid.isSome() and
            dag.needsBackfill() and
@@ -693,13 +698,9 @@ proc createQueues(
           if res.error != VerifierError.Duplicate:
             return res
 
-        if isNil(item.signedEnvelope) and (commitmentsLen == 0):
+        if isNil(item.signedEnvelope):
           # Block does not have envelope and sidecars.
           return res
-
-        if isNil(item.signedEnvelope) and (commitmentsLen != 0):
-          # Block has sidecars, but missing envelope.
-          return err(VerifierError.Invalid)
 
         (await overseer.blockProcessor.addPayload(
           forkyBlck, item.signedEnvelope[], cres))
