@@ -590,7 +590,9 @@ proc updateExecutionHead*(
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
+    let headChanged = head.blck != self.dag.head
     self[].updateHead(head.blck)
+    self.dag.updateHeadExecutionPayload(head.full, headChanged)
 
     attempts += 1
 

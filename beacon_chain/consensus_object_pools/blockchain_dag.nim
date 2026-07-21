@@ -1418,6 +1418,7 @@ proc init*(
   dag.head = dag.loadHead(headRoot, finalizedSlot, invalidBlockRoots).valueOr:
     fatal "Error while loading head from database", reason = error, headRoot
     quit 1
+  dag.headPayload = dag.head
   var hasOrphans = dag.head.root != headRoot
 
   let summariesTick = Moment.now()
