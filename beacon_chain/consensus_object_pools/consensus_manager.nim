@@ -350,7 +350,7 @@ proc prepareNextSlot*(
       when consensusFork >= ConsensusFork.Gloas:
         let shouldExtend = self.attestationPool[].forkChoice
           .should_build_on_full(
-            dag, head, dag.shouldExtendPayload(head), proposalSlot)
+            dag, head, dag.isPayloadStatusFull(head), proposalSlot)
       let
         timestamp = dag.timeParams
           .compute_timestamp_at_slot(forkyState.data, proposalSlot)
