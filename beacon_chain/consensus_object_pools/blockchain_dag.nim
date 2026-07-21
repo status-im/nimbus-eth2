@@ -2887,8 +2887,8 @@ proc updateHead*(
 
 proc updateHeadExecutionPayload*(
     dag: ChainDAGRef, full: bool, headChanged: bool) =
-  ## Update the head payload since Gloas from fork choice's EMPTY/FULL head
-  ## selection, which should be invoked after the call of updateHead().
+  ## Update the execution payload of the head block since Gloas, which should
+  ## usually be invoked after the call of updateHead().
   let newHeadPayload =
     if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH or full or
         dag.head.parent.isNil:
