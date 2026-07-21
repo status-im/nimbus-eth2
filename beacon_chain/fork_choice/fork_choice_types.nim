@@ -155,6 +155,7 @@ type
     next_pending*: bool
 
   PtcVoteTally* = object
+    voted*: BitArray[int PTC_SIZE]
     present*: BitArray[int PTC_SIZE]
     available*: BitArray[int PTC_SIZE]
 
