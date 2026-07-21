@@ -362,7 +362,7 @@ func combineResponse*(
     res: seq[SyncResponseItem]
     bindex = 0
     eindex = 0
-    parentEnvelope: Opt[ref gloas.SignedExecutionPayloadEnvelope]
+    parentBlock: Opt[ref ForkedSignedBeaconBlock]
 
   for slot in srange:
     var check = SyncResponseItem()
@@ -405,13 +405,13 @@ func combineResponse*(
         if bid.root != eid.root:
           return err(
             "The root of the block and the root of the envelope do not match")
-        if parentEnvelope.isSome():
-          let pid = parentEnvelope.get()[].toEnvelopeHid()
+        if parentBlock.isSome():
+          let pid = parentBlock.get()[].toBlockHid()
           if eid.parent_root != pid.root:
             return err(
               "The parent root of the envelope and the root of the parent " &
               "envelope do not match")
-        parentEnvelope = Opt.some(check.signedEnvelope)
+        parentBlock = Opt.some(check.signedBlock)
         res.add(check)
 
   ok(res)
