@@ -594,11 +594,8 @@ func find_head(
       break maybeEmptyPreferred
     let parentNode = self.proto_array.node(parentIdx).valueOr:
       break maybeEmptyPreferred
-    let
-      parentRoot = parentNode.bid.root
-      fullParentIdx =
-        self.proto_array.fullBlockIndices.getOrDefault(parentRoot, -1)
-    if parentIdx != fullParentIdx and
+    let parentRoot = parentNode.bid.root
+    if not self.proto_array.isFullNode(parentRoot, parentIdx) and
         not self.should_extend_payload(parentRoot):
       emptyPreferredRoot = parentRoot
 

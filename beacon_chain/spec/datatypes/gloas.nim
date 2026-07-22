@@ -736,12 +736,6 @@ func shortLog*(v: ExecutionPayloadBid): auto =
     value: v.value,
   )
 
-func shortLog*(v: ExecutionPayloadEnvelope): auto =
-  (
-    beacon_block_root: shortLog(v.beacon_block_root),
-    builder_index: v.builder_index,
-  )
-
 func shortLog*(v: ExecutionPayload): auto =
   (
     parent_hash: shortLog(v.parent_hash),
@@ -761,6 +755,14 @@ func shortLog*(v: ExecutionPayload): auto =
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas),
     slot_number: v.slot_number,
+  )
+
+func shortLog*(v: ExecutionPayloadEnvelope): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    parent_beacon_block_root: shortLog(v.parent_beacon_block_root),
+    builder_index: v.builder_index,
+    payload: shortLog(v.payload),
   )
 
 func shortLog*(v: PayloadAttestationData): auto =

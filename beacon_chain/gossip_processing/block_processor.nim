@@ -817,11 +817,6 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
-  when consensusFork >= ConsensusFork.Gloas:
-    # Enqueue payload here instead of `addBlock` for the consistency of payload
-    # processing with backfilling.
-    self.enqueuePayload(signedBlock)
-
   ok(blck)
 
 proc addBlock*(
@@ -914,6 +909,10 @@ proc addBlock*(
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res[])
+
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      self.enqueuePayload(blck)
+
     res.mapConvert(void)
   else:
     case res.error()
@@ -1117,10 +1116,11 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           else:
             self.gloasColumnQuarantine[].popSidecars(blck.root)
         if sidecarsOpt.isNone():
+          let dag = self.consensusManager.dag
           # As sidecars are missing, put envelope back to quarantine.
-          self.consensusManager.quarantine[].addSidecarless(blck)
-          self.envelopeQuarantine[].addOrphan(
-            self.consensusManager.dag.finalizedHead.slot, envelope)
+          discard self.consensusManager.quarantine[].addSidecarless(
+            dag.finalizedHead.slot, blck)
+          self.envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
           return
         sidecarsOpt
 

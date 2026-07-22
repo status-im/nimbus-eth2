@@ -81,6 +81,9 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
 func find(self: ProtoArray, root: Eth2Digest): Index =
   self.indices.getOrDefault(root, -1)
 
+func findFull(self: ProtoArray, root: Eth2Digest): Index =
+  self.fullBlockIndices.getOrDefault(root, -1)
+
 func contains*(self: ProtoArray, root: Eth2Digest): bool =
   self.find(root) in self.nodes
 
@@ -115,6 +118,9 @@ func node*(self: ProtoArray, idx: Index): Opt[ProtoNode] =
 
 func node*(self: ProtoArray, root: Eth2Digest): Opt[ProtoNode] =
   self.nodes[self.find(root)]
+
+func isFullNode*(self: ProtoArray, root: Eth2Digest, idx: Index): bool =
+  self.findFull(root) == idx
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -178,8 +184,7 @@ func realizePendingCheckpoints*(
         checkpoints = self.nodes.buf[physicalIdx].checkpoints,
         unrealized
       self.nodes.buf[physicalIdx].checkpoints = unrealized
-      let fullIdx = self.fullBlockIndices.getOrDefault(
-        self.nodes.buf[physicalIdx].bid.root, -1)
+      let fullIdx = self.findFull(self.nodes.buf[physicalIdx].bid.root)
       if fullIdx >= self.nodes.offset:
         self.nodes.buf[fullIdx - self.nodes.offset].checkpoints = unrealized                                                                                                   
     result.justified.updateIfBetter(jIdx, unrealized.justified, idx)
@@ -259,8 +264,8 @@ func applyScoreChanges*(
       # decrease the delta by the previous score amount.
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
       if  (not self.previousProposerBoostRoot.isZero) and
-          self.previousProposerBoostRoot == node.bid.root and 
-          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
+          self.previousProposerBoostRoot == node.bid.root and
+          not self.isFullNode(node.bid.root, nodeLogicalIdx):
             if  nodeDelta < 0 and
                 nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
               return err ForkChoiceError(
@@ -273,7 +278,7 @@ func applyScoreChanges*(
       #
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
       if  (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root and
-          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
+          not self.isFullNode(node.bid.root, nodeLogicalIdx):
         proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
         if  nodeDelta >= 0 and
             high(Delta) - nodeDelta < proposerBoostScore.int64:
@@ -453,7 +458,7 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest,
   var
     startIdx = justifiedIdx
     startBestDescendant = justifiedNode.bestDescendant
-  let fullIdx = self.fullBlockIndices.getOrDefault(justifiedRoot, -1)
+  let fullIdx = self.findFull(justifiedRoot)
   if fullIdx >= 0:
     let fullNode = self.nodes[fullIdx].valueOr:
       return err ForkChoiceError(
@@ -480,8 +485,7 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest,
       headCheckpoints: justifiedNode.checkpoints)
 
   head = bestNode.bid.root
-  headIsFull =
-    self.fullBlockIndices.getOrDefault(bestNode.bid.root, -1) == bestDescendantIdx
+  headIsFull = self.isFullNode(bestNode.bid.root, bestDescendantIdx)
 
   ok()
 
@@ -540,9 +544,9 @@ func prune*(
     let
       oldLogicalIdx = physIdx + self.nodes.offset
       root = self.nodes.buf[physIdx].bid.root
-    if self.indices.getOrDefault(root, -1) >= finalizedIdx:
+    if self.find(root) >= finalizedIdx:
       oldToNew[oldLogicalIdx] = newOffset + newBuf.len
-      isFull.add(self.fullBlockIndices.getOrDefault(root, -1) == oldLogicalIdx)
+      isFull.add(self.isFullNode(root, oldLogicalIdx))
       newBuf.add self.nodes.buf[physIdx]
 
   # Rebuild the index tables, `unrealized`, and the parent/best-child/
@@ -625,8 +629,7 @@ func maybeUpdateBestChildAndDescendant(
     # A block's EMPTY and FULL nodes fork the descendant tree: a block that
     # built on EMPTY is not a descendant of FULL (and vice versa). A childless
     # node's best-descendant is itself.
-    childIsFull =
-      self.fullBlockIndices.getOrDefault(child.bid.root, -1) == childIdx
+    childIsFull = self.isFullNode(child.bid.root, childIdx)
     effectiveBestDescendant = child.bestDescendant
 
     # Aliases to the 3 possible (bestChild, bestDescendant) tuples

@@ -2598,6 +2598,44 @@ proc executionParent*(
     cur = cur.parent
   Opt.none(BlockRef)
 
+proc hasExecutionCheckpoint*(
+    dag: ChainDAGRef, parentRef: BlockRef,
+    parentBlockHash: Eth2Digest): bool =
+  ## After the database initialized from checkpoint, we may not have enough
+  ## ancestors for finding the execution parent. It allows accepting blocks
+  ## faster without the need of backfilling.
+  ##
+  ## There are two scenarios capturing here.
+
+  let (latestBlockHash, latestParentHash) =
+    # 1. The parent is the current head - We can check with the head state for
+    #    both latest parent hash and block hash, means that the execution parent
+    #    exists in this fork and we trust that the state is the source of truth.
+    if parentRef == dag.head:
+      withState(dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          template latestBid(): auto =
+            forkyState.data.latest_execution_payload_bid
+          (latestBid.block_hash, latestBid.parent_block_hash)
+        elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+          template latestPayload(): auto =
+            forkyState.data.latest_execution_payload_header
+          (latestPayload.block_hash, latestPayload.parent_hash)
+        else:
+          return false
+    # 2. The parent is not the current head - It may be built on EMPTY
+    #    throughout the fork and so the execution parent may be a block before
+    #    the checkpoint.
+    else:
+      let (blockHash, parentHash) =
+        dag.loadExecutionAndParentBlockHash(parentRef)
+      if blockHash.isNone() or parentHash.isNone():
+        return false
+      (blockHash.get(), parentHash.get())
+
+  # Return true if it is either EMPTY or FULL
+  parentBlockHash == latestBlockHash or parentBlockHash == latestParentHash
+
 func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
   ## Whether `head.payload_status == PAYLOAD_STATUS_FULL`, as consumed by
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
