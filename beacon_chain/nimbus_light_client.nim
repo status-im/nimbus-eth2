@@ -28,9 +28,9 @@ from ./gossip_processing/eth2_processor import toValidationResult
 ## Split out of `main` so that host binaries which embed the light client alongside
 ## other components (e.g. an execution client in the same process) can drive it
 ## directly: they parse and adjust the config themselves, install their own stop
-## handlers, and signal shutdown through `stop`.
+## handlers, and signal shutdown through `ProcessState.scheduleStop`.
 proc runLightClient*(
-    configIn: LightClientConf, stop: Future[void] = nil
+    configIn: LightClientConf
 ) {.raises: [CatchableError].} =
   # `config` is mutated below (bootstrap nodes), so work on a local copy
   var config = configIn
@@ -396,8 +396,6 @@ proc runLightClient*(
   asyncSpawn runOnSecondLoop()
 
   while not ProcessState.stopIt(notice("Shutting down", reason = it)):
-    if stop != nil and stop.finished():
-      break
     poll()
 
 # noinline to keep it in stack traces
