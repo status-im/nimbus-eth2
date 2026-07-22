@@ -42,8 +42,6 @@ from ./spec/datatypes/deneb import SignedBeaconBlock
 
 logScope: topics = "beacnde"
 
-# `beacon_slot` / `beacon_current_epoch` are declared in `nimbus_binary_common`
-
 # Finalization tracking
 declareGauge finalization_delay,
   "Epoch delay between scheduled epoch and finalized epoch"

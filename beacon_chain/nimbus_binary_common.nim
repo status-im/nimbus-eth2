@@ -37,9 +37,6 @@ export
   confutils, toml_serialization
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-# Declared here rather than in the individual binaries so that a process linking
-# more than one of them (e.g. beacon node + light client) does not register the
-# same metric twice.
 declarePublicGauge beacon_slot, "Latest slot of the beacon chain state"
 declarePublicGauge beacon_current_epoch, "Current epoch"
 
