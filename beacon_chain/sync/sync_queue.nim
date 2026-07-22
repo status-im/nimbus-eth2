@@ -21,6 +21,9 @@ export base, phase0, altair, merge, chronos, chronicles, results,
        block_pools_types, helpers, sync_response
 
 type
+  SyncVerifierError* {.pure.} = enum
+    Invalid, MissingParent, UnviableFork, Duplicate, MissingSidecars,
+    MissingEnvelope
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [].}
   GetBoolCallback* = proc(): bool {.gcsafe, raises: [].}
   ProcessingCallback* = proc() {.gcsafe, raises: [].}
@@ -29,7 +32,7 @@ type
   MissingMapCallback* = proc(bid: BlockId): ColumnMap {.gcsafe, raises: [].}
   BlockVerifier* =
     proc(signedBlock: SyncResponseItem, maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+      Future[Result[void, SyncVerifierError]] {.async: (raises: [CancelledError]).}
   ForkAtEpochCallback* =
     proc(epoch: Epoch): ConsensusFork {.gcsafe, raises: [].}
 
@@ -98,6 +101,7 @@ type
     Duplicate,
     Empty,
     MissingSidecars,
+    MissingEnvelope,
     NoRelevant,
     NoError
 
@@ -468,18 +472,20 @@ func init*(t: typedesc[SyncRange], slot: Slot, count: uint64): SyncRange =
     SyncRange(slot: slot, count: count)
 
 func init(t: typedesc[SyncProcessError],
-          kind: VerifierError): SyncProcessError =
+          kind: SyncVerifierError): SyncProcessError =
   case kind
-  of VerifierError.Invalid:
+  of SyncVerifierError.Invalid:
     SyncProcessError.Invalid
-  of VerifierError.MissingParent:
+  of SyncVerifierError.MissingParent:
     SyncProcessError.MissingParent
-  of VerifierError.UnviableFork:
+  of SyncVerifierError.UnviableFork:
     SyncProcessError.UnviableFork
-  of VerifierError.Duplicate:
+  of SyncVerifierError.Duplicate:
     SyncProcessError.Duplicate
-  of VerifierError.MissingSidecars:
+  of SyncVerifierError.MissingSidecars:
     SyncProcessError.MissingSidecars
+  of SyncVerifierError.MissingEnvelope:
+    SyncProcessError.MissingEnvelope
 
 func init(t: typedesc[SyncProcessError]): SyncProcessError =
   SyncProcessError.NoError
@@ -497,14 +503,25 @@ func init(t: typedesc[SyncProcessingResult], se: SyncProcessError,
           sblck: BlockId): SyncProcessingResult =
   SyncProcessingResult(blck: Opt.some(sblck), code: se)
 
-func init(t: typedesc[SyncProcessingResult], ve: VerifierError,
+func init(t: typedesc[SyncProcessingResult], ve: SyncVerifierError,
           slot: Slot, root: Eth2Digest): SyncProcessingResult =
   SyncProcessingResult(blck: Opt.some(BlockId(slot: slot, root: root)),
     code: SyncProcessError.init(ve))
 
-func init(t: typedesc[SyncProcessingResult], ve: VerifierError,
+func init(t: typedesc[SyncProcessingResult], ve: SyncVerifierError,
           sblck: BlockId): SyncProcessingResult =
   SyncProcessingResult(blck: Opt.some(sblck), code: SyncProcessError.init(ve))
+
+func toSyncVerifierError*(a: VerifierError): SyncVerifierError =
+  case a
+  of VerifierError.Invalid:
+    SyncVerifierError.Invalid
+  of VerifierError.MissingParent:
+    SyncVerifierError.MissingParent
+  of VerifierError.UnviableFork:
+    SyncVerifierError.UnviableFork
+  of VerifierError.Duplicate:
+    SyncVerifierError.Duplicate
 
 proc init*[T](
     t: typedesc[SyncRequest],
@@ -1202,32 +1219,34 @@ proc process[M, N](
       slot = Opt.some(ritem.toBlockId())
     else:
       case res.error()
-      of VerifierError.MissingParent:
+      of SyncVerifierError.MissingParent:
         if slot.isSome() or dupBlock.isSome():
           return SyncProcessingResult.init(
             SyncProcessError.GoodAndMissingParent, ritem.slot, ritem.root)
         else:
           return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
-      of VerifierError.Duplicate:
+      of SyncVerifierError.Duplicate:
         # Keep going, happens naturally
         if dupBlock.isNone():
           dupBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
-      of VerifierError.MissingSidecars:
+      of SyncVerifierError.MissingSidecars:
         return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
-      of VerifierError.UnviableFork:
+      of SyncVerifierError.MissingEnvelope:
+        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
+      of SyncVerifierError.UnviableFork:
         # Keep going so as to register other unviable blocks with the
         # quarantine
         if unviableBlock.isNone():
           # Remember the first unviable block, so we can log it
           unviableBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
-      of VerifierError.Invalid:
+      of SyncVerifierError.Invalid:
         return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
 
   if unviableBlock.isSome():
-    return SyncProcessingResult.init(VerifierError.UnviableFork,
+    return SyncProcessingResult.init(SyncVerifierError.UnviableFork,
                                      unviableBlock.get())
   if dupBlock.isSome():
-    return SyncProcessingResult.init(VerifierError.Duplicate,
+    return SyncProcessingResult.init(SyncVerifierError.Duplicate,
                                      dupBlock.get())
 
   SyncProcessingResult.init(SyncProcessError.NoError, slot.get())
@@ -1236,7 +1255,8 @@ func isError(e: SyncProcessError): bool =
   case e
   of SyncProcessError.Empty, SyncProcessError.NoError,
      SyncProcessError.Duplicate, SyncProcessError.GoodAndMissingParent,
-     SyncProcessError.NoRelevant, SyncProcessError.MissingSidecars:
+     SyncProcessError.NoRelevant, SyncProcessError.MissingSidecars,
+     SyncProcessError.MissingEnvelope:
     false
   of SyncProcessError.Invalid, SyncProcessError.UnviableFork,
      SyncProcessError.MissingParent:
@@ -1427,6 +1447,22 @@ proc push*[M, N](
       sq.del(position)
       res = 0'i64
 
+    of SyncProcessError.MissingEnvelope:
+      debug "Received blocks without envelope",
+            request = sr,
+            queue = shortLog(sq),
+            completeness = shortLog(sq.requests[position.qindex].completeness),
+            voids_count = sq.requests[position.qindex].voidsCount,
+            failures_count = sq.requests[position.qindex].failuresCount,
+            blocks_count = len(data),
+            blocks_map = getShortMap(sr, data),
+            sync_ident = sq.ident,
+            topics = "sync"
+
+      fillCompleteness(false, pres.blck, true)
+      sq.del(position)
+      res = 0'i64
+
     of SyncProcessError.Invalid:
       debug "Block pool rejected peer's response",
             request = sr,
@@ -1518,6 +1554,7 @@ proc push*[M, N](
 
       fillCompleteness(true, Opt.none(BlockId), false)
       sq.advanceQueue(res)
+
     of SyncProcessError.NoRelevant:
       raiseAssert "Processor should not return this error code"
 

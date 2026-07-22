@@ -45,9 +45,6 @@ type
     Duplicate
       ## We've seen this value already, can't add again
 
-    MissingSidecars
-      ## We do not have sidecars at the moment
-
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnBlockGossipCallback* =

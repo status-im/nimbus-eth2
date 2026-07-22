@@ -563,21 +563,21 @@ func hasSidecars*(
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root)
 
-proc popSidecars*[
+proc popSidecarsOrCount*[
     A: SomeDataColumnSidecar,
     B: OnDataColumnSidecarCallback,
     C: SomeSidecarAddedCallback
 ](
     quarantine: var SidecarQuarantine[A, B, C],
     blockRoot: Eth2Digest
-): Opt[seq[ref A]] =
+): Result[seq[ref A], int] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``.
   ## If some of the column sidecars are missing Opt.none() is returned.
   ## Note: Blocks should be checked for sidecars count first, otherwise
   ## result of this function would be always Opt.none().
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
-    return Opt.none(seq[ref A])
+    return err(0)
 
   quarantine.moveToFront(node)
 
@@ -586,7 +586,7 @@ proc popSidecars*[
 
   if not(quarantine.enoughColumns(node[].value.count)):
     # Quarantine does not hold enough column sidecars.
-    return Opt.none(seq[ref A])
+    return err(node[].value.count)
 
   let databaseCount = node[].value.unloaded
   if databaseCount > 0:
@@ -634,7 +634,19 @@ proc popSidecars*[
   if not unverified.empty:
     quarantine.pendingVerify[blockRoot] = unverified
 
-  Opt.some(sidecars)
+  ok(sidecars)
+
+proc popSidecars*[
+    A: SomeDataColumnSidecar,
+    B: OnDataColumnSidecarCallback,
+    C: SomeSidecarAddedCallback
+](
+    quarantine: var SidecarQuarantine[A, B, C],
+    blockRoot: Eth2Digest
+): Opt[seq[ref A]] =
+  let res = quarantine.popSidecarsOrCount(blockRoot).valueOr:
+    return Opt.none(seq[ref A])
+  Opt.some(res)
 
 func popPendingVerify*(
     quarantine: var SomeColumnQuarantine,
