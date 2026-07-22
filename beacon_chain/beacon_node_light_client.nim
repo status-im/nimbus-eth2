@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronicles, web3/engine_api_types,
+  chronicles,
   ./beacon_node
 
 logScope: topics = "beacnde"
@@ -72,19 +72,17 @@ proc initLightClient*(
     proc onOptimisticHeader(
         lightClient: LightClient,
         optimisticHeader: ForkedLightClientHeader) =
-      if node.lightClientFcuFut != nil:
-        return
       withForkyHeader(optimisticHeader):
         when lcDataFork > LightClientDataFork.None:
-          let bid = forkyHeader.beacon.toBlockId()
+          let
+            wallSlot = node.currentSlot
+            bid = forkyHeader.beacon.toBlockId()
           logScope:
             opt = bid
             dag = node.dag.head.bid
-            wallSlot = node.currentSlot
+            wallSlot
           when lcDataFork >= LightClientDataFork.Capella:
-            let
-              consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
-              blockHash = forkyHeader.execution_block_hash
+            let blockHash = forkyHeader.execution_block_hash
 
             # Retain light client head for other `forkchoiceUpdated` callers.
             # May temporarily block `forkchoiceUpdated` calls, e.g., Geth:
@@ -94,23 +92,18 @@ proc initLightClient*(
             # the situation recovers
             debug "New LC optimistic header"
             node.consensusManager[].setLightClientHead(bid, blockHash)
-            if not node.consensusManager[]
-                .shouldSyncViaLightClient(node.currentSlot):
+            if not node.consensusManager[].shouldSyncViaLightClient(wallSlot):
+              return
+            if node.lightClientFcuFut != nil:
               return
 
             # engine_forkchoiceUpdated
             let beaconHead = node.attestationPool[].getBeaconHead(nil)
-            withConsensusFork(consensusFork):
-              when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
-                let state = ForkchoiceStateV1.init(
-                  blockHash, beaconHead.safeExecutionBlockHash,
-                  beaconHead.finalizedExecutionBlockHash,
-                )
-                node.lightClientFcuFut = node.elManager.forkchoiceUpdated(
-                  state, payloadAttributes = Opt.none consensusFork.PayloadAttributes
-                )
-                node.lightClientFcuFut.addCallback do(future: pointer):
-                  node.lightClientFcuFut = nil
+            node.lightClientFcuFut = node.consensusManager
+              .updateLightClientExecutionHead(
+                beaconHead, wallSlot, sleepAsync(FORKCHOICEUPDATED_TIMEOUT))
+            node.lightClientFcuFut.addCallback do(future: pointer):
+              node.lightClientFcuFut = nil
           else:
             # The execution block hash is only available from Capella onward
             info "Ignoring new LC optimistic header until Capella"
@@ -118,7 +111,8 @@ proc initLightClient*(
     proc onFinalizedHeader(
         lightClient: LightClient,
         finalizedHeader: ForkedLightClientHeader) =
-      if not node.consensusManager[].shouldSyncViaLightClient(node.currentSlot):
+      let wallSlot = node.currentSlot
+      if not node.consensusManager[].shouldSyncViaLightClient(wallSlot):
         return
 
       node.eventBus.optFinHeaderUpdateQueue.emit(finalizedHeader)

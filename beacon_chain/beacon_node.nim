@@ -86,8 +86,7 @@ type
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     lightBlockProcessor*: LightBlockProcessor
-    lightClientFcuFut*: Future[(PayloadExecutionStatus, Opt[Hash32])]
-      .Raising([CancelledError])
+    lightClientFcuFut*: Future[void].Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
     list*: ChainListRef
