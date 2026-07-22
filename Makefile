@@ -678,7 +678,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
 				--std=c17 \
 				-Weverything -Werror \
 				-Wno-declaration-after-statement -Wno-nullability-extension \
@@ -692,8 +692,8 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
-				--std=c17 -flto \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-nullability-extension \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
@@ -708,10 +708,11 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
-				--std=c17 -flto \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-maybe-uninitialized \
+				-Wno-nullability-extension  \
 				-Wno-stringop-overflow -Wno-stringop-overread \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
 				-o build/test_libnimbus_lc \
