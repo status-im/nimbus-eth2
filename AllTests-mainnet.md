@@ -40,6 +40,7 @@ AllTests-mainnet
 + batch put data columns [Preset: mainnet]                                                   OK
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
++ head blocks roundtrip [Preset: mainnet]                                                    OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check altair blocks [Preset: mainnet]                                               OK
 + sanity check altair states [Preset: mainnet]                                               OK
@@ -142,6 +143,8 @@ AllTests-mainnet
 + Gloas consecutive blocks accumulate missing envelopes [Preset: mainnet]                    OK
 + Gloas reverse order blocks with missing parent [Preset: mainnet]                           OK
 + Invalidate block root [Preset: mainnet]                                                    OK
++ Invalidate existing block root [Preset: mainnet]                                           OK
++ Multiple heads [Preset: mainnet]                                                           OK
 + Process Deneb block without blob sidecars [Preset: mainnet]                                OK
 + Process Fulu block with data column sidecars [Preset: mainnet]                             OK
 + Process Fulu block without data column sidecars [Preset: mainnet]                          OK
@@ -163,6 +166,7 @@ AllTests-mainnet
 ```
 ## BlockRef and helpers
 ```diff
++ executionParent sanity                                                                     OK
 + get_ancestor sanity                                                                        OK
 + isAncestorOf sanity                                                                        OK
 ```
@@ -170,6 +174,16 @@ AllTests-mainnet
 ```diff
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
+```
+## Column reconstruction backfiller cursors
+```diff
++ a TooFew slot blocks the trail until its columns arrive                                    OK
++ a head extension reconstructs only the new slot, not the whole run                         OK
++ a reorg refills only the post-finalized window                                             OK
++ a reorg retracts the advertised slot, then re-extends it                                   OK
++ a reorg whose run is entirely post-finalized resets it                                     OK
++ an advancing retention floor lifts runBottom                                               OK
++ fresh backfill descends from head to the retention floor                                   OK
 ```
 ## ColumnMap test suite
 ```diff
@@ -649,6 +663,11 @@ AllTests-mainnet
 + getPayload with different forkchoiceUpdated attributes                                     OK
 + multiple sequential forkchoiceUpdated calls with payload attributes                        OK
 ```
+## EL Manager - WebSocket reconnection
+```diff
++ reconnects after EL restart (degraded connection)                                          OK
++ reconnects after EL restart (working connection)                                           OK
+```
 ## EL Manager - forkchoiceUpdated
 ```diff
 + forkchoiceUpdated basic call                                                               OK
@@ -766,6 +785,11 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gloas block validity
+```diff
++ Execution valid                                                                            OK
++ Execution valid after checkpoint sync                                                      OK
+```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
 + Empty in-memory scenario test [node]                                                       OK
@@ -854,7 +878,11 @@ AllTests-mainnet
 ```
 ## Inclusion list [Preset: mainnet]
 ```diff
++ end-to-end: committee members sign, validate, and are collected                            OK
 + get_inclusion_list_committee                                                               OK
++ get_inclusion_list_transactions dedups and filters                                         OK
++ is_valid_inclusion_list_signature                                                          OK
++ process_inclusion_list detects equivocation                                                OK
 ```
 ## Key splitting
 ```diff
@@ -906,6 +934,8 @@ AllTests-mainnet
 ## ListKeys requests [Beacon Node] [Preset: mainnet]
 ```diff
 + Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
++ Different Authorization Header spelling [Beacon Node] [Preset: mainnet]                    OK
++ Empty Authorization Token [Beacon Node] [Preset: mainnet]                                  OK
 + Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
 + Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
@@ -1108,18 +1138,10 @@ AllTests-mainnet
 + RestErrorMessage writer tests                                                              OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (ALTAIR)                                     OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (BELLATRIX)                                  OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (CAPELLA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (DENEB)                                      OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
-+ remote signing example AGGREGATE_AND_PROOF_V2 (PHASE 0)                                    OK
 + remote signing example AGGREGATION_SLOT                                                    OK
 + remote signing example ATTESTATION                                                         OK
-+ remote signing example BLOCK_V2 (BELLATRIX)                                                OK
-+ remote signing example BLOCK_V2 (CAPELLA)                                                  OK
-+ remote signing example BLOCK_V2 (DENEB)                                                    OK
-+ remote signing example BLOCK_V2 (ELECTRA)                                                  OK
++ remote signing example BLOCK_V2 (FULU)                                                     OK
 + remote signing example DEPOSIT                                                             OK
 + remote signing example RANDAO_REVEAL                                                       OK
 + remote signing example SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF                               OK
@@ -1227,6 +1249,7 @@ AllTests-mainnet
 ```
 ## Starting states
 ```diff
++ Checkpoint with missed epoch start slot                                                    OK
 + Starting state without block                                                               OK
 ```
 ## State history
@@ -1321,6 +1344,7 @@ AllTests-mainnet
 ```
 ## chain DAG finalization tests [Preset: mainnet]
 ```diff
++ discard unloadable and duplicate heads on init [Preset: mainnet]                           OK
 + init with gaps [Preset: mainnet]                                                           OK
 + orphaned epoch block [Preset: mainnet]                                                     OK
 + prune heads on finalization [Preset: mainnet]                                              OK
@@ -6614,6 +6638,10 @@ AllTests-mainnet
 + uints        - valid - uint_8_random_3                                                     OK
 + uints        - valid - uint_8_random_4                                                     OK
 + uints        - valid - uint_8_zero                                                         OK
+```
+## toPeerAddr port handling
+```diff
++ Skips zero tcp/quic ports                                                                  OK
 ```
 ## weak-subjectivity-checkpoint
 ```diff

@@ -1915,7 +1915,7 @@ proc getAggregatedAttestationV2*(
           # requested `attestation_data_root`.
           ApiResponse[GetAggregatedAttestationV2Response].ok(
             ForkedAttestation.init(
-              LowestScoreAggregatedElectraAttestation, ConsensusFork.Electra))
+              LowestScoreAggregatedGloasAttestation, ConsensusFork.Gloas))
         of 500:
           handle500()
           ApiResponse[GetAggregatedAttestationV2Response].err(

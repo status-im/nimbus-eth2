@@ -11,12 +11,15 @@ import
   std/sequtils,
   chronicles,
   metrics,
-  ../spec/[network, peerdas_helpers],
+  ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
   ../spec/datatypes/deneb
+
+from ../spec/column_map import contains
+
 export eth2_processor, eth2_network
 
 logScope:
@@ -165,18 +168,8 @@ proc publishSidecars(
       notice "Data column sent",
         data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: gloas.DataColumnSidecars
-  for dc in cols:
-    if dc[].index in allowed:
-      finalCols.add dc
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.gloasColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -201,18 +194,8 @@ proc publishSidecars(
       notice "Data column sent",
         data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: fulu.DataColumnSidecars
-  for dc in cols:
-    if dc[].index in allowed:
-      finalCols.add dc
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -383,7 +366,7 @@ proc routeAttestation*(
 
 proc routeSignedAggregateAndProof*(
     router: ref MessageRouter,
-    proof: electra.SignedAggregateAndProof,
+    proof: electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
@@ -608,7 +591,8 @@ proc routeSignedVoluntaryExit*(
   return ok()
 
 proc routeAttesterSlashing*(
-    router: ref MessageRouter, slashing: electra.AttesterSlashing):
+    router: ref MessageRouter,
+    slashing: electra.AttesterSlashing | gloas.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =
@@ -749,10 +733,35 @@ proc routeExecutionPayloadEnvelope*(
 
   ok()
 
+# Beacon-API variant: only the envelope arrives, so it takes the
+# gossip ingest path rather than the direct addPayload above.
+proc routeExecutionPayloadEnvelope*(
+    router: ref MessageRouter,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
+  block:
+    let res =
+      router[].processor[].processExecutionPayloadEnvelope(
+        MsgSource.api, signedEnvelope)
+    if not res.isGoodForSending:
+      warn "Execution payload envelope failed validation",
+        envelope = shortLog(signedEnvelope.message), error = res.error()
+      return err(res.error()[1])
+
+  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
+  if res.isOk():
+    notice "Execution payload envelope sent",
+      envelope = shortLog(signedEnvelope.message)
+  else:
+    notice "Execution payload envelope not sent",
+      envelope = shortLog(signedEnvelope.message), error = res.error()
+
+  ok()
+
 proc routeProposerPreferences*(
     router: ref MessageRouter,
-    signed_preferences: SignedProposerPreferences
-) {.async: (raises: [CancelledError]).} =
+    signed_preferences: SignedProposerPreferences):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = router.processor.processProposerPreferences(
       MsgSource.api, signed_preferences)
@@ -760,7 +769,7 @@ proc routeProposerPreferences*(
     if not res.isGoodForSending:
       warn "Proposer preferences failed validation",
         message = shortLog(signed_preferences), error = res.error()
-      return
+      return err(res.error()[1])
 
   let res =
     await router[].network.broadcastProposerPreferences(signed_preferences)
@@ -773,6 +782,8 @@ proc routeProposerPreferences*(
     notice "Proposer preferences not sent",
       proposal_slot = signed_preferences.message.proposal_slot,
       error = res.error()
+
+  ok()
 
 proc routeExecutionPayloadBid*(
     router: ref MessageRouter,

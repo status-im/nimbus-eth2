@@ -7,17 +7,18 @@
 
 {.push raises: [], gcsafe.}
 
-import std/[tables, os, strutils]
-import serialization, json_serialization,
+import std/tables,
+       serialization, json_serialization,
        json_serialization/std/[options, net],
        chronos, presto, presto/secureserver, chronicles, confutils,
-       results, stew/[base10, byteutils, io2, bitops2]
-import "."/spec/datatypes/[base, altair, phase0],
-       "."/spec/[crypto, digest, network, signatures, forks],
-       "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       "."/rpc/rest_constants,
-       "."/[buildinfo, conf, version, nimbus_binary_common],
-       "."/validators/[keystore_management, validator_pool]
+       results, stew/[base10, byteutils, io2, bitops2],
+       ./spec/[crypto, digest, signatures, forks],
+       ./spec/eth2_apis/[rest_types, eth2_rest_serialization],
+       ./rpc/rest_constants,
+       ./[buildinfo, conf, version, nimbus_binary_common],
+       ./validators/[keystore_management, validator_pool]
+
+from std/os import commandLineParams, `/`
 
 const
   NimbusSigningNodeIdent = "nimbus_remote_signer/" & fullVersionStr
@@ -55,10 +56,10 @@ func validate(key: string, value: string): int =
   else:
     1
 
-proc getRouter*(): RestRouter =
+func getRouter*(): RestRouter =
   RestRouter.init(validate)
 
-proc router(sn: SigningNodeRef): RestRouter =
+func router(sn: SigningNodeRef): RestRouter =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     sn.signingServer.sserver.router
@@ -226,9 +227,15 @@ proc installApiHandlers*(node: SigningNodeRef) =
         let
           forkInfo = request.forkInfo.get()
           signature =
-            withAggregateAndProof(request.forkedAggregateAndProof):
+            if request.aggregateAndProofV2.kind >= ConsensusFork.Gloas:
               get_aggregate_and_proof_signature(forkInfo.fork,
-                forkInfo.genesis_validators_root, forkyProof,
+                forkInfo.genesis_validators_root,
+                request.aggregateAndProofV2.gloasData,
+                validator.data.privateKey).toHex()
+            else:
+              get_aggregate_and_proof_signature(forkInfo.fork,
+                forkInfo.genesis_validators_root,
+                request.aggregateAndProofV2.electraData,
                 validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:
@@ -427,7 +434,7 @@ proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   sn.installApiHandlers()
   sn.start()
 
-  var future = newFuture[void]("signing-node-mainLoop")
+  let future = newFuture[void]("signing-node-mainLoop")
   try:
     await future
   except CancelledError:

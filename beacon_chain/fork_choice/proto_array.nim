@@ -81,6 +81,9 @@ func add(nodes: var ProtoNodes, node: ProtoNode) =
 func find(self: ProtoArray, root: Eth2Digest): Index =
   self.indices.getOrDefault(root, -1)
 
+func findFull(self: ProtoArray, root: Eth2Digest): Index =
+  self.fullBlockIndices.getOrDefault(root, -1)
+
 func contains*(self: ProtoArray, root: Eth2Digest): bool =
   self.find(root) in self.nodes
 
@@ -110,12 +113,24 @@ func checkpoints*(self: ProtoArray, root: Eth2Digest): Opt[NodeCheckpoints] =
     unrealized_justified:
       self.unrealized.getOrDefault(idx, checkpoints).justified)
 
+func node*(self: ProtoArray, idx: Index): Opt[ProtoNode] =
+  self.nodes[idx]
+
+func node*(self: ProtoArray, root: Eth2Digest): Opt[ProtoNode] =
+  self.nodes[self.find(root)]
+
+func isFullNode*(self: ProtoArray, root: Eth2Digest, idx: Index): bool =
+  self.findFull(root) == idx
+
 # Forward declarations
 # ----------------------------------------------------------------------
 
 func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
                                        parentIdx: Index,
                                        childIdx: Index): FcResult[void]
+
+func payloadVariantOutranks(
+    self: ProtoArray, full, empty: ProtoNode): bool
 
 func nodeIsViableForHead(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool
@@ -169,6 +184,9 @@ func realizePendingCheckpoints*(
         checkpoints = self.nodes.buf[physicalIdx].checkpoints,
         unrealized
       self.nodes.buf[physicalIdx].checkpoints = unrealized
+      let fullIdx = self.findFull(self.nodes.buf[physicalIdx].bid.root)
+      if fullIdx >= self.nodes.offset:
+        self.nodes.buf[fullIdx - self.nodes.offset].checkpoints = unrealized                                                                                                   
     result.justified.updateIfBetter(jIdx, unrealized.justified, idx)
     result.finalized.updateIfBetter(fIdx, unrealized.finalized, idx)
 
@@ -246,8 +264,8 @@ func applyScoreChanges*(
       # decrease the delta by the previous score amount.
       let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
       if  (not self.previousProposerBoostRoot.isZero) and
-          self.previousProposerBoostRoot == node.bid.root and 
-          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
+          self.previousProposerBoostRoot == node.bid.root and
+          not self.isFullNode(node.bid.root, nodeLogicalIdx):
             if  nodeDelta < 0 and
                 nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
               return err ForkChoiceError(
@@ -260,7 +278,7 @@ func applyScoreChanges*(
       #
       # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.3/specs/phase0/fork-choice.md#get_weight
       if  (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root and
-          self.fullBlockIndices.getOrDefault(node.bid.root, -1) != nodeLogicalIdx:
+          not self.isFullNode(node.bid.root, nodeLogicalIdx):
         proposerBoostScore = compute_proposer_score(justifiedTotalActiveBalance)
         if  nodeDelta >= 0 and
             high(Delta) - nodeDelta < proposerBoostScore.int64:
@@ -414,8 +432,10 @@ func onPayloadVerified*(
 
   ok()
 
-func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
+func findHead*(self: var ProtoArray, head: var Eth2Digest,
+               headIsFull: var bool): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
+  ## and reports whether the chosen head node is the block's FULL variant.
   ##
   ## ️ Warning
   ## The result may not be accurate if `onBlock` is not followed by
@@ -431,15 +451,24 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
       kind: fcInvalidJustifiedIndex,
       index: justifiedIdx)
 
-  # If the justified EMPTY node has no descendants (children parented to
-  # FULL), use the FULL sibling's bestDescendant instead.
-  var bestDescendantIdx = justifiedNode.bestDescendant.get(justifiedIdx)
-  if bestDescendantIdx == justifiedIdx:
-    let fullIdx = self.fullBlockIndices.getOrDefault(justifiedRoot, -1)
-    if fullIdx >= 0:
-      let fullNode = self.nodes[fullIdx]
-      if fullNode.isSome:
-        bestDescendantIdx = fullNode.get.bestDescendant.get(fullIdx)
+  # The justified block appears as two payload variants (EMPTY and, if its payload
+  # was verified, FULL). Start at PENDING(justified) and expands to both variants:
+  # pick the better one, then follow that variant's bestDescendant.
+  # 
+  var
+    startIdx = justifiedIdx
+    startBestDescendant = justifiedNode.bestDescendant
+  let fullIdx = self.findFull(justifiedRoot)
+  if fullIdx >= 0:
+    let fullNode = self.nodes[fullIdx].valueOr:
+      return err ForkChoiceError(
+        kind: fcInvalidJustifiedIndex,
+        index: fullIdx)
+    if self.payloadVariantOutranks(fullNode, justifiedNode):
+      startIdx = fullIdx
+      startBestDescendant = fullNode.bestDescendant
+
+  let bestDescendantIdx = startBestDescendant.get(startIdx)
 
   let bestNode = self.nodes[bestDescendantIdx].valueOr:
     return err ForkChoiceError(
@@ -456,6 +485,8 @@ func findHead*(self: var ProtoArray, head: var Eth2Digest): FcResult[void] =
       headCheckpoints: justifiedNode.checkpoints)
 
   head = bestNode.bid.root
+  headIsFull = self.isFullNode(bestNode.bid.root, bestDescendantIdx)
+
   ok()
 
 func remapIdx(idx: Opt[Index], oldToNew: Table[Index, Index]): Opt[Index] =
@@ -513,9 +544,9 @@ func prune*(
     let
       oldLogicalIdx = physIdx + self.nodes.offset
       root = self.nodes.buf[physIdx].bid.root
-    if self.indices.getOrDefault(root, -1) >= finalizedIdx:
+    if self.find(root) >= finalizedIdx:
       oldToNew[oldLogicalIdx] = newOffset + newBuf.len
-      isFull.add(self.fullBlockIndices.getOrDefault(root, -1) == oldLogicalIdx)
+      isFull.add(self.isFullNode(root, oldLogicalIdx))
       newBuf.add self.nodes.buf[physIdx]
 
   # Rebuild the index tables, `unrealized`, and the parent/best-child/
@@ -542,6 +573,32 @@ func prune*(
   self.nodes.offset = newOffset
 
   ok()
+
+func payloadVariantOutranks(
+    self: ProtoArray, full, empty: ProtoNode): bool =
+  ## Rank a block's two payload variants by the spec `get_head`
+  ## order `(get_weight, get_payload_status_tiebreaker)`
+  let
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/fork-choice.md#is_previous_slot_payload_decision
+    isPrevSlot = full.bid.slot + 1 == self.currentSlot
+    # The proposer boost belongs to the EMPTY node; drop it before comparing.
+    boost =
+      if empty.bid.root == self.previousProposerBoostRoot:
+        self.previousProposerBoostScore.int64
+      else: 0'i64
+    fullWeight =
+      if isPrevSlot: 0'i64 else: full.weight - full.pendingWeight
+    emptyWeight =
+      if isPrevSlot: 0'i64 else: empty.weight - empty.pendingWeight - boost
+  if fullWeight != emptyWeight:
+    fullWeight > emptyWeight
+  elif isPrevSlot:
+    # get_payload_status_tiebreaker: FULL (2) beats EMPTY (1), unless the payload
+    # should not be extended (0), captured by `emptyPreferredRoot`.
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/fork-choice.md#get_payload_status_tiebreaker
+    full.bid.root != self.emptyPreferredRoot
+  else:
+    true
 
 func maybeUpdateBestChildAndDescendant(
     self: var ProtoArray, parentIdx: Index, childIdx: Index): FcResult[void] =
@@ -572,8 +629,7 @@ func maybeUpdateBestChildAndDescendant(
     # A block's EMPTY and FULL nodes fork the descendant tree: a block that
     # built on EMPTY is not a descendant of FULL (and vice versa). A childless
     # node's best-descendant is itself.
-    childIsFull =
-      self.fullBlockIndices.getOrDefault(child.bid.root, -1) == childIdx
+    childIsFull = self.isFullNode(child.bid.root, childIdx)
     effectiveBestDescendant = child.bestDescendant
 
     # Aliases to the 3 possible (bestChild, bestDescendant) tuples
@@ -612,23 +668,13 @@ func maybeUpdateBestChildAndDescendant(
             # The best child leads to a viable head, but the child doesn't
             noChange
           elif child.bid.root == bestChild.bid.root:
+            # Same block's two payload variants, rank by the spec get_head order.
             let
-              isPrevSlot = child.bid.slot + 1 == self.currentSlot
-              childWeight = if isPrevSlot: 0'i64 else: child.weight
-              bestWeight = if isPrevSlot: 0'i64 else: bestChild.weight
-            template statusTiebreak(isFull: bool): int =
-              if isPrevSlot:
-                if isFull:
-                  (if child.bid.root != self.emptyPreferredRoot: 2 else: 0)
-                else: 1
-              else:
-                (if isFull: 1 else: 0)
-            if childWeight != bestWeight:
-              if childWeight > bestWeight: changeToChild else: noChange
-            elif statusTiebreak(childIsFull) > statusTiebreak(not childIsFull):
-              changeToChild
-            else:
-              noChange
+              (full, empty) =
+                if childIsFull: (child, bestChild) else: (bestChild, child)
+              fullOutranks = self.payloadVariantOutranks(full, empty)
+            # The child wins iff the winning variant is the child's own variant.
+            if fullOutranks == childIsFull: changeToChild else: noChange
           elif child.weight == bestChild.weight:
             if child.bid.root.tiebreak(bestChild.bid.root):
               changeToChild

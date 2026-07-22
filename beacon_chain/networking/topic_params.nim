@@ -66,6 +66,15 @@ const
   ## `BlsToExecutionChangeWeight` specifies the scoring weight that we apply to
   ## our bls to execution topic.
   BlsToExecutionChangeWeight = 0.05'f64
+  ## `ExecutionPayloadBidWeight` specifies the scoring weight that we apply to
+  ## our execution payload bid topic.
+  ExecutionPayloadBidWeight = 0.05'f64
+  ## `PayloadAttestationWeight` specifies the scoring weight that we apply to
+  ## our payload attestation topic.
+  PayloadAttestationWeight = 0.5'f64
+  ## `ProposerPreferencesWeight` specifies the scoring weight that we apply to
+  ## our proposer preferences topic.
+  ProposerPreferencesWeight = 0.05'f64
   ## `MaxInMeshScore` describes the max score a peer can attain from being in
   ## the mesh.
   MaxInMeshScore = 10'f64
@@ -365,6 +374,23 @@ func getBlsToExecutionChangeTopicParams*(timeParams: TimeParams): TopicParams =
   let messageRate = 1.0'f64 / 5.0'f64 / float64(SLOTS_PER_EPOCH)
   timeParams.topicParams(
     BlsToExecutionChangeWeight, messageRate, timeParams.epochsDuration(100),
+    Opt.none(MeshMessageInfo))
+
+func getExecutionPayloadBidTopicParams*(timeParams: TimeParams): TopicParams =
+  const messageRate = 5.0'f64
+  timeParams.topicParams(
+    ExecutionPayloadBidWeight, messageRate, timeParams.epochsDuration(20),
+    Opt.none(MeshMessageInfo))
+
+func getPayloadAttestationTopicParams*(timeParams: TimeParams): TopicParams =
+  timeParams.topicParams(
+    PayloadAttestationWeight, float64(PTC_SIZE), timeParams.epochsDuration(1),
+    Opt.none(MeshMessageInfo))
+
+func getProposerPreferencesTopicParams*(timeParams: TimeParams): TopicParams =
+  let messageRate = 0.5'f64
+  timeParams.topicParams(
+    ProposerPreferencesWeight, messageRate, timeParams.epochsDuration(100),
     Opt.none(MeshMessageInfo))
 
 func basicParams*(): TopicParams = TopicParams.init()

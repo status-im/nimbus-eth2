@@ -562,8 +562,8 @@ func get_beacon_proposer_index*(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_beacon_proposer_indices
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/beacon-chain.md#modified-get_beacon_proposer_indices
 func get_beacon_proposer_indices*(
-    state: ForkyBeaconState, epoch: Epoch
-): seq[Opt[ValidatorIndex]] =
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState, epoch: Epoch): seq[Opt[ValidatorIndex]] =
   ## Return the proposer indices for the given `epoch`.
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
 
@@ -608,18 +608,6 @@ func get_beacon_proposer_indices*(
     # as the method of computing proposer in the below
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#proposer_preferences
-func is_valid_proposal_slot*(
-    state: gloas.BeaconState | heze.BeaconState,
-    slot: Slot, validator_index: uint64): bool =
-  ## Check if the validator is the proposer for the given slot within the
-  ## proposer lookahead.
-  let start_slot = state.get_current_epoch().start_slot()
-  if slot < start_slot or
-      slot - start_slot >= state.proposer_lookahead.lenu64:
-    return false
-  state.proposer_lookahead.item(slot - start_slot) == validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/validator.md#broadcasting-signedproposerpreferences
 # The signature of this function diverges from the spec to avoid
@@ -790,10 +778,9 @@ proc compute_on_chain_aggregate*(
     totalLen = 0
   for i, a in aggregates:
     let committee_index = ? get_committee_index_one(a.committee_bits)
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     totalLen += a.aggregation_bits.len
@@ -801,7 +788,7 @@ proc compute_on_chain_aggregate*(
   prev_committee_index.reset()
 
   var
-    aggregation_bits = AggregationBits.init(totalLen)
+    aggregation_bits = gloas.AggregationBits.init(totalLen)
     pos = 0
     filledLen = 0
   for i, a in aggregates:
@@ -809,10 +796,9 @@ proc compute_on_chain_aggregate*(
       committee_index = ? get_committee_index_one(a.committee_bits)
       first = pos == 0
 
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     for b in a.aggregation_bits:
@@ -833,7 +819,7 @@ proc compute_on_chain_aggregate*(
   let signature = agg.finish()
 
   ok electra.Attestation(
-      aggregation_bits: aggregation_bits,
+      aggregation_bits: toElectraAggregationBits(aggregation_bits),
       data: data,
       committee_bits: committee_bits,
       signature: signature.toValidatorSig(),

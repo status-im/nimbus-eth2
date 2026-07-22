@@ -232,13 +232,21 @@ func findValidatorIndexBruteforce(
       return Opt.some validatorIndex
   Opt.none ValidatorIndex
 
+let hashedPubkeyItems = block:
+  var res: array[pubkeys.len, HashedValidatorPubKeyItem]
+  for i in 0 ..< pubkeys.len:
+    res[i] = HashedValidatorPubKeyItem(
+      key: pubkeys[i].get, root: hash_tree_root(pubkeys[i].get))
+  res
+
 suite "ValidatorPubKey bucket sort":
   setup:
-    var hashedPubkeyItems = mapIt(pubkeys, HashedValidatorPubKeyItem(
-      key: it.get, root: hash_tree_root(it.get)))
     let
-      hashedPubkeys = mapIt(hashedPubkeyItems, HashedValidatorPubKey(
-        value: unsafeAddr it))
+      hashedPubkeys = block:
+        var res = newSeq[HashedValidatorPubKey](hashedPubkeyItems.len)
+        for i in 0 ..< hashedPubkeyItems.len:
+          res[i] = HashedValidatorPubKey(value: addr hashedPubkeyItems[i])
+        res
       validators = mapIt(hashedPubkeys, Validator(pubkeyData: it))
 
   test "one-shot construction":

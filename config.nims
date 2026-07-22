@@ -146,10 +146,11 @@ switch("define", "withoutPCRE")
 
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
+  switch("stacktrace", "off")
   switch("import", "libbacktrace")
 else:
-  --stacktrace:on
-  --linetrace:on
+  switch("stacktrace", "on")
+  switch("linetrace", "on")
 
 var canEnableDebuggingSymbols = true
 if defined(macosx):
@@ -179,8 +180,10 @@ switch("warningAsError", "CStringConv:on")
 switch("warningAsError", "CycleCreated:on")
 switch("warningAsError", "ImplicitDefaultValue:on")
 switch("warningAsError", "ImplicitTemplateRedefinition:on")
+switch("warningAsError", "InvalidCmpOp:on")
 switch("warningAsError", "LongLiterals:on")
 switch("warningAsError", "ProveField:on")
+switch("warningAsError", "StmtListLambda:on")
 switch("warningAsError", "UnreachableCode:on")
 switch("warningAsError", "UnusedImport:on")
 switch("hintAsError", "ConvFromXtoItselfNotNeeded:on")

@@ -162,7 +162,9 @@ func block_signature_set*(
 # See also: verify_aggregate_and_proof_signature
 func aggregate_and_proof_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    aggregate_and_proof: phase0.AggregateAndProof | electra.AggregateAndProof,
+    aggregate_and_proof:
+      phase0.AggregateAndProof | electra.AggregateAndProof |
+      gloas.AggregateAndProof,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_aggregate_and_proof_signing_root(
     fork, genesis_validators_root, aggregate_and_proof)
@@ -428,21 +430,7 @@ proc collectSignatureSets*(
     for volex in signed_block.message.body.voluntary_exits:
       let
         idx = volex.message.validator_index
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/builder.md#builder-withdrawal-credentials
-        cookedKey =
-          if is_builder_index(idx.uint64):
-            withState(state):
-              when consensusFork >= ConsensusFork.Gloas:
-                let bidx = convert_validator_index_to_builder_index(idx.uint64)
-                if bidx < forkyState.data.builders.lenu64:
-                  forkyState.data.builders.item(bidx).pubkey.load()
-                else:
-                  Opt.none(CookedPubKey)
-              else:
-                Opt.none(CookedPubKey)
-          else:
-            validatorKeys.load(idx)
-        key = cookedKey.valueOr:
+        key = validatorKeys.load(idx).valueOr:
           return err("collectSignatureSets: invalid voluntary exit")
         sig = volex.signature.load.valueOr:
           return err("collectSignatureSets: cannot load voluntary exit signature")

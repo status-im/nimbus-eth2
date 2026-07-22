@@ -56,7 +56,7 @@ type
 
   EnvelopeVerifierFn = proc(
       signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-  ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+  ): Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).}
 
   BlockLoaderFn = proc(
       blockRoot: Eth2Digest
@@ -91,7 +91,7 @@ type
     inhibit: InhibitFn
     quarantine: ref Quarantine
     envelopeQuarantine: ref EnvelopeQuarantine
-    dataColumnQuarantine: ref ColumnQuarantine
+    fuluColumnQuarantine: ref FuluColumnQuarantine
     gloasColumnQuarantine: ref GloasColumnQuarantine
     blockVerifier: BlockVerifierFn
     blockLoader: BlockLoaderFn
@@ -109,7 +109,9 @@ func shortLog*(x: seq[Eth2Digest]): string =
 func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
-func shortLog*(x: HashSet[DataColumnsByRootIdentifier]): string =
+func shortLog*(
+    x: HashSet[DataColumnsByRootIdentifier] | DataColumnsByRootIdentifierList
+): string =
   var pieces: seq[string]
   for it in x:
     pieces.add(shortLog(it.block_root) & "/" & it.indices.mapIt($it).join(","))
@@ -129,7 +131,7 @@ func init*(T: type RequestManager, network: Eth2Node,
               inhibit: InhibitFn,
               quarantine: ref Quarantine,
               envelopeQuarantine: ref EnvelopeQuarantine,
-              dataColumnQuarantine: ref ColumnQuarantine,
+              fuluColumnQuarantine: ref FuluColumnQuarantine,
               gloasColumnQuarantine: ref GloasColumnQuarantine,
               blockVerifier: BlockVerifierFn,
               blockLoader: BlockLoaderFn = nil,
@@ -145,7 +147,7 @@ func init*(T: type RequestManager, network: Eth2Node,
     inhibit: inhibit,
     quarantine: quarantine,
     envelopeQuarantine: envelopeQuarantine,
-    dataColumnQuarantine: dataColumnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     blockVerifier: blockVerifier,
     blockLoader: blockLoader,
@@ -314,16 +316,13 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           let res = await self.envelopeVerifier(envelope[])
           if res.isErr():
             case res.error():
-            of VerifierError.MissingParent:
-              # Ignoring due to it should have checked in processing the valid
-              # block.
+            of PayloadVerifierError.MissingParent,
+                PayloadVerifierError.Duplicate,
+                PayloadVerifierError.InvalidSidecars:
               discard
-            of VerifierError.Duplicate:
-              # Ignoring as it could occur when making parallel requests.
-              discard
-            of VerifierError.UnviableFork:
+            of PayloadVerifierError.UnviableFork:
               gotUnviableEnvelope = true
-            of VerifierError.Invalid:
+            of PayloadVerifierError.Invalid:
               notice "Received invalid envelope",
                 peer = peer, envelopes = shortLog(roots)
               peer.updateScore(PeerScoreBadValues)
@@ -437,15 +436,16 @@ func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
 
 func filterByIntersection(
     colIdList: HashSet[DataColumnsByRootIdentifier],
-    intersection: DataColumnIndices): seq[DataColumnsByRootIdentifier] =
-  var res: seq[DataColumnsByRootIdentifier]
+    intersection: DataColumnIndices): DataColumnsByRootIdentifierList =
+  var res: DataColumnsByRootIdentifierList
   for it in colIdList:
     let entry = DataColumnsByRootIdentifier(
       block_root: it.block_root,
       indices: DataColumnIndices(
         filterIt(it.indices.asSeq, it in intersection)))
     if entry.indices.len > 0:
-      res.add entry
+      if not res.add entry:
+        break
   res
 
 template fetchDataColumnsFromNetworkImpl(
@@ -478,13 +478,13 @@ template fetchDataColumnsFromNetworkImpl(
       peer = peer,
       columns = shortLog(intColIdList),
       peer_score = peer.getScore()
-    let expectedColumnCount = block:
-      var n = 0
-      for id in intColIdList: n += id.indices.len
-      n
-    let columns = await requestProc(
-      peer, DataColumnsByRootIdentifierList intColIdList,
-      maxResponseItems = expectedColumnCount)
+    let
+      expectedColumnCount = block:
+        var n = 0
+        for id in intColIdList: n += id.indices.len
+        n
+      columns = await requestProc(
+        peer, intColIdList, maxResponseItems = expectedColumnCount)
     if columns.isOk:
       var ucolumns = columns.get().asSeq()
       ucolumns.sort(cmpSidecarIndexes)
@@ -522,7 +522,7 @@ proc fetchFuluDataColumns(
     ) {.async: (raises: [CancelledError]).} =
   fetchDataColumnsFromNetworkImpl(
     rman, colIdList,
-    dataColumnSidecarsByRoot, checkColumnResponse, rman.dataColumnQuarantine)
+    dataColumnSidecarsByRoot, checkColumnResponse, rman.fuluColumnQuarantine)
 
 proc fetchGloasDataColumns(
     rman: RequestManager, colIdList: HashSet[DataColumnsByRootIdentifier]
@@ -612,7 +612,7 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
       assign(blockRoots, missingBlockRoots)
     else:
       var verifiers:
-        seq[Future[Result[void, VerifierError]].Raising([CancelledError])]
+        seq[Future[Result[void, PayloadVerifierError]].Raising([CancelledError])]
       for blockRoot in missingBlockRoots:
         let envelope = self.envelopeLoader(blockRoot).valueOr:
           blockRoots.add blockRoot
@@ -690,7 +690,7 @@ proc getMissingDataColumns(rman: RequestManager):
           let
             commitmentsCount =
               len(forkyBlck.message.body.blob_kzg_commitments)
-            ident = rman.dataColumnQuarantine[].fetchMissingSidecars(
+            ident = rman.fuluColumnQuarantine[].fetchMissingSidecars(
               columnless.root)
           if len(ident.indices) > 0:
             fuluFetches.incl(ident)
@@ -764,7 +764,7 @@ proc requestManagerDataColumnLoop(
       fuluColumnIds = missingFulu
     else:
       processBucket(missingFulu, fuluColumnIds,
-                    rman.dataColumnLoader, rman.dataColumnQuarantine)
+                    rman.dataColumnLoader, rman.fuluColumnQuarantine)
 
     if rman.gloasDataColumnLoader == nil:
       gloasColumnIds = missingGloas

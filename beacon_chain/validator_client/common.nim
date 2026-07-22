@@ -14,20 +14,20 @@ import
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
-  ".."/spec/datatypes/[base, phase0, altair],
-  ".."/spec/[eth2_merkleization, helpers, signatures, validator],
-  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
+  ../spec/datatypes/[base, phase0, altair],
+  ../spec/[eth2_merkleization, helpers, signatures, validator],
+  ../spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
-  ".."/consensus_object_pools/[block_pools_types, common_tools],
-  ".."/validators/[keystore_management, validator_pool, slashing_protection,
+  ../consensus_object_pools/[block_pools_types, common_tools],
+  ../validators/[keystore_management, validator_pool, slashing_protection,
                    validator_duties],
-  ".."/[conf, beacon_clock, version, nimbus_binary_common]
+  ../[conf, beacon_clock, version, nimbus_binary_common, nimbus_rest_common]
 
 from std/times import Time, toUnix, fromUnix, getTime
 
 export
-  os, sets, sequtils, chronos, chronicles, confutils,
-  nimbus_binary_common, version, conf, tables, results, base10,
+  os, sets, sequtils, chronos, chronicles, confutils, nimbus_binary_common,
+  nimbus_rest_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
@@ -895,7 +895,8 @@ proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,
-                               socketFlags = socketFlags)
+                               socketFlags = socketFlags,
+                               userAgent = nimbusAgentStr)
   ok(client)
 
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
@@ -1287,6 +1288,16 @@ proc getValidatorRegistration(
   else:
     ok(PendingValidatorRegistration(registration: registration, future: sigfut))
 
+proc isConsistent(
+    vc: ValidatorClientRef,
+    validatorRegistration: SignedValidatorRegistrationV1,
+    validator: AttachedValidator,
+    epoch: Epoch): bool =
+  validatorRegistration.message.fee_recipient ==
+    vc.getFeeRecipient(validator, epoch) and
+  validatorRegistration.message.gas_limit ==
+    vc.getGasLimit(validator)
+
 proc prepareRegistrationList*(
     vc: ValidatorClientRef,
     timestamp: Time,
@@ -1308,6 +1319,7 @@ proc prepareRegistrationList*(
     gasLimit = 0
     cached = 0
     timed = 0
+    stale = 0
 
   for validator in vc.attachedValidators[].items():
     let res = vc.getValidatorRegistration(validator, timestamp, genesis_fork_version)
@@ -1340,8 +1352,14 @@ proc prepareRegistrationList*(
       if sres.isOk():
         var reg = messages[index]
         reg.signature = sres.get()
+        let
+          validator = validators[index]
+          currentSlot = vc.beaconClock.toSlot(timestamp).slot
+        if not vc.isConsistent(reg, validator, currentSlot.epoch()):
+          inc(stale)
+          continue
         registrations.add(reg)
-        validators[index].externalBuilderRegistration = Opt.some(reg)
+        validator.externalBuilderRegistration = Opt.some(reg)
         inc(succeed)
       else:
         inc(bad)
@@ -1351,7 +1369,7 @@ proc prepareRegistrationList*(
   debug "Validator registrations prepared", total = total, succeed = succeed,
         cached = cached, bad = bad, errors = errors,
         index_missing = indexMissing, fee_missing = feeMissing,
-        incorrect_time = timed
+        incorrect_time = timed, stale = stale
 
   registrations
 

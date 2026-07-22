@@ -24,6 +24,11 @@ from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 logScope: topics = "cman"
 
 type
+  ForkchoiceUpdate = object
+    wallSlot: Slot
+    state: ForkchoiceStateV1
+    status: PayloadExecutionStatus
+
   ConsensusManager* = object
     expectedSlot: Slot
     expectedBlockReceived: Future[bool].Raising([CancelledError])
@@ -63,6 +68,7 @@ type
 
     forkchoiceInflight: bool
       ## True when there's an async `forkchoiceUpdated` in flight
+    latestFcu: ForkchoiceUpdate
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -159,8 +165,8 @@ proc expectEnvelope*(self: var ConsensusManager, blockRoot: Eth2Digest):
   self.expectedEnvelopeRoot = blockRoot
   self.expectedEnvelopeReceived = fut
 
-  # The envelope might already have been received before we started waiting -
-  # this is the only place we need to consult the database.
+  # The envelope might already have been received before we started,
+  # waiting this is the only place we need to consult the database.
   if self.dag.db.containsExecutionPayloadEnvelope(blockRoot):
     self.checkExpectedEnvelope(blockRoot)
 
@@ -317,6 +323,19 @@ proc getFeeRecipient*(
 proc getGasLimit*(self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
   getGasLimit(self.validatorsDir, self.defaultGasLimit, pubkey)
 
+func pendingBuilderPayment(
+    state: gloas.BeaconState | heze.BeaconState
+): Opt[BuilderPendingWithdrawal] =
+  ## The `BuilderPendingPayment` from `process_execution_payload_bid`
+  template bid: untyped = state.latest_execution_payload_bid
+  if bid.value > 0.Gwei:
+    Opt.some(BuilderPendingWithdrawal(
+      fee_recipient: bid.fee_recipient,
+      amount: bid.value,
+      builder_index: bid.builder_index))
+  else:
+    Opt.none(BuilderPendingWithdrawal)
+
 proc prepareNextSlot*(
     self: ref ConsensusManager, proposalSlot: Slot, deadline: DeadlineFuture
 ) {.async: (raises: [CancelledError]).} =
@@ -367,6 +386,8 @@ proc prepareNextSlot*(
   withState(dag.clearanceState):
     when consensusFork >= ConsensusFork.Electra:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
+      when consensusFork >= ConsensusFork.Gloas:
+        let shouldExtend = dag.shouldExtendPayload(head)
       let
         timestamp = dag.timeParams
           .compute_timestamp_at_slot(forkyState.data, proposalSlot)
@@ -380,7 +401,11 @@ proc prepareNextSlot*(
         beaconHead = self.attestationPool[].getBeaconHead(head)
         executionHead =
           when consensusFork >= ConsensusFork.Gloas:
-            proposalExecutionHead(forkyState.data)
+            if shouldExtend:
+              proposalExecutionHead(forkyState.data)
+            else:
+              dag.loadExecutionAndParentBlockHash(head).parentHash.valueOr:
+                return
           else:
             dag.loadExecutionBlockHash(beaconHead.blck).valueOr:
               return
@@ -389,6 +414,19 @@ proc prepareNextSlot*(
         return
 
       let
+        withdrawals =
+          when consensusFork >= ConsensusFork.Gloas:
+            if shouldExtend:
+              get_expected_withdrawals(
+                forkyState.data, pendingBuilderPayment(forkyState.data)
+              ).withdrawals
+            else:
+              # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/validator.md#executionpayload
+              # if should_build_on_full(store, head): ...
+              # else: withdrawals = state.payload_expected_withdrawals
+              forkyState.data.payload_expected_withdrawals.asSeq
+          else:
+            get_expected_withdrawals(forkyState.data)
         state = ForkchoiceStateV1.init(
           executionHead, beaconHead.safeExecutionBlockHash,
           beaconHead.finalizedExecutionBlockHash,
@@ -396,19 +434,36 @@ proc prepareNextSlot*(
         attributes =
           when consensusFork >= ConsensusFork.Gloas:
             PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
-              get_expected_withdrawals(forkyState.data).withdrawals,
-              beaconHead.blck.bid.root, proposalSlot,
+              withdrawals, beaconHead.blck.bid.root, proposalSlot,
               self[].getGasLimit(nextProposer))
           else:
             # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
             PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
-              get_expected_withdrawals(forkyState.data),
-              beaconHead.blck.bid.root)
+              withdrawals, beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
           state, Opt.some(attributes), deadline, false
         )
       debug "Fork-choice updated for proposal", status, executionHead, attributes
+
+      # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L132
+      when consensusFork >= ConsensusFork.Gloas:
+        if dag.onPayloadAttributes != nil:
+          dag.onPayloadAttributes(EventPayloadAttributesObject(
+            version: consensusFork.toString(),
+            data: PayloadAttributesEventData(
+              proposer_index: uint64(validatorIndex),
+              proposal_slot: proposalSlot,
+              parent_block_root: beaconHead.blck.bid.root,
+              parent_block_hash: executionHead,
+              payload_attributes: RestPayloadAttributes(
+                timestamp: timestamp,
+                prev_randao: prevRandao,
+                suggested_fee_recipient: feeRecipient,
+                withdrawals: withdrawals,
+                parent_beacon_block_root: beaconHead.blck.bid.root,
+                slot_number: uint64(proposalSlot),
+                target_gas_limit: self[].getGasLimit(nextProposer)))))
     elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Deneb:
       debug "Not producing blocks in pre-Electra fork"
     else:
@@ -416,29 +471,86 @@ proc prepareNextSlot*(
 
 proc forkchoiceUpdated*(
     self: ref ConsensusManager,
-    slot: Slot,
+    headSlot: Slot,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
+    wallSlot: Slot,
     deadline: DeadlineFuture,
     retry: bool,
 ): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
-  ## Call non-proposer version of forkchoiceUpdated using the given slot to
-  ## select the correct PayloadAttributes version
+  ## Call non-proposer version of forkchoiceUpdated using the given head slot
+  ## to select the correct PayloadAttributes version.
+  ##
+  ## Results are cached for duplicate requests during the same wall slot
 
-  withConsensusFork(self[].dag.cfg.consensusForkAtEpoch(slot.epoch)):
+  withConsensusFork(self[].dag.cfg.consensusForkAtEpoch(headSlot.epoch)):
     when consensusFork >= ConsensusFork.Bellatrix:
       if headBlockHash.isZero:
         # Merge not yet activated
         PayloadExecutionStatus.valid
       else:
-        let
-          state = ForkchoiceStateV1.init(
-            headBlockHash, safeBlockHash, finalizedBlockHash)
-          (status, _) = await self.elManager.forkchoiceUpdated(
-            state, Opt.none consensusFork.PayloadAttributes, deadline, retry
-          )
+        let state = ForkchoiceStateV1.init(
+          headBlockHash, safeBlockHash, finalizedBlockHash)
+        if wallSlot == self.latestFcu.wallSlot and
+            state == self.latestFcu.state:
+          debug "Skipping fcU, state unchanged this slot",
+            headBlockHash, wallSlot
+          return self.latestFcu.status
+
+        let (status, _) = await self.elManager.forkchoiceUpdated(
+          state, Opt.none consensusFork.PayloadAttributes, deadline, retry)
+        self.latestFcu = ForkchoiceUpdate(
+          wallSlot: wallSlot, state: state, status: status)
         status
     else:
       PayloadExecutionStatus.valid
+
+proc lightClientForkchoiceUpdated(
+    self: ref ConsensusManager,
+    head: BeaconHead,
+    wallSlot: Slot,
+    deadline: DeadlineFuture,
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  ## Send forkchoiceUpdated to the client, return false iff the
+  ## light client head was invalid and true otherwise
+
+  let
+    # No point retrying for light client sync since there will be a new attempt
+    # "soon". However, we call even if the light client head hasn't changed
+    # since the last slot since the finalized / safe blocks might have changed
+    lightClientHead = self.lightClientHead  # Mutable during `await`
+    status = await self.forkchoiceUpdated(
+      lightClientHead.bid.slot, lightClientHead.execution_block_hash,
+      head.safeExecutionBlockHash, head.finalizedExecutionBlockHash,
+      wallSlot, deadline, retry = false)
+
+  self.lightClientHeadStatus = status.to(OptimisticStatus)
+
+  case self.lightClientHeadStatus
+  of OptimisticStatus.valid, OptimisticStatus.notValidated:
+    true
+  of OptimisticStatus.invalidated:
+    warn "Light client execution payload invalid - " &
+      "the execution client or the light client data is faulty",
+      payloadExecutionStatus = status,
+      lightClientBlockHash = lightClientHead.execution_block_hash
+    false
+
+proc updateLightClientExecutionHead*(
+    self: ref ConsensusManager,
+    head: BeaconHead,
+    wallSlot: Slot,
+    deadline: DeadlineFuture) {.async: (raises: [CancelledError]).} =
+  ## Report the light client head to the execution client,
+  ## unless another `forkchoiceUpdated` is already in flight
+
+  if self.forkchoiceInflight:
+    return
+
+  self.forkchoiceInflight = true
+  defer:
+    self.forkchoiceInflight = false
+
+  discard await self.lightClientForkchoiceUpdated(head, wallSlot, deadline)
 
 proc forkchoiceUpdated(
     self: ref ConsensusManager,
@@ -451,25 +563,7 @@ proc forkchoiceUpdated(
   ## and true otherwise
 
   if self[].shouldSyncViaLightClient(wallSlot):
-    # No point retrying for light client sync since there will be a new attempt
-    # "soon". However, we call even if the light client head hasn't changed
-    # since the last slot since the finalized / safe blocks might have changed
-    let status = await self.forkchoiceUpdated(
-      self.lightClientHead.bid.slot, self.lightClientHead.execution_block_hash,
-      head.safeExecutionBlockHash, head.finalizedExecutionBlockHash,
-      deadline, retry = false)
-
-    self.lightClientHeadStatus = status.to(OptimisticStatus)
-
-    case self.lightClientHeadStatus
-    of OptimisticStatus.valid, OptimisticStatus.notValidated:
-      true
-    of OptimisticStatus.invalidated:
-      warn "Light client execution payload invalid - " &
-        "the execution client or the light client data is faulty",
-        payloadExecutionStatus = status,
-        lightClientBlockHash = self.lightClientHead.execution_block_hash
-      false
+    await self.lightClientForkchoiceUpdated(head, wallSlot, deadline)
   else:
     let
       headExecutionBlockHash = self.dag.loadExecutionBlockHash(head.blck).valueOr:
@@ -487,8 +581,7 @@ proc forkchoiceUpdated(
         return true
       status = await self.forkchoiceUpdated(
         head.blck.slot, headExecutionBlockHash, head.safeExecutionBlockHash,
-        head.finalizedExecutionBlockHash, deadline, retry,
-      )
+        head.finalizedExecutionBlockHash, wallSlot, deadline, retry)
 
     case status.to(OptimisticStatus)
     of OptimisticStatus.valid:
@@ -502,7 +595,7 @@ proc forkchoiceUpdated(
           payloadExecutionStatus = status
       true
     of OptimisticStatus.invalidated:
-      if head.blck.executionValid:
+      if head.blck.optimisticStatus == OptimisticStatus.valid:
         # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
         warn "Previously valid execution payload turned invalid during fork choice update - check execution client for faults and restart the beacon node",
           blck = head.blck,

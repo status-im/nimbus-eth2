@@ -115,12 +115,11 @@ func process_attestation(
 
     v.flags = v.flags + flags
 
-    if is_previous_epoch_attester.isSome:
-      if v.is_previous_epoch_attester.isSome:
-        if is_previous_epoch_attester.get().delay <
-            v.is_previous_epoch_attester.get().delay:
-          v.is_previous_epoch_attester = is_previous_epoch_attester
-      else:
+    is_previous_epoch_attester.isErrOr:
+      let curAtt = v.is_previous_epoch_attester.valueOr:
+        v.is_previous_epoch_attester = is_previous_epoch_attester
+        continue
+      if value.delay < curAtt.delay:
         v.is_previous_epoch_attester = is_previous_epoch_attester
 
 func process_attestations*(
@@ -409,9 +408,8 @@ proc compute_unrealized_finality*(
   info.process_attestations(state, cache)
   template balances(): auto = info.balances
 
-  var finalityState = state.toFinalityState()
   let jfRes = weigh_justification_and_finalization(
-    finalityState, balances.current_epoch,
+    state.toFinalityState(), balances.current_epoch,
     balances.previous_epoch_target_attesters,
     balances.current_epoch_target_attesters)
   FinalityCheckpoints(
@@ -454,9 +452,8 @@ proc compute_unrealized_finality*(
       justified: state.current_justified_checkpoint,
       finalized: state.finalized_checkpoint), balances)
 
-  var finalityState = state.toFinalityState()
   let jfRes = weigh_justification_and_finalization(
-    finalityState, balances.current_epoch,
+    state.toFinalityState(), balances.current_epoch,
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     balances.current_epoch_TIMELY_TARGET)
   (FinalityCheckpoints(
@@ -690,7 +687,8 @@ template get_flag_and_inactivity_delta(
     base_reward_per_increment: Gwei, finality_delay: uint64,
     previous_epoch: Epoch, active_increments: uint64,
     penalty_denominator: uint64,
-    epoch_participation: ptr EpochParticipationFlags,
+    epoch_participation:
+      ptr altair.EpochParticipationFlags | ptr gloas.EpochParticipationFlags,
     participating_increments: array[3, uint64], info: var altair.EpochInfo,
     vidx: ValidatorIndex, inactivity_score: uint64
 ): (ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei) =
@@ -1092,11 +1090,15 @@ func process_participation_flag_updates*(
 
   const zero = 0.ParticipationFlags
   for i in 0 ..< state.current_epoch_participation.len:
-    asList(state.current_epoch_participation)[i] = zero
+    state.current_epoch_participation[i] = zero
 
-  # Shouldn't be wasted zeroing, because state.current_epoch_participation only
-  # grows. New elements are automatically initialized to 0, as required.
-  doAssert state.current_epoch_participation.asList.setLen(state.validators.len)
+  # Shouldn't be wasted zeroing, because state.current_epoch_participation
+  # only grows. New elements are automatically initialized to 0, as required.
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    state.current_epoch_participation.setLen(state.validators.len)
+  else:
+    doAssert state.current_epoch_participation.asList.setLen(
+      state.validators.len)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(
@@ -1296,7 +1298,7 @@ func process_pending_deposits*(
     next_deposit_index += 1
 
   state.pending_deposits =
-    HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT].init(
+    typeof(state.pending_deposits).init(
       state.pending_deposits.asSeq[next_deposit_index..^1] &
       deposits_to_postpone)
 
@@ -1345,7 +1347,7 @@ func process_pending_consolidations*(
     next_pending_consolidation += 1
 
   state.pending_consolidations =
-    HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT].init(
+    typeof(state.pending_consolidations).init(
       state.pending_consolidations.asSeq[next_pending_consolidation..^1])
 
   ok()
@@ -1392,7 +1394,7 @@ func process_builder_pending_payments*(
 
   for index in 0 ..< min(
       state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
-    var payment = state.builder_pending_payments.mitem(index)
+    let payment = state.builder_pending_payments.mitem(index)
     if payment.weight.distinctBase >= quorum:
       if not state.builder_pending_withdrawals.add(payment.withdrawal):
         return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")
@@ -1467,22 +1469,16 @@ proc init*(
            gloas.BeaconState | heze.BeaconState,
     cache = default(StateCache)) =
   # init participation, overwriting the full structure
-  info.balances =
-    if cache.participating.isSome:
-      let participating = cache.participating.unsafeGet
-      if participating.slot == state.latest_block_header.slot and
-          participating.slot.epoch == get_current_epoch(state):
-        debugGloasComment "remove + proc -> func once this got enough maturity"
-        let expected_balances = get_unslashed_participating_balances(state)
-        if participating.balances != expected_balances:
-          warn "Participating balances cache mismatch - report bug",
-            slot = state.slot, participating, expected_balances
-          incInternalErrors()
-        expected_balances  # participating.balances
-      else:
-        get_unslashed_participating_balances(state)
-    else:
-      get_unslashed_participating_balances(state)
+  info.balances = get_unslashed_participating_balances(state)
+  cache.participating.isErrOr:
+    if value.slot == state.latest_block_header.slot and
+        value.slot.epoch == get_current_epoch(state):
+      debugGloasComment "remove + proc -> func once this got enough maturity"
+      if value.balances != info.balances:
+        warn "Participating balances cache mismatch - report bug",
+          slot = state.slot, participating = value,
+          expected_balances = info.balances
+        incInternalErrors()
   info.validators.setLen(state.validators.len())
 
   let previous_epoch = get_previous_epoch(state)

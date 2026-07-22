@@ -338,7 +338,7 @@ proc writeValue*(writer: var JsonWriter, value: IoErrorCode) {.
      raises: [IOError].} =
   writer.writeValue(distinctBase value)
 
-proc createEnr(rng: var HmacDrbgContext,
+proc createEnr(rng: ref HmacDrbgContext,
                dataDir: string,
                netKeyFile: string,
                netKeyInsecurePassword: bool,
@@ -367,7 +367,7 @@ proc createEnr(rng: var HmacDrbgContext,
   bootstrapEnr.tryGet()
 
 proc doCreateTestnet*(config: CliConfig,
-                      rng: var HmacDrbgContext)
+                      rng: ref HmacDrbgContext)
                      {.raises: [CatchableError].} =
   let launchPadDeposits = try:
     Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
@@ -425,7 +425,7 @@ proc doCreateTestnet*(config: CliConfig,
       quit 1
 
   template createAndSaveState(): Eth2Digest =
-    var initialState =
+    let initialState =
       initGenesisState(cfg, eth1Hash, startTime, deposits, {skipBlsValidation})
     withState(initialState[]):
       # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
@@ -504,7 +504,7 @@ when isMainModule:
     hexToSeqByte staticRead "../beacon_chain/el/deposit_contract_code.txt"
 
   proc doCreateTestnetEnr(config: CliConfig,
-                          rng: var HmacDrbgContext)
+                          rng: ref HmacDrbgContext)
                          {.raises: [CatchableError].} =
     let
       cfg = getRuntimeConfig(config.eth2Network)
@@ -654,11 +654,11 @@ when isMainModule:
     case conf.cmd
     of StartUpCommand.createTestnet:
       let rng = HmacDrbgContext.new()
-      doCreateTestnet(conf, rng[])
+      doCreateTestnet(conf, rng)
 
     of StartUpCommand.createTestnetEnr:
       let rng = HmacDrbgContext.new()
-      doCreateTestnetEnr(conf, rng[])
+      doCreateTestnetEnr(conf, rng)
 
     of StartUpCommand.deployDepositContract:
       let web3 = await initWeb3(conf.web3Url, conf.privateKey)

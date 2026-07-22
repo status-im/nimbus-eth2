@@ -18,7 +18,7 @@ import
   ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb, gloas],
   ./[
     beacon_clock, buildinfo, filepath, light_client, light_client_db,
-    nimbus_binary_common, process_state, version]
+    nimbus_binary_common, nimbus_rest_common, process_state, version]
 
 from ./consensus_object_pools/blockchain_dag import
   updateFinalizedBlockMetrics, updateHeadBlockMetrics
@@ -42,6 +42,8 @@ proc main() {.noinline, raises: [CatchableError].} =
   ).valueOr:
     writePanicLine error # Logging not yet set up
     quit QuitFailure
+
+  setupFileLimits()
 
   notice "Launching light client",
     version = fullVersionStr, cmdParams = commandLineParams(), config
@@ -83,7 +85,7 @@ proc main() {.noinline, raises: [CatchableError].} =
     genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
 
     rng = HmacDrbgContext.new()
-    netKeys = getRandomNetKeys(rng[])
+    netKeys = getRandomNetKeys(rng)
     network = createEth2Node(
       rng, config, netKeys, cfg, forkDigests, getBeaconTime, genesis_validators_root
     ).valueOr:

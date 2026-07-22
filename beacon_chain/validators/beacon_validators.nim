@@ -17,7 +17,7 @@ import
   std/[os, tables],
 
   # Nimble packages
-  stew/byteutils,
+  stew/[assign2, byteutils],
   chronos,
   metrics,
   chronicles,
@@ -43,12 +43,13 @@ import
     validator_pool,
   ]
 
-from std/sequtils import mapIt, toSeq
+from std/sequtils import findIt, mapIt, toSeq
 from eth/async_utils import awaitWithTimeout
 from ./message_router_mev import unblindAndRouteBlockMEV
 from ../spec/beaconstate import proposalExecutionHead
+from ../spec/column_map import supernodeMap
 from ../consensus_object_pools/execution_payload_pool import
-  getHighestBidForSlotAndParent, payloadAvailability
+  getHighestBidForProposalState, payloadAvailability
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -264,8 +265,8 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
         return
 
       let
-        finalized_slot =
-          forkyFinalityUpdate.finalized_header.beacon.slot
+        attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
+        finalized_slot = forkyFinalityUpdate.finalized_header.beacon.slot
         has_supermajority =
           hasSupermajoritySyncParticipation(num_active_participants.uint64)
         newFinality =
@@ -277,37 +278,52 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot)
             false
           else:
             has_supermajority
-      if newFinality:
-        template msg(): auto = forkyFinalityUpdate
-        let sendResult =
-          await node.network.broadcastLightClientFinalityUpdate(msg)
-
-        # Optimization for message with ephemeral validity, whether sent or not
-        pool.latestForwardedFinalitySlot = finalized_slot
-        pool.latestForwardedFinalityHasSupermajority = has_supermajority
-
-        if sendResult.isOk:
-          beacon_light_client_finality_updates_sent.inc()
-          notice "LC finality update sent", message = shortLog(msg)
-        else:
-          warn "LC finality update failed to send",
-            error = sendResult.error()
-
-      let attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
-      if attested_slot > pool.latestForwardedOptimisticSlot:
-        let msg = forkyFinalityUpdate.toOptimistic
-        let sendResult =
-          await node.network.broadcastLightClientOptimisticUpdate(msg)
-
-        # Optimization for message with ephemeral validity, whether sent or not
-        pool.latestForwardedOptimisticSlot = attested_slot
-
-        if sendResult.isOk:
-          beacon_light_client_optimistic_updates_sent.inc()
-          notice "LC optimistic update sent", message = shortLog(msg)
-        else:
-          warn "LC optimistic update failed to send",
-            error = sendResult.error()
+      var
+        sentFinUpdate {.noinit.}: lcDataFork.LightClientFinalityUpdate
+        sentOptUpdate {.noinit.}: lcDataFork.LightClientOptimisticUpdate
+      let
+        sendFinalityUpdateFut =
+          if newFinality:
+            sentFinUpdate.assign(forkyFinalityUpdate)
+            pool.latestForwardedFinalitySlot = finalized_slot
+            pool.latestForwardedFinalityHasSupermajority = has_supermajority
+            node.network.broadcastLightClientFinalityUpdate(sentFinUpdate)
+          else:
+            nil
+        sendOptimisticUpdateFut =
+          if attested_slot > pool.latestForwardedOptimisticSlot:
+            sentOptUpdate.assign(forkyFinalityUpdate.toOptimistic)
+            pool.latestForwardedOptimisticSlot = attested_slot
+            node.network.broadcastLightClientOptimisticUpdate(sentOptUpdate)
+          else:
+            nil
+      try:
+        if sendFinalityUpdateFut != nil:
+          let sendResult = await sendFinalityUpdateFut
+          if sendResult.isOk:
+            beacon_light_client_finality_updates_sent.inc()
+            notice "LC finality update sent",
+              message = shortLog(sentFinUpdate)
+          else:
+            warn "LC finality update failed to send",
+              error = sendResult.error()
+        if sendOptimisticUpdateFut != nil:
+          let sendResult = await sendOptimisticUpdateFut
+          if sendResult.isOk:
+            beacon_light_client_optimistic_updates_sent.inc()
+            notice "LC optimistic update sent",
+              message = shortLog(sentOptUpdate)
+          else:
+            warn "LC optimistic update failed to send",
+              error = sendResult.error()
+      except CancelledError as exc:
+        var futs = newSeqOfCap[Future[void].Raising([])](2)
+        if sendFinalityUpdateFut != nil:
+          futs.add sendFinalityUpdateFut.cancelAndWait()
+        if sendOptimisticUpdateFut != nil:
+          futs.add sendOptimisticUpdateFut.cancelAndWait()
+        await noCancel allFutures(futs)
+        raise exc
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
@@ -317,7 +333,7 @@ proc createAndSendAttestation(node: BeaconNode,
                               {.async: (raises: [CancelledError]).} =
   let epoch = registered.data.slot.epoch
 
-  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Electra:
+  if epoch < node.dag.cfg.ELECTRA_FORK_EPOCH:
     warn "Routing of pre-electra attestations not supported",
       attestationData = shortLog(registered.data)
     return
@@ -395,6 +411,7 @@ proc proposeBlockAux(
     fork: static ConsensusFork,
     validator: AttachedValidator,
     head: BlockRef,
+    shouldExtendPayload: bool,
     slot: Slot,
     randao_reveal: ValidatorSig,
 ): Future[BlockRef] {.async: (raises: [CancelledError]).} =
@@ -409,25 +426,28 @@ proc proposeBlockAux(
     graffiti = node.getGraffitiBytes(validator)
     validator_index = validator.index.expect("index set for proposer")
 
-    (shouldExtendPayload, parentExecutionRequests) = block:
-      debugGloasComment("refactor when we have a proper should_extend_payload")
-      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#executionpayload
-      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/validator.md#parent-execution-requests
+    parentExecutionRequests = block:
       when fork >= ConsensusFork.Gloas:
-        let
-          parentId = state[].latest_block_id
-          envelope =
-            if node.dag.cfg.consensusForkAtEpoch(parentId.slot.epoch()) >=
-                ConsensusFork.Gloas:
-              node.dag.db.getExecutionPayloadEnvelope(parentId.root)
-            # For parent in pre-Gloas, we should extend the payload with empty
-            # execution requests.
-            else:
-              Opt.some(default(TrustedSignedExecutionPayloadEnvelope))
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#executionpayload
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#parent-execution-requests
+        if shouldExtendPayload:
+          let
+            parentId = state[].latest_block_id
+            parentExecutionRequests =
+              if parentId.slot.epoch() >= node.dag.cfg.GLOAS_FORK_EPOCH:
+                # When proposal should extend the head payload, the envelope must
+                # exist or otherwise we shouldn't proceed.
+                let envelope = node.dag.db.getExecutionPayloadEnvelope(
+                    parentId.root).valueOr:
+                  warn "Proposal parent payload is missing",
+                    slot, head = shortLog(head), parentId = shortLog(parentId)
+                  return head
+                envelope.message.execution_requests
+              # For parent in pre-Gloas, we should extend the payload with empty
+              # execution requests.
+              else:
+                default(gloas.ExecutionRequests)
 
-        if envelope.isSome():
-          let parentExecutionRequests =
-            envelope.get().message.execution_requests
           apply_parent_execution_payload(
             node.dag.cfg,
             state[].forky(fork).data,
@@ -435,14 +455,15 @@ proc proposeBlockAux(
             cache[],
           ).isOkOr:
             debug "Proposal failed to apply parent payload",
-              slot, head = shortLog(head)
+              slot, head = shortLog(head), parentId = shortLog(parentId)
             return head
-          (true, parentExecutionRequests)
+
+          parentExecutionRequests
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          (false, default(ExecutionRequests))
+          default(fork.ExecutionRequests)
       else:
-        (false, default(ExecutionRequests))
+        default(fork.ExecutionRequests)
 
     engineBid =
       when fork == ConsensusFork.Heze:
@@ -587,8 +608,8 @@ proc proposeBlockAux(
       payloadAvailability = node.dag.payloadAvailability(head, executionHead)
       poolBid =
         if payloadAvailability.isSome:
-          node.executionPayloadBidPool[].getHighestBidForSlotAndParent(
-            slot, head.root, payloadAvailability.unsafeGet)
+          node.executionPayloadBidPool[].getHighestBidForProposalState(
+            state[].forky(fork).data, payloadAvailability.unsafeGet)
         else:
           Opt.none gloas.SignedExecutionPayloadBid
       localBlockValueBoost =
@@ -653,11 +674,13 @@ proc proposeBlockAux(
   elif fork == ConsensusFork.Gloas:
     let sidecarsOpt = Opt.some(signedBlock.assemble_data_column_sidecars(
       engineBid[].eps.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it))))
+      engineBid[].eps.blobsBundle.proofs.mapIt(kzg.KzgProof(it)),
+      supernodeMap))
   elif fork == ConsensusFork.Fulu:
     let sidecarsOpt = signedBlock.assemble_data_column_sidecars(
       engineBlock.blobsBundle.blobs.mapIt(kzg.KzgBlob(bytes: it)),
-      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)))
+      engineBlock.blobsBundle.proofs.mapIt(kzg.KzgProof(it)),
+      supernodeMap)
   elif fork == ConsensusFork.Electra:
     let sidecarsOpt = signedBlock.create_blob_sidecars(
       engineBlock.blobsBundle.proofs,
@@ -744,7 +767,8 @@ proc proposeBlockAux(
   newBlockRef.get()
 
 proc proposeBlock(
-    node: BeaconNode, validator: AttachedValidator, head: BlockRef, slot: Slot
+    node: BeaconNode, validator: AttachedValidator,
+    head: BlockRef, shouldExtendPayload: bool, slot: Slot
 ): Future[BlockRef] {.async: (raises: [CancelledError]).} =
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -758,7 +782,9 @@ proc proposeBlock(
 
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(slot.epoch)):
     when consensusFork >= ConsensusFork.Electra:
-      await node.proposeBlockAux(consensusFork, validator, head, slot, randao_reveal)
+      await node.proposeBlockAux(
+        consensusFork, validator, head, shouldExtendPayload,
+        slot, randao_reveal)
     else:
       warn "Block proposals for fork no longer supported", consensusFork
       head
@@ -815,7 +841,7 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     payloadIndex =
-      if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas or
+      if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH or
           attestationHead.blck.slot >= slot:
         0'u64
       else:
@@ -977,7 +1003,7 @@ proc sendSyncCommitteeContributions(
         node, validator, subcommitteeIdx, head, slot)
 
 proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
-  if node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch) >= ConsensusFork.Gloas:
+  if blck.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
     node.dag.db.containsExecutionPayloadEnvelope(blck.root)
   else:
     true
@@ -992,7 +1018,7 @@ proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
       if forkyBlck.message.body.signed_execution_payload_bid.message
           .blob_kzg_commitments.len() == 0:
         return true
-      for columnIdx in node.dataColumnQuarantine.custodyColumns:
+      for columnIdx in node.fuluColumnQuarantine.custodyColumns:
         if not node.dag.db.containsDataColumnSidecar(
             consensusFork, blck.root, columnIdx):
           return false
@@ -1037,8 +1063,7 @@ proc sendPayloadAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform payload attestation duties for PTC members
 
-  let consensusFork = node.dag.cfg.consensusForkAtEpoch(slot.epoch)
-  if consensusFork < ConsensusFork.Gloas:
+  if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#constructing-the-payloadattestationmessage
@@ -1058,7 +1083,10 @@ proc sendPayloadAttestations(
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
+      var seen: HashSet[ValidatorIndex]
       for vidx in get_ptc(forkyState.data, slot):
+        if seen.containsOrIncl(vidx):
+          continue
         let validator = node.getValidatorForDuties(vidx, slot).valueOr:
           continue
 
@@ -1077,13 +1105,17 @@ proc signAndSendProposerPreference(
       (data.validator_index, data.proposal_slot))
     return
   let signed = SignedProposerPreferences(message: data, signature: signature)
-  await node.router.routeProposerPreferences(signed)
+
+  node.eventBus.proposerPreferencesQueue.emit(
+    EventProposerPreferencesObject(data: signed))
+
+  discard await node.router.routeProposerPreferences(signed)
 
 proc sendProposerPreferences(
     node: BeaconNode, head: BlockRef,
     slot: Slot) {.async: (raises: [CancelledError]).} =
 
-  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) < ConsensusFork.Gloas:
+  if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
   if slot.is_epoch and slot.epoch > 0:
@@ -1111,8 +1143,9 @@ proc sendProposerPreferences(
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#broadcasting-signedproposerpreferences
           let dependent_root =
-            forkyState.dependent_root(proposal_slot.epoch)
+            forkyState.get_proposer_dependent_root(proposal_slot.epoch)
           let data = ProposerPreferences(
             dependent_root: dependent_root,
             validator_index: validator_index.uint64,
@@ -1126,7 +1159,8 @@ proc sendProposerPreferences(
           asyncSpawn node.signAndSendProposerPreference(
             validator, fork, genesis_validators_root, data)
 
-proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
+proc handleProposal(
+    node: BeaconNode, head: BlockRef, shouldExtendPayload: bool, slot: Slot):
     Future[BlockRef] {.async: (raises: [CancelledError]).} =
   ## Perform the proposal for the given slot, iff we have a validator attached
   ## that is supposed to do so, given the shuffling at that slot for the given
@@ -1152,7 +1186,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
                                         proposer = shortLog(proposerKey)
       return head
 
-  await proposeBlock(node, validator, head, slot)
+  await proposeBlock(node, validator, head, shouldExtendPayload, slot)
 
 proc signAndSendAggregate(
     node: BeaconNode, validator: AttachedValidator, shufflingRef: ShufflingRef,
@@ -1192,7 +1226,20 @@ proc signAndSendAggregate(
     discard await node.router.routeSignedAggregateAndProof(
       msg, checkSignature = false)
 
-  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Gloas:
+    var msg = gloas.SignedAggregateAndProof(
+      message: gloas.AggregateAndProof(
+        aggregator_index: distinctBase validator_index,
+        selection_proof: selectionProof))
+
+    msg.message.aggregate =
+      node.attestationPool[].getGloasAggregatedAttestation(
+        slot, committee_index).valueOr:
+          return
+
+    signAndSendAggregatedAttestations()
+
+  elif node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#aggregateandproof
     var msg = electra.SignedAggregateAndProof(
@@ -1200,9 +1247,10 @@ proc signAndSendAggregate(
         aggregator_index: distinctBase validator_index,
         selection_proof: selectionProof))
 
-    msg.message.aggregate = node.attestationPool[].getElectraAggregatedAttestation(
-      slot, committee_index).valueOr:
-        return
+    msg.message.aggregate =
+      node.attestationPool[].getElectraAggregatedAttestation(
+        slot, committee_index).valueOr:
+          return
 
     signAndSendAggregatedAttestations()
 
@@ -1268,7 +1316,7 @@ proc getValidatorRegistration(
   if validator.index.isNone:
     # The validator index will be missing when the validator was not
     # activated for duties yet. We can safely skip the registration then.
-    return
+    return err("Validator not yet activated")
 
   let
     feeRecipient = node.getFeeRecipient(validator.pubkey, validator.index, epoch)
@@ -1291,6 +1339,16 @@ proc getValidatorRegistration(
     )
 
   ok validatorRegistration
+
+proc isConsistent(
+    node: BeaconNode,
+    validatorRegistration: SignedValidatorRegistrationV1,
+    validator: AttachedValidator,
+    epoch: Epoch): bool =
+  validatorRegistration.message.fee_recipient ==
+    node.getFeeRecipient(validator.pubkey, validator.index, epoch) and
+  validatorRegistration.message.gas_limit ==
+    node.getGasLimit(validator.pubkey)
 
 proc registerValidatorsPerBuilder(
     node: BeaconNode, payloadBuilderAddress: string, epoch: Epoch,
@@ -1389,22 +1447,18 @@ proc registerValidatorsPerBuilder(
       addValidatorRegistration validator.externalBuilderRegistration.get
     else:
       let validatorRegistration =
-        await node.getValidatorRegistration(validator, epoch)
-      if validatorRegistration.isErr:
-        error "registerValidators: validatorRegistration failed",
-                validatorRegistration
+          (await node.getValidatorRegistration(validator, epoch)).valueOr:
+        error "registerValidators: validatorRegistration failed", reason = error
         continue
 
-      # Time passed during await; REST keymanager API might have removed it
-      if key notin node.attachedValidators[].validators:
+      # Time passed during await; REST keymanager API might change / remove it
+      node.attachedValidators[].validators.withValue(key, validator):
+        if not node.isConsistent(validatorRegistration, validator[], epoch):
+          continue
+        validator[].externalBuilderRegistration.ok validatorRegistration
+        addValidatorRegistration validatorRegistration
+      do:
         continue
-      let validator = try:
-        node.attachedValidators[].validators[key]
-      except KeyError:
-        raiseAssert "just checked"
-
-      validator.externalBuilderRegistration = Opt.some validatorRegistration.get
-      addValidatorRegistration validatorRegistration.get
 
   if validatorRegistrations == emptyNestedSeq:
     return
@@ -1521,7 +1575,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   withState(node.dag.headState):
     node.updateValidators(forkyState.data.validators.asSeq())
 
-  let newHead = await handleProposal(node, head, slot)
+  let newHead = await handleProposal(
+    node, head, node.dag.shouldExtendPayload(head), slot)
   head = newHead
 
   # The latest point in time when we'll be sending out attestations
@@ -1551,21 +1606,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
 
-  let payloadAttestationCutOff = node.beaconClock.fromNow(
-    slot.payload_attestation_deadline(node.dag.timeParams))
-  if payloadAttestationCutOff.inFuture:
-    debug "Waiting to send payload attestations",
-      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
-    if head.slot == slot:
-      # Send as soon as the execution payload envelope for this slot's
-      # block arrives, or at the deadline whichever comes first.
-      discard await node.consensusManager[].expectEnvelope(head.root)
-        .withTimeout(payloadAttestationCutOff.offset)
-    else:
-      await sleepAsync(payloadAttestationCutOff.offset)
-
-  sendPayloadAttestations(node, head, slot)
-
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-aggregate
@@ -1585,10 +1625,25 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
 
+  let payloadAttestationCutOff = node.beaconClock.fromNow(
+    slot.payload_attestation_deadline(node.dag.timeParams))
+  if payloadAttestationCutOff.inFuture:
+    debug "Waiting to send payload attestations",
+      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
+    if head.slot == slot:
+      # Send as soon as the execution payload envelope for this slot's
+      # block arrives, or at the deadline whichever comes first.
+      discard await node.consensusManager[].expectEnvelope(head.root)
+        .withTimeout(payloadAttestationCutOff.offset)
+    else:
+      await sleepAsync(payloadAttestationCutOff.offset)
+
+  sendPayloadAttestations(node, head, slot)
+
   await node.sendProposerPreferences(head, slot)
 
 proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
-  if node.dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Gloas:
+  if epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
   let validatorIndices = block:

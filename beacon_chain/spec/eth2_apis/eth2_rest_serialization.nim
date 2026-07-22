@@ -90,6 +90,7 @@ type
     seq[RestSyncCommitteeSubscription] |
     seq[phase0.SignedAggregateAndProof] |
     seq[electra.SignedAggregateAndProof] |
+    seq[gloas.SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
@@ -109,6 +110,7 @@ type
     GetDistributedKeystoresResponse |
     GetHistoricalSummariesV1Response |
     GetHistoricalSummariesV1ResponseElectra |
+    GetHistoricalSummariesV1ResponseGloas |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
     GetStateForkResponse |
@@ -257,7 +259,7 @@ func strictParse*[bits: static[int]](input: string,
 
 template withRestJsonWriter(w, typ, body: untyped): untyped =
   try:
-    var stream = memoryOutput()
+    let stream = memoryOutput()
     var w = JsonWriter[RestJson].init(stream)
     body
     stream.getOutput(typ)
@@ -533,7 +535,7 @@ proc sszResponseVersioned*[T: SomeForkedLightClientObject](
     entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
     try:
-      var stream = memoryOutput()
+      let stream = memoryOutput()
       for e in entries:
         withForkyUpdate(e.data):
           when lcDataFork > LightClientDataFork.None:
@@ -1042,6 +1044,8 @@ func decodeString*(t: typedesc[EventTopic],
   case value
   of "head":
     ok(EventTopic.Head)
+  of "head_v2":
+    ok(EventTopic.HeadV2)
   of "block":
     ok(EventTopic.Block)
   of "block_gossip":
@@ -1082,6 +1086,10 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.PayloadAttestationMessage)
   of "fast_confirmation":
     ok(EventTopic.FastConfirmation)
+  of "payload_attributes":
+    ok(EventTopic.PayloadAttributes)
+  of "proposer_preferences":
+    ok(EventTopic.ProposerPreferences)
   else:
     err("Incorrect event's topic value")
 
@@ -1089,6 +1097,8 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
   var res: string
   if EventTopic.Head in value:
     res.add("head,")
+  if EventTopic.HeadV2 in value:
+    res.add("head_v2,")
   if EventTopic.Block in value:
     res.add("block,")
   if EventTopic.BlockGossip in value:
@@ -1127,6 +1137,10 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("execution_payload_bid,")
   if EventTopic.PayloadAttestationMessage in value:
     res.add("payload_attestation_message,")
+  if EventTopic.PayloadAttributes in value:
+    res.add("payload_attributes,")
+  if EventTopic.ProposerPreferences in value:
+    res.add("proposer_preferences,")
   if len(res) == 0:
     return err("Topics set must not be empty")
   res.setLen(len(res) - 1)

@@ -136,10 +136,10 @@ proc getTestStates*(
     # Approaching and passing mainnet SLOTS_PER_HISTORICAL_ROOT wraparound
     255, 256, 257]
 
+  let tmpState = assignClone(initialState)
   var
-    tmpState = assignClone(initialState)
-    cache = StateCache()
-    info = ForkedEpochInfo()
+    cache: StateCache
+    info: ForkedEpochInfo
     cfg = defaultRuntimeConfig
 
   static: doAssert high(ConsensusFork) == ConsensusFork.Heze

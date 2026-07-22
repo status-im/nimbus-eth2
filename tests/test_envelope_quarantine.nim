@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 import
@@ -37,6 +37,7 @@ suite "Envelope Quarantine":
     check (root1, 1'u64) notin quarantine.orphans
 
   test "Pop orphan":
+    debugHezeComment "Heze has different SignedExecutionPayloadBid"
     let
       envelope = SignedExecutionPayloadEnvelope(
         message: ExecutionPayloadEnvelope(

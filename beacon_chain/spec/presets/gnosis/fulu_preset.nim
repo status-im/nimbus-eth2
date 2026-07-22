@@ -8,11 +8,11 @@
 {.push raises: [].}
 
 # Gnosis preset - Fulu
-# https://github.com/gnosischain/specs/blob/5a3b1d21705d3cb79be95fcf9a9a1745faf10050/consensus/preset/gnosis/fulu.yaml
+# https://github.com/gnosischain/specs/blob/045d46d6db96a39b4d91485f9783474c13546ac9/consensus/preset/gnosis/fulu.yaml
 const
   # Networking
   # ---------------------------------------------------------------
-  # floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) (= 4)
+  # floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments') (= 4)
   KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH*: uint64 = 4
 
   # Blob

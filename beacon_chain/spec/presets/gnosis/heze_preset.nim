@@ -8,9 +8,16 @@
 {.push raises: [], gcsafe.}
 
 # Mainnet preset - Heze (Gnosis version not available yet; EF mainnet for now)
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/presets/mainnet/heze.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/heze.yaml
 const
   # Inclusion list committee
   # ---------------------------------------------------------------
   # 2**4 (= 16) validators
   INCLUSION_LIST_COMMITTEE_SIZE* = 16
+
+  # Type-specific SSZ bounds
+  # ---------------------------------------------------------------
+  # 196,934 bytes, ~192 KiB
+  MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE*: uint64 = 196934
+  # 8,348 bytes, ~8 KiB
+  MAX_SIGNED_INCLUSION_LIST_SIZE*: uint64 = 8348

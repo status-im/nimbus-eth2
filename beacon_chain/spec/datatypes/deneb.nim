@@ -691,7 +691,7 @@ func is_valid_light_client_header*(
   if epoch < cfg.CAPELLA_FORK_EPOCH:
     return
       header.execution == static(default(ExecutionPayloadHeader)) and
-      header.execution_branch == static(default(ExecutionBranch))
+      header.execution_branch.isZero
 
   is_valid_merkle_branch(
     get_lc_execution_root(header, cfg),
@@ -780,7 +780,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
+      not v.next_sync_committee.isZero,
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

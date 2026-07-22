@@ -13,7 +13,7 @@ import
   stew/assign2,
   chronicles,
   ../extras,
-  "."/[
+  ./[
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
@@ -221,11 +221,13 @@ type
 
   ForkyAggregateAndProof* =
     phase0.AggregateAndProof |
-    electra.AggregateAndProof
+    electra.AggregateAndProof |
+    gloas.AggregateAndProof
 
   ForkySignedAggregateAndProof* =
     phase0.SignedAggregateAndProof |
-    electra.SignedAggregateAndProof
+    electra.SignedAggregateAndProof |
+    gloas.SignedAggregateAndProof
 
   ForkyAttestation* =
     phase0.Attestation |
@@ -240,20 +242,8 @@ type
     of ConsensusFork.Deneb:     denebData*:     phase0.Attestation
     of ConsensusFork.Electra:   electraData*:   electra.Attestation
     of ConsensusFork.Fulu:      fuluData*:      electra.Attestation
-    of ConsensusFork.Gloas:     gloasData*:     electra.Attestation
-    of ConsensusFork.Heze:      hezeData*:      electra.Attestation
-
-  ForkedAggregateAndProof* = object
-    case kind*: ConsensusFork
-    of ConsensusFork.Phase0:    phase0Data*:    phase0.AggregateAndProof
-    of ConsensusFork.Altair:    altairData*:    phase0.AggregateAndProof
-    of ConsensusFork.Bellatrix: bellatrixData*: phase0.AggregateAndProof
-    of ConsensusFork.Capella:   capellaData*:   phase0.AggregateAndProof
-    of ConsensusFork.Deneb:     denebData*:     phase0.AggregateAndProof
-    of ConsensusFork.Electra:   electraData*:   electra.AggregateAndProof
-    of ConsensusFork.Fulu:      fuluData*:      electra.AggregateAndProof
-    of ConsensusFork.Gloas:     gloasData*:     electra.AggregateAndProof
-    of ConsensusFork.Heze:      hezeData*:      electra.AggregateAndProof
+    of ConsensusFork.Gloas:     gloasData*:     gloas.Attestation
+    of ConsensusFork.Heze:      hezeData*:      gloas.Attestation
 
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -294,6 +284,15 @@ type
     kind*: ConsensusFork
     data*: BeaconBlockHeader
       ## From Bellatrix onwards, a header is all that's needed
+
+  Web3SignerForkedAggregateAndProof* = object
+    case kind*: ConsensusFork
+    of ConsensusFork.Gloas .. ConsensusFork.high:
+      gloasData*: gloas.AggregateAndProof
+    of ConsensusFork.Electra .. ConsensusFork.Fulu:
+      electraData*: electra.AggregateAndProof
+    of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
+      discard
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
@@ -533,7 +532,8 @@ template kind*(
       gloas.SigVerifiedBeaconBlockBody |
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
-      gloas.TrustedSignedBeaconBlock]): ConsensusFork =
+      gloas.TrustedSignedBeaconBlock |
+      gloas.AggregateAndProof]): ConsensusFork =
   ConsensusFork.Gloas
 
 template kind*(
@@ -671,14 +671,6 @@ template ExecutionPayloadHeader*(kind: static ConsensusFork): typedesc =
   else:
     {.error: "ExecutionPayloadHeader unsupported in " & $kind.}
 
-template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
-  when kind >= ConsensusFork.Heze:
-    heze.SignedExecutionPayloadBid
-  elif kind >= ConsensusFork.Gloas:
-    gloas.SignedExecutionPayloadBid
-  else:
-    {.error: "SignedExecutionPayloadBid unsupported in " & $kind.}
-
 template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
   when kind == ConsensusFork.Heze:
     gloas.ExecutionPayloadForSigning
@@ -696,6 +688,24 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): typedesc =
     bellatrix.ExecutionPayloadForSigning
   else:
     {.error: "ExecutionPayloadForSigning unsupported in " & $kind.}
+
+template ExecutionRequests*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Gloas:
+    gloas.ExecutionRequests
+  else:
+    electra.ExecutionRequests
+
+template KzgCommitments*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Gloas:
+    gloas.KzgCommitments
+  else:
+    deneb.KzgCommitments
+
+template SignedExecutionPayloadBid*(kind: static ConsensusFork): typedesc =
+  when kind >= ConsensusFork.Heze:
+    heze.SignedExecutionPayloadBid
+  else:
+    gloas.SignedExecutionPayloadBid
 
 template BlindedBeaconBlock*(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Fulu:
@@ -1076,6 +1086,7 @@ template withEpochInfo*(
   template info: untyped {.inject.} = x.altairData
   body
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind != src.kind:
     # Avoid temporary with ref
@@ -1085,6 +1096,7 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     template forkyTgt: untyped = forkyState
     template forkySrc: untyped = src.forky(consensusFork)
     assign(forkyTgt, forkySrc)
+{.pop.}
 
 func root*(state: ForkedHashedBeaconState): lent Eth2Digest =
   (block: withState(state): addr forkyState.root)[]
@@ -1515,46 +1527,6 @@ template withAttestation*(a: ForkedAttestation, body: untyped): untyped =
   of ConsensusFork.Phase0:
     const consensusFork {.inject, used.} = ConsensusFork.Phase0
     template forkyAttestation: untyped {.inject.} = a.phase0Data
-    body
-
-template withAggregateAndProof*(a: ForkedAggregateAndProof,
-                                body: untyped): untyped =
-  case a.kind
-  of ConsensusFork.Heze:
-    const consensusFork {.inject, used.} = ConsensusFork.Heze
-    template forkyProof: untyped {.inject.} = a.hezeData
-    body
-  of ConsensusFork.Gloas:
-    const consensusFork {.inject, used.} = ConsensusFork.Gloas
-    template forkyProof: untyped {.inject.} = a.gloasData
-    body
-  of ConsensusFork.Fulu:
-    const consensusFork {.inject, used.} = ConsensusFork.Fulu
-    template forkyProof: untyped {.inject.} = a.fuluData
-    body
-  of ConsensusFork.Electra:
-    const consensusFork {.inject, used.} = ConsensusFork.Electra
-    template forkyProof: untyped {.inject.} = a.electraData
-    body
-  of ConsensusFork.Deneb:
-    const consensusFork {.inject, used.} = ConsensusFork.Deneb
-    template forkyProof: untyped {.inject.} = a.denebData
-    body
-  of ConsensusFork.Capella:
-    const consensusFork {.inject, used.} = ConsensusFork.Capella
-    template forkyProof: untyped {.inject.} = a.capellaData
-    body
-  of ConsensusFork.Bellatrix:
-    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
-    template forkyProof: untyped {.inject.} = a.bellatrixData
-    body
-  of ConsensusFork.Altair:
-    const consensusFork {.inject, used.} = ConsensusFork.Altair
-    template forkyProof: untyped {.inject.} = a.altairData
-    body
-  of ConsensusFork.Phase0:
-    const consensusFork {.inject, used.} = ConsensusFork.Phase0
-    template forkyProof: untyped {.inject.} = a.phase0Data
     body
 
 func toBeaconBlockHeader*(
@@ -1997,9 +1969,10 @@ template init*(T: type ForkedMaybeBlindedBeaconBlock,
     consensusValue: cvalue,
     executionValue: evalue)
 
-template init*(T: type ForkedAttestation,
-               attestation: electra.Attestation,
-               fork: ConsensusFork): T =
+template init*(
+    T: type ForkedAttestation,
+    attestation: electra.Attestation,
+    fork: ConsensusFork): T =
   case fork
   of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
     raiseAssert $fork & " fork should not be used for this type of attestation"
@@ -2007,32 +1980,28 @@ template init*(T: type ForkedAttestation,
     ForkedAttestation(kind: ConsensusFork.Electra, electraData: attestation)
   of ConsensusFork.Fulu:
     ForkedAttestation(kind: ConsensusFork.Fulu, fuluData: attestation)
+  of ConsensusFork.Gloas .. ConsensusFork.high:
+    raiseAssert $fork & " fork should not be used for this type of attestation"
+
+template init*(
+    T: type ForkedAttestation,
+    attestation: gloas.Attestation,
+    fork: ConsensusFork): T =
+  case fork
+  of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
+    raiseAssert $fork & " fork should not be used for this type of attestation"
   of ConsensusFork.Gloas:
     ForkedAttestation(kind: ConsensusFork.Gloas, gloasData: attestation)
   of ConsensusFork.Heze:
     ForkedAttestation(kind: ConsensusFork.Heze, hezeData: attestation)
 
-template init*(T: type ForkedAggregateAndProof,
-               proof: electra.AggregateAndProof,
-               fork: ConsensusFork): T =
-  case fork
-  of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-    raiseAssert $fork &
-      " fork should not be used for this type of aggregate and proof"
-  of ConsensusFork.Electra:
-    ForkedAggregateAndProof(kind: ConsensusFork.Electra, electraData: proof)
-  of ConsensusFork.Fulu:
-    ForkedAggregateAndProof(kind: ConsensusFork.Fulu, fuluData: proof)
-  of ConsensusFork.Gloas:
-    ForkedAggregateAndProof(kind: ConsensusFork.Gloas, gloasData: proof)
-  of ConsensusFork.Heze:
-    ForkedAggregateAndProof(kind: ConsensusFork.Heze, hezeData: proof)
-
-func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): KzgCommitments =
-  when typeof(eps).kind >= ConsensusFork.Deneb:
+func kzg_commitments*(eps: ForkyExecutionPayloadForSigning): auto =
+  when typeof(eps).kind >= ConsensusFork.Gloas:
+    eps.blobsBundle.commitments.asSeq
+  elif typeof(eps).kind >= ConsensusFork.Deneb:
     eps.blobsBundle.commitments
   else:
-    default(KzgCommitments)
+    default(deneb.KzgCommitments)
 
 # These need access to eth_merkleization indirectly
 func toSignedBlindedBeaconBlock*(

@@ -57,7 +57,6 @@ TOOLS_CORE_CUSTOMCOMPILE := \
 
 TOOLS_CORE := \
 	resttest \
-	mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
@@ -225,7 +224,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--fulu-fork-epoch 2 \
+		--fulu-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp false \
@@ -492,7 +491,7 @@ GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--debug-tcp=true \
 	--debug-quic=true \
-	--debug-quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
+	--quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--metrics \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
@@ -679,7 +678,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
 				--std=c17 \
 				-Weverything -Werror \
 				-Wno-declaration-after-statement -Wno-nullability-extension \
@@ -693,8 +692,8 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
-				--std=c17 -flto \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-nullability-extension \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
@@ -709,11 +708,12 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
-				--std=c17 -flto \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-maybe-uninitialized \
-				-Wno-stringop-overflow \
+				-Wno-nullability-extension  \
+				-Wno-stringop-overflow -Wno-stringop-overread \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
 				-o build/test_libnimbus_lc \
 				beacon_chain/libnimbus_lc/test_libnimbus_lc.c \

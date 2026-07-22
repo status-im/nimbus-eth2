@@ -28,8 +28,8 @@ pipeline {
     )
     choice(
       name: 'NIX_TARGET',
-      description: 'Nix flake target to build',
-      choices: ['beacon_node', 'validator_client']
+      description: 'Flake target to build. "auto" derives it from the job name, pick a target to force it.',
+      choices: ['auto', 'beacon_node', 'validator_client', 'ncli_db', 'ncli']
     )
   }
 
@@ -59,13 +59,16 @@ pipeline {
 
     stage('Build') {
       steps { script {
-        result = nix.flake(params.NIX_TARGET)
+        result = nix.flake(resolveTarget())
       } }
     }
 
-    stage('Version check') {
+    stage('Runtime check') {
       steps { script {
-        sh "${result}/bin/nimbus_${params.NIX_TARGET} --version"
+        def target = resolveTarget()
+        /* ncli/ncli_db ship as bare binaries and only implement --help. */
+        def flag = (target in ['ncli', 'ncli_db']) ? '--help' : '--version'
+        sh "${result}/bin/nimbus_${target} ${flag}"
       } }
     }
 
@@ -81,6 +84,11 @@ pipeline {
     }
 
     stage('Service check') {
+      when {
+        expression {
+          resolveTarget() in ['beacon_node', 'validator_client']
+        }
+      }
       steps { script {
         sh 'nix run ".#checks.x86_64-linux.beacon-node.driver"'
       } }
@@ -99,4 +107,30 @@ pipeline {
 
 def isMainBranch() {
   return ['stable', 'testing', 'unstable'].contains(env.BRANCH_NAME)
+}
+
+def resolveTarget() {
+  return (params.NIX_TARGET in [null, '', 'auto']) ? nixTarget() : params.NIX_TARGET
+}
+
+def nixTarget() {
+  /* Dev CI is multibranch (BRANCH_NAME set) and only ever builds the beacon node.*/
+  if (env.BRANCH_NAME) {
+    return 'beacon_node'
+  }
+
+  def job = env.JOB_NAME.toLowerCase()
+  if (job.contains('ncli-db')) {
+    return 'ncli_db'
+  }
+
+  if (job.contains('ncli')) {
+    return 'ncli'
+  }
+
+  if (job.contains('validator-client')) {
+    return 'validator_client'
+  }
+
+  return 'beacon_node'
 }

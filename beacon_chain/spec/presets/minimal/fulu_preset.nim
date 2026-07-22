@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Minimal preset - Fulu
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0/presets/minimal/fulu.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/minimal/fulu.yaml
 const
   # Networking
   # ---------------------------------------------------------------
