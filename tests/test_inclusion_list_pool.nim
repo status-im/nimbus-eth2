@@ -136,3 +136,38 @@ suite "Inclusion list pool" & preset():
       pool[].addInclusionList(future, is_timely = true, futureTime)
       pool[].getInclusionListTransactions(
         hezeState[], slot, cache, only_timely = true).len == 0
+      pool[].numSeen(slot, committee[0]) == 0
+
+  test "A list one slot behind the wall slot is still accepted" & preset():
+    # The live window is `[current_slot - 1, current_slot]`: a list for `slot`
+    # remains admissible while the wall clock is at `slot + 1`.
+    let
+      wallNext = (slot + 1).start_beacon_time(dag.cfg.timeParams)
+      il = makeInclusionList(
+        slot, committee[0], committeeRoot, [makeTx([byte 0x01])])
+
+    check:
+      pool[].addInclusionList(il, is_timely = true, wallNext)
+      pool[].getInclusionListTransactions(
+        hezeState[], slot, cache, only_timely = true).len == 1
+
+  test "A list past the lookback window is rejected" & preset():
+    # Wall clock at `slot + 2` puts `slot` two behind, outside the window.
+    let
+      wallLate = (slot + 2).start_beacon_time(dag.cfg.timeParams)
+      il = makeInclusionList(
+        slot, committee[0], committeeRoot, [makeTx([byte 0x01])])
+
+    check:
+      not pool[].addInclusionList(il, is_timely = true, wallLate)
+      pool[].numSeen(slot, committee[0]) == 0
+      pool[].getInclusionListTransactions(
+        hezeState[], slot, cache, only_timely = true).len == 0
+
+  test "A list for a future slot is rejected" & preset():
+    let il = makeInclusionList(
+      slot + 1, committee[0], committeeRoot, [makeTx([byte 0x01])])
+
+    check:
+      not pool[].addInclusionList(il, is_timely = true, wallTime)
+      pool[].numSeen(slot + 1, committee[0]) == 0

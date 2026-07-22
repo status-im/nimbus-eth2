@@ -885,6 +885,9 @@ AllTests-mainnet
 ```
 ## Inclusion list pool [Preset: mainnet]
 ```diff
++ A list for a future slot is rejected [Preset: mainnet]                                     OK
++ A list one slot behind the wall slot is still accepted [Preset: mainnet]                   OK
++ A list past the lookback window is rejected [Preset: mainnet]                              OK
 + Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
 + Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
 + Stale slots are pruned [Preset: mainnet]                                                   OK
