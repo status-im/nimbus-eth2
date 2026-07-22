@@ -30,10 +30,9 @@ from ./gossip_processing/eth2_processor import toValidationResult
 ## directly: they parse and adjust the config themselves, install their own stop
 ## handlers, and signal shutdown through `ProcessState.scheduleStop`.
 proc runLightClient*(
-    configIn: LightClientConf
+    config: LightClientConf
 ) {.raises: [CatchableError].} =
-  # `config` is mutated below (bootstrap nodes), so work on a local copy
-  var config = configIn
+  var config = config
 
   let dbDir = config.databaseDir
   if (let res = secureCreatePath(dbDir); res.isErr):
