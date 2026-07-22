@@ -2599,7 +2599,8 @@ proc executionParent*(
   Opt.none(BlockRef)
 
 func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
-  ## (spec: `head.payload_status == PAYLOAD_STATUS_FULL`)
+  ## Whether `head.payload_status == PAYLOAD_STATUS_FULL`, as consumed by
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
   head == dag.headPayload
 
 from std/packedsets import PackedSet, incl, items
@@ -2900,8 +2901,7 @@ proc updateHeadExecutionPayload*(
   dag.headPayload = newHeadPayload
 
   # `updateHead` already emits head_v2 on a head change; only emit here for a
-  # pure payload flip (head unchanged) to avoid double-emitting. Skip pre-Gloas,
-  # where the only possible flip is the initial nil -> head transition.
+  # pure payload flip (head unchanged) to avoid double-emitting.
   if not headChanged and dag.head.slot.epoch >= dag.cfg.GLOAS_FORK_EPOCH and
       not isNil(dag.onHeadV2Changed):
     # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
