@@ -743,7 +743,7 @@ proc initFullNode(
                 gloasColumnQuarantine[].popSidecars(blockRoot)
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
-              consensusManager.quarantine[].addSidecarless(blck)
+              discard quarantine[].addSidecarless(dag.finalizedHead.slot, blck)
               envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
               # Return ok() as columns may arrive late.
               return ok()
