@@ -419,6 +419,7 @@ proc addBlock*(
   maybeFinalized = false,
   validationDur = Duration(),
   fromGossip = false,
+  noEnqueuePayload = false,
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
 proc enqueueBlock*(
@@ -826,7 +827,8 @@ proc addBlock*(
     sidecarsOpt: SomeOptSidecars,
     maybeFinalized = false,
     validationDur = Duration(),
-    fromGossip = false
+    fromGossip = false,
+    noEnqueuePayload = false,
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## Enqueue a Gossip-validated block for consensus verification - only one
   ## block at a time gets processed
@@ -911,7 +913,8 @@ proc addBlock*(
     self.enqueueQuarantine(res[])
 
     when typeof(blck).kind >= ConsensusFork.Gloas:
-      self.enqueuePayload(blck)
+      if not noEnqueuePayload:
+        self.enqueuePayload(blck)
 
     res.mapConvert(void)
   else:

@@ -54,6 +54,9 @@ type
     future: Future[void].Raising([CancelledError])
     status: SyncWorkerStatus
 
+  EnvelopeVerifier* = proc(signedEnvelope: ref SignedExecutionPayloadEnvelope):
+      Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).}
+
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
     responseTimeout: chronos.Duration
@@ -74,6 +77,7 @@ type
     queue: SyncQueue[A]
     syncFut: Future[void].Raising([CancelledError])
     blockVerifier: BlockVerifier
+    envelopeVerifier: EnvelopeVerifier
     forkAtEpoch: ForkAtEpochCallback
     inProgress*: bool
     insSyncSpeed*: float
@@ -91,6 +95,9 @@ type
 
   BeaconBlocksRes =
     NetRes[List[ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB]]
+
+  EnvelopeRes =
+    NetRes[List[ref SignedExecutionPayloadEnvelope, Limit MAX_REQUEST_BLOCKS_DENEB]]
 
   SyncBlockData* = object
     blocks*: seq[ref ForkedSignedBeaconBlock]
@@ -147,6 +154,7 @@ proc newSyncManager*[A, B](
     weakSubjectivityPeriodCb: GetBoolCallback,
     progressPivot: Slot,
     blockVerifier: BlockVerifier,
+    envelopeVerifier: EnvelopeVerifier,
     forkAtEpochCb: ForkAtEpochCallback,
     shutdownEvent: AsyncEvent,
     maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -175,6 +183,7 @@ proc newSyncManager*[A, B](
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
+    envelopeVerifier: envelopeVerifier,
     forkAtEpoch: forkAtEpochCb,
     notInSyncEvent: newAsyncEvent(),
     resumeSyncEvent: newAsyncEvent(),
@@ -202,6 +211,22 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
 
   beaconBlocksByRange_v2(
     peer, req.data.slot, req.data.count, 1'u64,
+    maxResponseItems = req.data.count.int)
+
+proc getEnvelopes[A, B](man: SyncManager[A, B], peer: A,
+                        req: SyncRequest[A]): Future[EnvelopeRes] {.
+                        async: (raises: [CancelledError], raw: true).} =
+  mixin getScore, `==`
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+  debug "Requesting envelopes from peer",
+        request = req,
+        peer_score = req.item.getScore(),
+        peer_speed = req.item.netKbps(),
+        sync_ident = man.ident,
+        topics = "syncman"
+
+  executionPayloadEnvelopesByRange(
+    peer, req.data.slot, req.data.count,
     maxResponseItems = req.data.count.int)
 
 proc remainingSlots(man: SyncManager): uint64 =
@@ -263,6 +288,31 @@ proc getSyncBlockData*[T](
 
   ok(SyncBlockData(blocks: blocksRange))
 
+func getShortMap*[T](
+    req: SyncRequest[T],
+    data: openArray[ref SignedExecutionPayloadEnvelope]
+): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var
+    res = newStringOfCap(req.data.count)
+    slider = req.data.slot
+    last = 0
+
+  for i in 0 ..< req.data.count:
+    if last < len(data):
+      for k in last ..< len(data):
+        if slider == data[k][].slot:
+          res.add('x')
+          last = k + 1
+          break
+        elif slider < data[k][].slot:
+          res.add('.')
+          break
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
 proc getSyncBlockData[A, B](
     man: SyncManager[A, B],
     index: int,
@@ -288,6 +338,26 @@ proc getSyncBlockData[A, B](
   checkResponse(sr, blockSlots).isOkOr:
     peer.updateScore(PeerScoreBadResponse)
     return err("Incorrect blocks sequence received, reason: " & $error)
+
+  if len(blocks) > 0 and blocks[0][].kind >= ConsensusFork.Gloas:
+    let envelopes = block:
+      let envelopes = (await man.getEnvelopes(peer, sr)).valueOr:
+        peer.updateScore(PeerScoreNoValues)
+        return err("Failed to receive envelopes on request, reason: " & $error)
+      envelopes.asSeq()
+
+    debug "Received envelopes on request",
+          request = sr,
+          peer_score = sr.item.getScore(),
+          peer_speed = sr.item.netKbps(),
+          index = index,
+          envelopes_count = len(envelopes),
+          envelopes_map = getShortMap(sr, envelopes),
+          sync_ident = man.ident,
+          topics = "syncman"
+
+    for i in 0 ..< len(envelopes):
+      discard man.envelopeVerifier(envelopes[i])
 
   ok(SyncBlockData(blocks: blocks.asSeq()))
 

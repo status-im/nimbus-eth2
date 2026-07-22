@@ -640,7 +640,7 @@ proc initFullNode(
       envelopeQuarantine, getBeaconTime, config.invalidBlockRoots)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
                          blobs: Opt[BlobSidecars], maybeFinalized: bool):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError], raw: true).} =
+        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
       withBlck(signedBlock):
         when consensusFork in ConsensusFork.Fulu .. ConsensusFork.Heze:
           # TODO document why there are no columns here
@@ -654,8 +654,54 @@ proc initFullNode(
         else:
           {.error: "Unkown fork: " & $consensusFork.}
 
-        blockProcessor.addBlock(
-          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized)
+        # noEnqueuePayload is to disable processing envelope and sidecars
+        # automatically.
+        (await blockProcessor.addBlock(
+            MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized,
+            noEnqueuePayload = true)).isOkOr:
+          return err(error)
+
+        # Process parent envelope here as we can confirm the envelope exists.
+        # This doesn't matter whether it is after or before addBlock.
+        when consensusFork >= ConsensusFork.Gloas:
+          template bid(): auto =
+            forkyBlck.message.body.signed_execution_payload_bid
+          let parentBlock = block:
+            # both of these shouldn't happen as they have checked in
+            # block_processor.
+            let
+              parent = dag.getBlockRef(forkyBlck.message.parent_root).valueOr:
+                return err(VerifierError.MissingParent)
+              executionParent = dag.executionParent(
+                  parent, bid.message.parent_block_hash).valueOr:
+                return err(VerifierError.MissingParent)
+            if executionParent.slot.epoch() < dag.cfg.GLOAS_FORK_EPOCH:
+              Opt.none(ForkedTrustedSignedBeaconBlock)
+            else:
+              dag.getForkedBlock(executionParent.bid)
+
+          if parentBlock.isNone():
+            return ok()
+
+          # Here we throw VerifierError.MissingParent always instead of mapping
+          # from PayloadVerifierError.
+          withBlck(parentBlock.get()):
+            when consensusFork >= ConsensusFork.Gloas:
+              let envelope = envelopeQuarantine[].popOrphan(
+                  forkyBlck.asSigned()).valueOr:
+                return err(VerifierError.MissingParent)
+
+              # forget about sidecars here.
+              (await blockProcessor.addPayload(
+                  forkyBlck.asSigned(), envelope,
+                  Opt.none(gloas.DataColumnSidecars))).isOkOr:
+                return err(VerifierError.MissingParent)
+              ok()
+            else:
+              # We have checked the fork so should not happen.
+              err(VerifierError.UnviableFork)
+        else:
+          ok()
 
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
@@ -694,6 +740,14 @@ proc initFullNode(
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
+    envelopeVerifier = proc(signedEnvelope: ref SignedExecutionPayloadEnvelope):
+        Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
+      envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, signedEnvelope[])
+      ok()
+    untrustedEnvelopeVerifier = proc(signedEnvelope: ref SignedExecutionPayloadEnvelope):
+        Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
+      debugGloasComment("")
+      ok()
     rmanEnvelopeVerifier = proc(signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
         Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
       ## Envelope verifier contains the same logic as block_processor
@@ -785,7 +839,7 @@ proc initFullNode(
       SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.tail.slot, blockVerifier, forkAtEpoch,
+      dag.tail.slot, blockVerifier, envelopeVerifier, forkAtEpoch,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     backfiller = newSyncManager[Peer, PeerId](
@@ -793,7 +847,8 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      dag.backfill.slot, blockVerifier, forkAtEpoch, maxHeadAge = 0,
+      dag.backfill.slot, blockVerifier, envelopeVerifier, forkAtEpoch,
+      maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     clistPivotSlot =
@@ -807,7 +862,8 @@ proc initFullNode(
       SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getUntrustedBackfillSlot,
       getFrontfillSlot, isWithinWeakSubjectivityPeriod,
-      clistPivotSlot, untrustedBlockVerifier, forkAtEpoch, maxHeadAge = 0,
+      clistPivotSlot, untrustedBlockVerifier, untrustedEnvelopeVerifier,
+      forkAtEpoch, maxHeadAge = 0,
       shutdownEvent = node.shutdownEvent,
       flags = syncManagerFlags)
     router = (ref MessageRouter)(
