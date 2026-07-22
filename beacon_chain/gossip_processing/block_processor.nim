@@ -817,11 +817,6 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
-  when consensusFork >= ConsensusFork.Gloas:
-    # Enqueue payload here instead of `addBlock` for the consistency of payload
-    # processing with backfilling.
-    self.enqueuePayload(signedBlock)
-
   ok(blck)
 
 proc addBlock*(
@@ -914,6 +909,10 @@ proc addBlock*(
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res[])
+
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      self.enqueuePayload(blck)
+
     res.mapConvert(void)
   else:
     case res.error()
