@@ -778,10 +778,9 @@ proc compute_on_chain_aggregate*(
     totalLen = 0
   for i, a in aggregates:
     let committee_index = ? get_committee_index_one(a.committee_bits)
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     totalLen += a.aggregation_bits.len
@@ -789,7 +788,7 @@ proc compute_on_chain_aggregate*(
   prev_committee_index.reset()
 
   var
-    aggregation_bits = AggregationBits.init(totalLen)
+    aggregation_bits = gloas.AggregationBits.init(totalLen)
     pos = 0
     filledLen = 0
   for i, a in aggregates:
@@ -797,10 +796,9 @@ proc compute_on_chain_aggregate*(
       committee_index = ? get_committee_index_one(a.committee_bits)
       first = pos == 0
 
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     for b in a.aggregation_bits:
@@ -821,7 +819,7 @@ proc compute_on_chain_aggregate*(
   let signature = agg.finish()
 
   ok electra.Attestation(
-      aggregation_bits: aggregation_bits,
+      aggregation_bits: toElectraAggregationBits(aggregation_bits),
       data: data,
       committee_bits: committee_bits,
       signature: signature.toValidatorSig(),

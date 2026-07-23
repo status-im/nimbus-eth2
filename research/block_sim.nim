@@ -293,9 +293,10 @@ cli do(
       sync_aggregate = syncCommitteePool[].produceSyncAggregate(dag.head.bid, slot)
 
       epb =
-        when consensusFork >= ConsensusFork.Gloas:
+        when consensusFork >= ConsensusFork.Heze:
+          debugHezeComment "Heze inclusion_list_bits"
           let bid =
-            ExecutionPayloadBid(
+            heze.ExecutionPayloadBid(
               parent_block_hash: state.data.latest_block_hash,
               parent_block_root: hash_tree_root(state.data.latest_block_header),
               block_hash: ZERO_HASH,
@@ -307,13 +308,33 @@ cli do(
               slot: slot,
               value: 0.Gwei,
               execution_payment: 0.Gwei,
-              blob_kzg_commitments: default(KzgCommitments),
+              blob_kzg_commitments: default(gloas.KzgCommitments),
               execution_requests_root:
-                hash_tree_root(default(consensusFork.ExecutionRequests)))
-          SignedExecutionPayloadBid(
+                hash_tree_root(default(gloas.ExecutionRequests)),
+              inclusion_list_bits: default(InclusionListBits))
+          heze.SignedExecutionPayloadBid(
+            message: bid, signature: ValidatorSig.infinity())
+        elif consensusFork >= ConsensusFork.Gloas:
+          let bid =
+            gloas.ExecutionPayloadBid(
+              parent_block_hash: state.data.latest_block_hash,
+              parent_block_root: hash_tree_root(state.data.latest_block_header),
+              block_hash: ZERO_HASH,
+              prev_randao:
+                get_randao_mix(state.data, get_current_epoch(state.data)),
+              fee_recipient: static(default(ExecutionAddress)),
+              gas_limit: 30000000'u64,
+              builder_index: BUILDER_INDEX_SELF_BUILD,
+              slot: slot,
+              value: 0.Gwei,
+              execution_payment: 0.Gwei,
+              blob_kzg_commitments: default(gloas.KzgCommitments),
+              execution_requests_root:
+                hash_tree_root(default(gloas.ExecutionRequests)))
+          gloas.SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:
-          default(SignedExecutionPayloadBid)
+          default(gloas.SignedExecutionPayloadBid)
 
       payload_attestations =
         when consensusFork >= ConsensusFork.Gloas:

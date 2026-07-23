@@ -68,7 +68,7 @@ proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
     block:
       var default: string
       try:
-        var stream = memoryOutput()
+        let stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
         writer.writeField("message", msg)
@@ -234,15 +234,17 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
     var
       response: DeleteKeystoresResponse
-      nodeSPDIR =
-        try:
-          toSPDIR(host.validatorPool[].slashingProtection)
-        except IOError as exc:
-          return keymanagerApiError(
-            Http500, "Internal server error; " & $exc.msg)
-      # Hash table to keep the removal status of all keys form request
-      keysAndDeleteStatus = initTable[PubKeyBytes, RequestItemStatus]()
       responseSPDIR: SPDIR
+
+      # Hash table to keep the removal status of all keys form request
+      keysAndDeleteStatus: Table[PubKeyBytes, RequestItemStatus]
+
+    let nodeSPDIR =
+      try:
+        toSPDIR(host.validatorPool[].slashingProtection)
+      except IOError as exc:
+        return keymanagerApiError(
+          Http500, "Internal server error; " & $exc.msg)
 
     responseSPDIR.metadata = nodeSPDIR.metadata
 

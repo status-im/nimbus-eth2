@@ -14,15 +14,21 @@ import std/[os, sequtils, strutils]
 
 proc gitFolderExists(path: string): bool {.compileTime.} =
   # walk up parent folder to find `.git` folder
-  var currPath = path
-  while true:
-    if dirExists(currPath & "/.git"):
-      return true
-    let parts = splitPath(currPath)
-    if parts.tail.len == 0:
-      break
-    currPath = parts.head
-  false
+  #
+  # Only ever runs on the host at compile time, but `dirExists` checks
+  # the cross-compile target, not the host, so it's unavailable here.
+  when defined(`any`) or defined(standalone):
+    false
+  else:
+    var currPath = path
+    while true:
+      if dirExists(currPath & "/.git"):
+        return true
+      let parts = splitPath(currPath)
+      if parts.tail.len == 0:
+        break
+      currPath = parts.head
+    false
 
 const
   compileYear* = CompileDate[0 ..< 4] # YYYY-MM-DD (UTC)

@@ -45,12 +45,35 @@ type
     Duplicate
       ## We've seen this value already, can't add again
 
+  PayloadVerifierError* {.pure.} = enum
+    Invalid
+      ## Some value in the payload is broken or it doesn't match with the block
+      ## provided.
+
+    MissingParent
+      ## We know the parent block of the block as it is a valid block, but we
+      ## don't know the parent payload/envelope yet.
+
+    UnviableFork
+      ## Value is from a history / fork that does not include our most current
+      ## finalized checkpoint
+
+    Duplicate
+      ## We've seen this value already, can't add again
+
+    InvalidSidecars
+      ## Payload is verified along with sidecars. It is one of the Invalid
+      ## status from payload processing but helps syncer to distinguish which
+      ## should be discarded.
+
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnBlockGossipCallback* =
     proc(data: ForkedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnHeadCallback* =
     proc(data: HeadChangeInfoObject) {.gcsafe, raises: [].}
+  OnHeadV2Callback* =
+    proc(data: HeadV2ChangeInfoObject) {.gcsafe, raises: [].}
   OnReorgCallback* =
     proc(data: ReorgInfoObject) {.gcsafe, raises: [].}
   OnFastConfirmationCallback* =
@@ -61,6 +84,12 @@ type
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
     proc(data: SignedExecutionPayloadEnvelope) {.gcsafe, raises: [].}
+  OnExecutionPayloadBidCallback* =
+    proc(data: gloas.SignedExecutionPayloadBid) {.gcsafe, raises: [].}
+  OnPayloadAttestationMessageCallback* =
+    proc(data: PayloadAttestationMessage) {.gcsafe, raises: [].}
+  OnProposerPreferencesCallback* =
+    proc(data: SignedProposerPreferences) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -265,6 +294,8 @@ type
       ## On block gossip added callback
     onHeadChanged*: OnHeadCallback
       ## On head changed callback
+    onHeadV2Changed*: OnHeadV2Callback
+      ## On head_v2 changed callback
     onReorgHappened*: OnReorgCallback
       ## On beacon chain reorganization
     onFastConfirmation*: OnFastConfirmationCallback
@@ -279,6 +310,12 @@ type
       ## On envelope gossip added callback
     onEnvelopeAvailable*: OnExecutionPayloadCallback
       ## On envelope available callback
+    onExecutionPayloadBidAdded*: OnExecutionPayloadBidCallback
+      ## On execution payload bid gossip added callback
+    onPayloadAttestationMessageAdded*: OnPayloadAttestationMessageCallback
+      ## On payload attestation message gossip added callback
+    onProposerPreferencesAdded*: OnProposerPreferencesCallback
+      ## On proposer preferences gossip/API added callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -342,6 +379,20 @@ type
     previous_duty_dependent_root*: Eth2Digest
     current_duty_dependent_root*: Eth2Digest
     optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
+
+  HeadV2ChangeInfoObjectData* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+    state_root* {.serializedFieldName: "state".}: Eth2Digest
+    payload_status*: string
+    epoch_transition*: bool
+    current_epoch_dependent_root*: Eth2Digest
+    next_epoch_dependent_root*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Opt[bool]
+
+  HeadV2ChangeInfoObject* = object
+    version*: string
+    data*: HeadV2ChangeInfoObjectData
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -470,6 +521,9 @@ template setBlockGossipCb*(dag: ChainDAGRef, cb: OnBlockGossipCallback) =
 template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
   dag.onHeadChanged = cb
 
+template setHeadV2Cb*(dag: ChainDAGRef, cb: OnHeadV2Callback) =
+  dag.onHeadV2Changed = cb
+
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
 
@@ -489,6 +543,18 @@ template setEnvelopeGossipCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) 
 
 template setEnvelopeAvailableCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeAvailable = cb
+
+template setExecutionPayloadBidCb*(
+    dag: ChainDAGRef, cb: OnExecutionPayloadBidCallback) =
+  dag.onExecutionPayloadBidAdded = cb
+
+template setPayloadAttestationMessageCb*(
+    dag: ChainDAGRef, cb: OnPayloadAttestationMessageCallback) =
+  dag.onPayloadAttestationMessageAdded = cb
+
+template setProposerPreferencesCb*(
+    dag: ChainDAGRef, cb: OnProposerPreferencesCallback) =
+  dag.onProposerPreferencesAdded = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
@@ -527,6 +593,28 @@ func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
     current_duty_dependent_root: currentDutyDepRoot
+  )
+
+func init*(
+    T: typedesc[HeadV2ChangeInfoObject],
+    version: ConsensusFork,
+    slot: Slot,
+    blockRoot: Eth2Digest,
+    stateRoot: Eth2Digest,
+    epochTransition: bool,
+    currentEpochDepRoot: Eth2Digest,
+    nextEpochDepRoot: Eth2Digest
+): HeadV2ChangeInfoObject =
+  HeadV2ChangeInfoObject(
+    version: $version,
+    data: HeadV2ChangeInfoObjectData(
+      slot: slot,
+      block_root: blockRoot,
+      state_root: stateRoot,
+      epoch_transition: epochTransition,
+      current_epoch_dependent_root: currentEpochDepRoot,
+      next_epoch_dependent_root: nextEpochDepRoot
+    )
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,

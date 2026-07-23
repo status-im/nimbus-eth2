@@ -238,12 +238,6 @@ type
       desc: "Backward compatible partial data column sidecar support",
       name: "debug-partial-columns" .}: bool
 
-    debugEnableReconstruction* {.
-      hidden
-      defaultValue: false,
-      desc: "Enables column reconstruction for the currently running beacon node"
-      name: "debug-enable-reconstruction" .}: bool
-
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
@@ -853,7 +847,7 @@ type
         quicExtEnabled* {.
           hidden
           desc: "Enable QUIC transport"
-          defaultValue: false
+          defaultValue: true
           name: "debug-quic" .}: bool
 
         quicPortExt* {.

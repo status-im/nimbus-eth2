@@ -237,8 +237,13 @@ func is_slashable_attestation_data(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
     state: ForkyBeaconState,
+    # phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing |
+    # gloas.SomeAttesterSlashing:
+    # https://github.com/nim-lang/Nim/issues/18095
     attester_slashing:
-      phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing,
+      phase0.AttesterSlashing | phase0.TrustedAttesterSlashing |
+      electra.AttesterSlashing | electra.TrustedAttesterSlashing |
+      gloas.AttesterSlashing | gloas.TrustedAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   let
     attestation_1 = attester_slashing.attestation_1
@@ -256,9 +261,11 @@ proc check_attester_slashing*(
 
   var slashed_indices: seq[ValidatorIndex]
 
-  let attesting_indices_2 = toHashSet(attestation_2.attesting_indices.asSeq)
+  let attesting_indices_2 =
+    toHashSet(distinctBase(attestation_2.attesting_indices))
   for index in sorted(filterIt(
-      attestation_1.attesting_indices.asSeq, it in attesting_indices_2),
+      distinctBase(attestation_1.attesting_indices),
+      it in attesting_indices_2),
       system.cmp):
     if is_slashable_validator(
         state.validators[index], get_current_epoch(state)):
@@ -272,8 +279,13 @@ proc check_attester_slashing*(
 
 proc check_attester_slashing*(
     state: var ForkedHashedBeaconState,
+    # phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing |
+    # gloas.SomeAttesterSlashing:
+    # https://github.com/nim-lang/Nim/issues/18095
     attester_slashing:
-      phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing,
+      phase0.AttesterSlashing | phase0.TrustedAttesterSlashing |
+      electra.AttesterSlashing | electra.TrustedAttesterSlashing |
+      gloas.AttesterSlashing | gloas.TrustedAttesterSlashing,
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
@@ -282,8 +294,13 @@ proc check_attester_slashing*(
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
+    # phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing |
+    # gloas.SomeAttesterSlashing:
+    # https://github.com/nim-lang/Nim/issues/18095
     attester_slashing:
-      phase0.SomeAttesterSlashing | electra.SomeAttesterSlashing,
+      phase0.AttesterSlashing | phase0.TrustedAttesterSlashing |
+      electra.AttesterSlashing | electra.TrustedAttesterSlashing |
+      gloas.AttesterSlashing | gloas.TrustedAttesterSlashing,
     flags: UpdateFlags,
     exit_queue_info: ExitQueueInfo, cache: var StateCache
     ): Result[(Gwei, ExitQueueInfo), cstring] =
@@ -780,18 +797,32 @@ proc process_operations(
   if body.deposits.lenu64 != req_deposits:
     return err("incorrect number of deposits")
 
+  when consensusFork >= ConsensusFork.Gloas:
+    if body.proposer_slashings.lenu64 > MAX_PROPOSER_SLASHINGS:
+      return err("too many proposer_slashings")
+    if body.attester_slashings.lenu64 > MAX_ATTESTER_SLASHINGS_ELECTRA:
+      return err("too many attester_slashings")
+    if body.attestations.lenu64 > MAX_ATTESTATIONS_ELECTRA:
+      return err("too many attestations")
+    if body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
+      return err("too many voluntary_exits")
+    if body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
+      return err("too many bls_to_execution_changes")
+    if body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
+      return err("too many payload_attestations")
+
   var operations_rewards: BlockRewards
 
   # It costs a full validator set scan to construct these values; only do so if
   # there will be some kind of exit.
   # TODO Electra doesn't use exit_queue_info, don't calculate
-  var
-    exit_queue_info =
-      if body.proposer_slashings.len + body.attester_slashings.len +
-          body.voluntary_exits.len > 0:
-        get_state_exit_queue_info(state)
-      else:
-        default(ExitQueueInfo)  # not used
+  var exit_queue_info =
+    if body.proposer_slashings.len + body.attester_slashings.len +
+        body.voluntary_exits.len > 0:
+      get_state_exit_queue_info(state)
+    else:
+      default(ExitQueueInfo)  # not used
+  let
     bsv_use =
       when consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
         body.deposits.len + body.execution_requests.withdrawals.len +
@@ -1103,6 +1134,10 @@ func process_builder_deposit_request*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
     request: gloas.BuilderDepositRequest) =
+  # Ignore deposits with unexpected withdrawal credential prefixes
+  if not is_builder_withdrawal_credential(request.withdrawal_credentials):
+    return
+
   ## Builder indices are reusable: a deposit for a new pubkey registers a
   ## builder; a deposit for an existing builder's pubkey tops up its balance.
   let builder_index = findValidatorIndex(
@@ -1114,17 +1149,20 @@ func process_builder_deposit_request*(
         request.withdrawal_credentials, request.amount, request.signature):
       add_builder_to_registry(
         state, bucket_sorted_builders, request.pubkey,
-        uint8(request.withdrawal_credentials.data[0]),
+        PAYLOAD_BUILDER_VERSION,
         builder_execution_address(request.withdrawal_credentials),
         request.amount, state.slot)
     return
 
-  # Increase balance by deposit amount
-  state.builders.mitem(builder_index).balance += request.amount
-  # If exited, reset the withdrawable epoch
-  if state.builders.item(builder_index).withdrawable_epoch != FAR_FUTURE_EPOCH:
+  # If exited and swept, reset the withdrawable epoch
+  let builder = state.builders.item(builder_index)
+  if builder.withdrawable_epoch != FAR_FUTURE_EPOCH and
+      builder.balance == 0.Gwei:
     state.builders.mitem(builder_index).withdrawable_epoch =
       get_current_epoch(state) + cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY
+
+  # Increase balance by deposit amount
+  state.builders.mitem(builder_index).balance += request.amount
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_builder_exit_request
 func process_builder_exit_request*(
@@ -1267,7 +1305,15 @@ proc can_process_execution_payload_bid_impl[S, B](
 
 template can_process_execution_payload_bid*(
     cfg: RuntimeConfig, state: gloas.BeaconState | heze.BeaconState,
-    signed_bid: SignedExecutionPayloadBid,
+    signed_bid: gloas.SignedExecutionPayloadBid,
+    proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
+  debugGloasComment "proposal_slot only for spec tests of unreachable combos"
+  cfg.can_process_execution_payload_bid_impl(
+    state, signed_bid, proposal_slot, flags)
+
+template can_process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: heze.BeaconState,
+    signed_bid: heze.SignedExecutionPayloadBid,
     proposal_slot: Slot, flags = default(UpdateFlags)): Result[void, cstring] =
   debugGloasComment "proposal_slot only for spec tests of unreachable combos"
   cfg.can_process_execution_payload_bid_impl(
@@ -1278,9 +1324,8 @@ type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
-proc process_execution_payload_bid*(
-    cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
-    signed_bid: SignedExecutionPayloadBid,
+proc process_execution_payload_bid_impl[S, B](
+    cfg: RuntimeConfig, state: var S, signed_bid: B,
     cache: var StateCache): Result[void, cstring] =
   template bid: untyped = signed_bid.message
   let
@@ -1310,6 +1355,18 @@ proc process_execution_payload_bid*(
 
   ok()
 
+proc process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: var gloas.BeaconState,
+    signed_bid: gloas.SignedExecutionPayloadBid,
+    cache: var StateCache): Result[void, cstring] =
+  cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
+
+proc process_execution_payload_bid*(
+    cfg: RuntimeConfig, state: var heze.BeaconState,
+    signed_bid: heze.SignedExecutionPayloadBid,
+    cache: var StateCache): Result[void, cstring] =
+  cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
+
 # copy of datatypes/heze.nim
 type SomeHezeBeaconBlock =
   heze.BeaconBlock | heze.SigVerifiedBeaconBlock | heze.TrustedBeaconBlock
@@ -1330,6 +1387,20 @@ proc process_parent_execution_payload*(
     if not (requests == static(default(gloas.ExecutionRequests))):
       return err("process_parent_execution_payload: execution requests not empty")
     return ok()
+
+  if requests.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
+    return err("process_parent_execution_payload: too many withdrawal requests")
+  if requests.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
+    return err(
+      "process_parent_execution_payload: too many consolidation requests")
+  # [New in Gloas:EIP8282]
+  if requests.builder_deposits.lenu64 > MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
+    return err(
+      "process_parent_execution_payload: too many builder deposit requests")
+  # [New in Gloas:EIP8282]
+  if requests.builder_exits.lenu64 > MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
+    return err(
+      "process_parent_execution_payload: too many builder exit requests")
 
   # Parent was FULL -- verify the bid commitment and apply the payload
   if not (hash_tree_root(requests) == parent_bid.execution_requests_root):
@@ -1356,7 +1427,7 @@ func process_withdrawals*(
     # Update pending partial withdrawals [New in Electra:EIP7251]
     # Moved slightly earlier to be in same when block
     state.pending_partial_withdrawals =
-      HashList[PendingPartialWithdrawal, Limit PENDING_PARTIAL_WITHDRAWALS_LIMIT].init(
+      typeof(state.pending_partial_withdrawals).init(
         state.pending_partial_withdrawals.asSeq[partial_withdrawals_count .. ^1])
   else:
     let expected_withdrawals = get_expected_withdrawals(state)
@@ -1433,8 +1504,7 @@ func update_next_withdrawal_index(
 func update_payload_expected_withdrawals(
     state: var (gloas.BeaconState | heze.BeaconState),
     withdrawals: seq[Withdrawal]) =
-  state.payload_expected_withdrawals =
-    HashList[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD].init(withdrawals)
+  state.payload_expected_withdrawals = HashSeq[Withdrawal].init(withdrawals)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/capella/beacon-chain.md#new-update_next_withdrawal_validator_index
 func update_next_withdrawal_validator_index(

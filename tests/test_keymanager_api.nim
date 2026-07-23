@@ -2052,7 +2052,7 @@ proc delayedTests(basePort: int, pool: ref ValidatorPool,
 
   ProcessState.scheduleStop("stop")
 
-proc main(basePort: int) {.async.} =
+proc main(basePort: int) =
   # Overwrite the standard nim stop handlers
   ProcessState.setupStopHandlers()
 
@@ -2061,7 +2061,7 @@ proc main(basePort: int) {.async.} =
 
   prepareNetwork()
 
-  let node = await initBeaconNode(basePort)
+  let node = waitFor initBeaconNode(basePort)
 
   asyncSpawn delayedTests(basePort, node.attachedValidators,
                           node.keymanagerHost)
@@ -2087,4 +2087,4 @@ for topicName in [
     "state_transition"]:
   doAssert setTopicState(topicName, Disabled)
 
-waitFor main(basePort)
+main(basePort)
