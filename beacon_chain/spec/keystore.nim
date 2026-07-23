@@ -595,9 +595,11 @@ template readValueImpl(r: var JsonReader, value: var Checksum) =
       "The Checksum value should have sub-fields named " &
       "'function', 'params', and 'message'")
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Checksum)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
+{.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Cipher) =
   var
@@ -634,9 +636,11 @@ template readValueImpl(r: var JsonReader, value: var Cipher) =
       "The Cipher value should have sub-fields named " &
       "'function', 'params', and 'message'")
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Cipher)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
+{.pop.}
 
 template readValueImpl(r: var JsonReader, value: var Kdf) =
   var
@@ -671,9 +675,11 @@ template readValueImpl(r: var JsonReader, value: var Kdf) =
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc readValue*(r: var JsonReader[DefaultFlavor], value: var Kdf)
     {.raises: [SerializationError, IOError].} =
   readValueImpl(r, value)
+{.pop.}
 
 func readValue*(r: var JsonReader, value: var (Checksum|Cipher|Kdf)) =
   static: raiseAssert "Unknown flavor `JsonReader[" & $typeof(r).Flavor &
@@ -721,8 +727,9 @@ template writeValue*(w: var JsonWriter,
 func parseProvenBlockProperty*(
     propertyPath: string): Result[ProvenProperty, string] =
   template gindexOrZero(path: varargs[untyped]): GeneralizedIndex =
-    when compiles(get_generalized_index(path)):
-      get_generalized_index(path)
+    when compiles(static(get_generalized_index(path))):
+      const gi = get_generalized_index(path)
+      gi
     else:
       0.GeneralizedIndex
 
@@ -1061,6 +1068,7 @@ func getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
 func `==`*(a, b: KdfSaltKey): bool {.borrow.}
 func hash*(salt: KdfSaltKey): Hash {.borrow.}
 
+{.push warning[ProveField]:off.}
 func `==`*(a, b: Kdf): bool =
   # We do not care about `message` field.
   if a.function != b.function:
@@ -1079,6 +1087,7 @@ func `==`*(a, b: Kdf): bool =
     (aparams.p == bparams.p) and (aparams.r == bparams.r) and
     (len(seq[byte](aparams.salt)) > 0) and
     (seq[byte](aparams.salt) == seq[byte](bparams.salt))
+{.pop.}
 
 func `==`*(a, b: Cipher): bool =
   # We do not care about `params` and `message` fields.

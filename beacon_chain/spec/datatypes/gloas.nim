@@ -28,7 +28,7 @@ import
 
 from ./altair import
   ParticipationFlags, SyncAggregate, SyncCommittee, TrustedSyncAggregate,
-  SyncnetBits, num_active_participants
+  SyncnetBits, isZero, num_active_participants
 from ./capella import
   ExecutionBranch, HistoricalSummary,
   SignedBLSToExecutionChange, Withdrawal, EXECUTION_PAYLOAD_GINDEX
@@ -736,12 +736,6 @@ func shortLog*(v: ExecutionPayloadBid): auto =
     value: v.value,
   )
 
-func shortLog*(v: ExecutionPayloadEnvelope): auto =
-  (
-    beacon_block_root: shortLog(v.beacon_block_root),
-    builder_index: v.builder_index,
-  )
-
 func shortLog*(v: ExecutionPayload): auto =
   (
     parent_hash: shortLog(v.parent_hash),
@@ -761,6 +755,14 @@ func shortLog*(v: ExecutionPayload): auto =
     blob_gas_used: $(v.blob_gas_used),
     excess_blob_gas: $(v.excess_blob_gas),
     slot_number: v.slot_number,
+  )
+
+func shortLog*(v: ExecutionPayloadEnvelope): auto =
+  (
+    beacon_block_root: shortLog(v.beacon_block_root),
+    parent_beacon_block_root: shortLog(v.parent_beacon_block_root),
+    builder_index: v.builder_index,
+    payload: shortLog(v.payload),
   )
 
 func shortLog*(v: PayloadAttestationData): auto =
@@ -1092,8 +1094,7 @@ func is_valid_light_client_header*(
       EXECUTION_BLOCK_HASH_GINDEX, header.beacon.body_root)
 
   # [Modified in Gloas:EIP7732]
-  header.execution_block_hash.isZero and
-  header.execution_branch == static(default(ExecutionBranch))
+  header.execution_block_hash.isZero and header.execution_branch.isZero
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_gloas*(
@@ -1207,7 +1208,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
+      not v.next_sync_committee.isZero,
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

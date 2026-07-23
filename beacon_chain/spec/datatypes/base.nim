@@ -957,9 +957,9 @@ func prune*(cache: var StateCache, epoch: Epoch) =
       cache.sync_committees.del drop.sync_committee_period
     drops.setLen(0)
 
-  if cache.participating.isSome and
-      cache.participating.unsafeGet.slot.epoch < pruneEpoch:
-    cache.participating.reset()
+  cache.participating.isErrOr:
+    if value.slot.epoch < pruneEpoch:
+      cache.participating.reset()
 
 func clear*(cache: var StateCache) =
   cache.total_active_balance.clear

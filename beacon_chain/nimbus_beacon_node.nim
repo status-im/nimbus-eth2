@@ -42,10 +42,6 @@ from ./spec/datatypes/deneb import SignedBeaconBlock
 
 logScope: topics = "beacnde"
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-declareGauge beacon_slot, "Latest slot of the beacon chain state"
-declareGauge beacon_current_epoch, "Current epoch"
-
 # Finalization tracking
 declareGauge finalization_delay,
   "Epoch delay between scheduled epoch and finalized epoch"
@@ -174,16 +170,14 @@ proc setupDatabase(
   #
   # While a checkpoint state from any epoch slot is sufficient for launching
   # the client, we'll try to add the genesis state to the database as well.
-  var
-    checkpointState = ? fetchCheckpointState(
-      metadata, config.eraDir, config.finalizedCheckpointState)
-    genesisState =
-      if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
-        checkpointState
-      else:
-        ?await fetchGenesisState(
-          metadata, config.eraDir, config.genesisState, config.genesisStateUrl
-        )
+  var checkpointState = ? fetchCheckpointState(
+    metadata, config.eraDir, config.finalizedCheckpointState)
+  let genesisState =
+    if not checkpointState.isNil and checkpointState[].slot == GENESIS_SLOT:
+      checkpointState
+    else:
+      ?await fetchGenesisState(
+        metadata, config.eraDir, config.genesisState, config.genesisStateUrl)
 
   if config.externalBeaconApiUrl.isSome():
     # When using an external beacon api, require that the checkpoint state is
@@ -502,7 +496,7 @@ proc initFullNode(
       var res = data
       res.data.optimistic = Opt.some dag.is_optimistic(
         BlockId(slot: data.data.slot, root: data.data.block_root))
-      res.data.payloadStatus =
+      res.data.payload_status =
         if dag.db.containsExecutionPayloadEnvelope(data.data.block_root):
           "full"
         else:
@@ -535,6 +529,13 @@ proc initFullNode(
   proc onEnvelopeAvailable(data: SignedExecutionPayloadEnvelope) =
     node.eventBus.execPayloadAvlQueue.emit(
       EventExecutionPayloadAvailableObject.init(data))
+  proc onExecutionPayloadBidAdded(data: gloas.SignedExecutionPayloadBid) =
+    node.eventBus.execPayloadBidQueue.emit(data)
+  proc onPayloadAttestationMessageAdded(data: PayloadAttestationMessage) =
+    node.eventBus.payloadAttMsgQueue.emit(data)
+  proc onProposerPreferencesAdded(data: SignedProposerPreferences) =
+    node.eventBus.proposerPreferencesQueue.emit(
+      EventProposerPreferencesObject(data: data))
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
@@ -690,7 +691,7 @@ proc initFullNode(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
       dag.getForkedBlock(blockRoot)
     rmanEnvelopeVerifier = proc(signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
-        Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+        Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
       ## Envelope verifier contains the same logic as block_processor
       ## enqueuePayload() except when the valid block or any sidecars is
       ## missing, we will return ok() as it is not any types of VerifierError.
@@ -710,23 +711,23 @@ proc initFullNode(
               # Since no result is returned, we log for investigation.
               debug "Enqueue payload from envelope. Block is missing in DB",
                 bid = shortLog(blockRef.bid)
-              return err(VerifierError.Invalid)
+              return err(PayloadVerifierError.Invalid)
             withBlck(forkedBlock):
               when consensusFork == ConsensusFork.Heze:
                 debugHezeComment "..."
-                return err(VerifierError.Duplicate)
+                return err(PayloadVerifierError.Duplicate)
               elif consensusFork == ConsensusFork.Gloas:
                 forkyBlck.asSigned()
               else:
                 # Incorrect fork which shouldn't be happening.
                 debug "Enqueue payload from envelope. Block is in incorrect fork",
                   bid = shortLog(blockRef.bid)
-                return err(VerifierError.UnviableFork)
+                return err(PayloadVerifierError.UnviableFork)
         envelope = envelopeQuarantine[].popOrphan(blck).valueOr:
           # At this point, the signedEnvelope is from a different builder since
           # the block should be the source of truth. We should notify receiving
           # bad value from the peer.
-          return err(VerifierError.Invalid)
+          return err(PayloadVerifierError.Invalid)
         sidecarsOpt =
           block:
             template bid(): auto =
@@ -738,7 +739,7 @@ proc initFullNode(
                 gloasColumnQuarantine[].popSidecars(blockRoot)
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
-              consensusManager.quarantine[].addSidecarless(blck)
+              discard quarantine[].addSidecarless(dag.finalizedHead.slot, blck)
               envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
               # Return ok() as columns may arrive late.
               return ok()
@@ -855,12 +856,16 @@ proc initFullNode(
   dag.setBlockCb(onBlockAdded)
   dag.setBlockGossipCb(onBlockGossipAdded)
   dag.setHeadCb(onHeadChanged)
+  dag.setHeadV2Cb(onHeadV2Changed)
   dag.setReorgCb(onChainReorg)
   dag.setFastConfirmationCb(onFastConfirmation)
   dag.setPayloadAttributesCb(onPayloadAttributes)
   dag.setEnvelopeCb(onEnvelopeAdded)
   dag.setEnvelopeGossipCb(onEnvelopeGossipAdded)
   dag.setEnvelopeAvailableCb(onEnvelopeAvailable)
+  dag.setExecutionPayloadBidCb(onExecutionPayloadBidAdded)
+  dag.setPayloadAttestationMessageCb(onPayloadAttestationMessageAdded)
+  dag.setProposerPreferencesCb(onProposerPreferencesAdded)
 
   node.dag = dag
   node.dag.eaSlot = eaSlot
@@ -1382,23 +1387,31 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
-proc updateDataColumnSidecarHandlers(node: BeaconNode, gossipEpoch: Epoch) =
-  let
-    forkDigest = node.dag.forkDigests[].atEpoch(gossipEpoch, node.dag.cfg)
-    prevSubnets = move(node.lastColumnCustodyIndices)
+proc updateDataColumnSidecarHandlers(node: BeaconNode) =
+  let prevSubnets = move(node.lastColumnCustodyIndices)
   template subscribeSubnets: var seq[CustodyIndex] =
     node.lastColumnCustodyIndices
 
   for i in node.validatorCustody.custodyGroups():
     subscribeSubnets.add(i)
     if i notin prevSubnets:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      node.network.subscribe(topic, basicParams())
+      for gossipEpoch in node.gossipState:
+        if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
+          let
+            forkDigest = node.dag.forkDigests[].atEpoch(
+              gossipEpoch, node.dag.cfg)
+            topic = getDataColumnSidecarTopic(forkDigest, i)
+          node.network.subscribe(topic, basicParams())
 
   for i in prevSubnets:
     if i notin subscribeSubnets:
-      let topic = getDataColumnSidecarTopic(forkDigest, i)
-      node.network.unsubscribe(topic)
+      for gossipEpoch in node.gossipState:
+        if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
+          let
+            forkDigest = node.dag.forkDigests[].atEpoch(
+              gossipEpoch, node.dag.cfg)
+            topic = getDataColumnSidecarTopic(forkDigest, i)
+          node.network.unsubscribe(topic)
 
 proc addAltairMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -1685,14 +1698,13 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   # subscribe to potentially new column topics and unsubscribe from stale ones.
   # Do this after node.gossipState is updated to avoid adding immediately
   # unsubscribed subscriptions.
-  for gossipEpoch in node.gossipState:
-    if gossipEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
-      node.updateDataColumnSidecarHandlers(gossipEpoch)
+  node.updateDataColumnSidecarHandlers()
 
   node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
-  node.updateEnvelopeGossipStatus(slot, isBehind)
+  if slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
+    node.updateEnvelopeGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
 proc pruneBlobs(node: BeaconNode, slot: Slot) =
@@ -2663,16 +2675,6 @@ proc doRunBeaconNode(
   ProcessState.setupStopHandlers()
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
-
-  # Ensure that non-light peerdas supernode options are forcibly disabled
-  # TODO when reconstruction works again, re-enable
-  # this is required because the fall-through is that if one of these is
-  # enabled, the (working) light supernode code won't run at all.
-  if config.peerdasSupernode:
-    # It's at least not worse than not doing this; a functioning (full)
-    # supernode reconstructs and stores a superset of these columns
-    config.lightSupernode = true
-  config.peerdasSupernode = false
 
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."

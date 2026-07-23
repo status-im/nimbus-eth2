@@ -72,11 +72,10 @@ type LightClientConf* = object
   quicEnabled* {.
     hidden
     desc: "Enable QUIC transport"
-    defaultValue: false
+    defaultValue: true
     name: "debug-quic" .}: bool
 
   quicPort* {.
-    hidden
     desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
     defaultValue: defaultEth2QuicPort
     defaultValueDesc: $defaultEth2QuicPortDesc

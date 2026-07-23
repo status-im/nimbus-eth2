@@ -816,13 +816,13 @@ proc process_operations(
   # It costs a full validator set scan to construct these values; only do so if
   # there will be some kind of exit.
   # TODO Electra doesn't use exit_queue_info, don't calculate
-  var
-    exit_queue_info =
-      if body.proposer_slashings.len + body.attester_slashings.len +
-          body.voluntary_exits.len > 0:
-        get_state_exit_queue_info(state)
-      else:
-        default(ExitQueueInfo)  # not used
+  var exit_queue_info =
+    if body.proposer_slashings.len + body.attester_slashings.len +
+        body.voluntary_exits.len > 0:
+      get_state_exit_queue_info(state)
+    else:
+      default(ExitQueueInfo)  # not used
+  let
     bsv_use =
       when consensusFork in ConsensusFork.Electra .. ConsensusFork.Fulu:
         body.deposits.len + body.execution_requests.withdrawals.len +

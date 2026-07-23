@@ -45,6 +45,27 @@ type
     Duplicate
       ## We've seen this value already, can't add again
 
+  PayloadVerifierError* {.pure.} = enum
+    Invalid
+      ## Some value in the payload is broken or it doesn't match with the block
+      ## provided.
+
+    MissingParent
+      ## We know the parent block of the block as it is a valid block, but we
+      ## don't know the parent payload/envelope yet.
+
+    UnviableFork
+      ## Value is from a history / fork that does not include our most current
+      ## finalized checkpoint
+
+    Duplicate
+      ## We've seen this value already, can't add again
+
+    InvalidSidecars
+      ## Payload is verified along with sidecars. It is one of the Invalid
+      ## status from payload processing but helps syncer to distinguish which
+      ## should be discarded.
+
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [].}
   OnBlockGossipCallback* =
@@ -63,6 +84,12 @@ type
     proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [].}
   OnExecutionPayloadCallback* =
     proc(data: SignedExecutionPayloadEnvelope) {.gcsafe, raises: [].}
+  OnExecutionPayloadBidCallback* =
+    proc(data: gloas.SignedExecutionPayloadBid) {.gcsafe, raises: [].}
+  OnPayloadAttestationMessageCallback* =
+    proc(data: PayloadAttestationMessage) {.gcsafe, raises: [].}
+  OnProposerPreferencesCallback* =
+    proc(data: SignedProposerPreferences) {.gcsafe, raises: [].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -283,6 +310,12 @@ type
       ## On envelope gossip added callback
     onEnvelopeAvailable*: OnExecutionPayloadCallback
       ## On envelope available callback
+    onExecutionPayloadBidAdded*: OnExecutionPayloadBidCallback
+      ## On execution payload bid gossip added callback
+    onPayloadAttestationMessageAdded*: OnPayloadAttestationMessageCallback
+      ## On payload attestation message gossip added callback
+    onProposerPreferencesAdded*: OnProposerPreferencesCallback
+      ## On proposer preferences gossip/API added callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
@@ -488,6 +521,9 @@ template setBlockGossipCb*(dag: ChainDAGRef, cb: OnBlockGossipCallback) =
 template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
   dag.onHeadChanged = cb
 
+template setHeadV2Cb*(dag: ChainDAGRef, cb: OnHeadV2Callback) =
+  dag.onHeadV2Changed = cb
+
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
 
@@ -507,6 +543,18 @@ template setEnvelopeGossipCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) 
 
 template setEnvelopeAvailableCb*(dag: ChainDAGRef, cb: OnExecutionPayloadCallback) =
   dag.onEnvelopeAvailable = cb
+
+template setExecutionPayloadBidCb*(
+    dag: ChainDAGRef, cb: OnExecutionPayloadBidCallback) =
+  dag.onExecutionPayloadBidAdded = cb
+
+template setPayloadAttestationMessageCb*(
+    dag: ChainDAGRef, cb: OnPayloadAttestationMessageCallback) =
+  dag.onPayloadAttestationMessageAdded = cb
+
+template setProposerPreferencesCb*(
+    dag: ChainDAGRef, cb: OnProposerPreferencesCallback) =
+  dag.onProposerPreferencesAdded = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!

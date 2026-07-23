@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, math, tables, macrocache],
+  std/[typetraits, tables, macrocache],
 
   # Status libs
   results,
@@ -31,6 +31,8 @@ import
   ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
      libp2p_json_serialization, peer_pool, peer_scores]
 
+from std/math import round
+from std/os import isAbsolute, `/`
 from std/sequtils import countIt, filterIt, mapIt
 
 export
@@ -633,8 +635,7 @@ proc writeChunkSZ(
     payloadSZ: openArray[byte],
     contextBytes: openArray[byte] = [],
 ): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
-  let
-    uncompressedLenBytes = toBytes(uncompressedLen, Leb128)
+  let uncompressedLenBytes = toBytes(uncompressedLen, Leb128)
 
   var
     data = newSeqUninit[byte](
@@ -642,8 +643,8 @@ proc writeChunkSZ(
       payloadSZ.len)
     pos = 0
 
-  if responseCode.isSome:
-    data.add(pos, [byte responseCode.get])
+  responseCode.isErrOr:
+    data.add(pos, [byte value])
   data.add(pos, contextBytes)
   data.add(pos, uncompressedLenBytes.toOpenArray())
   data.add(pos, payloadSZ)
@@ -655,16 +656,15 @@ proc writeChunk(
     payload: openArray[byte],
     contextBytes: openArray[byte] = [],
 ): Future[void] {.async: (raises: [CancelledError, LPStreamError], raw: true).} =
-  let
-    uncompressedLenBytes = toBytes(payload.lenu64, Leb128)
+  let uncompressedLenBytes = toBytes(payload.lenu64, Leb128)
   var
     data = newSeqUninit[byte](
       ord(responseCode.isSome) + contextBytes.len + uncompressedLenBytes.len +
       snappy.maxCompressedLenFramed(payload.len).int)
     pos = 0
 
-  if responseCode.isSome:
-    data.add(pos, [byte responseCode.get])
+  responseCode.isErrOr:
+    data.add(pos, [byte value])
   data.add(pos, contextBytes)
   data.add(pos, uncompressedLenBytes.toOpenArray())
   let
@@ -816,10 +816,14 @@ proc uncompressFramedStream(conn: Connection,
 
       let
         crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
+        # "However, we place an additional restriction that the uncompressed
+        # data in a chunk must be no longer than 65536 bytes."
+        # https://github.com/google/snappy/blob/1.2.2/framing_format.txt (4.2)
+        maxOutput = min(maxUncompressedFrameDataLen.int, output.len - written)
         uncompressed =
           snappy.uncompress(
             frameData.toOpenArray(4, dataLen - 1),
-            output.toOpenArray(written, output.high)).valueOr:
+            output.toOpenArray(written, written + maxOutput - 1)).valueOr:
               return err "Failed to decompress content"
 
       if maskedCrc(
@@ -865,6 +869,14 @@ func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when isFixedSize(T):
     uint32 fixedPortionSize(T)
+  elif T is List:
+    when isFixedSize(ElemType(T)):
+      uint32 min(
+        uint64(T.maxLen) * uint64(fixedPortionSize(ElemType(T))),
+        MAX_PAYLOAD_SIZE)
+    else:
+      static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
+      MAX_PAYLOAD_SIZE.uint32
   elif T is gloas.DataColumnSidecar:
     MAX_DATA_COLUMN_SIDECAR_SIZE.uint32
   else:
@@ -1409,7 +1421,7 @@ func toPeerAddr*(r: enr.TypedRecord,
     peerId = ? PeerId.init(crypto.PublicKey(
       scheme: Secp256k1, skkey: secp.SkPublicKey(pubKey)))
 
-  var addrs = newSeq[MultiAddress]()
+  var addrs: seq[MultiAddress]
 
   for proto in peerAddrProto:
     case proto
@@ -1568,7 +1580,6 @@ proc trimConnections(node: Eth2Node, count: int) =
 
     scores[peer.peerId] = thisPeersScore
 
-
   # Safegard: if we have too many peers in the grace
   # period, don't kick anyone. Otherwise, they will be
   # preferred over long-standing peers
@@ -1584,7 +1595,7 @@ proc trimConnections(node: Eth2Node, count: int) =
   # Then, use the average of all topics per peers, to avoid giving too much
   # point to big peers
 
-  var gossipScores = initTable[PeerId, tuple[sum: int, count: int]]()
+  var gossipScores: Table[PeerId, tuple[sum: int, count: int]]
   for topic, _ in node.pubsub.gossipsub:
     let
       peersInMesh = node.pubsub.mesh.peers(topic)
@@ -1720,7 +1731,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
         minScore = [
           (if wantedAttnetsCount > 0: 1 else: 0),
           (if wantedSyncnetsCount > 0: 10 else: 0),
-          100
+          (if len(node.custodyMap) > 0: 100 else: 0)
         ]
         discoveredNodes = await node.discovery.queryRandom(
           node.cfg,
@@ -1731,7 +1742,7 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
           minScore)
 
       let newPeers = block:
-        var np = newSeq[PeerAddr]()
+        var np: seq[PeerAddr]
         for discNode in discoveredNodes:
           let res = discNode.toPeerAddr()
           if res.isErr():
@@ -1805,8 +1816,8 @@ proc resolvePeer(peer: Peer) =
   # This is "fast-path" for peers which was dialed. In this case discovery
   # already has most recent ENR information about this peer.
   let gnode = peer.network.discovery.getNode(nodeId)
-  if gnode.isSome():
-    peer.enr = Opt.some(gnode.get().record)
+  gnode.isErrOr:
+    peer.enr = Opt.some(value.record)
     inc(nbc_successful_discoveries)
     let delay = now(chronos.Moment) - startTime
     nbc_resolve_time.observe(delay.toFloatSeconds())
@@ -2198,7 +2209,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
         try:
           mount `networkVar`.switch,
                 LPProtocol.new(
-                  codecs = @[`codecNameLit`], handler = snappyThunk)
+                  codecs = @[`codecNameLit`], handler = snappyThunk, Opt.none int, Opt.some 10)
         except LPError as exc:
           # Failure here indicates that the mounting was done incorrectly which
           # would be a programming error
@@ -2429,7 +2440,8 @@ proc newBeaconSwitch(
   try:
     sb = sb
     .withPrivateKey(seckey)
-    .withAddresses(addresses, enableWildcardResolver = true)
+    .withAddresses(addresses)
+    .withWildcardResolver()
     .withIdentifyPusher(false)
     .withRng(newBearSslRng(rng))
     .withNoise()
@@ -2513,8 +2525,8 @@ proc createEth2Node*(
         info "Adding privileged direct peer", peerId, address
       res
 
-  var hostAddress = newSeq[MultiAddress]()
-  var announcedAddresses = newSeq[MultiAddress]()
+  var hostAddress: seq[MultiAddress]
+  var announcedAddresses: seq[MultiAddress]
 
   if config.tcpEnabled:
     hostAddress.add(tcpEndPoint(listenAddress, config.tcpPort))
