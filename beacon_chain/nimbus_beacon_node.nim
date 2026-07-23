@@ -42,10 +42,6 @@ from ./spec/datatypes/deneb import SignedBeaconBlock
 
 logScope: topics = "beacnde"
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
-declareGauge beacon_slot, "Latest slot of the beacon chain state"
-declareGauge beacon_current_epoch, "Current epoch"
-
 # Finalization tracking
 declareGauge finalization_delay,
   "Epoch delay between scheduled epoch and finalized epoch"

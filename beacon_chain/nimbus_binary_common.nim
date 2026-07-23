@@ -36,6 +36,10 @@ when defaultChroniclesStream.outputs.type.arity == 2:
 export
   confutils, toml_serialization
 
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
+declarePublicGauge beacon_slot, "Latest slot of the beacon chain state"
+declarePublicGauge beacon_current_epoch, "Current epoch"
+
 type
   StdoutLogKind* {.pure.} = enum
     Auto = "auto"
