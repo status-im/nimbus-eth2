@@ -509,8 +509,8 @@ proc process_block*(
 
   when typeof(blck).kind >= ConsensusFork.Gloas:
     for pa in blck.body.payload_attestations:
-      let tally = addr self.backend.ptc_votes.mgetOrPut(
-        pa.data.beacon_block_root, PtcVoteTally())
+      let tally = self.backend.mgetPtcTally(
+        pa.data.beacon_block_root, pa.data.slot)
       for i in 0 ..< pa.aggregation_bits.len:
         if pa.aggregation_bits[i]:
           tally.voted[i] = true
@@ -712,13 +712,6 @@ proc prune(
 
   # Drop per-block fork-choice state for blocks no longer in the proto-array.
   var staleRoots: seq[Eth2Digest]
-  for root in self.ptc_votes.keys:
-    if root notin self.proto_array.indices:
-      staleRoots.add root
-  for root in staleRoots:
-    self.ptc_votes.del root
-
-  staleRoots.setLen(0)
   for root in self.timely_proposer_blocks:
     if root notin self.proto_array.indices:
       staleRoots.add root

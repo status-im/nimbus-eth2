@@ -178,7 +178,8 @@ type
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
-    ptc_votes*: Table[Eth2Digest, PtcVoteTally]
+    ptc_votes*: array[2,
+      tuple[slot: Slot, tallies: Table[Eth2Digest, PtcVoteTally]]]
     timely_proposer_blocks*: HashSet[Eth2Digest]
 
   QueuedAttestation* = object

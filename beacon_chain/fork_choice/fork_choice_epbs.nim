@@ -16,6 +16,21 @@ from ../spec/beaconstate import get_ptc
 from ../spec/datatypes/gloas import
   PAYLOAD_TIMELY_THRESHOLD, DATA_AVAILABILITY_TIMELY_THRESHOLD
 
+func mgetPtcTally*(
+    self: var ForkChoiceBackend, root: Eth2Digest,
+    slot: Slot): ptr PtcVoteTally =
+  template bucket: untyped = self.ptc_votes[int(slot mod 2'u64)]
+  if bucket.slot != slot:
+    bucket.slot = slot
+    bucket.tallies.clear()
+  addr bucket.tallies.mgetOrPut(root, PtcVoteTally())
+
+func getPtcTally*(self: var ForkChoiceBackend, root: Eth2Digest): PtcVoteTally =
+  for bucket in self.ptc_votes.mitems:
+    bucket.tallies.withValue(root, tally):
+      return tally[]
+  default(PtcVoteTally)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-payload_timeliness
 func payload_timeliness*(
     self: var ForkChoiceBackend, root: Eth2Digest, timely: bool): bool =
@@ -27,11 +42,11 @@ func payload_timeliness*(
   # is not considered available regardless of the PTC vote
   if root notin self.proto_array.fullBlockIndices:
     return not timely
+  let tally = self.getPtcTally(root)
   var count = 0'u64
-  self.ptc_votes.withValue(root, tally):
-    for i in 0 ..< tally[].voted.len:
-      if tally[].voted[i] and tally[].present[i] == timely:
-        inc count
+  for i in 0 ..< tally.voted.len:
+    if tally.voted[i] and tally.present[i] == timely:
+      inc count
   count > PAYLOAD_TIMELY_THRESHOLD
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-payload_data_availability
@@ -45,11 +60,11 @@ func payload_data_availability*(
   # is not considered available regardless of the PTC vote
   if root notin self.proto_array.fullBlockIndices:
     return not available
+  let tally = self.getPtcTally(root)
   var count = 0'u64
-  self.ptc_votes.withValue(root, tally):
-    for i in 0 ..< tally[].voted.len:
-      if tally[].voted[i] and tally[].available[i] == available:
-        inc count
+  for i in 0 ..< tally.voted.len:
+    if tally.voted[i] and tally.available[i] == available:
+      inc count
   count > DATA_AVAILABILITY_TIMELY_THRESHOLD
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_extend_payload
@@ -195,8 +210,7 @@ proc on_payload_attestation_message*(
       for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
         if vidx == valIdx:
           if tally.isNil:
-            tally = addr self.backend.ptc_votes.mgetOrPut(
-              beacon_block_root, PtcVoteTally())
+            tally = self.backend.mgetPtcTally(beacon_block_root, slot)
           tally.voted[ptc_index] = true
           tally.present[ptc_index] = data.payload_present
           tally.available[ptc_index] = data.blob_data_available
