@@ -16,7 +16,7 @@ from ../spec/beaconstate import get_ptc
 from ../spec/datatypes/gloas import
   PAYLOAD_TIMELY_THRESHOLD, DATA_AVAILABILITY_TIMELY_THRESHOLD
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#payload_timeliness
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-payload_timeliness
 func payload_timeliness*(
     self: var ForkChoiceBackend, root: Eth2Digest, timely: bool): bool =
   # Return whether the execution payload for the beacon block with root ``root``
@@ -34,7 +34,7 @@ func payload_timeliness*(
         inc count
   count > PAYLOAD_TIMELY_THRESHOLD
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#payload_data_availability
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-payload_data_availability
 func payload_data_availability*(
     self: var ForkChoiceBackend, root: Eth2Digest, available: bool): bool =
   # Return whether the blob data for the beacon block with root ``root`` is
@@ -52,7 +52,7 @@ func payload_data_availability*(
         inc count
   count > DATA_AVAILABILITY_TIMELY_THRESHOLD
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#should_extend_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
     self: var ForkChoiceBackend, root: Eth2Digest): bool =
   if root notin self.proto_array.fullBlockIndices:
@@ -60,7 +60,7 @@ func should_extend_payload*(
   self.payload_timeliness(root, timely = true) and
     self.payload_data_availability(root, available = true)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#should_build_on_full
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
 func should_build_on_full*(
     self: var ForkChoiceBackend, root: Eth2Digest, full: bool,
     current_slot: Slot): bool =
