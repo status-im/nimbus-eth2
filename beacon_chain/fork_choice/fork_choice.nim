@@ -507,8 +507,12 @@ proc process_block*(
             vidx, attestation.data.beacon_block_root, attestation.data.slot,
             false, dag.cfg)
 
+  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+
   when typeof(blck).kind >= ConsensusFork.Gloas:
     for pa in blck.body.payload_attestations:
+      if pa.data.slot + 1 < slot:
+        continue
       let tally = self.backend.mgetPtcTally(
         pa.data.beacon_block_root, pa.data.slot)
       for i in 0 ..< pa.aggregation_bits.len:
@@ -521,8 +525,8 @@ proc process_block*(
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
-  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  let isTimely = self.record_block_timeliness(dag.timeParams, blckRef, blck, slot)
+  let isTimely = self.record_block_timeliness(
+    dag.timeParams, blckRef, blck, slot)
   self.update_proposer_boost_root(dag, blckRef, slot, isTimely)
 
   # Update checkpoints in store if necessary
