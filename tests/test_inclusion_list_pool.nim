@@ -21,18 +21,18 @@ import
   # Test utilities
   ./testutil, ./testdbutil, ./consensus_spec/fixtures_utils
 
-func makeTx(bytes: openArray[byte]): bellatrix.Transaction =
-  bellatrix.Transaction(@bytes)
+func makeTx(bytes: openArray[byte]): gloas.Transaction =
+  gloas.Transaction(@bytes)
 
 func makeInclusionList(
     slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
-    txs: openArray[bellatrix.Transaction]): InclusionList =
+    txs: openArray[gloas.Transaction]): InclusionList =
   var il = InclusionList(
     slot: slot,
     validator_index: validator_index,
     inclusion_list_committee_root: committee_root)
   for tx in txs:
-    doAssert il.transactions.add(tx)
+    il.transactions.add(tx)
   il
 
 suite "Inclusion list pool" & preset():

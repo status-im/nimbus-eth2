@@ -119,7 +119,7 @@ func addInclusionList*(
 
 func getInclusionListTransactions*(
     pool: InclusionListPool, state: heze.BeaconState, slot: Slot,
-    cache: var StateCache, only_timely: bool): seq[bellatrix.Transaction] =
+    cache: var StateCache, only_timely: bool): seq[gloas.Transaction] =
   ## Transactions a proposer must include for `slot`, drawn from the valid,
   ## non-equivocating inclusion lists collected for that slot's committee.
   let idx = bucketIdx(slot)
