@@ -570,12 +570,12 @@ proc forkchoiceUpdated(
           blck = head.blck,
           prevStatus = head.blck.optimisticStatus,
           payloadExecutionStatus = status
-      
+
       if self.dag.cfg.consensusForkAtEpoch(head.blck.slot.epoch) >=
           ConsensusFork.Gloas:
-        # Only the payload is invlaid, not the CL block mark the `FULL` forkchoice
-        # variant invalid and let the next head selection fall to `EMPTY`
-        self.attestationPool[].forkchoice.mark_payload_invalid(head.blck.root)
+        # Only the payload is invalid, mark the `FULL` fork-choice variant
+        # invalid and let the next head selection fall back to `EMPTY`
+        self.attestationPool[].forkChoice.mark_payload_invalid(head.blck.root)
       else:
         head.blck.markExecutionValid(false)
         self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
