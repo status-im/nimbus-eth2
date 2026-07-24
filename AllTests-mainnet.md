@@ -884,6 +884,17 @@ AllTests-mainnet
 + is_valid_inclusion_list_signature                                                          OK
 + process_inclusion_list detects equivocation                                                OK
 ```
+## Inclusion list pool [Preset: mainnet]
+```diff
++ A list for a future slot is rejected [Preset: mainnet]                                     OK
++ A list one slot behind the wall slot is still accepted [Preset: mainnet]                   OK
++ A list past the lookback window is rejected [Preset: mainnet]                              OK
++ Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
++ Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
++ Stale slots are pruned [Preset: mainnet]                                                   OK
++ Stores transactions for the slot [Preset: mainnet]                                         OK
++ Untimely lists are excluded unless requested [Preset: mainnet]                             OK
+```
 ## Key splitting
 ```diff
 + k < n                                                                                      OK

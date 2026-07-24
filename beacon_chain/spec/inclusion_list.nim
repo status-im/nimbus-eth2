@@ -12,10 +12,10 @@
 
 import
   std/[sets, tables],
-  ./datatypes/[base, bellatrix, heze],
+  ./datatypes/[base, bellatrix, gloas, heze],
   ./[beaconstate, eth2_merkleization]
 
-export base, bellatrix, heze
+export base, bellatrix, gloas, heze
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/inclusion-list.md#inclusionliststore
