@@ -730,14 +730,23 @@ proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
     justified: self.checkpoints.justified.checkpoint,
     finalized: self.checkpoints.finalized), current_slot)
 
+func markLogicalIdxInvalid(self: var ForkChoice, nodeLogicalIdx: Index) =
+  let nodePhysicalIdx = nodeLogicalIdx - self.backend.proto_array.nodes.offset
+  if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
+    self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
+  self.backend.proto_array.propagateInvalidity(nodePhysicalIdx)
+
 func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
   try:
-    let nodePhysicalIdx =
-      self.backend.proto_array.indices[root] -
-        self.backend.proto_array.nodes.offset
-    if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
-      self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
-    self.backend.proto_array.propagateInvalidity(nodePhysicalIdx)
+    self.markLogicalIdxInvalid(self.backend.proto_array.indices[root])
+  # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
+  except KeyError:
+    discard
+
+func mark_payload_invalid*(self: var ForkChoice, root: Eth2Digest) =
+  try:
+    self.markLogicalIdxInvalid(
+      self.backend.proto_array.fullBlockIndices[root])
   # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
   except KeyError:
     discard

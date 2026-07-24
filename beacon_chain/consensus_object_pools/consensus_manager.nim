@@ -570,12 +570,18 @@ proc forkchoiceUpdated(
           blck = head.blck,
           prevStatus = head.blck.optimisticStatus,
           payloadExecutionStatus = status
-
-      head.blck.markExecutionValid(false)
-      self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
-      # TODO differentiate invalid execution from invalid consensus
-      discard self.quarantine[].addUnviable(
-        head.blck.root, UnviableKind.Invalid)
+      
+      if self.dag.cfg.consensusForkAtEpoch(head.blck.slot.epoch) >=
+          ConsensusFork.Gloas:
+        # Only the payload is invlaid, not the CL block mark the `FULL` forkchoice
+        # variant invalid and let the next head selection fall to `EMPTY`
+        self.attestationPool[].forkchoice.mark_payload_invalid(head.blck.root)
+      else:
+        head.blck.markExecutionValid(false)
+        self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
+        # TODO differentiate invalid execution from invalid consensus
+        discard self.quarantine[].addUnviable(
+          head.blck.root, UnviableKind.Invalid)
       false
 
 proc updateExecutionHead*(
