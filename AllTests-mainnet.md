@@ -27,6 +27,10 @@ AllTests-mainnet
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
+## Attestation pool gloas processing [Preset: mainnet]
+```diff
++ EL-invalid payload only invalidates the FULL variant                                       OK
+```
 ## Backfill
 ```diff
 + Backfill to genesis                                                                        OK
