@@ -513,7 +513,7 @@ proc doRunTest(
             if addRes.isOk:
               doAssert stores.fkChoice[].on_execution_payload(
                 stores.dag.cfg, stores.dag.timeParams,
-                step.executionPayload).isOk
+                step.executionPayload.asTrusted()).isOk
             valid = addRes.isOk
       doAssert valid == step.valid
     of opOnPayloadAttestation:

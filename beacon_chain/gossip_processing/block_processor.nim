@@ -24,7 +24,7 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  ChainDAGRef, EpochRef, OnBlockAdded, PayloadVerifierError,
+  ChainDAGRef, EpochRef, OnBlockAdded, OnPayloadAdded, PayloadVerifierError,
   VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
@@ -526,6 +526,23 @@ proc onBlockAdded*(
           blck.message.slot, blck.root, state.current_sync_committee.pubkeys.data[i]
         )
 
+proc onPayloadAdded*(
+    dag: ChainDAGRef,
+    attestationPool: ref AttestationPool,
+): OnPayloadAdded =
+  ## Actions to perform when a payload is successfully added to the DAG
+
+  return proc(
+      blckRef: BlockRef,
+      envelope: TrustedSignedExecutionPayloadEnvelope,
+  ) =
+    # Notify fork choice so it materializes the block's FULL node.
+    attestationPool[].forkChoice.on_execution_payload(
+        dag.cfg, dag.timeParams, envelope).isOkOr:
+      warn "on_execution_payload failed", error,
+        blck = shortLog(envelope.message.beacon_block_root),
+        slot = envelope.message.slot
+
 proc verifyPayloadOnCL(
     signedBlock: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
                  deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
@@ -1017,8 +1034,9 @@ proc storePayload(
   ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
-  debugGloasComment("deadline")
-  let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
+  let blck = ?addHeadExecutionPayload(
+    dag, signedBlock, signedEnvelope,
+    onPayloadAdded(dag, self.consensusManager.attestationPool))
 
   # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
   # execution_payload_available: The node has verified that the execution
@@ -1030,12 +1048,6 @@ proc storePayload(
   # The execution payload has added to the clearance state successfully, so try
   # adding to the current state.
   let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
-
-  # Notify fork choice so it materializes the block's FULL node.
-  self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
-      dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
-    warn "on_execution_payload failed", error,
-      blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
   debugGloasComment("deadline")
   debugGloasComment("should be decided by Fork Choice")

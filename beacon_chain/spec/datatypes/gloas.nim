@@ -817,6 +817,10 @@ template asTrusted*(
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
 
+template asTrusted*(
+    x: SignedExecutionPayloadEnvelope): TrustedSignedExecutionPayloadEnvelope =
+  isomorphicCast[TrustedSignedExecutionPayloadEnvelope](x)
+
 template toElectraAggregationBits*(
     bits: electra.AggregationBits): electra.AggregationBits = bits
 
@@ -889,8 +893,13 @@ iterator getValidatorIndices*(
     yield validator_index
 
 # Helpers to frequently used values
-template slot*(v: ExecutionPayloadEnvelope): Slot = v.payload.slot_number
-template slot*(v: SignedExecutionPayloadEnvelope): Slot = v.message.slot
+template slot*(
+    v: ExecutionPayloadEnvelope | TrustedExecutionPayloadEnvelope): Slot =
+  v.payload.slot_number
+template slot*(
+    v: SignedExecutionPayloadEnvelope |
+       TrustedSignedExecutionPayloadEnvelope): Slot =
+  v.message.slot
 
 template builder_index*(v: BeaconBlock | TrustedBeaconBlock): uint64 =
   if v.body.signed_execution_payload_bid.message.builder_index ==
