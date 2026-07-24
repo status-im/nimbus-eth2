@@ -1193,6 +1193,8 @@ suite "Attestation pool gloas processing" & preset():
           beacon_block_root: b1.root))).isOk
     check b1.root in pool[].forkChoice.backend.proto_array.fullBlockIndices
 
+    let forkState = assignClone(state[])
+
     # b2 extends b1's payload, attaching to the FULL variant of b1
     let
       b2 = addTestBlock(state[], cache, cfg = cfg).gloasData
@@ -1226,3 +1228,19 @@ suite "Attestation pool gloas processing" & preset():
       let head = pool[].selectOptimisticHead(selectionTime).get().blck
       # b1 remains viable as EMPTY and the chain keeps building on b1
       check head == b1Add[]
+
+    # A block extending the invalid payload arriving after
+    # the verdict should not resurrect the branch
+    var cache2 = StateCache()
+    let
+      b3 = addTestBlock(forkState[], cache2, cfg = cfg,
+        graffiti = GraffitiBytes [
+          1'u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).gloasData
+      b3Add = addHeadBlockToForkChoice(b3)
+
+    block:
+      let head = pool[].selectOptimisticHead(selectionTime).get().blck
+      check:
+        head != b3Add[]
+        head == b1Add[]

@@ -385,12 +385,14 @@ func onBlock*(
     else:
       baseParentIdx
 
-  let nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
-
-  let node = ProtoNode(
-    bid: bid,
-    parent: Opt.some(parentIdx),
-    checkpoints: checkpoints)
+  let
+    nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
+    parentNode = self.nodes[parentIdx]
+    node = ProtoNode(
+      bid: bid,
+      parent: Opt.some(parentIdx),
+      checkpoints: checkpoints,
+      invalid: parentNode.isSome and parentNode.unsafeGet.invalid)
 
   self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
