@@ -269,6 +269,11 @@ proc batchVerifyAsync(
     warn "Batch verification verification failed - report bug", err = exc.msg
     return false
 
+  # `sigsets` must be used after the `await` or it is freed on suspension
+  # while the worker still reads it through `task.setsPtr`:
+  # https://github.com/nim-lang/Nim/issues/26041
+  discard sigsets
+
   task.ok.load()
 
 proc processBatch(
