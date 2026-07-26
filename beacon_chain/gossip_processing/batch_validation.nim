@@ -136,8 +136,7 @@ type
 
   BatchTask = object
     ok: Atomic[bool]
-    setsPtr: ptr UncheckedArray[SignatureSet]
-    numSets: int
+    sigsets: seq[SignatureSet]
     secureRandomBytes: array[32, byte]
     taskpool: Taskpool
     cache: ptr BatchedBLSVerifierCache
@@ -210,11 +209,15 @@ proc complete(batchCrypto: var BatchCrypto, batch: var Batch, ok: bool) =
     reset(batchCrypto.counts)
 
 proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
-  # Task suitable for running in taskpools - look, no GC!
+  # Task suitable for running in taskpools - the task[].sigsets payload is
+  # owned by the main thread; it is only read here, no refs are copied or
+  # destroyed
   let
     tp = task[].taskpool
+    setsPtr = makeUncheckedArray(baseAddr task[].sigsets)
+    numSets = task[].sigsets.len
     ok = tp.spawn batchVerify(
-      tp, task[].cache, task[].setsPtr, task[].numSets,
+      tp, task[].cache, setsPtr, numSets,
       addr task[].secureRandomBytes)
 
   task[].ok.store(sync ok)
@@ -247,18 +250,19 @@ proc batchVerifyAsync(
     verifier: ref BatchVerifier,
     signal: ThreadSignalPtr,
     batch: ref Batch): Future[bool] {.async: (raises: [CancelledError]).} =
-  let sigsets = batch[].multiSets.combineAll(verifier)
   var task = BatchTask(
-    setsPtr: makeUncheckedArray(baseAddr sigsets),
-    numSets: sigsets.len,
+    sigsets: batch[].multiSets.combineAll(verifier),
     taskpool: verifier[].taskpool,
     cache: addr verifier[].sigVerifCache,
     signal: signal,
   )
   verifier[].rng[].generate(task.secureRandomBytes)
 
-  # task will stay allocated in the async environment at least until the signal
-  # has fired at which point it's safe to release it
+  # The worker accesses `task` and the sigsets it owns until the signal has
+  # fired; being used across the `await` below is what makes the async
+  # environment keep `task` alive that long - locals used only before the
+  # `await` are implicitly freed on suspension and could be recycled while
+  # the worker is still reading it: https://github.com/nim-lang/Nim/pull/23787
   let taskPtr = addr task
   doAssert verifier[].taskpool.numThreads > 1,
     "Must have at least one separate thread or signal will never be fired"
