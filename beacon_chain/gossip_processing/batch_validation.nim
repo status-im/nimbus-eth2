@@ -136,7 +136,12 @@ type
 
   BatchTask = object
     ok: Atomic[bool]
+    setsPtr: ptr UncheckedArray[SignatureSet]
+    numSets: int
     sigsets: seq[SignatureSet]
+      # `setsPtr`'s backing store - owned by the thread that created the task;
+      # the worker must not access GC types and reads the payload through the
+      # `setsPtr`/`numSets` view instead
     secureRandomBytes: array[32, byte]
     taskpool: Taskpool
     cache: ptr BatchedBLSVerifierCache
@@ -209,15 +214,11 @@ proc complete(batchCrypto: var BatchCrypto, batch: var Batch, ok: bool) =
     reset(batchCrypto.counts)
 
 proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
-  # Task suitable for running in taskpools - the task[].sigsets payload is
-  # owned by the main thread; it is only read here, no refs are copied or
-  # destroyed
+  # Task suitable for running in taskpools - look, no GC!
   let
     tp = task[].taskpool
-    setsPtr = makeUncheckedArray(baseAddr task[].sigsets)
-    numSets = task[].sigsets.len
     ok = tp.spawn batchVerify(
-      tp, task[].cache, setsPtr, numSets,
+      tp, task[].cache, task[].setsPtr, task[].numSets,
       addr task[].secureRandomBytes)
 
   task[].ok.store(sync ok)
@@ -256,13 +257,14 @@ proc batchVerifyAsync(
     cache: addr verifier[].sigVerifCache,
     signal: signal,
   )
+  task.setsPtr = makeUncheckedArray(baseAddr task.sigsets)
+  task.numSets = task.sigsets.len
   verifier[].rng[].generate(task.secureRandomBytes)
 
-  # The worker accesses `task` and the sigsets it owns until the signal has
-  # fired; being used across the `await` below is what makes the async
-  # environment keep `task` alive that long - locals used only before the
-  # `await` are implicitly freed on suspension and could be recycled while
-  # the worker is still reading it: https://github.com/nim-lang/Nim/pull/23787
+  # task is used across the await below, so it stays allocated in the async
+  # environment at least until the signal has fired, keeping the payload
+  # behind setsPtr alive as well - locals used only before the await are
+  # already freed on suspension: https://github.com/nim-lang/Nim/issues/26041
   let taskPtr = addr task
   doAssert verifier[].taskpool.numThreads > 1,
     "Must have at least one separate thread or signal will never be fired"
