@@ -138,10 +138,6 @@ type
     ok: Atomic[bool]
     setsPtr: ptr UncheckedArray[SignatureSet]
     numSets: int
-    sigsets: seq[SignatureSet]
-      # `setsPtr`'s backing store - owned by the thread that created the task;
-      # the worker must not access GC types and reads the payload through the
-      # `setsPtr`/`numSets` view instead
     secureRandomBytes: array[32, byte]
     taskpool: Taskpool
     cache: ptr BatchedBLSVerifierCache
@@ -251,20 +247,18 @@ proc batchVerifyAsync(
     verifier: ref BatchVerifier,
     signal: ThreadSignalPtr,
     batch: ref Batch): Future[bool] {.async: (raises: [CancelledError]).} =
+  let sigsets = batch[].multiSets.combineAll(verifier)
   var task = BatchTask(
-    sigsets: batch[].multiSets.combineAll(verifier),
+    setsPtr: makeUncheckedArray(baseAddr sigsets),
+    numSets: sigsets.len,
     taskpool: verifier[].taskpool,
     cache: addr verifier[].sigVerifCache,
     signal: signal,
   )
-  task.setsPtr = makeUncheckedArray(baseAddr task.sigsets)
-  task.numSets = task.sigsets.len
   verifier[].rng[].generate(task.secureRandomBytes)
 
-  # task is used across the await below, so it stays allocated in the async
-  # environment at least until the signal has fired, keeping the payload
-  # behind setsPtr alive as well - locals used only before the await are
-  # already freed on suspension: https://github.com/nim-lang/Nim/issues/26041
+  # task will stay allocated in the async environment at least until the signal
+  # has fired at which point it's safe to release it
   let taskPtr = addr task
   doAssert verifier[].taskpool.numThreads > 1,
     "Must have at least one separate thread or signal will never be fired"
@@ -274,6 +268,11 @@ proc batchVerifyAsync(
   except AsyncError as exc:
     warn "Batch verification verification failed - report bug", err = exc.msg
     return false
+
+  # `sigsets` must be used after the `await` or it is freed on suspension
+  # while the worker still reads it through `task.setsPtr`:
+  # https://github.com/nim-lang/Nim/issues/26041
+  discard sigsets
 
   task.ok.load()
 
