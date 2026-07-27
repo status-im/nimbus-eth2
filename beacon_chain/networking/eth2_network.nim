@@ -2660,9 +2660,10 @@ func addValidator*[MsgType](
   proc execValidator(topic: string, message: GossipMsg):
       Future[ValidationResult] {.raises: [].} =
     inc nbc_gossip_messages_received
-    trace "Validating incoming gossip message", len = message.data.len, topic
+    let data = message.data.get(newSeq[byte]())
+    trace "Validating incoming gossip message", len = data.len, topic
 
-    var decompressed = snappy.decode(message.data, gossipMaxSize(MsgType))
+    var decompressed = snappy.decode(data, gossipMaxSize(MsgType))
     let res = if decompressed.len > 0:
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
@@ -2671,12 +2672,12 @@ func addValidator*[MsgType](
       except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
-          topic, len = message.data.len, decompressed = decompressed.len,
+          topic, len = data.len, decompressed = decompressed.len,
           error = e.msg
         ValidationResult.Reject
     else: # snappy returns empty seq on failed decompression
       inc nbc_gossip_failed_snappy
-      debug "Error decompressing gossip", topic, len = message.data.len
+      debug "Error decompressing gossip", topic, len = data.len
       ValidationResult.Reject
 
     newValidationResultFuture(res)
@@ -2694,9 +2695,10 @@ proc addAsyncValidator*[MsgType](
       message: GossipMsg
   ): Future[ValidationResult] {.async: (raw: true).} =
     inc nbc_gossip_messages_received
-    trace "Validating incoming gossip message", len = message.data.len, topic
+    let data = message.data.get(newSeq[byte]())
+    trace "Validating incoming gossip message", len = data.len, topic
 
-    var decompressed = snappy.decode(message.data, gossipMaxSize(MsgType))
+    var decompressed = snappy.decode(data, gossipMaxSize(MsgType))
     if decompressed.len > 0:
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
@@ -2705,12 +2707,12 @@ proc addAsyncValidator*[MsgType](
       except SerializationError as e:
         inc nbc_gossip_failed_ssz
         debug "Error decoding gossip",
-          topic, len = message.data.len, decompressed = decompressed.len,
+          topic, len = data.len, decompressed = decompressed.len,
           error = e.msg
         newValidationResultFuture(ValidationResult.Reject)
     else: # snappy returns empty seq on failed decompression
       inc nbc_gossip_failed_snappy
-      debug "Error decompressing gossip", topic, len = message.data.len
+      debug "Error decompressing gossip", topic, len = data.len
       newValidationResultFuture(ValidationResult.Reject)
 
   node.validTopics.incl topic # Only allow subscription to validated topics
