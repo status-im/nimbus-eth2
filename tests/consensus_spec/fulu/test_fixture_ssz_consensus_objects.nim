@@ -192,9 +192,11 @@ suite "EF - Fulu - SSZ consensus objects " & preset():
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
           of "PartialDataColumnHeader":
             checkSSZ(fulu.PartialDataColumnHeader, path, hash)
+          of "PartialDataColumnGroupID":
+            checkSSZ(fulu.PartialDataColumnGroupID, path, hash)
           of "PartialDataColumnSidecar":
             checkSSZ(fulu.PartialDataColumnSidecar, path, hash)
           of "PartialDataColumnPartsMetadata":
-            debugGloasComment "Skipping PartialDataColumn tests for now"
+            checkSSZ(fulu.PartialDataColumnPartsMetadata, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

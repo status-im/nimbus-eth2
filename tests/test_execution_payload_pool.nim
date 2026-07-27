@@ -22,8 +22,9 @@ func makeBid(
     builderIndex: uint64,
     parentBlockRoot: Eth2Digest,
     parentBlockHash: Eth2Digest,
-    value: Gwei): SignedExecutionPayloadBid =
-  SignedExecutionPayloadBid(
+    value: Gwei): gloas.SignedExecutionPayloadBid =
+  debugHezeComment "Heze has different SignedExecutionPayloadBid"
+  gloas.SignedExecutionPayloadBid(
     message: gloas.ExecutionPayloadBid(
       slot: slot,
       builder_index: builderIndex,
@@ -33,7 +34,7 @@ func makeBid(
       fee_recipient: default(ExecutionAddress),
       gas_limit: 30000000,
       value: value,
-      blob_kzg_commitments: default(KzgCommitments)),
+      blob_kzg_commitments: default(gloas.KzgCommitments)),
     signature: default(ValidatorSig))
 
 suite "Execution Payload Bid Pool":

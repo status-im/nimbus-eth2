@@ -507,12 +507,17 @@ proc process_block*(
             vidx, attestation.data.beacon_block_root, attestation.data.slot,
             false, dag.cfg)
 
+  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+
   when typeof(blck).kind >= ConsensusFork.Gloas:
     for pa in blck.body.payload_attestations:
-      let tally = addr self.backend.ptc_votes.mgetOrPut(
-        pa.data.beacon_block_root, PtcVoteTally())
+      if pa.data.slot + 1 < slot:
+        continue
+      let tally = self.backend.mgetPtcTally(
+        pa.data.beacon_block_root, pa.data.slot)
       for i in 0 ..< pa.aggregation_bits.len:
         if pa.aggregation_bits[i]:
+          tally.voted[i] = true
           tally.present[i] = pa.data.payload_present
           tally.available[i] = pa.data.blob_data_available
 
@@ -520,8 +525,8 @@ proc process_block*(
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
-  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  let isTimely = self.record_block_timeliness(dag.timeParams, blckRef, blck, slot)
+  let isTimely = self.record_block_timeliness(
+    dag.timeParams, blckRef, blck, slot)
   self.update_proposer_boost_root(dag, blckRef, slot, isTimely)
 
   # Update checkpoints in store if necessary
@@ -593,11 +598,8 @@ func find_head(
       break maybeEmptyPreferred
     let parentNode = self.proto_array.node(parentIdx).valueOr:
       break maybeEmptyPreferred
-    let
-      parentRoot = parentNode.bid.root
-      fullParentIdx =
-        self.proto_array.fullBlockIndices.getOrDefault(parentRoot, -1)
-    if parentIdx != fullParentIdx and
+    let parentRoot = parentNode.bid.root
+    if not self.proto_array.isFullNode(parentRoot, parentIdx) and
         not self.should_extend_payload(parentRoot):
       emptyPreferredRoot = parentRoot
 
@@ -714,13 +716,6 @@ proc prune(
 
   # Drop per-block fork-choice state for blocks no longer in the proto-array.
   var staleRoots: seq[Eth2Digest]
-  for root in self.ptc_votes.keys:
-    if root notin self.proto_array.indices:
-      staleRoots.add root
-  for root in staleRoots:
-    self.ptc_votes.del root
-
-  staleRoots.setLen(0)
   for root in self.timely_proposer_blocks:
     if root notin self.proto_array.indices:
       staleRoots.add root
