@@ -686,7 +686,7 @@ type
         name: "debug-bandwidth-estimate" .}: Option[Natural]
 
       rpcEnabled* {.
-        obsolete: "Superceded by REST API as of v1.7.0"
+        hidden
         name: "rpc" .}: Option[bool]
 
       rpcPort* {.
