@@ -2676,9 +2676,6 @@ proc doRunBeaconNode(
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
-  if config.rpcEnabled.isSome:
-    warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
-
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
   # to use it
