@@ -948,6 +948,7 @@ func getGloasAggregatedAttestation*(
 
 type BeaconHead* = object
   blck*: BlockRef
+  full*: bool
   safeExecutionBlockHash*, finalizedExecutionBlockHash*: Eth2Digest
 
 proc getBeaconHead*(
@@ -1024,7 +1025,9 @@ proc selectOptimisticHead*(
     head = shortLog(headBlock), payloadFull = newHead.full
 
   ? pool.willSelectNewHead(headBlock, wallTime)
-  ok pool.getBeaconHead(headBlock)
+  var beaconHead = pool.getBeaconHead(headBlock)
+  beaconHead.full = newHead.full
+  ok beaconHead
 
 proc prune*(pool: var AttestationPool, dag: ChainDAGRef) =
   if (let v = pool.forkChoice.prune(dag); v.isErr):

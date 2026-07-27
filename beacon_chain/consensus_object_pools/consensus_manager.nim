@@ -224,7 +224,9 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
         head = shortLog(self.dag.head), wallSlot
       return
 
+  let headChanged = newHead.blck != self.dag.head
   self.updateHead(newHead.blck)
+  self.dag.updateHeadExecutionPayload(newHead.full, headChanged)
 
 func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # This is a tweaked version of the beacon_validators isSynced. TODO, refactor
@@ -352,7 +354,9 @@ proc prepareNextSlot*(
     when consensusFork >= ConsensusFork.Electra:
       debug "Sending proposal fcU", proposalSlot, validatorIndex, nextProposer
       when consensusFork >= ConsensusFork.Gloas:
-        let shouldExtend = dag.shouldExtendPayload(head)
+        let shouldExtend = self.attestationPool[].forkChoice
+          .should_build_on_full(
+            dag, head, dag.isPayloadStatusFull(head), proposalSlot)
       let
         timestamp = dag.timeParams
           .compute_timestamp_at_slot(forkyState.data, proposalSlot)
