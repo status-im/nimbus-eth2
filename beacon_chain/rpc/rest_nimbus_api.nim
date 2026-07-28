@@ -205,14 +205,14 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonResponse((peers: res))
 
   router.api2(MethodPost, "/nimbus/v1/graffiti") do (
-      contentBody: Option[ContentBody]) -> RestApiResponse:
+      contentBody: Opt[ContentBody]) -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodGet, "/nimbus/v1/graffiti") do () -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodPost, "/nimbus/v1/chronicles/settings") do (
-    log_level: Option[string]) -> RestApiResponse:
+    log_level: Opt[string]) -> RestApiResponse:
     if log_level.isSome():
       let level =
         block:
@@ -330,7 +330,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonResponse(res)
 
   router.api2(MethodPost, "/nimbus/v1/validator/activity/{epoch}") do (
-    epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    epoch: Epoch, contentBody: Opt[ContentBody]) -> RestApiResponse:
     let indexList =
       block:
         if contentBody.isNone():
@@ -455,7 +455,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   router.api2(MethodPost, "/nimbus/v1/timesync") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     let
       timestamp2 = getTimestamp()
       timestamp1 =

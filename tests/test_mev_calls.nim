@@ -143,7 +143,7 @@ proc sszResponseSignedBuilderBid*(
 
 proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
   router.api2(MethodPost, "/eth/v1/builder/validators") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
 
     if contentBody.isNone:
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
@@ -193,7 +193,7 @@ proc setupEngineAPI*(router: var RestRouter, node: TestNodeRef) =
       RestApiResponse.jsonError(Http500, "Unsupported slot number")
 
   router.api2(MethodPost, "/eth/v2/builder/blinded_blocks") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
 
     if contentBody.isNone:
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
