@@ -446,9 +446,6 @@ type
     slot*: Slot
     block_root*: Eth2Digest
 
-  EventProposerPreferencesObject* = object
-    data*: SignedProposerPreferences
-
   RestPayloadAttributes* = object
     timestamp*: uint64
     prev_randao*: Eth2Digest
