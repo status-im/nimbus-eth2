@@ -485,7 +485,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.metricsApi2(
     MethodPost, "/eth/v1/beacon/states/{state_id}/validators",
     {RestServerMetricsType.Status, Response}) do (
-    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    state_id: StateIdent, contentBody: Opt[ContentBody]) -> RestApiResponse:
     let
       (validatorIds, validatorsMask) =
         block:
@@ -600,7 +600,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.metricsApi2(
     MethodPost, "/eth/v1/beacon/states/{state_id}/validator_balances",
     {RestServerMetricsType.Status, Response}) do (
-    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    state_id: StateIdent, contentBody: Opt[ContentBody]) -> RestApiResponse:
     let
       validatorIds =
         block:
@@ -621,7 +621,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.metricsApi2(
     MethodPost, "/eth/v1/beacon/states/{state_id}/validator_identities",
     {RestServerMetricsType.Status, Response}) do (
-    state_id: StateIdent, contentBody: Option[ContentBody]) -> RestApiResponse:
+    state_id: StateIdent, contentBody: Opt[ContentBody]) -> RestApiResponse:
     let
       validatorIds =
         block:
@@ -642,8 +642,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/committees",
     {RestServerMetricsType.Status, Response}) do (
-    state_id: StateIdent, epoch: Option[Epoch], index: Option[CommitteeIndex],
-    slot: Option[Slot]) -> RestApiResponse:
+    state_id: StateIdent, epoch: Opt[Epoch], index: Opt[CommitteeIndex],
+    slot: Opt[Slot]) -> RestApiResponse:
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -671,9 +671,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Http400, InvalidEpochValueError,
             "Requested epoch earlier than what committees can be computed for")
 
-        some(res)
+        Opt.some(res)
       else:
-        none[Epoch]()
+        Opt.none(Epoch)
     let vindex =
       if index.isSome():
         let rindex = index.get()
@@ -681,9 +681,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            InvalidCommitteeIndexValueError,
                                            $rindex.error)
-        some(rindex.get())
+        Opt.some(rindex.get())
       else:
-        none[CommitteeIndex]()
+        Opt.none(CommitteeIndex)
     let vslot =
       if slot.isSome():
         let rslot = slot.get()
@@ -708,9 +708,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               Http400, InvalidEpochValueError,
               "Requested slot earlier than what committees can be computed for")
 
-        some(res)
+        Opt.some(res)
       else:
-        none[Slot]()
+        Opt.none(Slot)
 
     node.withStateForBlockSlotId(bslot):
       func getCommittee(slot: Slot,
@@ -719,7 +719,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestBeaconStatesCommittees(index: index, slot: slot,
                                    validators: validators)
 
-      func forSlot(slot: Slot, cindex: Option[CommitteeIndex],
+      func forSlot(slot: Slot, cindex: Opt[CommitteeIndex],
                    res: var seq[RestBeaconStatesCommittees]) =
         let committees_per_slot = get_committee_count_per_slot(
           state, slot.epoch, cache)
@@ -758,7 +758,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/sync_committees",
     {RestServerMetricsType.Status, Response}) do (
-    state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
+    state_id: StateIdent, epoch: Opt[Epoch]) -> RestApiResponse:
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -838,7 +838,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.metricsApi2(
     MethodGet, "/eth/v1/beacon/states/{state_id}/randao",
     {RestServerMetricsType.Status, Response}) do (
-    state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
+    state_id: StateIdent, epoch: Opt[Epoch]) -> RestApiResponse:
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -893,7 +893,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders
   router.api2(MethodGet, "/eth/v1/beacon/headers") do (
-    slot: Option[Slot], parent_root: Option[Eth2Digest]) -> RestApiResponse:
+    slot: Opt[Slot], parent_root: Opt[Eth2Digest]) -> RestApiResponse:
     # TODO (cheatfate): This call is incomplete, because structure
     # of database do not allow to query blocks by `parent_root`.
     let qslot =
@@ -960,13 +960,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
 
   router.api(MethodPost, "/eth/v1/beacon/blocks") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
   router.api(MethodPost, "/eth/v2/beacon/blocks") do (
-    broadcast_validation: Option[BroadcastValidationType],
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    broadcast_validation: Opt[BroadcastValidationType],
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     let res =
       block:
         let
@@ -1090,13 +1090,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         respondSszOrJson(toSignedBlindedBeaconBlock(forkyBlck), consensusFork)
 
   router.api(MethodPost, "/eth/v1/beacon/blinded_blocks") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlockV2
   router.api(MethodPost, "/eth/v2/beacon/blinded_blocks") do (
-    broadcast_validation: Option[BroadcastValidationType],
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    broadcast_validation: Opt[BroadcastValidationType],
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
@@ -1240,14 +1240,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         consensusFork, node.hasRestAllowedOrigin)
 
   router.api2(MethodGet, "/eth/v1/beacon/pool/attestations") do (
-    slot: Option[Slot],
-    committee_index: Option[CommitteeIndex]) -> RestApiResponse:
+    slot: Opt[Slot],
+    committee_index: Opt[CommitteeIndex]) -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestationsV2
   router.api2(MethodGet, "/eth/v2/beacon/pool/attestations") do (
-    slot: Option[Slot],
-    committee_index: Option[CommitteeIndex]) -> RestApiResponse:
+    slot: Opt[Slot],
+    committee_index: Opt[CommitteeIndex]) -> RestApiResponse:
     let vindex =
       if committee_index.isSome():
         let rindex = committee_index.get().valueOr:
@@ -1290,12 +1290,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.hasRestAllowedOrigin)
 
   router.api2(MethodPost, "/eth/v1/beacon/pool/attestations") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestationsV2
   router.api2(MethodPost, "/eth/v2/beacon/pool/attestations") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
 
     let
       headerVersion = request.headers.getString("eth-consensus-version")
@@ -1356,7 +1356,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   router.api(MethodPost, "/eth/v1/beacon/pool/attester_slashings") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     RestApiResponse.jsonError(Http410, DeprecatedRemovalElectra)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttesterSlashingsV2
@@ -1383,7 +1383,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashingsV2
   router.api(MethodPost, "/eth/v2/beacon/pool/attester_slashings") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
 
     let
       headerVersion = request.headers.getString("eth-consensus-version")
@@ -1424,7 +1424,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolProposerSlashings
   router.api(MethodPost, "/eth/v1/beacon/pool/proposer_slashings") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     let slashing =
       block:
         if contentBody.isNone():
@@ -1453,7 +1453,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolBLSToExecutionChange
   # https://github.com/ethereum/beacon-APIs/blob/86850001845df9163da5ae9605dbf15cd318d5d0/apis/beacon/pool/bls_to_execution_changes.yaml
   router.api2(MethodPost, "/eth/v1/beacon/pool/bls_to_execution_changes") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     if node.currentSlot().epoch() < node.dag.cfg.CAPELLA_FORK_EPOCH:
       return RestApiResponse.jsonError(Http400,
                                        InvalidBlsToExecutionChangeObjectError,
@@ -1488,7 +1488,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
   router.api(MethodPost, "/eth/v1/beacon/pool/sync_committees") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     let messages =
       block:
         if contentBody.isNone():
@@ -1524,7 +1524,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
   router.api(MethodPost, "/eth/v1/beacon/pool/voluntary_exits") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     let exit =
       block:
         if contentBody.isNone():
@@ -1619,7 +1619,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadBid
   router.api(MethodPost, "/eth/v1/beacon/execution_payload_bids") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
 
     let
       headerVersion = request.headers.getString("eth-consensus-version")
@@ -1650,7 +1650,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
   # https://github.com/ethereum/beacon-APIs/blob/e46367867f207237ecb4839b333431144a08899b/apis/beacon/execution_payload/envelope_post.yaml
   router.api(MethodPost, "/eth/v1/beacon/execution_payload_envelopes") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
 
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
