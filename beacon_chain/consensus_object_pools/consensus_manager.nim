@@ -575,6 +575,7 @@ proc forkchoiceUpdated(
           ConsensusFork.Gloas:
         # Only the payload is invalid, mark the `FULL` fork-choice variant
         # invalid and let the next head selection fall back to `EMPTY`
+        head.blck.markExecutionValid(false)
         self.attestationPool[].forkChoice.mark_payload_invalid(head.blck.root)
       else:
         head.blck.markExecutionValid(false)
