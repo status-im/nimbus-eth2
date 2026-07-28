@@ -149,11 +149,24 @@ proc fetchCheckpointState(
   else:
     Opt.some default(ref ForkedHashedBeaconState)
 
+proc clearDatabase(databaseDir: string): Opt[void] =
+  notice "Deleting existing database, `--debug-force-resync` was requested",
+    databaseDir
+  try:
+    removeDir(databaseDir, checkDir = false)
+    ok()
+  except OSError as exc:
+    error "Failed to delete existing database",
+      path = databaseDir, err = exc.msg
+    return err()
+
 proc setupDatabase(
     config: BeaconNodeConf, metadata: Eth2NetworkMetadata
 ): Future[Opt[BeaconChainDB]] {.async: (raises: [CancelledError]).} =
   # Open the database and initialize it with genesis/checkpoint if it wasn't
   # setup before - fails if the data sources we use are broken
+  if config.forceResync:
+    ? clearDatabase(config.databaseDir)
   let db = BeaconChainDB.new(
     config.databaseDir, metadata.cfg, inMemory = false,
     lightClientDataImportBackfill = config.lightClientDataImportBackfill)
@@ -2816,12 +2829,15 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartUpCmd.trustedNodeSync:
+    let metadata = loadEth2Network(config)
+
     if config.blockId.isSome():
       error "--blockId option has been removed - use --state-id instead!"
       quit 1
 
+    if config.forceResyncTNS and clearDatabase(config.databaseDir).isErr:
+      quit 1
     let
-      metadata = loadEth2Network(config)
       db = BeaconChainDB.new(
         config.databaseDir, metadata.cfg, inMemory = false)
       genesisState = (waitFor fetchGenesisState(metadata, config.eraDir)).valueOr:

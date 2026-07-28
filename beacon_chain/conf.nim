@@ -360,6 +360,11 @@ type
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
 
+      forceResync* {.
+        hidden
+        desc: "Delete the existing beacon chain database and sync from scratch"
+        name: "debug-force-resync" .}: bool
+
       externalBeaconApiUrl* {.
         desc: "External beacon API to use for syncing (on empty database)"
         name: "external-beacon-api-url" .}: Option[string]
@@ -910,6 +915,11 @@ type
       lcTrustedBlockRoot* {.
         desc: "Recent trusted finalized block root to initialize light client from"
         name: "trusted-block-root" .}: Option[Eth2Digest]
+
+      forceResyncTNS* {.
+        hidden
+        desc: "Delete the existing beacon chain database and sync from scratch"
+        name: "debug-force-resync" .}: bool
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"
