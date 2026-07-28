@@ -125,7 +125,7 @@ func process_attestation(
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-validate_on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-validate_on_attestation
 func validate_on_attestation(
     self: ForkChoice, cfg: RuntimeConfig, beacon_block_root: Eth2Digest,
     attestation_slot: Slot, committee_index: CommitteeIndex): FcResult[void] =
@@ -442,7 +442,7 @@ func process_block*(
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-record_block_timeliness
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-record_block_timeliness
 func record_block_timeliness(
     self: var ForkChoice, timeParams: TimeParams,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
@@ -460,7 +460,7 @@ func record_block_timeliness(
   isCurrentSlot and self.checkpoints.time <
     blck.slot.attestation_deadline(timeParams, consensusFork)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 func update_proposer_boost_root(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, current_slot: Slot, is_timely: bool) =
@@ -627,7 +627,7 @@ func find_head(
   ok((root: new_head, full: new_head_full))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#get_head
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[tuple[root: Eth2Digest, full: bool]] =

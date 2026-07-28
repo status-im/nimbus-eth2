@@ -453,7 +453,7 @@ proc processDataColumnSidecar*(
     dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
     # "If not yet seen, a client SHOULD queue the sidecar for deferred
     # validation and possible processing once the block is received or
     # retrieved."

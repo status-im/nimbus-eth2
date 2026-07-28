@@ -386,7 +386,7 @@ proc prepareNextSlot*(
                 forkyState.data, pendingBuilderPayment(forkyState.data)
               ).withdrawals
             else:
-              # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/validator.md#executionpayload
+              # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#executionpayload
               # if should_build_on_full(store, head): ...
               # else: withdrawals = state.payload_expected_withdrawals
               forkyState.data.payload_expected_withdrawals.asSeq

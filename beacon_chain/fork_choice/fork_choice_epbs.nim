@@ -16,7 +16,7 @@ from ../spec/beaconstate import get_ptc
 from ../spec/datatypes/gloas import
   PAYLOAD_TIMELY_THRESHOLD, DATA_AVAILABILITY_TIMELY_THRESHOLD
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
     self: var ForkChoiceBackend, root: Eth2Digest): bool =
   if root notin self.proto_array.fullBlockIndices:
@@ -29,7 +29,7 @@ func should_extend_payload*(
   present > PAYLOAD_TIMELY_THRESHOLD and
     available > DATA_AVAILABILITY_TIMELY_THRESHOLD
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(
     self: var ForkChoice, head_root: Eth2Digest, dag: ChainDAGRef): bool =
   # Calculate weight threshold for weak head
@@ -60,7 +60,7 @@ proc is_head_weak(
 
   head_weight < reorg_threshold
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost*(
     self: var ForkChoice, dag: ChainDAGRef): bool =
   template proposer_root: untyped = self.checkpoints.proposer_boost_root
@@ -101,7 +101,7 @@ proc should_apply_proposer_boost*(
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-on_payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-on_payload_attestation_message
 proc on_payload_attestation_message*(
     self: var ForkChoice,
     dag: ChainDAGRef,
@@ -156,7 +156,7 @@ proc on_payload_attestation_message*(
         blob_data_available = data.blob_data_available
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
 func on_execution_payload*(
     self: var ForkChoice, cfg: RuntimeConfig, timeParams: TimeParams,
     signedEnvelope: SignedExecutionPayloadEnvelope): FcResult[void] =

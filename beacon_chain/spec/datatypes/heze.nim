@@ -39,14 +39,14 @@ from ./gloas import
 export json_serialization, base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#inclusionlist
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#inclusionlist
   InclusionList* = object
     slot*: Slot
     validator_index*: uint64 # `ValidatorIndex` after validation
     inclusion_list_committee_root*: Eth2Digest
     transactions*: seq[gloas.Transaction]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/heze/beacon-chain.md#signedinclusionlist
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#signedinclusionlist
   SignedInclusionList* = object
     message*: InclusionList
     signature*: ValidatorSig
@@ -242,7 +242,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#beaconblockbody
   BeaconBlockBody* {.sszActiveFields: [
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object
     randao_reveal*: ValidatorSig

@@ -461,7 +461,7 @@ func compute_proposer_indices*(
 
   proposerIndices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
 iterator compute_balance_weighted_selection*(
     state: gloas.BeaconState | heze.BeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest, size: uint64,
@@ -560,7 +560,7 @@ func get_beacon_proposer_index*(
       return res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_beacon_proposer_indices
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.9/specs/gloas/beacon-chain.md#modified-get_beacon_proposer_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-get_beacon_proposer_indices
 func get_beacon_proposer_indices*(
     state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
            heze.BeaconState, epoch: Epoch): seq[Opt[ValidatorIndex]] =
@@ -609,7 +609,7 @@ func get_beacon_proposer_indices*(
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#broadcasting-signedproposerpreferences
 # The signature of this function diverges from the spec to avoid
 # passing the full beacon state through an inline iterator which
 # triggers stack-materialization of the enclosing case object.

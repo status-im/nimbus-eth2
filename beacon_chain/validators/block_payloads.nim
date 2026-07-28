@@ -200,7 +200,7 @@ func decodePayloadRequests[EPS: electra.ExecutionPayloadForSigning |
   except SerializationError:
     err("Failed to deserialize execution requests")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope
 func makeExecutionPayloadEnvelope*(
     eps: gloas.ExecutionPayloadForSigning,
     execution_requests: gloas.ExecutionRequests,
@@ -282,7 +282,7 @@ proc makeEngineBlock*(
       else:
         default(seq[PayloadAttestation])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/builder.md#constructing-the-signedexecutionpayloadbid
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/builder.md#constructing-the-signedexecutionpayloadbid
   # Set `bid.gas_limit` to be the gas limit of the constructed payload, which
   # **MUST** satisfy `is_gas_limit_target_compatible(parent_gas_limit,
   # bid.gas_limit, target_gas_limit)`
@@ -373,7 +373,7 @@ proc getExecutionPayload*(
     prevRandao = get_randao_mix(forkyState.data, slot.epoch)
     withdrawals =
       when consensusFork >= ConsensusFork.Gloas:
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/validator.md#executionpayload
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#executionpayload
         # - If `should_extend_payload(store, parent_root)`:
         #     `withdrawals = get_expected_withdrawals(state).withdrawals`.
         # - else `withdrawals = state.payload_expected_withdrawals`.

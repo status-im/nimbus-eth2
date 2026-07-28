@@ -161,7 +161,7 @@ proc getPayloadAttestationsForBlock*(
 
   pool.attestations.withValue(attestation_slot, slotEntries):
     for key, entry in slotEntries[]:
-      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-process_payload_attestation
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_payload_attestation
       # process_payload_attestation requires
       # `data.beacon_block_root == state.latest_block_header.parent_root`,
       # so attestations referencing any other block at the same slot would

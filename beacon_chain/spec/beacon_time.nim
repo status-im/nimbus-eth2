@@ -179,7 +179,7 @@ func syncCommitteeMessageSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
 func syncContributionSlotOffsetGloas*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.CONTRIBUTION_DUE_BPS_GLOAS)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/fork-choice.md#new-get_payload_due_ms
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-get_payload_due_ms
 func payloadSlotOffset*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.PAYLOAD_DUE_BPS)
 

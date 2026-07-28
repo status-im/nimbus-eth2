@@ -188,6 +188,8 @@ func unload[A: SomeDataColumnSidecar](holder: var SidecarHolder[A]): ref A =
   res
 
 func getIndex(quarantine: SomeColumnQuarantine, index: ColumnIndex): int =
+  if index >= quarantine.indexMap.lenu64:
+    return -1
   quarantine.indexMap[int(index)]
 
 template slot*(b: fulu.DataColumnSidecar): Slot =

@@ -505,7 +505,7 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_dependent_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-get_dependent_root
 func get_dependent_root*(
     dag: ChainDAGRef, bid: BlockId, current_slot: Slot): Eth2Digest =
   let epoch = current_slot.epoch
@@ -2643,8 +2643,8 @@ func shouldExtendPayload*(
   ## DAG.
   ##
   ## Related fork choice helpers
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_build_on_full
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_extend_payload
   (
     # For either genesis or pre-Gloas block, we should always build on them.
     head.slot == GENESIS_SLOT or
