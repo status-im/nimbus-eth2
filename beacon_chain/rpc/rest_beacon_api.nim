@@ -212,10 +212,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                          $error)
 
@@ -238,10 +234,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
@@ -271,10 +263,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                          $error)
 
@@ -471,10 +459,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(
           Http404, StateNotFoundError, $error)
       validatorIds =
@@ -523,10 +507,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
     getValidators(node, bslot, validatorsMask, validatorIds)
 
@@ -543,10 +523,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidValidatorIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
@@ -607,10 +583,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
       validatorIds =
         block:
@@ -642,10 +614,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
     getBalances(node, bslot, validatorIds)
 
@@ -667,10 +635,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError, $error)
     getValidatorIdentities(node, bslot, validatorIds)
 
@@ -685,10 +649,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
@@ -804,10 +764,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
@@ -888,10 +844,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
@@ -1761,10 +1713,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                          $error)
 
@@ -1792,10 +1740,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
@@ -1823,10 +1767,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                          $error)
       bslot = node.getBlockSlotId(sid).valueOr:
-        if sid.kind == StateQueryKind.Root:
-          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-          # in current version of database.
-          return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                           $error)
 
