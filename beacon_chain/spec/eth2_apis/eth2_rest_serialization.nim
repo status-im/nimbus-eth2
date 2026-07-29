@@ -62,7 +62,8 @@ type
     SignedVoluntaryExit |
     Web3SignerRequest |
     RestNimbusTimestamp1 |
-    SetGraffitiRequest
+    SetGraffitiRequest |
+    RestValidatorRequest
 
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |

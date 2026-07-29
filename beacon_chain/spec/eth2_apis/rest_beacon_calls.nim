@@ -60,6 +60,14 @@ proc getStateValidatorsPlain*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
 
+proc postStateValidatorsPlain*(
+    state_id: StateIdent,
+    body: RestValidatorRequest
+): RestPlainResponse {.
+    rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
+    meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidators
+
 proc getStateValidatorPlain*(state_id: StateIdent,
                         validator_id: ValidatorIdent
                        ): RestPlainResponse {.
