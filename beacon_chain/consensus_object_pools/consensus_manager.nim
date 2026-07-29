@@ -575,14 +575,13 @@ proc forkchoiceUpdated(
           ConsensusFork.Gloas:
         # Only the payload is invalid, mark the `FULL` fork-choice variant
         # invalid and let the next head selection fall back to `EMPTY`
-        head.blck.markExecutionValid(false)
         self.attestationPool[].forkChoice.mark_payload_invalid(head.blck.root)
       else:
-        head.blck.markExecutionValid(false)
         self.attestationPool[].forkChoice.mark_root_invalid(head.blck.root)
         # TODO differentiate invalid execution from invalid consensus
         discard self.quarantine[].addUnviable(
           head.blck.root, UnviableKind.Invalid)
+      head.blck.markExecutionValid(false)
       false
 
 proc updateExecutionHead*(
