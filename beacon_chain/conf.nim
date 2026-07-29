@@ -362,8 +362,8 @@ type
 
       forceResync* {.
         hidden
-        desc: "Delete the existing beacon chain database and sync from scratch"
-        name: "debug-force-resync" .}: bool
+        desc: "Delete the existing beacon chain database and resync from scratch"
+        name: "force-resync" .}: bool
 
       externalBeaconApiUrl* {.
         desc: "External beacon API to use for syncing (on empty database)"
@@ -918,8 +918,8 @@ type
 
       forceResyncTNS* {.
         hidden
-        desc: "Delete the existing beacon chain database and sync from scratch"
-        name: "debug-force-resync" .}: bool
+        desc: "Delete the existing beacon chain database and resync from scratch"
+        name: "force-resync" .}: bool
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"
