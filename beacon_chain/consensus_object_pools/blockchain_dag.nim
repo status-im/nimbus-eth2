@@ -2636,22 +2636,10 @@ proc hasExecutionCheckpoint*(
   # Return true if it is either EMPTY or FULL
   parentBlockHash == latestBlockHash or parentBlockHash == latestParentHash
 
-func shouldExtendPayload*(
-    dag: ChainDAGRef, head: BlockRef): bool =
-  ## A helper function for getting the status of whether or not to build/extend
-  ## on the head payload, as the payload selected by fork choice is stored in
-  ## DAG.
-  ##
-  ## Related fork choice helpers
+func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
+  ## Whether `head.payload_status == PAYLOAD_STATUS_FULL`, as consumed by
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_extend_payload
-  (
-    # For either genesis or pre-Gloas block, we should always build on them.
-    head.slot == GENESIS_SLOT or
-    head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH or
-    # The usual path since Gloas
-    head == dag.headPayload
-  )
+  head == dag.headPayload
 
 from std/packedsets import PackedSet, incl, items
 
@@ -2937,28 +2925,23 @@ proc updateHead*(
       dag.onFinHappened(dag, data)
 
 proc updateHeadExecutionPayload*(
-    dag: ChainDAGRef, headPayload: BlockRef,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope) =
+    dag: ChainDAGRef, full: bool, headChanged: bool) =
   ## Update the execution payload of the head block since Gloas, which should
   ## usually be invoked after the call of updateHead().
-
-  logScope:
-    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
-    builderIdx = signedEnvelope.message.builder_index
-    slot = signedEnvelope.slot
-    head = shortLog(dag.head)
-    headPayload = shortLog(headPayload)
-
-  # Check with the head. When it is not related to the current head, it should
-  # be outdated and so ignoring it.
-  if not (headPayload == dag.head or headPayload == dag.head.parent):
-    warn "Head payload may be outdated or incorrect fork"
+  if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return
+  let newHeadPayload =
+    if full:
+      dag.head
+    else:
+      dag.head.parent
+  if newHeadPayload == dag.headPayload:
+    return
+  dag.headPayload = newHeadPayload
 
-  dag.headPayload = headPayload
-  debugGloasComment("update finalized head here?")
-
-  if not isNil(dag.onHeadV2Changed):
+  # `updateHead` already emits head_v2 on a head change; only emit here for a
+  # pure payload flip (head unchanged) to avoid double-emitting.
+  if not headChanged and not isNil(dag.onHeadV2Changed):
     # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
     let
       finalized_checkpoint = dag.headState.finalized_checkpoint

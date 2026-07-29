@@ -1037,12 +1037,6 @@ proc storePayload(
     warn "on_execution_payload failed", error,
       blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
-  debugGloasComment("deadline")
-  debugGloasComment("should be decided by Fork Choice")
-  # TODO To be removed - Temporary call without import.
-  if blck.slot() >= dag.head.slot():
-    blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
-
   if optimisticStatusRes.isSome():
     await self.consensusManager.updateExecutionHead(
       deadline, retry = previousExecutionValid, self.getBeaconTime)

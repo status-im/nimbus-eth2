@@ -16,18 +16,87 @@ from ../spec/beaconstate import get_ptc
 from ../spec/datatypes/gloas import
   PAYLOAD_TIMELY_THRESHOLD, DATA_AVAILABILITY_TIMELY_THRESHOLD
 
+func mgetPtcTally*(
+    self: var ForkChoiceBackend, root: Eth2Digest,
+    slot: Slot): ptr PtcVoteTally =
+  template bucket: untyped = self.ptc_votes[int(slot mod 2'u64)]
+  if bucket.slot != slot:
+    bucket.slot = slot
+    bucket.tallies.clear()
+  addr bucket.tallies.mgetOrPut(root, PtcVoteTally())
+
+func getPtcTally*(self: var ForkChoiceBackend, root: Eth2Digest): PtcVoteTally =
+  for bucket in self.ptc_votes.mitems:
+    bucket.tallies.withValue(root, tally):
+      return tally[]
+  default(PtcVoteTally)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-payload_timeliness
+func payload_timeliness*(
+    self: var ForkChoiceBackend, root: Eth2Digest, timely: bool): bool =
+  # Return whether the execution payload for the beacon block with root ``root``
+  # is considered ``timely`` (or not, when ``timely`` is ``False``), taking into
+  # consideration local availability and PTC votes.
+
+  # If the payload is not locally available, the payload
+  # is not considered available regardless of the PTC vote
+  if root notin self.proto_array.fullBlockIndices:
+    return not timely
+  let tally = self.getPtcTally(root)
+  var count = 0'u64
+  for i in 0 ..< tally.voted.len:
+    if tally.voted[i] and tally.present[i] == timely:
+      inc count
+  count > PAYLOAD_TIMELY_THRESHOLD
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-payload_data_availability
+func payload_data_availability*(
+    self: var ForkChoiceBackend, root: Eth2Digest, available: bool): bool =
+  # Return whether the blob data for the beacon block with root ``root`` is
+  # considered ``available`` (or not, when ``available`` is ``False``), taking into
+  # consideration local availability and PTC votes.
+
+  # If the payload is not locally available, the blob data
+  # is not considered available regardless of the PTC vote
+  if root notin self.proto_array.fullBlockIndices:
+    return not available
+  let tally = self.getPtcTally(root)
+  var count = 0'u64
+  for i in 0 ..< tally.voted.len:
+    if tally.voted[i] and tally.available[i] == available:
+      inc count
+  count > DATA_AVAILABILITY_TIMELY_THRESHOLD
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_extend_payload
 func should_extend_payload*(
     self: var ForkChoiceBackend, root: Eth2Digest): bool =
   if root notin self.proto_array.fullBlockIndices:
     return false
-  var present, available = 0'u64
-  self.ptc_votes.withValue(root, tally):
-    for i in 0 ..< tally[].present.len:
-      if tally[].present[i]: inc present
-      if tally[].available[i]: inc available
-  present > PAYLOAD_TIMELY_THRESHOLD and
-    available > DATA_AVAILABILITY_TIMELY_THRESHOLD
+  self.payload_timeliness(root, timely = true) and
+    self.payload_data_availability(root, available = true)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
+func should_build_on_full*(
+    self: var ForkChoiceBackend, root: Eth2Digest, full: bool,
+    current_slot: Slot): bool =
+  let slot = self.proto_array.slot(root).valueOr:
+    return false
+  if slot + 1 != current_slot:
+    return full
+  if not full:
+    return false
+  if self.payload_timeliness(root, timely = false):
+    return false
+  if self.payload_data_availability(root, available = false):
+    return false
+  true
+
+proc should_build_on_full*(
+    self: var ForkChoice, dag: ChainDAGRef, head: BlockRef, full: bool,
+    wallSlot: Slot): bool =
+  if head.slot == GENESIS_SLOT or head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return true
+  self.backend.should_build_on_full(head.root, full, wallSlot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(
@@ -141,8 +210,8 @@ proc on_payload_attestation_message*(
       for ptc_index, vidx in enumerate(get_ptc(forkyState.data, slot)):
         if vidx == valIdx:
           if tally.isNil:
-            tally = addr self.backend.ptc_votes.mgetOrPut(
-              beacon_block_root, PtcVoteTally())
+            tally = self.backend.mgetPtcTally(beacon_block_root, slot)
+          tally.voted[ptc_index] = true
           tally.present[ptc_index] = data.payload_present
           tally.available[ptc_index] = data.blob_data_available
 
