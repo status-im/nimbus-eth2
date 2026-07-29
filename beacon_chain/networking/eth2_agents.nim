@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,6 +12,7 @@ import std/tables
 
 type
   Eth2Agent* {.pure.} = enum
+    Pending,
     Unknown,
     Nimbus,
     Lighthouse,
@@ -22,8 +23,10 @@ type
 
 func `$`*(a: Eth2Agent): string =
   case a
+  of Eth2Agent.Pending:
+    "pending"
   of Eth2Agent.Unknown:
-    "pending/unknown"
+    "unrecognized"
   of Eth2Agent.Nimbus:
     "nimbus"
   of Eth2Agent.Lighthouse:
@@ -77,7 +80,8 @@ const
   # Nimbus errors could be found here
   # https://github.com/status-im/nimbus-eth2/blob/9b6b42c8f9792e657397bb3669a80b57da470c04/beacon_chain/networking/eth2_network.nim#L176
   NimbusErrors = [
-    (237'u64, "Peer score is too low")
+    (237'u64, "Peer score is too low"),
+    (238'u64, "Communication timeout (peer too slow)")
   ].toTable()
 
   # Grandine errors could be found here
@@ -125,7 +129,7 @@ func disconnectReasonName*(agent: Eth2Agent, code: uint64): string =
       defaultMessage = "Disconnected"
 
     case agent
-    of Eth2Agent.Unknown:
+    of Eth2Agent.Pending, Eth2Agent.Unknown:
       UnknownErrors.getOrDefault(code, defaultMessage) & scode
     of Eth2Agent.Nimbus:
       NimbusErrors.getOrDefault(code, defaultMessage) & scode
