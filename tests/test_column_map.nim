@@ -35,7 +35,7 @@ suite "ColumnMap test suite":
 
         check:
           $ColumnMap.init(columns) ==
-            "[" & $ numbers.mapIt($it).join(", ") & "]"
+            "[" & $ numbers.mapIt($it).join(",") & "]"
 
       if lastColumnSize > 0:
         let
@@ -50,34 +50,34 @@ suite "ColumnMap test suite":
 
         check:
           $ColumnMap.init(columns) ==
-            "[" & $ numbers.mapIt($it).join(", ") & "]"
+            "[" & $ numbers.mapIt($it).join(",") & "]"
 
   test "and() operation test":
     const TestVectors = [
       (
         [1, 2, 3, 4, 5, 6, 7, 8],
         [5, 6, 7, 8, 9, 10, 11, 12],
-        "[5, 6, 7, 8]"
+        "[5,6,7,8]"
       ),
       (
         [56, 57, 58, 59, 60, 61, 62, 63],
         [60, 61, 62, 63, 64, 65, 66, 67],
-        "[60, 61, 62, 63]"
+        "[60,61,62,63]"
       ),
       (
         [1, 5, 10, 15, 20, 25, 64, 65],
         [1, 5, 6, 7, 8, 9, 64, 65],
-        "[1, 5, 64, 65]"
+        "[1,5,64,65]"
       ),
       (
         [60, 61, 62, 63, 124, 125, 126, 127],
         [60, 61, 62, 63, 124, 125, 126, 127],
-        "[60, 61, 62, 63, 124, 125, 126, 127]"
+        "[60,61,62,63,124,125,126,127]"
       ),
       (
         [0, 1, 63, 64, 65, 93, 126, 127],
         [0, 2, 63, 64, 67, 94, 126, 127],
-        "[0, 63, 64, 126, 127]"
+        "[0,63,64,126,127]"
       )
     ]
 
@@ -95,19 +95,26 @@ suite "ColumnMap test suite":
         map3 = map1 and map2
 
       check:
-        map1.mapIt($int(it)).join(", ") == vector[0].mapIt($it).join(", ")
-        map2.mapIt($int(it)).join(", ") == vector[1].mapIt($it).join(", ")
-        "[" & map3.mapIt($int(it)).join(", ") & "]" == vector[2]
+        map1.items().toSeq().mapIt($int(it)).join(",") ==
+          vector[0].mapIt($it).join(",")
+        map2.items().toSeq().mapIt($int(it)).join(",") ==
+          vector[1].mapIt($it).join(",")
+        "[" & map3.items().toSeq().mapIt($int(it)).join(",") & "]" ==
+          vector[2]
 
   test "supernode test":
-    for max in ((NUMBER_OF_COLUMNS div 2) + 1) ..< NUMBER_OF_COLUMNS:
+    for max in (NUMBER_OF_COLUMNS div 2) .. NUMBER_OF_COLUMNS:
       var columns: seq[ColumnIndex]
       for i in 0 ..< max:
         columns.add(ColumnIndex(i))
       let map = ColumnMap.init(columns)
       check:
-        map.mapIt($int(it)).join(", ") == columns.mapIt($it).join(", ")
-        shortLog(map) == "[supernode]"
+        map.items().toSeq().mapIt($int(it)).join(",") ==
+          columns.mapIt($it).join(",")
+      if len(map) == NUMBER_OF_COLUMNS:
+        check shortLog(map) == "[supernode]"
+      else:
+        check shortLog(map) == "[" & columns.mapIt($it).join(",") & "]"
 
   test "contains() test":
     for i in 0 ..< NUMBER_OF_COLUMNS:
