@@ -150,7 +150,7 @@ proc fetchCheckpointState(
     Opt.some default(ref ForkedHashedBeaconState)
 
 proc clearDatabase(databaseDir: string): Opt[void] =
-  notice "Deleting existing database, `--debug-force-resync` was requested",
+  notice "Deleting existing database, `--force-resync` was requested",
     databaseDir
   try:
     removeDir(databaseDir, checkDir = false)
