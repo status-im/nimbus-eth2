@@ -45,6 +45,9 @@ declareCounter beacon_sync_messages_dropped_queue_full,
 declareCounter beacon_contributions_dropped_queue_full,
   "Number of sync committee contributions dropped because queue is full"
 
+declareCounter beacon_data_column_sidecars_dropped_queue_full,
+  "Number of data column sidecars dropped because queue is full"
+
 # This result is a little messy in that it returns Result.ok for
 # ValidationResult.Accept and an err for the others - this helps transport
 # an error message to callers but could arguably be done in an cleaner way.
@@ -226,15 +229,6 @@ func check_data_column_sidecar_inclusion_proof(
     data_column_sidecar: ref fulu.DataColumnSidecar):
     Result[void, ValidationError] =
   let res = data_column_sidecar[].verify_data_column_sidecar_inclusion_proof()
-  if res.isErr:
-    return errReject(res.error)
-
-  ok()
-
-proc check_data_column_sidecar_kzg_proofs(
-    data_column_sidecar: ref fulu.DataColumnSidecar):
-    Result[void, ValidationError] =
-  let res = data_column_sidecar[].verify_data_column_sidecar_kzg_proofs()
   if res.isErr:
     return errReject(res.error)
 
@@ -505,11 +499,13 @@ template validateBeaconBlockGloas(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
+    dag: ChainDAGRef,
+    batchCrypto: ref BatchCrypto,
+    quarantine: ref Quarantine,
     fuluColumnQuarantine: ref FuluColumnQuarantine,
     data_column_sidecar: ref fulu.DataColumnSidecar,
-    wallTime: BeaconTime, subnet_id: uint64):
-    Result[void, ValidationError] =
+    wallTime: BeaconTime, subnet_id: uint64
+): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
 
   # If the header is invalid, so is the block that shares its block_root ->
   # we can mark those blocks invalid without further processing
@@ -617,10 +613,20 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's column data is valid as
   # verified by `verify_data_column_kzg_proofs(sidecar)`
-  block:
-    let r = check_data_column_sidecar_kzg_proofs(data_column_sidecar)
-    if r.isErr:
-      return dag.checkedReject(r.error)
+  case await batchCrypto.scheduleDataColumnSidecarCheck(data_column_sidecar)
+  of BatchResult.Invalid:
+    return dag.checkedReject("DataColumnSidecar: validation failed")
+  of BatchResult.Timeout:
+    beacon_data_column_sidecars_dropped_queue_full.inc()
+    return errIgnore("DataColumnSidecar: timeout checking KZG proofs")
+  of BatchResult.Valid:
+    discard # keep going only in this case
+
+  # The KZG proof check yielded - re-check that no other copy of this sidecar
+  # was verified and stored in the meantime
+  if fuluColumnQuarantine[].hasVerifiedSidecar(
+      block_root, data_column_sidecar[].index):
+    return errIgnore("DataColumnSidecar: already have valid data column")
 
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
@@ -645,12 +651,14 @@ proc validateDataColumnSidecar*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
+    dag: ChainDAGRef,
+    batchCrypto: ref BatchCrypto,
+    quarantine: ref Quarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     data_column_sidecar: ref gloas.DataColumnSidecar,
-    wallTime: BeaconTime, subnet_id: uint64):
-    Result[void, ValidationError] =
+    wallTime: BeaconTime, subnet_id: uint64
+): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
 
   template blockRoot(): auto = data_column_sidecar[].beacon_block_root
 
@@ -705,11 +713,15 @@ proc validateDataColumnSidecar*(
 
   # [REJECT] The sidecar's column data is valid as verified by
   # `verify_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments)`.
-  block:
-    let v = verify_data_column_sidecar_kzg_proofs(
-      data_column_sidecar[], bid.blob_kzg_commitments)
-    if v.isErr:
-      return dag.checkedReject(v.error)
+  case await batchCrypto.scheduleDataColumnSidecarCheck(
+      data_column_sidecar, bid.blob_kzg_commitments.asSeq)
+  of BatchResult.Invalid:
+    return dag.checkedReject("DataColumnSidecar: validation failed")
+  of BatchResult.Timeout:
+    beacon_data_column_sidecars_dropped_queue_full.inc()
+    return errIgnore("DataColumnSidecar: timeout checking KZG proofs")
+  of BatchResult.Valid:
+    discard # keep going only in this case
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
   # `(sidecar.beacon_block_root, sidecar.index)` with valid kzg proof.

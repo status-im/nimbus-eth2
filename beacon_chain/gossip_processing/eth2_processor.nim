@@ -366,9 +366,10 @@ proc processExecutionPayloadEnvelope*(
   ok()
 
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor, src: MsgSource,
     dataColumnSidecar: ref fulu.DataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+    subnet_id: uint64
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped =
     dataColumnSidecar[].signed_block_header.message
 
@@ -391,9 +392,9 @@ proc processDataColumnSidecar*(
 
   let
     validationStart = Moment.now()
-    v =
-      self.dag.validateDataColumnSidecar(self.quarantine, self.fuluColumnQuarantine,
-                                         dataColumnSidecar, wallTime, subnet_id)
+    v = await self.dag.validateDataColumnSidecar(
+      self.batchCrypto, self.quarantine, self.fuluColumnQuarantine,
+      dataColumnSidecar, wallTime, subnet_id)
 
   data_column_sidecar_validation_duration.observe(
     (Moment.now() - validationStart).toFloatSeconds())
@@ -431,9 +432,10 @@ proc processDataColumnSidecar*(
   v
 
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor, src: MsgSource,
     dataColumnSidecar: ref gloas.DataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+    subnet_id: uint64
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
@@ -448,9 +450,9 @@ proc processDataColumnSidecar*(
 
   debug "Data column received"
 
-  let v = self.dag.validateDataColumnSidecar(
-    self.quarantine, self.gloasColumnQuarantine, self.executionPayloadBidPool,
-    dataColumnSidecar, wallTime, subnet_id)
+  let v = await self.dag.validateDataColumnSidecar(
+    self.batchCrypto, self.quarantine, self.gloasColumnQuarantine,
+    self.executionPayloadBidPool, dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id

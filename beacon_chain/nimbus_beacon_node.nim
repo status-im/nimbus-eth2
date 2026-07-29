@@ -2389,26 +2389,28 @@ proc installMessageValidators(node: BeaconNode) =
           for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             closureScope:
               let subnet_id = it
-              node.network.addValidator(
+              node.network.addAsyncValidator(
                 getDataColumnSidecarTopic(digest, subnet_id), proc (
                   dataColumnSidecar: gloas.DataColumnSidecar,
                   src: PeerId
-                ): ValidationResult =
-                  toValidationResult(
-                    node.processor[].processDataColumnSidecar(
+                ): Future[ValidationResult] {.
+                    async: (raises: [CancelledError]).} =
+                  return toValidationResult(
+                    await node.processor.processDataColumnSidecar(
                       MsgSource.gossip, newClone(dataColumnSidecar),
                       subnet_id)))
         elif consensusFork == ConsensusFork.Fulu:
           for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             closureScope:
               let subnet_id = it
-              node.network.addValidator(
+              node.network.addAsyncValidator(
                 getDataColumnSidecarTopic(digest, subnet_id), proc (
                   dataColumnSidecar: fulu.DataColumnSidecar,
                   src: PeerId
-                ): ValidationResult =
-                  toValidationResult(
-                    node.processor[].processDataColumnSidecar(
+                ): Future[ValidationResult] {.
+                    async: (raises: [CancelledError]).} =
+                  return toValidationResult(
+                    await node.processor.processDataColumnSidecar(
                       MsgSource.gossip, newClone(dataColumnSidecar),
                       subnet_id)))
 
