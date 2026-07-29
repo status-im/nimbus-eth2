@@ -21,10 +21,13 @@ import
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import mapIt, toSeq
+from std/tables import contains
 from stew/byteutils import `<`
 from ../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, init
-from ../beacon_chain/fork_choice/fork_choice import mark_root_invalid
+from ../beacon_chain/fork_choice/fork_choice import
+  mark_root_invalid, mark_payload_invalid
+from ../beacon_chain/fork_choice/fork_choice_epbs import on_execution_payload
 from ../beacon_chain/fork_choice/proto_array import checkpoints
 from ../beacon_chain/spec/beaconstate import
   attester_dependent_root, check_attestation, get_attesting_indices,
@@ -1130,3 +1133,114 @@ suite "Attestation pool electra processing" & preset():
         state[].electraData.data, attestations[1], {}, cache).isOk
       pool[].verifyAttestationSignature(state, cache, attestations[0])
       pool[].verifyAttestationSignature(state, cache, attestations[1])
+
+suite "Attestation pool gloas processing" & preset():
+  setup:
+    # Genesis state that results in 6 members per committee (2 committees total)
+    const TOTAL_COMMITTEES = 2
+    let
+      rng = HmacDrbgContext.new()
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(
+        ChainDAGRef, cfg,
+        cfg.makeTestDB(
+          TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
+        validatorMonitor, {})
+      taskpool = Taskpool.new()
+    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    let
+      quarantine = newClone(Quarantine.init(dag.cfg))
+      pool = newClone(AttestationPool.init(dag, quarantine))
+      state = newClone(dag.headState)
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+    check:
+      process_slots(
+        dag.cfg,
+        state[],
+        state[].slot + MIN_ATTESTATION_INCLUSION_DELAY,
+        cache,
+        info,
+        {}).isOk()
+
+    template startTime(attestation: electra.Attestation): BeaconTime =
+      attestation.data.slot.start_beacon_time(cfg.timeParams)
+
+    template addHeadBlockToForkChoice(
+        blck: gloas.SignedBeaconBlock): Result[BlockRef, VerifierError] =
+      dag.addHeadBlock(verifier, blck) do (
+          blckRef: BlockRef, signedBlock: gloas.TrustedSignedBeaconBlock,
+          state: gloas.BeaconState,
+          epochRef: EpochRef, unrealized: FinalityCheckpoints):
+        # Callback add to fork choice if valid
+        pool[].addForkChoice(
+          epochRef, blckRef, unrealized, signedBlock.message,
+          blck.message.slot.start_beacon_time(cfg.timeParams))
+
+  test "EL-invalid payload only invalidates the FULL variant":
+    var cache = StateCache()
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b1Add = addHeadBlockToForkChoice(b1)
+
+    # Reveal b1's payload and fork choice materializes the `FULL` variant of b1
+    check pool[].forkChoice.on_execution_payload(
+      dag.cfg, dag.cfg.timeParams,
+      gloas.SignedExecutionPayloadEnvelope(
+        message: gloas.ExecutionPayloadEnvelope(
+          beacon_block_root: b1.root))).isOk
+    check b1.root in pool[].forkChoice.backend.proto_array.fullBlockIndices
+
+    let forkState = assignClone(state[])
+
+    # b2 extends b1's payload, attaching to the FULL variant of b1
+    let
+      b2 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b2Add = addHeadBlockToForkChoice(b2)
+
+    # Attest to b1 as payload-present
+    block:
+      let bc = get_beacon_committee(
+        state[], state[].slot, 0.CommitteeIndex, cache)
+      for i in 0 ..< min(4, bc.len):
+        var att = makeElectraAttestation(state[], b1.root, bc[i], cache)
+        att.data.index = 1 # Payload present votes
+        pool[].addAttestation(
+          att, @[bc[i]], att.aggregation_bits.len,
+          att.loadSig, att.startTime)
+
+    # Select one slot after b2 so its attestations are counted and the
+    # payload decision for b1 is already settled
+    let selectionTime =
+      (b2Add[].slot + 1).start_beacon_time(cfg.timeParams)
+
+    block:
+      let head = pool[].selectOptimisticHead(selectionTime).get().blck
+      check head == b2Add[]
+
+    # The EL reports b1's payload as INVALID, only
+    # the FULL variant of b1 and b2 become invalid
+    pool[].forkChoice.mark_payload_invalid(b1.root)
+
+    block:
+      let head = pool[].selectOptimisticHead(selectionTime).get().blck
+      # b1 remains viable as EMPTY and the chain keeps building on b1
+      check head == b1Add[]
+
+    # A block extending the invalid payload arriving after
+    # the verdict should not resurrect the branch
+    var cache2 = StateCache()
+    let
+      b3 = addTestBlock(forkState[], cache2, cfg = cfg,
+        graffiti = GraffitiBytes [
+          1'u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).gloasData
+      b3Add = addHeadBlockToForkChoice(b3)
+
+    block:
+      let head = pool[].selectOptimisticHead(selectionTime).get().blck
+      check:
+        head != b3Add[]
+        head == b1Add[]
