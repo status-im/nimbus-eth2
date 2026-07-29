@@ -14,7 +14,6 @@ import
   faststreams/textio,
   json_serialization,
   json_serialization/pkg/results,
-  json_serialization/std/options,
   ../../validators/slashing_protection_common,
   ../../consensus_object_pools/block_pools_types,
   ../[forks, keystore],

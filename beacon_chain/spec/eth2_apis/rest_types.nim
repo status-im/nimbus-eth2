@@ -14,7 +14,7 @@
 # carefully!
 
 import
-  std/[json, options, tables],
+  std/[json, tables],
   results,
   stew/base10, httputils, stew/bitops2,
   ../forks
@@ -541,12 +541,12 @@ type
     validator_index*: RestValidatorIndex
     reward*: RestReward
 
+  # `inclusion_delay` is phase0-only and therefore never part of the response
   RestIdealAttestationReward* = object
     effective_balance*: uint64
     head*: RestReward
     target*: RestReward
     source*: RestReward
-    inclusion_delay*: Option[uint64]
     inactivity*: RestReward
 
   RestTotalAttestationReward* = object
@@ -554,7 +554,6 @@ type
     head*: RestReward
     target*: RestReward
     source*: RestReward
-    inclusion_delay*: Option[uint64]
     inactivity*: RestReward
 
   RestAttestationsRewards* = object

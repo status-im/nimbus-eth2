@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[algorithm, options, tables, typetraits, sets],
+  std/[options, tables, typetraits, sets],
   stew/base10,
   chronicles, metrics,
   ./rest_utils,
@@ -288,7 +288,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
         when consensusFork >= ConsensusFork.Altair:
           var
             selected: HashSet[ValidatorIndex]
-            keyIdents: seq[ValidatorPubKey]
+            keys: HashSet[ValidatorPubKey]
           for item in idents:
             case item.kind
             of ValidatorQueryKind.Index:
@@ -299,110 +299,43 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     Http400, TooHighValidatorIndexValueError)
                 of ValidatorIndexError.UnsupportedValue:
                   return RestApiResponse.jsonError(
-                    Http500, UnsupportedValidatorIndexValueError)
+                    Http400, UnsupportedValidatorIndexValueError)
               if uint64(vindex) >= lenu64(forkyState.data.validators):
                 return RestApiResponse.jsonError(
                   Http400, ValidatorNotFoundError)
               selected.incl(vindex)
             of ValidatorQueryKind.Key:
-              keyIdents.add(item.key)
+              keys.incl(item.key)
 
-          if keyIdents.len > 0:
-            let wanted = toHashSet(keyIdents)
+          if len(keys) > 0:
             for vindex in forkyState.data.validators.vindices:
-              if forkyState.data.validators.item(vindex).pubkey in wanted:
+              if forkyState.data.validators.item(vindex).pubkey in keys:
                 selected.incl(vindex)
 
-          let selectAll = idents.len == 0
+          let rewards = get_attestation_rewards(
+            node.dag.cfg, forkyState.data, cache, node.dag.updateFlags,
+            if len(idents) == 0:
+              Opt.none(HashSet[ValidatorIndex])
+            else:
+              Opt.some(selected))
 
-          var info: altair.EpochInfo
-          info.init(forkyState.data, cache)
-          process_justification_and_finalization(
-            forkyState.data, info.balances, node.dag.updateFlags)
-          process_inactivity_updates(node.dag.cfg, forkyState.data, info)
-
-          let
-            baseRewardPerIncrement =
-              get_base_reward_per_increment(info.balances.current_epoch)
-            finalityDelay = get_finality_delay(forkyState.data)
-            activeIncrements = get_active_increments(info)
-            participatingIncrements = [
-              get_unslashed_participating_increment(
-                info, TIMELY_SOURCE_FLAG_INDEX),
-              get_unslashed_participating_increment(
-                info, TIMELY_TARGET_FLAG_INDEX),
-              get_unslashed_participating_increment(
-                info, TIMELY_HEAD_FLAG_INDEX)]
-
-          var
-            totalRewards: seq[RestTotalAttestationReward]
-            seen: HashSet[ValidatorIndex]
-            balances: HashSet[uint64]
-
-          for vidx, srcReward, tgtReward, headReward, srcPenalty, tgtPenalty,
-              inactPenalty in get_flag_and_inactivity_deltas(
-                node.dag.cfg, forkyState.data, baseRewardPerIncrement, info,
-                finalityDelay):
-            if not (selectAll or vidx in selected):
-              continue
-            totalRewards.add RestTotalAttestationReward(
-              validator_index: RestValidatorIndex(vidx),
-              head: RestReward(int64(uint64(headReward))),
-              target: RestReward(
-                int64(uint64(tgtReward)) - int64(uint64(tgtPenalty))),
-              source: RestReward(
-                int64(uint64(srcReward)) - int64(uint64(srcPenalty))),
-              inclusion_delay: none(uint64),
-              inactivity: RestReward(-int64(uint64(inactPenalty))))
-            balances.incl(
-              uint64(forkyState.data.validators.item(vidx).effective_balance))
-            if not selectAll:
-              seen.incl(vidx)
-
-          if not selectAll:
-            for vidx in selected:
-              if vidx notin seen:
-                totalRewards.add RestTotalAttestationReward(
-                  validator_index: RestValidatorIndex(vidx),
-                  head: RestReward(0), target: RestReward(0),
-                  source: RestReward(0), inclusion_delay: none(uint64),
-                  inactivity: RestReward(0))
-                balances.incl(uint64(
-                  forkyState.data.validators.item(vidx).effective_balance))
-
-          var idealRewards: seq[RestIdealAttestationReward]
-          for eb in balances:
-            let
-              increments = eb.Gwei div EFFECTIVE_BALANCE_INCREMENT.Gwei
-              baseReward = increments * baseRewardPerIncrement
-            idealRewards.add RestIdealAttestationReward(
-              effective_balance: eb,
-              head: RestReward(int64(uint64(get_flag_index_reward(
-                forkyState.data, baseReward, activeIncrements,
-                participatingIncrements[ord(TIMELY_HEAD_FLAG_INDEX)],
-                PARTICIPATION_FLAG_WEIGHTS[TIMELY_HEAD_FLAG_INDEX],
-                finalityDelay)))),
-              target: RestReward(int64(uint64(get_flag_index_reward(
-                forkyState.data, baseReward, activeIncrements,
-                participatingIncrements[ord(TIMELY_TARGET_FLAG_INDEX)],
-                PARTICIPATION_FLAG_WEIGHTS[TIMELY_TARGET_FLAG_INDEX],
-                finalityDelay)))),
-              source: RestReward(int64(uint64(get_flag_index_reward(
-                forkyState.data, baseReward, activeIncrements,
-                participatingIncrements[ord(TIMELY_SOURCE_FLAG_INDEX)],
-                PARTICIPATION_FLAG_WEIGHTS[TIMELY_SOURCE_FLAG_INDEX],
-                finalityDelay)))),
-              inclusion_delay: none(uint64),
+          var res: RestAttestationsRewards
+          for reward in rewards.ideal_rewards:
+            res.ideal_rewards.add RestIdealAttestationReward(
+              effective_balance: uint64(reward.effective_balance),
+              head: RestReward(reward.head),
+              target: RestReward(reward.target),
+              source: RestReward(reward.source),
+              # Ideal participation is never penalized for inactivity
               inactivity: RestReward(0))
-
-          idealRewards.sort do (a, b: RestIdealAttestationReward) -> int:
-            cmp(a.effective_balance, b.effective_balance)
-          totalRewards.sort do (
-              a, b: RestTotalAttestationReward) -> int:
-            cmp(uint64(a.validator_index), uint64(b.validator_index))
-
-          RestAttestationsRewards(
-            ideal_rewards: idealRewards, total_rewards: totalRewards)
+          for reward in rewards.total_rewards:
+            res.total_rewards.add RestTotalAttestationReward(
+              validator_index: RestValidatorIndex(reward.validator_index),
+              head: RestReward(reward.head),
+              target: RestReward(reward.target),
+              source: RestReward(reward.source),
+              inactivity: RestReward(reward.inactivity))
+          res
         else:
           return RestApiResponse.jsonError(
             Http404, StateNotFoundError,
