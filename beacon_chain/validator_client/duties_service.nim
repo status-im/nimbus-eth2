@@ -63,16 +63,23 @@ proc pollForValidatorIndices*(
         res
     start = Moment.now()
     validators =
-      try:
-        await vc.postValidators(
-          validatorIdents, vc.getMode()[FnKind.getValidators])
-      except ValidatorApiError as exc:
-        warn "Unable to get head state's validator information",
-              reason = exc.getFailureReason()
-        return
-      except CancelledError as exc:
-        debug "Validator's indices processing was interrupted"
-        raise exc
+      if len(validatorIdents) == 0:
+        # If the supplied list is empty (i.e. the value is []) [...]
+        # then all validators will be returned.
+        # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidators
+        # -> Request body -> Schema -> ids -> Expand all
+        @[]
+      else:
+        try:
+          await vc.postValidators(
+            validatorIdents, vc.getMode()[FnKind.getValidators])
+        except ValidatorApiError as exc:
+          warn "Unable to get head state's validator information",
+                reason = exc.getFailureReason()
+          return
+        except CancelledError as exc:
+          debug "Validator's indices processing was interrupted"
+          raise exc
 
   var
     missing: seq[string]
