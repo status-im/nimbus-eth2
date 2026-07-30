@@ -29,11 +29,6 @@ const
   # will return HTTP error 400.
   ServerMaximumValidatorIds* = 16384
 
-  # https://github.com/ethereum/beacon-APIs/blob/2.3.x/apis/beacon/states/validators.yaml#L23
-  # Maximum number of validators that can be sent in single request by
-  # validator client (VC).
-  ClientMaximumValidatorIds* = 30
-
   # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/attester.yaml#L32
   # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/sync.yaml#L16
   # Maximum number of validator ids sent with validator client's duties
@@ -49,9 +44,6 @@ const
   LowestScoreAggregatedGloasAttestation* =
     gloas.Attestation(
       aggregation_bits: BitSeq.init(1))
-
-static:
-  doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
 
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
