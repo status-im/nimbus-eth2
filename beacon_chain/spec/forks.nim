@@ -18,7 +18,7 @@ import
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas,
                heze],
-  ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
+  ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev, gloas_mev]
 
 from std/algorithm import sort
 from std/sequtils import deduplicate, filterIt, mapIt
@@ -28,7 +28,7 @@ export
   extras, block_id, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
   presets,
   phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas, heze,
-  bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev
+  bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev, gloas_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -533,7 +533,8 @@ template kind*(
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
       gloas.TrustedSignedBeaconBlock |
-      gloas.AggregateAndProof]): ConsensusFork =
+      gloas.AggregateAndProof |
+      gloas_mev.BuilderPreferencesRequestV1]): ConsensusFork =
   ConsensusFork.Gloas
 
 template kind*(

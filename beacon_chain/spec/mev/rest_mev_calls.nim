@@ -94,3 +94,24 @@ proc submitBlindedBlock*(
     restAcceptType = "application/octet-stream,application/json;q=0.5",
     extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
   )
+
+proc submitBuilderPreferencesPlain*(
+    validator_pubkey: ValidatorSig,
+    body: BuilderPreferencesRequestV1
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v1/builder/builder_preferences/{validator_pubkey}",
+  meth: MethodPost, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/main/apis/builder/builder_preferences.yaml
+
+proc submitBuilderPreferences*(
+    client: RestClientRef,
+    validator_pubkey: ValidatorSig,
+    body: BuilderPreferencesRequestV1
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  client.submitBuilderPreferencesPlain(
+    validator_pubkey, body,
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
+    extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
+  )
