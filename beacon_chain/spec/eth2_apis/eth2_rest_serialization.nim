@@ -78,7 +78,8 @@ type
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
     fulu_mev.SignedBlindedBeaconBlock |
-    gloas_mev.BuilderPreferencesRequestV1
+    gloas_mev.BuilderPreferencesRequestV1 |
+    gloas.SignedBeaconBlock
 
   EncodeArrays* =
     seq[phase0.Attestation] |

@@ -9,9 +9,8 @@
 
 import
   ssz_serialization/types,
-  ".."/[
-    crypto,
-    datatypes/[base, constants]]
+  ".."/crypto,
+  ".."/datatypes/[base, constants]
 
 const
   # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/builder.md#constants

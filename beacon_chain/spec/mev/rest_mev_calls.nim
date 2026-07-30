@@ -95,6 +95,25 @@ proc submitBlindedBlock*(
     extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
   )
 
+proc submitSignedBeaconBlockPlain*(
+    body: gloas.SignedBeaconBlock,
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v1/builder/beacon_blocks",
+  meth: MethodPost, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/main/apis/builder/beacon_blocks.yaml
+
+proc submitSignedBeaconBlock*(
+    client: RestClientRef,
+    body: gloas.SignedBeaconBlock,
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  client.submitSignedBeaconBlockPlain(
+    body,
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
+    extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
+  )
+
 proc submitBuilderPreferencesPlain*(
     validator_pubkey: ValidatorSig,
     body: BuilderPreferencesRequestV1
