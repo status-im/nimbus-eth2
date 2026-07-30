@@ -10,14 +10,14 @@
 import
   std/[lists, sets, tables],
   results, metrics,
-  ../spec/[presets, column_map],
+  ../spec/[presets, column_map, block_id],
   ../spec/datatypes/[fulu, gloas],
   ../beacon_chain_db_quarantine
 
 from std/sequtils import mapIt, toSeq
 from std/strutils import join
 
-export results
+export results, lists
 
 declareGauge blob_quarantine_memory_slots_total,
   "Total count of available memory slots inside blob quarantine"
@@ -113,7 +113,7 @@ func isUnloaded[A: SomeDataColumnSidecar](holder: SidecarHolder[A]): bool =
 func isLoaded[A: SomeDataColumnSidecar](holder: SidecarHolder[A]): bool =
   holder.kind == SidecarHolderKind.Loaded
 
-func maxSidecars(maxSidecarsPerBlock: uint64): int =
+func maxSidecars*(maxSidecarsPerBlock: uint64): int =
   # Same limit as `MaxOrphans` in `block_quarantine`;
   # blobs may arrive before an orphan is tagged `blobless`
   3 * int(SLOTS_PER_EPOCH) * int(maxSidecarsPerBlock)
@@ -563,21 +563,21 @@ func hasSidecars*(
   ## ``blck`` with block root ``blockRoot``.
   hasSidecars(quarantine, blck.root)
 
-proc popSidecars*[
+proc popSidecarsOrCount*[
     A: SomeDataColumnSidecar,
     B: OnDataColumnSidecarCallback,
     C: SomeSidecarAddedCallback
 ](
     quarantine: var SidecarQuarantine[A, B, C],
     blockRoot: Eth2Digest
-): Opt[seq[ref A]] =
+): Result[seq[ref A], int] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``.
   ## If some of the column sidecars are missing Opt.none() is returned.
   ## Note: Blocks should be checked for sidecars count first, otherwise
   ## result of this function would be always Opt.none().
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
-    return Opt.none(seq[ref A])
+    return err(0)
 
   quarantine.moveToFront(node)
 
@@ -586,7 +586,7 @@ proc popSidecars*[
 
   if not(quarantine.enoughColumns(node[].value.count)):
     # Quarantine does not hold enough column sidecars.
-    return Opt.none(seq[ref A])
+    return err(node[].value.count)
 
   let databaseCount = node[].value.unloaded
   if databaseCount > 0:
@@ -634,7 +634,19 @@ proc popSidecars*[
   if not unverified.empty:
     quarantine.pendingVerify[blockRoot] = unverified
 
-  Opt.some(sidecars)
+  ok(sidecars)
+
+proc popSidecars*[
+    A: SomeDataColumnSidecar,
+    B: OnDataColumnSidecarCallback,
+    C: SomeSidecarAddedCallback
+](
+    quarantine: var SidecarQuarantine[A, B, C],
+    blockRoot: Eth2Digest
+): Opt[seq[ref A]] =
+  let res = quarantine.popSidecarsOrCount(blockRoot).valueOr:
+    return Opt.none(seq[ref A])
+  Opt.some(res)
 
 func popPendingVerify*(
     quarantine: var SomeColumnQuarantine,
@@ -671,6 +683,8 @@ func fetchMissingSidecars*(
 
   if supernode:
     if isNil(node):
+      # We do not have any columns yet, so we push all columns peer could
+      # provide.
       for column in peerMap.items():
         res.incl(column)
     else:
@@ -727,6 +741,7 @@ func getMissingColumnsMap*(
       for index in 0 ..< NUMBER_OF_COLUMNS:
         if node[].value.sidecars[index].isEmpty():
           res.incl(ColumnIndex(index))
+      res
   else:
     var res: ColumnMap
     for column in quarantine.custodyMap.items():
@@ -751,26 +766,40 @@ proc pruneAfterFinalization*[
 ](
     quarantine: var SidecarQuarantine[A, B, C],
     epoch: Epoch,
-    backfillNeeded: bool
+    backfillSlot: Opt[Slot]
 ) =
   let
-    startEpoch =
-      if backfillNeeded:
+    pruneRange =
+      if backfillSlot.isSome():
         # Because ColumnQuarantine could be used as temporary storage for
         # incoming data column sidecars, we should not prune data columns which
         # are behind `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS` epoch.
         # Otherwise we will not be able to backfill data columns.
-        if epoch < quarantine.minEpochsForSidecarsRequests:
-          Epoch(0)
+        let
+          backslot =
+            if backfillSlot.get() == FAR_FUTURE_SLOT:
+              FAR_FUTURE_SLOT
+            else:
+              backfillSlot.get() + 1
+          startEpoch =
+            if epoch < quarantine.minEpochsForSidecarsRequests:
+              Epoch(0)
+            else:
+              epoch - quarantine.minEpochsForSidecarsRequests
+          startSlot = max(startEpoch.start_slot(), backslot)
+        if epoch == GENESIS_EPOCH:
+          startSlot .. GENESIS_SLOT
         else:
-          epoch - quarantine.minEpochsForSidecarsRequests
+          startSlot .. (epoch.start_slot() - 1)
       else:
-        epoch
-    epochSlot = (startEpoch + 1).start_slot()
+        if epoch == GENESIS_EPOCH:
+          GENESIS_SLOT .. GENESIS_SLOT
+        else:
+          GENESIS_SLOT .. (epoch.start_slot() - 1)
 
   var nodes: seq[DoublyLinkedNode[RootTableRecord[A]]]
   for node in quarantine.list.nodes():
-    if (node[].value.count > 0) and (node[].value.slot < epochSlot):
+    if node[].value.slot in pruneRange:
       nodes.add(node)
 
   for node in nodes:
@@ -939,3 +968,74 @@ proc update*(
   doAssert(len(custodyColumns) <= NUMBER_OF_COLUMNS)
   let custodyMap = ColumnMap.init(custodyColumns)
   quarantine.update(cfg, custodyMap)
+
+func shortLog[A](car: SidecarHolder[A]): string =
+  let v = if car.verified == true: "V" else: ""
+  case car.kind
+  of SidecarHolderKind.Empty:
+    ""
+  of SidecarHolderKind.Unloaded:
+    $car.index & "D" & v
+  of SidecarHolderKind.Loaded:
+    $car.index & v
+
+func shortLog[A](rec: RootTableRecord[A]): string =
+  var sidecars: seq[string]
+  for car in rec.sidecars:
+    if not(isEmpty(car)):
+      sidecars.add("\"" & shortLog(car) & "\"")
+  "{\"bid\":\"" &
+    shortLog(BlockId(root: rec.blockRoot, slot: rec.slot)) & "\"," &
+    "\"unloaded\":" & $rec.unloaded & "," &
+    "\"count\":" & $rec.count & "," &
+    "\"sidecars\":[" & sidecars.join(",") & "]}"
+
+func debugJsonDump*[A, B, C](q: SidecarQuarantine[A, B, C]): string =
+  var
+    records: seq[string]
+    pending: seq[string]
+    minSlot = FAR_FUTURE_SLOT
+    maxSlot = GENESIS_SLOT
+
+  for item in q.list.items():
+    if item.slot < minSlot:
+      minSlot = item.slot
+    if item.slot > maxSlot:
+      maxSlot = item.slot
+    records.add(shortLog(item))
+
+  for key, value in q.pendingVerify.pairs():
+    pending.add("\"" & shortLog(key) & "\":" & $value)
+
+
+  let
+    sminSlot =
+      if len(records) == 0:
+        "not available"
+      else:
+        $minSlot
+    smaxSlot =
+      if len(records) == 0:
+        "not available"
+      else:
+        $maxSlot
+
+  "{\"min_epochs_for_sidecars_requests\":\"" &
+    $q.minEpochsForSidecarsRequests &
+  "\",\"max_mem_sidecars_count\":\"" &
+    $q.maxMemSidecarsCount &
+  "\",\"mem_sidecars_count\":\"" &
+    $q.memSidecarsCount &
+  "\",\"max_disk_sidecars_count\":\"" &
+    $q.maxDiskSidecarsCount &
+  "\",\"disk_sidecars_count\":\"" &
+    $q.diskSidecarsCount &
+  "\",\"max_sidecars_per_block_count\":\"" &
+    $q.maxSidecarsPerBlockCount &
+  "\",\"custody_map\":" & $q.custodyMap &
+  ",\"index_map\":[" & q.indexMap.mapIt($it).join(",") &
+  "],\"records\":[" & records.join(",") &
+  "],\"records_count\":" & $len(records) &
+  ",\"pending_verify\":{" & pending.join(",") & "}" &
+  ",\"min_slot\":\"" & sminSlot &
+  "\",\"max_slot\":\"" & smaxSlot & "\"}"
