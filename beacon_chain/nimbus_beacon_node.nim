@@ -1790,7 +1790,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     node.processor.gloasColumnQuarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), backfillSlot)
     node.processor.quarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+      node.dag.finalizedHead.slot.epoch())
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.

@@ -10,6 +10,7 @@
 import
   std/tables,
   stew/bitops2,
+  chronos,
   ../spec/digest
 
 type
@@ -26,15 +27,30 @@ type
       ## Max capacity of missing items
     maxRetries*: int
       ## Exponential backoff, double interval between each attempt
+    event*: AsyncEvent
+      ## Event that will be set when the number of elements changes
 
 func init*(
     T: type MissingTable,
     maxCapacity: int = 1024,
-    maxRetries: int = 8,
+    maxRetries: int = 8
 ): T =
   T(
     maxCapacity: maxCapacity,
     maxRetries: 1 shl (maxRetries - 1),
+    event: nil
+  )
+
+func init*(
+    T: type MissingTable,
+    event: AsyncEvent,
+    maxCapacity: int = 1024,
+    maxRetries: int = 8
+): T =
+  T(
+    maxCapacity: maxCapacity,
+    maxRetries: 1 shl (maxRetries - 1),
+    event: event
   )
 
 func len*(self: MissingTable): int =
@@ -43,12 +59,14 @@ func len*(self: MissingTable): int =
 func isFull*(self: MissingTable): bool =
   self.len() >= self.maxCapacity
 
-func add*(self: var MissingTable, root: Eth2Digest) =
+proc add*(self: var MissingTable, root: Eth2Digest) =
   if self.isFull():
     return
-  discard self.items.hasKeyOrPut(root, MissingItem())
+  if self.items.hasKeyOrPut(root, MissingItem()):
+    if not(isNil(self.event)):
+      self.event.fire()
 
-func checkMissing*(self: var MissingTable, max: int): seq[FetchRecord] =
+proc checkMissing*(self: var MissingTable, max: int): seq[FetchRecord] =
   # Remove items that have reached max retries
   var done: seq[Eth2Digest]
   for k, v in self.items.mpairs():
@@ -56,6 +74,9 @@ func checkMissing*(self: var MissingTable, max: int): seq[FetchRecord] =
       done.add(k)
   for k in done:
     self.items.del(k)
+
+  if (len(done) > 0) and not(isNil(self.event)):
+    self.event.fire()
 
   # Get items
   for k, v in self.items.mpairs():
@@ -65,11 +86,17 @@ func checkMissing*(self: var MissingTable, max: int): seq[FetchRecord] =
       if result.len() >= max:
         break
 
-func del*(self: var MissingTable, root: Eth2Digest) =
-  self.items.del(root)
+proc del*(self: var MissingTable, root: Eth2Digest) =
+  var value: MissingItem
+  if self.items.pop(root, value):
+    if not(isNil(self.event)):
+      self.event.fire()
 
-func resetItems*(self: var MissingTable) =
+proc resetItems*(self: var MissingTable) =
+  let length = len(self.items)
   self.items.reset()
+  if (length > 0) and not(isNil(self.event)):
+    self.event.fire()
 
 func contains*(self: MissingTable, root: Eth2Digest): bool =
   root in self.items
