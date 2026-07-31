@@ -661,11 +661,6 @@ type
         defaultValue: ""
         name: "payload-builder-url" .}: string
 
-      payloadBuilderMaxExecutionPayment* {.
-        desc: "Maximum execution payment to trust when comparing builder bids"
-        defaultValue: 0
-        name: "payload-builder-max-execution-payment" .}: uint64
-
       # Flag name and semantics borrowed from Prysm
       # https://github.com/prysmaticlabs/prysm/pull/12227/files
       localBlockValueBoost* {.
