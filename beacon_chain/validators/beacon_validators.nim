@@ -1670,7 +1670,13 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   if payloadAttestationCutOff.inFuture:
     debug "Waiting to send payload attestations",
       payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
-    await sleepAsync(payloadAttestationCutOff.offset)
+    if head.slot == slot:
+      # Send as soon as the execution payload envelope for this slot's
+      # block arrives, or at the deadline whichever comes first.
+      discard await node.consensusManager[].expectEnvelope(head.root)
+        .withTimeout(payloadAttestationCutOff.offset)
+    else:
+      await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
 

@@ -16,7 +16,7 @@ import
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
 from std/sequtils import anyIt, filterIt
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, to, updateHead, updateExecutionHead
+  ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
   getBlockRef, getForkedBlock, getProposer, forkAtEpoch, loadExecutionBlockHash,
   markExecutionValid, validatorKey, is_optimistic
@@ -1049,6 +1049,10 @@ proc storePayload(
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
+
+  # Both the envelope and its data columns are now persisted, wake
+  # up any PTC member waiting to send its payload attestation
+  self.consensusManager[].checkExpectedEnvelope(blck.root)
 
   ok(blck)
 

@@ -33,6 +33,9 @@ type
     expectedSlot: Slot
     expectedBlockReceived: Future[bool].Raising([CancelledError])
 
+    expectedEnvelopeRoot: Eth2Digest
+    expectedEnvelopeReceived: Future[bool].Raising([CancelledError])
+
     # Validated & Verified
     # ----------------------------------------------------------------
     dag*: ChainDAGRef
@@ -136,6 +139,38 @@ proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool]
   self.checkExpectedBlock()
 
   return fut
+
+proc checkExpectedEnvelope*(self: var ConsensusManager, blockRoot: Eth2Digest) =
+  ## Called when the execution payload envelope for ``blockRoot`` has been
+  ## added to the database, to wake up a waiting payload attestation.
+  if self.expectedEnvelopeReceived == nil:
+    return
+
+  if blockRoot != self.expectedEnvelopeRoot:
+    return
+
+  self.expectedEnvelopeReceived.complete(true)
+  self.expectedEnvelopeReceived = nil # Don't keep completed futures around!
+
+proc expectEnvelope*(self: var ConsensusManager, blockRoot: Eth2Digest):
+    Future[bool] {.async: (raises: [CancelledError], raw: true).} =
+  ## Return a future that will complete when the execution payload envelope for
+  ## ``blockRoot`` has been received, or a new expectation is created.
+  if self.expectedEnvelopeReceived != nil:
+    # Reset the old future to not leave it hanging.. an alternative would be to
+    # cancel it, but it doesn't make any practical difference for now
+    self.expectedEnvelopeReceived.complete(false)
+
+  let fut = newFuture[bool]("ConsensusManager.expectEnvelope")
+  self.expectedEnvelopeRoot = blockRoot
+  self.expectedEnvelopeReceived = fut
+
+  # The envelope might already have been received before we started,
+  # waiting this is the only place we need to consult the database.
+  if self.dag.db.containsExecutionPayloadEnvelope(blockRoot):
+    self.checkExpectedEnvelope(blockRoot)
+
+  fut
 
 func shouldSyncViaLightClient*(
     lightClientSlot, dagSlot, wallSlot: Slot): bool =
