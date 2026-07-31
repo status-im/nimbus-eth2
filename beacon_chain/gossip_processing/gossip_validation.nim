@@ -397,7 +397,7 @@ template validateBeaconBlockGloas(
   debugHezeComment "this effectively disables gossip validation for Heze blocks currently"
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockGloas(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
@@ -649,7 +649,7 @@ proc validateDataColumnSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -661,6 +661,10 @@ proc validateDataColumnSidecar*(
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
 
   template blockRoot(): auto = data_column_sidecar[].beacon_block_root
+
+  if data_column_sidecar[].index >= NUMBER_OF_COLUMNS:
+    return dag.checkedReject(
+      "DataColumnSidecar: index exceeds the NUMBER_OF_COLUMNS")
 
   # [REJECT] The sidecar is for the correct subnet -- i.e.
   # `compute_subnet_for_data_column_sidecar(sidecar.index) == subnet_id`.
@@ -924,7 +928,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -1107,7 +1111,7 @@ proc validateAttestation*(
   let target = check_beacon_and_target_block(pool[], attestation.data).valueOr:
     return pool.checkedResult(error) # [IGNORE/REJECT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
   if consensusFork >= ConsensusFork.Gloas:
     # [REJECT] attestation.data.index < 2
     if not (attestation.data.index < 2):
@@ -1240,7 +1244,7 @@ proc validateAttestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/p2p-interface.md#beacon_aggregate_and_proof
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -2080,7 +2084,7 @@ the block up to the current slot as determined by the fork choice.
       dag.checkedReject(
         "ExecutionPayloadBid: only valid for Gloas fork or later")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#payload_attestation_message
 proc validatePayloadAttestationMessage*(
     dag: ChainDAGRef,
     payloadAttestationPool: ref PayloadAttestationPool,

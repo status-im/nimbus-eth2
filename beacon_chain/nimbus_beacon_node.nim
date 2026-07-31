@@ -2268,7 +2268,7 @@ proc installMessageValidators(node: BeaconNode) =
                   checkValidator = false)))
 
         # proposer_preferences
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
         when consensusFork >= ConsensusFork.Gloas:
           node.network.addValidator(
             getProposerPreferencesTopic(digest), proc(

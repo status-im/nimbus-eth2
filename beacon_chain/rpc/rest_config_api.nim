@@ -413,7 +413,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_BLS_TO_EXECUTION_CHANGE:
             to0xHex(DOMAIN_BLS_TO_EXECUTION_CHANGE.data),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#domains
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#domains
           DOMAIN_BEACON_BUILDER:
             to0xHex(DOMAIN_BEACON_BUILDER.data),
           DOMAIN_PROPOSER_PREFERENCES:
@@ -487,7 +487,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           CELLS_PER_EXT_BLOB:
             Base10.toString(uint64(fulu_preset.CELLS_PER_EXT_BLOB)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#constants
           PTC_SIZE:
             Base10.toString(uint64(PTC_SIZE)),
           MAX_PAYLOAD_ATTESTATIONS:

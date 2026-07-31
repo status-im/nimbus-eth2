@@ -448,7 +448,7 @@ proc makeBeaconBlockWithRewards*(
   when consensusFork >= ConsensusFork.Gloas:
     blck.body.payload_attestations = payload_attestations
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#parent-execution-requests
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#parent-execution-requests
   when consensusFork >= ConsensusFork.Gloas:
     blck.body.parent_execution_requests = parent_execution_requests
 

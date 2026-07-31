@@ -428,8 +428,8 @@ proc proposeBlockAux(
 
     parentExecutionRequests = block:
       when fork >= ConsensusFork.Gloas:
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#executionpayload
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#parent-execution-requests
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#executionpayload
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#parent-execution-requests
         if shouldExtendPayload:
           let
             parentId = state[].latest_block_id
@@ -1104,7 +1104,7 @@ proc sendPayloadAttestations(
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#constructing-the-payloadattestationmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#constructing-the-payloadattestationmessage
   # - If the validator has not seen any beacon block for the assigned slot, do
   #   not submit a payload attestation; it will be ignored anyway.
   let target = head.atSlot(slot)
@@ -1181,7 +1181,7 @@ proc sendProposerPreferences(
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#broadcasting-signedproposerpreferences
           let dependent_root =
             forkyState.get_proposer_dependent_root(proposal_slot.epoch)
           let data = ProposerPreferences(
