@@ -13,7 +13,8 @@ import
   ".."/datatypes/[base, constants]
 
 const
-  # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/builder.md#constants
+  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/builder.md#constants
+  DOMAIN_REQUEST_AUTH* = DomainType([byte 0x0B, 0x00, 0x00, 0x01])
   MAX_EXECUTION_PAYMENT*: uint64 = (1 shl 64) - 1
   MAX_DATA_SIZE*: int64 = 4096
 

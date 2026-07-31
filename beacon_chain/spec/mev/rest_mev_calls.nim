@@ -100,7 +100,7 @@ proc submitSignedBeaconBlockPlain*(
 ): RestPlainResponse {.
   rest, endpoint: "/eth/v1/builder/beacon_blocks",
   meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/main/apis/builder/beacon_blocks.yaml
+  ## https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/beacon_blocks.yaml
 
 proc submitSignedBeaconBlock*(
     client: RestClientRef,
@@ -120,7 +120,7 @@ proc submitBuilderPreferencesPlain*(
 ): RestPlainResponse {.
   rest, endpoint: "/eth/v1/builder/builder_preferences/{validator_pubkey}",
   meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/main/apis/builder/builder_preferences.yaml
+  ## https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/builder_preferences.yaml
 
 proc submitBuilderPreferences*(
     client: RestClientRef,
