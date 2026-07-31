@@ -16,7 +16,6 @@ const
   # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/builder.md#constants
   MAX_EXECUTION_PAYMENT*: uint64 = (1 shl 64) - 1
   MAX_DATA_SIZE*: int64 = 4096
-  DOMAIN_REQUEST_AUTH* = DomainType([byte 0x0B, 0x00, 0x00, 0x01])
 
 type
   # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/validator.md#requestauthv1

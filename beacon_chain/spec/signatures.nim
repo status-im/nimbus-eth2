@@ -583,7 +583,7 @@ proc verify_inclusion_list_signature*(
     fork, genesis_validators_root, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# todo: spec url
+# url
 func compute_builder_request_auth*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: RequestAuthV1): Eth2Digest =
