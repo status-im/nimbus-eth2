@@ -643,12 +643,7 @@ proc proposeBlockAux(
 
     let
       bestBuilderBid =
-        if poolBid.isSome and builderApiBid.isSome:
-          if builderApiBid.get().message.value > poolBid.get().message.value:
-            builderApiBid
-          else:
-            poolBid
-        elif builderApiBid.isSome:
+        if effectiveBidValue(builderApiBid) > effectiveBidValue(poolBid):
           builderApiBid
         else:
           poolBid
@@ -656,7 +651,7 @@ proc proposeBlockAux(
         bestBuilderBid.isSome and
         builderBetterBid(
           localBlockValueBoost,
-          bestBuilderBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
+          effectiveBidValue(bestBuilderBid).uint64.u256 * GWEI_TO_WEI.u256,
           engineBid[].eps.blockValue)
       selectedBuilderBid =
         if useBuilderBid:
