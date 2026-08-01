@@ -144,7 +144,7 @@ func effectiveBidValue*(bid: Opt[ForkySignedExecutionPayloadBid]): Gwei =
   if bid.isNone:
     return 0.Gwei
   template msg: untyped = bid.get().message
-  if msg.value > Gwei(high(uint64)) - msg.execution_payment:
+  if (msg.value > Gwei(high(uint64)) - msg.execution_payment):
     msg.value
   else:
     msg.value + msg.execution_payment
