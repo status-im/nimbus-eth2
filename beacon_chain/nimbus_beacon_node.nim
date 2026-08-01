@@ -1861,6 +1861,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # checked by maybeUpdateActionTrackerNextEpoch.
       node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
 
+    # Pre-heat the shuffling cache for upcoming attestation duties, to avoid
+    # having to compute them when REST API is requested at next epoch start.
+    if (slot + 1).is_epoch:
+      discard node.dag.getShufflingRef(
+        head, slot.epoch + 2, preFinalized = false)
+
   let
     nextAttestationSlot =
       node.consensusManager[].actionTracker.getNextAttestationSlot(slot)
