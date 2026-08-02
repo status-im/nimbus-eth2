@@ -234,6 +234,7 @@ AllTests-mainnet
 + overfill protection test [node]                                                            OK
 + overfill test [node]                                                                       OK
 + overfill test [supernode]                                                                  OK
++ popSidecars binds verified map to the returned sidecars [node]                             OK
 + popSidecars tolerates partial custody at DA threshold [node]                               OK
 + pruneAfterFinalization() test [node]                                                       OK
 + put() duplicate items should not affect counters [node]                                    OK

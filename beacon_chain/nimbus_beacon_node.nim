@@ -665,7 +665,8 @@ proc initFullNode(
           {.error: "Unkown fork: " & $consensusFork.}
 
         blockProcessor.addBlock(
-          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized)
+          MsgSource.gossip, forkyBlck, sidecarsOpt,
+          maybeFinalized = maybeFinalized)
 
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
@@ -678,11 +679,18 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Gloas:
           # Disable sidecars processing at block time.
-          const sidecarsOpt = noSidecars
+          const
+            sidecarsOpt = noSidecars
+            verifiedColumns = default(ColumnMap)
         elif consensusFork == ConsensusFork.Fulu:
-          let sidecarsOpt =
+          # Columns fetched by the request manager are the ones which may still
+          # be unverified, so `verifiedColumns` has to accompany exactly these
+          # sidecars all the way into `storeBlock` - several verifiers can be
+          # in flight for the same block root at once.
+          let (sidecarsOpt, verifiedColumns) =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-              Opt.some(default(fulu.DataColumnSidecars))
+              (sidecars: Opt.some(default(fulu.DataColumnSidecars)),
+               verified: default(ColumnMap))
             else:
               fuluColumnQuarantine[].popSidecars(forkyBlck.root)
           if sidecarsOpt.isNone():
@@ -694,12 +702,15 @@ proc initFullNode(
               else:
                 err(VerifierError.MissingParent)
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
-          const sidecarsOpt = noSidecars
+          const
+            sidecarsOpt = noSidecars
+            verifiedColumns = default(ColumnMap)
         else:
           {.error: "Unkown fork: " & $consensusFork.}
 
         await blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, sidecarsOpt, maybeFinalized
+          MsgSource.sync, forkyBlck, sidecarsOpt, verifiedColumns,
+          maybeFinalized
         )
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
@@ -746,11 +757,13 @@ proc initFullNode(
           block:
             template bid(): auto =
               blck.message.body.signed_execution_payload_bid
+            # Gloas verifies all columns in `addPayload`, so the provenance map
+            # that comes with them is of no use here.
             let sidecarsOpt =
               if bid.message.blob_kzg_commitments.len() == 0:
                 Opt.some(default(gloas.DataColumnSidecars))
               else:
-                gloasColumnQuarantine[].popSidecars(blockRoot)
+                gloasColumnQuarantine[].popSidecars(blockRoot).sidecars
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
               discard quarantine[].addSidecarless(dag.finalizedHead.slot, blck)

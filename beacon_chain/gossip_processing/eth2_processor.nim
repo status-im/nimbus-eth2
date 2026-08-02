@@ -310,11 +310,14 @@ proc processSignedBeaconBlock*(
 
   when consensusFork >= ConsensusFork.Gloas:
     # Disable processing sidecars at block time.
-    const sidecarsOpt = noSidecars
+    const
+      sidecarsOpt = noSidecars
+      verifiedColumns = default(ColumnMap)
   elif consensusFork == ConsensusFork.Fulu:
-    let sidecarsOpt =
+    let (sidecarsOpt, verifiedColumns) =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:
-        Opt.some(default(fulu.DataColumnSidecars))
+        (sidecars: Opt.some(default(fulu.DataColumnSidecars)),
+         verified: default(ColumnMap))
       else:
         self.fuluColumnQuarantine[].popSidecars(signedBlock.root)
     if sidecarsOpt.isNone():
@@ -322,13 +325,16 @@ proc processSignedBeaconBlock*(
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
       return ok()
   elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
-    const sidecarsOpt = noSidecars
+    const
+      sidecarsOpt = noSidecars
+      verifiedColumns = default(ColumnMap)
   else:
     {.error: "Unknown fork " & $consensusFork.}
 
   let validationDur = nanoseconds((self.getCurrentBeaconTime() - wallTime).nanoseconds)
   self.blockProcessor.enqueueBlock(
-    src, signedBlock, sidecarsOpt, maybeFinalized, validationDur
+    src, signedBlock, sidecarsOpt, verifiedColumns, maybeFinalized,
+    validationDur
   )
 
   # Validator monitor registration for blocks is done by the processor
@@ -429,13 +435,15 @@ proc processDataColumnSidecar*(
     block_root, dataColumnSidecar, verified = true)
 
   if block_root in self.quarantine[].sidecarless:
-    let cres = self.fuluColumnQuarantine[].popSidecars(block_root)
+    let (cres, verifiedColumns) =
+      self.fuluColumnQuarantine[].popSidecars(block_root)
     if cres.isSome():
       let blck = self.quarantine[].popSidecarless(block_root).expect("checked above")
       withBlck(blck):
         when (consensusFork >= ConsensusFork.Fulu) and
           (consensusFork < ConsensusFork.Gloas):
-          self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, cres)
+          self.blockProcessor.enqueueBlock(
+            MsgSource.gossip, forkyBlck, cres, verifiedColumns)
         else:
           raiseAssert "Wrong fork for columns: " & $consensusFork
 

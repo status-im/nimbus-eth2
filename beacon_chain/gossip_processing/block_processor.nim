@@ -30,8 +30,7 @@ from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/column_quarantine import
-  FuluColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot,
-  popPendingVerify
+  FuluColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
   delOrphan, popOrphan, remove
@@ -416,6 +415,7 @@ proc addBlock*(
   src: MsgSource,
   blck: ForkySignedBeaconBlock,
   sidecarsOpt: SomeOptSidecars,
+  verifiedColumns = default(ColumnMap),
   maybeFinalized = false,
   validationDur = Duration(),
   fromGossip = false,
@@ -426,12 +426,14 @@ proc enqueueBlock*(
     src: MsgSource,
     blck: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
+    verifiedColumns = default(ColumnMap),
     maybeFinalized = false,
     validationDur = Duration(),
 ) =
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
-    # because there are no state rewinds to deal with
+    # because there are no state rewinds to deal with - backfill verifies all
+    # sidecars regardless of provenance
     discard self.storeBackfillBlock(blck, sidecarsOpt)
     return
 
@@ -446,7 +448,7 @@ proc enqueueBlock*(
   # As such, `enqueueBlock` is the entry point for gossip processing; blocks
   # from sync/request managers reach `addBlock` directly.
   discard self.addBlock(
-    src, blck, sidecarsOpt, maybeFinalized, validationDur,
+    src, blck, sidecarsOpt, verifiedColumns, maybeFinalized, validationDur,
     fromGossip = src == MsgSource.gossip)
 
 proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
@@ -462,15 +464,20 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
 
     withBlck(quarantined):
       when consensusFork >= ConsensusFork.Gloas:
-        const sidecarsOpt = noSidecars
+        const
+          sidecarsOpt = noSidecars
+          verifiedColumns = default(ColumnMap)
       elif consensusFork == ConsensusFork.Fulu:
-        let sidecarsOpt =
+        let (sidecarsOpt, verifiedColumns) =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-            Opt.some(default(fulu.DataColumnSidecars))
+            (sidecars: Opt.some(default(fulu.DataColumnSidecars)),
+             verified: default(ColumnMap))
           else:
             self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
       elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
-        const sidecarsOpt = noSidecars
+        const
+          sidecarsOpt = noSidecars
+          verifiedColumns = default(ColumnMap)
       else:
         {.error: "Unknown consensus fork " & $consensusFork.}
 
@@ -488,7 +495,8 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
           discard quarantine[].addSidecarless(dag.finalizedHead.slot, forkyBlck)
           continue
 
-      self.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
+      self.enqueueBlock(
+        MsgSource.gossip, forkyBlck, sidecarsOpt, verifiedColumns)
 
 proc onBlockAdded*(
     dag: ChainDAGRef,
@@ -637,6 +645,9 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
 
     if sidecarsOk:
       debug "Loaded block from storage", root
+      # No `verifiedColumns` - columns read back from the database carry no
+      # provenance, so they are treated the same way the request manager
+      # treats them (`verified = false`) and get checked before import.
       self.enqueueBlock(MsgSource.gossip, forkyBlck.asSigned(), sidecarsOpt)
 
 proc storeBlock(
@@ -645,6 +656,7 @@ proc storeBlock(
     wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
+    verifiedColumns: ColumnMap,
     maybeFinalized: bool,
     queueTick: Moment,
     validationDur: Duration,
@@ -728,13 +740,17 @@ proc storeBlock(
   when consensusFork == ConsensusFork.Fulu:
     # Only request manager-sourced columns arrive unverified; getBlobsV2/V3/V4
     # and CL gossip are both either trusted or verified.
-    let pendingVerify =
-      self.fuluColumnQuarantine[].popPendingVerify(signedBlock.root)
-    if not pendingVerify.empty:
-      sidecarsOpt.isErrOr:
-        let toVerify = value.filterIt(it[].index in pendingVerify)
-        if toVerify.len > 0:
-          ?verifySidecars(signedBlock, Opt.some(toVerify))
+    #
+    # `verifiedColumns` was handed out together with these very sidecars and
+    # travels with them through the queue, so it always describes the set at
+    # hand - unlike a per-root lookup, which by the time we get here may well
+    # answer for a set of columns that some other task popped for the same
+    # block root in the meantime. Whatever it does not cover is verified now,
+    # which includes the case of a caller with no provenance to offer.
+    sidecarsOpt.isErrOr:
+      let toVerify = value.filterIt(it[].index notin verifiedColumns)
+      if toVerify.len > 0:
+        ?verifySidecars(signedBlock, Opt.some(toVerify))
     debug "block_processor verifySidecars completed",
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
@@ -824,12 +840,20 @@ proc addBlock*(
     src: MsgSource,
     blck: ForkySignedBeaconBlock,
     sidecarsOpt: SomeOptSidecars,
+    verifiedColumns = default(ColumnMap),
     maybeFinalized = false,
     validationDur = Duration(),
     fromGossip = false
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## Enqueue a Gossip-validated block for consensus verification - only one
   ## block at a time gets processed
+  ##
+  ## `verifiedColumns` must be the map that `popSidecars()` returned together
+  ## with `sidecarsOpt` - it is the only thing tying the two together once the
+  ## block is queued behind the store lock, where the quarantine may well have
+  ## produced another set of sidecars for the same block root. Columns not
+  ## covered by it are KZG-verified before the block is imported, so the safe
+  ## thing to do when in doubt is to leave it empty.
   # Backpressure:
   #   Callers that don't await the returned future are responsible for implementing
   #   their own backpressure handling, limiting concurrent `addBlock` calls to
@@ -892,7 +916,7 @@ proc addBlock*(
             quit 1
 
           await self.storeBlock(
-            src, wallTime, blck, sidecarsOpt, maybeFinalized,
+            src, wallTime, blck, sidecarsOpt, verifiedColumns, maybeFinalized,
             queueTick, validationDur, fromGossip)
         finally:
           quarantine[].clearProcessing()
@@ -1114,11 +1138,13 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
       return
     sidecarsOpt =
       block:
+        # Gloas verifies all columns in `addPayload`, so the provenance map
+        # that comes with them is of no use here.
         let sidecarsOpt =
           if bid.message.blob_kzg_commitments.len() == 0:
             Opt.some(default(gloas.DataColumnSidecars))
           else:
-            self.gloasColumnQuarantine[].popSidecars(blck.root)
+            self.gloasColumnQuarantine[].popSidecars(blck.root).sidecars
         if sidecarsOpt.isNone():
           let dag = self.consensusManager.dag
           # As sidecars are missing, put envelope back to quarantine.

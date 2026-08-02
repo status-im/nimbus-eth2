@@ -149,7 +149,7 @@ proc attemptGetBlobs*(
       # If the column-first path already populated quarantine for this root,
       # skip the EL fetch and enqueue with the existing columns.
       if forkyBlck.root in self.columnFirstFetched:
-        let sidecarsOpt =
+        let (sidecarsOpt, verifiedColumns) =
           self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
         if sidecarsOpt.isSome():
           if not quarantine[].removeSidecarless(forkyBlck.root):
@@ -159,7 +159,7 @@ proc attemptGetBlobs*(
           self.columnFirstFetched.del(forkyBlck.root)
           self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
-            MsgSource.gossip, forkyBlck, sidecarsOpt)
+            MsgSource.gossip, forkyBlck, sidecarsOpt, verifiedColumns)
           return
         # Columns vanished (pruned?) — fall through to EL fetch as fallback.
 
@@ -280,9 +280,14 @@ proc attemptGetBlobs*(
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
 
-      let sidecarsOpt = self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+      # The quarantine may hold columns from other sources (request manager)
+      # next to the ones just installed from the EL, so the verified map has to
+      # be carried along rather than assumed to cover everything.
+      let (sidecarsOpt, verifiedColumns) =
+        self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
 
-      self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
+      self.blockProcessor.enqueueBlock(
+        MsgSource.gossip, forkyBlck, sidecarsOpt, verifiedColumns)
     elif consensusFork == ConsensusFork.Heze:
       debugHezeComment "EL engine_getBlobs dispatch not yet wired for Heze"
     else:

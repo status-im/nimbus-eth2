@@ -18,7 +18,7 @@ import
   ./activity_metrics,
   ../spec/datatypes/deneb
 
-from ../spec/column_map import contains
+from ../spec/column_map import contains, supernodeMap
 
 export eth2_processor, eth2_network
 
@@ -234,7 +234,9 @@ proc addRoutedBlock(
   # into the chain
   let added =
     await router[].blockProcessor.addBlock(
-      MsgSource.api, blck, sidecarsOpt)
+      # Sidecars routed here are assembled locally and have just been published
+      # to the network by us, so they don't get re-verified on the way in
+      MsgSource.api, blck, sidecarsOpt, verifiedColumns = supernodeMap)
 
   if added.isErr():
     return
