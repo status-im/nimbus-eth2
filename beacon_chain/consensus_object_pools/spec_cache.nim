@@ -98,7 +98,7 @@ iterator get_attesting_indices*(
     shufflingRef: ShufflingRef,
     slot: Slot,
     committee_bits: AttestationCommitteeBits,
-    aggregation_bits: AggregationBits,
+    aggregation_bits: electra.AggregationBits | gloas.AggregationBits,
 ): ValidatorIndex =
   if slot.epoch == shufflingRef.epoch:
     var committee_offset = 0
@@ -118,7 +118,7 @@ func get_attesting_indices*(
     shufflingRef: ShufflingRef,
     slot: Slot,
     committee_bits: AttestationCommitteeBits,
-    aggregation_bits: AggregationBits,
+    aggregation_bits: electra.AggregationBits | gloas.AggregationBits,
 ): seq[ValidatorIndex] =
   for vidx in shufflingRef.get_attesting_indices(slot, committee_bits, aggregation_bits):
     result.add vidx
@@ -137,7 +137,9 @@ iterator get_attesting_indices*(
 
 iterator get_attesting_indices*(
     shufflingRef: ShufflingRef,
-    attestation: electra.Attestation | electra.TrustedAttestation,
+    attestation:
+      electra.Attestation | electra.TrustedAttestation |
+      gloas.Attestation | gloas.TrustedAttestation,
 ): ValidatorIndex =
   for vidx in shufflingRef.get_attesting_indices(
     attestation.data.slot, attestation.committee_bits, attestation.aggregation_bits
@@ -147,8 +149,9 @@ iterator get_attesting_indices*(
 iterator get_attesting_indices*(
     dag: ChainDAGRef,
     attestation:
-      phase0.Attestation | phase0.TrustedAttestation | electra.Attestation |
-      electra.TrustedAttestation,
+      phase0.Attestation | phase0.TrustedAttestation |
+      electra.Attestation | electra.TrustedAttestation |
+      gloas.Attestation | gloas.TrustedAttestation,
 ): ValidatorIndex =
   ## Iterate over the attesting indices based on the target of the attestation -
   ## looks up the shuffling based on the attestation target which in the case

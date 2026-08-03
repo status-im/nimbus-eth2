@@ -488,7 +488,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block head request done",
       peer, beaconRoot = shortLog(beaconRoot), count = reqCount, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
   proc executionPayloadEnvelopesByRange(
       peer: Peer,
       startSlot: Slot,
@@ -545,7 +545,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "Envelope range request done", peer, startSlot, count
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyroot-v1
   proc executionPayloadEnvelopesByRoot(
       peer: Peer,
       blockRoots: BlockRootsList,

@@ -56,7 +56,7 @@ type
 
   EnvelopeVerifierFn = proc(
       signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-  ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
+  ): Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).}
 
   BlockLoaderFn = proc(
       blockRoot: Eth2Digest
@@ -316,16 +316,13 @@ proc fetchEnvelopesFromNetwork(self: RequestManager, roots: seq[Eth2Digest])
           let res = await self.envelopeVerifier(envelope[])
           if res.isErr():
             case res.error():
-            of VerifierError.MissingParent:
-              # Ignoring due to it should have checked in processing the valid
-              # block.
+            of PayloadVerifierError.MissingParent,
+                PayloadVerifierError.Duplicate,
+                PayloadVerifierError.InvalidSidecars:
               discard
-            of VerifierError.Duplicate:
-              # Ignoring as it could occur when making parallel requests.
-              discard
-            of VerifierError.UnviableFork:
+            of PayloadVerifierError.UnviableFork:
               gotUnviableEnvelope = true
-            of VerifierError.Invalid:
+            of PayloadVerifierError.Invalid:
               notice "Received invalid envelope",
                 peer = peer, envelopes = shortLog(roots)
               peer.updateScore(PeerScoreBadValues)
@@ -390,9 +387,7 @@ proc checkPeerCustody(rman: RequestManager,
       return intersection
     else:
       let
-        remoteNodeId = fetchNodeIdFromPeerId(peer).valueOr:
-          peer.updateScore(PeerScoreNoValues)
-          return intersection
+        remoteNodeId = fetchNodeIdFromPeerId(peer)
         remoteCustodyColumns =
           rman.network.cfg.resolve_columns_from_custody_groups(
             remoteNodeId,
@@ -428,8 +423,7 @@ func matchIntersection(rman: RequestManager): PeerCustomFilterCallback[Peer] =
     let
       remoteCustodyGroupCount = peer.lookupCgcFromPeer().valueOr:
         return false
-      remoteNodeId = fetchNodeIdFromPeerId(peer).valueOr:
-        return false
+      remoteNodeId = fetchNodeIdFromPeerId(peer)
       remoteCustodyColumns =
         rman.network.cfg.resolve_columns_from_custody_groups(
           remoteNodeId,
@@ -615,7 +609,7 @@ proc requestManagerEnvelopeLoop(self: RequestManager)
       assign(blockRoots, missingBlockRoots)
     else:
       var verifiers:
-        seq[Future[Result[void, VerifierError]].Raising([CancelledError])]
+        seq[Future[Result[void, PayloadVerifierError]].Raising([CancelledError])]
       for blockRoot in missingBlockRoots:
         let envelope = self.envelopeLoader(blockRoot).valueOr:
           blockRoots.add blockRoot

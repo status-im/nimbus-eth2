@@ -19,8 +19,15 @@ func readExecutionTransaction(
   except RlpError as exc:
     err("Invalid transaction: " & exc.msg)
 
+func readExecutionTransaction(
+    txBytes: gloas.Transaction): Result[EthTransaction, string] =
+  try:
+    ok rlp.decode(distinctBase(txBytes), EthTransaction)
+  except RlpError as exc:
+    err("Invalid transaction: " & exc.msg)
+
 func all_blob_versioned_hashes*(
-    transactions: seq[bellatrix.Transaction]
+    transactions: seq[bellatrix.Transaction] | seq[gloas.Transaction]
 ): Result[seq[Hash32], string] =
   var hashes: seq[Hash32]
   for txBytes in transactions:

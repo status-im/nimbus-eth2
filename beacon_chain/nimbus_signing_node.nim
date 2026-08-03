@@ -226,9 +226,17 @@ proc installApiHandlers*(node: SigningNodeRef) =
       of Web3SignerRequestKind.AggregateAndProofV2:
         let
           forkInfo = request.forkInfo.get()
-          signature = get_aggregate_and_proof_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, request.aggregateAndProofV2,
-            validator.data.privateKey).toHex()
+          signature =
+            if request.aggregateAndProofV2.kind >= ConsensusFork.Gloas:
+              get_aggregate_and_proof_signature(forkInfo.fork,
+                forkInfo.genesis_validators_root,
+                request.aggregateAndProofV2.gloasData,
+                validator.data.privateKey).toHex()
+            else:
+              get_aggregate_and_proof_signature(forkInfo.fork,
+                forkInfo.genesis_validators_root,
+                request.aggregateAndProofV2.electraData,
+                validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:
         let
@@ -426,7 +434,7 @@ proc asyncRun*(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   sn.installApiHandlers()
   sn.start()
 
-  var future = newFuture[void]("signing-node-mainLoop")
+  let future = newFuture[void]("signing-node-mainLoop")
   try:
     await future
   except CancelledError:

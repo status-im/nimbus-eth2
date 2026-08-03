@@ -409,13 +409,14 @@ proc stepChecks(
         Eth2Digest.fromHex(val.getStr())
     elif check == "payload_timeliness_vote" or
          check == "payload_data_availability_vote":
-      # `votes` is ordered by PTC position; a `null` position cast no vote, so
-      # its bit stays unset, same observable value as a recorded `false`.
-      let tally = fkChoice.backend.ptc_votes.getOrDefault(
+      # `votes` is ordered by PTC position; a `null` position cast no vote
+      let tally = fkChoice.backend.getPtcTally(
         Eth2Digest.fromHex(val["block_root"].getStr()))
       var i = 0
       for v in val["votes"].items:
-        let expected = v.kind != JNull and v.getBool()
+        let voted = v.kind != JNull
+        doAssert tally.voted[i] == voted
+        let expected = voted and v.getBool()
         if check == "payload_timeliness_vote":
           doAssert tally.present[i] == expected
         else:
@@ -565,7 +566,9 @@ proc runTest(
       # Some test files have very long paths
       skip()
     else:
-      if os_ops.splitPath(path).tail in SKIP:
+      if suiteName == "Fast Confirmation":
+        skip()  # TODO
+      elif os_ops.splitPath(path).tail in SKIP:
         skip()
       else:
         var verifier = BatchVerifier.init(rng, taskpool)

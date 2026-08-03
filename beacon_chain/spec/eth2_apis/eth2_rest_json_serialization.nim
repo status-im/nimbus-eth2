@@ -111,6 +111,7 @@ RestJson.useDefaultSerializationFor(
   GetGenesisResponse,
   GetHistoricalSummariesV1Response,
   GetHistoricalSummariesV1ResponseElectra,
+  GetHistoricalSummariesV1ResponseGloas,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -129,6 +130,8 @@ RestJson.useDefaultSerializationFor(
   GloasSignedBlockContents,
   HezeSignedBlockContents,
   HeadChangeInfoObject,
+  HeadV2ChangeInfoObject,
+  HeadV2ChangeInfoObjectData,
   HistoricalSummary,
   ImportDistributedKeystoresBody,
   ImportRemoteKeystoresBody,
@@ -307,6 +310,9 @@ RestJson.useDefaultSerializationFor(
   fulu_mev.BuilderBid,
   fulu_mev.SignedBlindedBeaconBlock,
   fulu_mev.SignedBuilderBid,
+  gloas.AggregateAndProof,
+  gloas.Attestation,
+  gloas.AttesterSlashing,
   gloas.BeaconBlock,
   gloas.BeaconBlockBody,
   gloas.BeaconState,
@@ -315,16 +321,21 @@ RestJson.useDefaultSerializationFor(
   gloas.ExecutionPayload,
   gloas.ExecutionPayloadBid,
   gloas.ExecutionRequests,
+  gloas.IndexedAttestation,
   gloas.LightClientBootstrap,
   gloas.LightClientFinalityUpdate,
   gloas.LightClientHeader,
   gloas.LightClientOptimisticUpdate,
   gloas.LightClientUpdate,
+  gloas.SignedAggregateAndProof,
   gloas.SignedExecutionPayloadBid,
+  gloas.TrustedAttestation,
   heze.BeaconBlock,
   heze.BeaconBlockBody,
   heze.BeaconState,
   heze.BlockContents,
+  heze.ExecutionPayloadBid,
+  heze.SignedExecutionPayloadBid,
   phase0.AggregateAndProof,
   phase0.Attestation,
   phase0.AttesterSlashing,
@@ -446,12 +457,13 @@ proc writeValue*(w: var RestJsonWriter, value: Gwei | Epoch | Slot) {.writer.} =
 proc readValue*(r: var RestJsonReader, value: var (Gwei | Epoch | Slot)) {.reader.} =
   r.readValue(distinctBase(value))
 
-proc writeValue*(w: var RestJsonWriter, value: EpochParticipationFlags) {.writer.} =
+proc writeValue*(
+    w: var RestJsonWriter, value: altair.EpochParticipationFlags) {.writer.} =
   for e in w.stepwiseArrayCreation(value.asList):
     w.writeValue e
 
 proc readValue*(
-    r: var RestJsonReader, value: var EpochParticipationFlags
+    r: var RestJsonReader, value: var altair.EpochParticipationFlags
 ) {.raises: [SerializationError, IOError].} =
   for e in r.readArray(uint8):
     if not value.asList.add(e):
@@ -739,8 +751,12 @@ proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
     of Web3SignerRequestKind.AggregateAndProofV2:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
       w.writeField("aggregate_and_proof", VersionedData(
-        version: ConsensusFork.Electra,
-        data: JsonString(RestJson.encode(value.aggregateAndProofV2))))
+        version: value.aggregateAndProofV2.kind,
+        data:
+          if value.aggregateAndProofV2.kind >= ConsensusFork.Gloas:
+            JsonString(RestJson.encode(value.aggregateAndProofV2.gloasData))
+          else:
+            JsonString(RestJson.encode(value.aggregateAndProofV2.electraData))))
     of Web3SignerRequestKind.Attestation:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
       w.writeField("attestation", value.attestation)
@@ -837,8 +853,19 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
         kind: Web3SignerRequestKind.AggregateAndProofV2,
         forkInfo: expectedForkInfo,
         signingRoot: v.signingRoot,
-        aggregateAndProofV2: RestJson.decode(
-          string(versioned.data), electra.AggregateAndProof),
+        aggregateAndProofV2: (block: withConsensusFork(versioned.version):
+          when consensusFork >= ConsensusFork.Gloas:
+            Web3SignerForkedAggregateAndProof(
+              kind: consensusFork,
+              gloasData: RestJson.decode(
+                string(versioned.data), gloas.AggregateAndProof))
+          elif consensusFork >= ConsensusFork.Electra:
+            Web3SignerForkedAggregateAndProof(
+              kind: consensusFork,
+              electraData: RestJson.decode(
+                string(versioned.data), electra.AggregateAndProof))
+          else:
+            raiseAssert "Just checked above"),
       )
     of Web3SignerRequestKind.Attestation:
       Web3SignerRequest(

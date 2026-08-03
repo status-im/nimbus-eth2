@@ -16,7 +16,7 @@ import
 
 # Spec references:
 # - Fulu: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md
-# - Gloas: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md
+# - Gloas: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/partial-columns/p2p-interface.md
 
 from ../spec/datatypes/deneb import KzgCommitments, KzgProofs
 from ../spec/datatypes/fulu import ColumnIndex, DataColumn
@@ -85,7 +85,7 @@ type
     fulu.PartialDataColumnSidecar | gloas.PartialDataColumnSidecar
 
 func hash*(gid: gloas.PartialDataColumnGroupID): Hash =
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
   var h: Hash = 0
   h = h !& hash(uint64(gid.slot))
   h = h !& hash(gid.beacon_block_root)
@@ -341,8 +341,8 @@ func assembleDataColumnSidecar*(
 
   Opt.some(gloas.DataColumnSidecar(
     index: columnIndex,
-    column: column,
-    kzg_proofs: proofs,
+    column: column.asSeq,
+    kzg_proofs: proofs.asSeq,
     slot: stored.slot,
     beacon_block_root: stored.beacon_block_root))
 

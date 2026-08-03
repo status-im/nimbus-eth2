@@ -314,7 +314,7 @@ proc recover_cells_and_proofs_parallel*(
 
 proc assemble_data_column_sidecars*(
     signed_block_header: SignedBeaconBlockHeader,
-    kzg_commitments: KzgCommitments,
+    kzg_commitments: deneb.KzgCommitments,
     kzg_commitments_inclusion_proof:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest],
     blobs: seq[KzgBlob],
@@ -422,7 +422,7 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/builder.md#modified-get_data_column_sidecars
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/builder.md#modified-get_data_column_sidecars
 proc assemble_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
     blobs: seq[KzgBlob], cell_proofs: seq[KzgProof],
@@ -465,8 +465,8 @@ proc assemble_data_column_sidecars*(
 
     sidecars.add (ref gloas.DataColumnSidecar)(
       index: columnIndex,
-      column: DataColumn.init(column),
-      kzg_proofs: deneb.KzgProofs.init(kzgProofOfColumn),
+      column: column,
+      kzg_proofs: kzgProofOfColumn,
       slot: signed_beacon_block.message.slot,
       beacon_block_root: beacon_block_root)
 
@@ -604,8 +604,8 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/specs/fulu/p2p-interface.md#verify_data_column_sidecar
-func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSidecar):
-                                 Result[void, cstring] =
+func verify_data_column_sidecar*(
+    cfg: RuntimeConfig, sidecar: fulu.DataColumnSidecar): Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
   # The sidecar index must be within the valid range
@@ -629,10 +629,10 @@ func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: fulu.DataColumnSid
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
-func verify_data_column_sidecar*(cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar,
-                                 kzg_commitments: KzgCommitments):
-                                 Result[void, cstring] =
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar
+func verify_data_column_sidecar*(
+    cfg: RuntimeConfig, sidecar: gloas.DataColumnSidecar,
+    kzg_commitments: gloas.KzgCommitments): Result[void, cstring] =
   ## Verify if the data column sidecar is valid.
 
   # The sidecar index must be within the valid range
@@ -683,10 +683,11 @@ func verify_partial_data_column_header_inclusion_proof*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#verify_data_column_sidecar_kzg_proofs
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.2/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-verify_data_column_sidecar_kzg_proofs
 proc verify_data_column_sidecar_kzg_proofs*[
-    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
-    sidecar: T, kzg_commitments: KzgCommitments): Result[void, cstring] =
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar,
+    K: deneb.KzgCommitments | gloas.KzgCommitments](
+    sidecar: T, kzg_commitments: K): Result[void, cstring] =
   ## Verify if the KZG proofs are correct.
 
   # The column index also represents the cell index
@@ -746,9 +747,10 @@ template verifyKzgBatchBody(
 
 proc verify_data_column_sidecar_kzg_proofs*[
     T: fulu.DataColumnSidecar | gloas.DataColumnSidecar |
-       ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar](
+       ref fulu.DataColumnSidecar | ref gloas.DataColumnSidecar,
+    K: deneb.KzgCommitments | gloas.KzgCommitments](
     sidecars: openArray[T],
-    kzg_commitments: KzgCommitments): Result[void, cstring] =
+    kzg_commitments: K): Result[void, cstring] =
   ## Batch verify KZG proofs across multiple DataColumnSidecars against a
   ## single shared `kzg_commitments` array (e.g. gloas, where commitments
   ## come from the bid). Accepts either values or refs.

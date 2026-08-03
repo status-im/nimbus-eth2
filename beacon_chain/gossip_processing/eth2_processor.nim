@@ -90,6 +90,13 @@ declareCounter beacon_execution_payload_bids_dropped,
   "Number of invalid execution payload bids dropped by this node",
   labels = ["reason"]
 
+declareCounter beacon_payload_attestations_received,
+  "Number of valid payload attestations processed by this node"
+
+declareCounter beacon_payload_attestations_dropped,
+  "Number of invalid payload attestations dropped by this node",
+  labels = ["reason"]
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -145,8 +152,7 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
-    seenProposerPreferences*:
-      array[2, array[SLOTS_PER_EPOCH, Table[Eth2Digest, ProposerPreferences]]]
+    seenProposerPreferences*: SeenProposerPreferences
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -360,9 +366,10 @@ proc processExecutionPayloadEnvelope*(
   ok()
 
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor, src: MsgSource,
     dataColumnSidecar: ref fulu.DataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+    subnet_id: uint64
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template block_header: untyped =
     dataColumnSidecar[].signed_block_header.message
 
@@ -385,9 +392,9 @@ proc processDataColumnSidecar*(
 
   let
     validationStart = Moment.now()
-    v =
-      self.dag.validateDataColumnSidecar(self.quarantine, self.fuluColumnQuarantine,
-                                         dataColumnSidecar, wallTime, subnet_id)
+    v = await self.dag.validateDataColumnSidecar(
+      self.batchCrypto, self.quarantine, self.fuluColumnQuarantine,
+      dataColumnSidecar, wallTime, subnet_id)
 
   data_column_sidecar_validation_duration.observe(
     (Moment.now() - validationStart).toFloatSeconds())
@@ -425,9 +432,10 @@ proc processDataColumnSidecar*(
   v
 
 proc processDataColumnSidecar*(
-    self: var Eth2Processor, src: MsgSource,
+    self: ref Eth2Processor, src: MsgSource,
     dataColumnSidecar: ref gloas.DataColumnSidecar,
-    subnet_id: uint64): ValidationRes =
+    subnet_id: uint64
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
@@ -442,12 +450,12 @@ proc processDataColumnSidecar*(
 
   debug "Data column received"
 
-  let v = self.dag.validateDataColumnSidecar(
-    self.quarantine, self.gloasColumnQuarantine, self.executionPayloadBidPool,
-    dataColumnSidecar, wallTime, subnet_id)
+  let v = await self.dag.validateDataColumnSidecar(
+    self.batchCrypto, self.quarantine, self.gloasColumnQuarantine,
+    self.executionPayloadBidPool, dataColumnSidecar, wallTime, subnet_id)
 
   if v.isErr():
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
     # "If not yet seen, a client SHOULD queue the sidecar for deferred
     # validation and possible processing once the block is received or
     # retrieved."
@@ -494,7 +502,9 @@ func clearDoppelgangerProtection*(self: var Eth2Processor) =
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor,
-    attestation: phase0.Attestation | electra.Attestation | SingleAttestation,
+    attestation:
+      phase0.Attestation | electra.Attestation | gloas.Attestation |
+      SingleAttestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
@@ -584,7 +594,8 @@ proc processAttestation*(
 proc processSignedAggregateAndProof*(
     self: ref Eth2Processor,
     src: MsgSource,
-    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    signedAggregateAndProof:
+      electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     checkSignature = true,
     checkCover = true,
 ): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
@@ -680,7 +691,9 @@ proc processBlsToExecutionChange*(
 
 proc checkKnownValidatorSlashing(
     self: var Eth2Processor,
-    msg: ProposerSlashing | phase0.AttesterSlashing | electra.AttesterSlashing) =
+    msg:
+      ProposerSlashing | phase0.AttesterSlashing |
+      electra.AttesterSlashing | gloas.AttesterSlashing) =
   for idx in getValidatorIndices(msg):
     let i = ValidatorIndex.init(idx).valueOr:
       continue
@@ -689,8 +702,8 @@ proc checkKnownValidatorSlashing(
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
-    attesterSlashing: electra.AttesterSlashing):
-    ValidationRes =
+    attesterSlashing:
+      electra.AttesterSlashing | gloas.AttesterSlashing): ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
 
@@ -913,6 +926,9 @@ proc processExecutionPayloadBid*(
     self.executionPayloadBidPool[].addBid(
       signedBid, payloadAvailability, wallTime)
 
+    if not isNil(self.dag.onExecutionPayloadBidAdded):
+      self.dag.onExecutionPayloadBidAdded(signedBid)
+
     beacon_execution_payload_bids_received.inc()
 
     ok()
@@ -934,16 +950,22 @@ proc processPayloadAttestationMessage*(
 
   if v.isErr():
     debug "Dropping payload attestation", reason = $v.error
+    beacon_payload_attestations_dropped.inc(1, [$v.error[0]])
     return err(v.error())
 
   discard self.payloadAttestationPool[].addPayloadAttestation(
     payload_attestation_message, wallTime)
+
+  if not isNil(self.dag.onPayloadAttestationMessageAdded):
+    self.dag.onPayloadAttestationMessageAdded(payload_attestation_message)
 
   # Record the PTC vote in fork choice.
   self.attestationPool[].forkChoice.on_payload_attestation_message(
       self.dag, payload_attestation_message.validator_index,
       payload_attestation_message.data).isOkOr:
     debug "on_payload_attestation_message failed", error
+
+  beacon_payload_attestations_received.inc()
 
   trace "Payload attestation validated"
   return ok()
@@ -959,6 +981,9 @@ proc processProposerPreferences*(
   if v.isErr():
     debug "Dropping proposer preferences", reason = $v.error
     return err(v.error())
+
+  if not isNil(self.dag.onProposerPreferencesAdded):
+    self.dag.onProposerPreferencesAdded(signed_preferences)
 
   trace "Proposer preferences validated"
   ok()

@@ -341,8 +341,8 @@ when const_preset == "mainnet":
     SECONDS_PER_ETH1_BLOCK: 14,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
-    # 2**13 (= 8,192) epochs ~36 days
-    MIN_BUILDER_WITHDRAWABILITY_DELAY: 8192,
+    # 2**6 (= 64) epochs
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -560,8 +560,8 @@ elif const_preset == "gnosis":
     SECONDS_PER_ETH1_BLOCK: 5,
     # 2**8 (= 256) epochs ~27 hours
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
-    # 2**13 (= 8,192) epochs ~36 days
-    MIN_BUILDER_WITHDRAWABILITY_DELAY: 8192,
+    # 2**6 (= 64) epochs
+    MIN_BUILDER_WITHDRAWABILITY_DELAY: 64,
     # 2**8 (= 256) epochs ~27 hours
     SHARD_COMMITTEE_PERIOD: 256,
     # 2**11 (= 2,048) Eth1 blocks ~8 hours
@@ -927,9 +927,6 @@ func parse(T: type array[4, byte], input: string): T
 func parse(T: type Version, input: string): T
            {.raises: [ValueError].} =
   Version hexToByteArray(input, 4)
-
-template parse(T: type Slot, input: string): T =
-  Slot parse(uint64, input)
 
 template parse(T: type Epoch, input: string): T =
   Epoch parse(uint64, input)

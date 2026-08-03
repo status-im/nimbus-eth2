@@ -505,7 +505,7 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_dependent_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-get_dependent_root
 func get_dependent_root*(
     dag: ChainDAGRef, bid: BlockId, current_slot: Slot): Eth2Digest =
   let epoch = current_slot.epoch
@@ -2598,22 +2598,48 @@ proc executionParent*(
     cur = cur.parent
   Opt.none(BlockRef)
 
-func shouldExtendPayload*(
-    dag: ChainDAGRef, head: BlockRef): bool =
-  ## A helper function for getting the status of whether or not to build/extend
-  ## on the head payload, as the payload selected by fork choice is stored in
-  ## DAG.
+proc hasExecutionCheckpoint*(
+    dag: ChainDAGRef, parentRef: BlockRef,
+    parentBlockHash: Eth2Digest): bool =
+  ## After the database initialized from checkpoint, we may not have enough
+  ## ancestors for finding the execution parent. It allows accepting blocks
+  ## faster without the need of backfilling.
   ##
-  ## Related fork choice helpers
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_build_on_full
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_extend_payload
-  (
-    # For either genesis or pre-Gloas block, we should always build on them.
-    head.slot == GENESIS_SLOT or
-    head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH or
-    # The usual path since Gloas
-    head == dag.headPayload
-  )
+  ## There are two scenarios capturing here.
+
+  let (latestBlockHash, latestParentHash) =
+    # 1. The parent is the current head - We can check with the head state for
+    #    both latest parent hash and block hash, means that the execution parent
+    #    exists in this fork and we trust that the state is the source of truth.
+    if parentRef == dag.head:
+      withState(dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          template latestBid(): auto =
+            forkyState.data.latest_execution_payload_bid
+          (latestBid.block_hash, latestBid.parent_block_hash)
+        elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+          template latestPayload(): auto =
+            forkyState.data.latest_execution_payload_header
+          (latestPayload.block_hash, latestPayload.parent_hash)
+        else:
+          return false
+    # 2. The parent is not the current head - It may be built on EMPTY
+    #    throughout the fork and so the execution parent may be a block before
+    #    the checkpoint.
+    else:
+      let (blockHash, parentHash) =
+        dag.loadExecutionAndParentBlockHash(parentRef)
+      if blockHash.isNone() or parentHash.isNone():
+        return false
+      (blockHash.get(), parentHash.get())
+
+  # Return true if it is either EMPTY or FULL
+  parentBlockHash == latestBlockHash or parentBlockHash == latestParentHash
+
+func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
+  ## Whether `head.payload_status == PAYLOAD_STATUS_FULL`, as consumed by
+  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
+  head == dag.headPayload
 
 from std/packedsets import PackedSet, incl, items
 
@@ -2714,6 +2740,16 @@ proc processVanityLogs(dag: ChainDAGRef, vanityState: auto) =
         dag.headState, vanityState.lastKnownCompoundingChangeStatuses):
     dag.vanityLogs.onKnownCompoundingChange()
 
+proc getEpochDepRoot(
+    dag: ChainDAGRef, headEpoch: Epoch, delta: uint64): Eth2Digest =
+  ## Used for head_v2 SSE events, to return genesis block root when it is
+  ## underflow.
+
+  if headEpoch <= GENESIS_EPOCH + delta:
+    dag.db.getGenesisBlock().get(ZERO_HASH)
+  else:
+    get_block_root_at_slot(dag.headState, (headEpoch - delta).start_slot - 1)
+
 proc updateHead*(
     dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
     knownValidators: openArray[ValidatorIndex]) =
@@ -2785,6 +2821,7 @@ proc updateHead*(
       # however, so we'll use the last-known-finalized in that case
       max(finalized_checkpoint.epoch.start_slot(), dag.finalizedHead.slot)
     finalizedHead = newHead.atSlot(finalizedSlot)
+    epochTransition = (finalizedHead != dag.finalizedHead)
 
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
@@ -2827,13 +2864,24 @@ proc updateHead*(
         depRoot = withState(dag.headState): forkyState.proposer_dependent_root
         prevDepRoot = withState(dag.headState):
           forkyState.attester_dependent_root
-        epochTransition = (finalizedHead != dag.finalizedHead)
         # TODO (cheatfate): Proper implementation required
         data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
                                          dag.headState.root,
                                          epochTransition, prevDepRoot,
                                          depRoot)
       dag.onHeadChanged(data)
+
+    if not isNil(dag.onHeadV2Changed):
+      # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
+      let
+        headEpoch = dag.head.slot.epoch()
+        curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
+        nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
+
+      dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
+        dag.headState.kind, dag.head.slot, dag.head.root,
+        dag.headState.root, epochTransition, curEpochDepRoot,
+        nextEpochDepRoot))
 
   withState(dag.headState):
     # Every time the head changes, the "canonical" view of balances and other
@@ -2877,26 +2925,39 @@ proc updateHead*(
       dag.onFinHappened(dag, data)
 
 proc updateHeadExecutionPayload*(
-    dag: ChainDAGRef, headPayload: BlockRef,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope) =
+    dag: ChainDAGRef, full: bool, headChanged: bool) =
   ## Update the execution payload of the head block since Gloas, which should
   ## usually be invoked after the call of updateHead().
-
-  logScope:
-    blockRoot = shortLog(signedEnvelope.message.beacon_block_root)
-    builderIdx = signedEnvelope.message.builder_index
-    slot = signedEnvelope.slot
-    head = shortLog(dag.head)
-    headPayload = shortLog(headPayload)
-
-  # Check with the head. When it is not related to the current head, it should
-  # be outdated and so ignoring it.
-  if not (headPayload == dag.head or headPayload == dag.head.parent):
-    warn "Head payload may be outdated or incorrect fork"
+  if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return
+  let newHeadPayload =
+    if full:
+      dag.head
+    else:
+      dag.head.parent
+  if newHeadPayload == dag.headPayload:
+    return
+  dag.headPayload = newHeadPayload
 
-  dag.headPayload = headPayload
-  debugGloasComment("update finalized head here?")
+  # `updateHead` already emits head_v2 on a head change; only emit here for a
+  # pure payload flip (head unchanged) to avoid double-emitting.
+  if not headChanged and not isNil(dag.onHeadV2Changed):
+    # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
+    let
+      finalized_checkpoint = dag.headState.finalized_checkpoint
+      finalizedSlot =
+        max(finalized_checkpoint.epoch.start_slot(), dag.finalizedHead.slot)
+      finalizedHead = dag.head.atSlot(finalizedSlot)
+      epochTransition = (finalizedHead != dag.finalizedHead)
+
+      headEpoch = dag.head.slot.epoch()
+      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
+      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
+
+    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
+      dag.headState.kind, dag.head.slot, dag.head.root,
+      dag.headState.root, epochTransition, curEpochDepRoot,
+      nextEpochDepRoot))
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   ## Lightweight check to see if it is likely that the given database has been

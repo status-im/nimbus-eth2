@@ -163,7 +163,7 @@ proc newSyncManager*[A, B](
   of SyncQueueKind.Backward:
     (getBackfillSlotCb, getFrontfillSlotCb, getBackfillSlotCb)
 
-  var res = SyncManager[A, B](
+  let res = SyncManager[A, B](
     pool: pool,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,

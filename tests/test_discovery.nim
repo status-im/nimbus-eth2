@@ -479,3 +479,21 @@ suite "Discovery fork ID":
       not isCompatibleForkId(bellatrixForkId, altairForkId)
       not isCompatibleForkId(bellatrixForkId, altairBellatrixForkId)
       isCompatibleForkId(bellatrixForkId, bellatrixForkId)
+
+suite "toPeerAddr port handling":
+  test "Skips zero tcp/quic ports":
+    let
+      rng = HmacDrbgContext.new()
+      pk = keys.PrivateKey.random(rng[])
+      ip = IpAddress(family: IpAddressFamily.IPv4, address_v4: [127'u8, 0, 0, 1])
+      zeroTcp = enr.Record.init(1'u64, pk, Opt.some(ip),
+        tcpPort = Opt.some(Port(0)), udpPort = Opt.some(Port(9000))).get()
+      goodTcp = enr.Record.init(2'u64, pk, Opt.some(ip),
+        tcpPort = Opt.some(Port(9000)), udpPort = Opt.some(Port(9000))).get()
+      zeroQuic = enr.Record.init(3'u64, pk, Opt.some(ip),
+        quicPort = Opt.some(Port(0))).get()
+
+    check:
+      TypedRecord.fromRecord(zeroTcp).toPeerAddr([PeerAddrProto.TCP]).isErr()
+      TypedRecord.fromRecord(goodTcp).toPeerAddr([PeerAddrProto.TCP]).isOk()
+      TypedRecord.fromRecord(zeroQuic).toPeerAddr([PeerAddrProto.QUIC]).isErr()

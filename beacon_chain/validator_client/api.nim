@@ -1386,6 +1386,103 @@ proc getHeadBlockRoot*(
     raise (ref ValidatorApiError)(
       msg: "Failed to get head block root", data: failures)
 
+proc postValidators*(
+    vc: ValidatorClientRef,
+    id: seq[ValidatorIdent],
+    strategy: ApiStrategyKind
+): Future[seq[RestValidator]] {.
+   async: (raises: [CancelledError, ValidatorApiError]).} =
+  const RequestName = "postStateValidators"
+
+  let
+    stateIdent = StateIdent.init(StateIdentType.Head)
+    request = RestValidatorRequest(
+      ids: Opt.some(id), status: Opt.some({ValidatorFilterKind.ActiveOngoing}))
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse,
+      GetStateValidatorsResponse,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.Duties},
+      postStateValidatorsPlain(it, stateIdent, request)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[GetStateValidatorsResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetStateValidatorsResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[GetStateValidatorsResponse].err($res.error)
+          else:
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              handleOptimistic()
+            ApiResponse[GetStateValidatorsResponse].ok(data)
+        of 400:
+          handle400()
+          ApiResponse[GetStateValidatorsResponse].err(ResponseInvalidError)
+        of 404:
+          handle404()
+          ApiResponse[GetStateValidatorsResponse].err(ResponseNotFoundError)
+        of 500:
+          handle500()
+          ApiResponse[GetStateValidatorsResponse].err(ResponseInternalError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[GetStateValidatorsResponse].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse,
+                              vc.SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
+                              postStateValidatorsPlain(
+                                it, stateIdent, request)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetStateValidatorsResponse, response.data,
+                                response.contentType)
+          if res.isOk():
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              handleOptimistic()
+            return data.data
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          false
+        of 404:
+          handle404()
+          false
+        of 500:
+          handle500()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get state's validators", data: failures)
+
 proc getValidators*(
     vc: ValidatorClientRef,
     id: seq[ValidatorIdent],
@@ -1915,7 +2012,7 @@ proc getAggregatedAttestationV2*(
           # requested `attestation_data_root`.
           ApiResponse[GetAggregatedAttestationV2Response].ok(
             ForkedAttestation.init(
-              LowestScoreAggregatedElectraAttestation, ConsensusFork.Electra))
+              LowestScoreAggregatedGloasAttestation, ConsensusFork.Gloas))
         of 500:
           handle500()
           ApiResponse[GetAggregatedAttestationV2Response].err(

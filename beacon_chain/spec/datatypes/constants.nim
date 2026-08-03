@@ -58,13 +58,13 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#domains
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#domains
   DOMAIN_BEACON_BUILDER* = DomainType([byte 0x0b, 0x00, 0x00, 0x00])
   DOMAIN_PTC_ATTESTER* = DomainType([byte 0x0c, 0x00, 0x00, 0x00])
   DOMAIN_PROPOSER_PREFERENCES* = DomainType([byte 0x0d, 0x00, 0x00, 0x00])
   DOMAIN_BUILDER_DEPOSIT* = DomainType([byte 0x0e, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/beacon-chain.md#domains
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/beacon-chain.md#domains
   DOMAIN_INCLUSION_LIST_COMMITTEE* = DomainType([byte 0x10, 0x00, 0x00, 0x00])
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/fork-choice.md#configuration
@@ -90,26 +90,26 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.5/specs/electra/beacon-chain.md#withdrawal-prefixes
   COMPOUNDING_WITHDRAWAL_PREFIX* = 0x02'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#withdrawal-prefixes
-  BUILDER_WITHDRAWAL_PREFIX* = 0x03'u8
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#withdrawal-prefixes
+  BUILDER_WITHDRAWAL_PREFIX* = 0xB0'u8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.1/specs/electra/beacon-chain.md#execution-layer-triggered-requests
   DEPOSIT_REQUEST_TYPE* = 0x00'u8
   WITHDRAWAL_REQUEST_TYPE* = 0x01'u8
   CONSOLIDATION_REQUEST_TYPE* = 0x02'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#execution-layer-triggered-requests
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#execution-layer-triggered-requests
   BUILDER_DEPOSIT_REQUEST_TYPE* = 0x03'u8
   BUILDER_EXIT_REQUEST_TYPE* = 0x04'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#misc
   BUILDER_INDEX_SELF_BUILD* = high(uint64)
   BUILDER_PAYMENT_THRESHOLD_NUMERATOR* = 6'u64
   BUILDER_PAYMENT_THRESHOLD_DENOMINATOR* = 10'u64
   PAYLOAD_BUILDER_VERSION* = 0'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#index-flags
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#index-flags
   BUILDER_INDEX_FLAG* = 1'u64 shl 40
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/gloas/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#configuration
   MAX_REQUEST_PAYLOADS* = 128

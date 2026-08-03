@@ -259,7 +259,7 @@ proc shortLogSpace*[A, B](pool: PeerPool[A, B]): string =
 proc shortLogCurrent*[A, B](pool: PeerPool[A, B]): string =
   $pool.curIncPeersCount & "/" & $pool.curOutPeersCount
 
-proc checkPeerScore[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
+proc checkPeerScore*[A, B](pool: PeerPool[A, B], peer: A): bool {.inline.} =
   ## Returns ``true`` if peer passing score check.
   if not(isNil(pool.scoreCheck)):
     pool.scoreCheck(peer)
@@ -311,7 +311,7 @@ proc deletePeer*[A, B](pool: PeerPool[A, B], peer: A, force = false): bool =
           return false
         res
 
-  var item = addr(pool.storage[distinctBase(pindex)])
+  let item = addr(pool.storage[distinctBase(pindex)])
   if (PeerFlags.Acquired in item[].flags):
     if not(force):
       item[].flags.incl(PeerFlags.DeleteOnRelease)
@@ -817,7 +817,7 @@ proc clearSafe*[A, B](
   ## in PeerPool, and only after that it will reset storage.
   var acquired: seq[A]
   while len(pool.registry) > len(acquired):
-    var peers = await pool.acquire(len(pool.registry) - len(acquired))
+    let peers = await pool.acquire(len(pool.registry) - len(acquired))
     for item in peers:
       acquired.add(item)
   pool.clear()

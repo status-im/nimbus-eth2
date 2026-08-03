@@ -428,8 +428,8 @@ proc proposeBlockAux(
 
     parentExecutionRequests = block:
       when fork >= ConsensusFork.Gloas:
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#executionpayload
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#parent-execution-requests
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#executionpayload
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#parent-execution-requests
         if shouldExtendPayload:
           let
             parentId = state[].latest_block_id
@@ -461,10 +461,28 @@ proc proposeBlockAux(
           parentExecutionRequests
         else:
           debug "Proposal not extending payload", slot, head = shortLog(head)
-          default(gloas.ExecutionRequests)
+          default(fork.ExecutionRequests)
       else:
-        default(electra.ExecutionRequests)
+        default(fork.ExecutionRequests)
 
+  # Start the builder-API execution-payload-bid request now so it
+  # runs concurrently with the local execution payload build below.
+  var builderApiBidFut:
+    Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])
+  when fork >= ConsensusFork.Gloas:
+    let payloadBuilderClient =
+      node.getPayloadBuilderClient(validator_index.distinctBase).valueOr(nil)
+    if not payloadBuilderClient.isNil:
+      builderApiBidFut = node.getBuilderExecutionPayloadBid(
+        fork, payloadBuilderClient, state, slot,
+        if shouldExtendPayload:
+          proposalExecutionHead(state[].forky(fork).data)
+        else:
+          state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
+        state[].forky(fork).data.get_block_root_at_slot(slot - 1),
+        validator.pubkey)
+
+  let
     engineBid =
       when fork == ConsensusFork.Heze:
         debugHezeComment "stub: heze block proposals"
@@ -599,6 +617,8 @@ proc proposeBlockAux(
         static: raiseAssert "Unsupported fork " & $fork
 
   if engineBid.isNone():
+    if not builderApiBidFut.isNil and not builderApiBidFut.finished:
+      await builderApiBidFut.cancelAndWait()
     beacon_block_production_errors.inc()
     return head
 
@@ -614,21 +634,39 @@ proc proposeBlockAux(
           Opt.none gloas.SignedExecutionPayloadBid
       localBlockValueBoost =
         BoostFactor.init(node.config.localBlockValueBoost)
-      usePoolBid =
-        poolBid.isSome and
+
+    let builderApiBid =
+      if builderApiBidFut.isNil:
+        Opt.none(gloas.SignedExecutionPayloadBid)
+      else:
+        await builderApiBidFut
+
+    let
+      bestBuilderBid =
+        if poolBid.isSome and builderApiBid.isSome:
+          if builderApiBid.get().message.value > poolBid.get().message.value:
+            builderApiBid
+          else:
+            poolBid
+        elif builderApiBid.isSome:
+          builderApiBid
+        else:
+          poolBid
+      useBuilderBid =
+        bestBuilderBid.isSome and
         builderBetterBid(
           localBlockValueBoost,
-          poolBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
+          bestBuilderBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
           engineBid[].eps.blockValue)
       selectedBuilderBid =
-        if usePoolBid:
-          info "Using builder bid from pool",
+        if useBuilderBid:
+          info "Using builder bid",
             slot,
-            builderIndex = poolBid.get().message.builder_index,
-            bidValue = poolBid.get().message.value,
+            builderIndex = bestBuilderBid.get().message.builder_index,
+            bidValue = bestBuilderBid.get().message.value,
             engineValue = engineBid[].eps.blockValue,
             localBlockValueBoost
-          Opt.some(poolBid.get())
+          bestBuilderBid
         else:
           Opt.none(gloas.SignedExecutionPayloadBid)
 
@@ -1066,7 +1104,7 @@ proc sendPayloadAttestations(
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#constructing-the-payloadattestationmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#constructing-the-payloadattestationmessage
   # - If the validator has not seen any beacon block for the assigned slot, do
   #   not submit a payload attestation; it will be ignored anyway.
   let target = head.atSlot(slot)
@@ -1083,7 +1121,10 @@ proc sendPayloadAttestations(
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
+      var seen: HashSet[ValidatorIndex]
       for vidx in get_ptc(forkyState.data, slot):
+        if seen.containsOrIncl(vidx):
+          continue
         let validator = node.getValidatorForDuties(vidx, slot).valueOr:
           continue
 
@@ -1140,7 +1181,7 @@ proc sendProposerPreferences(
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#broadcasting-signedproposerpreferences
           let dependent_root =
             forkyState.get_proposer_dependent_root(proposal_slot.epoch)
           let data = ProposerPreferences(
@@ -1223,7 +1264,20 @@ proc signAndSendAggregate(
     discard await node.router.routeSignedAggregateAndProof(
       msg, checkSignature = false)
 
-  if slot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
+  if node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Gloas:
+    var msg = gloas.SignedAggregateAndProof(
+      message: gloas.AggregateAndProof(
+        aggregator_index: distinctBase validator_index,
+        selection_proof: selectionProof))
+
+    msg.message.aggregate =
+      node.attestationPool[].getGloasAggregatedAttestation(
+        slot, committee_index).valueOr:
+          return
+
+    signAndSendAggregatedAttestations()
+
+  elif node.dag.cfg.consensusForkAtEpoch(slot.epoch) >= ConsensusFork.Electra:
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/electra/validator.md#aggregateandproof
     var msg = electra.SignedAggregateAndProof(
@@ -1231,9 +1285,10 @@ proc signAndSendAggregate(
         aggregator_index: distinctBase validator_index,
         selection_proof: selectionProof))
 
-    msg.message.aggregate = node.attestationPool[].getElectraAggregatedAttestation(
-      slot, committee_index).valueOr:
-        return
+    msg.message.aggregate =
+      node.attestationPool[].getElectraAggregatedAttestation(
+        slot, committee_index).valueOr:
+          return
 
     signAndSendAggregatedAttestations()
 
@@ -1559,7 +1614,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
     node.updateValidators(forkyState.data.validators.asSeq())
 
   let newHead = await handleProposal(
-    node, head, node.dag.shouldExtendPayload(head), slot)
+    node, head,
+    node.attestationPool[].forkChoice.should_build_on_full(
+      node.dag, head, node.dag.isPayloadStatusFull(head), slot), slot)
   head = newHead
 
   # The latest point in time when we'll be sending out attestations
@@ -1613,7 +1670,13 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   if payloadAttestationCutOff.inFuture:
     debug "Waiting to send payload attestations",
       payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
-    await sleepAsync(payloadAttestationCutOff.offset)
+    if head.slot == slot:
+      # Send as soon as the execution payload envelope for this slot's
+      # block arrives, or at the deadline whichever comes first.
+      discard await node.consensusManager[].expectEnvelope(head.root)
+        .withTimeout(payloadAttestationCutOff.offset)
+    else:
+      await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
 

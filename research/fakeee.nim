@@ -49,22 +49,22 @@ proc setupEngineAPI*(server: RpcServer) =
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#engine_forkchoiceupdatedv1
     proc engine_forkchoiceUpdatedV1(
         update: ForkchoiceStateV1,
-        payloadAttributes: Opt[PayloadAttributesV1]): ForkchoiceUpdatedResponse =
+        payloadAttributes: Opt[PayloadAttributesV1]): ForkchoiceUpdatedResponseV1 =
       info "engine_forkchoiceUpdatedV1",
         update,
         payloadAttributes
 
-      return ForkchoiceUpdatedResponse(
+      return ForkchoiceUpdatedResponseV1(
         payloadStatus: PayloadStatusV1(
         status: PayloadExecutionStatus.syncing))
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/shanghai.md#engine_forkchoiceupdatedv2
     proc engine_forkchoiceUpdatedV2(
-        forkchoiceState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV2]): ForkchoiceUpdatedResponse =
+        forkchoiceState: ForkchoiceStateV1, payloadAttributes: Opt[PayloadAttributesV2]): ForkchoiceUpdatedResponseV1 =
       info "engine_forkchoiceUpdatedV2",
         forkchoiceState, payloadAttributes
 
-      return ForkchoiceUpdatedResponse(
+      return ForkchoiceUpdatedResponseV1(
         payloadStatus: PayloadStatusV1(
         status: PayloadExecutionStatus.syncing))
 

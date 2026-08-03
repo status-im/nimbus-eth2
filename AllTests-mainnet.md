@@ -27,6 +27,10 @@ AllTests-mainnet
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with electra aggregates [Preset: mainnet]                                          OK
 ```
+## Attestation pool gloas processing [Preset: mainnet]
+```diff
++ EL-invalid payload only invalidates the FULL variant                                       OK
+```
 ## Backfill
 ```diff
 + Backfill to genesis                                                                        OK
@@ -788,6 +792,7 @@ AllTests-mainnet
 ## Gloas block validity
 ```diff
 + Execution valid                                                                            OK
++ Execution valid after checkpoint sync                                                      OK
 ```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
@@ -882,6 +887,17 @@ AllTests-mainnet
 + get_inclusion_list_transactions dedups and filters                                         OK
 + is_valid_inclusion_list_signature                                                          OK
 + process_inclusion_list detects equivocation                                                OK
+```
+## Inclusion list pool [Preset: mainnet]
+```diff
++ A list for a future slot is rejected [Preset: mainnet]                                     OK
++ A list one slot behind the wall slot is still accepted [Preset: mainnet]                   OK
++ A list past the lookback window is rejected [Preset: mainnet]                              OK
++ Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
++ Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
++ Stale slots are pruned [Preset: mainnet]                                                   OK
++ Stores transactions for the slot [Preset: mainnet]                                         OK
++ Untimely lists are excluded unless requested [Preset: mainnet]                             OK
 ```
 ## Key splitting
 ```diff
@@ -6637,6 +6653,10 @@ AllTests-mainnet
 + uints        - valid - uint_8_random_3                                                     OK
 + uints        - valid - uint_8_random_4                                                     OK
 + uints        - valid - uint_8_zero                                                         OK
+```
+## toPeerAddr port handling
+```diff
++ Skips zero tcp/quic ports                                                                  OK
 ```
 ## weak-subjectivity-checkpoint
 ```diff

@@ -53,32 +53,33 @@ proc pollForValidatorIndices*(
 ) {.async: (raises: [CancelledError]).} =
   let vc = service.client
 
-  let validatorIdents =
-    block:
-      var res: seq[ValidatorIdent]
-      for validator in vc.attachedValidators[].items():
-        if validator.needsUpdate():
-          res.add(ValidatorIdent.init(validator.pubkey))
-      res
-
-  let start = Moment.now()
-
-  var validators: seq[RestValidator]
-
-  for idents in chunks(validatorIdents, ClientMaximumValidatorIds):
-    let res =
-      try:
-        await vc.getValidators(idents, vc.getMode()[FnKind.getValidators])
-      except ValidatorApiError as exc:
-        warn "Unable to get head state's validator information",
-              reason = exc.getFailureReason()
-        return
-      except CancelledError as exc:
-        debug "Validator's indices processing was interrupted"
-        raise exc
-
-    for item in res:
-      validators.add(item)
+  let
+    validatorIdents =
+      block:
+        var res: seq[ValidatorIdent]
+        for validator in vc.attachedValidators[].items():
+          if validator.needsUpdate():
+            res.add(ValidatorIdent.init(validator.pubkey))
+        res
+    start = Moment.now()
+    validators =
+      if len(validatorIdents) == 0:
+        # If the supplied list is empty (i.e. the value is []) [...]
+        # then all validators will be returned.
+        # https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidators
+        # -> Request body -> Schema -> ids -> Expand all
+        @[]
+      else:
+        try:
+          await vc.postValidators(
+            validatorIdents, vc.getMode()[FnKind.getValidators])
+        except ValidatorApiError as exc:
+          warn "Unable to get head state's validator information",
+                reason = exc.getFailureReason()
+          return
+        except CancelledError as exc:
+          debug "Validator's indices processing was interrupted"
+          raise exc
 
   var
     missing: seq[string]

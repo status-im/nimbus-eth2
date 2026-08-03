@@ -125,7 +125,7 @@ func process_attestation(
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-validate_on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-validate_on_attestation
 func validate_on_attestation(
     self: ForkChoice, cfg: RuntimeConfig, beacon_block_root: Eth2Digest,
     attestation_slot: Slot, committee_index: CommitteeIndex): FcResult[void] =
@@ -442,7 +442,7 @@ func process_block*(
   self.proto_array.onBlock(
     bid, parent_root, checkpoints, unrealized, parent_payload_status)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-record_block_timeliness
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-record_block_timeliness
 func record_block_timeliness(
     self: var ForkChoice, timeParams: TimeParams,
     blckRef: BlockRef, blck: ForkyTrustedBeaconBlock,
@@ -460,7 +460,7 @@ func record_block_timeliness(
   isCurrentSlot and self.checkpoints.time <
     blck.slot.attestation_deadline(timeParams, consensusFork)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-update_proposer_boost_root
 func update_proposer_boost_root(
     self: var ForkChoice, dag: ChainDAGRef,
     blckRef: BlockRef, current_slot: Slot, is_timely: bool) =
@@ -507,12 +507,17 @@ proc process_block*(
             vidx, attestation.data.beacon_block_root, attestation.data.slot,
             false, dag.cfg)
 
+  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
+
   when typeof(blck).kind >= ConsensusFork.Gloas:
     for pa in blck.body.payload_attestations:
-      let tally = addr self.backend.ptc_votes.mgetOrPut(
-        pa.data.beacon_block_root, PtcVoteTally())
+      if pa.data.slot + 1 < slot:
+        continue
+      let tally = self.backend.mgetPtcTally(
+        pa.data.beacon_block_root, pa.data.slot)
       for i in 0 ..< pa.aggregation_bits.len:
         if pa.aggregation_bits[i]:
+          tally.voted[i] = true
           tally.present[i] = pa.data.payload_present
           tally.available[i] = pa.data.blob_data_available
 
@@ -520,8 +525,8 @@ proc process_block*(
     block_root = shortLog(blckRef)
 
   # Add proposer score boost if the block is timely
-  let slot = self.checkpoints.time.slotOrZero(dag.timeParams)
-  let isTimely = self.record_block_timeliness(dag.timeParams, blckRef, blck, slot)
+  let isTimely = self.record_block_timeliness(
+    dag.timeParams, blckRef, blck, slot)
   self.update_proposer_boost_root(dag, blckRef, slot, isTimely)
 
   # Update checkpoints in store if necessary
@@ -593,11 +598,8 @@ func find_head(
       break maybeEmptyPreferred
     let parentNode = self.proto_array.node(parentIdx).valueOr:
       break maybeEmptyPreferred
-    let
-      parentRoot = parentNode.bid.root
-      fullParentIdx =
-        self.proto_array.fullBlockIndices.getOrDefault(parentRoot, -1)
-    if parentIdx != fullParentIdx and
+    let parentRoot = parentNode.bid.root
+    if not self.proto_array.isFullNode(parentRoot, parentIdx) and
         not self.should_extend_payload(parentRoot):
       emptyPreferredRoot = parentRoot
 
@@ -630,7 +632,7 @@ func find_head(
   ok((root: new_head, full: new_head_full))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fork-choice.md#get_head
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-get_head
 proc get_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     wallTime: BeaconTime): FcResult[tuple[root: Eth2Digest, full: bool]] =
@@ -714,13 +716,6 @@ proc prune(
 
   # Drop per-block fork-choice state for blocks no longer in the proto-array.
   var staleRoots: seq[Eth2Digest]
-  for root in self.ptc_votes.keys:
-    if root notin self.proto_array.indices:
-      staleRoots.add root
-  for root in staleRoots:
-    self.ptc_votes.del root
-
-  staleRoots.setLen(0)
   for root in self.timely_proposer_blocks:
     if root notin self.proto_array.indices:
       staleRoots.add root
@@ -735,14 +730,23 @@ proc prune*(self: var ForkChoice, dag: ChainDAGRef): FcResult[void] =
     justified: self.checkpoints.justified.checkpoint,
     finalized: self.checkpoints.finalized), current_slot)
 
+func markLogicalIdxInvalid(self: var ForkChoice, nodeLogicalIdx: Index) =
+  let nodePhysicalIdx = nodeLogicalIdx - self.backend.proto_array.nodes.offset
+  if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
+    self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
+  self.backend.proto_array.propagateInvalidity(nodePhysicalIdx)
+
 func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
   try:
-    let nodePhysicalIdx =
-      self.backend.proto_array.indices[root] -
-        self.backend.proto_array.nodes.offset
-    if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
-      self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
-    self.backend.proto_array.propagateInvalidity(nodePhysicalIdx)
+    self.markLogicalIdxInvalid(self.backend.proto_array.indices[root])
+  # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
+  except KeyError:
+    discard
+
+func mark_payload_invalid*(self: var ForkChoice, root: Eth2Digest) =
+  try:
+    self.markLogicalIdxInvalid(
+      self.backend.proto_array.fullBlockIndices[root])
   # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
   except KeyError:
     discard

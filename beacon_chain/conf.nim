@@ -238,12 +238,6 @@ type
       desc: "Backward compatible partial data column sidecar support",
       name: "debug-partial-columns" .}: bool
 
-    debugEnableReconstruction* {.
-      hidden
-      defaultValue: false,
-      desc: "Enables column reconstruction for the currently running beacon node"
-      name: "debug-enable-reconstruction" .}: bool
-
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
@@ -365,6 +359,11 @@ type
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
+
+      forceResync* {.
+        hidden
+        desc: "Delete the existing beacon chain database and resync from scratch"
+        name: "force-resync" .}: bool
 
       externalBeaconApiUrl* {.
         desc: "External beacon API to use for syncing (on empty database)"
@@ -692,7 +691,7 @@ type
         name: "debug-bandwidth-estimate" .}: Option[Natural]
 
       rpcEnabled* {.
-        obsolete: "Superceded by REST API as of v1.7.0"
+        hidden
         name: "rpc" .}: Option[bool]
 
       rpcPort* {.
@@ -853,7 +852,7 @@ type
         quicExtEnabled* {.
           hidden
           desc: "Enable QUIC transport"
-          defaultValue: false
+          defaultValue: true
           name: "debug-quic" .}: bool
 
         quicPortExt* {.
@@ -916,6 +915,11 @@ type
       lcTrustedBlockRoot* {.
         desc: "Recent trusted finalized block root to initialize light client from"
         name: "trusted-block-root" .}: Option[Eth2Digest]
+
+      forceResyncTNS* {.
+        hidden
+        desc: "Delete the existing beacon chain database and resync from scratch"
+        name: "force-resync" .}: bool
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"
