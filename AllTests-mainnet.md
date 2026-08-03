@@ -179,6 +179,20 @@ AllTests-mainnet
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
 ```
+## BlocksRangeBuffer test suite
+```diff
++ Add and query blocks test [backward]                                                       OK
++ Add and query blocks test [forward]                                                        OK
++ Block insertion test [backward]                                                            OK
++ Block insertion test [forward]                                                             OK
++ Buffer advance test [backward]                                                             OK
++ Buffer advance test [forward]                                                              OK
++ Buffer invalidate test [backward]                                                          OK
++ Buffer invalidate test [forward]                                                           OK
++ Range peek real test cases [forward]                                                       OK
++ Range peek test [backward]                                                                 OK
++ Range peek test [forward]                                                                  OK
+```
 ## Column reconstruction backfiller cursors
 ```diff
 + a TooFew slot blocks the trail until its columns arrive                                    OK
