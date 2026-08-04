@@ -433,7 +433,7 @@ proc enqueueBlock*(
   if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     # let backfill blocks skip the queue - these are always "fast" to process
     # because there are no state rewinds to deal with - backfill verifies all
-    # sidecars regardless of provenance
+    # sidecars anyway
     discard self.storeBackfillBlock(blck, sidecarsOpt)
     return
 
@@ -645,9 +645,9 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
 
     if sidecarsOk:
       debug "Loaded block from storage", root
-      # No `verifiedColumns` - columns read back from the database carry no
-      # provenance, so they are treated the same way the request manager
-      # treats them (`verified = false`) and get checked before import.
+      # No `verifiedColumns` - columns read back from the database aren't
+      # marked verified, so they get checked before import, like request
+      # manager columns.
       self.enqueueBlock(MsgSource.gossip, forkyBlck.asSigned(), sidecarsOpt)
 
 proc storeBlock(
@@ -741,12 +741,11 @@ proc storeBlock(
     # Only request manager-sourced columns arrive unverified; getBlobsV2/V3/V4
     # and CL gossip are both either trusted or verified.
     #
-    # `verifiedColumns` was handed out together with these very sidecars and
-    # travels with them through the queue, so it always describes the set at
-    # hand - unlike a per-root lookup, which by the time we get here may well
-    # answer for a set of columns that some other task popped for the same
-    # block root in the meantime. Whatever it does not cover is verified now,
-    # which includes the case of a caller with no provenance to offer.
+    # `verifiedColumns` was handed out with these exact sidecars and travels
+    # with them through the queue, so it always matches the set at hand. A
+    # per-root lookup could instead answer for a different set of columns that
+    # another task popped for the same root. Anything it does not cover is
+    # verified now, including when the caller passed an empty map.
     sidecarsOpt.isErrOr:
       let toVerify = value.filterIt(it[].index notin verifiedColumns)
       if toVerify.len > 0:
@@ -848,12 +847,11 @@ proc addBlock*(
   ## Enqueue a Gossip-validated block for consensus verification - only one
   ## block at a time gets processed
   ##
-  ## `verifiedColumns` must be the map that `popSidecars()` returned together
-  ## with `sidecarsOpt` - it is the only thing tying the two together once the
-  ## block is queued behind the store lock, where the quarantine may well have
-  ## produced another set of sidecars for the same block root. Columns not
-  ## covered by it are KZG-verified before the block is imported, so the safe
-  ## thing to do when in doubt is to leave it empty.
+  ## `verifiedColumns` must be the map that `popSidecars()` returned with
+  ## `sidecarsOpt` - it ties the two together once the block is queued behind
+  ## the store lock, where the quarantine may have popped another set of
+  ## sidecars for the same root. Columns it does not cover are KZG-verified
+  ## before import, so when in doubt leave it empty.
   # Backpressure:
   #   Callers that don't await the returned future are responsible for implementing
   #   their own backpressure handling, limiting concurrent `addBlock` calls to
@@ -1138,8 +1136,8 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
       return
     sidecarsOpt =
       block:
-        # Gloas verifies all columns in `addPayload`, so the provenance map
-        # that comes with them is of no use here.
+        # Gloas verifies all columns in `addPayload`, so the verified map that
+        # comes with them isn't needed here.
         let sidecarsOpt =
           if bid.message.blob_kzg_commitments.len() == 0:
             Opt.some(default(gloas.DataColumnSidecars))

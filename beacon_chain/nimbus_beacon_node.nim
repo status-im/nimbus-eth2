@@ -683,10 +683,9 @@ proc initFullNode(
             sidecarsOpt = noSidecars
             verifiedColumns = default(ColumnMap)
         elif consensusFork == ConsensusFork.Fulu:
-          # Columns fetched by the request manager are the ones which may still
-          # be unverified, so `verifiedColumns` has to accompany exactly these
-          # sidecars all the way into `storeBlock` - several verifiers can be
-          # in flight for the same block root at once.
+          # Request manager columns may still be unverified, so
+          # `verifiedColumns` has to travel with these exact sidecars into
+          # `storeBlock` - several verifiers can run for the same root at once.
           let (sidecarsOpt, verifiedColumns) =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
               (sidecars: Opt.some(default(fulu.DataColumnSidecars)),
@@ -757,8 +756,8 @@ proc initFullNode(
           block:
             template bid(): auto =
               blck.message.body.signed_execution_payload_bid
-            # Gloas verifies all columns in `addPayload`, so the provenance map
-            # that comes with them is of no use here.
+            # Gloas verifies all columns in `addPayload`, so the verified map
+            # that comes with them isn't needed here.
             let sidecarsOpt =
               if bid.message.blob_kzg_commitments.len() == 0:
                 Opt.some(default(gloas.DataColumnSidecars))

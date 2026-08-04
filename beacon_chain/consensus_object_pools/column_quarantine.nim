@@ -577,12 +577,11 @@ proc popSidecarsOrCount*[
   ## Note: Blocks should be checked for sidecars count first, otherwise
   ## result of this function would be always Opt.none().
   ##
-  ## The returned `verified` map describes the sidecars of *this* result only:
-  ## it holds the indices whose KZG proofs have already been checked. It is
-  ## valid solely in combination with the returned sequence and therefore has
-  ## to travel together with it - the same block root can be quarantined and
+  ## The returned `verified` map lists which indices of *this* result already
+  ## have their KZG proofs checked. It only makes sense together with the
+  ## returned sequence, so it must travel with it: the same block root can be
   ## popped again with a different set of sidecars while an earlier result is
-  ## still being processed, and the two results share nothing but the root.
+  ## still being processed.
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return err(0)
@@ -648,9 +647,8 @@ proc popSidecars*[
     quarantine: var SidecarQuarantine[A, B, C],
     blockRoot: Eth2Digest
 ): tuple[sidecars: Opt[seq[ref A]], verified: ColumnMap] =
-  ## Pops the sidecars of ``blockRoot`` together with the map of those which
-  ## are already KZG-verified - see `popSidecarsOrCount()` on why the two
-  ## belong together and must not be looked up separately.
+  ## Pops the sidecars of ``blockRoot`` together with the map of those already
+  ## KZG-verified - see `popSidecarsOrCount()` on why the two belong together.
   let res = quarantine.popSidecarsOrCount(blockRoot).valueOr:
     return (sidecars: Opt.none(seq[ref A]), verified: default(ColumnMap))
   (sidecars: Opt.some(res.sidecars), verified: res.verified)

@@ -482,10 +482,10 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
   test "popSidecars binds verified map to the returned sidecars [node]":
     # The same block root can be filled and popped more than once, and the
-    # results may hold different columns with different provenance. Each
-    # `popSidecars()` therefore hands out the map of already-verified indices
-    # belonging to the sidecars it returns, so that a consumer holding on to an
-    # earlier result cannot end up looking at a later result's map.
+    # results may hold different columns. Each `popSidecars()` therefore returns
+    # the map of already-verified indices for the sidecars it hands out, so a
+    # consumer holding an earlier result cannot end up looking at a later
+    # result's map.
     const custodyColumns =
       (0 ..< (NUMBER_OF_COLUMNS div 2 + 1)).mapIt(it.ColumnIndex)
     var bq = FuluColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
