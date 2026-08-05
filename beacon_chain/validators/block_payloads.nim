@@ -481,7 +481,7 @@ proc getExecutionPayloadBidFromBuilder*(
   let bid =
     try:
       SSZ.decode(response.data, gloas.SignedExecutionPayloadBid)
-    except CatchableError as exc:
+    except SerializationError as exc:
       return err("getExecutionPayloadBid SSZ decode error: " & exc.msg)
   ok(bid)
 
