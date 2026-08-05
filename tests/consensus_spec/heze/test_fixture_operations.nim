@@ -102,11 +102,13 @@ suite baseDescription & "Attestation " & preset():
       total_active_balance = get_total_active_balance(preState, cache)
       base_reward_per_increment =
         get_base_reward_per_increment(total_active_balance)
+      parent_slot = preState.latest_execution_payload_bid.slot
 
     # This returns the proposer reward for including the attestation, which
     # isn't tested here.
     discard ? process_attestation(
-      preState, attestation, {strictVerification}, base_reward_per_increment, cache)
+      preState, attestation, {strictVerification}, base_reward_per_increment,
+      parent_slot, cache)
     ok()
 
   for path in walkTests(OpAttestationsDir):
@@ -241,8 +243,9 @@ suite baseDescription & "Execution Payload Bid " & preset():
       preState: var heze.BeaconState,
       signedBid: heze.SignedExecutionPayloadBid): Result[void, cstring] =
     var cache: StateCache
-    process_execution_payload_bid(
+    discard ? process_execution_payload_bid(
       defaultRuntimeConfig, preState, signedBid, cache)
+    ok()
 
   for path in walkTests(OpExecutionPayloadBidDir):
     runTest[heze.SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](

@@ -1039,10 +1039,10 @@ func get_attestation_participation_flag_indices(
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#modified-get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#modified-get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: gloas.BeaconState | heze.BeaconState, data: AttestationData,
-    inclusion_delay: uint64): set[TimelyFlag] =
+    inclusion_delay: uint64, parent_slot: Slot): set[TimelyFlag] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
     if data.target.epoch == get_current_epoch(state):
@@ -1065,7 +1065,7 @@ func get_attestation_participation_flag_indices(
   else:
     let availability_bit =
       if state.execution_payload_availability[
-        data.slot mod SLOTS_PER_HISTORICAL_ROOT]: 1'u64
+        parent_slot mod SLOTS_PER_HISTORICAL_ROOT]: 1'u64
       else: 0'u64
     is_matching_payload = (data.index == availability_bit)
 
@@ -1373,12 +1373,12 @@ proc process_attestation*(
 
   ok(proposer_reward)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#modified-process_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#modified-process_attestation
 proc process_attestation*(
     state: var (gloas.BeaconState | heze.BeaconState),
     attestation: gloas.Attestation | gloas.TrustedAttestation,
     flags: UpdateFlags, base_reward_per_increment: Gwei,
-    cache: var StateCache): Result[Gwei, cstring] =
+    parent_slot: Slot, cache: var StateCache): Result[Gwei, cstring] =
   ? check_attestation(state, attestation, flags, cache)
 
   let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
@@ -1394,7 +1394,7 @@ proc process_attestation*(
       else:
         attestation.data.slot mod SLOTS_PER_EPOCH
     participation_flag_indices = get_attestation_participation_flag_indices(
-      state, attestation.data, state.slot - attestation.data.slot)
+      state, attestation.data, state.slot - attestation.data.slot, parent_slot)
 
   var payment = state.builder_pending_payments.item(payment_index.int)
 

@@ -761,12 +761,13 @@ type
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/capella/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody,
     base_reward_per_increment: Gwei,
-    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
+    flags: UpdateFlags, cache: var StateCache,
+    parent_slot = GENESIS_SLOT): Result[BlockRewards, cstring] =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   const consensusFork = typeof(state).kind
@@ -846,8 +847,12 @@ proc process_operations(
     operations_rewards.attester_slashings += attester_slashing_reward
     exit_queue_info = new_exit_queue_info
   for op in body.attestations:
-    operations_rewards.attestations +=
-      ? process_attestation(state, op, flags, base_reward_per_increment, cache)
+    when consensusFork >= ConsensusFork.Gloas:
+      operations_rewards.attestations += ? process_attestation(
+        state, op, flags, base_reward_per_increment, parent_slot, cache)
+    else:
+      operations_rewards.attestations += ? process_attestation(
+        state, op, flags, base_reward_per_increment, cache)
   for op in body.deposits:
     ? process_deposit(cfg, state, bsv[], op, flags)
   for op in body.voluntary_exits:
@@ -1323,10 +1328,10 @@ template can_process_execution_payload_bid*(
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid_impl[S, B](
     cfg: RuntimeConfig, state: var S, signed_bid: B,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache): Result[Slot, cstring] =
   template bid: untyped = signed_bid.message
   let
     builder_index = bid.builder_index
@@ -1350,21 +1355,24 @@ proc process_execution_payload_bid_impl[S, B](
     state.builder_pending_payments.mitem(
       SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
 
+  # Cache the parent block's slot before overwriting the bid
+  let parent_slot = state.latest_execution_payload_bid.slot
+
   # Cache the signed execution payload bid
   state.latest_execution_payload_bid = bid
 
-  ok()
+  ok(parent_slot)
 
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     signed_bid: gloas.SignedExecutionPayloadBid,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache): Result[Slot, cstring] =
   cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
 
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var heze.BeaconState,
     signed_bid: heze.SignedExecutionPayloadBid,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache): Result[Slot, cstring] =
   cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
 
 # copy of datatypes/heze.nim
@@ -1880,7 +1888,7 @@ proc process_block*(
   ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
-  ? process_execution_payload_bid(
+  let parent_slot = ? process_execution_payload_bid(
     cfg, state, blck.body.signed_execution_payload_bid, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -1890,7 +1898,8 @@ proc process_block*(
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
   var operations_rewards = ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment, flags, cache,
+    parent_slot)
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
@@ -1907,7 +1916,7 @@ proc process_block*(
   ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
-  ? process_execution_payload_bid(
+  let parent_slot = ? process_execution_payload_bid(
     cfg, state, blck.body.signed_execution_payload_bid, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -1917,7 +1926,8 @@ proc process_block*(
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
   var operations_rewards = ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment, flags, cache,
+    parent_slot)
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
