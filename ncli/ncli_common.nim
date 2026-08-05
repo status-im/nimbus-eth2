@@ -377,6 +377,11 @@ func collectFromAttestations(
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0.Gwei
+      let parent_slot =
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyState.data.latest_execution_payload_bid.slot
+        else:
+          GENESIS_SLOT
       for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
           forkyState.data, attestation, {}, cache).isOk
@@ -384,11 +389,11 @@ func collectFromAttestations(
           if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              epochParticipationFlags.currentEpochParticipation)
+              epochParticipationFlags.currentEpochParticipation, parent_slot)
           else:
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              epochParticipationFlags.previousEpochParticipation)
+              epochParticipationFlags.previousEpochParticipation, parent_slot)
         rewardsAndPenalties[forkyBlck.message.proposer_index]
           .proposer_outcome += proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot

@@ -1273,9 +1273,17 @@ func get_proposer_reward*(
     base_reward_per_increment: Gwei,
     cache: var StateCache,
     epoch_participation: var (
-      altair.EpochParticipationFlags | seq[ParticipationFlags])): Gwei =
-  let participation_flag_indices = get_attestation_participation_flag_indices(
-    state, attestation.data, state.slot - attestation.data.slot)
+      altair.EpochParticipationFlags | seq[ParticipationFlags]),
+    parent_slot = GENESIS_SLOT): Gwei =
+  let participation_flag_indices =
+    when typeof(state) is gloas.BeaconState or
+        typeof(state) is heze.BeaconState:
+      get_attestation_participation_flag_indices(
+        state, attestation.data, state.slot - attestation.data.slot,
+        parent_slot)
+    else:
+      get_attestation_participation_flag_indices(
+        state, attestation.data, state.slot - attestation.data.slot)
   for vidx in state.get_attesting_indices(attestation, cache):
     let
       base_reward = get_base_reward(state, vidx, base_reward_per_increment)
