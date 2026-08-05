@@ -1734,6 +1734,8 @@ proc get_attestation_rewards*(
       get_unslashed_participating_increment(info, TIMELY_HEAD_FLAG_INDEX)]
 
   var
+    total_rewards: seq[TotalAttestationReward]
+    ideal_rewards: seq[IdealAttestationReward]
     reported: HashSet[ValidatorIndex]
     effective_balances: HashSet[uint64]
 
@@ -1745,7 +1747,7 @@ proc get_attestation_rewards*(
         cfg, state, base_reward_per_increment, info, finality_delay):
     if len(filter) > 0 and vidx notin filter:
       continue
-    result.total_rewards.add TotalAttestationReward(
+    total_rewards.add TotalAttestationReward(
       validator_index: vidx,
       head: int64(head_reward),
       target: int64(target_reward) - int64(target_penalty),
@@ -1760,7 +1762,7 @@ proc get_attestation_rewards*(
   if len(filter) > 0:
     for vidx in filter:
       if vidx notin reported:
-        result.total_rewards.add TotalAttestationReward(validator_index: vidx)
+        total_rewards.add TotalAttestationReward(validator_index: vidx)
         effective_balances.incl effective_balance(vidx)
 
   for balance in effective_balances:
@@ -1773,8 +1775,11 @@ proc get_attestation_rewards*(
         participating_increments[ord(flag)],
         PARTICIPATION_FLAG_WEIGHTS[flag], finality_delay)
 
-    result.ideal_rewards.add IdealAttestationReward(
+    ideal_rewards.add IdealAttestationReward(
       effective_balance: Gwei(balance),
       head: ideal_reward(TIMELY_HEAD_FLAG_INDEX),
       target: ideal_reward(TIMELY_TARGET_FLAG_INDEX),
       source: ideal_reward(TIMELY_SOURCE_FLAG_INDEX))
+
+  AttestationRewards(
+    ideal_rewards: ideal_rewards, total_rewards: total_rewards)
