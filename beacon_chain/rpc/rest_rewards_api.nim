@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[options, tables, typetraits, sets],
+  std/[typetraits, sets],
   stew/base10,
   chronicles, metrics,
   ./rest_utils,
@@ -261,7 +261,8 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
         else:
           default(seq[ValidatorIdent])
 
-    if qepoch + 2 >= MaxEpoch:
+    # `qepoch + 2` must not overflow when computing the state slot below
+    if qepoch >= MaxEpoch - 2:
       return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
 
     # Attestation rewards for `epoch` are applied during the transition at the
@@ -283,41 +284,38 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.dag, tmpState[], bsi, false, cache, node.dag.updateFlags):
         return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
+    # An empty `selected` reports every eligible validator
+    var
+      selected: HashSet[ValidatorIndex]
+      keys: seq[ValidatorPubKey]
+    for item in idents:
+      case item.kind
+      of ValidatorQueryKind.Index:
+        let vindex = item.index.toValidatorIndex().valueOr:
+          case error
+          of ValidatorIndexError.TooHighValue:
+            return RestApiResponse.jsonError(
+              Http400, TooHighValidatorIndexValueError)
+          of ValidatorIndexError.UnsupportedValue:
+            return RestApiResponse.jsonError(
+              Http400, UnsupportedValidatorIndexValueError)
+        if uint64(vindex) >= lenu64(tmpState[].validators):
+          return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
+        selected.incl(vindex)
+      of ValidatorQueryKind.Key:
+        keys.add(item.key)
+
+    for optIndex in keysToIndices(node.restKeysCache, tmpState[], keys):
+      let vindex = optIndex.valueOr:
+        return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
+      selected.incl(vindex)
+
     let response =
       withState(tmpState[]):
         when consensusFork >= ConsensusFork.Altair:
-          var
-            selected: HashSet[ValidatorIndex]
-            keys: HashSet[ValidatorPubKey]
-          for item in idents:
-            case item.kind
-            of ValidatorQueryKind.Index:
-              let vindex = item.index.toValidatorIndex().valueOr:
-                case error
-                of ValidatorIndexError.TooHighValue:
-                  return RestApiResponse.jsonError(
-                    Http400, TooHighValidatorIndexValueError)
-                of ValidatorIndexError.UnsupportedValue:
-                  return RestApiResponse.jsonError(
-                    Http400, UnsupportedValidatorIndexValueError)
-              if uint64(vindex) >= lenu64(forkyState.data.validators):
-                return RestApiResponse.jsonError(
-                  Http400, ValidatorNotFoundError)
-              selected.incl(vindex)
-            of ValidatorQueryKind.Key:
-              keys.incl(item.key)
-
-          if len(keys) > 0:
-            for vindex in forkyState.data.validators.vindices:
-              if forkyState.data.validators.item(vindex).pubkey in keys:
-                selected.incl(vindex)
-
           let rewards = get_attestation_rewards(
             node.dag.cfg, forkyState.data, cache, node.dag.updateFlags,
-            if len(idents) == 0:
-              Opt.none(HashSet[ValidatorIndex])
-            else:
-              Opt.some(selected))
+            selected)
 
           var res: RestAttestationsRewards
           for reward in rewards.ideal_rewards:
@@ -338,7 +336,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
           res
         else:
           return RestApiResponse.jsonError(
-            Http404, StateNotFoundError,
+            Http400, UnsupportedForkError,
             "Attestation rewards are not available before the Altair fork")
 
     RestApiResponse.jsonResponseFinalized(

@@ -1709,13 +1709,13 @@ proc get_attestation_rewards*(
                 capella.BeaconState | deneb.BeaconState | electra.BeaconState |
                 fulu.BeaconState | gloas.BeaconState | heze.BeaconState),
     cache: var StateCache, flags: UpdateFlags,
-    filter: Opt[HashSet[ValidatorIndex]]): AttestationRewards =
+    filter: HashSet[ValidatorIndex]): AttestationRewards =
   ## Compute the attestation rewards of the epoch which `state` is about to
   ## leave: `state` must be at the last slot of that epoch with the epoch
   ## transition not yet applied, and gets advanced through the parts of that
   ## transition which the rewards depend on.
   ##
-  ## `filter` restricts `total_rewards` to the given validators, `Opt.none`
+  ## `filter` restricts `total_rewards` to the given validators, an empty set
   ## reports all of the eligible ones. `ideal_rewards` covers the effective
   ## balances present in `total_rewards`.
   var info: altair.EpochInfo
@@ -1743,7 +1743,7 @@ proc get_attestation_rewards*(
   for vidx, source_reward, target_reward, head_reward, source_penalty,
       target_penalty, inactivity_penalty in get_flag_and_inactivity_deltas(
         cfg, state, base_reward_per_increment, info, finality_delay):
-    if filter.isSome() and vidx notin filter.get():
+    if len(filter) > 0 and vidx notin filter:
       continue
     result.total_rewards.add TotalAttestationReward(
       validator_index: vidx,
@@ -1752,13 +1752,13 @@ proc get_attestation_rewards*(
       source: int64(source_reward) - int64(source_penalty),
       inactivity: -int64(inactivity_penalty))
     effective_balances.incl effective_balance(vidx)
-    if filter.isSome():
+    if len(filter) > 0:
       reported.incl vidx
 
   # Validators which are not eligible for rewards this epoch are not covered by
   # the deltas above, but are still reported when explicitly requested
-  if filter.isSome():
-    for vidx in filter.get():
+  if len(filter) > 0:
+    for vidx in filter:
       if vidx notin reported:
         result.total_rewards.add TotalAttestationReward(validator_index: vidx)
         effective_balances.incl effective_balance(vidx)
