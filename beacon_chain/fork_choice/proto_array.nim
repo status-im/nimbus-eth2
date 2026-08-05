@@ -132,7 +132,7 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
 func payloadVariantOutranks(
     self: ProtoArray, full, empty: ProtoNode): bool
 
-func nodeIsViableForHead(
+func nodeIsViableForHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool
 func nodeLeadsToViableHead(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool]
@@ -722,7 +722,7 @@ func nodeLeadsToViableHead(
 
   ok(bestDescendantIsViableForHead or self.nodeIsViableForHead(node, nodeIdx))
 
-func nodeIsViableForHead(
+func nodeIsViableForHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
   ## This is the equivalent of `filter_block_tree` function in consensus specs
   ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree
