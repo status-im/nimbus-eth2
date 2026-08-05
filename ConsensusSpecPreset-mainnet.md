@@ -2501,6 +2501,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_old_target_epoch                 OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_previous_source_root             OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one_ OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one_ OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_source_root_is_target_root       OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_few_aggregation_bits         OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_aggregation_bits        OK
@@ -3063,6 +3065,11 @@ ConsensusSpecPreset-mainnet
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: mainnet]   OK
 + EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
   EF - Heze - Fork - fork_base_state [Preset: mainnet]                                       Skip
++ EF - Heze - Fork - fork_many_next_epoch [Preset: mainnet]                                  OK
++ EF - Heze - Fork - fork_next_epoch [Preset: mainnet]                                       OK
++ EF - Heze - Fork - fork_next_epoch_with_block [Preset: mainnet]                            OK
++ EF - Heze - Fork - fork_random_low_balances [Preset: mainnet]                              OK
++ EF - Heze - Fork - fork_random_misc_balances [Preset: mainnet]                             OK
 ```
 ## EF - Heze - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -3089,6 +3096,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Heze - Operations - Attestation - invalid_old_target_epoch                  OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_previous_source_root              OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one   OK
++ [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one_h OK
++ [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one_t OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_source_root_is_target_root        OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_too_few_aggregation_bits          OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_too_many_aggregation_bits         OK
