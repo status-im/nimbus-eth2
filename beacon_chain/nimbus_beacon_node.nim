@@ -1739,29 +1739,21 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
 
-proc pruneDataColumnsAtSlot(node: BeaconNode, targetSlot: Slot) =
-  if targetSlot.epoch < node.dag.cfg.FULU_FORK_EPOCH:
-    return
-  let consensusFork = node.dag.cfg.consensusForkAtEpoch(targetSlot.epoch)
-  var blocks: array[1, BlockId]
-  if node.dag.getBlockRange(targetSlot, blocks) == 0:
-    # Iterate the full column space rather than just the local custody
-    # set so late-arriving or reconstructed columns outside of this
-    # node's custody groups are also cleaned up.
-    let count = node.db.delDataColumnSidecars(consensusFork, blocks[0].root)
-    debug "pruned data columns", count, dataColumnPruneSlot = targetSlot
-
 proc pruneDataColumns(node: BeaconNode, slot: Slot) =
-  let horizon =
-    (node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS + 1) * SLOTS_PER_EPOCH
-  if slot.uint64 < horizon:
-    return
-  let targetSlot = Slot(slot.uint64 - horizon)
-  if slot.is_epoch() and targetSlot > GENESIS_SLOT:
-    # The caller skips pruning on the last slot of each epoch (epoch
-    # processing makes it heavy already) - catch up on its horizon slot here.
-    node.pruneDataColumnsAtSlot(targetSlot - 1)
-  node.pruneDataColumnsAtSlot(targetSlot)
+  let dataColumnPruneEpoch = (slot.epoch -
+                              node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
+  if slot.is_epoch() and dataColumnPruneEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
+    let consensusFork = node.dag.cfg.consensusForkAtEpoch(dataColumnPruneEpoch)
+    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
+    var count = 0
+    let startIndex = node.dag.getBlockRange(dataColumnPruneEpoch.start_slot, blocks)
+    for i in startIndex..<SLOTS_PER_EPOCH:
+      # Iterate the full column space rather than just the local custody
+      # set so late-arriving or reconstructed columns outside of this
+      # node's custody groups are also cleaned up.
+      count += node.db.delDataColumnSidecars(
+        consensusFork, blocks[int(i)].root)
+    debug "pruned data columns", count, dataColumnPruneEpoch
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
