@@ -14,7 +14,7 @@ import
   taskpools,
   # Internals
   ../../beacon_chain/spec/forks,
-  ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types],
+  ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types, proto_array],
   ../../beacon_chain/beacon_chain_db,
   ../../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_clearance, block_quarantine, spec_cache],
@@ -422,6 +422,44 @@ proc stepChecks(
         else:
           doAssert tally.available[i] == expected
         inc i
+    elif check == "viable_for_head_roots_and_weights":
+      var expected: seq[tuple[root: Eth2Digest, full: bool, weight: int64]]
+      for entry in val.items:
+        let payload_status = entry["payload_status"].getInt()
+        doAssert payload_status in [0, 1]  # EMPTY or FULL
+        expected.add((
+          root: Eth2Digest.fromHex(entry["root"].getStr()),
+          full: payload_status == 1,
+          weight: int64(entry["weight"].getInt())))
+      discard fkChoice[].get_head(dag, time).expect("head")
+      let currentSlot = fkChoice.checkpoints.time.slotOrZero(dag.timeParams)
+      template pa: untyped = fkChoice.backend.proto_array
+      var
+        hasViableChild = newSeq[bool](pa.nodes.len)
+        leaves = 0
+      for i in countdown(pa.nodes.len - 1, 0):
+        let node = pa.nodes.buf[i]
+        if not pa.nodeIsViableForHead(node, pa.nodes.offset + i):
+          continue
+        if not hasViableChild[i]:
+          let leaf = (
+            root: node.bid.root,
+            full: pa.isFullNode(node.bid.root, pa.nodes.offset + i),
+            weight:
+              # spec `get_weight`: zero when the previous slot
+              # payload decision tiebreaker governs the node
+              if node.bid.slot + 1 == currentSlot: 0'i64
+              elif node.bid.root == pa.previousProposerBoostRoot and
+                  not pa.isFullNode(node.bid.root, pa.nodes.offset + i):
+                node.weight - pa.previousProposerBoostScore.int64
+              else: node.weight)
+          doAssert leaf in expected
+          inc leaves
+        if node.parent.isSome:
+          let p = node.parent.get() - pa.nodes.offset
+          if p >= 0:
+            hasViableChild[p] = true
+      doAssert leaves == expected.len
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
@@ -519,8 +557,8 @@ proc doRunTest(
       doAssert valid == step.valid
     of opOnPayloadAttestation:
       let pa = step.payloadAttestation
-      # This suite has no gossip layer, so mirror the signature check gossip
-      # does before recording.
+      # This suite has no gossip layer, so mirror the
+      #  signature check gossip does before recording.
       var valid = false
       withState(stores.dag.headState):
         when consensusFork >= ConsensusFork.Gloas:
