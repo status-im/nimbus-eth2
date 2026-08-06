@@ -15,5 +15,6 @@
 
 import
   ./test_fixture_fork_digest,
+  # ./test_fixture_kzg,
   ./test_fixture_networking,
   ./test_fixture_ssz_generic_types

@@ -243,8 +243,9 @@ suite baseDescription & "Execution Payload Bid " & preset():
       preState: var heze.BeaconState,
       signedBid: heze.SignedExecutionPayloadBid): Result[void, cstring] =
     var cache: StateCache
-    discard ? process_execution_payload_bid(
-      defaultRuntimeConfig, preState, signedBid, cache)
+    let parent_slot = preState.latest_execution_payload_bid.slot
+    doAssert (? process_execution_payload_bid(
+      defaultRuntimeConfig, preState, signedBid, cache)) == parent_slot
     ok()
 
   for path in walkTests(OpExecutionPayloadBidDir):
