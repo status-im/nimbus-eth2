@@ -10,12 +10,13 @@
 
 import
   chronos,
+  chronicles,
   std/json,
   yaml/tojson,
   kzg4844/[kzg, kzg_abi],
   taskpools,
   ../testutil,
-  ./fixtures_utils, ./os_ops
+  ./[fixtures_utils, os_ops]
 
 from std/algorithm import sorted
 from std/sequtils import anyIt, filterIt, mapIt, toSeq
