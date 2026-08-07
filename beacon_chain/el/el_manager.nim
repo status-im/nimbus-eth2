@@ -350,7 +350,8 @@ proc getPayload(
         payloadReq.resp != nil and
         payloadReq.params.state.headBlockHash == params.state.headBlockHash and
         payloadReq.params.attributes == params.attributes and
-        (not payloadReq.resp.completed or payloadReq.resp.value().payloadId.isSome())
+        (not payloadReq.resp.finished or (payloadReq.resp.completed and
+           payloadReq.resp.value().payloadId.isSome()))
 
       forkchoiceUpdated = await(
         if useLastPayload:
