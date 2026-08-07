@@ -10,6 +10,8 @@
 import stew/base10
 import ../spec/beacon_time
 
+export beacon_time
+
 type
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
@@ -18,8 +20,12 @@ type
     slot*: Slot
     count*: uint64
 
+template isEmpty*(sr: SyncRange): bool =
+  ## Returns `true` when sync range `sr` is empty.
+  sr.count == 0'u64
+
 func `$`*(srange: SyncRange): string =
-  if (srange.slot == FAR_FUTURE_SLOT) and (srange.count == 0):
+  if isEmpty(srange):
     "[empty]"
   else:
     "[" & Base10.toString(uint64(srange.slot)) & ":" &
@@ -42,12 +48,14 @@ func init*(t: typedesc[SyncRange]): SyncRange =
   ## Create new empty sync range.
   SyncRange.init(FAR_FUTURE_SLOT, 0'u64)
 
-template start_slot*(sr: SyncRange): Slot =
+func start_slot*(sr: SyncRange): Slot {.inline.} =
   ## Returns start slot in range `sr`.
+  doAssert(not(sr.isEmpty()), "Range must not be empty!")
   sr.slot
 
 func last_slot*(sr: SyncRange): Slot {.inline.} =
   ## Returns last slot in range `sr`.
+  doAssert(not(sr.isEmpty()), "Range must not be empty!")
   if sr.slot + (uint64(sr.count) - 1'u64) < sr.slot:
     FAR_FUTURE_SLOT
   else:
@@ -55,6 +63,8 @@ func last_slot*(sr: SyncRange): Slot {.inline.} =
 
 func contains*(sr: SyncRange, slot: Slot): bool {.inline.} =
   ## Returns `true` if `slot` is in range of `sr`.
+  if sr.isEmpty():
+    return false
   (slot >= sr.start_slot()) and (slot <= sr.last_slot())
 
 func `<=`*(sr: SyncRange, b: Slot): bool {.inline.} =
@@ -74,23 +84,24 @@ func `<`*(a, b: SyncRange): bool {.inline.} =
   ## Returns `true` if range `a` is below of range `b`.
   a.last_slot() < b.start_slot()
 
-template isEmpty*(sr: SyncRange): bool =
-  sr.count == 0'u64
-
 func split*(a: SyncRange, b: Slot): tuple[left: SyncRange, right: SyncRange] =
   doAssert(b in a, "Slot should be inside the range")
   let
     left = SyncRange.init(a.start_slot(), b)
     right =
       if b + 1 < b:
-        SyncRange.init(b, 0'u64)
+        SyncRange.init()
       else:
-        SyncRange.init(b + 1, a.last_slot())
+        if a.last_slot() == b:
+          SyncRange.init()
+        else:
+          SyncRange.init(b + 1, a.last_slot())
   (left, right)
 
 func `==`*(a, b: SyncRange): bool {.inline.} =
   (a.slot == b.slot) and (a.count == b.count)
 
 iterator items*(srange: SyncRange): Slot =
-  for slot in srange.slot .. (srange.slot + srange.count - 1):
-    yield slot
+  if not(srange.isEmpty()):
+    for slot in srange.slot .. (srange.slot + srange.count - 1):
+      yield slot
