@@ -2615,6 +2615,8 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_old_target_epoch                 OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_previous_source_root             OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one_ OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one_ OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_source_root_is_target_root       OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_few_aggregation_bits         OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_aggregation_bits        OK
@@ -2645,6 +2647,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Attestation - mismatched_payload_no_head_flag          OK
 + [Valid]   EF - Gloas - Operations - Attestation - multi_proposer_index_iterations          OK
 + [Valid]   EF - Gloas - Operations - Attestation - multiple_committees                      OK
++ [Valid]   EF - Gloas - Operations - Attestation - old_attested_block_gets_head_flag        OK
 + [Valid]   EF - Gloas - Operations - Attestation - one_basic_attestation                    OK
 + [Valid]   EF - Gloas - Operations - Attestation - one_committee_with_gap                   OK
 + [Valid]   EF - Gloas - Operations - Attestation - previous_epoch                           OK
@@ -3221,6 +3224,12 @@ ConsensusSpecPreset-minimal
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: minimal]   OK
 + EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
   EF - Heze - Fork - fork_base_state [Preset: minimal]                                       Skip
++ EF - Heze - Fork - fork_many_next_epoch [Preset: minimal]                                  OK
++ EF - Heze - Fork - fork_next_epoch [Preset: minimal]                                       OK
++ EF - Heze - Fork - fork_next_epoch_with_block [Preset: minimal]                            OK
++ EF - Heze - Fork - fork_random_large_validator_set [Preset: minimal]                       OK
++ EF - Heze - Fork - fork_random_low_balances [Preset: minimal]                              OK
++ EF - Heze - Fork - fork_random_misc_balances [Preset: minimal]                             OK
 ```
 ## EF - Heze - Operations - Attestation  [Preset: minimal]
 ```diff
@@ -3249,6 +3258,8 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Heze - Operations - Attestation - invalid_old_target_epoch                  OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_previous_source_root              OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one   OK
++ [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one_h OK
++ [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one_t OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_source_root_is_target_root        OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_too_few_aggregation_bits          OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_too_many_aggregation_bits         OK
@@ -3279,6 +3290,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Attestation - mismatched_payload_no_head_flag           OK
 + [Valid]   EF - Heze - Operations - Attestation - multi_proposer_index_iterations           OK
 + [Valid]   EF - Heze - Operations - Attestation - multiple_committees                       OK
++ [Valid]   EF - Heze - Operations - Attestation - old_attested_block_gets_head_flag         OK
 + [Valid]   EF - Heze - Operations - Attestation - one_basic_attestation                     OK
 + [Valid]   EF - Heze - Operations - Attestation - one_committee_with_gap                    OK
 + [Valid]   EF - Heze - Operations - Attestation - previous_epoch                            OK
@@ -7608,6 +7620,7 @@ ConsensusSpecPreset-minimal
   Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one Skip
   Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one Skip
   Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one Skip
+  Fast Confirmation - minimal/electra/fast_confirmation/is_one_confirmed/pyspec_tests/is_one Skip
   Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev Skip
   Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev Skip
   Fast Confirmation - minimal/electra/fast_confirmation/previous_epoch/pyspec_tests/fcr_prev Skip
@@ -7791,6 +7804,7 @@ ConsensusSpecPreset-minimal
   Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
   Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
   Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
+  Fast Confirmation - minimal/fulu/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_co Skip
   Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
   Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
   Fast Confirmation - minimal/fulu/fast_confirmation/previous_epoch/pyspec_tests/fcr_previou Skip
@@ -7957,6 +7971,7 @@ ConsensusSpecPreset-minimal
   Fast Confirmation - minimal/gloas/fast_confirmation/ffg/pyspec_tests/will_current_target_b Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/ffg/pyspec_tests/will_no_conflicting_c Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_confi Skip
+  Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
   Fast Confirmation - minimal/gloas/fast_confirmation/is_one_confirmed/pyspec_tests/is_one_c Skip
@@ -8513,6 +8528,10 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
 + ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_delayed_j OK
 + ForkChoice - minimal/gloas/fork_choice/reorg/pyspec_tests/simple_attempted_reorg_without_e OK
++ ForkChoice - minimal/gloas/fork_choice/should_apply_proposer_boost/pyspec_tests/should_app OK
++ ForkChoice - minimal/gloas/fork_choice/should_apply_proposer_boost/pyspec_tests/should_app OK
++ ForkChoice - minimal/gloas/fork_choice/should_apply_proposer_boost/pyspec_tests/should_app OK
++ ForkChoice - minimal/gloas/fork_choice/should_apply_proposer_boost/pyspec_tests/should_app OK
 + ForkChoice - minimal/gloas/fork_choice/withholding/pyspec_tests/withholding_attack         OK
 + ForkChoice - minimal/gloas/fork_choice/withholding/pyspec_tests/withholding_attack_unviabl OK
 ```

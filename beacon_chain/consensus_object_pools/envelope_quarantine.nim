@@ -9,11 +9,14 @@
 
 import
   std/tables,
-  minilru,
+  minilru, chronos,
   ./quarantine_types,
   ../spec/[digest, forks]
 
 export tables, minilru, forks, quarantine_types
+
+from std/sequtils import toSeq, mapIt
+from std/strutils import join
 
 const
   MaxOrphans = int(SLOTS_PER_EPOCH * 3)
@@ -40,17 +43,24 @@ type
     unviable*: UnviableLru
       ## List of block roots whose canonical envelopes are unviable.
 
-func init*(T: typedesc[EnvelopeQuarantine]): T =
+    missingEvent*: AsyncEvent
+      ## This asynchronous event is triggered when a new orphaned block is added
+      ## to the quarantine.
+
+proc init*(T: typedesc[EnvelopeQuarantine]): T =
+  let missingEvent = newAsyncEvent()
   T(
     orphans: OrphanLru.init(MaxOrphans),
     unviable: UnviableLru.init(MaxUnviables),
-    missing: MissingTable.init(),
+    missing: MissingTable.init(missingEvent),
+    missingEvent: missingEvent
   )
 
-func addMissing*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+proc addMissing*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.missing.add(root)
+  self.missingEvent.fire()
 
-func checkMissing*(self: var EnvelopeQuarantine, max: int): seq[FetchRecord] =
+proc checkMissing*(self: var EnvelopeQuarantine, max: int): seq[FetchRecord] =
   self.missing.checkMissing(max)
 
 func cleanupOrphans(self: var EnvelopeQuarantine, finalizedSlot: Slot) =
@@ -94,7 +104,7 @@ func delOrphan*(self: var EnvelopeQuarantine, blck: gloas.SignedBeaconBlock) =
   for k in toDel:
     self.orphans.del k
 
-func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+proc remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   var toDel: seq[(Eth2Digest, uint64)]
   for k, _ in self.orphans:
     if k[0] == root:
@@ -103,6 +113,50 @@ func remove*(self: var EnvelopeQuarantine, root: Eth2Digest) =
     self.orphans.del k
   self.missing.del(root)
 
-func addUnviable*(self: var EnvelopeQuarantine, root: Eth2Digest) =
+proc addUnviable*(self: var EnvelopeQuarantine, root: Eth2Digest) =
   self.remove(root)
   self.unviable.put(root, ())
+
+func jsonLog*(envelope: gloas.SignedExecutionPayloadEnvelope): string =
+  $envelope.message.payload.slot_number & "@" &
+    shortLog(envelope.message.beacon_block_root) & ">" &
+    shortLog(envelope.message.parent_beacon_block_root)
+
+func debugMissingJsonDump*(q: EnvelopeQuarantine): string =
+  let res =
+    q.missing.items.keys().toSeq().mapIt("\"" & shortLog(it) & "\"").join(",")
+  "{\"count\":" & $len(q.missing.items) & ",\"items\":[" & res & "]}"
+
+func debugUnviablesJsonDump*(q: EnvelopeQuarantine): string =
+  let res =
+    q.unviable.keys().toSeq().mapIt("\"" & shortLog(it) & "\"").join(",")
+  "{\"count\":" & $len(q.unviable) & ",\"items\":[" & res & "]}"
+
+func debugOrphansJsonDump*(q: EnvelopeQuarantine): string =
+  var
+    res: seq[string]
+    minBlockSlot = FAR_FUTURE_SLOT
+    maxBlockSlot = GENESIS_SLOT
+
+  for value in q.orphans.values():
+    let slot = value.message.payload.slot_number
+    if slot < minBlockSlot:
+      minBlockSlot = slot
+    if slot > maxBlockSlot:
+      maxBlockSlot = slot
+    res.add("\"" & jsonLog(value) & "\"")
+
+  let
+    sminBlockSlot = if len(q.orphans) == 0: "not available" else: $minBlockSlot
+    smaxBlockSlot = if len(q.orphans) == 0: "not available" else: $maxBlockSlot
+
+  "{\"count\":" & $len(q.orphans) &
+    ",\"max_orphans_items\":" & $MaxOrphans &
+    ",\"min_block_slot\":\"" & sminBlockSlot & "\"" &
+    ",\"max_block_slot\":\"" & smaxBlockSlot & "\"" &
+    ",\"items\":[" & res.join(",") & "]}"
+
+func debugJsonDump*(q: EnvelopeQuarantine): string =
+  "{\"orphans\":" & q.debugOrphansJsonDump() &
+    ",\"missing\":" & q.debugMissingJsonDump() &
+    ",\"unviable\":" & q.debugUnviablesJsonDump() & "}"

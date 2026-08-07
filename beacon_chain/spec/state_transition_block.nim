@@ -191,7 +191,7 @@ proc check_proposer_slashing*(
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.6/specs/phase0/beacon-chain.md#proposer-slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#modified-process_proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-process_proposer_slashing
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
@@ -725,7 +725,7 @@ func process_consolidation_request*(
   discard state.pending_consolidations.add(PendingConsolidation(
     source_index: source_index.uint64, target_index: target_index.uint64))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#payload-attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#payload-attestations
 proc process_payload_attestation*(
     state: var (gloas.BeaconState | heze.BeaconState),
     payload_attestation: PayloadAttestation): Result[void, cstring] =
@@ -761,12 +761,13 @@ type
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/capella/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#modified-process_operations
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_operations
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/beacon-chain.md#modified-process_operations
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#modified-process_operations
 proc process_operations(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     body: SomeForkyBeaconBlockBody | SomeForkyBlindedBeaconBlockBody,
     base_reward_per_increment: Gwei,
-    flags: UpdateFlags, cache: var StateCache): Result[BlockRewards, cstring] =
+    flags: UpdateFlags, cache: var StateCache,
+    parent_slot = GENESIS_SLOT): Result[BlockRewards, cstring] =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   const consensusFork = typeof(state).kind
@@ -846,8 +847,12 @@ proc process_operations(
     operations_rewards.attester_slashings += attester_slashing_reward
     exit_queue_info = new_exit_queue_info
   for op in body.attestations:
-    operations_rewards.attestations +=
-      ? process_attestation(state, op, flags, base_reward_per_increment, cache)
+    when consensusFork >= ConsensusFork.Gloas:
+      operations_rewards.attestations += ? process_attestation(
+        state, op, flags, base_reward_per_increment, parent_slot, cache)
+    else:
+      operations_rewards.attestations += ? process_attestation(
+        state, op, flags, base_reward_per_increment, cache)
   for op in body.deposits:
     ? process_deposit(cfg, state, bsv[], op, flags)
   for op in body.voluntary_exits:
@@ -1129,7 +1134,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_builder_deposit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_builder_deposit_request
 func process_builder_deposit_request*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
@@ -1164,7 +1169,7 @@ func process_builder_deposit_request*(
   # Increase balance by deposit amount
   state.builders.mitem(builder_index).balance += request.amount
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_builder_exit_request
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_builder_exit_request
 func process_builder_exit_request*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: BucketSortedValidators,
@@ -1185,7 +1190,7 @@ func process_builder_exit_request*(
 
   initiate_builder_exit(cfg, state, builder_index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-apply_parent_execution_payload
 proc apply_parent_execution_payload*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
@@ -1244,7 +1249,7 @@ proc apply_parent_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#signed-execution-payload-bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#signed-execution-payload-bid
 proc can_process_execution_payload_bid_impl[S, B](
     cfg: RuntimeConfig, state: S, signed_bid: B, proposal_slot: Slot,
     flags: UpdateFlags): Result[void, cstring] =
@@ -1323,10 +1328,10 @@ template can_process_execution_payload_bid*(
 type SomeGloasBeaconBlock =
   gloas.BeaconBlock | gloas.SigVerifiedBeaconBlock | gloas.TrustedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#new-process_execution_payload_bid
 proc process_execution_payload_bid_impl[S, B](
     cfg: RuntimeConfig, state: var S, signed_bid: B,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache): Result[Slot, cstring] =
   template bid: untyped = signed_bid.message
   let
     builder_index = bid.builder_index
@@ -1350,28 +1355,31 @@ proc process_execution_payload_bid_impl[S, B](
     state.builder_pending_payments.mitem(
       SLOTS_PER_EPOCH + (bid.slot mod SLOTS_PER_EPOCH)) = pending_payment
 
+  # Cache the parent block's slot before overwriting the bid
+  let parent_slot = state.latest_execution_payload_bid.slot
+
   # Cache the signed execution payload bid
   state.latest_execution_payload_bid = bid
 
-  ok()
+  ok(parent_slot)
 
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var gloas.BeaconState,
     signed_bid: gloas.SignedExecutionPayloadBid,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache): Result[Slot, cstring] =
   cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
 
 proc process_execution_payload_bid*(
     cfg: RuntimeConfig, state: var heze.BeaconState,
     signed_bid: heze.SignedExecutionPayloadBid,
-    cache: var StateCache): Result[void, cstring] =
+    cache: var StateCache): Result[Slot, cstring] =
   cfg.process_execution_payload_bid_impl(state, signed_bid, cache)
 
 # copy of datatypes/heze.nim
 type SomeHezeBeaconBlock =
   heze.BeaconBlock | heze.SigVerifiedBeaconBlock | heze.TrustedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/beacon-chain.md#new-process_parent_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_parent_execution_payload
 proc process_parent_execution_payload*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
@@ -1470,7 +1478,7 @@ func process_withdrawals*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#modified-apply_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-apply_withdrawals
 func apply_withdrawals(
     state: var (gloas.BeaconState | heze.BeaconState),
     withdrawals: seq[Withdrawal]): Result[void, cstring] =
@@ -1500,7 +1508,7 @@ func update_next_withdrawal_index(
     let latest_withdrawal = withdrawals[^1]
     state.next_withdrawal_index = WithdrawalIndex(latest_withdrawal.index + 1)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-update_payload_expected_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-update_payload_expected_withdrawals
 func update_payload_expected_withdrawals(
     state: var (gloas.BeaconState | heze.BeaconState),
     withdrawals: seq[Withdrawal]) =
@@ -1524,7 +1532,7 @@ func update_next_withdrawal_validator_index(
       next_validator_index = next_index mod state.validators.lenu64
     state.next_withdrawal_validator_index = next_validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-update_builder_pending_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-update_builder_pending_withdrawals
 func update_builder_pending_withdrawals(
     state: var (gloas.BeaconState | heze.BeaconState),
     processed_builder_withdrawals_count: uint64) =
@@ -1540,7 +1548,7 @@ func update_pending_partial_withdrawals(
     typeof(state.pending_partial_withdrawals).init(
       state.pending_partial_withdrawals.asSeq[processed_partial_withdrawals_count .. ^1])
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-update_next_withdrawal_builder_index
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-update_next_withdrawal_builder_index
 func update_next_withdrawal_builder_index(
     state: var (gloas.BeaconState | heze.BeaconState),
     processed_builders_sweep_count: uint64) =
@@ -1552,7 +1560,7 @@ func update_next_withdrawal_builder_index(
       next_builder_index = BuilderIndex(next_index mod state.builders.lenu64)
     state.next_withdrawal_builder_index = next_builder_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-process_withdrawals
 func process_withdrawals*(state: var (gloas.BeaconState | heze.BeaconState)):
     Result[void, cstring] =
   # Return early if the parent block is empty
@@ -1800,7 +1808,7 @@ proc process_block*(
 
   ok(operations_rewards)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
 proc verify_execution_payload_envelope*(
     timeParams: TimeParams,
     fork: Fork,
@@ -1867,7 +1875,7 @@ proc verify_execution_payload_envelope*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#block-processing
 debugGloasComment "readd gloas_mev block and, well the rest too"
 proc process_block*(
     cfg: RuntimeConfig,
@@ -1880,7 +1888,7 @@ proc process_block*(
   ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
-  ? process_execution_payload_bid(
+  let parent_slot = ? process_execution_payload_bid(
     cfg, state, blck.body.signed_execution_payload_bid, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -1890,7 +1898,8 @@ proc process_block*(
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
   var operations_rewards = ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment, flags, cache,
+    parent_slot)
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
@@ -1907,7 +1916,7 @@ proc process_block*(
   ? process_parent_execution_payload(cfg, state, blck, flags, cache)
   ? process_block_header(state, blck, flags, cache)
   ? process_withdrawals(state)
-  ? process_execution_payload_bid(
+  let parent_slot = ? process_execution_payload_bid(
     cfg, state, blck.body.signed_execution_payload_bid, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
@@ -1917,7 +1926,8 @@ proc process_block*(
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
   var operations_rewards = ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment, flags, cache,
+    parent_slot)
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 

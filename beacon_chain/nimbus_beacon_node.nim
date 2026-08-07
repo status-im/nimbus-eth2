@@ -149,11 +149,24 @@ proc fetchCheckpointState(
   else:
     Opt.some default(ref ForkedHashedBeaconState)
 
+proc clearDatabase(databaseDir: string): Opt[void] =
+  notice "Deleting existing database, `--force-resync` was requested",
+    databaseDir
+  try:
+    removeDir(databaseDir, checkDir = false)
+    ok()
+  except OSError as exc:
+    error "Failed to delete existing database",
+      path = databaseDir, err = exc.msg
+    return err()
+
 proc setupDatabase(
     config: BeaconNodeConf, metadata: Eth2NetworkMetadata
 ): Future[Opt[BeaconChainDB]] {.async: (raises: [CancelledError]).} =
   # Open the database and initialize it with genesis/checkpoint if it wasn't
   # setup before - fails if the data sources we use are broken
+  if config.forceResync:
+    ? clearDatabase(config.databaseDir)
   let db = BeaconChainDB.new(
     config.databaseDir, metadata.cfg, inMemory = false,
     lightClientDataImportBackfill = config.lightClientDataImportBackfill)
@@ -1726,21 +1739,29 @@ proc pruneBlobs(node: BeaconNode, slot: Slot) =
               count = count + 1
     debug "pruned blobs", count, blobPruneEpoch
 
+proc pruneDataColumnsAtSlot(node: BeaconNode, targetSlot: Slot) =
+  if targetSlot.epoch < node.dag.cfg.FULU_FORK_EPOCH:
+    return
+  let consensusFork = node.dag.cfg.consensusForkAtEpoch(targetSlot.epoch)
+  var blocks: array[1, BlockId]
+  if node.dag.getBlockRange(targetSlot, blocks) == 0:
+    # Iterate the full column space rather than just the local custody
+    # set so late-arriving or reconstructed columns outside of this
+    # node's custody groups are also cleaned up.
+    let count = node.db.delDataColumnSidecars(consensusFork, blocks[0].root)
+    debug "pruned data columns", count, dataColumnPruneSlot = targetSlot
+
 proc pruneDataColumns(node: BeaconNode, slot: Slot) =
-  let dataColumnPruneEpoch = (slot.epoch -
-                              node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-  if slot.is_epoch() and dataColumnPruneEpoch >= node.dag.cfg.FULU_FORK_EPOCH:
-    let consensusFork = node.dag.cfg.consensusForkAtEpoch(dataColumnPruneEpoch)
-    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
-    var count = 0
-    let startIndex = node.dag.getBlockRange(dataColumnPruneEpoch.start_slot, blocks)
-    for i in startIndex..<SLOTS_PER_EPOCH:
-      # Iterate the full column space rather than just the local custody
-      # set so late-arriving or reconstructed columns outside of this
-      # node's custody groups are also cleaned up.
-      count += node.db.delDataColumnSidecars(
-        consensusFork, blocks[int(i)].root)
-    debug "pruned data columns", count, dataColumnPruneEpoch
+  let horizon =
+    (node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS + 1) * SLOTS_PER_EPOCH
+  if slot.uint64 < horizon:
+    return
+  let targetSlot = Slot(slot.uint64 - horizon)
+  if slot.is_epoch() and targetSlot > GENESIS_SLOT:
+    # The caller skips pruning on the last slot of each epoch (epoch
+    # processing makes it heavy already) - catch up on its horizon slot here.
+    node.pruneDataColumnsAtSlot(targetSlot - 1)
+  node.pruneDataColumnsAtSlot(targetSlot)
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
@@ -1767,12 +1788,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .pruneAfterFinalization(
             node.dag.finalizedHead.slot.epoch()
           )
+    let backfillSlot =
+      if node.dag.needsBackfill():
+        Opt.some(node.dag.backfill.slot)
+      else:
+        Opt.none(Slot)
     node.processor.fuluColumnQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+      node.dag.finalizedHead.slot.epoch(), backfillSlot)
     node.processor.gloasColumnQuarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+      node.dag.finalizedHead.slot.epoch(), backfillSlot)
     node.processor.quarantine[].pruneAfterFinalization(
-      node.dag.finalizedHead.slot.epoch(), node.dag.needsBackfill())
+      node.dag.finalizedHead.slot.epoch())
 
   # Delay part of pruning until latency critical duties are done.
   # The other part of pruning, `pruneBlocksDAG`, is done eagerly.
@@ -1842,6 +1868,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # attestation penalties for example, need, specific handling.
       # checked by maybeUpdateActionTrackerNextEpoch.
       node.maybeUpdateActionTrackerNextEpoch(forkyState, slot)
+
+    # Pre-heat the shuffling cache for upcoming attestation duties, to avoid
+    # having to compute them when REST API is requested at next epoch start.
+    if (slot + 1).is_epoch:
+      discard node.dag.getShufflingRef(
+        head, slot.epoch + 2, preFinalized = false)
 
   let
     nextAttestationSlot =
@@ -2250,7 +2282,7 @@ proc installMessageValidators(node: BeaconNode) =
                   checkValidator = false)))
 
         # proposer_preferences
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
         when consensusFork >= ConsensusFork.Gloas:
           node.network.addValidator(
             getProposerPreferencesTopic(digest), proc(
@@ -2818,12 +2850,15 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [CatchableError].} =
   of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartUpCmd.trustedNodeSync:
+    let metadata = loadEth2Network(config)
+
     if config.blockId.isSome():
       error "--blockId option has been removed - use --state-id instead!"
       quit 1
 
+    if config.forceResyncTNS and clearDatabase(config.databaseDir).isErr:
+      quit 1
     let
-      metadata = loadEth2Network(config)
       db = BeaconChainDB.new(
         config.databaseDir, metadata.cfg, inMemory = false)
       genesisState = (waitFor fetchGenesisState(metadata, config.eraDir)).valueOr:

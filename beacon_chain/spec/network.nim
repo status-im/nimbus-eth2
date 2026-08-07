@@ -18,7 +18,7 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
@@ -94,7 +94,7 @@ func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =
 func getPayloadAttestationMessageTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicPayloadAttestationMessageSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
 func getProposerPreferencesTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicProposerPreferencesSuffix
 

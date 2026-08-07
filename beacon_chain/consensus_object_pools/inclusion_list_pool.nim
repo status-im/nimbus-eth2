@@ -30,7 +30,7 @@ const
   # is dropped when its index is reused or evicted on the next add.
   IL_WINDOW = MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS + 1
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/p2p-interface.md#new-inclusion_list
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/p2p-interface.md#new-inclusion_list
   # [IGNORE] The `message` is either the first or second valid message
   # received from the validator with index `message.validator_index`.
   MAX_INCLUSION_LISTS_PER_VALIDATOR = 2

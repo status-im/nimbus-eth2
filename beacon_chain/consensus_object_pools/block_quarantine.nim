@@ -9,12 +9,16 @@
 
 import
   chronicles,
+  chronos,
   minilru,
   std/tables,
   ./quarantine_types,
   ../spec/[block_id, forks, presets]
 
 export tables, minilru, forks, quarantine_types
+
+from std/sequtils import toSeq, mapIt
+from std/strutils import join
 
 const
   MaxOrphans = int(SLOTS_PER_EPOCH * 3)
@@ -89,22 +93,41 @@ type
       ## so as to skip expensive cryptographic verification if the same block root
       ## and signature combination arrives multiple times over gossip
 
+    missingEvent*: AsyncEvent
+      ## This asynchronous event is triggered when a new orphaned block is added
+      ## to or removed from quarantine.
+
+    sidecarlessEvent*: AsyncEvent
+      ## This asynchronous event is triggered when a new block without sidecars
+      ## is added to or removed from quarantine.
+
     cfg*: RuntimeConfig
 
 func init*(T: type Quarantine, cfg: RuntimeConfig): T =
+  let missingEvent = newAsyncEvent()
   T(
     cfg: cfg,
     orphans: OrphanLru.init(MaxOrphans),
     sidecarless: SidecarlessLru.init(MaxSidecarless),
     unviable: UnviableLru.init(MaxUnviables),
     latest_sidecar_signatures: RecentSidecarSignatureLru.init(MaxRecentSidecarSignatures),
-    missing: MissingTable.init(),
+    missing: MissingTable.init(missingEvent),
+    missingEvent: missingEvent,
+    sidecarlessEvent: newAsyncEvent()
   )
 
-func checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
+proc checkMissing*(quarantine: var Quarantine, max: int): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   quarantine.missing.checkMissing(max)
+
+func checkOrphan*(quarantine: var Quarantine, root: Eth2Digest): bool =
+  ## Returns ``true`` if block with root ``root`` exists in ``orphans`` table.
+  ## Note: This procedure has O(n) complexity!
+  for k, v in quarantine.orphans.mpairs():
+      if v.root == root:
+        return true
+  false
 
 proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, UnviableKind] =
   ## Schedule the download a given block or its ancestor, if we're keeping
@@ -140,12 +163,13 @@ proc addMissing*(quarantine: var Quarantine, root: Eth2Digest): Result[void, Unv
 
   ok()
 
-func remove*(quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
+proc remove*(quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
-  quarantine.sidecarless.del(signedBlock.root)
   quarantine.missing.del(signedBlock.root)
+  if quarantine.sidecarless.pop(signedBlock.root).isSome():
+    quarantine.sidecarlessEvent.fire()
 
-func startProcessing*(quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
+proc startProcessing*(quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.remove(signedBlock)
   quarantine.processing = signedBlock.root
 
@@ -208,7 +232,7 @@ func removeUnviableSidecarlessTree(
 
     toRemove.setLen(0)
 
-func addUnviable*(quarantine: var Quarantine, root: Eth2Digest, kind: UnviableKind): UnviableKind =
+proc addUnviable*(quarantine: var Quarantine, root: Eth2Digest, kind: UnviableKind): UnviableKind =
   # Unviable - don't try to download again!
   quarantine.missing.del(root)
 
@@ -228,7 +252,7 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest, kind: UnviableKi
   quarantine.unviable.put(root, kind)
   kind
 
-func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
+proc cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans:
@@ -239,7 +263,7 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
     discard quarantine.addUnviable(k[0], UnviableKind.UnviableFork)
     quarantine.orphans.del k
 
-func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
+proc cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[Eth2Digest]
 
   for k, v in quarantine.sidecarless:
@@ -250,31 +274,17 @@ func cleanupSidecarless(quarantine: var Quarantine, finalizedSlot: Slot) =
     discard quarantine.addUnviable(k, UnviableKind.UnviableFork)
     quarantine.sidecarless.del k
 
-func clearAfterReorg*(quarantine: var Quarantine) =
+  if len(toDel) > 0:
+    quarantine.sidecarlessEvent.fire()
+
+proc clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
   ## Unviables remain unviable and are not cleared.
   quarantine.missing.resetItems()
   quarantine.orphans.reset()
 
-func pruneAfterFinalization*(
-    quarantine: var Quarantine, epoch: Epoch, needsBackfill: bool
-) =
-  let
-    startEpoch =
-      if needsBackfill:
-        # Because Quarantine could be used as temporary storage for blocks which
-        # do not have sidecars yet, we should not prune blocks which are behind
-        # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epoch. Otherwise we will not
-        # be able to backfill these blocks properly.
-        if epoch < quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS:
-          Epoch(0)
-        else:
-          epoch - quarantine.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
-      else:
-        epoch
-    slot = startEpoch.start_slot()
-
-  quarantine.cleanupSidecarless(slot)
+proc pruneAfterFinalization*(quarantine: var Quarantine, epoch: Epoch) =
+  quarantine.cleanupSidecarless(epoch.start_slot())
 
 # Typically, blocks will arrive in mostly topological order, with some
 # out-of-order block pairs. Therefore, it is unhelpful to use either a
@@ -322,7 +332,8 @@ proc addOrphan*(
   ):
     if evicted:
       # When an orphan gets evicted, also evict the sidecars
-      quarantine.sidecarless.del key[0]
+      if quarantine.sidecarless.pop(key[0]).isSome():
+        quarantine.sidecarlessEvent.fire()
 
   ok()
 
@@ -335,6 +346,33 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest): ForkedSignedBeaconB
       quarantine.orphans.del k
 
   for k, v in quarantine.orphans.mpairs():
+    if v.parent_root == root:
+      toRemove.add(k)
+      yield v
+
+iterator peek*(
+    quarantine: var Quarantine,
+    root: Eth2Digest
+): ForkedSignedBeaconBlock =
+  # Peek orphans whose root is the block identified by `root`.
+  for k, v in quarantine.orphans.mpairs():
+    if v.root == root:
+      yield v
+
+iterator popSidecarlessBlocks*(
+    quarantine: var Quarantine,
+    root: Eth2Digest
+): ForkedSignedBeaconBlock =
+  # Pop sidecarless blocks whose parent is the block identified by `root`
+
+  var toRemove: seq[Eth2Digest]
+  defer: # Run even if iterator is not carried to termination
+    for k in toRemove:
+      quarantine.sidecarless.del k
+    if len(toRemove) > 0:
+      quarantine.sidecarlessEvent.fire()
+
+  for k, v in quarantine.sidecarless.mpairs():
     if v.parent_root == root:
       toRemove.add(k)
       yield v
@@ -356,6 +394,7 @@ proc addSidecarless(
     signedBlock.root, ForkedSignedBeaconBlock.init(signedBlock)
   )
   quarantine.missing.del(signedBlock.root)
+  quarantine.sidecarlessEvent.fire()
   true
 
 proc addSidecarless*(
@@ -379,17 +418,23 @@ func popSidecarless*(
 ): Opt[ForkedSignedBeaconBlock] =
   quarantine.sidecarless.pop(root)
 
-func removeSidecarless*(
+proc removeSidecarless*(
     quarantine: var Quarantine, root: Eth2Digest
 ): bool =
   ## Remove the sidecarless entry for ``root`` if present.
   ## Returns true if an entry existed and was removed.
-  if not quarantine.sidecarless.contains(root):
-    return false
-  quarantine.sidecarless.del(root)
-  true
+  if quarantine.sidecarless.pop(root).isSome():
+    quarantine.sidecarlessEvent.fire()
+    true
+  else:
+    false
 
 func getSidecarless*(
+    quarantine: var Quarantine, root: Eth2Digest
+): Opt[ForkedSignedBeaconBlock] =
+  quarantine.sidecarless.peek(root)
+
+func peekSidecarless*(
     quarantine: var Quarantine, root: Eth2Digest
 ): Opt[ForkedSignedBeaconBlock] =
   quarantine.sidecarless.peek(root)
@@ -397,3 +442,87 @@ func getSidecarless*(
 iterator peekSidecarless*(quarantine: Quarantine): ForkedSignedBeaconBlock =
   for k, v in quarantine.sidecarless.pairs():
     yield v
+
+func debugSidecarlessJsonDump*(q: var Quarantine): string =
+  var
+    res: seq[BlockId]
+    minBlockSlot = FAR_FUTURE_SLOT
+    maxBlockSlot = GENESIS_SLOT
+
+  for k, v in q.sidecarless.mpairs():
+    let
+      slot = v.slot()
+      bid = BlockId(root: k, slot: slot)
+    if slot < minBlockSlot:
+      minBlockSlot = slot
+    if slot > maxBlockSlot:
+      maxBlockSlot = slot
+    res.add(bid)
+
+  let
+    sminBlockSlot =
+      if len(q.sidecarless) == 0:
+        "not available"
+      else:
+        $minBlockSlot
+    smaxBlockSlot =
+      if len(q.sidecarless) == 0:
+        "not available"
+      else:
+        $maxBlockSlot
+
+  "{\"count\":" & $len(q.sidecarless) &
+    ",\"max_sidecarless_items\":" & $MaxSidecarless &
+    ",\"min_block_slot\":\"" & sminBlockSlot & "\"" &
+    ",\"max_block_slot\":\"" & smaxBlockSlot & "\"" &
+    ",\"items\":[" &
+    res.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
+
+func debugOrphansJsonDump*(q: var Quarantine): string =
+  var
+    res: seq[BlockId]
+    minBlockSlot = FAR_FUTURE_SLOT
+    maxBlockSlot = GENESIS_SLOT
+
+  for k, v in q.orphans.mpairs():
+    let
+      slot = v.slot()
+      bid = BlockId(root: k[0], slot: slot)
+    if slot < minBlockSlot:
+      minBlockSlot = slot
+    if slot > maxBlockSlot:
+      maxBlockSlot = slot
+    res.add(bid)
+
+  let
+    sminBlockSlot =
+      if len(q.orphans) == 0:
+        "not available"
+      else:
+        $minBlockSlot
+    smaxBlockSlot =
+      if len(q.orphans) == 0:
+        "not available"
+      else:
+        $maxBlockSlot
+
+  "{\"count\":" & $len(q.orphans) &
+    ",\"max_orphans_items\":" & $MaxOrphans &
+    ",\"min_block_slot\":\"" & sminBlockSlot & "\"" &
+    ",\"max_block_slot\":\"" & smaxBlockSlot & "\"" &
+    ",\"items\":[" &
+    res.mapIt("\"" & shortLog(it) & "\"").join(",") & "]}"
+
+func debugMissingJsonDump*(q: Quarantine): string =
+  let res =
+    q.missing.items.keys().toSeq().mapIt("\"" & shortLog(it) & "\"").join(",")
+  "{\"count\":" & $len(q.missing.items) &
+    ",\"max_missing_items\":" & $q.missing.maxCapacity &
+    ",\"items\":[" & res & "]}"
+
+func debugUnviablesJsonDump*(q: var Quarantine): string =
+  let res =
+    q.unviable.keys().toSeq().mapIt("\"" & shortLog(it) & "\"").join(",")
+  "{\"count\":" & $len(q.unviable) &
+    ",\"max_unviable_items\":" & $MaxUnviables &
+    ",\"items\":[" & res & "]}"

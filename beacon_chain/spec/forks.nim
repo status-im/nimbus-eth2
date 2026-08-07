@@ -212,6 +212,10 @@ type
   ForkySignedBuilderBid* =
     fulu_mev.SignedBuilderBid
 
+  ForkySignedExecutionPayloadBid* =
+    gloas.SignedExecutionPayloadBid |
+    heze.SignedExecutionPayloadBid
+
   ForkyBlockContents* =
     deneb.BlockContents |
     electra.BlockContents |

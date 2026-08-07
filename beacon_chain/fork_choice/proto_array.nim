@@ -132,7 +132,7 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
 func payloadVariantOutranks(
     self: ProtoArray, full, empty: ProtoNode): bool
 
-func nodeIsViableForHead(
+func nodeIsViableForHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool
 func nodeLeadsToViableHead(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool]
@@ -581,7 +581,7 @@ func payloadVariantOutranks(
   ## Rank a block's two payload variants by the spec `get_head`
   ## order `(get_weight, get_payload_status_tiebreaker)`
   let
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/fork-choice.md#is_previous_slot_payload_decision
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#is_previous_slot_payload_decision
     isPrevSlot = full.bid.slot + 1 == self.currentSlot
     # The proposer boost belongs to the EMPTY node; drop it before comparing.
     boost =
@@ -597,7 +597,7 @@ func payloadVariantOutranks(
   elif isPrevSlot:
     # get_payload_status_tiebreaker: FULL (2) beats EMPTY (1), unless the payload
     # should not be extended (0), captured by `emptyPreferredRoot`.
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/gloas/fork-choice.md#get_payload_status_tiebreaker
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#get_payload_status_tiebreaker
     full.bid.root != self.emptyPreferredRoot
   else:
     true
@@ -722,7 +722,7 @@ func nodeLeadsToViableHead(
 
   ok(bestDescendantIsViableForHead or self.nodeIsViableForHead(node, nodeIdx))
 
-func nodeIsViableForHead(
+func nodeIsViableForHead*(
     self: var ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
   ## This is the equivalent of `filter_block_tree` function in consensus specs
   ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree

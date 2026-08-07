@@ -428,8 +428,8 @@ proc proposeBlockAux(
 
     parentExecutionRequests = block:
       when fork >= ConsensusFork.Gloas:
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#executionpayload
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#parent-execution-requests
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#executionpayload
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#parent-execution-requests
         if shouldExtendPayload:
           let
             parentId = state[].latest_block_id
@@ -642,21 +642,18 @@ proc proposeBlockAux(
         await builderApiBidFut
 
     let
-      bestBuilderBid =
-        if poolBid.isSome and builderApiBid.isSome:
-          if builderApiBid.get().message.value > poolBid.get().message.value:
-            builderApiBid
-          else:
-            poolBid
-        elif builderApiBid.isSome:
-          builderApiBid
+      builderApiBidValue = effectiveBidValue(builderApiBid)
+      poolBidValue = effectiveBidValue(poolBid)
+      (bestBuilderBid, bestBidValue) =
+        if poolBid.isNone or builderApiBidValue > poolBidValue:
+          (builderApiBid, builderApiBidValue)
         else:
-          poolBid
+          (poolBid, poolBidValue)
       useBuilderBid =
         bestBuilderBid.isSome and
         builderBetterBid(
           localBlockValueBoost,
-          bestBuilderBid.get().message.value.uint64.u256 * GWEI_TO_WEI.u256,
+          bestBidValue.uint64.u256 * GWEI_TO_WEI.u256,
           engineBid[].eps.blockValue)
       selectedBuilderBid =
         if useBuilderBid:
@@ -664,6 +661,7 @@ proc proposeBlockAux(
             slot,
             builderIndex = bestBuilderBid.get().message.builder_index,
             bidValue = bestBuilderBid.get().message.value,
+            executionPayment = bestBuilderBid.get().message.execution_payment,
             engineValue = engineBid[].eps.blockValue,
             localBlockValueBoost
           bestBuilderBid
@@ -1104,7 +1102,7 @@ proc sendPayloadAttestations(
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/validator.md#constructing-the-payloadattestationmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#constructing-the-payloadattestationmessage
   # - If the validator has not seen any beacon block for the assigned slot, do
   #   not submit a payload attestation; it will be ignored anyway.
   let target = head.atSlot(slot)
@@ -1181,7 +1179,7 @@ proc sendProposerPreferences(
               node.sentProposerPreferences[proposal_slot.epoch.uint64 mod 2]:
             continue
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#broadcasting-signedproposerpreferences
           let dependent_root =
             forkyState.get_proposer_dependent_root(proposal_slot.epoch)
           let data = ProposerPreferences(
@@ -1670,7 +1668,13 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   if payloadAttestationCutOff.inFuture:
     debug "Waiting to send payload attestations",
       payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
-    await sleepAsync(payloadAttestationCutOff.offset)
+    if head.slot == slot:
+      # Send as soon as the execution payload envelope for this slot's
+      # block arrives, or at the deadline whichever comes first.
+      discard await node.consensusManager[].expectEnvelope(head.root)
+        .withTimeout(payloadAttestationCutOff.offset)
+    else:
+      await sleepAsync(payloadAttestationCutOff.offset)
 
   sendPayloadAttestations(node, head, slot)
 

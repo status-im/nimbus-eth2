@@ -105,7 +105,13 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     var response = request.getResponse()
+
     response.keepAlive = false
+    # Instruct nginx/reverse proxy to disable buffering, which can disrupt SSE.
+    response.setHeader("X-Accel-Buffering", "no")
+    response.setHeader("X-Accel-Expires", "0")
+    response.setHeader("Cache-Control", "no-cache, no-store")
+
     try:
       await response.prepareSSE()
     except HttpError:

@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # EIP-7805 (FOCIL) inclusion list store and helpers
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/inclusion-list.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md
 
 {.push raises: [], gcsafe.}
 
@@ -18,7 +18,7 @@ import
 export base, bellatrix, gloas, heze
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/inclusion-list.md#inclusionliststore
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#inclusionliststore
   InclusionListStore* = object
     inclusion_lists*: Table[Eth2Digest, Table[Eth2Digest, InclusionList]]
     inclusion_list_timeliness*: Table[Eth2Digest, bool]
@@ -28,7 +28,7 @@ const
   emptyInclusionLists = default(Table[Eth2Digest, InclusionList])
   emptyEquivocators = default(HashSet[uint64])
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/inclusion-list.md#new-process_inclusion_list
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-process_inclusion_list
 func process_inclusion_list*(
     store: var InclusionListStore,
     inclusion_list: InclusionList,
@@ -54,7 +54,7 @@ func process_inclusion_list*(
     inclusion_list_root] = inclusion_list
   store.inclusion_list_timeliness[inclusion_list_root] = is_timely
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/specs/heze/inclusion-list.md#new-get_inclusion_list_transactions
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-get_inclusion_list_transactions
 func get_inclusion_list_transactions*(
     store: InclusionListStore,
     state: heze.BeaconState,

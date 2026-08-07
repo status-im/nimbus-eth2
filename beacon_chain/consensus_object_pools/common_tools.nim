@@ -64,7 +64,7 @@ proc getGasLimit*(configValidatorsDir: string,
   getSuggestedGasLimit(configValidatorsDir, pubkey, configGasLimit).valueOr:
     configGasLimit
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#is_gas_limit_target_compatible
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#is_gas_limit_target_compatible
 func is_gas_limit_target_compatible*(
     parent_gas_limit, gas_limit, target_gas_limit: uint64): bool =
   ## Check if ``gas_limit`` is compatible with ``target_gas_limit`` under

@@ -26,7 +26,7 @@ import
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
   ../[version, conf, beacon_clock, conf_light_client],
-  ../spec/[eth2_ssz_serialization, network, helpers, forks, column_map],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks, peerdas_helpers, column_map],
   ../validators/keystore_management,
   ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
      libp2p_json_serialization, peer_pool, peer_scores]
@@ -127,6 +127,7 @@ type
     connections*: int
     enr*: Opt[enr.Record]
     metadata*: Opt[fulu.MetaData]
+    columnMap: Opt[ColumnMap]
     failedMetadataRequests: int
     lastMetadataTime*: Moment
     direction*: PeerType
@@ -202,6 +203,7 @@ type
     # Clients MAY use reason codes above 128 to indicate alternative,
     # erroneous request-specific responses.
     PeerScoreLow = 237 # 79 * 3
+    CommunicationTimeout = 238
 
   Eth2NetworkingErrorKind* = enum
     # Potentially benign errors (network conditions)
@@ -225,7 +227,7 @@ type
 
     UnknownError
 
-  Eth2NetworkingError = object
+  Eth2NetworkingError* = object
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
       responseCode*: ResponseCode
@@ -359,28 +361,34 @@ func shortProtocolId(protocolId: string): string =
       protocolId.high
   protocolId[start..ends]
 
-func updateAgent*(peer: Peer) =
+proc updateAgent*(peer: Peer) =
   let
     agent = toLowerAscii(peer.network.switch.peerStore[AgentBook][peer.peerId])
-    # proto = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId]
 
-  if "nimbus" in agent:
-    peer.remoteAgent = Eth2Agent.Nimbus
-  elif "lighthouse" in agent:
-    peer.remoteAgent = Eth2Agent.Lighthouse
-  elif "teku" in agent:
-    peer.remoteAgent = Eth2Agent.Teku
-  elif "lodestar" in agent:
-    peer.remoteAgent = Eth2Agent.Lodestar
-  elif "prysm" in agent:
-    peer.remoteAgent = Eth2Agent.Prysm
-  elif "grandine" in agent:
-    peer.remoteAgent = Eth2Agent.Grandine
+  if len(agent) > 0:
+    if "nimbus" in agent:
+      peer.remoteAgent = Eth2Agent.Nimbus
+    elif "lighthouse" in agent:
+      peer.remoteAgent = Eth2Agent.Lighthouse
+    elif "teku" in agent:
+      peer.remoteAgent = Eth2Agent.Teku
+    elif "lodestar" in agent:
+      peer.remoteAgent = Eth2Agent.Lodestar
+    elif "prysm" in agent:
+      peer.remoteAgent = Eth2Agent.Prysm
+    elif "grandine" in agent:
+      peer.remoteAgent = Eth2Agent.Grandine
+    else:
+      debug "New unknown agent string discovered",
+        peer = shortLog(peer),
+        protocol = peer.network.switch.peerStore[ProtoVersionBook][peer.peerId],
+        agent = agent
+      peer.remoteAgent = Eth2Agent.Unknown
   else:
-    peer.remoteAgent = Eth2Agent.Unknown
+    peer.remoteAgent = Eth2Agent.Pending
 
-func getRemoteAgent*(peer: Peer): Eth2Agent =
-  if peer.remoteAgent == Eth2Agent.Unknown:
+proc getRemoteAgent*(peer: Peer): Eth2Agent =
+  if peer.remoteAgent == Eth2Agent.Pending:
     peer.updateAgent()
   peer.remoteAgent
 
@@ -586,6 +594,8 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
           SeenTableTimeFaultOrError
         of PeerScoreLow:
           SeenTablePenaltyError
+        of CommunicationTimeout:
+          SeenTableTimeTimeout
       peer.network.addSeen(peer.peerId, seenTime)
       await peer.network.switch.disconnect(peer.peerId)
   except CancelledError as exc:
@@ -1788,14 +1798,12 @@ proc runDiscoveryLoop(node: Eth2Node) {.async: (raises: [CancelledError]).} =
     # Also, give some time to dial the discovered nodes and update stats etc
     await sleepAsync(5.seconds)
 
-proc fetchNodeIdFromPeerId*(peer: Peer): Opt[NodeId] =
+proc fetchNodeIdFromPeerId*(peer: Peer): NodeId =
   # Convert peer id to node id by extracting the peer's public key
   var key: PublicKey
-  if not peer.peerId.extractPublicKey(key):
-    return Opt.none(NodeId)
-  let pubkey = keys.PublicKey.fromRaw(key.skkey.getBytes()).valueOr:
-    return Opt.none(NodeId)
-  Opt.some(pubkey.toNodeId())
+  # `secp256k1` keys are always stored inside PeerId.
+  discard peer.peerId.extractPublicKey(key)
+  keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -1803,13 +1811,9 @@ proc resolvePeer(peer: Peer) =
   # querying the network - as of now, the ENR is not needed, except for
   # debuggging
   logScope: peer = peer.peerId
-  let startTime = now(chronos.Moment)
-  let nodeId =
-    block:
-      var key: PublicKey
-      # `secp256k1` keys are always stored inside PeerId.
-      discard peer.peerId.extractPublicKey(key)
-      keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
+  let
+    startTime = now(chronos.Moment)
+    nodeId = fetchNodeIdFromPeerId(peer)
 
   debug "Peer's ENR recovery task started", node_id = $nodeId
 
@@ -2677,6 +2681,24 @@ proc lookupCgcFromPeer*(peer: Peer): PeerCgcResult =
 
   # Return default value if no valid custody group count is found.
   ok(CUSTODY_REQUIREMENT)
+
+proc getColumnMapOrDefault*(
+    peer: Peer,
+    defaultCgc: uint64 = CUSTODY_REQUIREMENT
+): ColumnMap =
+  if peer.columnMap.isNone():
+    let
+      nodeId = peer.fetchNodeIdFromPeerId()
+      custodyGroupCount = peer.lookupCgcFromPeer().valueOr:
+        defaultCgc
+    peer.columnMap =
+      Opt.some(
+        peer.network.cfg.resolve_column_map_from_custody_groups(
+          nodeId, custodyGroupCount))
+  peer.columnMap.get()
+
+proc resetColumnMap*(peer: Peer) =
+  peer.columnMap = Opt.none(ColumnMap)
 
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)

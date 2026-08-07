@@ -10,7 +10,7 @@
 
 # Spec references:
 # - Fulu: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md
-# - Gloas: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md
+# - Gloas: https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/partial-columns/p2p-interface.md
 
 import
   stew/endians2,
@@ -68,7 +68,7 @@ func genPartialDataColumnSidecar(
     kzg_proofs: deneb.KzgProofs.init(proofs))
 
 # --- Gloas helpers ---
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
 
 proc genPartialDataColumnGroupID(
     slot: int, beaconBlockRootSeed: int
@@ -78,7 +78,7 @@ proc genPartialDataColumnGroupID(
     slot: Slot(slot),
     beacon_block_root: genDigest(beaconBlockRootSeed))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 func genGloasPartialDataColumnSidecar(
     blobIndices: openArray[int], startCellId: int = 0
 ): ref gloas.PartialDataColumnSidecar =
@@ -1001,7 +1001,7 @@ suite "Partial Column Quarantine (Fulu)":
 # Gloas suite — exercises the spec differences:
 # - Keyed by `PartialDataColumnGroupID` (slot + beacon_block_root), not
 #   by block root, per
-#   https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/partial-columns/p2p-interface.md
+#   https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/partial-columns/p2p-interface.md
 # - The wire sidecar carries no `header` field; metadata flows through
 #   the GroupID instead.
 # - The assembled `gloas.DataColumnSidecar` carries `slot` +
@@ -1116,7 +1116,7 @@ suite "Partial Column Quarantine (Gloas)":
     let dcs = assembled.get()
     # gloas.DataColumnSidecar carries slot + beacon_block_root instead of
     # signed_block_header / kzg_commitments / inclusion proof:
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
     check:
       dcs.index == colIdx
       dcs.column.len == numBlobs

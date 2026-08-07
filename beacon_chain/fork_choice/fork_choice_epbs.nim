@@ -98,7 +98,7 @@ proc should_build_on_full*(
     return true
   self.backend.should_build_on_full(head.root, full, wallSlot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#modified-is_head_weak
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(
     self: var ForkChoice, head_root: Eth2Digest, dag: ChainDAGRef): bool =
   # Calculate weight threshold for weak head
@@ -129,7 +129,7 @@ proc is_head_weak(
 
   head_weight < reorg_threshold
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_apply_proposer_boost
 proc should_apply_proposer_boost*(
     self: var ForkChoice, dag: ChainDAGRef): bool =
   template proposer_root: untyped = self.checkpoints.proposer_boost_root
@@ -225,7 +225,7 @@ proc on_payload_attestation_message*(
         blob_data_available = data.blob_data_available
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-on_execution_payload_envelope
 func on_execution_payload*(
     self: var ForkChoice, cfg: RuntimeConfig, timeParams: TimeParams,
     signedEnvelope: SignedExecutionPayloadEnvelope): FcResult[void] =
