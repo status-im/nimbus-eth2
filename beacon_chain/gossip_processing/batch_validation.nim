@@ -650,6 +650,31 @@ proc schedulePayloadAttestationCheck*(
 
   ok((fut, sig))
 
+proc scheduleInclusionListCheck*(
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      genesis_validators_root: Eth2Digest,
+      msg: InclusionList,
+      pubkey: CookedPubKey,
+      signature: ValidatorSig
+    ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+  ## Schedule crypto verification of an inclusion list
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred inclusion list check otherwise.
+  ##
+  let
+    sig = signature.load().valueOr:
+      return err("inclusion list: cannot load signature")
+    fut = batchCrypto.verifySoon("batch_validation.scheduleInclusionListCheck"):
+      inclusion_list_signature_set(
+        fork, genesis_validators_root, msg, pubkey, sig)
+
+  ok((fut, sig))
+
 func toBatchResult(valid: bool): BatchResult =
   if valid:
     BatchResult.Valid

@@ -145,7 +145,7 @@ suite "Inclusion list" & preset():
       makeInclusionList(slot, 9, committeeRoot, [tx1]), is_timely = true)
 
     # only_timely (default): tx1, tx2, tx3 deduped; tx4 untimely; tx5 equivocated.
-    let timely = store.get_inclusion_list_transactions(state[], slot, cache)
+    let timely = store.get_inclusion_list_transactions(committee)
     check:
       timely.len == 3
       tx1 in timely
@@ -156,7 +156,7 @@ suite "Inclusion list" & preset():
 
     # only_timely = false additionally includes the untimely tx4, still no tx5.
     let all = store.get_inclusion_list_transactions(
-      state[], slot, cache, only_timely = false)
+      committee, only_timely = false)
     check:
       all.len == 4
       tx4 in all
@@ -164,7 +164,7 @@ suite "Inclusion list" & preset():
 
     # A mismatched committee root yields no transactions.
     let other = store.get_inclusion_list_transactions(
-      state[], slot + 1, cache)
+      get_inclusion_list_committee(state[], slot + 1, cache))
     check other.len == 0
 
   test "end-to-end: committee members sign, validate, and are collected":
@@ -195,7 +195,7 @@ suite "Inclusion list" & preset():
     for member in committee:
       distinctMembers.incl member.uint64
 
-    let txs = store.get_inclusion_list_transactions(state[], slot, cache)
+    let txs = store.get_inclusion_list_transactions(committee)
     check:
       committeeRoot notin store.equivocators
       txs.len == distinctMembers.len

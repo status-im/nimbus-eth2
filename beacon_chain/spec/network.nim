@@ -29,6 +29,7 @@ const
   topicExecutionPayloadSuffix = "execution_payload/ssz_snappy"
   topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
   topicProposerPreferencesSuffix = "proposer_preferences/ssz_snappy"
+  topicInclusionListSuffix = "inclusion_list/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
@@ -97,6 +98,10 @@ func getPayloadAttestationMessageTopic*(forkDigest: ForkDigest): string =
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
 func getProposerPreferencesTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicProposerPreferencesSuffix
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#new-inclusion_list
+func getInclusionListTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicInclusionListSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(

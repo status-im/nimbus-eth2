@@ -73,7 +73,7 @@ suite "Inclusion list pool" & preset():
       pool[].numSeen(slot, member) == 1
 
     let txs = pool[].getInclusionListTransactions(
-      hezeState[], slot, cache, only_timely = true)
+      slot, committee, only_timely = true)
     check:
       txs.len == 1
       txs[0] == makeTx([byte 0x01, 0x02])
@@ -108,11 +108,11 @@ suite "Inclusion list pool" & preset():
 
     # only_timely = true drops it ...
     check pool[].getInclusionListTransactions(
-      hezeState[], slot, cache, only_timely = true).len == 0
+      slot, committee, only_timely = true).len == 0
 
     # ... only_timely = false includes it.
     let all = pool[].getInclusionListTransactions(
-      hezeState[], slot, cache, only_timely = false)
+      slot, committee, only_timely = false)
     check:
       all.len == 1
       all[0] == makeTx([byte 0xAA])
@@ -124,7 +124,7 @@ suite "Inclusion list pool" & preset():
     check:
       pool[].addInclusionList(il, is_timely = true, wallTime)
       pool[].getInclusionListTransactions(
-        hezeState[], slot, cache, only_timely = true).len == 1
+        slot, committee, only_timely = true).len == 1
 
     # Adding at a much later wall time prunes the original slot's store.
     let
@@ -135,7 +135,7 @@ suite "Inclusion list pool" & preset():
     check:
       pool[].addInclusionList(future, is_timely = true, futureTime)
       pool[].getInclusionListTransactions(
-        hezeState[], slot, cache, only_timely = true).len == 0
+        slot, committee, only_timely = true).len == 0
       pool[].numSeen(slot, committee[0]) == 0
 
   test "A list one slot behind the wall slot is still accepted" & preset():
@@ -149,7 +149,7 @@ suite "Inclusion list pool" & preset():
     check:
       pool[].addInclusionList(il, is_timely = true, wallNext)
       pool[].getInclusionListTransactions(
-        hezeState[], slot, cache, only_timely = true).len == 1
+        slot, committee, only_timely = true).len == 1
 
   test "A list past the lookback window is rejected" & preset():
     # Wall clock at `slot + 2` puts `slot` two behind, outside the window.
@@ -162,7 +162,7 @@ suite "Inclusion list pool" & preset():
       not pool[].addInclusionList(il, is_timely = true, wallLate)
       pool[].numSeen(slot, committee[0]) == 0
       pool[].getInclusionListTransactions(
-        hezeState[], slot, cache, only_timely = true).len == 0
+        slot, committee, only_timely = true).len == 0
 
   test "A list for a future slot is rejected" & preset():
     let il = makeInclusionList(

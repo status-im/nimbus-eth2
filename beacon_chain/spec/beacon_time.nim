@@ -187,6 +187,10 @@ func payloadSlotOffset*(timeParams: TimeParams): TimeDiff =
 func payloadAttestationSlotOffset*(timeParams: TimeParams): TimeDiff =
   timeParams.slotOffset(timeParams.PAYLOAD_ATTESTATION_DUE_BPS)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-get_inclusion_list_due_ms
+func inclusionListSlotOffset*(timeParams: TimeParams): TimeDiff =
+  timeParams.slotOffset(timeParams.INCLUSION_LIST_DUE_BPS)
+
 func toFloatSeconds*(t: TimeDiff): float =
   float(t.nanoseconds) / 1_000_000_000.0
 

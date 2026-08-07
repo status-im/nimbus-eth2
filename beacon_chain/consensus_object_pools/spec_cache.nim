@@ -252,3 +252,20 @@ iterator get_ptc*(
   for candidate_index in compute_balance_weighted_selection(
       state, indices, seed, size=PTC_SIZE, shuffle_indices=false):
     yield candidate_index
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/beacon-chain.md#new-get_inclusion_list_committee
+func get_inclusion_list_committee*(
+    shufflingRef: ShufflingRef, slot: Slot):
+    array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64] =
+  ## Version of `get_inclusion_list_committee` based on the cached shuffling
+  ## rather than a full state - the committee is derived purely from the epoch
+  ## shuffling, so both produce the same result.
+  doAssert slot.epoch == shufflingRef.epoch
+
+  var indices: seq[ValidatorIndex]
+  for committee_index in get_committee_indices(shufflingRef):
+    indices.add get_beacon_committee(shufflingRef, slot, committee_index)
+  doAssert indices.len > 0, "get_inclusion_list_committee: no active validators"
+
+  for i in 0 ..< int INCLUSION_LIST_COMMITTEE_SIZE:
+    result[i] = indices[i mod indices.len].uint64
