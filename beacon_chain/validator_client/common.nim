@@ -149,7 +149,6 @@ type
     logIdent*: string
     index*: int
     timeOffset*: Opt[TimeOffset]
-    statusGaugeLock*: Lock
 
   EpochSelectionProof* = object
     signatures*: array[SLOTS_PER_EPOCH.int, Opt[ValidatorSig]]
@@ -716,9 +715,7 @@ proc updateStatus*(node: BeaconNodeServerRef,
     chroniclesThreadIds = true
 
   # Reset other to indicate only current state, lock to avoid race conditions.
-  withLock(node.statusGaugeLock):
-    validator_client_node_status_counts.set(0, [$node.uri, $node.status], doUpdateSystemMetrics = false)
-    validator_client_node_status_counts.set(1, [$node.uri, $status])
+  validator_client_node_status_counts.set(0, [$node.uri, $node.status], doUpdateSystemMetrics = false)
 
   case status
   of RestBeaconNodeStatus.Invalid:
@@ -800,6 +797,8 @@ proc updateStatus*(node: BeaconNodeServerRef,
     if node.status != status:
       warn "Beacon node's clock is out of order, (beacon node is unusable)"
       node.status = status
+
+  validator_client_node_status_counts.set(1, [$node.uri, $status])
 
   notice "updateStatus():END",
     status = $status,
@@ -946,7 +945,6 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
             roles: roles, logIdent: $remoteUri, uri: remoteUri,
             status: RestBeaconNodeStatus.Noname)
 
-  server.statusGaugeLock.initLock()
   ok(server)
 
 proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
