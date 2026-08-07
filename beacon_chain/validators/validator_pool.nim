@@ -849,3 +849,17 @@ proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
     return SignatureResult.err("ProposerPreferences: remote signing not yet supported")
+
+proc getBuilderRequestAuthSignature*(
+    v: AttachedValidator, fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    request_auth: RequestAuthV1):
+    Future[SignatureResult] {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    SignatureResult.ok(
+      get_builder_request_auth_signature(
+        fork, genesis_validators_root, request_auth,
+        v.data.privateKey).toValidatorSig())
+  of ValidatorKind.Remote:
+    return SignatureResult.err("RequestAuth: remote signing not yet supported")

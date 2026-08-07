@@ -308,16 +308,34 @@ suite "Message signatures":
       not verify_builder_signature(version0, reg1, pubkey0, sig)
       not verify_builder_signature(version0, reg0, pubkey1, sig)
 
-    test "proposer preferences message signatures":
-      let
-        data0 = default(ProposerPreferences)
-        data1 = (var d = data0; d.proposal_slot = d.proposal_slot + 1; d)
-        sig = get_proposer_preferences_signature(fork0, gvr0, data0, privkey0).toValidatorSig
+  test "proposer preferences message signatures":
+    let
+      data0 = default(ProposerPreferences)
+      data1 = (var d = data0; d.proposal_slot = d.proposal_slot + 1; d)
+      sig = get_proposer_preferences_signature(fork0, gvr0, data0, privkey0).toValidatorSig
 
-      check:
-        verify_proposer_preferences_signature(fork0, gvr0, data0, pubkey0, sig)
+    check:
+      verify_proposer_preferences_signature(fork0, gvr0, data0, pubkey0, sig)
 
-        not verify_proposer_preferences_signature(fork1, gvr0, data0, pubkey0, sig)
-        not verify_proposer_preferences_signature(fork0, gvr1, data0, pubkey0, sig)
-        not verify_proposer_preferences_signature(fork0, gvr0, data1, pubkey0, sig)
-        not verify_proposer_preferences_signature(fork0, gvr0, data0, pubkey1, sig)
+      not verify_proposer_preferences_signature(fork1, gvr0, data0, pubkey0, sig)
+      not verify_proposer_preferences_signature(fork0, gvr1, data0, pubkey0, sig)
+      not verify_proposer_preferences_signature(fork0, gvr0, data1, pubkey0, sig)
+      not verify_proposer_preferences_signature(fork0, gvr0, data0, pubkey1, sig)
+
+  test "Builder request auth v1":
+    let
+      auth0 = default(RequestAuthV1)
+      auth1 = block:
+        var v = auth0
+        v.data = List[byte, Limit MAX_DATA_SIZE].init(@[byte 0xaa])
+        v
+      sig = get_builder_request_auth_signature(
+        fork0, gvr0, auth0, privkey0).toValidatorSig
+
+    check:
+      verify_builder_request_auth_signature(fork0, gvr0, auth0, pubkey0, sig)
+
+      not verify_builder_request_auth_signature(fork1, gvr0, auth0, pubkey0, sig)
+      not verify_builder_request_auth_signature(fork0, gvr1, auth0, pubkey0, sig)
+      not verify_builder_request_auth_signature(fork0, gvr0, auth1, pubkey0, sig)
+      not verify_builder_request_auth_signature(fork0, gvr0, auth0, pubkey1, sig)

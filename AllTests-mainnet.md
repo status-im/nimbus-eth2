@@ -646,6 +646,7 @@ AllTests-mainnet
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
 + BLS to execution change signatures                                                         OK
++ Builder request auth v1                                                                    OK
 + Builder signatures (ValidatorRegistrationV1)                                               OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK

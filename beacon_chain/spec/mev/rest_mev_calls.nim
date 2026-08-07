@@ -115,22 +115,22 @@ proc submitSignedBeaconBlock*(
   )
 
 proc submitBuilderPreferencesPlain*(
-    validator_pubkey: ValidatorSig,
+    proposer_pubkey: ValidatorPubKey,
     body: BuilderPreferencesRequestV1
 ): RestPlainResponse {.
-  rest, endpoint: "/eth/v1/builder/builder_preferences/{validator_pubkey}",
+  rest, endpoint: "/eth/v1/builder/builder_preferences/{proposer_pubkey}",
   meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/builder_preferences.yaml
 
 proc submitBuilderPreferences*(
     client: RestClientRef,
-    validator_pubkey: ValidatorSig,
+    proposer_pubkey: ValidatorPubKey,
     body: BuilderPreferencesRequestV1
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                    RestCommunicationError], raw: true).} =
   client.submitBuilderPreferencesPlain(
-    validator_pubkey, body,
+    proposer_pubkey, body,
     restAcceptType = "application/octet-stream,application/json;q=0.5",
     extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
   )

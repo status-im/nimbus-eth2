@@ -8,32 +8,34 @@
 {.push raises: [], gcsafe.}
 
 import
-  ssz_serialization/types,
-  ".."/crypto,
-  ".."/datatypes/[base, constants]
+  # ssz_serialization/types,
+  ../crypto,
+  ../datatypes/[base, constants]
+
+import ../ssz_codec
 
 const
   # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/builder.md#constants
-  DOMAIN_REQUEST_AUTH* = DomainType([byte 0x0B, 0x00, 0x00, 0x01])
-  MAX_EXECUTION_PAYMENT*: uint64 = (1 shl 64) - 1
+  DOMAIN_REQUEST_AUTH* = DomainType([byte 0x0b, 0x00, 0x00, 0x01])
+  MAX_EXECUTION_PAYMENT* = Gwei((1 shl 64) - 1)
   MAX_DATA_SIZE*: int64 = 4096
 
 type
-  # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/validator.md#requestauthv1
+  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#requestauthv1
   RequestAuthV1* = object
-    data*: List[byte, Limit MAX_DATA_SIZE]
+    data*: List[byte, MAX_DATA_SIZE]
     slot*: Slot
 
-  # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/validator.md#signedrequestauthv1
+  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#signedrequestauthv1
   SignedRequestAuthV1* = object
     message*: RequestAuthV1
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/validator.md#builderpreferencesv1
+  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#builderpreferencesv1
   BuilderPreferencesV1* = object
     max_execution_payment*: Gwei
 
-  # https://github.com/ethereum/builder-specs/blob/main/specs/gloas/validator.md#builderpreferencesrequestv1
+  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#builderpreferencesrequestv1
   BuilderPreferencesRequestV1* = object
     preferences*: BuilderPreferencesV1
     auth*: SignedRequestAuthV1

@@ -43,6 +43,7 @@ import
 
 from eth/async_utils import awaitWithTimeout
 from ../spec/beaconstate import get_expected_withdrawals
+from stew/byteutils import toBytes
 
 export results
 
@@ -451,6 +452,23 @@ proc getSignedBuilderBid(
         $response.data
     )
   ok res.data
+
+proc makeSignRequestAuth*(
+    validator: AttachedValidator,
+    builder_url: string, slot: Slot,
+    fork: Fork, genesis_validators_root: Eth2Digest):
+    Future[Result[SignedRequestAuthV1, string]]
+    {.async: (raises: [CancelledError]).} =
+  let
+    msg = RequestAuthV1(
+      data: List[byte, MAX_DATA_SIZE].init(toBytes(builder_url)),
+      slot: slot)
+    sig = (await validator.getBuilderRequestAuthSignature(
+        fork, genesis_validators_root, msg)).valueOr:
+      return err(error)
+  ok(SignedRequestAuthV1(
+    message: msg,
+    signature: sig))
 
 # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/execution_payload_bid.yaml
 proc getExecutionPayloadBidFromBuilder*(
