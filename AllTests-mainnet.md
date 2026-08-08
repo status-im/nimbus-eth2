@@ -1323,6 +1323,13 @@ AllTests-mainnet
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
+## SyncRange test suite
+```diff
++ contains() test                                                                            OK
++ init() test                                                                                OK
++ iterator test                                                                              OK
++ split() test                                                                               OK
+```
 ## Type helpers
 ```diff
 + BeaconBlock                                                                                OK

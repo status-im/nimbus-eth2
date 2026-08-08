@@ -9,7 +9,7 @@
 
 import std/[sequtils, strutils],
        results,
-       ../spec/[helpers, forks, peerdas_helpers, column_map],
+       ../spec/[helpers, forks, column_map],
        ../spec/datatypes/[fulu, gloas]
 
 type
