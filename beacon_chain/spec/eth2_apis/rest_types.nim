@@ -541,6 +541,25 @@ type
     validator_index*: RestValidatorIndex
     reward*: RestReward
 
+  # `inclusion_delay` is phase0-only and therefore never part of the response
+  RestIdealAttestationReward* = object
+    effective_balance*: uint64
+    head*: RestReward
+    target*: RestReward
+    source*: RestReward
+    inactivity*: RestReward
+
+  RestTotalAttestationReward* = object
+    validator_index*: RestValidatorIndex
+    head*: RestReward
+    target*: RestReward
+    source*: RestReward
+    inactivity*: RestReward
+
+  RestAttestationsRewards* = object
+    ideal_rewards*: seq[RestIdealAttestationReward]
+    total_rewards*: seq[RestTotalAttestationReward]
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
