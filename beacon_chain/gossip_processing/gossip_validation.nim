@@ -1940,7 +1940,7 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
@@ -1968,14 +1968,6 @@ proc validateExecutionPayloadBid*(
         return dag.checkedReject(
           "ExecutionPayloadBid: execution_payment is not zero")
 
-      # [IGNORE] This is the first signed bid seen with a valid signature from
-      # the given builder for this slot
-      let existingBid = executionPayloadBidPool[].getBidForSlotAndBuilder(
-        bid.slot, bid.builder_index)
-      if existingBid.isSome():
-        return errIgnore(
-          "ExecutionPayloadBid: already seen bid from this builder for this slot")
-
       # [IGNORE] bid.parent_block_hash is the block hash of a known execution
       # payload in fork choice
       let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
@@ -1996,6 +1988,17 @@ proc validateExecutionPayloadBid*(
             return errIgnore("ExecutionPayloadBid: parent block hash unknown")
         highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
           bid.slot, bid.parent_block_root, payloadAvailability)
+
+      # [IGNORE] this is the first signed bid seen with a valid signature from
+      # the given builder for the tuple
+      # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`
+      if executionPayloadBidPool[].hasSeenBidFromBuilder(
+          bid.slot, bid.builder_index, bid.parent_block_root,
+          payloadAvailability):
+        return errIgnore(
+          "ExecutionPayloadBid: already seen bid from this builder for this " &
+          "slot and parent")
+
       if highestBid.isSome() and highestBid.get().message.value > bid.value:
         return errIgnore(
           "ExecutionPayloadBid: not the highest value bid for this slot and parent")
