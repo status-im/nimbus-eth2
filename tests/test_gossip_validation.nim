@@ -27,7 +27,8 @@ import
 
 from std/sequtils import count, toSeq
 from ./testbcutil import addHeadBlock
-from ../beacon_chain/spec/beaconstate import dependent_root, latest_block_root
+from ../beacon_chain/spec/beaconstate import
+  get_proposer_dependent_root, latest_block_root
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -500,34 +501,17 @@ suite "Proposer preferences validation " & preset():
         validatorMonitor, {})
     var seen: SeenProposerPreferences
 
-    # Pick an upcoming slot and its scheduled proposer from the head state's
-    # proposer_lookahead.
-    var
-      proposer_slot: Slot
-      proposer_index: uint64
-      dependent_root: Eth2Digest
-      proposerFound = false
-      wrongValidator: uint64
-    withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        let startSlot = forkyState.data.get_current_epoch().start_slot()
-        for offset in 1'u64 ..< forkyState.data.proposer_lookahead.lenu64:
-          let slot = startSlot + offset
-          if slot > forkyState.data.slot:
-            proposer_slot = slot
-            proposer_index = forkyState.data.proposer_lookahead.item(offset)
-            dependent_root = forkyState.dependent_root(slot.epoch)
-            proposerFound = true
-            break
-        # wrongValidator just needs to differ from the scheduled proposer at
-        # proposer_slot; that is the only slot the proposer check looks at.
-        wrongValidator = proposer_index + 1
-        if forkyState.data.proposer_lookahead.item(
-            proposer_slot - startSlot) == wrongValidator:
-          wrongValidator += 1
-    check proposerFound
-
     let
+      proposer_slot =
+        (GENESIS_EPOCH + MIN_SEED_LOOKAHEAD + 1).start_slot() + 1
+      proposer_index =
+        uint64 dag.getProposer(dag.head, proposer_slot).expect("proposer")
+      dependent_root = dag.head.root
+      # wrongValidator just needs to differ from the scheduled proposer at
+      # proposer_slot; that is the only slot the proposer check looks at.
+      wrongValidator =
+        if proposer_index == 0: 1'u64 else: proposer_index - 1
+
       prefs = ProposerPreferences(
         dependent_root: dependent_root,
         proposal_slot: proposer_slot,
@@ -536,7 +520,8 @@ suite "Proposer preferences validation " & preset():
         target_gas_limit: 30_000_000)
       signed = signProposerPreferences(
         dag, prefs, MockPrivKeys[proposer_index.ValidatorIndex])
-      wallTime = dag.head.slot.start_beacon_time(dag.cfg.timeParams)
+      wallTime = proposer_slot.epoch.start_slot().start_beacon_time(
+        dag.cfg.timeParams)
 
   test "validateProposerPreferences - happy case":
     check:
