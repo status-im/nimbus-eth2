@@ -14,7 +14,8 @@ import
 
 from ../spec/beaconstate import get_ptc
 from ../spec/datatypes/gloas import
-  PAYLOAD_TIMELY_THRESHOLD, DATA_AVAILABILITY_TIMELY_THRESHOLD
+  ExecutionPayloadBid, PAYLOAD_TIMELY_THRESHOLD,
+  DATA_AVAILABILITY_TIMELY_THRESHOLD
 
 func mgetPtcTally*(
     self: var ForkChoiceBackend, root: Eth2Digest,
@@ -97,6 +98,27 @@ proc should_build_on_full*(
   if head.slot == GENESIS_SLOT or head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return true
   self.backend.should_build_on_full(head.root, full, wallSlot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#is_bid_compatible_with_head
+proc is_bid_compatible_with_head*(
+    self: var ForkChoice, dag: ChainDAGRef,
+    bid: gloas.ExecutionPayloadBid): bool =
+  ## Check if ``bid`` is compatible with the head branch.
+  let
+    head = dag.head
+    (headBlockHash, headParentHash) = dag.loadExecutionAndParentBlockHash(head)
+    builds_on_parent_payload = headParentHash.isSome and
+      bid.parent_block_hash == headParentHash.unsafeGet
+
+  if not head.parent.isNil and bid.parent_block_root == head.parent.root:
+    return builds_on_parent_payload
+  if bid.parent_block_root != head.root:
+    return false
+  if self.should_build_on_full(
+      dag, head, dag.isPayloadStatusFull(head), bid.slot):
+    return headBlockHash.isSome and
+      bid.parent_block_hash == headBlockHash.unsafeGet
+  builds_on_parent_payload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#modified-is_head_weak
 proc is_head_weak(

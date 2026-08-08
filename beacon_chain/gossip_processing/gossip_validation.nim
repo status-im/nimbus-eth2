@@ -1943,6 +1943,7 @@ proc validateLightClientOptimisticUpdate*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
+    forkChoice: var ForkChoice,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     seenProposerPreferences: var SeenProposerPreferences,
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
@@ -1968,8 +1969,6 @@ proc validateExecutionPayloadBid*(
         return dag.checkedReject(
           "ExecutionPayloadBid: execution_payment is not zero")
 
-      # [IGNORE] bid.parent_block_hash is the block hash of a known execution
-      # payload in fork choice
       let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
         return errIgnore(
           "ExecutionPayloadBid: parent block root not found in fork choice")
@@ -2002,6 +2001,11 @@ proc validateExecutionPayloadBid*(
       if highestBid.isSome() and highestBid.get().message.value > bid.value:
         return errIgnore(
           "ExecutionPayloadBid: not the highest value bid for this slot and parent")
+
+      # [IGNORE] The bid is compatible with the current head branch, i.e.
+      # `is_bid_compatible_with_head(store, bid)` returns `True`.
+      if not forkChoice.is_bid_compatible_with_head(dag, bid):
+        return errIgnore("ExecutionPayloadBid: incompatible with head branch")
 
       # [IGNORE] bid.value is less or equal than the builder's excess balance
       if not can_builder_cover_bid(
