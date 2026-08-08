@@ -51,7 +51,8 @@ proc getExecutionPayloadBidPlain*(
     slot: Slot,
     parent_hash: Eth2Digest,
     parent_root: Eth2Digest,
-    proposer_pubkey: ValidatorPubKey
+    proposer_pubkey: ValidatorPubKey,
+    body: SignedRequestAuthV1
 ): RestPlainResponse {.
   rest, endpoint:
     "/eth/v1/builder/execution_payload_bid/{slot}/{parent_hash}/{parent_root}/{proposer_pubkey}",
@@ -63,15 +64,13 @@ proc getExecutionPayloadBid*(
     slot: Slot,
     parent_hash: Eth2Digest,
     parent_root: Eth2Digest,
-    proposer_pubkey: ValidatorPubKey
+    proposer_pubkey: ValidatorPubKey,
+    body: SignedRequestAuthV1
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                    RestCommunicationError], raw: true).} =
-  debugGloasComment""
-  # The `SignedRequestAuthV1` request body is optional to send; a builder MAY
-  # still refuse unauthenticated requests (401). None sent for now.
   client.getExecutionPayloadBidPlain(
-    slot, parent_hash, parent_root, proposer_pubkey,
+    slot, parent_hash, parent_root, proposer_pubkey, body,
     restAcceptType = "application/octet-stream",
   )
 

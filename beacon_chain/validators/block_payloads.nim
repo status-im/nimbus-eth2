@@ -454,17 +454,17 @@ proc getSignedBuilderBid(
   ok res.data
 
 proc makeSignRequestAuth*(
-    validator: AttachedValidator,
+    proposer: AttachedValidator,
     builder_url: string, slot: Slot,
-    fork: Fork, genesis_validators_root: Eth2Digest):
+    genesis_fork_version: presets.Version):
     Future[Result[SignedRequestAuthV1, string]]
     {.async: (raises: [CancelledError]).} =
   let
     msg = RequestAuthV1(
       data: List[byte, MAX_DATA_SIZE].init(toBytes(builder_url)),
       slot: slot)
-    sig = (await validator.getBuilderRequestAuthSignature(
-        fork, genesis_validators_root, msg)).valueOr:
+    sig = (await proposer.getBuilderRequestAuthSignature(
+        genesis_fork_version, msg)).valueOr:
       return err(error)
   ok(SignedRequestAuthV1(
     message: msg,
@@ -477,6 +477,7 @@ proc getExecutionPayloadBidFromBuilder*(
     parent_hash: Eth2Digest,
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
+    request_auth: SignedRequestAuthV1,
 ): Future[Result[gloas.SignedExecutionPayloadBid, string]] {.
     async: (raises: [CancelledError]).} =
   info "Requesting execution payload bid",
@@ -485,7 +486,7 @@ proc getExecutionPayloadBidFromBuilder*(
   let response =
     try:
       await payloadBuilderClient.getExecutionPayloadBid(
-        slot, parent_hash, parent_root, proposer_pubkey)
+        slot, parent_hash, parent_root, proposer_pubkey, request_auth)
     except RestDecodingError as exc:
       return err("getExecutionPayloadBid REST decoding error: " & exc.msg)
     except RestError as exc:
@@ -511,14 +512,22 @@ proc getBuilderExecutionPayloadBid*(
     slot: Slot,
     parent_block_hash: Eth2Digest,
     parent_block_root: Eth2Digest,
-    proposer_pubkey: ValidatorPubKey,
+    proposer: AttachedValidator,
 ): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
     async: (raises: [CancelledError]).} =
+  let
+    requestAuth = block:
+      let builderUrl = node.getPayloadBuilderAddress(proposer.pubkey).valueOr:
+        return Opt.none(gloas.SignedExecutionPayloadBid)
+      (await makeSignRequestAuth(
+          proposer, builderUrl, slot,
+          node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
+        return Opt.none(gloas.SignedExecutionPayloadBid)
   let
     bidRes = awaitWithTimeout(
       getExecutionPayloadBidFromBuilder(
         payloadBuilderClient, slot, parent_block_hash, parent_block_root,
-        proposer_pubkey),
+        proposer.pubkey, requestAuth),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
         return Opt.none(gloas.SignedExecutionPayloadBid)
 

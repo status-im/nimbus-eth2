@@ -324,18 +324,19 @@ suite "Message signatures":
 
   test "Builder request auth v1":
     let
+      version0 = fork0.current_version
+      version1 = fork1.current_version
       auth0 = default(RequestAuthV1)
       auth1 = block:
         var v = auth0
-        v.data = List[byte, Limit MAX_DATA_SIZE].init(@[byte 0xaa])
+        v.data = List[byte, MAX_DATA_SIZE].init(@[byte 0xaa])
         v
       sig = get_builder_request_auth_signature(
-        fork0, gvr0, auth0, privkey0).toValidatorSig
+        version0, auth0, privkey0).toValidatorSig
 
     check:
-      verify_builder_request_auth_signature(fork0, gvr0, auth0, pubkey0, sig)
+      verify_builder_request_auth_signature(version0, auth0, pubkey0, sig)
 
-      not verify_builder_request_auth_signature(fork1, gvr0, auth0, pubkey0, sig)
-      not verify_builder_request_auth_signature(fork0, gvr1, auth0, pubkey0, sig)
-      not verify_builder_request_auth_signature(fork0, gvr0, auth1, pubkey0, sig)
-      not verify_builder_request_auth_signature(fork0, gvr0, auth0, pubkey1, sig)
+      not verify_builder_request_auth_signature(version1, auth0, pubkey0, sig)
+      not verify_builder_request_auth_signature(version0, auth1, pubkey0, sig)
+      not verify_builder_request_auth_signature(version0, auth0, pubkey1, sig)

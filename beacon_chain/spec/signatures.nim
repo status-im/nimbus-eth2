@@ -585,25 +585,22 @@ proc verify_inclusion_list_signature*(
 
 # url
 func compute_builder_request_auth*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: RequestAuthV1): Eth2Digest =
+    genesis_fork_version: Version, msg: RequestAuthV1): Eth2Digest =
   let
     epoch = msg.slot.epoch
-    domain = get_domain(
-      fork, DOMAIN_REQUEST_AUTH, epoch, genesis_validators_root)
+    domain = compute_domain(DOMAIN_REQUEST_AUTH, genesis_fork_version)
   compute_signing_root(msg, domain)
 
 func get_builder_request_auth_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+    genesis_fork_version: Version,
     msg: RequestAuthV1, privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_builder_request_auth(
-    fork, genesis_validators_root, msg)
+    genesis_fork_version, msg)
   blsSign(privkey, signing_root.data)
 
 proc verify_builder_request_auth_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    msg: RequestAuthV1,
+    genesis_fork_version: Version, msg: RequestAuthV1,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_builder_request_auth(
-    fork, genesis_validators_root, msg)
+    genesis_fork_version, msg)
   blsVerify(pubkey, signing_root.data, signature)

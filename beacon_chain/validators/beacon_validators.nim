@@ -480,7 +480,7 @@ proc proposeBlockAux(
         else:
           state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
         state[].forky(fork).data.get_block_root_at_slot(slot - 1),
-        validator.pubkey)
+        validator)
 
   let
     engineBid =
@@ -1148,8 +1148,7 @@ proc signAndSendProposerPreference(
   discard await node.router.routeProposerPreferences(signed)
 
 proc sendProposerPreferences(
-    node: BeaconNode, head: BlockRef,
-    slot: Slot) {.async: (raises: [CancelledError]).} =
+    node: BeaconNode, slot: Slot) {.async: (raises: [CancelledError]).} =
 
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
@@ -1678,7 +1677,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendPayloadAttestations(node, head, slot)
 
-  await node.sendProposerPreferences(head, slot)
+  await node.sendProposerPreferences(slot)
 
 proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
   if epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
