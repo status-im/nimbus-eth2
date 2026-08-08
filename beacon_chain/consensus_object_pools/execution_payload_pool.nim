@@ -27,7 +27,7 @@ type
 
   SlotBids* = object
     highestBids*: Table[BidKey, gloas.SignedExecutionPayloadBid]
-    seenBuilders*: HashSet[tuple[builderIndex: uint64, key: BidKey]]
+    seenBuilders*: HashSet[(uint64, BidKey)]
 
   ExecutionPayloadBidPool* = object
     ## Pool for tracking execution payload bids received from builders.
