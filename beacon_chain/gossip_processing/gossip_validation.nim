@@ -2175,7 +2175,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var SeenProposerPreferences,
@@ -2202,8 +2202,26 @@ proc validateProposerPreferences*(
 
   # [IGNORE] The block with root preferences.dependent_root
   # has been seen (via gossip or non-gossip sources)
-  if dag.getBlockId(preferences.dependent_root).isNone:
+  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
     return errIgnore("ProposerPreferences: dependent_root not seen")
+
+  if proposalEpoch < MIN_SEED_LOOKAHEAD:
+    return errIgnore("ProposerPreferences: proposal_slot before lookahead")
+  let lookaheadEpoch = proposalEpoch - MIN_SEED_LOOKAHEAD
+
+  # [REJECT] The slot of the block with root `preferences.dependent_root` is
+  # strictly less than `compute_start_slot_at_epoch(
+  # compute_epoch_at_slot(preferences.proposal_slot) - MIN_SEED_LOOKAHEAD)`
+  if not (dependentRef.slot < lookaheadEpoch.start_slot()):
+    return dag.checkedReject(
+      "ProposerPreferences: dependent_root not before lookahead epoch start")
+
+  # [IGNORE] `is_valid_dependent_root(store, preferences.dependent_root, epoch)`
+  # returns True, where `epoch` is
+  # `compute_epoch_at_slot(preferences.proposal_slot) - MIN_SEED_LOOKAHEAD`
+  if not dag.is_valid_dependent_root(
+      preferences.dependent_root, lookaheadEpoch):
+    return errIgnore("ProposerPreferences: invalid dependent_root")
 
   # [REJECT] is_valid_proposal_slot(state, preferences) returns True,
   # where state is the checkpoint state at the epoch
@@ -2212,8 +2230,6 @@ proc validateProposerPreferences*(
   #
   # Rather than replay that checkpoint state, compute the proposer from the
   # shuffling anchored at the referenced dependent_root block.
-  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
-    return errIgnore("ProposerPreferences: dependent_root not in dag")
   let proposer = dag.getProposer(
       dependentRef, preferences.proposal_slot).valueOr:
     return errIgnore("ProposerPreferences: unable to compute proposer")
