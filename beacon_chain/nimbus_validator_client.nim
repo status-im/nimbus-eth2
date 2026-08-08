@@ -142,7 +142,8 @@ proc initTimeConfig(
           let timeParams = resp.data.data.getTimeParams()
           if timeParams.isSome:
             debug "Received time configuration parameters", endpoint = nodes[i],
-                  slot_duration_ms = timeParams.get.SLOT_DURATION.milliseconds
+                  slot_duration_ms = timeParams.get.SLOT_DURATION.milliseconds,
+                  payload_due_bps = timeParams.get.PAYLOAD_DUE_BPS
             if res.isNone:
               res = timeParams
             elif timeParams.get == res.get:
@@ -153,7 +154,9 @@ proc initTimeConfig(
                     slot_duration_ms =
                       timeParams.get.SLOT_DURATION.milliseconds,
                     expected_slot_duration_ms =
-                      res.get.SLOT_DURATION.milliseconds
+                      res.get.SLOT_DURATION.milliseconds,
+                    differences = describeTimeParamsDifferences(
+                      timeParams.get, res.get)
               didEncounterDisagreement = true
           else:
             debug "Received invalid time configuration parameters",
