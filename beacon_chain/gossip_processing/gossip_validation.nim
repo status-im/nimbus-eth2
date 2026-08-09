@@ -1940,9 +1940,10 @@ proc validateLightClientOptimisticUpdate*(
   pool.latestForwardedOptimisticSlot = attested_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#execution_payload_bid
 proc validateExecutionPayloadBid*(
     dag: ChainDAGRef,
+    forkChoice: var ForkChoice,
     executionPayloadBidPool: ref ExecutionPayloadBidPool,
     seenProposerPreferences: var SeenProposerPreferences,
     signed_execution_payload_bid: gloas.SignedExecutionPayloadBid,
@@ -1968,16 +1969,6 @@ proc validateExecutionPayloadBid*(
         return dag.checkedReject(
           "ExecutionPayloadBid: execution_payment is not zero")
 
-      # [IGNORE] This is the first signed bid seen with a valid signature from
-      # the given builder for this slot
-      let existingBid = executionPayloadBidPool[].getBidForSlotAndBuilder(
-        bid.slot, bid.builder_index)
-      if existingBid.isSome():
-        return errIgnore(
-          "ExecutionPayloadBid: already seen bid from this builder for this slot")
-
-      # [IGNORE] bid.parent_block_hash is the block hash of a known execution
-      # payload in fork choice
       let parentBlck = dag.getBlockRef(bid.parent_block_root).valueOr:
         return errIgnore(
           "ExecutionPayloadBid: parent block root not found in fork choice")
@@ -1996,9 +1987,25 @@ proc validateExecutionPayloadBid*(
             return errIgnore("ExecutionPayloadBid: parent block hash unknown")
         highestBid = executionPayloadBidPool[].getHighestBidForSlotAndParent(
           bid.slot, bid.parent_block_root, payloadAvailability)
+
+      # [IGNORE] this is the first signed bid seen with a valid signature from
+      # the given builder for the tuple
+      # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`
+      if executionPayloadBidPool[].hasSeenBidFromBuilder(
+          bid.slot, bid.builder_index, bid.parent_block_root,
+          payloadAvailability):
+        return errIgnore(
+          "ExecutionPayloadBid: already seen bid from this builder for this " &
+          "slot and parent")
+
       if highestBid.isSome() and highestBid.get().message.value > bid.value:
         return errIgnore(
           "ExecutionPayloadBid: not the highest value bid for this slot and parent")
+
+      # [IGNORE] The bid is compatible with the current head branch, i.e.
+      # `is_bid_compatible_with_head(store, bid)` returns `True`.
+      if not forkChoice.is_bid_compatible_with_head(dag, bid):
+        return errIgnore("ExecutionPayloadBid: incompatible with head branch")
 
       # [IGNORE] bid.value is less or equal than the builder's excess balance
       if not can_builder_cover_bid(
@@ -2172,7 +2179,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var SeenProposerPreferences,
@@ -2199,8 +2206,26 @@ proc validateProposerPreferences*(
 
   # [IGNORE] The block with root preferences.dependent_root
   # has been seen (via gossip or non-gossip sources)
-  if dag.getBlockId(preferences.dependent_root).isNone:
+  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
     return errIgnore("ProposerPreferences: dependent_root not seen")
+
+  if proposalEpoch < MIN_SEED_LOOKAHEAD:
+    return errIgnore("ProposerPreferences: proposal_slot before lookahead")
+  let lookaheadEpoch = proposalEpoch - MIN_SEED_LOOKAHEAD
+
+  # [REJECT] The slot of the block with root `preferences.dependent_root` is
+  # strictly less than `compute_start_slot_at_epoch(
+  # compute_epoch_at_slot(preferences.proposal_slot) - MIN_SEED_LOOKAHEAD)`
+  if not (dependentRef.slot < lookaheadEpoch.start_slot()):
+    return dag.checkedReject(
+      "ProposerPreferences: dependent_root not before lookahead epoch start")
+
+  # [IGNORE] `is_valid_dependent_root(store, preferences.dependent_root, epoch)`
+  # returns True, where `epoch` is
+  # `compute_epoch_at_slot(preferences.proposal_slot) - MIN_SEED_LOOKAHEAD`
+  if not dag.is_valid_dependent_root(
+      preferences.dependent_root, lookaheadEpoch):
+    return errIgnore("ProposerPreferences: invalid dependent_root")
 
   # [REJECT] is_valid_proposal_slot(state, preferences) returns True,
   # where state is the checkpoint state at the epoch
@@ -2209,8 +2234,6 @@ proc validateProposerPreferences*(
   #
   # Rather than replay that checkpoint state, compute the proposer from the
   # shuffling anchored at the referenced dependent_root block.
-  let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
-    return errIgnore("ProposerPreferences: dependent_root not in dag")
   let proposer = dag.getProposer(
       dependentRef, preferences.proposal_slot).valueOr:
     return errIgnore("ProposerPreferences: unable to compute proposer")

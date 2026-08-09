@@ -516,6 +516,24 @@ func get_dependent_root*(
     return ZERO_HASH
   dependent.bid.root
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#is_valid_dependent_root
+func is_valid_dependent_root*(
+    dag: ChainDAGRef, root: Eth2Digest, epoch: Epoch): bool =
+  ## Check if the block with the given ``root`` is a possible dependent block
+  ## for the given ``epoch``, meaning that on some branch it is, or could
+  ## become, the latest block prior to the start of the epoch.
+  let
+    blck = dag.getBlockRef(root).valueOr:
+      return false
+    start_slot = epoch.start_slot()
+  if blck.slot >= start_slot:
+    return false
+  for key in dag.forkBlocks:
+    let candidate = key.blockRef()
+    if candidate.parent == blck and candidate.slot >= start_slot:
+      return true
+  dag.head.root == root
+
 type LRUCache[I: static[int], T] = block_pools_types.LRUCache[I, T]
 func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
   if cache.timestamp == uint32.high:

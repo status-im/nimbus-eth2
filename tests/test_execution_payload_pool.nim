@@ -57,7 +57,8 @@ suite "Execution Payload Bid Pool":
     check:
       not pool.getHighestBidForSlotAndParent(
         1.Slot, blockRoot, PayloadAvailability.Timely).isSome()
-      not pool.hasSeenBidFromBuilder(1.Slot, 0)
+      not pool.hasSeenBidFromBuilder(
+        1.Slot, 0, blockRoot, PayloadAvailability.Timely)
 
   test "Add and retrieve highest bid":
     let bid = makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei)
@@ -77,7 +78,8 @@ suite "Execution Payload Bid Pool":
       bid2 = makeBid(10.Slot, 1, blockRoot, parentHash1, 200.Gwei)
 
     pool.addBid(bid1, PayloadAvailability.Timely, wallTime)
-    check pool.hasSeenBidFromBuilder(10.Slot, 1)
+    check pool.hasSeenBidFromBuilder(
+      10.Slot, 1, blockRoot, PayloadAvailability.Timely)
 
     pool.addBid(bid2, PayloadAvailability.Timely, wallTime)
 
@@ -141,9 +143,12 @@ suite "Execution Payload Bid Pool":
       PayloadAvailability.Timely, wallTime)
 
     check:
-      pool.hasSeenBidFromBuilder(10.Slot, 1)
-      pool.hasSeenBidFromBuilder(10.Slot, 2)
-      pool.hasSeenBidFromBuilder(10.Slot, 3)
+      pool.hasSeenBidFromBuilder(
+        10.Slot, 1, blockRoot, PayloadAvailability.Timely)
+      pool.hasSeenBidFromBuilder(
+        10.Slot, 2, blockRoot, PayloadAvailability.Timely)
+      pool.hasSeenBidFromBuilder(
+        10.Slot, 3, blockRoot, PayloadAvailability.Timely)
 
     check pool.slotBids.len == 1
 
