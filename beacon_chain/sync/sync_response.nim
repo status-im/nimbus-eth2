@@ -105,8 +105,7 @@ func init*(
   GloasSyncResponseRecord.init(blck, nil)
 
 func `==`*(a, b: SyncResponseItem): bool =
-  (cast[pointer](a.signedBlock) == cast[pointer](b.signedBlock)) and
-    (cast[pointer](a.signedEnvelope) == cast[pointer](b.signedEnvelope))
+  (a.signedBlock == b.signedBlock) and (a.signedEnvelope == b.signedEnvelope)
 
 func toResponse*(
     a: openArray[ref ForkedSignedBeaconBlock]

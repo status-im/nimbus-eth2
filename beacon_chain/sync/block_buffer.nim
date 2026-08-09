@@ -22,8 +22,7 @@ type
   BlocksRangeBuffer* = object
     direction: SyncQueueKind
     items: seq[SyncResponseItem]
-    roots: Table[Eth2Digest, ref ForkedSignedBeaconBlock]
-    maxBufferSize: int
+    softMaxBufferSize: int
 
   BlocksRootBuffer* = object
     roots: Table[Eth2Digest, ForkedSignedBeaconBlock]
@@ -112,9 +111,7 @@ func fillGap(
 
 func resetBuffer(buffer: var BlocksRangeBuffer, count: int) =
   for index in count ..< len(buffer.items):
-    # let item = buffer.items[index]
-    # buffer.roots.del(blck[].root)
-    buffer.items[index] = default(SyncResponseItem)
+    buffer.items[index].reset()
   buffer.items.setLen(count)
 
 func before(buffer: BlocksRangeBuffer, slota, slotb: Slot): bool =
@@ -170,13 +167,11 @@ proc add*(
 
   if len(buffer.items) == 0:
     buffer.items.add(item)
-    # buffer.roots[blockRoot] = blck
     return ok()
 
   if buffer.before(blockSlot, buffer.startSlot):
     buffer.resetBuffer(0)
     buffer.items.add(item)
-    # buffer.roots[blockRoot] = blck
     return ok()
 
   if buffer.isNew(blockSlot):
@@ -186,7 +181,6 @@ proc add*(
       return err(VerifierError.MissingParent)
     buffer.fillGap(blockSlot)
     buffer.items.add(item)
-    # buffer.roots[blockRoot] = blck
     ok()
   else:
     # Block replacement
@@ -199,7 +193,6 @@ proc add*(
     if index == 0:
       buffer.resetBuffer(0)
       buffer.items.add(item)
-      # buffer.roots[blockRoot] = blck
       return ok()
 
     let prevItem = buffer.items[index - 1]
@@ -207,7 +200,6 @@ proc add*(
       return err(VerifierError.MissingParent)
     buffer.resetBuffer(index)
     buffer.items.add(item)
-    # buffer.roots[blockRoot] = blck
     ok()
 
 iterator items(
@@ -224,10 +216,9 @@ iterator items(
   of SyncQueueKind.Backward:
     let lastIndex = max(0, index - count + 1)
     for i in countdown(index, lastIndex):
-      if buffer.items[i].slot == buffer.toSlot(i).get():
-        let item = buffer.items[i]
-        if item.slot == buffer.toSlot(i).get():
-          yield item
+      let item = buffer.items[i]
+      if item.slot == buffer.toSlot(i).get():
+        yield item
 
 func contains*(buffer: BlocksRangeBuffer, srange: SyncRange): bool =
   doAssert(srange.count > 0)
@@ -326,8 +317,6 @@ proc advance*(
 
   var count = 0
   for index in startIndex ..< len(buffer.items):
-    # let item = buffer.items[count]
-    # buffer.roots.del(item.root)
     buffer.items[count] = buffer.items[index]
     inc(count)
   buffer.resetBuffer(count)
@@ -354,8 +343,8 @@ func len*(buffer: BlocksRangeBuffer): int =
   len(buffer.items)
 
 func almostFull*(buffer: BlocksRangeBuffer): bool =
-  # len(buffer.blocks) >= 2/3 * maxBufferSize
-  len(buffer.items) >= 2 * (buffer.maxBufferSize div 3)
+  # len(buffer.items) >= 2/3 * softMaxBufferSize
+  len(buffer.items) >= 2 * (buffer.softMaxBufferSize div 3)
 
 func reset*(buffer: var BlocksRangeBuffer) =
   buffer.resetBuffer(0)
@@ -366,17 +355,18 @@ func init*(
 ): BlocksRangeBuffer =
   BlocksRangeBuffer(
     direction: kind,
+    softMaxBufferSize: high(int)
   )
 
 func init*(
     t: typedesc[BlocksRangeBuffer],
     kind: SyncQueueKind,
-    maxBufferSize: int,
+    softMaxBufferSize: int,
 ): BlocksRangeBuffer =
-  doAssert(maxBufferSize > 0, "Buffer size could not be negative or zero")
+  doAssert(softMaxBufferSize > 0, "Buffer size could not be negative or zero")
   BlocksRangeBuffer(
     direction: kind,
-    maxBufferSize: maxBufferSize,
+    softMaxBufferSize: softMaxBufferSize,
   )
 
 const
@@ -387,9 +377,9 @@ const
 func new*(
     t: typedesc[BlocksRangeBuffer],
     kind: SyncQueueKind,
-    maxBufferSize: int
+    softMaxBufferSize: int
 ): ref BlocksRangeBuffer =
-  newClone BlocksRangeBuffer.init(kind, maxBufferSize)
+  newClone BlocksRangeBuffer.init(kind, softMaxBufferSize)
 
 proc add*(
     buffer: var BlocksRootBuffer,
