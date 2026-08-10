@@ -626,7 +626,9 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
       return
 
   withBlck(blck):
-    var sidecarsOk = true
+    var
+      sidecarsOk = true
+      verifiedColumns: ColumnMap
 
     let sidecarsOpt =
       when consensusFork >= ConsensusFork.Gloas:
@@ -639,16 +641,18 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
             sidecarsOk = false # Pruned, or inconsistent DB
             break
           data_column_sidecars.add data_column
+          verifiedColumns.incl i
         Opt.some data_column_sidecars
       else:
         noSidecars
 
     if sidecarsOk:
       debug "Loaded block from storage", root
-      # No `verifiedColumns` - columns read back from the database aren't
-      # marked verified, so they get checked before import, like request
-      # manager columns.
-      self.enqueueBlock(MsgSource.gossip, forkyBlck.asSigned(), sidecarsOpt)
+      # Columns reach the database only after their KZG proofs have been
+      # checked - by `storeBlock`, backfill, or reconstruction - so they are
+      # passed on as verified instead of being checked a second time.
+      self.enqueueBlock(
+        MsgSource.gossip, forkyBlck.asSigned(), sidecarsOpt, verifiedColumns)
 
 proc storeBlock(
     self: ref BlockProcessor,
