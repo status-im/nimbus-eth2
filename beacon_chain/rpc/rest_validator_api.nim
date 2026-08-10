@@ -500,7 +500,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/attestation_data.yaml
   router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
@@ -530,17 +530,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Http400, InvalidSlotValueError,
             "Slot cannot be more than an epoch in the past")
 
-        let qindex =
-          block:
-            if committee_index.isNone():
-              return RestApiResponse.jsonError(Http400,
-                                               MissingCommitteeIndexValueError)
-            let res = committee_index.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidCommitteeIndexValueError,
-                                               $res.error())
-            res.get()
         let qhead =
           block:
             let res = node.getSyncedHead(qslot)
@@ -565,10 +554,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           attestationHead = qhead.atSlot(qslot)
         makeAttestationData(
           epochRef, attestationHead,
-          if qslot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
-            node.dag.attestationDataIndex(attestationHead.blck, qslot)
-          else:
-            qindex)
+          node.dag.attestationDataIndex(attestationHead.blck, qslot))
     RestApiResponse.jsonResponse(adata)
 
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
