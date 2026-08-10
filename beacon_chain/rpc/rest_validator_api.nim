@@ -500,7 +500,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/attestation_data.yaml
   router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
@@ -530,20 +530,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Http400, InvalidSlotValueError,
             "Slot cannot be more than an epoch in the past")
 
-        let qindex =
-          block:
-            if committee_index.isNone():
-              return RestApiResponse.jsonError(Http400,
-                                               MissingCommitteeIndexValueError)
-            let res = committee_index.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidCommitteeIndexValueError,
-                                               $res.error())
-            if qslot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
-              0.CommitteeIndex
-            else:
-              res.get()
         let qhead =
           block:
             let res = node.getSyncedHead(qslot)
@@ -562,9 +548,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   Http503, BeaconNodeInSyncError)
               qbs.blck
 
-        let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
-          return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
-        makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
+        let
+          epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
+            return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+          attestationHead = qhead.atSlot(qslot)
+        makeAttestationData(
+          epochRef, attestationHead,
+          node.dag.attestationDataIndex(attestationHead.blck, qslot))
     RestApiResponse.jsonResponse(adata)
 
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
