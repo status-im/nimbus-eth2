@@ -750,8 +750,7 @@ proc updateStatus*(node: BeaconNodeServerRef,
       notice "Beacon node is compatible"
       node.status = status
   of RestBeaconNodeStatus.NotSynced:
-    if node.status notin {RestBeaconNodeStatus.NotSynced,
-                          RestBeaconNodeStatus.OptSynced}:
+    if node.status != status:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
       warn "Beacon node not in sync", reason = failure.getFailureReason(),
