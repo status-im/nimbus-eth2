@@ -14,8 +14,8 @@ import
   kzg4844/[kzg, kzg_abi],
   # Internals
   ../spec/[
-    beaconstate, state_transition_block, forks,
-    helpers, network, signatures, peerdas_helpers],
+    beaconstate, state_transition_block, forks, helpers, inclusion_list,
+    network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
     column_quarantine, envelope_quarantine, execution_payload_pool,
@@ -2250,8 +2250,7 @@ proc validateInclusionList*(
     inclusionListPool: ref InclusionListPool,
     batchCrypto: ref BatchCrypto,
     signed_inclusion_list: SignedInclusionList,
-    wallTime: BeaconTime,
-    checkSignature = true
+    wallTime: BeaconTime
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   template message: untyped = signed_inclusion_list.message
 
@@ -2290,12 +2289,19 @@ proc validateInclusionList*(
   # `get_inclusion_list_committee(state, message.slot)`, where `state` is the
   # head state corresponding to processing the block up to the current slot as
   # determined by the fork choice.
-  let
-    shufflingRef = dag.getShufflingRef(
-        dag.head, message.slot.epoch, false).valueOr:
-      return errIgnore("InclusionList: no shuffling for slot")
-    committee = get_inclusion_list_committee(shufflingRef, message.slot)
-  if message.validator_index notin committee:
+  let shufflingRef = dag.getShufflingRef(
+      dag.head, message.slot.epoch, false).valueOr:
+    return errIgnore("InclusionList: no shuffling for slot")
+
+  var
+    committee: InclusionListCommittee
+    isMember = false
+  for i, validator_index in get_inclusion_list_committee(
+      shufflingRef, message.slot):
+    committee[i] = validator_index
+    isMember = isMember or validator_index == message.validator_index
+
+  if not isMember:
     return dag.checkedReject(
       "InclusionList: validator not in inclusion list committee")
 
@@ -2307,27 +2313,26 @@ proc validateInclusionList*(
 
   # [REJECT] The signature of `signed_inclusion_list.signature` is valid with
   # respect to the validator's public key.
-  if checkSignature:
-    let
-      vidx = ValidatorIndex.init(message.validator_index).valueOr:
-        return dag.checkedReject("InclusionList: invalid validator index")
-      pubkey = dag.validatorKey(vidx).valueOr:
-        return dag.checkedReject("InclusionList: invalid validator index")
-      fork = dag.forkAtEpoch(message.slot.epoch)
+  let
+    vidx = ValidatorIndex.init(message.validator_index).valueOr:
+      return dag.checkedReject("InclusionList: invalid validator index")
+    pubkey = dag.validatorKey(vidx).valueOr:
+      return dag.checkedReject("InclusionList: invalid validator index")
+    fork = dag.forkAtEpoch(message.slot.epoch)
 
-    let deferredCrypto = batchCrypto.scheduleInclusionListCheck(
-      fork, dag.genesis_validators_root, message, pubkey,
-      signed_inclusion_list.signature)
-    if deferredCrypto.isErr():
-      return dag.checkedReject(deferredCrypto.error)
+  let deferredCrypto = batchCrypto.scheduleInclusionListCheck(
+    fork, dag.genesis_validators_root, message, pubkey,
+    signed_inclusion_list.signature)
+  if deferredCrypto.isErr():
+    return dag.checkedReject(deferredCrypto.error)
 
-    let (cryptoFut, _) = deferredCrypto.get()
-    case await cryptoFut
-    of BatchResult.Invalid:
-      return dag.checkedReject("InclusionList: invalid signature")
-    of BatchResult.Timeout:
-      return errIgnore("InclusionList: timeout checking signature")
-    of BatchResult.Valid:
-      discard
+  let (cryptoFut, _) = deferredCrypto.get()
+  case await cryptoFut
+  of BatchResult.Invalid:
+    return dag.checkedReject("InclusionList: invalid signature")
+  of BatchResult.Timeout:
+    return errIgnore("InclusionList: timeout checking signature")
+  of BatchResult.Valid:
+    discard
 
   ok()

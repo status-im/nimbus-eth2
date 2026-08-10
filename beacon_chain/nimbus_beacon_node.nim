@@ -2308,8 +2308,7 @@ proc installMessageValidators(node: BeaconNode) =
                  async: (raises: [CancelledError]).} =
               return toValidationResult(
                 await node.processor.processSignedInclusionList(
-                  MsgSource.gossip, signedInclusionList,
-                  checkSignature = true)))
+                  MsgSource.gossip, signedInclusionList)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id

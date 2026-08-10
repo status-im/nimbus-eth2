@@ -983,8 +983,7 @@ proc processPayloadAttestationMessage*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-on_inclusion_list
 proc processSignedInclusionList*(
     self: ref Eth2Processor, src: MsgSource,
-    signed_inclusion_list: SignedInclusionList,
-    checkSignature: bool
+    signed_inclusion_list: SignedInclusionList
 ): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
   template message: untyped = signed_inclusion_list.message
 
@@ -996,7 +995,7 @@ proc processSignedInclusionList*(
 
   let v = await validateInclusionList(
     self.dag, self.inclusionListPool, self.batchCrypto,
-    signed_inclusion_list, wallTime, checkSignature)
+    signed_inclusion_list, wallTime)
   if v.isErr():
     debug "Dropping inclusion list", reason = $v.error
     beacon_inclusion_lists_dropped.inc(1, [$v.error[0]])
