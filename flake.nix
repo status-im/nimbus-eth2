@@ -80,6 +80,13 @@
           beacon_node_gcc15 = build ["nimbus_beacon_node"] pkgs.gcc15;
           beacon_node       = beacon_node_gcc14;
 
+          light_client_gcc11 = build ["nimbus_light_client"] pkgs.gcc11;
+          light_client_gcc12 = build ["nimbus_light_client"] pkgs.gcc12;
+          light_client_gcc13 = build ["nimbus_light_client"] pkgs.gcc13;
+          light_client_gcc14 = build ["nimbus_light_client"] pkgs.gcc14;
+          light_client_gcc15 = build ["nimbus_light_client"] pkgs.gcc15;
+          light_client       = light_client_gcc14;
+
           validator_client_gcc11 = build ["nimbus_validator_client"] pkgs.gcc11;
           validator_client_gcc12 = build ["nimbus_validator_client"] pkgs.gcc12;
           validator_client_gcc13 = build ["nimbus_validator_client"] pkgs.gcc13;
