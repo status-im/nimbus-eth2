@@ -497,9 +497,7 @@ func increaseBlocksCount*[A](
   let
     maxCount =
       case fork
-      of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
-        int(MAX_REQUEST_BLOCKS_DENEB)
-      of ConsensusFork.Gloas:
+      of ConsensusFork.Phase0 .. ConsensusFork.Gloas:
         int(MAX_REQUEST_BLOCKS_DENEB)
       of ConsensusFork.Heze:
         raiseAssert "Unsupported fork!"
