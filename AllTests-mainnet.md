@@ -964,6 +964,17 @@ AllTests-mainnet
 + Missed slots across sync committee period boundary                                         OK
 + isSeen                                                                                     OK
 ```
+## SyncDag test suite
+```diff
++ Multiple chains and ancestors iterator test                                                OK
++ Pruning test                                                                               OK
++ Single chain and iterator test                                                             OK
++ getMissingEnvelopeRoots()/cleanMissingEnvelopeRoots() test                                 OK
++ getMissingSidecarsRoots()/cleanMissingSidecarsRoots() test                                 OK
++ mgetOrPut(bid)/getRootEntry(root) test                                                     OK
++ mgetOrPut(checkpoint)/getRootEntry(root) test                                              OK
++ mgetOrPut(peer)/getPeerEntry() test                                                        OK
+```
 ## SyncManager test suite
 ```diff
 + [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
