@@ -540,10 +540,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400,
                                                InvalidCommitteeIndexValueError,
                                                $res.error())
-            if qslot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
-              0.CommitteeIndex
-            else:
-              res.get()
+            res.get()
         let qhead =
           block:
             let res = node.getSyncedHead(qslot)
@@ -562,9 +559,16 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   Http503, BeaconNodeInSyncError)
               qbs.blck
 
-        let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
-          return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
-        makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
+        let
+          epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
+            return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+          attestationHead = qhead.atSlot(qslot)
+        makeAttestationData(
+          epochRef, attestationHead,
+          if qslot.epoch >= node.dag.cfg.ELECTRA_FORK_EPOCH:
+            node.dag.attestationDataIndex(attestationHead.blck, qslot)
+          else:
+            qindex)
     RestApiResponse.jsonResponse(adata)
 
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (

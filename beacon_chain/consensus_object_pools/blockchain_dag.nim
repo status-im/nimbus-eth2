@@ -2659,6 +2659,27 @@ func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
   head == dag.headPayload
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/validator.md#attestation
+func attestationDataIndex*(
+    dag: ChainDAGRef, blck: BlockRef, slot: Slot): CommitteeIndex =
+  if slot.epoch < dag.cfg.GLOAS_FORK_EPOCH or blck.slot >= slot:
+    return 0.CommitteeIndex
+
+  let payloadPresent =
+    if blck == dag.head:
+      # If nothing extends the head yet, fork choice holds the verdict
+      dag.isPayloadStatusFull(blck)
+    else:
+      # Else a descendant already recorded whether it extended this payload
+      withState(dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyState.data.execution_payload_availability[
+            blck.slot mod SLOTS_PER_HISTORICAL_ROOT]
+        else:
+          false
+
+  if payloadPresent: 1.CommitteeIndex else: 0.CommitteeIndex
+
 from std/packedsets import PackedSet, incl, items
 
 func getBlsToExecutionChangeStatuses(
