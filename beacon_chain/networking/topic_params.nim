@@ -75,6 +75,9 @@ const
   ## `ProposerPreferencesWeight` specifies the scoring weight that we apply to
   ## our proposer preferences topic.
   ProposerPreferencesWeight = 0.05'f64
+  ## `InclusionListWeight` specifies the scoring weight that we apply to
+  ## our inclusion list topic.
+  InclusionListWeight = 0.5'f64
   ## `MaxInMeshScore` describes the max score a peer can attain from being in
   ## the mesh.
   MaxInMeshScore = 10'f64
@@ -392,6 +395,13 @@ func getProposerPreferencesTopicParams*(timeParams: TimeParams): TopicParams =
   timeParams.topicParams(
     ProposerPreferencesWeight, messageRate, timeParams.epochsDuration(100),
     Opt.none(MeshMessageInfo))
+
+func getInclusionListTopicParams*(timeParams: TimeParams): TopicParams =
+  # Every member of the inclusion list committee broadcasts one message per
+  # slot, so the expected rate matches the committee size.
+  timeParams.topicParams(
+    InclusionListWeight, float64(INCLUSION_LIST_COMMITTEE_SIZE),
+    timeParams.epochsDuration(1), Opt.none(MeshMessageInfo))
 
 func basicParams*(): TopicParams = TopicParams.init()
 
