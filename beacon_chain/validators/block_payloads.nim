@@ -642,6 +642,39 @@ func isExcludedTestnet(cfg: RuntimeConfig): bool =
   cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID == 560048'u64
     # Hoodi
 
+proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
+    node: BeaconNode,
+    builderApiBid, poolBid: Opt[T],
+    engineBlockValue: Wei,
+    boostFactor: BoostFactor): Opt[T] =
+  let failsafeInEffect =
+    withState(node.dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        payloadFailSafeInEffect(
+          forkyState.data.execution_payload_availability,
+          forkyState.data.block_roots.data, forkyState.data.slot)
+      else:
+        false
+  if failsafeInEffect:
+    notice "Payload failsafe in effect, ignoring builder bids"
+    return Opt.none(T)
+
+  let
+    builderApiBidValue = effectiveBidValue(builderApiBid)
+    poolBidValue = effectiveBidValue(poolBid)
+    (bestBuilderBid, bestBidValue) =
+      if poolBid.isNone or builderApiBidValue > poolBidValue:
+        (builderApiBid, builderApiBidValue)
+      else:
+        (poolBid, poolBidValue)
+
+  if bestBuilderBid.isSome and builderBetterBid(
+      boostFactor, bestBidValue.uint64.u256 * GWEI_TO_WEI.u256,
+      engineBlockValue):
+    bestBuilderBid
+  else:
+    Opt.none(T)
+
 proc collectBids*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,

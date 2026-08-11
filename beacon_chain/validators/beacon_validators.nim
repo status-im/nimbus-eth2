@@ -641,32 +641,16 @@ proc proposeBlockAux(
       else:
         await builderApiBidFut
 
-    let
-      builderApiBidValue = effectiveBidValue(builderApiBid)
-      poolBidValue = effectiveBidValue(poolBid)
-      (bestBuilderBid, bestBidValue) =
-        if poolBid.isNone or builderApiBidValue > poolBidValue:
-          (builderApiBid, builderApiBidValue)
-        else:
-          (poolBid, poolBidValue)
-      useBuilderBid =
-        bestBuilderBid.isSome and
-        builderBetterBid(
-          localBlockValueBoost,
-          bestBidValue.uint64.u256 * GWEI_TO_WEI.u256,
-          engineBid[].eps.blockValue)
-      selectedBuilderBid =
-        if useBuilderBid:
-          info "Using builder bid",
-            slot,
-            builderIndex = bestBuilderBid.get().message.builder_index,
-            bidValue = bestBuilderBid.get().message.value,
-            executionPayment = bestBuilderBid.get().message.execution_payment,
-            engineValue = engineBid[].eps.blockValue,
-            localBlockValueBoost
-          bestBuilderBid
-        else:
-          Opt.none(gloas.SignedExecutionPayloadBid)
+    let selectedBuilderBid = node.selectBuilderBid(
+      builderApiBid, poolBid, engineBid[].eps.blockValue, localBlockValueBoost)
+    if selectedBuilderBid.isSome:
+      info "Using builder bid",
+        slot,
+        builderIndex = selectedBuilderBid.get().message.builder_index,
+        bidValue = selectedBuilderBid.get().message.value,
+        executionPayment = selectedBuilderBid.get().message.execution_payment,
+        engineValue = engineBid[].eps.blockValue,
+        localBlockValueBoost
 
   let
     verificationFlags =
