@@ -724,12 +724,12 @@ func livenessFailsafeInEffect*(
 
 func payloadFailSafeInEffect*(
     execution_payload_availability: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)],
-    block_roots: array[Limit SLOTS_PER_HISTORUCAL_ROOT, Eth2Digest],
+    block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
     slot: Slot): bool =
   ## Gloas counterpart to `livenessFailSafeInEffect`. A withheld
   ## payload costs a payload rather than a block
   const
-    MAX_MISSING_CONTIGOUS = 3
+    MAX_MISSING_CONTIGUOUS = 3
     MAX_MISSING_WINDOW = 8
 
   static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGOUS
@@ -759,7 +759,7 @@ func payloadFailSafeInEffect*(
       if totalMissing > MAX_MISSING_WINDOW:
         return true
       streakLen += 1
-      if streakLen > MAX_MISSING_CONTIGOUS:
+      if streakLen > MAX_MISSING_CONTIGUOUS:
         return true
     else:
       streakLen = 0
