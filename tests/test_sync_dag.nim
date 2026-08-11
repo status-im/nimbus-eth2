@@ -12,13 +12,13 @@
 import unittest2,
        std/[tables, algorithm],
        libp2p/peerid, libp2p/crypto/rng,
-       ../beacon_chain/spec/forks,
+       ../beacon_chain/spec/[forks, presets],
        ../beacon_chain/sync/sync_dag
 
 func genBlockRoot(index: int): Eth2Digest =
   var res: Eth2Digest
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr res.data[0], unsafeAddr tmp[0], sizeof(uint64))
+  copyMem(addr res.data[0], addr tmp[0], sizeof(uint64))
   res
 
 type
@@ -95,7 +95,7 @@ suite "SyncDag test suite":
       [Slot(0) .. Slot(256), Slot(32) .. Slot(191)]
 
     for vector in TestVectors:
-      var sdag = SyncDag.init(SomeTPeer, PeerId)
+      var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
       let
         chain = createChainSource(vector, 0, Eth2Digest())
         bid = createPeerBlockId(chain, vector.b)
@@ -131,7 +131,7 @@ suite "SyncDag test suite":
       )
     ]
     for vector in TestVectors:
-      var sdag = SyncDag.init(SomeTPeer, PeerId)
+      var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
       let
         chain1 =
           createChainSource(vector[0][0], vector[0][1], Eth2Digest())
@@ -271,7 +271,7 @@ suite "SyncDag test suite":
        @[Slot(33), Slot(40), Slot(41), Slot(50), Slot(63), Slot(64)])
     ]
     for vector in TestVectors:
-      var sdag = SyncDag.init(SomeTPeer, PeerId)
+      var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
       let
         chain = createChainSource(vector[0], 0, Eth2Digest())
         bid = createPeerBlockId(chain, vector[0].b)
@@ -283,11 +283,7 @@ suite "SyncDag test suite":
       while currentRoot.isSome():
         let
           blck = chain.roots.getOrDefault(currentRoot.get())
-          missingSidecars =
-            if blck[].slot() in vector[1]:
-              true
-            else:
-              false
+          missingSidecars = (blck[].slot() in vector[1])
         currentRoot = sdag.updateRoot(
           blck[].root(), blck[].slot(), blck[].parent_root(), missingSidecars,
           false, DagBlockSourceType.Dag)
@@ -311,7 +307,7 @@ suite "SyncDag test suite":
        @[Slot(33), Slot(40), Slot(41), Slot(50), Slot(63), Slot(64)])
     ]
     for vector in TestVectors:
-      var sdag = SyncDag.init(SomeTPeer, PeerId)
+      var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
       let
         chain = createChainSource(vector[0], 0, Eth2Digest())
         bid = createPeerBlockId(chain, vector[0].b)
@@ -344,7 +340,7 @@ suite "SyncDag test suite":
         check len(missingRoots) == 0
 
   test "mgetOrPut(peer)/getPeerEntry() test":
-    var sdag = SyncDag.init(SomeTPeer, PeerId)
+    var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
     let
       peer1 = SomeTPeer.init("peer1")
       peer2 = SomeTPeer.init("peer2")
@@ -360,7 +356,7 @@ suite "SyncDag test suite":
         res.isNone()
 
   test "mgetOrPut(bid)/getRootEntry(root) test":
-    var sdag = SyncDag.init(SomeTPeer, PeerId)
+    var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
     let
       bid1 = BlockId(slot: Slot(100), root: genBlockRoot(100))
       bid2 = BlockId(slot: Slot(101), root: genBlockRoot(101))
@@ -376,7 +372,7 @@ suite "SyncDag test suite":
         res.isNone()
 
   test "mgetOrPut(checkpoint)/getRootEntry(root) test":
-    var sdag = SyncDag.init(SomeTPeer, PeerId)
+    var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
     let
       cp1 = Checkpoint(epoch: Epoch(100), root: genBlockRoot(100))
       cp2 = Checkpoint(epoch: Epoch(101), root: genBlockRoot(101))
@@ -398,7 +394,7 @@ suite "SyncDag test suite":
     ]
 
     for vector in TestVectors:
-      var sdag = SyncDag.init(SomeTPeer, PeerId)
+      var sdag = SyncDag.init(SomeTPeer, PeerId, defaultRuntimeConfig)
       let
         chain = createChainSource(vector[0], 0, Eth2Digest())
         bid = createPeerBlockId(chain, vector[0].b)

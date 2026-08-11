@@ -9,16 +9,10 @@
 
 import std/[sets, tables, strutils, hashes, algorithm, deques]
 import stew/base10, chronos, chronicles, results
-import ../spec/[forks, block_id, column_map]
+import ../spec/[digest, forks, block_id, column_map]
 import ../consensus_object_pools/blockchain_dag
 
 from std/sequtils import mapIt
-
-const
-  DEFAULT_BLOCKS_PER_REQUEST = 32      # MAX_REQUEST_BLOCKS_DENEB div 4
-  DEFAULT_SIDECARS_PER_REQUEST = 1024  # MAX_REQUEST_DATA_COLUMN_SIDECARS div 16
-  DEFAULT_ENVELOPES_PER_REQUEST = 32   # MAX_REQUEST_PAYLOADS div 4
-  GENESIS_ROOT = Eth2Digest()
 
 type
   DagEntryFlag* {.pure.} = enum
@@ -52,6 +46,7 @@ type
     roots*: Table[Eth2Digest, SyncDagEntryRef]
     slots*: Table[Slot, HashSet[Eth2Digest]]
     peers*: Table[B, PeerEntryRef[A]]
+    config*: RuntimeConfig
     lastSlot*: Slot
 
 const
@@ -154,14 +149,15 @@ proc init*(
 
 func init*[T](
     t: typedesc[PeerEntryRef],
+    cfg: RuntimeConfig,
     peer: T,
 ): PeerEntryRef[T] =
   PeerEntryRef[T](
     pendingRoots: RootQueue.init(),
     peer: peer,
-    maxBlocksPerRequest: DEFAULT_BLOCKS_PER_REQUEST,
-    maxSidecarsPerRequest: DEFAULT_SIDECARS_PER_REQUEST,
-    maxEnvelopesPerRequest: DEFAULT_ENVELOPES_PER_REQUEST
+    maxBlocksPerRequest: int(MAX_REQUEST_BLOCKS_DENEB div 4),
+    maxSidecarsPerRequest: int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS div 16),
+    maxEnvelopesPerRequest: int(MAX_REQUEST_PAYLOADS div 4)
   )
 
 iterator parents*(entry: SyncDagEntryRef): SyncDagEntryRef =
@@ -226,7 +222,7 @@ proc mgetOrPut*[A, B](
     peer: A
 ): var PeerEntryRef[A] =
   mixin getKey
-  sdag.peers.mgetOrPut(peer.getKey(), PeerEntryRef.init(peer))
+  sdag.peers.mgetOrPut(peer.getKey(), PeerEntryRef.init(sdag.config, peer))
 
 proc updateSlot*[A, B](
     sdag: var SyncDag[A, B],
@@ -293,7 +289,7 @@ func getShortRootMap*[A, B](sdag: SyncDag[A, B], root: Eth2Digest): string =
       inc(pendingBlocks)
     if DagEntryFlag.MissingSidecars in centry.flags:
       inc(missingSidecars)
-    if DagEntryFlag.MissingEnvelope in entry.flags:
+    if DagEntryFlag.MissingEnvelope in centry.flags:
       inc(missingEnvelope)
     inc(count)
     res.add(getRootItem(centry.blockId.root, centry.blockId.slot, centry.flags))
@@ -313,7 +309,7 @@ proc updateRoot*[A, B](
     src: DagBlockSourceType
 ): Opt[Eth2Digest] =
 
-  if root == GENESIS_ROOT:
+  if root.isZero():
     return Opt.none(Eth2Digest)
 
   let entry = sdag.roots.getOrDefault(root)
@@ -324,7 +320,7 @@ proc updateRoot*[A, B](
 
   let
     parentEntry =
-      if parent_root == GENESIS_ROOT:
+      if parent_root.isZero():
         nil
       else:
         if DagEntryFlag.Finalized in entry.flags:
@@ -405,7 +401,6 @@ proc prune*[A, B](
     if sdag.roots.pop(root, entry):
       entry.parent = nil
       entry = nil
-  rootsToDelete.clear()
 
 iterator ancestors*[A, B](
     sdag: SyncDag[A, B],
@@ -433,9 +428,12 @@ iterator ancestors*[A, B](
 proc init*(
     t: typedesc[SyncDag],
     A: typedesc,
-    B: typedesc
+    B: typedesc,
+    cfg: RuntimeConfig
 ): SyncDag[A, B] =
-  SyncDag[A, B]()
+  SyncDag[A, B](
+    config: cfg
+  )
 
 func getPeerEntry*[A, B](
     sdag: SyncDag[A, B],
@@ -478,14 +476,12 @@ func getMissingEnvelopeRoots*(entry: SyncDagEntryRef): seq[BlockId] =
   res.reversed()
 
 func cleanMissingSidecarsRoots*(entry: SyncDagEntryRef) =
-  if DagEntryFlag.MissingSidecars in entry.flags:
-    entry.flags.excl(DagEntryFlag.MissingSidecars)
+  entry.flags.excl(DagEntryFlag.MissingSidecars)
   for currentEntry in entry.parents():
     currentEntry.flags.excl(DagEntryFlag.MissingSidecars)
 
 func cleanMissingEnvelopeRoots*(entry: SyncDagEntryRef) =
-  if DagEntryFlag.MissingEnvelope in entry.flags:
-    entry.flags.excl(DagEntryFlag.MissingEnvelope)
+  entry.flags.excl(DagEntryFlag.MissingEnvelope)
   for currentEntry in entry.parents():
     currentEntry.flags.excl(DagEntryFlag.MissingEnvelope)
 
@@ -520,9 +516,7 @@ func increaseSidecarsCount*[A](
       case fork
       of ConsensusFork.Phase0 .. ConsensusFork.Electra:
         0
-      of ConsensusFork.Fulu:
-        int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
-      of ConsensusFork.Gloas:
+      of ConsensusFork.Fulu, ConsensusFork.Gloas:
         int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
       of ConsensusFork.Heze:
         raiseAssert "Unsupported fork!"
@@ -586,7 +580,7 @@ proc jsonLog*[A](entry: PeerEntryRef[A]): string =
       else:
         "not available"
     pendingRoots =
-      "[" & entry.pendingRoots.toSeq().mapIt(shortLog(it)).join(",") & "]"
+      "[" & entry.pendingRoots.mapIt(shortLog(it)).join(",") & "]"
 
   "{\"peer\":\"" & shortLog(entry.peer) &
   "\",\"min_backfilll_block_slot\":\"" & backBlockSlot &
@@ -613,16 +607,8 @@ proc debugJsonDump*(sdag: SyncDag, dag: ChainDAGRef): string =
           shortLog(item.blockId.root)
         else:
           shortLog(item.blockId)
-      currentHead =
-        if dag.head.bid.root == item.blockId.root:
-          true
-        else:
-          false
-      currentFinHead =
-        if dag.finalizedHead.blck.bid.root == item.blockId.root:
-          true
-        else:
-          false
+      currentHead = (dag.head.bid.root == item.blockId.root)
+      currentFinHead = (dag.finalizedHead.blck.bid.root == item.blockId.root)
       data = "{" & "\"bid\":\"" & bid &
         "\",\"flags\":\"" & fullLog(item.flags, currentHead, currentFinHead) &
         "\",\"source\":\"" & fullLog(item.source) &
