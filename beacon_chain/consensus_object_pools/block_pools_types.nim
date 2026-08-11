@@ -595,6 +595,9 @@ func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
     current_duty_dependent_root: currentDutyDepRoot
   )
 
+func toBlockId*(v: HeadChangeInfoObject): BlockId =
+  BlockId(slot: v.slot, root: v.block_root)
+
 func init*(
     T: typedesc[HeadV2ChangeInfoObject],
     version: ConsensusFork,

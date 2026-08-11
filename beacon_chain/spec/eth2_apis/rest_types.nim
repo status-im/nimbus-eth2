@@ -641,6 +641,9 @@ type
 
   EmptyBody* = object
 
+func toBlockId*(v: RestBlockHeaderInfo): BlockId =
+  BlockId(slot: v.header.message.slot, root: v.root)
+
 func isLowestScoreAggregatedAttestation*(a: phase0.Attestation): bool =
   (a.data.slot == GENESIS_SLOT) and
   (a.data.index == 0'u64) and

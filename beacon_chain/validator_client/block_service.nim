@@ -462,12 +462,12 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
     for event in events:
       case event.name
       of "data":
-        let blck = EventBeaconBlockObject.decodeString(event.data).valueOr:
-          debug "Got invalid block event format", reason = error
+        let head = HeadChangeInfoObject.decodeString(event.data).valueOr:
+          debug "Got invalid head event format", reason = error
           return
-        vc.registerBlock(blck, node)
+        vc.registerBlock(head.toBlockId(), head.optimistic, node)
       of "event":
-        if event.data != "block":
+        if event.data != "head":
           debug "Got unexpected event name field", event_name = event.name,
                 event_data = event.data
       else:
@@ -495,7 +495,7 @@ proc runBlockEventMonitor(service: BlockServiceRef,
       block:
         var resp: HttpClientResponseRef
         try:
-          resp = await node.client.subscribeEventStream({EventTopic.Block})
+          resp = await node.client.subscribeEventStream({EventTopic.Head})
           if resp.status == 200:
             Opt.some(resp)
           else:
@@ -565,12 +565,8 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
 
   let blockHeader = bres.get()
 
-  let eventBlock = EventBeaconBlockObject(
-    slot: blockHeader.data.header.message.slot,
-    block_root: blockHeader.data.root,
-    optimistic: blockHeader.execution_optimistic
-  )
-  vc.registerBlock(eventBlock, node)
+  vc.registerBlock(
+    blockHeader.data.toBlockId(), blockHeader.execution_optimistic, node)
   true
 
 proc runBlockPollMonitor(service: BlockServiceRef,
