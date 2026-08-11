@@ -732,8 +732,8 @@ func payloadFailSafeInEffect*(
     MAX_MISSING_CONTIGUOUS = 3
     MAX_MISSING_WINDOW = 8
 
-  static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGOUS
-  if slot <= MAX_MISSING_CONTIGOUS:
+  static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGUOUS
+  if slot <= MAX_MISSING_CONTIGUOUS:
     return false
 
   let
