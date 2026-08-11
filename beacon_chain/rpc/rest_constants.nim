@@ -271,6 +271,8 @@ const
     "Requested slot is outside of blobs window"
   DataColumnsOutOfRange* =
     "Requested slot is outside of data columns window"
+  InclusionListsOutOfRange* =
+    "Requested slot is outside of inclusion lists window"
   InvalidBlsToExecutionChangeObjectError* =
     "Unable to decode BLS to execution change object(s)"
   BlsToExecutionChangeValidationError* =

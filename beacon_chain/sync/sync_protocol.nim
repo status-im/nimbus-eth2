@@ -12,7 +12,8 @@ import
   ../spec/[eth2_ssz_serialization, helpers, forks, network],
   ../beacon_clock,
   ../networking/eth2_network,
-  ../consensus_object_pools/blockchain_dag,
+  ../consensus_object_pools/[
+    blockchain_dag, inclusion_list_pool, spec_cache],
   ../rpc/rest_constants
 
 logScope:
@@ -25,12 +26,23 @@ const
     ## Part of beacon block so keep it aligned with block's
   dataColumnResponseCost = allowedOpsPerSecondCost(8000)
     ## 8 data columns take the same memory as 1 blob approximately
+  inclusionListResponseCost = allowedOpsPerSecondCost(1000)
+    ## Inclusion lists are bounded by `MAX_SIGNED_INCLUSION_LIST_SIZE` (~8 KiB),
+    ## so they are cheaper than blobs - keep them on the same budget anyway,
+    ## since at most `MAX_REQUEST_INCLUSION_LIST` (16) can be asked for at once
 
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
     genesisBlockRoot: Eth2Digest
+    inclusionListPool: ref InclusionListPool
+      ## Source for `InclusionListsByIndices` - inclusion lists live only for the
+      ## few slots they can still constrain a payload, so they are served from
+      ## the in-memory pool rather than from the database.
+    getBeaconTime: GetBeaconTimeFn
+      ## `minimum_request_slot` is defined against the current wall slot, which
+      ## may run ahead of `dag.head.slot` when slots are empty or we're behind.
 
   BlockRootSlot* = object
     blockRoot: Eth2Digest
@@ -162,6 +174,37 @@ proc readChunkPayload*(
       let res = await readChunkPayload(conn, peer, gloas.DataColumnSidecar)
       if res.isOk:
         let contextEpoch = res.get.slot.epoch
+        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
+          return neterr InvalidContextBytes
+        return ok newClone(res.get)
+      else:
+        return err(res.error)
+    else:
+      return neterr InvalidContextBytes
+
+proc readChunkPayload*(
+    conn: Connection, peer: Peer,
+    MsgType: type (ref heze.SignedInclusionList)):
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+  let contextFork =
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
+
+  withConsensusFork(contextFork):
+    # `HEZE_FORK_VERSION` is the only entry in the chunk type table - inclusion
+    # lists do not exist before Heze.
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+    when consensusFork >= ConsensusFork.Heze:
+      let res = await readChunkPayload(conn, peer, heze.SignedInclusionList)
+      if res.isOk:
+        # "the `ForkDigest`-context epoch is determined by
+        # `compute_epoch_at_slot(signed_inclusion_list.message.slot)`"
+        let contextEpoch = res.get.message.slot.epoch
         if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
           return neterr InvalidContextBytes
         return ok newClone(res.get)
@@ -702,6 +745,97 @@ p2pProtocol BeaconSync(version = 1,
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+  # The three request fields are encoded by the DSL as a single SSZ container,
+  # as the spec requires ("The request MUST be encoded as an SSZ-container").
+  proc inclusionListsByIndices(
+      peer: Peer,
+      slot: Slot,
+      inclusionListCommitteeRoot: Eth2Digest,
+      indices: InclusionListBits,
+      response: MultipleChunksResponse[
+        ref heze.SignedInclusionList,
+        Limit MAX_SUPPORTED_REQUEST_INCLUSION_LIST])
+      {.async, libp2pProtocol("inclusion_lists_by_indices", 1).} =
+    let
+      dag = peer.networkState.dag
+      requested = indices.countOnes()
+
+    trace "got inclusion lists by indices request", peer, slot, requested
+
+    if requested == 0:
+      raise newException(InvalidInputsError, "No inclusion lists requested")
+
+    # "No more than `MAX_REQUEST_INCLUSION_LIST` may be requested at a time."
+    # With the mainnet config the `BitVector[INCLUSION_LIST_COMMITTEE_SIZE]`
+    # already bounds this structurally, but the two constants are independent.
+    if requested.uint64 > dag.cfg.MAX_REQUEST_INCLUSION_LIST:
+      raise newException(
+        InvalidInputsError, "Exceeding inclusion list request limit")
+
+    if dag.cfg.HEZE_FORK_EPOCH == FAR_FUTURE_EPOCH:
+      # Heze is not scheduled, so there is no slot we could serve.
+      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+
+    let
+      wallSlot = peer.networkState.getBeaconTime().slotOrZero(dag.timeParams)
+
+      # `minimum_request_slot = max(
+      #    current_slot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS,
+      #    compute_start_slot_at_epoch(HEZE_FORK_EPOCH))`
+      lookbackFloor =
+        if wallSlot >= MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS:
+          wallSlot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS
+        else:
+          GENESIS_SLOT
+      minimumRequestSlot = max(lookbackFloor, dag.cfg.HEZE_FORK_EPOCH.start_slot)
+
+    # "If `slot` in the request content references a slot earlier than
+    # `minimum_request_slot`, peers MAY respond with error code
+    # `3: ResourceUnavailable` or not include the inclusion lists in the
+    # response." Answering with the error is more informative to the requester
+    # than an empty response that it cannot distinguish from "we have none".
+    if slot < minimumRequestSlot:
+      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+
+    # The request addresses committee *positions*; the pool is keyed by
+    # validator index, so resolve the positions through this node's view of
+    # `get_inclusion_list_committee(state, slot)`. A requester asking about a
+    # different committee than ours is not an error - the root filter in the
+    # pool lookup below then simply yields nothing.
+    let shufflingRef = dag.getShufflingRef(dag.head, slot.epoch, false).valueOr:
+      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+
+    var requestedValidators: seq[uint64]
+    for i, validator_index in get_inclusion_list_committee(shufflingRef, slot):
+      if indices[i]:
+        requestedValidators.add validator_index
+
+    # "Clients MAY limit the number of inclusion lists in the response."
+    let maxLists = int min(
+      dag.cfg.MAX_REQUEST_INCLUSION_LIST, MAX_SUPPORTED_REQUEST_INCLUSION_LIST)
+
+    var found = 0
+    for signedInclusionList in peer.networkState.inclusionListPool[]
+        .getInclusionLists(
+          slot, inclusionListCommitteeRoot, requestedValidators, maxLists):
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        inclusionListResponseCost, "inclusion_lists_by_indices/1")
+      peer.network.awaitQuota(
+        inclusionListResponseCost, "inclusion_lists_by_indices/1")
+
+      # "For each successful `response_chunk`, the `ForkDigest` context epoch is
+      # determined by `compute_epoch_at_slot(signed_inclusion_list.message.slot)`"
+      await response.writeSSZ(
+        signedInclusionList,
+        peer.network.forkDigestAtEpoch(slot.epoch).data)
+
+      inc found
+
+    debug "Inclusion list indices request done",
+      peer, slot, requested, found
+
 # Gloas client stubs for `data_column_sidecars_by_root/1` and
 # `data_column_sidecars_by_range/1`.
 const
@@ -730,7 +864,12 @@ proc dataColumnSidecarsByRangeGloas*(
     List[ref gloas.DataColumnSidecar, Limit MAX_REQUEST_DATA_COLUMN_SIDECARS],
     Limit maxResponseItems, RESP_TIMEOUT_DUR)
 
-func init*(T: type BeaconSync.NetworkState, dag: ChainDAGRef): T =
+func init*(
+    T: type BeaconSync.NetworkState, dag: ChainDAGRef,
+    inclusionListPool: ref InclusionListPool,
+    getBeaconTime: GetBeaconTimeFn): T =
   T(
     dag: dag,
+    inclusionListPool: inclusionListPool,
+    getBeaconTime: getBeaconTime,
   )

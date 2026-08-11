@@ -36,6 +36,15 @@ const
   MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#configuration
+  # `MAX_REQUEST_INCLUSION_LIST` is a runtime config value, but the SSZ `Limit`
+  # of the `InclusionListsByIndices` response has to be known at compile time.
+  # This is the largest value we're willing to request or serve; a config that
+  # raises `MAX_REQUEST_INCLUSION_LIST` beyond it is clamped down to it, which
+  # stays spec-compatible - "Clients MAY limit the number of inclusion lists in
+  # the response".
+  MAX_SUPPORTED_REQUEST_INCLUSION_LIST*: uint64 = 16
+
 type TimeParams* = object
   SLOT_DURATION*: Duration
   PROPOSER_REORG_CUTOFF_BPS*: uint16
