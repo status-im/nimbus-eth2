@@ -72,6 +72,7 @@ proc getExecutionPayloadBid*(
   client.getExecutionPayloadBidPlain(
     slot, parent_hash, parent_root, proposer_pubkey, body,
     restAcceptType = "application/octet-stream",
+    extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
   )
 
 proc submitBlindedBlockV2Plain*(
@@ -130,6 +131,5 @@ proc submitBuilderPreferences*(
                    RestCommunicationError], raw: true).} =
   client.submitBuilderPreferencesPlain(
     proposer_pubkey, body,
-    restAcceptType = "application/octet-stream,application/json;q=0.5",
     extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
   )

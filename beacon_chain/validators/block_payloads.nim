@@ -523,7 +523,6 @@ proc getBuilderExecutionPayloadBid*(
           proposer, builderUrl, slot,
           node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
         return Opt.none(gloas.SignedExecutionPayloadBid)
-  let
     bidRes = awaitWithTimeout(
       getExecutionPayloadBidFromBuilder(
         payloadBuilderClient, slot, parent_block_hash, parent_block_root,

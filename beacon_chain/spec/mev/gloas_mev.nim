@@ -8,11 +8,8 @@
 {.push raises: [], gcsafe.}
 
 import
-  # ssz_serialization/types,
   ../crypto,
   ../datatypes/[base, constants]
-
-import ../ssz_codec
 
 const
   # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/builder.md#constants
