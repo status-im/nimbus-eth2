@@ -587,9 +587,7 @@ proc verify_inclusion_list_signature*(
 debugGloasComment("update once https://github.com/ethereum/builder-specs/pull/165 is merged")
 func compute_builder_request_auth*(
     genesis_fork_version: Version, msg: RequestAuthV1): Eth2Digest =
-  let
-    epoch = msg.slot.epoch
-    domain = compute_domain(DOMAIN_REQUEST_AUTH, genesis_fork_version)
+  let domain = compute_domain(DOMAIN_REQUEST_AUTH, genesis_fork_version)
   compute_signing_root(msg, domain)
 
 func get_builder_request_auth_signature*(
