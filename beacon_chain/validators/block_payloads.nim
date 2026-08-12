@@ -669,7 +669,7 @@ proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
         (poolBid, poolBidValue)
 
   if bestBuilderBid.isSome and builderBetterBid(
-      boostFactor, bestBidValue.uint64.u256 * GWEI_TO_WEI.u256,
+      boostFactor, bestBidValue.uint64.u256 * static(GWEI_TO_WEI.u256),
       engineBlockValue):
     bestBuilderBid
   else:
