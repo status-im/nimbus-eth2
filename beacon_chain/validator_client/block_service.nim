@@ -564,6 +564,8 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
     return false
 
   let blockHeader = bres.get()
+  if not(blockHeader.data.canonical):
+    return false
 
   vc.registerBlock(
     blockHeader.data.toBlockId(), blockHeader.execution_optimistic, node)
