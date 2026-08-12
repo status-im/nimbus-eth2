@@ -27,7 +27,7 @@ type
 
   SlotBids* = object
     highestBids*: Table[BidKey, gloas.SignedExecutionPayloadBid]
-    seenBuilders*: HashSet[uint64]
+    seenBuilders*: HashSet[(uint64, BidKey)]
 
   ExecutionPayloadBidPool* = object
     ## Pool for tracking execution payload bids received from builders.
@@ -81,11 +81,12 @@ proc addBid*(
 
   let slotData = addr pool.slotBids.mgetOrPut(bid.slot, default(SlotBids))
 
-  if slotData.seenBuilders.containsOrIncl(bid.builder_index):
-    debug "Duplicate bid from builder, ignoring"
+  let key = (bid.parent_block_root, payloadAvailability)
+
+  if slotData.seenBuilders.containsOrIncl((bid.builder_index, key)):
+    debug "Duplicate bid from builder for this parent, ignoring"
     return
 
-  let key = (bid.parent_block_root, payloadAvailability)
   slotData.highestBids.withValue(key, currentBid):
     if bid.value <= currentBid.message.value:
       debug "Bid value not higher than current best",
@@ -98,15 +99,6 @@ proc addBid*(
     debug "First bid for this slot and parent"
 
   slotData.highestBids[key] = signedBid
-
-func getBidForSlotAndBuilder*(
-    pool: var ExecutionPayloadBidPool, slot: Slot,
-    builderIndex: uint64): Opt[gloas.SignedExecutionPayloadBid] =
-  pool.slotBids.withValue(slot, slotData):
-    for bid in slotData.highestBids.values:
-      if bid.message.builder_index == builderIndex:
-        return Opt.some(bid)
-  Opt.none(gloas.SignedExecutionPayloadBid)
 
 func getHighestBidForSlotAndParent*(
     pool: var ExecutionPayloadBidPool, slot: Slot,
@@ -139,10 +131,12 @@ proc getHighestBidForProposalState*(
   res
 
 func hasSeenBidFromBuilder*(
-    pool: var ExecutionPayloadBidPool, slot: Slot,
-    builderIndex: uint64): bool =
+    pool: var ExecutionPayloadBidPool, slot: Slot, builderIndex: uint64,
+    parentBlockRoot: Eth2Digest,
+    payloadAvailability: PayloadAvailability): bool =
   pool.slotBids.withValue(slot, slotData):
-    return builderIndex in slotData.seenBuilders
+    return (builderIndex, (parentBlockRoot, payloadAvailability)) in
+      slotData.seenBuilders
   false
 
 proc getPrevRandao*(

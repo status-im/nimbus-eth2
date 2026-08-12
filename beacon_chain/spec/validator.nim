@@ -722,6 +722,51 @@ func livenessFailsafeInEffect*(
 
   false
 
+func payloadFailSafeInEffect*(
+    execution_payload_availability: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)],
+    block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
+    slot: Slot): bool =
+  ## Gloas counterpart to `livenessFailSafeInEffect`. A withheld
+  ## payload costs a payload rather than a block
+  const
+    MAX_MISSING_CONTIGUOUS = 3
+    MAX_MISSING_WINDOW = 8
+
+  static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGUOUS
+  if slot <= MAX_MISSING_CONTIGUOUS:
+    return false
+
+  let
+    faultInspectionWindow = min(distinctBase(slot) - 1, SLOTS_PER_EPOCH)
+    baseIndex = (slot + SLOTS_PER_HISTORICAL_ROOT - faultInspectionWindow) mod
+      SLOTS_PER_HISTORICAL_ROOT
+    endIndex = baseIndex + faultInspectionWindow - 1
+
+  var
+    totalMissing = 0
+    streakLen = 0
+    previousPayloadMissing = false
+
+  for i in baseIndex .. endIndex:
+    let
+      prev = (i mod SLOTS_PER_HISTORICAL_ROOT).int
+      cur = ((i + 1) mod SLOTS_PER_HISTORICAL_ROOT).int
+    if block_roots[cur] == block_roots[prev]:
+      continue    # empty slot, no payload was promised
+
+    if previousPayloadMissing:    # a later block exists
+      totalMissing += 1
+      if totalMissing > MAX_MISSING_WINDOW:
+        return true
+      streakLen += 1
+      if streakLen > MAX_MISSING_CONTIGUOUS:
+        return true
+    else:
+      streakLen = 0
+    previousPayloadMissing = not execution_payload_availability[cur]
+
+  false
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
     SubnetId =

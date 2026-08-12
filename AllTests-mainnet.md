@@ -179,6 +179,20 @@ AllTests-mainnet
 + atSlot sanity                                                                              OK
 + parent sanity                                                                              OK
 ```
+## BlocksRangeBuffer test suite
+```diff
++ Add and query blocks test [backward]                                                       OK
++ Add and query blocks test [forward]                                                        OK
++ Block insertion test [backward]                                                            OK
++ Block insertion test [forward]                                                             OK
++ Buffer advance test [backward]                                                             OK
++ Buffer advance test [forward]                                                              OK
++ Buffer invalidate test [backward]                                                          OK
++ Buffer invalidate test [forward]                                                           OK
++ Range peek real test cases [forward]                                                       OK
++ Range peek test [backward]                                                                 OK
++ Range peek test [forward]                                                                  OK
+```
 ## Column reconstruction backfiller cursors
 ```diff
 + a TooFew slot blocks the trail until its columns arrive                                    OK
@@ -301,6 +315,8 @@ AllTests-mainnet
 + EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
 + EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
 + EIP:7594: Recover Matrix                                                                   OK
++ KZG: Recover Cells And Kzg Proofs Parallel - invalid                                       OK
++ KZG: Recover Cells And Kzg Proofs Parallel - valid                                         OK
 ```
 ## EL Configuration
 ```diff
@@ -528,6 +544,7 @@ AllTests-mainnet
 + Index shuffling and unshuffling invert                                                     OK
 + Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
++ Payload failsafe conditions                                                                OK
 + Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
@@ -976,6 +993,13 @@ AllTests-mainnet
 + [SyncQueue] checkBlobsResponse() test                                                      OK
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] hasEndGap() test                                                               OK
+```
+## SyncRange test suite
+```diff
++ contains() test                                                                            OK
++ init() test                                                                                OK
++ iterator test                                                                              OK
++ split() test                                                                               OK
 ```
 ## Type helpers
 ```diff

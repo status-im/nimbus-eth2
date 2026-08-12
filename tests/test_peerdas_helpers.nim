@@ -10,6 +10,9 @@
 
 import
   std/random,
+  chronicles,
+  chronos,
+  taskpools,
   unittest2,
   results,
   kzg4844/[kzg_abi, kzg],
@@ -275,5 +278,60 @@ suite "EIP-7594 Unit Tests":
         doAssert verify_data_column_sidecar_kzg_proofs(
           sidecars, deneb.KzgCommitments.init(shortened)).isErr
     testBatchGloas()
+
+  test "KZG: Recover Cells And Kzg Proofs Parallel - valid":
+    proc testRecoverParallelValid() =
+      var rng = initRand(126)
+      let
+        blob_count = rng.rand(1..8)
+        blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+
+      # Half the columns is enough to recover the rest
+      var colInput = newSeq[ref gloas.DataColumnSidecar]()
+      for columnIndex in countup(0, kzg_abi.CELLS_PER_EXT_BLOB - 1, 2):
+        colInput.add((ref gloas.DataColumnSidecar)(
+          index: ColumnIndex(columnIndex),
+          column: built.gloasSidecars[columnIndex].column))
+
+      var tp =
+        try: Taskpool.new()
+        except CatchableError as exc: raiseAssert exc.msg
+      defer: tp.shutdown()
+      let recovered = (waitFor tp.recover_cells_and_proofs_parallel(colInput)).valueOr:
+        raiseAssert "recover_cells_and_proofs_parallel failed"
+
+      # The recovered cells and proofs must match the originals for each blob
+      doAssert recovered.len == blob_count
+      for row in 0 ..< blob_count:
+        let cp = computeCellsAndKzgProofs(blobs[row]).valueOr:
+          raiseAssert "computeCellsAndKzgProofs failed"
+        for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
+          doAssert recovered[row].cells[columnIndex].bytes ==
+            cp.cells[columnIndex].bytes
+          doAssert recovered[row].proofs[columnIndex].bytes ==
+            cp.proofs[columnIndex].bytes
+    testRecoverParallelValid()
+
+  test "KZG: Recover Cells And Kzg Proofs Parallel - invalid":
+    proc testRecoverParallelInvalid() =
+      var rng = initRand(126)
+      let
+        blobs = createSampleKzgBlobs(2, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+
+      # Fewer than half the columns cannot be recovered from
+      var tooFew = newSeq[ref gloas.DataColumnSidecar]()
+      for columnIndex in countup(0, (kzg_abi.CELLS_PER_EXT_BLOB div 2) - 2, 2):
+        tooFew.add((ref gloas.DataColumnSidecar)(
+          index: ColumnIndex(columnIndex),
+          column: built.gloasSidecars[columnIndex].column))
+
+      var tp =
+        try: Taskpool.new()
+        except CatchableError as exc: raiseAssert exc.msg
+      defer: tp.shutdown()
+      doAssert (waitFor tp.recover_cells_and_proofs_parallel(tooFew)).isErr
+    testRecoverParallelInvalid()
 
 doAssert freeTrustedSetup().isOk

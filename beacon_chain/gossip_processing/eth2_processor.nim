@@ -18,8 +18,8 @@ import
   ../consensus_object_pools/[
     attestation_pool, block_clearance, block_quarantine, blockchain_dag,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    payload_attestation_pool, light_client_pool, sync_committee_msg_pool,
-    validator_change_pool],
+    inclusion_list_pool, payload_attestation_pool, light_client_pool,
+    sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -97,6 +97,13 @@ declareCounter beacon_payload_attestations_dropped,
   "Number of invalid payload attestations dropped by this node",
   labels = ["reason"]
 
+declareCounter beacon_inclusion_lists_received,
+  "Number of valid inclusion lists processed by this node"
+
+declareCounter beacon_inclusion_lists_dropped,
+  "Number of invalid inclusion lists dropped by this node",
+  labels = ["reason"]
+
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
 declareHistogram beacon_attestation_delay,
@@ -152,6 +159,7 @@ type
     lightClientPool: ref LightClientPool
     executionPayloadBidPool*: ref ExecutionPayloadBidPool
     payloadAttestationPool*: ref PayloadAttestationPool
+    inclusionListPool*: ref InclusionListPool
     seenProposerPreferences*: SeenProposerPreferences
 
     doppelgangerDetection*: DoppelgangerProtection
@@ -201,6 +209,7 @@ proc new*(T: type Eth2Processor,
           lightClientPool: ref LightClientPool,
           executionPayloadBidPool: ref ExecutionPayloadBidPool,
           payloadAttestationPool: ref PayloadAttestationPool,
+          inclusionListPool: ref InclusionListPool,
           quarantine: ref Quarantine,
           fuluColumnQuarantine: ref FuluColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
@@ -223,18 +232,22 @@ proc new*(T: type Eth2Processor,
     lightClientPool: lightClientPool,
     executionPayloadBidPool: executionPayloadBidPool,
     payloadAttestationPool: payloadAttestationPool,
+    inclusionListPool: inclusionListPool,
     quarantine: quarantine,
     fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
-      rng, dag.cfg.timeParams,
-      # Only run eager attestation signature verification if we're not
-      # processing blocks in order to give priority to block processing
-      eager = proc(): bool = not blockProcessor[].hasBlocks(),
-      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-        "working batcher")
+      rng,
+      dag.cfg.timeParams,
+      eager = proc(): bool =
+        # Only run eager attestation signature verification if we're not
+        # processing blocks in order to give priority to block processing
+        not blockProcessor[].hasBlocks(),
+      genesis_validators_root = dag.genesis_validators_root,
+      taskpool,
+    ),
   )
 
 # Each validator logs, validates then passes valid data to its destination
@@ -916,7 +929,8 @@ proc processExecutionPayloadBid*(
     blockRoot = signedBid.message.parent_block_root
 
   let v = validateExecutionPayloadBid(
-    self.dag, self.executionPayloadBidPool, self.seenProposerPreferences,
+    self.dag, self.attestationPool.forkChoice,
+    self.executionPayloadBidPool, self.seenProposerPreferences,
     signedBid, wallTime)
   if v.isOk():
     debug "Execution payload bid validated"
@@ -969,6 +983,44 @@ proc processPayloadAttestationMessage*(
 
   trace "Payload attestation validated"
   return ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-on_inclusion_list
+proc processSignedInclusionList*(
+    self: ref Eth2Processor, src: MsgSource,
+    signed_inclusion_list: SignedInclusionList
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  template message: untyped = signed_inclusion_list.message
+
+  let wallTime = self.getCurrentBeaconTime()
+
+  logScope:
+    inclusionListSlot = message.slot
+    validatorIndex = message.validator_index
+
+  let v = await validateInclusionList(
+    self.dag, self.inclusionListPool, self.batchCrypto,
+    signed_inclusion_list, wallTime)
+  if v.isErr():
+    debug "Dropping inclusion list", reason = $v.error
+    beacon_inclusion_lists_dropped.inc(1, [$v.error[0]])
+    return err(v.error())
+
+  # `on_inclusion_list` marks the list timely when it arrived before the
+  # inclusion list deadline within its slot; only timely lists constrain the
+  # next proposer.
+  let
+    timeParams = self.dag.timeParams
+    is_timely =
+      wallTime - message.slot.start_beacon_time(timeParams) <
+        timeParams.inclusionListSlotOffset
+
+  discard self.inclusionListPool[].addInclusionList(
+    message, is_timely, wallTime)
+
+  beacon_inclusion_lists_received.inc()
+
+  trace "Inclusion list validated", is_timely
+  ok()
 
 proc processProposerPreferences*(
     self: ref Eth2Processor, src: MsgSource,

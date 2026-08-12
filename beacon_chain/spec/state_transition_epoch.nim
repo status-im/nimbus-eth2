@@ -23,6 +23,7 @@
 #   motivated by security or performance considerations
 
 import
+  std/sets,
   stew/assign2, chronicles,
   ../extras,
   ./[beaconstate, eth2_merkleization, validator]
@@ -1680,3 +1681,105 @@ proc process_epoch*(
   ? process_proposer_lookahead(state, cache)
   process_ptc_window(state, cache) # [New in Gloas:EIP7732]
   ok()
+
+type
+  # https://ethereum.github.io/beacon-APIs/#/Rewards/getAttestationsRewards
+  IdealAttestationReward* = object
+    effective_balance*: Gwei
+    head*: Gwei
+    target*: Gwei
+    source*: Gwei
+
+  TotalAttestationReward* = object
+    validator_index*: ValidatorIndex
+    # Rewards and penalties for a flag are reported as a single signed value,
+    # penalties being negative
+    head*: int64
+    target*: int64
+    source*: int64
+    inactivity*: int64
+
+  AttestationRewards* = object
+    ideal_rewards*: seq[IdealAttestationReward]
+    total_rewards*: seq[TotalAttestationReward]
+
+proc get_attestation_rewards*(
+    cfg: RuntimeConfig,
+    state: var (altair.BeaconState | bellatrix.BeaconState |
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState |
+                fulu.BeaconState | gloas.BeaconState | heze.BeaconState),
+    cache: var StateCache, flags: UpdateFlags,
+    filter: HashSet[ValidatorIndex]): AttestationRewards =
+  ## Compute the attestation rewards of the epoch which `state` is about to
+  ## leave: `state` must be at the last slot of that epoch with the epoch
+  ## transition not yet applied, and gets advanced through the parts of that
+  ## transition which the rewards depend on.
+  ##
+  ## `filter` restricts `total_rewards` to the given validators, an empty set
+  ## reports all of the eligible ones. `ideal_rewards` covers the effective
+  ## balances present in `total_rewards`.
+  var info: altair.EpochInfo
+  info.init(state, cache)
+  process_justification_and_finalization(state, info.balances, flags)
+  process_inactivity_updates(cfg, state, info)
+
+  let
+    base_reward_per_increment =
+      get_base_reward_per_increment(info.balances.current_epoch)
+    finality_delay = get_finality_delay(state)
+    active_increments = get_active_increments(info)
+    participating_increments = [
+      get_unslashed_participating_increment(info, TIMELY_SOURCE_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_TARGET_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_HEAD_FLAG_INDEX)]
+
+  var
+    total_rewards: seq[TotalAttestationReward]
+    ideal_rewards: seq[IdealAttestationReward]
+    reported: HashSet[ValidatorIndex]
+    effective_balances: HashSet[uint64]
+
+  template effective_balance(vidx: ValidatorIndex): uint64 =
+    uint64(state.validators.item(vidx).effective_balance)
+
+  for vidx, source_reward, target_reward, head_reward, source_penalty,
+      target_penalty, inactivity_penalty in get_flag_and_inactivity_deltas(
+        cfg, state, base_reward_per_increment, info, finality_delay):
+    if len(filter) > 0 and vidx notin filter:
+      continue
+    total_rewards.add TotalAttestationReward(
+      validator_index: vidx,
+      head: int64(head_reward),
+      target: int64(target_reward) - int64(target_penalty),
+      source: int64(source_reward) - int64(source_penalty),
+      inactivity: -int64(inactivity_penalty))
+    effective_balances.incl effective_balance(vidx)
+    if len(filter) > 0:
+      reported.incl vidx
+
+  # Validators which are not eligible for rewards this epoch are not covered by
+  # the deltas above, but are still reported when explicitly requested
+  if len(filter) > 0:
+    for vidx in filter:
+      if vidx notin reported:
+        total_rewards.add TotalAttestationReward(validator_index: vidx)
+        effective_balances.incl effective_balance(vidx)
+
+  for balance in effective_balances:
+    let base_reward =
+      (balance div EFFECTIVE_BALANCE_INCREMENT) * base_reward_per_increment
+
+    template ideal_reward(flag: untyped): Gwei =
+      get_flag_index_reward(
+        state, base_reward, active_increments,
+        participating_increments[ord(flag)],
+        PARTICIPATION_FLAG_WEIGHTS[flag], finality_delay)
+
+    ideal_rewards.add IdealAttestationReward(
+      effective_balance: Gwei(balance),
+      head: ideal_reward(TIMELY_HEAD_FLAG_INDEX),
+      target: ideal_reward(TIMELY_TARGET_FLAG_INDEX),
+      source: ideal_reward(TIMELY_SOURCE_FLAG_INDEX))
+
+  AttestationRewards(
+    ideal_rewards: ideal_rewards, total_rewards: total_rewards)

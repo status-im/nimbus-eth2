@@ -95,8 +95,7 @@ cli do(
   let
     batchCrypto = BatchCrypto.new(
       rng, cfg.timeParams, eager,
-      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-        "working batcher")
+      genesis_validators_root = dag.genesis_validators_root, taskpool)
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
   var
     payloadAttestationPool = PayloadAttestationPool.init(dag)

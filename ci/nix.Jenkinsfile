@@ -29,7 +29,7 @@ pipeline {
     choice(
       name: 'NIX_TARGET',
       description: 'Flake target to build. "auto" derives it from the job name, pick a target to force it.',
-      choices: ['auto', 'beacon_node', 'validator_client', 'ncli_db', 'ncli']
+      choices: ['auto', 'beacon_node', 'validator_client', 'ncli_db', 'ncli', 'light_client']
     )
   }
 
@@ -130,6 +130,10 @@ def nixTarget() {
 
   if (job.contains('validator-client')) {
     return 'validator_client'
+  }
+
+  if (job.contains('light-client')) {
+    return 'light_client'
   }
 
   return 'beacon_node'

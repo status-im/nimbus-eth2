@@ -9,27 +9,20 @@
 
 # Uncategorized helper functions from the spec
 import
-  chronos, chronos/threadsync, chronicles, results, taskpools,
+  chronicles,
+  chronos,
+  results,
+  taskpools,
   eth/p2p/discoveryv5/node,
   kzg4844/kzg,
-  ssz_serialization/[
-    proofs,
-    types],
-  stew/assign2,
-  ./crypto,
-  ./[helpers, digest, column_map],
+  ssz_serialization/[proofs, types],
+  stew/[assign2, ptrops],
+  ./[crypto, helpers, digest, column_map],
   ./datatypes/[fulu, deneb]
 
 from std/algorithm import sort
 from std/sequtils import anyIt, mapIt, newSeqWith, repeat, toSeq
 from stew/staticfor import staticFor
-
-# Generics sandwich (https://github.com/nim-lang/Nim/issues/11225): because
-# `recover_cells_and_proofs_parallel` is generic, its body is semchecked at
-# each callsite, where every symbol it references must also be visible -
-# including the `threadsync` ones. Re-export them so callers don't have to
-# import `threadsync` themselves just to instantiate it.
-export threadsync
 
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
@@ -191,35 +184,39 @@ proc recover_cells_and_proofs_parallel*(
     if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
 
-  let tsp = ThreadSignalPtr.new().valueOr:
-    return err("Could not allocate signal")
+  type
+    TaskFuture = Future[void].Raising([CancelledError])
+    Task = object
+      pendingIndices: seq[CellIndex]
+      pendingCells: seq[Cell]
+      ok: Flowvar[bool]
 
-  var wait = tsp.wait() # `wait` before task-ended check to avoid race
+  let disp = getThreadDispatcher().handle()
+  var wait = TaskFuture.init("peerdas.task")
 
   defer:
     await wait.cancelAndWait()
-    # If there's an error closing the TSP, there's nothing we can do about it
-    # here..
-    discard tsp.close()
 
-  type Task = object
-    pendingIndices: seq[CellIndex]
-    pendingCells: seq[Cell]
-    ok: Flowvar[bool]
+  proc completeWait(udata: pointer) =
+    let wait = cast[ptr TaskFuture](udata)
+    if not wait[].finished():
+      wait[].complete()
 
-  proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
-                     columnCount: int, res: ptr CellsAndProofs, tsp: ThreadSignalPtr): bool =
-    let
-      idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
-      cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
-    # Use toOpenArray to create views without copying
+  proc workerRecover(
+      idxPtr: ptr CellIndex,
+      cellsPtr: ptr Cell,
+      columnCount: int,
+      res: ptr CellsAndProofs,
+      disp: DispatcherHandle,
+      wait: ptr TaskFuture,
+  ): bool =
     defer:
-      discard tsp.fireSync()
+      disp.callSoon(completeWait, wait)
 
     res[] = recoverCellsAndKzgProofs(
-      idxArr.toOpenArray(0, columnCount - 1),
-      cellsArr.toOpenArray(0, columnCount - 1)).valueOr:
-        return false
+      idxPtr.makeOpenArray(columnCount), cellsPtr.makeOpenArray(columnCount)
+    ).valueOr:
+      return false
     true
 
   var
@@ -274,13 +271,10 @@ proc recover_cells_and_proofs_parallel*(
 
           try:
             await wait
-          except AsyncError:
-            hadError = true
-            break spawning
           except CancelledError:
             hadTimeout = true
             break spawning
-          wait = tsp.wait()
+          wait = TaskFuture.init("peerdas.nexttask")
         addr tasks[found]
 
       # Set up pointers to actual data
@@ -294,7 +288,8 @@ proc recover_cells_and_proofs_parallel*(
         addr taskPtr[].pendingCells[0],
         columnCount,
         addr res[spawned],
-        tsp,
+        disp,
+        addr wait,
       )
       inc spawned
 

@@ -71,6 +71,8 @@ import # Unit test
   ./test_mev_calls,
   ./test_column_map,
   ./test_reconstruction_backfiller,
+  ./test_sync_range,
+  ./test_block_buffer,
   ./test_quarantine,
   ./test_keymanager_api   # currently has to run after test_remote_keystore
 
