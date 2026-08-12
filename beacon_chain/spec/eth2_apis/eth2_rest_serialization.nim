@@ -1302,8 +1302,8 @@ func decodeString*(t: typedesc[ConsensusFork],
   ConsensusFork.init(toLowerAscii(value)) or
     err("Unsupported or invalid beacon block fork version")
 
-proc decodeString*(t: typedesc[EventBeaconBlockObject],
-                   value: string): Result[EventBeaconBlockObject, string] =
+proc decodeString*(t: typedesc[HeadChangeInfoObject],
+                   value: string): Result[HeadChangeInfoObject, string] =
   try:
     ok(RestJson.decode(value, t))
   except SerializationError as exc:
