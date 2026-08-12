@@ -326,7 +326,7 @@ proc updateRoot*[A, B](
         if DagEntryFlag.Finalized in entry.flags:
           sdag.roots.getOrDefault(parent_root)
         else:
-          let bid = BlockId(root: parent_root, slot: GENESIS_SLOT)
+          let bid = BlockId(root: parent_root, slot: FAR_FUTURE_SLOT)
           sdag.mgetOrPut(bid)
 
   # It is possible that data is already in SyncDag, because different peers
@@ -407,14 +407,17 @@ iterator ancestors*[A, B](
     entry: SyncDagEntryRef
 ): SyncDagEntryRef =
   doAssert(not(isNil(entry)))
-  var slot = entry[].blockId.slot + 1'u64
-  while slot <= sdag.lastSlot:
-    for blockRoot in sdag.slots.getOrDefault(slot):
-      let mentry = sdag.roots.getOrDefault(blockRoot)
-      if not(isNil(mentry)):
-        if mentry.parent == entry:
-          yield mentry
-    inc(slot)
+  if entry[].blockId.slot < FAR_FUTURE_SLOT:
+    var slot = entry[].blockId.slot + 1'u64
+    while slot <= sdag.lastSlot:
+      for blockRoot in sdag.slots.getOrDefault(slot):
+        let mentry = sdag.roots.getOrDefault(blockRoot)
+        if not(isNil(mentry)):
+          if mentry.parent == entry:
+            yield mentry
+      if slot == FAR_FUTURE_SLOT:
+        break
+      inc(slot)
 
 iterator ancestors*[A, B](
     sdag: SyncDag[A, B],

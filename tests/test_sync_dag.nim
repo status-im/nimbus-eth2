@@ -43,14 +43,14 @@ func createChainSource(
 ): ChainSource =
   var
     res: ChainSource
-    parentRoot: Opt[Eth2Digest]
+    parentRoot: Eth2Digest
 
-  parentRoot = Opt.some(startRoot)
+  parentRoot = startRoot
 
   for slot in slots:
     let
       blockRoot = genBlockRoot(int(slot) + addvalue)
-      currentParentRoot = parentRoot.valueOr: genBlockRoot(0)
+      currentParentRoot = parentRoot
       item = newClone ForkedSignedBeaconBlock(
         kind: ConsensusFork.Gloas,
         gloasData: gloas.SignedBeaconBlock(
@@ -62,7 +62,7 @@ func createChainSource(
       ))
     res.roots[blockRoot] = item
     res.slots[slot] = item
-    parentRoot = Opt.some(blockRoot)
+    parentRoot = blockRoot
   res
 
 func createPeerBlockId(source: ChainSource, slot: Slot): BlockId =
@@ -319,11 +319,7 @@ suite "SyncDag test suite":
       while currentRoot.isSome():
         let
           blck = chain.roots.getOrDefault(currentRoot.get())
-          missingEnvelope =
-            if blck[].slot() in vector[1]:
-              true
-            else:
-              false
+          missingEnvelope = (blck[].slot() in vector[1])
         currentRoot = sdag.updateRoot(
           blck[].root(), blck[].slot(), blck[].parent_root(), false,
           missingEnvelope, DagBlockSourceType.Dag)
