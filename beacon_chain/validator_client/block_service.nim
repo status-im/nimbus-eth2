@@ -462,10 +462,15 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
     for event in events:
       case event.name
       of "data":
-        let head = HeadChangeInfoObject.decodeString(event.data).valueOr:
-          debug "Got invalid head event format", reason = error
-          return
-        vc.registerBlock(head.toBlockId(), head.optimistic, node)
+        let
+          head = HeadChangeInfoObject.decodeString(event.data).valueOr:
+            debug "Got invalid head event format", reason = error
+            return
+          blck = EventBeaconBlockObject(
+            slot: head.slot,
+            block_root: head.block_root,
+            optimistic: head.optimistic)
+        vc.registerBlock(blck, node)
       of "event":
         if event.data != "head":
           debug "Got unexpected event name field", event_name = event.name,
@@ -563,14 +568,20 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
     trace "Beacon node does not yet have block"
     return false
 
-  let
-    blockHeader = bres.get()
-    bid = blockHeader.data.toBlockId()
-  if bid.slot != slot:
-    trace "Beacon node has different head slot", bid = shortLog(bid)
+  let blockHeader = bres.get()
+  if blockHeader.data.header.message.slot != slot:
+    trace "Beacon node has different head slot",
+          head_slot = blockHeader.data.header.message.slot,
+          block_root = shortLog(blockHeader.data.root),
+          optimistic = blockHeader.execution_optimistic
     return false
 
-  vc.registerBlock(bid, blockHeader.execution_optimistic, node)
+  let eventBlock = EventBeaconBlockObject(
+    slot: blockHeader.data.header.message.slot,
+    block_root: blockHeader.data.root,
+    optimistic: blockHeader.execution_optimistic
+  )
+  vc.registerBlock(eventBlock, node)
   true
 
 proc runBlockPollMonitor(service: BlockServiceRef,
