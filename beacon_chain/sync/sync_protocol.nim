@@ -27,9 +27,7 @@ const
   dataColumnResponseCost = allowedOpsPerSecondCost(8000)
     ## 8 data columns take the same memory as 1 blob approximately
   inclusionListResponseCost = allowedOpsPerSecondCost(1000)
-    ## Inclusion lists are bounded by `MAX_SIGNED_INCLUSION_LIST_SIZE` (~8 KiB),
-    ## so they are cheaper than blobs - keep them on the same budget anyway,
-    ## since at most `MAX_REQUEST_INCLUSION_LIST` (16) can be asked for at once
+    ## ~8 KiB each, so cheaper than blobs; keep them on the same budget anyway
 
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
@@ -37,12 +35,11 @@ type
     cfg: RuntimeConfig
     genesisBlockRoot: Eth2Digest
     inclusionListPool: ref InclusionListPool
-      ## Source for `InclusionListsByIndices` - inclusion lists live only for the
-      ## few slots they can still constrain a payload, so they are served from
-      ## the in-memory pool rather than from the database.
+      ## Inclusion lists are only live for a couple of slots, so they are served
+      ## from the in-memory pool rather than the database.
     getBeaconTime: GetBeaconTimeFn
-      ## `minimum_request_slot` is defined against the current wall slot, which
-      ## may run ahead of `dag.head.slot` when slots are empty or we're behind.
+      ## `minimum_request_slot` is relative to the wall slot, which may run
+      ## ahead of `dag.head.slot`.
 
   BlockRootSlot* = object
     blockRoot: Eth2Digest
@@ -196,14 +193,10 @@ proc readChunkPayload*(
       return neterr InvalidContextBytes
 
   withConsensusFork(contextFork):
-    # `HEZE_FORK_VERSION` is the only entry in the chunk type table - inclusion
-    # lists do not exist before Heze.
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+    # `HEZE_FORK_VERSION` is the only entry in the chunk type table.
     when consensusFork >= ConsensusFork.Heze:
       let res = await readChunkPayload(conn, peer, heze.SignedInclusionList)
       if res.isOk:
-        # "the `ForkDigest`-context epoch is determined by
-        # `compute_epoch_at_slot(signed_inclusion_list.message.slot)`"
         let contextEpoch = res.get.message.slot.epoch
         if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
           return neterr InvalidContextBytes
@@ -746,8 +739,8 @@ p2pProtocol BeaconSync(version = 1,
       peer, startSlot, count = reqCount, columns = reqColumns, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
-  # The three request fields are encoded by the DSL as a single SSZ container,
-  # as the spec requires ("The request MUST be encoded as an SSZ-container").
+  # The request MUST be encoded as an SSZ-container - the DSL encodes the three
+  # request fields as exactly that.
   proc inclusionListsByIndices(
       peer: Peer,
       slot: Slot,
@@ -766,9 +759,9 @@ p2pProtocol BeaconSync(version = 1,
     if requested == 0:
       raise newException(InvalidInputsError, "No inclusion lists requested")
 
-    # "No more than `MAX_REQUEST_INCLUSION_LIST` may be requested at a time."
-    # With the mainnet config the `BitVector[INCLUSION_LIST_COMMITTEE_SIZE]`
-    # already bounds this structurally, but the two constants are independent.
+    # No more than `MAX_REQUEST_INCLUSION_LIST` may be requested at a time - the
+    # request's `BitVector[INCLUSION_LIST_COMMITTEE_SIZE]` bounds this already on
+    # the mainnet config, but the two constants are independent.
     if requested.uint64 > dag.cfg.MAX_REQUEST_INCLUSION_LIST:
       raise newException(
         InvalidInputsError, "Exceeding inclusion list request limit")
@@ -790,19 +783,18 @@ p2pProtocol BeaconSync(version = 1,
           GENESIS_SLOT
       minimumRequestSlot = max(lookbackFloor, dag.cfg.HEZE_FORK_EPOCH.start_slot)
 
-    # "If `slot` in the request content references a slot earlier than
-    # `minimum_request_slot`, peers MAY respond with error code
-    # `3: ResourceUnavailable` or not include the inclusion lists in the
-    # response." Answering with the error is more informative to the requester
-    # than an empty response that it cannot distinguish from "we have none".
+    # For a slot earlier than `minimum_request_slot`, peers MAY respond with
+    # `3: ResourceUnavailable` or just omit the lists - the error is more
+    # informative than an empty response the requester cannot tell apart from
+    # us simply having none.
     if slot < minimumRequestSlot:
       raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
-    # The request addresses committee *positions*; the pool is keyed by
-    # validator index, so resolve the positions through this node's view of
+    # The request addresses committee positions while the pool is keyed by
+    # validator index, so resolve them through this node's view of
     # `get_inclusion_list_committee(state, slot)`. A requester asking about a
-    # different committee than ours is not an error - the root filter in the
-    # pool lookup below then simply yields nothing.
+    # different committee is not an error - the pool's root filter below then
+    # simply yields nothing.
     let shufflingRef = dag.getShufflingRef(dag.head, slot.epoch, false).valueOr:
       raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
@@ -811,7 +803,7 @@ p2pProtocol BeaconSync(version = 1,
       if indices[i]:
         requestedValidators.add validator_index
 
-    # "Clients MAY limit the number of inclusion lists in the response."
+    # Clients MAY limit the number of inclusion lists in the response.
     let maxLists = int min(
       dag.cfg.MAX_REQUEST_INCLUSION_LIST, MAX_SUPPORTED_REQUEST_INCLUSION_LIST)
 
@@ -825,8 +817,8 @@ p2pProtocol BeaconSync(version = 1,
       peer.network.awaitQuota(
         inclusionListResponseCost, "inclusion_lists_by_indices/1")
 
-      # "For each successful `response_chunk`, the `ForkDigest` context epoch is
-      # determined by `compute_epoch_at_slot(signed_inclusion_list.message.slot)`"
+      # The `ForkDigest` context epoch of each chunk is determined by
+      # `compute_epoch_at_slot(signed_inclusion_list.message.slot)`.
       await response.writeSSZ(
         signedInclusionList,
         peer.network.forkDigestAtEpoch(slot.epoch).data)

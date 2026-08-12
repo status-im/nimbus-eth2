@@ -28,9 +28,8 @@ func makeInclusionList(
     slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
     txs: openArray[gloas.Transaction],
     signature = default(ValidatorSig)): SignedInclusionList =
-  ## The pool never inspects the signature - it is validated on the gossip side
-  ## before the list gets here - but it is retained so `InclusionListsByIndices`
-  ## can serve it back, so tests pass one through to check it round-trips.
+  ## The pool never inspects the signature - gossip validation has already done
+  ## that - but retains it for `InclusionListsByIndices` to serve back.
   var il = InclusionList(
     slot: slot,
     validator_index: validator_index,
@@ -204,8 +203,8 @@ suite "Inclusion list pool" & preset():
       slot, committeeRoot, [committee[0] + 1000], maxLists = 16).len == 0
 
   test "Untimely lists are still served over req/resp" & preset():
-    # Timeliness is a fork choice notion (`on_inclusion_list`), not a gossip
-    # validation rule, so it must not gate what we respond with.
+    # Timeliness is a fork choice notion, not a gossip validation rule, so it
+    # must not gate what we respond with.
     let il = makeInclusionList(
       slot, committee[0], committeeRoot, [makeTx([byte 0x01])])
 
@@ -226,7 +225,7 @@ suite "Inclusion list pool" & preset():
         slot, committeeRoot, [vi], maxLists = 16).len == 1
 
     # The second, distinct list marks the validator as an equivocator, and
-    # "Clients SHOULD NOT respond with inclusion lists from equivocators".
+    # Clients SHOULD NOT respond with inclusion lists from equivocators.
     check:
       pool[].addInclusionList(il2, is_timely = true, wallTime)
       pool[].getInclusionLists(
@@ -250,7 +249,6 @@ suite "Inclusion list pool" & preset():
       slot, committeeRoot, [committee[0], committee[0], committee[1]],
       maxLists = 16).len == 2
 
-    # `maxLists` bounds the response, matching "Clients MAY limit the number of
-    # inclusion lists in the response".
+    # Clients MAY limit the number of inclusion lists in the response.
     check pool[].getInclusionLists(
       slot, committeeRoot, [committee[0], committee[1]], maxLists = 1).len == 1

@@ -38,11 +38,9 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#configuration
   # `MAX_REQUEST_INCLUSION_LIST` is a runtime config value, but the SSZ `Limit`
-  # of the `InclusionListsByIndices` response has to be known at compile time.
-  # This is the largest value we're willing to request or serve; a config that
-  # raises `MAX_REQUEST_INCLUSION_LIST` beyond it is clamped down to it, which
-  # stays spec-compatible - "Clients MAY limit the number of inclusion lists in
-  # the response".
+  # of the `InclusionListsByIndices` response must be known at compile time. A
+  # config raising it above this is clamped back down, which stays within spec:
+  # Clients MAY limit the number of inclusion lists in the response.
   MAX_SUPPORTED_REQUEST_INCLUSION_LIST*: uint64 = 16
 
 type TimeParams* = object

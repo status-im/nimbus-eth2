@@ -37,15 +37,11 @@ const
 
 type
   SeenInclusionList = object
-    ## An inclusion list already accepted from a validator, in arrival order.
     digest: Eth2Digest
-      ## `eth2digest` of the SSZ-encoded `InclusionList`, used to recognise
-      ## byte-identical resubmissions.
+      ## `eth2digest` of the SSZ-encoded `InclusionList`, to spot resubmissions.
     signed: SignedInclusionList
-      ## Kept in full - the spec `InclusionListStore` only retains the unsigned
-      ## message, but `InclusionListsByIndices` has to serve back the signature
-      ## along with it.
-      ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+      ## The spec `InclusionListStore` keeps only the unsigned message, but
+      ## `InclusionListsByIndices` has to serve the signature back with it.
 
   IlBucket = object
     slot: Slot
@@ -152,33 +148,28 @@ func getInclusionLists*(
     validator_indices: openArray[uint64],
     maxLists: int): seq[SignedInclusionList] =
   ## Inclusion lists held for `slot` by the validators at the requested
-  ## committee positions, for answering `InclusionListsByIndices`.
-  ##
-  ## Everything in the pool has already passed gossip validation, satisfying
-  ## "Clients SHOULD include an inclusion list in the response as soon as it
-  ## passes the gossip validation rules" without a second check here.
-  ##
-  ## Timeliness is deliberately not consulted: it is a fork choice notion set by
-  ## `on_inclusion_list`, not one of the gossip validation rules, so untimely
-  ## lists are served too.
+  ## committee positions. Everything here has already passed gossip validation.
+  ## Timeliness is not consulted: it is a fork choice notion, not one of the
+  ## gossip validation rules, so untimely lists are served too.
   let idx = bucketIdx(slot)
   if pool.buckets[idx].slot != slot:
     return
 
   template bucket: untyped = pool.buckets[idx]
 
-  # "Clients SHOULD NOT respond with inclusion lists from equivocators for the
-  # requested `slot` and `inclusion_list_committee_root`."
+  # Clients SHOULD NOT respond with inclusion lists from equivocators for the
+  # requested `slot` and `inclusion_list_committee_root`.
   let equivocators =
     bucket.store.equivocators.getOrDefault(inclusion_list_committee_root)
 
-  # `get_inclusion_list_committee` cycles its members when the slot has fewer
-  # attesters than `INCLUSION_LIST_COMMITTEE_SIZE`, so one validator can occupy
-  # several requested positions - emit its list only once.
-  var served: HashSet[uint64]
+  # A small committee cycles its members to fill `INCLUSION_LIST_COMMITTEE_SIZE`,
+  # so one validator can occupy several requested positions - serve it once.
+  var
+    res = newSeqOfCap[SignedInclusionList](min(maxLists, validator_indices.len))
+    served: HashSet[uint64]
 
   for validator_index in validator_indices:
-    if result.len >= maxLists:
+    if res.len >= maxLists:
       break
     if validator_index in equivocators:
       continue
@@ -186,13 +177,14 @@ func getInclusionLists*(
       continue
 
     for entry in bucket.seen.getOrDefault(validator_index, emptySeen):
-      # A non-equivocating validator has at most one list here, but the lists
-      # were validated against this node's committee view - drop any that don't
-      # match the committee the requester asked about.
+      # A non-equivocator has at most one list here, collected under this node's
+      # committee view - skip it if that isn't the committee being asked about.
       if entry.signed.message.inclusion_list_committee_root ==
           inclusion_list_committee_root:
-        result.add entry.signed
+        res.add entry.signed
         break
+
+  res
 
 func isInclusionListBitsInclusive*(
     pool: InclusionListPool, slot: Slot, committee: InclusionListCommittee,
