@@ -547,7 +547,7 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
   let bres =
     try:
       await sleepAsync(waitTime)
-      await node.client.getBlockHeader(BlockIdent.init(slot))
+      await node.client.getBlockHeader(BlockIdent.init(BlockIdentType.Head))
     except RestError as exc:
       debug "Unable to obtain block header",
             reason = $exc.msg, error = $exc.name
@@ -563,12 +563,14 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
     trace "Beacon node does not yet have block"
     return false
 
-  let blockHeader = bres.get()
-  if not(blockHeader.data.canonical):
+  let
+    blockHeader = bres.get()
+    bid = blockHeader.data.toBlockId()
+  if bid.slot != slot:
+    trace "Beacon node has different head slot", bid = shortLog(bid)
     return false
 
-  vc.registerBlock(
-    blockHeader.data.toBlockId(), blockHeader.execution_optimistic, node)
+  vc.registerBlock(bid, blockHeader.execution_optimistic, node)
   true
 
 proc runBlockPollMonitor(service: BlockServiceRef,
