@@ -583,7 +583,8 @@ proc verify_inclusion_list_signature*(
     fork, genesis_validators_root, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# url
+# https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#constructing-the-requestauthv1
+debugGloasComment("update once https://github.com/ethereum/builder-specs/pull/165 is merged")
 func compute_builder_request_auth*(
     genesis_fork_version: Version, msg: RequestAuthV1): Eth2Digest =
   let
