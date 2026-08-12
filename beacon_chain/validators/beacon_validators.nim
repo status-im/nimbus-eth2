@@ -643,12 +643,12 @@ proc proposeBlockAux(
 
     let selectedBuilderBid = node.selectBuilderBid(
       builderApiBid, poolBid, engineBid[].eps.blockValue, localBlockValueBoost)
-    if selectedBuilderBid.isSome:
+    selectedBuilderBid.isErrOr:
       info "Using builder bid",
         slot,
-        builderIndex = selectedBuilderBid.get().message.builder_index,
-        bidValue = selectedBuilderBid.get().message.value,
-        executionPayment = selectedBuilderBid.get().message.execution_payment,
+        builderIndex = value.message.builder_index,
+        bidValue = value.message.value,
+        executionPayment = value.message.execution_payment,
         engineValue = engineBid[].eps.blockValue,
         localBlockValueBoost
 
