@@ -1513,8 +1513,7 @@ proc registerBlock*(vc: ValidatorClientRef, bid: BlockId,
     wallTime = vc.beaconClock.now()
     delay = wallTime - bid.slot.start_beacon_time(vc.timeParams)
 
-  debug "Block received", slot = bid.slot,
-        block_root = shortLog(bid.root), optimistic = optimistic,
+  debug "Block received", bid = shortLog(bid), optimistic = optimistic,
         node = node, delay = delay
 
   proc scheduleCallbacks(data: var BlockDataItem) =
