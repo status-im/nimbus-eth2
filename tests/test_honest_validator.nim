@@ -286,6 +286,69 @@ suite "Honest validator":
         SLOTS_PER_HISTORICAL_ROOT + FAULT_INSPECTION_WINDOW:
       check: livenessFailsafeInEffect(x, i.Slot)
 
+  test "Payload failsafe conditions":
+    const
+      MAX_MISSING_CONTIGUOUS = 3
+      MAX_MISSING_WINDOW = 8
+
+    # A distinct root marks a block, repeating the previous root marks an empty
+    # slot. `avail[i]` is written by slot i's child, so a block whose bit stays
+    # unset had its payload abandoned.
+    var
+      roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      avail: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+
+    template blck(slot: int, payloadApplied: bool) =
+      roots[slot].data[0] = slot.uint8
+      if payloadApplied:
+        setBit(avail, slot)
+
+    # A block every slot, every payload applied
+    for i in 1 .. 64:
+      blck(i, true)
+    check: not payloadFailSafeInEffect(avail, roots, 64.Slot)
+
+    # Blocks keep arriving but no payload is applied. The newest block is never
+    # judged, so the streak reaches only MAX_MISSING_CONTIGUOUS here
+    for i in 65 .. 65 + MAX_MISSING_CONTIGUOUS:
+      blck(i, false)
+    check: not payloadFailSafeInEffect(
+      avail, roots, (65 + MAX_MISSING_CONTIGUOUS).Slot)
+
+    # One more block confirms the previous fault and crosses the streak limit
+    blck(65 + MAX_MISSING_CONTIGUOUS + 1, false)
+    check: payloadFailSafeInEffect(
+      avail, roots, (65 + MAX_MISSING_CONTIGUOUS + 1).Slot)
+
+    # Missing blocks are not payload faults, a slot
+    # with no block never promised a payload
+    var
+      gapRoots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      gapAvail: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    for i in 1 .. 64:
+      gapRoots[i].data[0] = i.uint8
+      setBit(gapAvail, i)
+    for i in 65 .. 96:
+      gapRoots[i] = gapRoots[i - 1]
+    check: not payloadFailSafeInEffect(gapAvail, gapRoots, 96.Slot)
+
+    # Each unapplied slot is counted at the next block, so the
+    # MAX_MISSING_WINDOW + 1'th fault lands at slot 128 + 2 * 9
+    var
+      rateRoots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      rateAvail: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)]
+    for i in 1 .. 128:
+      rateRoots[i].data[0] = i.uint8
+      setBit(rateAvail, i)
+    for i in 129 .. 128 + (MAX_MISSING_WINDOW + 1) * 2:
+      rateRoots[i].data[0] = i.uint8
+      if i mod 2 == 0:
+        setBit(rateAvail, i)
+    check: not payloadFailSafeInEffect(
+      rateAvail, rateRoots, (128 + MAX_MISSING_WINDOW * 2).Slot)
+    check: payloadFailSafeInEffect(
+      rateAvail, rateRoots, (128 + (MAX_MISSING_WINDOW + 1) * 2).Slot)
+
   test "Stability subnets":
     check:
       toSeq(compute_subscribed_subnets(default(UInt256), 0.Epoch)) ==

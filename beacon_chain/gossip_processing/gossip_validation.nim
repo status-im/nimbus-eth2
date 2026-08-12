@@ -14,13 +14,13 @@ import
   kzg4844/[kzg, kzg_abi],
   # Internals
   ../spec/[
-    beaconstate, state_transition_block, forks,
-    helpers, network, signatures, peerdas_helpers],
+    beaconstate, state_transition_block, forks, helpers, inclusion_list,
+    network, signatures, peerdas_helpers],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    light_client_pool, payload_attestation_pool, spec_cache,
-    sync_committee_msg_pool, validator_change_pool],
+    inclusion_list_pool, light_client_pool, payload_attestation_pool,
+    spec_cache, sync_committee_msg_pool, validator_change_pool],
   ../beacon_clock,
   ./batch_validation
 
@@ -2068,10 +2068,13 @@ proc validateExecutionPayloadBid*(
       let builderPubkey =
         forkyState.data.builders.item(bid.builder_index).pubkey
 
+      # Blocked on the bid type here being `heze.SignedExecutionPayloadBid`,
+      # which is what carries `inclusion_list_bits`; the check itself is
+      # `inclusionListPool[].isInclusionListBitsInclusive(bid.slot - 1, ...)`.
       debugHezeComment """
 - _[IGNORE]_ `bid.inclusion_list_bits` is inclusive of the node's view of
 inclusion lists for the slot preceding the bid's slot -- i.e.
-`is_inclusion_list_bits_inclusive(get_inclusion_list_store(), state, Slot(bid.slot - 1), bid.inclusion_list_bits, only_timely=False)`
+`is_inclusion_list_bits_inclusive(get_inclusion_list_store(), state, Slot(bid.slot - 1), bid.inclusion_list_bits, only_timely=True)`
 returns `True`, where `state` is the head state corresponding to processing
 the block up to the current slot as determined by the fork choice.
 """
@@ -2262,4 +2265,97 @@ proc validateProposerPreferences*(
     return dag.checkedReject("ProposerPreferences: invalid signature")
 
   seen[bucket][slotInEpoch][preferences.dependent_root] = preferences
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#new-inclusion_list
+proc validateInclusionList*(
+    dag: ChainDAGRef,
+    inclusionListPool: ref InclusionListPool,
+    batchCrypto: ref BatchCrypto,
+    signed_inclusion_list: SignedInclusionList,
+    wallTime: BeaconTime
+): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
+  template message: untyped = signed_inclusion_list.message
+
+  # [REJECT] The size of `message.transactions` is within upperbound
+  # `MAX_BYTES_PER_INCLUSION_LIST`.
+  block:
+    var total = 0'u64
+    for transaction in message.transactions:
+      total += transaction.lenu64
+      if total > dag.cfg.MAX_BYTES_PER_INCLUSION_LIST:
+        return dag.checkedReject(
+          "InclusionList: transactions exceed MAX_BYTES_PER_INCLUSION_LIST")
+
+  # [IGNORE] The slot `message.slot` is equal to the current slot (with a
+  # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
+  # `message.slot == current_slot`.
+  block:
+    let v = dag.timeParams.check_slot_exact(message.slot, wallTime)
+    if v.isErr():
+      return err(v.error())
+
+  if dag.cfg.consensusForkAtEpoch(message.slot.epoch) < ConsensusFork.Heze:
+    return dag.checkedReject("InclusionList: only valid for Heze fork or later")
+
+  # [IGNORE] The `message` is either the first or second valid message received
+  # from the validator with index `message.validator_index`.
+  #
+  # Checked again when adding to the pool, since concurrent validations of
+  # messages from the same validator may each pass this point.
+  if inclusionListPool[].numSeen(message.slot, message.validator_index) >=
+      MAX_INCLUSION_LISTS_PER_VALIDATOR:
+    return errIgnore(
+      "InclusionList: already seen two messages from this validator")
+
+  # [REJECT] The message's validator index is in
+  # `get_inclusion_list_committee(state, message.slot)`, where `state` is the
+  # head state corresponding to processing the block up to the current slot as
+  # determined by the fork choice.
+  let shufflingRef = dag.getShufflingRef(
+      dag.head, message.slot.epoch, false).valueOr:
+    return errIgnore("InclusionList: no shuffling for slot")
+
+  var
+    committee: InclusionListCommittee
+    isMember = false
+  for i, validator_index in get_inclusion_list_committee(
+      shufflingRef, message.slot):
+    committee[i] = validator_index
+    isMember = isMember or validator_index == message.validator_index
+
+  if not isMember:
+    return dag.checkedReject(
+      "InclusionList: validator not in inclusion list committee")
+
+  # [REJECT] The `message.inclusion_list_committee_root` is equal to
+  # `hash_tree_root(get_inclusion_list_committee(state, message.slot))`.
+  if message.inclusion_list_committee_root != hash_tree_root(committee):
+    return dag.checkedReject(
+      "InclusionList: inclusion_list_committee_root mismatch")
+
+  # [REJECT] The signature of `signed_inclusion_list.signature` is valid with
+  # respect to the validator's public key.
+  let
+    vidx = ValidatorIndex.init(message.validator_index).valueOr:
+      return dag.checkedReject("InclusionList: invalid validator index")
+    pubkey = dag.validatorKey(vidx).valueOr:
+      return dag.checkedReject("InclusionList: invalid validator index")
+    fork = dag.forkAtEpoch(message.slot.epoch)
+
+  let deferredCrypto = batchCrypto.scheduleInclusionListCheck(
+    fork, dag.genesis_validators_root, message, pubkey,
+    signed_inclusion_list.signature)
+  if deferredCrypto.isErr():
+    return dag.checkedReject(deferredCrypto.error)
+
+  let (cryptoFut, _) = deferredCrypto.get()
+  case await cryptoFut
+  of BatchResult.Invalid:
+    return dag.checkedReject("InclusionList: invalid signature")
+  of BatchResult.Timeout:
+    return errIgnore("InclusionList: timeout checking signature")
+  of BatchResult.Valid:
+    discard
+
   ok()

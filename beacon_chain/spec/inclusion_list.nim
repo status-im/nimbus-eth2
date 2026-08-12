@@ -54,16 +54,18 @@ func process_inclusion_list*(
     inclusion_list_root] = inclusion_list
   store.inclusion_list_timeliness[inclusion_list_root] = is_timely
 
+type
+  InclusionListCommittee* = array[int INCLUSION_LIST_COMMITTEE_SIZE, uint64]
+    ## Result of `get_inclusion_list_committee`. Callers that already hold the
+    ## committee - e.g. from the cached epoch shuffling - pass it directly
+    ## rather than paying for a state-based recomputation.
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-get_inclusion_list_transactions
 func get_inclusion_list_transactions*(
     store: InclusionListStore,
-    state: heze.BeaconState,
-    slot: Slot,
-    cache: var StateCache,
+    committee: InclusionListCommittee,
     only_timely = true): seq[gloas.Transaction] =
-  let
-    committee = get_inclusion_list_committee(state, slot, cache)
-    key = hash_tree_root(committee)
+  let key = hash_tree_root(committee)
 
   var
     transactions: seq[gloas.Transaction]
@@ -87,18 +89,14 @@ func get_inclusion_list_transactions*(
   transactions
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-get_inclusion_list_bits
-func get_inclusion_list_bits(
+func get_inclusion_list_bits*(
     store: InclusionListStore,
-    state: heze.BeaconState,
-    slot: Slot,
-    cache: var StateCache,
+    committee: InclusionListCommittee,
     only_timely = true): InclusionListBits =
   ## Return a ``BitArray`` over inclusion list committee indices with bits set
   ## for those who provided valid, non-equivocating inclusion lists for the
-  ## given ``slot``.
-  let
-    committee = get_inclusion_list_committee(state, slot, cache)
-    key = hash_tree_root(committee)
+  ## given ``committee``.
+  let key = hash_tree_root(committee)
 
   template inclusion_lists: Table[Eth2Digest, InclusionList] =
     store.inclusion_lists.getOrDefault(key)
@@ -123,14 +121,12 @@ func get_inclusion_list_bits(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/inclusion-list.md#new-is_inclusion_list_bits_inclusive
 func is_inclusion_list_bits_inclusive*(
     store: InclusionListStore,
-    state: heze.BeaconState,
-    slot: Slot,
+    committee: InclusionListCommittee,
     inclusion_list_bits: InclusionListBits,
-    cache: var StateCache,
     only_timely = true): bool =
   ## Return ``true`` if and only if ``inclusion_list_bits`` has a bit set for
-  ## every bit set in the local inclusion list bits for the given ``slot``.
+  ## every bit set in the local inclusion list bits for the given ``committee``.
   let local_inclusion_list_bits =
-    get_inclusion_list_bits(store, state, slot, cache, only_timely)
+    get_inclusion_list_bits(store, committee, only_timely)
 
   local_inclusion_list_bits.isSubsetOf(inclusion_list_bits)

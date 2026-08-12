@@ -2659,6 +2659,27 @@ func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
   ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
   head == dag.headPayload
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/validator.md#attestation
+func attestationDataIndex*(
+    dag: ChainDAGRef, blck: BlockRef, slot: Slot): CommitteeIndex =
+  if slot.epoch < dag.cfg.GLOAS_FORK_EPOCH or blck.slot >= slot:
+    return 0.CommitteeIndex
+
+  let payloadPresent =
+    if blck == dag.head:
+      # If nothing extends the head yet, fork choice holds the verdict
+      dag.isPayloadStatusFull(blck)
+    else:
+      # Else a descendant already recorded whether it extended this payload
+      withState(dag.headState):
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyState.data.execution_payload_availability[
+            blck.slot mod SLOTS_PER_HISTORICAL_ROOT]
+        else:
+          false
+
+  if payloadPresent: 1.CommitteeIndex else: 0.CommitteeIndex
+
 from std/packedsets import PackedSet, incl, items
 
 func getBlsToExecutionChangeStatuses(
@@ -2847,6 +2868,33 @@ proc updateHead*(
   # Update light client data
   dag.processHeadChangeForLightClient()
 
+  # `head` events are then only required when a new block is imported
+  # or when a reorg changes the head block
+  # https://github.com/ethereum/beacon-APIs/pull/117
+  if not(isNil(dag.onHeadChanged)):
+    let
+      depRoot = withState(dag.headState): forkyState.proposer_dependent_root
+      prevDepRoot = withState(dag.headState):
+        forkyState.attester_dependent_root
+      # TODO (cheatfate): Proper implementation required
+      data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
+                                       dag.headState.root,
+                                       epochTransition, prevDepRoot,
+                                       depRoot)
+    dag.onHeadChanged(data)
+
+  if not isNil(dag.onHeadV2Changed):
+    # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
+    let
+      headEpoch = dag.head.slot.epoch()
+      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
+      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
+
+    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
+      dag.headState.kind, dag.head.slot, dag.head.root,
+      dag.headState.root, epochTransition, curEpochDepRoot,
+      nextEpochDepRoot))
+
   let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
   if not(isAncestor):
     notice "Updated head block with chain reorg",
@@ -2876,30 +2924,6 @@ proc updateHead*(
       justified = shortLog(dag.headState.current_justified_checkpoint),
       finalized = shortLog(dag.headState.finalized_checkpoint),
       optStatus = newHead.optimisticStatus
-
-    if not(isNil(dag.onHeadChanged)):
-      let
-        depRoot = withState(dag.headState): forkyState.proposer_dependent_root
-        prevDepRoot = withState(dag.headState):
-          forkyState.attester_dependent_root
-        # TODO (cheatfate): Proper implementation required
-        data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
-                                         dag.headState.root,
-                                         epochTransition, prevDepRoot,
-                                         depRoot)
-      dag.onHeadChanged(data)
-
-    if not isNil(dag.onHeadV2Changed):
-      # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
-      let
-        headEpoch = dag.head.slot.epoch()
-        curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
-        nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
-
-      dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
-        dag.headState.kind, dag.head.slot, dag.head.root,
-        dag.headState.root, epochTransition, curEpochDepRoot,
-        nextEpochDepRoot))
 
   withState(dag.headState):
     # Every time the head changes, the "canonical" view of balances and other

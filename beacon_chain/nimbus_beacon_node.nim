@@ -18,8 +18,8 @@ import
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
     blockchain_list, column_quarantine, column_reconstruction_backfiller,
-    envelope_quarantine, execution_payload_pool, partial_column_quarantine,
-    payload_attestation_pool],
+    envelope_quarantine, execution_payload_pool, inclusion_list_pool,
+    partial_column_quarantine, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -620,6 +620,7 @@ proc initFullNode(
       onProposerSlashingAdded, onAttesterSlashingAdded))
     executionPayloadBidPool = newClone(ExecutionPayloadBidPool.init(dag))
     payloadAttestationPool = newClone(PayloadAttestationPool.init(dag))
+    inclusionListPool = newClone(InclusionListPool.init(dag.timeParams))
     validatorCustody = ValidatorCustodyRef.init(
       node.config, node.network, dag, node.attachedValidatorBalanceTotal)
 
@@ -782,8 +783,8 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
-      quarantine, fuluColumnQuarantine, gloasColumnQuarantine,
-      envelopeQuarantine, rng, getBeaconTime, taskpool)
+      inclusionListPool, quarantine, fuluColumnQuarantine,
+      gloasColumnQuarantine, envelopeQuarantine, rng, getBeaconTime, taskpool)
     syncManagerFlags =
       if node.config.longRangeSync != LongRangeSyncMode.Lenient:
         {SyncManagerFlag.NoGenesisSync}
@@ -1476,6 +1477,13 @@ proc addGloasMessageHandlers(
     getProposerPreferencesTopic(forkDigest),
     getProposerPreferencesTopicParams(node.dag.timeParams))
 
+proc addHezeMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addGloasMessageHandlers(forkDigest, slot)
+  node.network.subscribe(
+    getInclusionListTopic(forkDigest),
+    getInclusionListTopicParams(node.dag.timeParams))
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -1508,6 +1516,10 @@ proc removeGloasMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(getExecutionPayloadBidTopic(forkDigest))
   node.network.unsubscribe(getPayloadAttestationMessageTopic(forkDigest))
   node.network.unsubscribe(getProposerPreferencesTopic(forkDigest))
+
+proc removeHezeMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeGloasMessageHandlers(forkDigest)
+  node.network.unsubscribe(getInclusionListTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1680,7 +1692,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeCapellaMessageHandlers,  # electra (capella handlers, different forkDigest)
     removeFuluMessageHandlers,
     removeGloasMessageHandlers,
-    removeGloasMessageHandlers  # heze (gloas handlers)
+    removeHezeMessageHandlers
   ]
 
   for gossipEpoch in oldGossipEpochs:
@@ -1697,7 +1709,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addCapellaMessageHandlers,  # electra (capella handlers, different forkDigest)
     addFuluMessageHandlers,
     addGloasMessageHandlers,
-    addGloasMessageHandlers  # heze (gloas handlers)
+    addHezeMessageHandlers
   ]
 
   for gossipEpoch in newGossipEpochs:
@@ -2292,6 +2304,19 @@ proc installMessageValidators(node: BeaconNode) =
               toValidationResult(
                 node.processor.processProposerPreferences(
                   MsgSource.gossip, signed_preferences)))
+
+        # inclusion_list
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#new-inclusion_list
+        when consensusFork >= ConsensusFork.Heze:
+          node.network.addAsyncValidator(
+            getInclusionListTopic(digest), proc (
+              signedInclusionList: SignedInclusionList,
+              src: PeerId
+            ): Future[ValidationResult] {.
+                 async: (raises: [CancelledError]).} =
+              return toValidationResult(
+                await node.processor.processSignedInclusionList(
+                  MsgSource.gossip, signedInclusionList)))
 
         # beacon_attestation_{subnet_id}
         # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id

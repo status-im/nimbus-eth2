@@ -544,6 +544,7 @@ AllTests-mainnet
 + Index shuffling and unshuffling invert                                                     OK
 + Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
++ Payload failsafe conditions                                                                OK
 + Stability subnets                                                                          OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK

@@ -33,7 +33,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/p2p-interface.md#new-inclusion_list
   # [IGNORE] The `message` is either the first or second valid message
   # received from the validator with index `message.validator_index`.
-  MAX_INCLUSION_LISTS_PER_VALIDATOR = 2
+  MAX_INCLUSION_LISTS_PER_VALIDATOR* = 2
 
   emptySeenRoots = default(seq[Eth2Digest])
 
@@ -118,12 +118,24 @@ func addInclusionList*(
   true
 
 func getInclusionListTransactions*(
-    pool: InclusionListPool, state: heze.BeaconState, slot: Slot,
-    cache: var StateCache, only_timely: bool): seq[gloas.Transaction] =
+    pool: InclusionListPool, slot: Slot, committee: InclusionListCommittee,
+    only_timely: bool): seq[gloas.Transaction] =
   ## Transactions a proposer must include for `slot`, drawn from the valid,
   ## non-equivocating inclusion lists collected for that slot's committee.
   let idx = bucketIdx(slot)
   if pool.buckets[idx].slot != slot:
     return
   pool.buckets[idx].store.get_inclusion_list_transactions(
-    state, slot, cache, only_timely)
+    committee, only_timely)
+
+func isInclusionListBitsInclusive*(
+    pool: InclusionListPool, slot: Slot, committee: InclusionListCommittee,
+    inclusion_list_bits: InclusionListBits, only_timely: bool): bool =
+  ## Whether `inclusion_list_bits` covers every inclusion list this node has
+  ## collected for `slot`. With nothing collected the local bits are empty, so
+  ## any bits trivially satisfy this.
+  let idx = bucketIdx(slot)
+  if pool.buckets[idx].slot != slot:
+    return true
+  pool.buckets[idx].store.is_inclusion_list_bits_inclusive(
+    committee, inclusion_list_bits, only_timely)

@@ -190,6 +190,16 @@ func payload_attestation_signature_set*(
 
   SignatureSet.init(pubkey, signing_root, signature)
 
+# See also: verify_inclusion_list_signature
+func inclusion_list_signature_set*(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: InclusionList,
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+  let signing_root = compute_inclusion_list_signing_root(
+    fork, genesis_validators_root, msg)
+
+  SignatureSet.init(pubkey, signing_root, signature)
+
 # See also: verify_voluntary_exit_signature
 func voluntary_exit_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,

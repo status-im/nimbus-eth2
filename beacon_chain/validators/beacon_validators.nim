@@ -641,32 +641,16 @@ proc proposeBlockAux(
       else:
         await builderApiBidFut
 
-    let
-      builderApiBidValue = effectiveBidValue(builderApiBid)
-      poolBidValue = effectiveBidValue(poolBid)
-      (bestBuilderBid, bestBidValue) =
-        if poolBid.isNone or builderApiBidValue > poolBidValue:
-          (builderApiBid, builderApiBidValue)
-        else:
-          (poolBid, poolBidValue)
-      useBuilderBid =
-        bestBuilderBid.isSome and
-        builderBetterBid(
-          localBlockValueBoost,
-          bestBidValue.uint64.u256 * GWEI_TO_WEI.u256,
-          engineBid[].eps.blockValue)
-      selectedBuilderBid =
-        if useBuilderBid:
-          info "Using builder bid",
-            slot,
-            builderIndex = bestBuilderBid.get().message.builder_index,
-            bidValue = bestBuilderBid.get().message.value,
-            executionPayment = bestBuilderBid.get().message.execution_payment,
-            engineValue = engineBid[].eps.blockValue,
-            localBlockValueBoost
-          bestBuilderBid
-        else:
-          Opt.none(gloas.SignedExecutionPayloadBid)
+    let selectedBuilderBid = node.selectBuilderBid(
+      builderApiBid, poolBid, engineBid[].eps.blockValue, localBlockValueBoost)
+    selectedBuilderBid.isErrOr:
+      info "Using builder bid",
+        slot,
+        builderIndex = value.message.builder_index,
+        bidValue = value.message.value,
+        executionPayment = value.message.execution_payment,
+        engineValue = engineBid[].eps.blockValue,
+        localBlockValueBoost
 
   let
     verificationFlags =
@@ -876,20 +860,9 @@ proc sendAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
-    payloadIndex =
-      if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH or
-          attestationHead.blck.slot >= slot:
-        0'u64
-      else:
-        withState(node.dag.headState):
-          when consensusFork >= ConsensusFork.Gloas:
-            if forkyState.data.execution_payload_availability[
-                attestationHead.blck.slot mod SLOTS_PER_HISTORICAL_ROOT]:
-              1'u64
-            else: 0'u64
-          else: 0'u64
     data = makeAttestationData(
-      epochRef, attestationHead, CommitteeIndex(payloadIndex))
+      epochRef, attestationHead,
+      node.dag.attestationDataIndex(attestationHead.blck, slot))
     # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
     signingRoot =
       compute_attestation_signing_root(fork, genesis_validators_root, data)
