@@ -453,7 +453,7 @@ proc getSignedBuilderBid(
     )
   ok res.data
 
-proc makeSignRequestAuth*(
+proc makeSignedRequestAuth*(
     proposer: AttachedValidator,
     builder_url: string, slot: Slot,
     genesis_fork_version: presets.Version):
@@ -519,7 +519,7 @@ proc getBuilderExecutionPayloadBid*(
     requestAuth = block:
       let builderUrl = node.getPayloadBuilderAddress(proposer.pubkey).valueOr:
         return Opt.none(gloas.SignedExecutionPayloadBid)
-      (await makeSignRequestAuth(
+      (await makeSignedRequestAuth(
           proposer, builderUrl, slot,
           node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
         return Opt.none(gloas.SignedExecutionPayloadBid)
