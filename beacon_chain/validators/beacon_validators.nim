@@ -211,10 +211,18 @@ proc getValidatorForDuties*(
   node.attachedValidators[].getValidatorForDuties(
     key.toPubKey(), slot, slashingSafe)
 
-proc getGraffitiBytes*(
-    node: BeaconNode, validator: AttachedValidator): GraffitiBytes =
-  getGraffiti(node.config.validatorsDir, node.config.defaultGraffitiBytes(),
-              validator.pubkey)
+proc getGraffitiBytes*(node: BeaconNode, validator: AttachedValidator): GraffitiBytes =
+  let defaultGraffiti =
+    if node.config.graffiti.isSome:
+      node.config.defaultGraffitiBytes()
+    else:
+      let elClientVersion = node.elManager.getClientVersion()
+      if elClientVersion.isSome:
+        makeClientVersionGraffiti(elClientVersion.get)
+      else:
+        node.config.defaultGraffitiBytes()
+
+  getGraffiti(node.config.validatorsDir, defaultGraffiti, validator.pubkey)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ## TODO This function is here as a placeholder for some better heurestics to
