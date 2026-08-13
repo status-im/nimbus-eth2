@@ -1081,7 +1081,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                            $slot.error())
         slot.get()
-      consensusFork  = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
+      consensusFork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
     if consensusFork < ConsensusFork.Gloas:
       return RestApiResponse.jsonError(Http400, UnsupportedForkError,
                                        $UnsupportedForkError)
@@ -1098,14 +1098,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       beacon_block_root: blck.root,
       slot: qslot,
       payload_present: node.checkPayloadPresent(blck),
-      blob_data_available: node.checkBlobDataAvailable(blck)
-    )
+      blob_data_available: node.checkBlobDataAvailable(blck))
 
     if contentType == sszMediaType:
       RestApiResponse.sszResponse(
         pdata, consensusFork, node.hasRestAllowedOrigin)
     elif contentType == jsonMediaType:
-      RestpApiResponse.jsonResponseWVersion(
+      RestApiResponse.jsonResponseWVersion(
         pdata, consensusFork, node.hasRestAllowedOrigin)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
