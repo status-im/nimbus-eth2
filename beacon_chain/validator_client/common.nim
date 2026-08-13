@@ -249,6 +249,8 @@ type
     nodesAvailable*: AsyncEvent
     indicesAvailable*: AsyncEvent
     doppelExit*: AsyncEvent
+    attesterDependentRoots*: Table[Epoch, Eth2Digest]
+    proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap

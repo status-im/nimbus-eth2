@@ -377,10 +377,6 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
 
   if not(epochDuties.isDefault()):
     if epochDuties.dependentRoot != dependentRoot:
-      warn "Proposer duties re-organization", duties_count = len(duties),
-           wall_slot = currentSlot, epoch = epoch,
-           prior_dependent_root = epochDuties.dependentRoot,
-           dependent_root = dependentRoot
       let tasks =
         block:
           var res: seq[ProposerTask]

@@ -48,6 +48,28 @@ proc checkDuty(duty: RestAttesterDuty): bool =
 proc checkSyncDuty(duty: RestSyncCommitteeDuty): bool =
   uint64(duty.validator_index) <= VALIDATOR_REGISTRY_LIMIT
 
+func pruneDependentRoots(
+    dependentRoots: var Table[Epoch, Eth2Digest], currentEpoch: Epoch) =
+  var epochsToPrune: seq[Epoch]
+  for epoch in dependentRoots.keys():
+    if (epoch + HISTORICAL_DUTIES_EPOCHS) < currentEpoch:
+      epochsToPrune.add(epoch)
+  for epoch in epochsToPrune:
+    dependentRoots.del(epoch)
+
+proc updateDependentRoot(
+    dependentRoots: var Table[Epoch, Eth2Digest],
+    epoch: Epoch, dependentRoot: Eth2Digest, changeMessage: static[string]) =
+  dependentRoots.withValue(epoch, priorDependentRoot):
+    if dependentRoot != priorDependentRoot[]:
+      info changeMessage,
+           epoch = epoch,
+           prior_dependent_root = priorDependentRoot[],
+           dependent_root = dependentRoot
+      priorDependentRoot[] = dependentRoot
+  do:
+    dependentRoots[epoch] = dependentRoot
+
 proc pollForValidatorIndices*(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -156,12 +178,15 @@ proc pollForAttesterDuties*(
       else:
         default(seq[RestAttesterDuty])
 
+  if currentRoot.isSome():
+    vc.attesterDependentRoots.updateDependentRoot(
+      epoch, currentRoot.get(), "Attester duties re-organization")
+
   template checkReorg(a, b: untyped): bool =
     not(a.dependentRoot == b.get())
 
   let addOrReplaceItems =
     block:
-      var alreadyWarned = false
       var res: seq[tuple[epoch: Epoch, duty: RestAttesterDuty]]
       for duty in relevantDuties:
         var dutyFound = false
@@ -169,11 +194,6 @@ proc pollForAttesterDuties*(
           map[].duties.withValue(epoch, epochDuty):
             dutyFound = true
             if checkReorg(epochDuty[], currentRoot):
-              if not(alreadyWarned):
-                info "Attester duties re-organization",
-                     prior_dependent_root = epochDuty[].dependentRoot,
-                     dependent_root = currentRoot.get()
-                alreadyWarned = true
               res.add((epoch, duty))
         if not(dutyFound):
           info "Received new attester duty", duty, epoch = epoch,
@@ -279,6 +299,8 @@ proc pollForSyncCommitteeDuties*(
 
 proc pruneAttesterDuties(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
+  vc.attesterDependentRoots.pruneDependentRoots(epoch)
+
   var attesters: AttesterMap
   for key, item in vc.attesters:
     var v = EpochDuties()
@@ -489,6 +511,7 @@ proc pollForSyncCommitteeDuties*(
 
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
+  vc.proposerDependentRoots.pruneDependentRoots(epoch)
 
   var proposers: ProposerMap
   for epochKey, data in vc.proposers:
@@ -515,6 +538,9 @@ proc pollForBeaconProposers*(
         dependentRoot = res.dependent_root
         duties = res.data
         relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
+
+      vc.proposerDependentRoots.updateDependentRoot(
+        currentEpoch, dependentRoot, "Proposer duties re-organization")
 
       if len(relevantDuties) > 0:
         vc.addOrReplaceProposers(currentEpoch, dependentRoot, relevantDuties)
