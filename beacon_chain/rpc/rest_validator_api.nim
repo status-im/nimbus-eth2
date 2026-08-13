@@ -1069,3 +1069,43 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # middleware can handle and swallow the request. I suggest a CL either
     # returns 501 Not Implemented [or] 400 Bad Request."
     RestApiResponse.jsonError(Http501, AggregationSelectionNotImplemented)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/payload_attestation_data.yaml
+  router.api2(MethodGet, "/eth/v1/validator/payload_attestation_data/{slot}") do (
+    slot: Slot) -> RestApiResponse:
+    let
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      qslot = block:
+        if slot.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           $slot.error())
+        slot.get()
+      consensusFork  = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
+    if consensusFork < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400, UnsupportedForkError,
+                                       $UnsupportedForkError)
+
+    let
+      qhead = node.getSyncedHead(qslot).valueOr:
+        return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                         $error)
+      blck = qhead.atSlot(qslot).blck
+    if blck.slot != qslot:
+      return RestApiResponse.jsonError(Http400, BlockNotFoundError)
+
+    let pdata = PayloadAttestationData(
+      beacon_block_root: blck.root,
+      slot: qslot,
+      payload_present: node.checkPayloadPresent(blck),
+      blob_data_available: node.checkBlobDataAvailable(blck)
+    )
+
+    if contentType == sszMediaType:
+      RestApiResponse.sszResponse(
+        pdata, consensusFork, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      RestpApiResponse.jsonResponseWVersion(
+        pdata, consensusFork, node.hasRestAllowedOrigin)
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)
