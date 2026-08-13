@@ -1121,7 +1121,8 @@ proc signAndSendProposerPreference(
   discard await node.router.routeProposerPreferences(signed)
 
 proc sendProposerPreferences(
-    node: BeaconNode, slot: Slot) {.async: (raises: [CancelledError]).} =
+    node: BeaconNode, head: BlockRef,
+    slot: Slot) {.async: (raises: [CancelledError]).} =
 
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
@@ -1650,7 +1651,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendPayloadAttestations(node, head, slot)
 
-  await node.sendProposerPreferences(slot)
+  await node.sendProposerPreferences(head, slot)
 
 proc registerPTCDuties(node: BeaconNode, epoch: Epoch) =
   if epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
