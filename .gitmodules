@@ -248,3 +248,6 @@
 	url = https://github.com/vacp2p/nim-boringssl.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-libplum"]
+	path = vendor/nim-libplum
+	url = https://github.com/logos-storage/nim-libplum
