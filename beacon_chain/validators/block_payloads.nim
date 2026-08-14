@@ -42,8 +42,8 @@ import
   ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
-from ../spec/beaconstate import get_expected_withdrawals
 from stew/byteutils import toBytes
+from ../spec/beaconstate import get_expected_withdrawals
 
 export results
 
@@ -461,7 +461,7 @@ proc makeSignedRequestAuth*(
     {.async: (raises: [CancelledError]).} =
   let
     msg = RequestAuthV1(
-      data: List[byte, MAX_DATA_SIZE].init(toBytes(builder_url)),
+      data: RequestAuthData.init(toBytes(builder_url)),
       slot: slot)
     sig = (await proposer.getBuilderRequestAuthSignature(
         genesis_fork_version, msg)).valueOr:

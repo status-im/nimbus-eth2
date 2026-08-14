@@ -18,9 +18,11 @@ const
   MAX_DATA_SIZE*: int64 = 4096
 
 type
+  RequestAuthData* = List[byte, Limit MAX_DATA_SIZE]
+
   # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#requestauthv1
   RequestAuthV1* = object
-    data*: List[byte, MAX_DATA_SIZE]
+    data*: RequestAuthData
     slot*: Slot
 
   # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#signedrequestauthv1
