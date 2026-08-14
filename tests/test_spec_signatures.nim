@@ -329,7 +329,7 @@ suite "Message signatures":
       auth0 = default(RequestAuthV1)
       auth1 = block:
         var v = auth0
-        v.data = List[byte, MAX_DATA_SIZE].init(@[byte 0xaa])
+        v.data = RequestAuthData.init(@[byte 0xaa])
         v
       sig = get_builder_request_auth_signature(
         version0, auth0, privkey0).toValidatorSig
