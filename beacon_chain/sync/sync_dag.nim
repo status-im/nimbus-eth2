@@ -342,6 +342,22 @@ proc updateRoot*[A, B](
     entry.parent = parentEntry
     entry.source.incl(src)
     sdag.updateSlot(slot, root)
+  else:
+    if entry.parent != parentEntry:
+      # In this case an "unlinked entry" is created. The reason for this is that
+      # we could not fully verify blocks we receiving from different sources.
+      #
+      # Block represented by `entry` is either malicious or not, we could not
+      # verify, but in both cases earlier or later it will be discovered and
+      # in case of malicious `entry` being added it will pass through
+      # proper validation at some point and will be marked as Invalid/Pending.
+      # In this case this entry's `parent` will be replaced with correct value.
+      #
+      # In case where `entry` is valid, we will create `unlinked` chain provided
+      # by peer and download all the data provided by that peer, but
+      # this chain cannot affect main chain and will be pruned at some
+      # point.
+      discard
 
   if DagEntryFlag.Finalized in entry.flags:
     # If we downloaded finalized checkpoint's root block - update `epochs`
