@@ -41,6 +41,9 @@ declareCounter beacon_engine_getblobs_hits_total,
 declareGauge beacon_engine_getblobs_slot_hit_rate,
   "engine_getBlobs hit rate (0..1) for the most recently completed slot with at least one request"
 
+declareCounter beacon_engine_getblobs_coalesced_total,
+  "engine_getBlobs invocations avoided because a fetch for the same block root was already in flight"
+
 type
   GetBlobsService* = object
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
@@ -67,6 +70,11 @@ type
     # Bounds the per-block fan-out: each custody column arriving via gossip
     # would otherwise trigger a redundant getBlobsV2 roundtrip.
     columnFirstFetched: Table[Eth2Digest, Slot]
+    # Roots with an EL fetch in flight, keeping at most one engine_getBlobs
+    # request per root outstanding across both paths. `columnFirstFetched`
+    # cannot do this: it is only written once the roundtrip completes, so
+    # both paths read it as empty for the duration of the request.
+    elFetchInFlight: Table[Eth2Digest, Future[void]]
 
   GetBlobsServiceRef* = ref GetBlobsService
 
@@ -112,6 +120,23 @@ proc recordEngineGetBlobs(
     inc self.slotHits
     beacon_engine_getblobs_hits_total.inc()
 
+proc markFetchInFlight(
+    self: GetBlobsServiceRef, root: Eth2Digest): Future[void] =
+  ## Claim `root` for an EL fetch. Hand the marker to `clearFetchInFlight`
+  ## once the fetch settles.
+  let marker = newFuture[void]("getBlobsService.elFetch")
+  self.elFetchInFlight[root] = marker
+  marker
+
+proc clearFetchInFlight(
+    self: GetBlobsServiceRef, root: Eth2Digest, marker: Future[void]) =
+  ## Release the claim on `root` and wake anyone waiting on it. Drops only
+  ## our own claim, leaving a later fetch that took over the root alone.
+  if self.elFetchInFlight.getOrDefault(root) == marker:
+    self.elFetchInFlight.del(root)
+  if not marker.finished():
+    marker.complete()
+
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
     columns: seq[ref T]
@@ -146,6 +171,17 @@ proc attemptGetBlobs*(
 
   withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
+      # A column sidecar arriving ahead of the block may have a fetch for this
+      # root in flight already; wait for it instead of asking the EL for the
+      # same blobs twice. `join`, so cancelling here leaves that fetch alone.
+      let inFlight = self.elFetchInFlight.getOrDefault(forkyBlck.root)
+      if inFlight != nil:
+        beacon_engine_getblobs_coalesced_total.inc()
+        await inFlight.join()
+        # Gossip columns completing during the wait can claim the block.
+        if quarantine[].getSidecarless(forkyBlck.root).isNone():
+          return
+
       # If the column-first path already populated quarantine for this root,
       # skip the EL fetch and enqueue with the existing columns.
       if forkyBlck.root in self.columnFirstFetched:
@@ -169,6 +205,9 @@ proc attemptGetBlobs*(
       var
         blobs: seq[kzg.KzgBlob]
         flat_proof: seq[kzg.KzgProof]
+
+      let fetchMarker = self.markFetchInFlight(forkyBlck.root)
+      defer: self.clearFetchInFlight(forkyBlck.root, fetchMarker)
 
       if self.partialColumns:
         # Fulu partial-columns mode: prefer engine_getBlobsV3 so the EL can
@@ -375,11 +414,23 @@ proc attemptGetBlobsFromColumn*(
   if block_root in self.columnFirstFetched:
     return
 
+  # Another fetch for this root is already talking to the EL, and its result
+  # lands in the same quarantine — nothing to wait around for.
+  if block_root in self.elFetchInFlight:
+    beacon_engine_getblobs_coalesced_total.inc()
+    return
+
   # If the sidecarless block is already in the block quarantine, the
   # block-first path (consumeBlockGossip - attemptGetBlobs) owns this
   # block — leave it alone.
   if quarantine[].getSidecarless(block_root).isSome():
     return
+
+  # Claim the root before yielding, so a block arriving mid-flight waits for
+  # this fetch rather than issuing an identical one. Released either way, so
+  # a fetch that came up empty is still retried by later column arrivals.
+  let fetchMarker = self.markFetchInFlight(block_root)
+  defer: self.clearFetchInFlight(block_root, fetchMarker)
 
   let blobsEl = (await elManager.getBlobsV2(sidecar[].kzg_commitments)).valueOr:
     self.recordEngineGetBlobs(slot, hit = false)
