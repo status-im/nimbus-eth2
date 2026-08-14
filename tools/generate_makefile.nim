@@ -86,7 +86,7 @@ proc main() =
         found = false
         for token in split(cmd, Whitespace + {'\''}):
           if found and token.len > 0 and token.endsWith(".o"):
-            objectPath = token
+            objectPath = token.replace('\\', '/')
             break
           if token == "-o":
             found = true
@@ -94,8 +94,9 @@ proc main() =
           echo "Could not find the object file in this command: ", cmd
           quit(QuitFailure)
         try:
+          makefile.writeLine(".PHONY: " & objectPath)
           makefile.writeLine("$#: $#" % [
-            objectPath.replace('\\', '/'),
+            objectPath,
             compile[0].getStr().replace('\\', '/')])
           makefile.writeLine("\t+ $#\n" % cmd)
         except ValueError:
