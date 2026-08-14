@@ -434,9 +434,7 @@ proc init*(
     B: typedesc,
     cfg: RuntimeConfig
 ): SyncDag[A, B] =
-  SyncDag[A, B](
-    config: cfg
-  )
+  SyncDag[A, B](config: cfg)
 
 func getPeerEntry*[A, B](
     sdag: SyncDag[A, B],
@@ -495,11 +493,11 @@ func increaseBlocksCount*[A](
   # We increase by 1/4, but not bigger than fork's limit value.
   let
     maxCount =
-      case fork
-      of ConsensusFork.Phase0 .. ConsensusFork.Gloas:
-        int(MAX_REQUEST_BLOCKS_DENEB)
-      of ConsensusFork.Heze:
-        raiseAssert "Unsupported fork!"
+      withConsensusFork(fork):
+        when consensusFork <= ConsensusFork.Gloas:
+          int(MAX_REQUEST_BLOCKS_DENEB)
+        else:
+          raiseAssert "Unsupported fork!"
     res =
       entry.maxBlocksPerRequest + max(1, entry.maxBlocksPerRequest div 4)
 
@@ -516,13 +514,13 @@ func increaseSidecarsCount*[A](
   # We increase by 1/4, but not bigger than fork's limit value.
   let
     maxCount =
-      case fork
-      of ConsensusFork.Phase0 .. ConsensusFork.Electra:
-        0
-      of ConsensusFork.Fulu, ConsensusFork.Gloas:
-        int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
-      of ConsensusFork.Heze:
-        raiseAssert "Unsupported fork!"
+      withConsensusFork(fork):
+        when consensusFork <= ConsensusFork.Electra:
+          0
+        elif consensusFork <= ConsensusFork.Gloas:
+          int(cfg.MAX_REQUEST_DATA_COLUMN_SIDECARS)
+        else:
+          raiseAssert "Unsupported fork!"
     res =
       entry.maxSidecarsPerRequest + max(1, entry.maxSidecarsPerRequest div 4)
   if res > maxCount:
@@ -537,13 +535,13 @@ func increaseEnvelopesCount*[A](
   # We increase by 1/4, but not bigger than fork's limit value.
   let
     maxCount =
-      case fork
-      of ConsensusFork.Phase0 .. ConsensusFork.Fulu:
-        0
-      of ConsensusFork.Gloas:
-        int(MAX_REQUEST_PAYLOADS)
-      of ConsensusFork.Heze:
-        raiseAssert "Unsupported fork!"
+      withConsensusFork(fork):
+        when consensusFork <= ConsensusFork.Fulu:
+          0
+        elif consensusFork == ConsensusFork.Gloas:
+          int(MAX_REQUEST_PAYLOADS)
+        else:
+          raiseAssert "Unsupported fork!"
     res =
       entry.maxEnvelopesPerRequest + max(1, entry.maxEnvelopesPerRequest div 4)
 
