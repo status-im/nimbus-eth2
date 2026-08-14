@@ -73,12 +73,14 @@ proc makePayloadAttestationMessage(
 proc getPtcMembers(
     state: ForkedHashedBeaconState, slot: Slot,
     n = int(PTC_SIZE)): seq[ValidatorIndex] =
+  var members: seq[ValidatorIndex]
   withState(state):
     when consensusFork >= ConsensusFork.Gloas:
       for validator_index in get_ptc(forkyState.data, slot):
-        result.add(validator_index)
-        if result.len >= n:
+        members.add(validator_index)
+        if members.len >= n:
           break
+  members
 
 suite "Payload attestation pool" & preset():
   setup:
