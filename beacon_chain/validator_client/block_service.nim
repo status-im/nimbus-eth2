@@ -462,12 +462,17 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
     for event in events:
       case event.name
       of "data":
-        let blck = EventBeaconBlockObject.decodeString(event.data).valueOr:
-          debug "Got invalid block event format", reason = error
-          return
+        let
+          head = HeadChangeInfoObject.decodeString(event.data).valueOr:
+            debug "Got invalid head event format", reason = error
+            return
+          blck = EventBeaconBlockObject(
+            slot: head.slot,
+            block_root: head.block_root,
+            optimistic: head.optimistic)
         vc.registerBlock(blck, node)
       of "event":
-        if event.data != "block":
+        if event.data != "head":
           debug "Got unexpected event name field", event_name = event.name,
                 event_data = event.data
       else:
@@ -495,7 +500,7 @@ proc runBlockEventMonitor(service: BlockServiceRef,
       block:
         var resp: HttpClientResponseRef
         try:
-          resp = await node.client.subscribeEventStream({EventTopic.Block})
+          resp = await node.client.subscribeEventStream({EventTopic.Head})
           if resp.status == 200:
             Opt.some(resp)
           else:
@@ -547,7 +552,7 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
   let bres =
     try:
       await sleepAsync(waitTime)
-      await node.client.getBlockHeader(BlockIdent.init(slot))
+      await node.client.getBlockHeader(BlockIdent.init(BlockIdentType.Head))
     except RestError as exc:
       debug "Unable to obtain block header",
             reason = $exc.msg, error = $exc.name
@@ -564,6 +569,12 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
     return false
 
   let blockHeader = bres.get()
+  if blockHeader.data.header.message.slot != slot:
+    trace "Beacon node has different head slot",
+          head_slot = blockHeader.data.header.message.slot,
+          block_root = shortLog(blockHeader.data.root),
+          optimistic = blockHeader.execution_optimistic
+    return false
 
   let eventBlock = EventBeaconBlockObject(
     slot: blockHeader.data.header.message.slot,

@@ -1011,13 +1011,13 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
-proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
+proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): bool =
   if blck.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
     node.dag.db.containsExecutionPayloadEnvelope(blck.root)
   else:
     true
 
-proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
+proc checkBlobDataAvailable*(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
       let forkyBlck =
