@@ -351,6 +351,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           MIN_BUILDER_WITHDRAWABILITY_DELAY:
             Base10.toString(cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY),
+          MAX_REQUEST_PAYLOADS:
+            Base10.toString(MAX_REQUEST_PAYLOADS.uint64),
 
           CONFIRMATION_BYZANTINE_THRESHOLD:
             Base10.toString(cfg.CONFIRMATION_BYZANTINE_THRESHOLD),
