@@ -669,7 +669,7 @@ proc routePayloadAttestationMessage*(
     router: ref MessageRouter,
     message: PayloadAttestationMessage,
     checkSignature = true, checkValidator = true
-) {.async: (raises: [CancelledError]).} =
+): Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processPayloadAttestationMessage(
       message, checkSignature = checkSignature,
@@ -678,7 +678,7 @@ proc routePayloadAttestationMessage*(
     if not res.isGoodForSending:
       warn "Payload attestation failed validation",
         message = shortLog(message), error = res.error()
-      return
+      return err(res.error()[1])
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()

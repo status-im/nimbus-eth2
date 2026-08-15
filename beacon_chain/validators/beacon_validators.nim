@@ -1065,7 +1065,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
       validator_index: validator_index.uint64, data: data, signature: signature
     )
 
-  await node.router.routePayloadAttestationMessage(
+  discard await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
