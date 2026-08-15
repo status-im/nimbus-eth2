@@ -1746,14 +1746,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(
         Http400, InvalidPayloadAttestationObjectError, $error)
 
-    var pendingMessages = newSeqOfCap[Future[SendResult]](messages.len)
-    for message in messages:
-      pendingMessages.add(
-        node.router.routePayloadAttestationMessage(message))
+    let pendingMessages =
+      messages.mapIt(node.router.routePayloadAttestationMessage(it))
 
     let failures =
       block:
-        var res:seq[RestIndexedErrorMessageItem]
+        var res: seq[RestIndexedErrorMessageItem]
         await allFutures(pendingMessages)
         for index, future in pendingMessages:
           if future.completed():
