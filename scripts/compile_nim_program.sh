@@ -9,8 +9,6 @@
 
 set -Eeo pipefail
 
-# cd "$(dirname "${BASH_SOURCE[0]}")"/..
-
 BINARY="$1"
 SOURCE="$2"
 # the rest are NIM_PARAMS
