@@ -688,7 +688,7 @@ done
 
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
   log "Rebuilding binaries ${BINARIES}"
-  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS}" -d:local_testnet -d:const_preset=${CONST_PRESET} ${BINARIES}
+  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
