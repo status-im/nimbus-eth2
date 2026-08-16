@@ -123,6 +123,7 @@ proc submitBuilderPreferencesPlain*(
 
 proc submitBuilderPreferences*(
     client: RestClientRef,
+    consensus_version: ConsensusFork,
     proposer_pubkey: ValidatorPubKey,
     body: BuilderPreferencesRequestV1
 ): Future[RestPlainResponse] {.
@@ -130,4 +131,5 @@ proc submitBuilderPreferences*(
                    RestCommunicationError], raw: true).} =
   client.submitBuilderPreferencesPlain(
     proposer_pubkey, body,
+    extraHeaders = @[("eth-consensus-version", toString(consensus_version))]
   )
