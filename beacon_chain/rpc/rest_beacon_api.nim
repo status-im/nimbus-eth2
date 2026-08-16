@@ -1710,6 +1710,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(MethodGet, "/eth/v1/beacon/pool/payload_attestations") do (
     slot: Option[Slot]) -> RestApiResponse:
     let
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
       vslot =
         if slot.isSome():
           let rslot = slot.get().valueOr:
@@ -1723,9 +1725,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch)
         else:
           node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
-    RestApiResponse.jsonResponseWVersion(
-      node.payloadAttestationPool[].getPayloadAttestations(vslot),
-      consensusFork, node.hasRestAllowedOrigin)
+      attestations = node.payloadAttestationPool[].getPayloadAttestations(vslot)
+    if contentType == sszMediaType:
+      var data: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
+      for attestation in attestations:
+        if not data.add(attestation):
+          break
+      RestApiResponse.sszResponse(
+        data, consensusFork, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      RestApiResponse.jsonResponseWVersion(
+        attestations, consensusFork, node.hasRestAllowedOrigin)
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   router.api2(MethodPost, "/eth/v1/beacon/pool/payload_attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -1741,10 +1753,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    let messages = decodeBody(
+    let messages = decodeBodyJsonOrSsz(
         seq[PayloadAttestationMessage], contentBody.get()).valueOr:
-      return RestApiResponse.jsonError(
-        Http400, InvalidPayloadAttestationObjectError, $error)
+      return RestApiResponse.jsonError(error)
 
     let pendingMessages =
       messages.mapIt(node.router.routePayloadAttestationMessage(it))
