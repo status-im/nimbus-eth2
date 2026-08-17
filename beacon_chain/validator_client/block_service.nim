@@ -467,6 +467,7 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
             block_root: head.block_root,
             optimistic: head.optimistic)
         vc.registerBlock(blck, node)
+        vc.registerHead(head)
       of "event":
         if event.data != "head":
           debug "Got unexpected event name field", event_name = event.name,

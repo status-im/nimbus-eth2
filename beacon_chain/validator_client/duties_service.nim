@@ -52,7 +52,7 @@ func pruneDependentRoots(
     dependentRoots: var Table[Epoch, Eth2Digest], currentEpoch: Epoch) =
   var epochsToPrune: seq[Epoch]
   for epoch in dependentRoots.keys():
-    if (epoch + HISTORICAL_DUTIES_EPOCHS) < currentEpoch:
+    if epoch < currentEpoch:
       epochsToPrune.add(epoch)
   for epoch in epochsToPrune:
     dependentRoots.del(epoch)
@@ -620,6 +620,34 @@ proc registerValidators*(
           beacon_nodes_count = count, registrations = len(registrations),
           validators_count = vc.attachedValidators[].count()
 
+proc raceWithEvent(
+    future: Future[void].Raising([CancelledError]),
+    event: AsyncEvent
+) {.async: (raises: [CancelledError]).} =
+  let eventFut = event.wait()
+  try:
+    discard await race(future, eventFut)
+  except CancelledError as exc:
+    var pending: seq[Future[void]]
+    if not(future.finished()):
+      pending.add(future.cancelAndWait())
+    if not(eventFut.finished()):
+      pending.add(eventFut.cancelAndWait())
+    await noCancel allFutures(pending)
+    raise exc
+  if not(eventFut.finished()):
+    await noCancel eventFut.cancelAndWait()
+
+proc restartPollingAttesterDuties(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  # Cleaning up previous attestation duties task.
+  if not(isNil(service.pollingAttesterDutiesTask)) and
+     not(service.pollingAttesterDutiesTask.finished()):
+    await cancelAndWait(service.pollingAttesterDutiesTask)
+  # Spawning new attestation duties task.
+  service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
+
 proc attesterDutiesLoop(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -632,13 +660,13 @@ proc attesterDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await service.waitForNextSlot()
-    # Cleaning up previous attestation duties task.
-    if not(isNil(service.pollingAttesterDutiesTask)) and
-       not(service.pollingAttesterDutiesTask.finished()):
-      await cancelAndWait(service.pollingAttesterDutiesTask)
-    # Spawning new attestation duties task.
-    service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
+    vc.attesterDutyInvalidationEvent.clear()
+    await service.restartPollingAttesterDuties()
+    let slotFut = service.waitForNextSlot()
+    await slotFut.raceWithEvent(vc.attesterDutyInvalidationEvent)
+    if vc.attesterDutyInvalidationEvent.isSet():
+      await service.restartPollingAttesterDuties()
+    await slotFut
 
 proc proposerDutiesLoop(
     service: DutiesServiceRef
@@ -652,8 +680,13 @@ proc proposerDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
+    vc.proposerDutyInvalidationEvent.clear()
     await service.pollForBeaconProposers()
-    await service.waitForNextSlot()
+    let slotFut = service.waitForNextSlot()
+    await slotFut.raceWithEvent(vc.proposerDutyInvalidationEvent)
+    if vc.proposerDutyInvalidationEvent.isSet():
+      await service.pollForBeaconProposers()
+    await slotFut
 
 proc validatorIndexLoop(
     service: DutiesServiceRef
