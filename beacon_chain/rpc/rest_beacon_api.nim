@@ -1725,17 +1725,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch)
         else:
           node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
-      attestations = node.payloadAttestationPool[].getPayloadAttestations(vslot)
     if contentType == sszMediaType:
       var data: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
-      for attestation in attestations:
+      for attestation in node.payloadAttestationPool[].getPayloadAttestations(
+          vslot):
         if not data.add(attestation):
           break
       RestApiResponse.sszResponse(
         data, consensusFork, node.hasRestAllowedOrigin)
     elif contentType == jsonMediaType:
       RestApiResponse.jsonResponseWVersion(
-        attestations, consensusFork, node.hasRestAllowedOrigin)
+        toSeq(node.payloadAttestationPool[].getPayloadAttestations(vslot)),
+        consensusFork, node.hasRestAllowedOrigin)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 

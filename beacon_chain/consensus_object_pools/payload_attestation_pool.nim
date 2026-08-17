@@ -187,10 +187,9 @@ proc getPayloadAttestationsForBlock*(
 
   payload_attestations
 
-func getPayloadAttestations*(
-    pool: var PayloadAttestationPool,
-    slot: Opt[Slot]): seq[PayloadAttestation] =
-  var res: seq[PayloadAttestation]
+iterator getPayloadAttestations*(
+    pool: var PayloadAttestationPool, slot: Opt[Slot]
+): PayloadAttestation =
   for poolSlot, slotEntries in pool.attestations.mpairs:
     if slot.isSome() and poolSlot != slot.get():
       continue
@@ -198,5 +197,4 @@ func getPayloadAttestations*(
       if entry.aggregated.isNone():
         entry.aggregated = pool.aggregateMessages(poolSlot, entry)
       if entry.aggregated.isSome():
-        res.add(entry.aggregated.get())
-  res
+        yield entry.aggregated.get()
