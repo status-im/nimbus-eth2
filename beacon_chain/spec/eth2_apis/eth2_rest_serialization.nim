@@ -78,7 +78,10 @@ type
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
-    fulu_mev.SignedBlindedBeaconBlock
+    fulu_mev.SignedBlindedBeaconBlock |
+    BuilderPreferencesRequestV1 |
+    SignedRequestAuthV1 |
+    gloas.SignedBeaconBlock
 
   EncodeArrays* =
     seq[phase0.Attestation] |

@@ -582,3 +582,24 @@ proc verify_inclusion_list_signature*(
   let signing_root = compute_inclusion_list_signing_root(
     fork, genesis_validators_root, msg)
   blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#constructing-the-requestauthv1
+debugGloasComment("update once https://github.com/ethereum/builder-specs/pull/165 is merged")
+func compute_builder_request_auth*(
+    genesis_fork_version: Version, msg: RequestAuthV1): Eth2Digest =
+  let domain = compute_domain(DOMAIN_REQUEST_AUTH, genesis_fork_version)
+  compute_signing_root(msg, domain)
+
+func get_builder_request_auth_signature*(
+    genesis_fork_version: Version,
+    msg: RequestAuthV1, privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = compute_builder_request_auth(
+    genesis_fork_version, msg)
+  blsSign(privkey, signing_root.data)
+
+proc verify_builder_request_auth_signature*(
+    genesis_fork_version: Version, msg: RequestAuthV1,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_builder_request_auth(
+    genesis_fork_version, msg)
+  blsVerify(pubkey, signing_root.data, signature)

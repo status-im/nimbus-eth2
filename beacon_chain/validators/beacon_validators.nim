@@ -480,7 +480,7 @@ proc proposeBlockAux(
         else:
           state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
         state[].forky(fork).data.get_block_root_at_slot(slot - 1),
-        validator.pubkey)
+        validator)
 
   let
     engineBid =
