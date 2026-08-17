@@ -477,6 +477,7 @@ proc getExecutionPayloadBidFromBuilder*(
     parent_hash: Eth2Digest,
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
+    consensus_version: ConsensusFork,
     request_auth: SignedRequestAuthV1,
 ): Future[Result[gloas.SignedExecutionPayloadBid, string]] {.
     async: (raises: [CancelledError]).} =
@@ -486,7 +487,8 @@ proc getExecutionPayloadBidFromBuilder*(
   let response =
     try:
       await payloadBuilderClient.getExecutionPayloadBid(
-        slot, parent_hash, parent_root, proposer_pubkey, request_auth)
+        slot, parent_hash, parent_root, proposer_pubkey,
+        consensus_version, request_auth)
     except RestDecodingError as exc:
       return err("getExecutionPayloadBid REST decoding error: " & exc.msg)
     except RestError as exc:
@@ -526,7 +528,8 @@ proc getBuilderExecutionPayloadBid*(
     bidRes = awaitWithTimeout(
       getExecutionPayloadBidFromBuilder(
         payloadBuilderClient, slot, parent_block_hash, parent_block_root,
-        proposer.pubkey, requestAuth),
+        proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
+        requestAuth),
       BUILDER_PROPOSAL_DELAY_TOLERANCE):
         return Opt.none(gloas.SignedExecutionPayloadBid)
 
