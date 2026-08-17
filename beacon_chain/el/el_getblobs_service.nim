@@ -171,6 +171,13 @@ proc attemptGetBlobs*(
 
   withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
+      template kzg_commitments_count(): int =
+        forkyBlck.message.body.blob_kzg_commitments.len
+
+      # A blobless block has nothing to ask the EL for.
+      if kzg_commitments_count() == 0:
+        return
+
       # A column sidecar arriving ahead of the block may have a fetch for this
       # root in flight already; wait for it instead of asking the EL for the
       # same blobs twice. `join`, so cancelling here leaves that fetch alone.
@@ -198,9 +205,6 @@ proc attemptGetBlobs*(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
           return
         # Columns vanished (pruned?) — fall through to EL fetch as fallback.
-
-      template kzg_commitments_count(): int =
-        forkyBlck.message.body.blob_kzg_commitments.len
 
       var
         blobs: seq[kzg.KzgBlob]
@@ -391,6 +395,12 @@ proc attemptGetBlobsFromColumn*(
   ## stores the recovered custody columns in the quarantine. Does NOT enqueue
   ## a block — when the block later arrives via gossip, eth2_processor will
   ## see the columns already waiting and proceed.
+
+  # A blobless block has nothing to ask the EL for, so there is no reason to
+  # touch the quarantines for this root at all.
+  if sidecar[].kzg_commitments.len == 0:
+    return
+
   let
     elManager = self.blockProcessor[].consensusManager.elManager
     quarantine = self.blockProcessor[].consensusManager.quarantine
