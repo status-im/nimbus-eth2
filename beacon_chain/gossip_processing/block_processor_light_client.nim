@@ -115,7 +115,7 @@ proc processSignedBeaconBlock*(
 proc newExecutionPayload*(
     elManager: ELManager,
     envelope: gloas.ExecutionPayloadEnvelope
-): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[PayloadStatusCode]] {.async: (raises: [CancelledError]).} =
   debug "newPayload: inserting envelope into execution engine",
     payload = shortLog(envelope.payload)
 
