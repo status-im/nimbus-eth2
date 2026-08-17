@@ -11,7 +11,7 @@ import
   std/sets,
   chronicles,
   ../validators/[activity_metrics, validator_duties],
-  "."/[common, api]
+  ./[common, api]
 
 const
   ServiceName = "attestation_service"

@@ -5,14 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/strutils
 import ssz_serialization/[types, bitseqs]
 import stew/endians2
 import stint
 import nimcrypto/hash
-import "."/common
+import ./common
 
 type
   CommitteeBitsArray = BitArray[int(MAX_VALIDATORS_PER_COMMITTEE)]
