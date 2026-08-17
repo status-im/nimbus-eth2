@@ -166,7 +166,7 @@ proc runLightClient*(
         db.putSyncCommittee(period, syncCommittee)
         db.putLatestFinalizedHeader(finalizedHeader)
 
-  var lightClientFcuFut: Future[(PayloadExecutionStatus, Opt[Hash32])]
+  var lightClientFcuFut: Future[(PayloadStatusCode, Opt[Eth2Digest])]
     .Raising([CancelledError])
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
@@ -203,7 +203,7 @@ proc runLightClient*(
               debug "Sending forkchoiceUpdated",
                 finalizedBlockHash = finalizedBlockHash
 
-              let state = ForkchoiceStateV1.init(
+              let state = ForkchoiceState.init(
                 blockHash,
                 finalizedBlockHash, # justified not available
                 finalizedBlockHash
