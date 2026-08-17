@@ -1706,7 +1706,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/pool/payload_attestations.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6/apis/beacon/pool/payload_attestations.yaml
   router.api2(MethodGet, "/eth/v1/beacon/pool/payload_attestations") do (
     slot: Option[Slot]) -> RestApiResponse:
     let
@@ -1725,18 +1725,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch)
         else:
           node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
+      attestations =
+        toSeq(node.payloadAttestationPool[].getPayloadAttestations(vslot))
     if contentType == sszMediaType:
-      var data: List[PayloadAttestation, Limit MAX_PAYLOAD_ATTESTATIONS]
-      for attestation in node.payloadAttestationPool[].getPayloadAttestations(
-          vslot):
-        if not data.add(attestation):
-          break
       RestApiResponse.sszResponse(
-        data, consensusFork, node.hasRestAllowedOrigin)
+        attestations, consensusFork, node.hasRestAllowedOrigin)
     elif contentType == jsonMediaType:
       RestApiResponse.jsonResponseWVersion(
-        toSeq(node.payloadAttestationPool[].getPayloadAttestations(vslot)),
-        consensusFork, node.hasRestAllowedOrigin)
+        attestations, consensusFork, node.hasRestAllowedOrigin)
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
