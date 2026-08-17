@@ -31,6 +31,11 @@ const
   ETH_TO_GWEI = 1_000_000_000.Gwei
   GWEI_TO_WEI* = 1_000_000_000'u64 # 1 Gwei = 10^9 Wei
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_builder_withdrawal_credential
+func is_builder_withdrawal_credential*(
+    withdrawal_credentials: Eth2Digest): bool =
+  withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
+
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
 

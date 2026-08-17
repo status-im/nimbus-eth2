@@ -20,8 +20,8 @@ import
   taskpools,
   bearssl/rand,
   # Internal
-  "."/[helpers, beaconstate, forks, signatures],
-  "."/datatypes/[altair, bellatrix, phase0]
+  ./[helpers, beaconstate, forks, signatures],
+  ./datatypes/[altair, bellatrix, phase0]
 
 export results, rand, altair, phase0, taskpools, signatures
 
