@@ -22,6 +22,7 @@ import
 
 from ../beacon_chain/spec/beaconstate import get_ptc
 from std/sugar import collect
+from std/sequtils import countIt
 
 proc makePayloadAttestationMessage(
     state: gloas.HashedBeaconState | heze.HashedBeaconState,
@@ -295,6 +296,6 @@ suite "Payload attestation pool" & preset():
       wallTime)
 
     check:
-      pool[].getPayloadAttestations(Opt.none(Slot)).len == 3
-      pool[].getPayloadAttestations(Opt.some(slot)).len == 3
-      pool[].getPayloadAttestations(Opt.some(slot + 1)).len == 0
+      pool[].getPayloadAttestations(Opt.none(Slot)).countIt(true) == 3
+      pool[].getPayloadAttestations(Opt.some(slot)).countIt(true) == 3
+      pool[].getPayloadAttestations(Opt.some(slot + 1)).countIt(true) == 0

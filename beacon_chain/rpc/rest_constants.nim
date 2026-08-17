@@ -314,3 +314,7 @@ const
     "Invalid execution payload envelope, it won't validate, so it's rejected"
   ExecutionPayloadEnvelopeValidationSuccess* =
     "The execution payload envelope was validated successfully and has been broadcast"
+  PayloadAttestationValidationError* =
+    "Some errors happened while validating payload attestation message(s)"
+  PayloadAttestationValidationSuccess* =
+    "Payload attestation message object(s) was broadcast"
