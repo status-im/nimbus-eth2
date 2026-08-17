@@ -116,10 +116,10 @@ cli do(validatorsDir: string, secretsDir: string,
               continue
 
             let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
-              ForkchoiceStateV1.init(payload.block_hash, payload.block_hash, ZERO_HASH),
+              ForkchoiceState.init(payload.block_hash, payload.block_hash, ZERO_HASH),
               Opt.none(consensusFork.PayloadAttributes),
             )
-            if status != PayloadExecutionStatus.valid:
+            if status != PayloadStatusCode.VALID:
               continue
 
             notice "EL synced", elUrl, jwtSecret
@@ -137,10 +137,10 @@ cli do(validatorsDir: string, secretsDir: string,
         while true:
           waitFor noCancel sleepAsync(chronos.seconds(2))
           let (status, _) = waitFor noCancel elManager.forkchoiceUpdated(
-            ForkchoiceStateV1.init(blockHash, blockHash, ZERO_HASH),
+            ForkchoiceState.init(blockHash, blockHash, ZERO_HASH),
             Opt.none(consensusFork.PayloadAttributes),
           )
-          if status != PayloadExecutionStatus.valid:
+          if status != PayloadStatusCode.VALID:
             continue
 
           notice "EL synced", elUrl, jwtSecret
@@ -272,13 +272,13 @@ cli do(validatorsDir: string, secretsDir: string,
 
               let attributes =
                 when consensusFork >= ConsensusFork.Gloas:
-                  PayloadAttributesV4.init(
+                  PayloadAttributesAmsterdam.init(
                     timestamp, prevRandao, feeRecipient,
                     get_expected_withdrawals(forkyState.data).withdrawals,
                     forkyState.latest_block_root, forkyState.data.slot,
                     forkyState.data.latest_execution_payload_bid.gas_limit)
                 else:
-                  PayloadAttributesV3.init(
+                  PayloadAttributesCancun.init(
                     timestamp, prevRandao, feeRecipient,
                     get_expected_withdrawals(forkyState.data),
                     forkyState.latest_block_root
@@ -289,7 +289,7 @@ cli do(validatorsDir: string, secretsDir: string,
                 pl = (
                   waitFor noCancel elManager.getPayload(
                     consensusFork.ExecutionPayloadForSigning,
-                    ForkchoiceStateV1.init(executionHead, executionHead, ZERO_HASH),
+                    ForkchoiceState.init(executionHead, executionHead, ZERO_HASH),
                     attributes,
                   )
                 ).valueOr:
@@ -388,9 +388,9 @@ cli do(validatorsDir: string, secretsDir: string,
                 waitFor noCancel sleepAsync(chronos.seconds(2))
                 continue
               doAssert status.get in [
-                PayloadExecutionStatus.valid,
-                PayloadExecutionStatus.accepted,
-                PayloadExecutionStatus.syncing]
+                PayloadStatusCode.VALID,
+                PayloadStatusCode.ACCEPTED,
+                PayloadStatusCode.SYNCING]
               break
 
       aggregates.setLen(0)

@@ -20,15 +20,22 @@ import
                heze],
   ./mev/[bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev]
 
+import ./engine_types except
+  Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD, BYTES_PER_CELL, CELLS_PER_EXT_BLOB,
+  FIELD_ELEMENTS_PER_CELL, Blob, ExecutionRequests, KzgProof
+
 from std/algorithm import sort
 from std/sequtils import deduplicate, filterIt, mapIt
 from stew/staticfor import staticFor
 
 export
-  extras, block_id, eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets,
+  extras, block_id, eth2_merkleization, eth2_ssz_serialization,
+  forks_light_client, presets,
   phase0, altair, bellatrix, capella, deneb, electra, fulu, gloas, heze,
   bellatrix_mev, capella_mev, deneb_mev, electra_mev, fulu_mev
+export engine_types except
+  Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD, BYTES_PER_CELL, CELLS_PER_EXT_BLOB,
+  FIELD_ELEMENTS_PER_CELL, Blob, ExecutionRequests, KzgProof
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -851,18 +858,18 @@ template PayloadAttributes*(
     kind: static ConsensusFork): typedesc =
   # This also determines what `engine_forkchoiceUpdated` version will be used.
   when kind >= ConsensusFork.Gloas:
-    PayloadAttributesV4
+    PayloadAttributesAmsterdam
   elif kind >= ConsensusFork.Deneb:
-    PayloadAttributesV3
+    PayloadAttributesCancun
   elif kind >= ConsensusFork.Capella:
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
     # Consensus layer client MUST call this method instead of
     # `engine_forkchoiceUpdatedV1` under any of the following conditions:
     # `headBlockHash` references a block which `timestamp` is greater or
     # equal to the Shanghai timestamp
-    PayloadAttributesV2
+    PayloadAttributesShanghai
   elif kind >= ConsensusFork.Bellatrix:
-    PayloadAttributesV1
+    PayloadAttributesParis
   else:
     {.error: "PayloadAttributes unsupported in " & $kind.}
 

@@ -388,16 +388,16 @@ proc getExecutionPayload*(
 
   type PayloadType = consensusFork.ExecutionPayloadForSigning
   let
-    state = ForkchoiceStateV1.init(executionHead, latestSafe, latestFinalized)
+    state = ForkchoiceState.init(executionHead, latestSafe, latestFinalized)
     attributes =
       when consensusFork >= ConsensusFork.Gloas:
-        PayloadAttributesV4.init(
+        PayloadAttributesAmsterdam.init(
           timestamp, prevRandao, feeRecipient, withdrawals,
           beaconHead.blck.bid.root, slot,
           node.consensusManager[].getGasLimit(validator_pubkey),
         )
       else:
-        PayloadAttributesV3.init(
+        PayloadAttributesCancun.init(
           timestamp, prevRandao, feeRecipient, withdrawals,
           beaconHead.blck.bid.root
         )
