@@ -46,8 +46,8 @@ import
   stew/objects,
   ../extras,
   ./[
-    beaconstate, eth2_merkleization, forks, helpers, signatures, state_transition_block,
-    state_transition_epoch, validator,
+    beaconstate, eth2_merkleization, forks, helpers, signatures,
+    state_transition_block, state_transition_epoch, validator,
   ]
 
 export results, extras, state_transition_block

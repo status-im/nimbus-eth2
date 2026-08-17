@@ -16,6 +16,8 @@ import
 
 from std/algorithm import fill, isSorted, sort
 from std/sequtils import anyIt, mapIt
+from ./deposit_sig_cache import verify_deposit_signature_cached
+from ./helpers import is_builder_withdrawal_credential
 
 export extras, forks, validator, chronicles
 
@@ -48,11 +50,6 @@ func decrease_balance*(
 func is_compounding_withdrawal_credential*(
     withdrawal_credentials: Eth2Digest): bool =
   withdrawal_credentials.data[0] == COMPOUNDING_WITHDRAWAL_PREFIX
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_builder_withdrawal_credential
-func is_builder_withdrawal_credential*(
-    withdrawal_credentials: Eth2Digest): bool =
-  withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential
 func has_compounding_withdrawal_credential*(
@@ -2264,9 +2261,12 @@ func add_builder_to_registry*(
     state: var (gloas.BeaconState | heze.BeaconState),
     bucket_sorted_builders: var BucketSortedValidators,
     pubkey: ValidatorPubKey, version: uint8,
-    execution_address: ExecutionAddress, amount: Gwei, slot: Slot) =
+    execution_address: ExecutionAddress, amount: Gwei, slot: Slot,
+    reuseFreedSlots = true) =
   let
-    index = get_index_for_new_builder(state)
+    index =
+      if reuseFreedSlots: get_index_for_new_builder(state)
+      else: BuilderIndex(len(state.builders))
     builder = Builder(
       pubkey: pubkey,
       version: version,
@@ -2328,7 +2328,7 @@ func onboard_builders_from_pending_deposits*(
       try:
         let pending_deposit =
           pending_deposits[pending_deposits_idx[deposit.pubkey]]
-        if verify_deposit_signature(
+        if verify_deposit_signature_cached(
             cfg.GENESIS_FORK_VERSION,
             DepositData(
               pubkey: pending_deposit.pubkey,
@@ -2340,7 +2340,7 @@ func onboard_builders_from_pending_deposits*(
       except KeyError:
         discard
 
-      if not verify_deposit_signature(
+      if not verify_deposit_signature_cached(
           cfg.GENESIS_FORK_VERSION,
           DepositData(
             pubkey: deposit.pubkey,
@@ -2349,11 +2349,13 @@ func onboard_builders_from_pending_deposits*(
             signature: deposit.signature)):
         continue
 
+      # Onboarding is append-only: builders starts empty and none exit mid-loop,
+      # so there is never a freed slot to reuse. Skip the O(n) reuse scan.
       add_builder_to_registry(
         state, bucket_sorted_builders[], deposit.pubkey,
         PAYLOAD_BUILDER_VERSION,
         builder_execution_address(deposit.withdrawal_credentials),
-        deposit.amount, deposit.slot)
+        deposit.amount, deposit.slot, reuseFreedSlots = false)
     else:
       # Top up the balance of the existing builder
       state.builders.mitem(opt_builder_index.get).balance += deposit.amount
