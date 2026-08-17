@@ -131,10 +131,8 @@ type
     INVALID = 1
     SYNCING = 2
     ACCEPTED = 3
+    # Deviation from execution-apis PR#793 only for compatibility with json rpc
     INVALID_BLOCK_HASH = 4
-      ## Deviation from execution-apis PR#793 (see module doc comment) --
-      ## not yet reachable over the wire until nimbus-eth1's REST server
-      ## also stops folding this into plain `INVALID`.
 
   PayloadStatus* = object
     status*: uint8 # PayloadStatusCode
