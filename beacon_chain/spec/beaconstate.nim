@@ -1378,7 +1378,7 @@ proc process_attestation*(
 
   ok(proposer_reward)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/beacon-chain.md#modified-process_attestation
+# https://github.com/ethereum/consensus-specs/blob/8df397ab123d6c2ba04828c17f3762755bcd897b/specs/gloas/beacon-chain.md#modified-process_attestation
 proc process_attestation*(
     state: var (gloas.BeaconState | heze.BeaconState),
     attestation: gloas.Attestation | gloas.TrustedAttestation,
@@ -1407,8 +1407,8 @@ proc process_attestation*(
     var proposer_reward_numerator = 0.Gwei
     for vidx in state.get_attesting_indices(attestation, cache):
       # [New in Gloas:EIP7732]
-      # For same-slot attestations, check if we're setting any new flags
-      # If we are, this validator hasn't contributed to this slot's quorum yet
+      let had_no_participation =
+        epoch_participation[vidx] == ParticipationFlags(0b0000_0000)
       var will_set_new_flag = false
       for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
         if flag_index in participation_flag_indices and
@@ -1421,9 +1421,8 @@ proc process_attestation*(
           will_set_new_flag = true
 
       # [New in Gloas:EIP7732]
-      # Add weight for same-slot attestations when any new flag is set
-      # This ensures each validator contributes exactly once per slot
       if will_set_new_flag and
+          had_no_participation and
           is_attestation_same_slot(state, attestation.data) and
           payment.withdrawal.amount > 0.Gwei:
         payment.weight += state.validators.item(vidx).effective_balance
