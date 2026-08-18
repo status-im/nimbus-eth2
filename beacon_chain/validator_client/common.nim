@@ -249,9 +249,9 @@ type
     nodesAvailable*: AsyncEvent
     indicesAvailable*: AsyncEvent
     doppelExit*: AsyncEvent
-    attesterDutyInvalidationEvent*: AsyncEvent
-    proposerDutyInvalidationEvent*: AsyncEvent
-    syncDutyInvalidationEvent*: AsyncEvent
+    attesterDutiesInvalidationEvent*: AsyncEvent
+    proposerDutiesInvalidationEvent*: AsyncEvent
+    syncDutiesInvalidationEvent*: AsyncEvent
     attesterDependentRoots*: Table[Epoch, Eth2Digest]
     proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
@@ -1548,7 +1548,7 @@ proc registerHead*(vc: ValidatorClientRef, head: HeadChangeInfoObject) =
       epoch: Epoch, dependentRoot: Eth2Digest): bool =
     dependentRoots.getOrDefault(epoch, dependentRoot) != dependentRoot
 
-  if not(vc.attesterDutyInvalidationEvent.isSet()):
+  if not(vc.attesterDutiesInvalidationEvent.isSet()):
     let didInvalidate =
       if nextEpoch == headEpoch:
         vc.attesterDependentRoots.didInvalidate(
@@ -1573,9 +1573,9 @@ proc registerHead*(vc: ValidatorClientRef, head: HeadChangeInfoObject) =
     if didInvalidate:
       debug "Attester duties invalidated by head event",
             head_slot = head.slot, block_root = shortLog(head.block_root)
-      vc.attesterDutyInvalidationEvent.fire()
+      vc.attesterDutiesInvalidationEvent.fire()
 
-  if not(vc.proposerDutyInvalidationEvent.isSet()):
+  if not(vc.proposerDutiesInvalidationEvent.isSet()):
     let didInvalidate =
       if nextEpoch == headEpoch:
         vc.proposerDependentRoots.didInvalidate(
@@ -1591,7 +1591,7 @@ proc registerHead*(vc: ValidatorClientRef, head: HeadChangeInfoObject) =
     if didInvalidate:
       debug "Proposer duties invalidated by head event",
             head_slot = head.slot, block_root = shortLog(head.block_root)
-      vc.proposerDutyInvalidationEvent.fire()
+      vc.proposerDutiesInvalidationEvent.fire()
 
 proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
   var blocksSeen: Table[Slot, BlockDataItem]

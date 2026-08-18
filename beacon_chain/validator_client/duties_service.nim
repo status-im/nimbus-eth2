@@ -128,9 +128,9 @@ proc pollForValidatorIndices*(
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
     vc.indicesAvailable.fire()
-    vc.attesterDutyInvalidationEvent.fire()
-    vc.proposerDutyInvalidationEvent.fire()
-    vc.syncDutyInvalidationEvent.fire()
+    vc.attesterDutiesInvalidationEvent.fire()
+    vc.proposerDutiesInvalidationEvent.fire()
+    vc.syncDutiesInvalidationEvent.fire()
 
 proc pollForAttesterDuties*(
     service: DutiesServiceRef,
@@ -673,11 +673,11 @@ proc attesterDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    vc.attesterDutyInvalidationEvent.clear()
+    vc.attesterDutiesInvalidationEvent.clear()
     await service.restartPollingAttesterDuties()
     let slotFut = service.waitForNextSlot()
-    await slotFut.raceWithEvent(vc.attesterDutyInvalidationEvent)
-    if vc.attesterDutyInvalidationEvent.isSet():
+    await slotFut.raceWithEvent(vc.attesterDutiesInvalidationEvent)
+    if vc.attesterDutiesInvalidationEvent.isSet():
       await service.restartPollingAttesterDuties()
     await slotFut
 
@@ -693,11 +693,11 @@ proc proposerDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    vc.proposerDutyInvalidationEvent.clear()
+    vc.proposerDutiesInvalidationEvent.clear()
     await service.pollForBeaconProposers()
     let slotFut = service.waitForNextSlot()
-    await slotFut.raceWithEvent(vc.proposerDutyInvalidationEvent)
-    if vc.proposerDutyInvalidationEvent.isSet():
+    await slotFut.raceWithEvent(vc.proposerDutiesInvalidationEvent)
+    if vc.proposerDutiesInvalidationEvent.isSet():
       await service.pollForBeaconProposers()
     await slotFut
 
@@ -789,11 +789,11 @@ proc syncCommitteeDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    vc.syncDutyInvalidationEvent.clear()
+    vc.syncDutiesInvalidationEvent.clear()
     await service.restartPollingSyncDuties()
     let slotFut = service.waitForNextSlot()
-    await slotFut.raceWithEvent(vc.syncDutyInvalidationEvent)
-    if vc.syncDutyInvalidationEvent.isSet():
+    await slotFut.raceWithEvent(vc.syncDutiesInvalidationEvent)
+    if vc.syncDutiesInvalidationEvent.isSet():
       await service.restartPollingSyncDuties()
     await slotFut
 
