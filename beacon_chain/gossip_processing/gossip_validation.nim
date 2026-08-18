@@ -19,8 +19,9 @@ import
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_clearance, block_quarantine,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    inclusion_list_pool, light_client_pool, payload_attestation_pool,
-    spec_cache, sync_committee_msg_pool, validator_change_pool],
+    inclusion_list_pool, light_client_pool, partial_column_quarantine,
+    payload_attestation_pool, spec_cache, sync_committee_msg_pool,
+    validator_change_pool],
   ../beacon_clock,
   ./batch_validation
 
@@ -741,6 +742,86 @@ proc validateDataColumnSidecar*(
       index: data_column_sidecar[].index,
       slot: data_column_sidecar[].slot,
       kzg_commitments: bid.blob_kzg_commitments)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+proc validatePartialDataColumnSidecar*(
+    dag: ChainDAGRef,
+    partialColumnQuarantine: ref GloasPartialColumnQuarantine,
+    partial_data_column_sidecar: ref gloas.PartialDataColumnSidecar,
+    group_id: gloas.PartialDataColumnGroupID,
+    column_index: ColumnIndex,
+    subnet_id: uint64): Result[void, ValidationError] =
+  ## The column index is inferred from the gossipsub topic subnet.
+  template sidecar(): auto = partial_data_column_sidecar[]
+
+  if column_index >= NUMBER_OF_COLUMNS:
+    return dag.checkedReject(
+      "PartialDataColumnSidecar: index exceeds the NUMBER_OF_COLUMNS")
+
+  # Keep before block-seen [IGNORE] so the [REJECT] occurs properly
+  if not (compute_subnet_for_data_column_sidecar(column_index) == subnet_id):
+    return dag.checkedReject("PartialDataColumnSidecar: not for correct subnet")
+
+  # [REJECT] A header and/or cells are present in the message -- Gloas removed
+  # the header, so cells must be present
+  # [REJECT] The cell count equals the number of set bits in the bitmap
+  # [REJECT] The proof count equals the number of set bits in the bitmap
+  block:
+    let v = verify_partial_data_column_sidecar(sidecar)
+    if v.isErr:
+      return dag.checkedReject(v.error)
+
+  # [IGNORE] A valid block for the Group ID's `slot` has been seen (via gossip
+  # or non-gossip sources). If not yet seen, a client SHOULD queue the sidecar
+  # for deferred validation and possible processing once the block is received
+  # or retrieved. A client SHOULD queue at least 1 sidecar per peer per subnet.
+  let blck =
+    block:
+      let
+        blckRef = dag.getBlockRef(group_id.beacon_block_root).valueOr:
+          return errIgnore("PartialDataColumnSidecar: block not yet seen")
+        forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
+          info "block is missing, database corrupt?",
+            root = shortLog(group_id.beacon_block_root)
+          return errIgnore("PartialDataColumnSidecar: block not yet seen")
+      withBlck(forkedBlock):
+        when consensusFork == ConsensusFork.Gloas:
+          forkyBlck
+        else:
+          return errIgnore("PartialDataColumnSidecar: block in incorrect fork")
+
+  # [REJECT] The Group ID's `slot` matches the slot of the block with root
+  # `beacon_block_root`. The `beacon_block_root` is also identified by the
+  # Group ID.
+  if not (blck.message.slot == group_id.slot):
+    return dag.checkedReject("PartialDataColumnSidecar: slot mismatched")
+
+  template bid(): auto = blck.message.body.signed_execution_payload_bid.message
+
+  # [REJECT] The cells present bitmap length is equal to the number of KZG
+  # commitments in `bid.blob_kzg_commitments`.
+  if sidecar.cells_present_bitmap.len != bid.blob_kzg_commitments.len:
+    return dag.checkedReject(
+      "PartialDataColumnSidecar: bitmap length does not match commitments")
+
+  # The optional check "for cells the receiver already has, the sidecar's cell
+  # and proof data are equal to the local copy" is not encoded in the spec. The
+  # sender MUST always send valid cell and proof data; receivers MAY perform
+  # this equality check against their local copy as an additional safeguard.
+  if not partialColumnQuarantine[].cellsConsistent(
+      group_id, column_index, sidecar):
+    return dag.checkedReject(
+      "PartialDataColumnSidecar: cells conflict with previously seen cells")
+
+  # [REJECT] The sidecar's cell and proof data is valid as verified by
+  # `verify_partial_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments, column_index)`.
+  block:
+    let v = verify_partial_data_column_sidecar_kzg_proofs(
+      sidecar, bid.blob_kzg_commitments, column_index)
+    if v.isErr:
+      return dag.checkedReject(v.error)
 
   ok()
 

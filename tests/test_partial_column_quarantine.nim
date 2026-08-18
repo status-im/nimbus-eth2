@@ -661,6 +661,73 @@ suite "Partial Column Quarantine (Fulu)":
     let entry2 = quarantine.getEntry(root, colIdx).get()
     check entry2.cells[1].get() == gen[KzgCell](99)
 
+  # --- cellsConsistent ---
+
+  test "cellsConsistent is true when no entry exists":
+    var quarantine = FuluPartialColumnQuarantine.init()
+    check quarantine.cellsConsistent(
+      genDigest(99), ColumnIndex(0),
+      genPartialDataColumnSidecar([0], startCellId = 1)[])
+
+  test "cellsConsistent is true when cells do not overlap":
+    var quarantine = FuluPartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    check entry == quarantine.getEntry(root, colIdx).get()
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([0], startCellId = 10))
+
+    check quarantine.cellsConsistent(root, colIdx,
+      genPartialDataColumnSidecar([2], startCellId = 20)[])
+
+  test "cellsConsistent is true when overlapping cells match":
+    var quarantine = FuluPartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    check entry == quarantine.getEntry(root, colIdx).get()
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([1], startCellId = 10))
+
+    check quarantine.cellsConsistent(root, colIdx,
+      genPartialDataColumnSidecar([1], startCellId = 10)[])
+
+  test "cellsConsistent is false when an overlapping cell differs":
+    var quarantine = FuluPartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    check entry == quarantine.getEntry(root, colIdx).get()
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([1], startCellId = 10))
+
+    check not quarantine.cellsConsistent(root, colIdx,
+      genPartialDataColumnSidecar([1], startCellId = 99)[])
+
+  test "cellsConsistent is false when an overlapping proof differs":
+    var quarantine = FuluPartialColumnQuarantine.init()
+    let
+      root = genDigest(1)
+      colIdx = ColumnIndex(0)
+
+    let entry = quarantine.getOrCreateEntry(root, colIdx, numBlobs = 3)
+    check entry == quarantine.getEntry(root, colIdx).get()
+    quarantine.addCells(root, colIdx,
+      genPartialDataColumnSidecar([1], startCellId = 10))
+
+    # Same cell payload, different proof.
+    let conflicting = genPartialDataColumnSidecar([1], startCellId = 10)
+    conflicting[].kzg_proofs = deneb.KzgProofs.init(@[gen[KzgProof](77)])
+
+    check not quarantine.cellsConsistent(root, colIdx, conflicting[])
+
   test "addCells is independent across columns":
     var quarantine = FuluPartialColumnQuarantine.init()
     let root = genDigest(1)
@@ -1089,6 +1156,29 @@ suite "Partial Column Quarantine (Gloas)":
       updated.proofs[1].get() == gen[KzgProof](200)
       updated.cells[3].get() == gen[KzgCell](201)
       updated.proofs[3].get() == gen[KzgProof](201)
+
+  test "cellsConsistent (gloas)":
+    var quarantine = GloasPartialColumnQuarantine.init()
+    let
+      groupId = gid(2, 1)
+      colIdx = ColumnIndex(0)
+
+    # Nothing stored yet, so any sidecar is consistent.
+    check quarantine.cellsConsistent(groupId, colIdx,
+      genGloasPartialDataColumnSidecar([0], startCellId = 5)[])
+
+    let entry = quarantine.getOrCreateEntry(groupId, colIdx, numBlobs = 3)
+    check entry == quarantine.getEntry(groupId, colIdx).get()
+    quarantine.addCells(groupId, colIdx,
+      genGloasPartialDataColumnSidecar([1], startCellId = 5))
+
+    check:
+      quarantine.cellsConsistent(groupId, colIdx,
+        genGloasPartialDataColumnSidecar([1], startCellId = 5)[])
+      quarantine.cellsConsistent(groupId, colIdx,
+        genGloasPartialDataColumnSidecar([2], startCellId = 6)[])
+      not quarantine.cellsConsistent(groupId, colIdx,
+        genGloasPartialDataColumnSidecar([1], startCellId = 6)[])
 
   test "isComplete and assembleDataColumnSidecar (gloas)":
     var quarantine = GloasPartialColumnQuarantine.init()

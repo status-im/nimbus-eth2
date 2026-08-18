@@ -472,6 +472,15 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gloas Partial Columns
+```diff
++ Assemble partial data column sidecars                                                      OK
++ Assemble partial data column sidecars with missing rows                                    OK
++ Assemble rejects mismatched blob and proof counts                                          OK
++ PartialDataColumnGroupID encoding                                                          OK
++ Verify PartialDataColumnSidecar KZG proofs                                                 OK
++ Verify PartialDataColumnSidecar self-consistency                                           OK
+```
 ## Gloas block validity
 ```diff
 + Execution valid                                                                            OK
@@ -755,6 +764,11 @@ AllTests-mainnet
 + assembleDataColumnSidecar returns none when header not validated                           OK
 + assembleDataColumnSidecar with cells added incrementally                                   OK
 + assembleDataColumnSidecar with markCellReceived (data overload)                            OK
++ cellsConsistent is false when an overlapping cell differs                                  OK
++ cellsConsistent is false when an overlapping proof differs                                 OK
++ cellsConsistent is true when cells do not overlap                                          OK
++ cellsConsistent is true when no entry exists                                               OK
++ cellsConsistent is true when overlapping cells match                                       OK
 + getOrCreateEntry creates new entry                                                         OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
 + getOrCreateEntry reflects header validation status                                         OK
@@ -780,6 +794,7 @@ AllTests-mainnet
 + Remove header (group id) does not remove entries (gloas)                                   OK
 + addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
 + assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
++ cellsConsistent (gloas)                                                                    OK
 + getOrCreateEntry reflects gloas group-id validation                                        OK
 + isComplete and assembleDataColumnSidecar (gloas)                                           OK
 + putPartialGroupID stores group id under itself                                             OK

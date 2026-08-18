@@ -81,7 +81,7 @@ type
   # Type class matching any fork's partial sidecar. Both variants share
   # the same cell-bearing fields (cells_present_bitmap, partial_column,
   # kzg_proofs) per spec.
-  SomePartialDataColumnSidecar =
+  SomePartialDataColumnSidecar* =
     fulu.PartialDataColumnSidecar | gloas.PartialDataColumnSidecar
 
 func hash*(gid: gloas.PartialDataColumnGroupID): Hash =
@@ -229,6 +229,33 @@ func hasCellReceived*[K, H](
   false
 
 # --- Cell ingestion and assembly ---
+
+func cellsConsistent*[K, H; S: SomePartialDataColumnSidecar](
+    quarantine: var PartialColumnQuarantine[K, H],
+    blockId: K,
+    columnIndex: ColumnIndex,
+    sidecar: S): bool =
+  ## Every cell in `sidecar` that is already populated locally must match
+  ## the stored copy. True when no entry exists yet or all overlaps agree.
+  let key = PartialColumnKey[K](blockId: blockId, columnIndex: columnIndex)
+  let entry = quarantine.entries.get(key).valueOr:
+    return true
+
+  var cellIdx = 0
+  for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
+    if sidecar.cells_present_bitmap[Natural(blobIdx)]:
+      if cellIdx < sidecar.partial_column.len and
+         cellIdx < sidecar.kzg_proofs.len and
+         blobIdx < entry.cellsReceived.len and
+         entry.cellsReceived[blobIdx]:
+        if entry.cells[blobIdx].isSome and
+            entry.cells[blobIdx].get != sidecar.partial_column[cellIdx]:
+          return false
+        if entry.proofs[blobIdx].isSome and
+            entry.proofs[blobIdx].get != sidecar.kzg_proofs[cellIdx]:
+          return false
+      cellIdx.inc
+  true
 
 func addCells*[K, H; S: SomePartialDataColumnSidecar](
     quarantine: var PartialColumnQuarantine[K, H],

@@ -17,10 +17,11 @@ import
   results,
   kzg4844/[kzg_abi, kzg],
   ./consensus_spec/[os_ops, fixtures_utils],
-  ../beacon_chain/spec/[helpers, peerdas_helpers],
+  ../beacon_chain/spec/[helpers, network, peerdas_helpers],
   ../beacon_chain/spec/datatypes/[deneb, fulu, gloas]
 
 from std/strutils import rsplit
+from std/sequtils import mapIt
 
 block:
   template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
@@ -333,5 +334,215 @@ suite "EIP-7594 Unit Tests":
       defer: tp.shutdown()
       doAssert (waitFor tp.recover_cells_and_proofs_parallel(tooFew)).isErr
     testRecoverParallelInvalid()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md
+proc buildCommitmentsAndCellProofs(blobs: seq[KzgBlob]):
+    tuple[commitments: gloas.KzgCommitments, cell_proofs: seq[Opt[KzgProof]]] =
+  ## Cell proofs are laid out row-major, as the assembly helpers expect.
+  var
+    commitments = newSeqOfCap[KzgCommitment](blobs.len)
+    cell_proofs =
+      newSeqOfCap[Opt[KzgProof]](blobs.len * kzg_abi.CELLS_PER_EXT_BLOB)
+  for blob in blobs:
+    let cp = computeCellsAndKzgProofs(blob).valueOr:
+      raiseAssert "computeCellsAndKzgProofs failed"
+    for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
+      cell_proofs.add(Opt.some(cp.proofs[columnIndex]))
+    let commitment = blobToKzgCommitment(blob).valueOr:
+      raiseAssert "blobToKzgCommitment failed"
+    commitments.add(commitment)
+  (commitments, cell_proofs)
+
+func gloasBlockWithCommitments(
+    commitments: gloas.KzgCommitments, slot: Slot): gloas.SignedBeaconBlock =
+  var blck: gloas.SignedBeaconBlock
+  blck.message.slot = slot
+  blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments =
+    commitments
+  blck
+
+suite "Gloas Partial Columns":
+  test "Assemble partial data column sidecars":
+    proc testAssemble() =
+      var rng = initRand(45)
+      let
+        blobCount = rng.rand(1..4)
+        blobs = createSampleKzgBlobs(blobCount, rng.rand(int))
+        (commitments, cellProofs) = buildCommitmentsAndCellProofs(blobs)
+        blck = gloasBlockWithCommitments(commitments, Slot(37))
+        (groupId, sidecars) = assemble_partial_data_column_sidecars(
+          blck, blobs.mapIt(Opt.some(it)), cellProofs)
+
+      # The group id binds the sidecars to the block, in place of Fulu's
+      # PartialDataColumnHeader.
+      doAssert groupId.slot == Slot(37)
+      doAssert groupId.beacon_block_root == blck.root
+
+      doAssert sidecars.len == kzg_abi.CELLS_PER_EXT_BLOB
+      for sidecar in sidecars:
+        doAssert sidecar.cells_present_bitmap.len == blobCount
+        doAssert sidecar.partial_column.len == blobCount
+        doAssert sidecar.kzg_proofs.len == blobCount
+        doAssert verify_partial_data_column_sidecar(sidecar).isOk
+
+      # Verifying every column is needlessly slow; a few suffice.
+      for columnIndex in [0, 1, kzg_abi.CELLS_PER_EXT_BLOB - 1]:
+        doAssert verify_partial_data_column_sidecar_kzg_proofs(
+          sidecars[columnIndex], commitments, ColumnIndex(columnIndex)).isOk
+    testAssemble()
+
+  test "Assemble partial data column sidecars with missing rows":
+    proc testAssembleSparse() =
+      var rng = initRand(46)
+      let
+        blobs = createSampleKzgBlobs(3, rng.rand(int))
+        (commitments, cellProofs) = buildCommitmentsAndCellProofs(blobs)
+        blck = gloasBlockWithCommitments(commitments, Slot(9))
+
+      # Drop the middle blob; its bit must be clear in every column.
+      var sparse = blobs.mapIt(Opt.some(it))
+      sparse[1] = Opt.none(KzgBlob)
+
+      let (_, sidecars) =
+        assemble_partial_data_column_sidecars(blck, sparse, cellProofs)
+
+      for sidecar in sidecars:
+        doAssert sidecar.cells_present_bitmap.len == 3
+        doAssert sidecar.cells_present_bitmap[0]
+        doAssert not sidecar.cells_present_bitmap[1]
+        doAssert sidecar.cells_present_bitmap[2]
+        doAssert sidecar.partial_column.len == 2
+        doAssert verify_partial_data_column_sidecar(sidecar).isOk
+
+      doAssert verify_partial_data_column_sidecar_kzg_proofs(
+        sidecars[0], commitments, ColumnIndex(0)).isOk
+    testAssembleSparse()
+
+  test "Assemble rejects mismatched blob and proof counts":
+    proc testAssembleMismatch() =
+      var rng = initRand(47)
+      let
+        blobs = createSampleKzgBlobs(2, rng.rand(int))
+        (commitments, cellProofs) = buildCommitmentsAndCellProofs(blobs)
+        blck = gloasBlockWithCommitments(commitments, Slot(1))
+        optBlobs = blobs.mapIt(Opt.some(it))
+
+      # Fewer cell proofs than blobs * CELLS_PER_EXT_BLOB
+      block:
+        let (_, sidecars) = assemble_partial_data_column_sidecars(
+          blck, optBlobs, cellProofs[0 ..< cellProofs.len - 1])
+        doAssert sidecars.len == 0
+
+      # Blob count not matching the bid's commitments
+      block:
+        let (_, sidecars) = assemble_partial_data_column_sidecars(
+          blck, optBlobs[0 ..< 1], cellProofs)
+        doAssert sidecars.len == 0
+
+      # No commitments in the bid at all
+      block:
+        let
+          emptyBlck = gloasBlockWithCommitments(default(gloas.KzgCommitments),
+                                                Slot(1))
+          (_, sidecars) = assemble_partial_data_column_sidecars(
+            emptyBlck, optBlobs, cellProofs)
+        doAssert sidecars.len == 0
+    testAssembleMismatch()
+
+  test "Verify PartialDataColumnSidecar self-consistency":
+    proc testStructural() =
+      var rng = initRand(48)
+      let
+        blobs = createSampleKzgBlobs(3, rng.rand(int))
+        (commitments, cellProofs) = buildCommitmentsAndCellProofs(blobs)
+        blck = gloasBlockWithCommitments(commitments, Slot(5))
+        (_, sidecars) = assemble_partial_data_column_sidecars(
+          blck, blobs.mapIt(Opt.some(it)), cellProofs)
+        sidecar = sidecars[0]
+
+      doAssert verify_partial_data_column_sidecar(sidecar).isOk
+
+      # Gloas has no header, so a sidecar with no cells conveys nothing.
+      doAssert verify_partial_data_column_sidecar(
+        default(gloas.PartialDataColumnSidecar)).isErr
+
+      block:
+        var empty = sidecar
+        empty.cells_present_bitmap = gloas.CellsPresentBits.init(3)
+        doAssert verify_partial_data_column_sidecar(empty).isErr
+
+      block:
+        var tooFewCells = sidecar
+        tooFewCells.partial_column = sidecar.partial_column[0 ..< 2]
+        doAssert verify_partial_data_column_sidecar(tooFewCells).isErr
+
+      block:
+        var tooFewProofs = sidecar
+        tooFewProofs.kzg_proofs = sidecar.kzg_proofs[0 ..< 2]
+        doAssert verify_partial_data_column_sidecar(tooFewProofs).isErr
+    testStructural()
+
+  test "Verify PartialDataColumnSidecar KZG proofs":
+    proc testKzg() =
+      var rng = initRand(49)
+      let
+        blobs = createSampleKzgBlobs(3, rng.rand(int))
+        (commitments, cellProofs) = buildCommitmentsAndCellProofs(blobs)
+        blck = gloasBlockWithCommitments(commitments, Slot(5))
+        (_, sidecars) = assemble_partial_data_column_sidecars(
+          blck, blobs.mapIt(Opt.some(it)), cellProofs)
+        sidecar = sidecars[2]
+
+      doAssert verify_partial_data_column_sidecar_kzg_proofs(
+        sidecar, commitments, ColumnIndex(2)).isOk
+
+      # Proofs are bound to the column index they were computed for.
+      doAssert verify_partial_data_column_sidecar_kzg_proofs(
+        sidecar, commitments, ColumnIndex(3)).isErr
+
+      block:
+        var corrupted = sidecar
+        corrupted.kzg_proofs[0].bytes[0] =
+          corrupted.kzg_proofs[0].bytes[0] xor 0xff'u8
+        doAssert verify_partial_data_column_sidecar_kzg_proofs(
+          corrupted, commitments, ColumnIndex(2)).isErr
+
+      # A bitmap reaching past the commitments cannot be verified.
+      block:
+        let shortened =
+          gloas.KzgCommitments(commitments.asSeq[0 ..< commitments.len - 1])
+        doAssert verify_partial_data_column_sidecar_kzg_proofs(
+          sidecar, shortened, ColumnIndex(2)).isErr
+    testKzg()
+
+  test "PartialDataColumnGroupID encoding":
+    proc testGroupId() =
+      var root: Eth2Digest
+      root.data[0] = 7
+
+      let groupId = gloas.PartialDataColumnGroupID(
+        beacon_block_root: root, slot: Slot(4242))
+
+      let encoded = encodePartialDataColumnGroupId(groupId)
+      doAssert encoded.len == GLOAS_PARTIAL_GROUP_ID_LEN
+      doAssert encoded[0] == PARTIAL_DATA_COLUMN_GROUP_ID_VERSION_GLOAS
+      doAssert decodePartialDataColumnGroupId(encoded).get() == groupId
+
+      # Fulu's version byte must not decode as Gloas.
+      block:
+        var fuluVersion = encoded
+        fuluVersion[0] = PARTIAL_DATA_COLUMN_GROUP_ID_VERSION_FULU
+        doAssert decodePartialDataColumnGroupId(fuluVersion).isErr
+
+      block:
+        var unknownVersion = encoded
+        unknownVersion[0] = 0xff'u8
+        doAssert decodePartialDataColumnGroupId(unknownVersion).isErr
+
+      doAssert decodePartialDataColumnGroupId(
+        encoded[0 ..< encoded.len - 1]).isErr
+      doAssert decodePartialDataColumnGroupId(encoded & @[byte 0]).isErr
+      doAssert decodePartialDataColumnGroupId([]).isErr
+    testGroupId()
 
 doAssert freeTrustedSetup().isOk

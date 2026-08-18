@@ -570,10 +570,68 @@ proc assemble_partial_data_column_sidecars*(
     partial_column: DataColumn.init(columns[it]),
     kzg_proofs: deneb.KzgProofs.init(columnProofs[it])))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#verify_partial_data_column_sidecar_kzg_proofs
-proc verify_partial_data_column_sidecar_kzg_proofs*(
-    sidecar: fulu.PartialDataColumnSidecar,
-    all_commitments: deneb.KzgCommitments,
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+proc assemble_partial_data_column_sidecars*(
+    signed_beacon_block: gloas.SignedBeaconBlock,
+    blobs: seq[Opt[KzgBlob]],
+    cell_proofs: seq[Opt[KzgProof]]):
+      tuple[
+        group_id: gloas.PartialDataColumnGroupID,
+        sidecars: seq[gloas.PartialDataColumnSidecar]] =
+  ## Gloas counterpart of the Fulu assembly above, returning a group id in
+  ## place of a header.
+  ##
+  ## Rows whose blob is None are skipped in every column's bitmap; a present
+  ## row still drops an individual cell whose `cell_proofs` slot is None.
+  ## `cell_proofs.len` must equal `blobs.len * CELLS_PER_EXT_BLOB`.
+  template blck(): auto = signed_beacon_block.message
+  template kzg_commitments(): untyped =
+    blck.body.signed_execution_payload_bid.message.blob_kzg_commitments
+
+  let group_id = gloas.PartialDataColumnGroupID(
+    beacon_block_root: signed_beacon_block.root,
+    slot: blck.slot)
+
+  if kzg_commitments.len == 0 or blobs.len != kzg_commitments.len or
+      blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK) or
+      cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
+    return (group_id, static(default(seq[gloas.PartialDataColumnSidecar])))
+
+  # Row-major so each row's cells are computed once and discarded; the full
+  # matrix never needs to be resident.
+  var
+    bitmaps = newSeqWith(
+      CELLS_PER_EXT_BLOB, gloas.CellsPresentBits.init(blobs.len))
+    columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
+    columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
+
+  for rowIndex in 0 ..< blobs.len:
+    let blob = blobs[rowIndex].valueOr:
+      continue
+    computeCells(blob).isErrOr:
+      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
+          continue
+        bitmaps[columnIndex][Natural(rowIndex)] = true
+        columns[columnIndex].add(value[columnIndex])
+        columnProofs[columnIndex].add(proof)
+
+  var sidecars = newSeqOfCap[gloas.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
+  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
+    sidecars.add gloas.PartialDataColumnSidecar(
+      cells_present_bitmap: bitmaps[columnIndex],
+      partial_column: columns[columnIndex],
+      kzg_proofs: columnProofs[columnIndex])
+
+  (group_id, sidecars)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
+# Gloas sources the commitments from the bid instead of the header.
+proc verify_partial_data_column_sidecar_kzg_proofs*[
+    S: fulu.PartialDataColumnSidecar | gloas.PartialDataColumnSidecar,
+    K: deneb.KzgCommitments | gloas.KzgCommitments](
+    sidecar: S,
+    all_commitments: K,
     column_index: ColumnIndex): Result[void, cstring] =
   ## Verify the KZG proofs for partial data column sidecars.
 
@@ -581,6 +639,8 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
   var commitments = newSeqOfCap[KzgCommitment](sidecar.partial_column.len)
   for i in 0 ..< sidecar.cells_present_bitmap.len:
     if sidecar.cells_present_bitmap[Natural(i)]:
+      if i >= all_commitments.len:
+        return err("PartialDataColumnSidecar: bitmap exceeds commitments")
       commitments.add all_commitments[i]
 
   # The cell index is the column index for all cells in this column
@@ -595,6 +655,28 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
 
   if not res:
     return err("PartialDataColumnSidecar: validation failed")
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+func verify_partial_data_column_sidecar*(
+    sidecar: gloas.PartialDataColumnSidecar): Result[void, cstring] =
+  ## Self-consistency [REJECT] rules, i.e. those needing neither chain state
+  ## nor KZG. Unlike Fulu there is no header, so a cell-less message carries
+  ## nothing and is rejected.
+  var cellsPresent = 0
+  for i in 0 ..< sidecar.cells_present_bitmap.len:
+    if sidecar.cells_present_bitmap[Natural(i)]:
+      inc cellsPresent
+
+  if cellsPresent == 0:
+    return err("PartialDataColumnSidecar: no cells present")
+
+  if sidecar.partial_column.len != cellsPresent:
+    return err("PartialDataColumnSidecar: cell count does not match bitmap")
+
+  if sidecar.kzg_proofs.len != cellsPresent:
+    return err("PartialDataColumnSidecar: proof count does not match bitmap")
 
   ok()
 
