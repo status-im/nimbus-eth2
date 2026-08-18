@@ -99,7 +99,7 @@ func getMutableValidatorStatuses(state: capella.BeaconState):
     assign(result[i].exit_epoch, validator.exit_epoch)
     assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
-from "."/spec/beaconstate import has_eth1_withdrawal_credential
+from ./spec/beaconstate import has_eth1_withdrawal_credential
 
 func getValidatorWithdrawalChanges(
     presummary: BeaconStateDiffPreSnapshot, state: capella.BeaconState):

@@ -1,18 +1,18 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronicles, metrics,
   chronos, presto/client,
   results,
   stew/[base10, byteutils],
-  "."/[rest_types, eth2_rest_serialization]
+  ./[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization, results
 
@@ -86,9 +86,10 @@ proc signDataPlain*(identifier: ValidatorPubKey,
      meth: MethodPost, accept: "application/json" .}
   # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing
 
-proc init(t: typedesc[Web3SignerError], kind: Web3SignerErrorKind,
+func init(t: typedesc[Web3SignerError], kind: Web3SignerErrorKind,
           message: string): Web3SignerError =
   Web3SignerError(kind: kind, message: message)
+
 proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
                body: Web3SignerRequest
               ): Future[Web3SignerDataResponse]

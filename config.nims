@@ -77,7 +77,7 @@ if defined(limitStackUsage):
   # stack size of each function.
   switch("passC", "-fstack-usage -Werror=stack-usage=851968")
   switch("passL", "-fstack-usage -Werror=stack-usage=851968")
-  
+
   # QUIC does variable stack allocations
   put("lsquic_enc_sess_ietf.always", "-fno-lto -Wno-stack-usage")
   put("lsquic_handshake.always", "-fno-lto -Wno-stack-usage")
@@ -142,7 +142,6 @@ switch("passL", "-fno-omit-frame-pointer")
 --define:nimTypeNames
 
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
-switch("define", "withoutPCRE")
 
 when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride

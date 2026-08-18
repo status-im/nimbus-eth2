@@ -20,6 +20,9 @@ import
       forks, network, state_transition_block, validator],
   ../validators/message_router_mev
 
+from ../consensus_object_pools/payload_attestation_pool import
+  getPayloadAttestations
+
 from std/sequtils import mapIt, toSeq
 from ../spec/column_map import supernodeMap
 
@@ -1541,21 +1544,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Http400, VoluntaryExitValidationError, $res.error)
     return RestApiResponse.jsonMsgResponse(VoluntaryExitValidationSuccess)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.2#/Beacon/getBlobSidecars
-  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/beacon/blob_sidecars/blob_sidecars.yaml
   router.api2(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
       block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
-    # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
-    # The merkleization limit of the list is `MAX_BLOB_COMMITMENTS_PER_BLOCK`,
-    # the serialization limit is configurable and is:
-    # - `MAX_BLOBS_PER_BLOCK` from Deneb onward
-    # - `MAX_BLOBS_PER_BLOCK_ELECTRA` from Electra.
-    handleDataSidecarRequest[
-      InvalidBlobSidecarIndexValueError,
-      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-    ](
-      node, preferredContentType(jsonMediaType, sszMediaType),
-      block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalFulu)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlobs
   router.api2(MethodGet, "/eth/v1/beacon/blobs/{block_id}") do (
@@ -1702,6 +1693,79 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.dag.isFinalized(bid))
     else:
       RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+  # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6/apis/beacon/pool/payload_attestations.yaml
+  router.api2(MethodGet, "/eth/v1/beacon/pool/payload_attestations") do (
+    slot: Option[Slot]) -> RestApiResponse:
+    let
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      vslot =
+        if slot.isSome():
+          let rslot = slot.get().valueOr:
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                             $error)
+          Opt.some(rslot)
+        else:
+          Opt.none(Slot)
+      consensusFork =
+        if vslot.isNone():
+          node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch)
+        else:
+          node.dag.cfg.consensusForkAtEpoch(vslot.get().epoch)
+      attestations =
+        toSeq(node.payloadAttestationPool[].getPayloadAttestations(vslot))
+    if contentType == sszMediaType:
+      RestApiResponse.sszResponse(
+        attestations, consensusFork, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      RestApiResponse.jsonResponseWVersion(
+        attestations, consensusFork, node.hasRestAllowedOrigin)
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+  router.api2(MethodPost, "/eth/v1/beacon/pool/payload_attestations") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(Http400,
+                                       FailedToObtainConsensusForkError)
+    if consensusVersion.get() < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400, UnsupportedForkError,
+                                       $UnsupportedForkError)
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    let messages = decodeBodyJsonOrSsz(
+        seq[PayloadAttestationMessage], contentBody.get()).valueOr:
+      return RestApiResponse.jsonError(error)
+
+    let pendingMessages =
+      messages.mapIt(node.router.routePayloadAttestationMessage(it))
+
+    let failures =
+      block:
+        var res: seq[RestIndexedErrorMessageItem]
+        await allFutures(pendingMessages)
+        for index, future in pendingMessages:
+          if future.completed():
+            let fres = future.value()
+            if fres.isErr():
+              res.add(RestIndexedErrorMessageItem(index: index,
+                                                  message: $fres.error))
+          elif future.failed() or future.cancelled():
+            let exc = future.error()
+            res.add(RestIndexedErrorMessageItem(index: index,
+                                                message: $exc.msg))
+        res
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(Http400, PayloadAttestationValidationError,
+                                    failures)
+    else:
+      RestApiResponse.jsonMsgResponse(PayloadAttestationValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v3.1.0#/Beacon/getPendingDeposits
   router.metricsApi2(

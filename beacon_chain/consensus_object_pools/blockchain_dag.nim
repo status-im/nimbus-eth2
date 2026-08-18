@@ -14,8 +14,8 @@ import
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,
-  ".."/[beacon_chain_db, beacon_clock, era_db],
-  "."/[block_pools_types, block_quarantine]
+  ../[beacon_chain_db, beacon_clock, era_db],
+  ./[block_pools_types, block_quarantine]
 
 export
   eth2_merkleization, eth2_ssz_serialization,

@@ -9,7 +9,7 @@
 
 import
   chronicles, presto/client,
-  "."/[rest_types, eth2_rest_serialization, rest_common]
+  ./[rest_types, eth2_rest_serialization, rest_common]
 
 proc getValidatorsActivity*(epoch: Epoch,
                             body: seq[ValidatorIndex]

@@ -13,7 +13,7 @@ import
   # Internal
   ../spec/datatypes/base,
   ../spec/helpers,
-  "."/[attestation_pool, blockchain_dag]
+  ./[attestation_pool, blockchain_dag]
 
 from ../spec/beaconstate import check_bls_to_execution_change
 from ../spec/state_transition_block import

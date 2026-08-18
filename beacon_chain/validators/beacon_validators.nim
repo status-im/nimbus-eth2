@@ -480,7 +480,7 @@ proc proposeBlockAux(
         else:
           state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
         state[].forky(fork).data.get_block_root_at_slot(slot - 1),
-        validator.pubkey)
+        validator)
 
   let
     engineBid =
@@ -1011,13 +1011,13 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
-proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
+proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): bool =
   if blck.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
     node.dag.db.containsExecutionPayloadEnvelope(blck.root)
   else:
     true
 
-proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
+proc checkBlobDataAvailable*(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
       let forkyBlck =
@@ -1065,7 +1065,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
       validator_index: validator_index.uint64, data: data, signature: signature
     )
 
-  await node.router.routePayloadAttestationMessage(
+  discard await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(

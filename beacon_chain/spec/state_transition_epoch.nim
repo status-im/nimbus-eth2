@@ -1184,8 +1184,8 @@ func process_historical_summaries_update*(
 
   ok()
 
-from "."/signatures import verify_deposit_signature
-from ".."/validator_bucket_sort import
+from ./signatures import verify_deposit_signature
+from ../validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-apply_pending_deposit

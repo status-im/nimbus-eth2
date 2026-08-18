@@ -7,11 +7,14 @@
 
 {.push raises: [], gcsafe.}
 
-import std/algorithm, json, sequtils
+import std/json
 import stew/[byteutils, base10], chronicles
-import ".."/beacon_node,
-       ".."/spec/forks,
-       "."/rest_utils
+import ../beacon_node,
+       ../spec/forks,
+       ./rest_utils
+
+from std/algorithm import sorted
+from std/sequtils import mapIt
 
 export rest_utils
 
@@ -351,6 +354,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           MIN_BUILDER_WITHDRAWABILITY_DELAY:
             Base10.toString(cfg.MIN_BUILDER_WITHDRAWABILITY_DELAY),
+          MAX_REQUEST_PAYLOADS:
+            Base10.toString(MAX_REQUEST_PAYLOADS.uint64),
 
           CONFIRMATION_BYZANTINE_THRESHOLD:
             Base10.toString(cfg.CONFIRMATION_BYZANTINE_THRESHOLD),

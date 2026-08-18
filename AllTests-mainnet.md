@@ -663,6 +663,7 @@ AllTests-mainnet
 + Aggregate and proof signatures                                                             OK
 + Attestation signatures                                                                     OK
 + BLS to execution change signatures                                                         OK
++ Builder request auth v1                                                                    OK
 + Builder signatures (ValidatorRegistrationV1)                                               OK
 + Deposit signatures                                                                         OK
 + Slot signatures                                                                            OK
@@ -789,6 +790,7 @@ AllTests-mainnet
 + Can get payload attestations for block production [Preset: mainnet]                        OK
 + Different 'blob data available' and 'payload presence' values [Preset: mainnet]            OK
 + Duplicate validator in PTC - multiple signatures [Preset: mainnet]                         OK
++ Get all payload attestations in the pool [Preset: mainnet]                                 OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
 + get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
@@ -964,6 +966,17 @@ AllTests-mainnet
 + Missed slots across fork transition                                                        OK
 + Missed slots across sync committee period boundary                                         OK
 + isSeen                                                                                     OK
+```
+## SyncDag test suite
+```diff
++ Multiple chains and ancestors iterator test                                                OK
++ Pruning test                                                                               OK
++ Single chain and iterator test                                                             OK
++ getMissingEnvelopeRoots()/cleanMissingEnvelopeRoots() test                                 OK
++ getMissingSidecarsRoots()/cleanMissingSidecarsRoots() test                                 OK
++ mgetOrPut(bid)/getRootEntry(root) test                                                     OK
++ mgetOrPut(checkpoint)/getRootEntry(root) test                                              OK
++ mgetOrPut(peer)/getPeerEntry() test                                                        OK
 ```
 ## SyncManager test suite
 ```diff
