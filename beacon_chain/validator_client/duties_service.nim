@@ -128,6 +128,8 @@ proc pollForValidatorIndices*(
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
     vc.indicesAvailable.fire()
+    vc.attesterDutyInvalidationEvent.fire()
+    vc.proposerDutyInvalidationEvent.fire()
 
 proc pollForAttesterDuties*(
     service: DutiesServiceRef,
