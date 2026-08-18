@@ -22,7 +22,7 @@ import
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
-  "."/[gossip_validation, block_processor, batch_validation],
+  ./[gossip_validation, block_processor, batch_validation],
   ../nimbus_binary_common
 
 export
