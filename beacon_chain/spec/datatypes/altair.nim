@@ -20,7 +20,7 @@ import
   chronicles,
   stew/[bitops2, objects],
   ../ssz_codec,
-  "."/[base, phase0]
+  ./[base, phase0]
 
 export base, sets
 

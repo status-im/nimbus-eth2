@@ -9,7 +9,7 @@
 
 import
   presto/client,
-  "."/[rest_types, eth2_rest_serialization]
+  ./[rest_types, eth2_rest_serialization]
 
 export client, rest_types, eth2_rest_serialization
 

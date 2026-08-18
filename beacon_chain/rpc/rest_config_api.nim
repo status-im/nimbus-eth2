@@ -7,11 +7,14 @@
 
 {.push raises: [], gcsafe.}
 
-import std/algorithm, json, sequtils
+import std/json
 import stew/[byteutils, base10], chronicles
-import ".."/beacon_node,
-       ".."/spec/forks,
-       "."/rest_utils
+import ../beacon_node,
+       ../spec/forks,
+       ./rest_utils
+
+from std/algorithm import sorted
+from std/sequtils import mapIt
 
 export rest_utils
 

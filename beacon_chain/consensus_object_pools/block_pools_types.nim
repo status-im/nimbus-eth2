@@ -14,11 +14,11 @@ import
   chronicles, libp2p/peerid, results,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
-  ".."/[beacon_chain_db, era_db],
+  ../[beacon_chain_db, era_db],
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
-from "."/vanity_logs/vanity_logs import LogProc, VanityLogs
+from ./vanity_logs/vanity_logs import LogProc, VanityLogs
 
 export
   sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
