@@ -15,7 +15,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     execution_payload_pool, blockchain_dag],
   ../beacon_chain/beacon_clock,
-  "."/[testutil, testdbutil]
+  ./[testutil, testdbutil]
 
 func makeBid(
     slot: Slot,
