@@ -115,7 +115,7 @@ proc is_bid_compatible_with_head*(
   if bid.parent_block_root != head.root:
     return false
   if self.should_build_on_full(
-      dag, head, dag.isPayloadStatusFull(head), bid.slot):
+      dag, head, dag.headPayloadFull, bid.slot):
     return headBlockHash.isSome and
       bid.parent_block_hash == headBlockHash.unsafeGet
   builds_on_parent_payload

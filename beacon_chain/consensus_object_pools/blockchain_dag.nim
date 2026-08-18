@@ -2654,11 +2654,6 @@ proc hasExecutionCheckpoint*(
   # Return true if it is either EMPTY or FULL
   parentBlockHash == latestBlockHash or parentBlockHash == latestParentHash
 
-func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
-  ## Whether `head.payload_status == PAYLOAD_STATUS_FULL`, as consumed by
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
-  head == dag.headPayload
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/validator.md#attestation
 func attestationDataIndex*(
     dag: ChainDAGRef, blck: BlockRef, slot: Slot): CommitteeIndex =
@@ -2668,7 +2663,7 @@ func attestationDataIndex*(
   let payloadPresent =
     if blck == dag.head:
       # If nothing extends the head yet, fork choice holds the verdict
-      dag.isPayloadStatusFull(blck)
+      dag.headPayloadFull
     else:
       # Else a descendant already recorded whether it extended this payload
       withState(dag.headState):
@@ -2967,39 +2962,13 @@ proc updateHead*(
       dag.onFinHappened(dag, data)
 
 proc updateHeadExecutionPayload*(
-    dag: ChainDAGRef, full: bool, headChanged: bool) =
+    dag: ChainDAGRef, full: bool) =
   ## Update the execution payload of the head block since Gloas, which should
   ## usually be invoked after the call of updateHead().
   if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return
-  let newHeadPayload =
-    if full:
-      dag.head
-    else:
-      dag.head.parent
-  if newHeadPayload == dag.headPayload:
-    return
-  dag.headPayload = newHeadPayload
 
-  # `updateHead` already emits head_v2 on a head change; only emit here for a
-  # pure payload flip (head unchanged) to avoid double-emitting.
-  if not headChanged and not isNil(dag.onHeadV2Changed):
-    # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
-    let
-      finalized_checkpoint = dag.headState.finalized_checkpoint
-      finalizedSlot =
-        max(finalized_checkpoint.epoch.start_slot(), dag.finalizedHead.slot)
-      finalizedHead = dag.head.atSlot(finalizedSlot)
-      epochTransition = (finalizedHead != dag.finalizedHead)
-
-      headEpoch = dag.head.slot.epoch()
-      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
-      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
-
-    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
-      dag.headState.kind, dag.head.slot, dag.head.root,
-      dag.headState.root, epochTransition, curEpochDepRoot,
-      nextEpochDepRoot))
+  dag.headPayloadFull = full
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   ## Lightweight check to see if it is likely that the given database has been

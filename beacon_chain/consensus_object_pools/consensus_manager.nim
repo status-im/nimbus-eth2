@@ -261,7 +261,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   let headChanged = newHead.blck != self.dag.head
   self.updateHead(newHead.blck)
-  self.dag.updateHeadExecutionPayload(newHead.full, headChanged)
+  self.dag.updateHeadExecutionPayload(newHead.full)
 
 func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # This is a tweaked version of the beacon_validators isSynced. TODO, refactor
@@ -391,7 +391,7 @@ proc prepareNextSlot*(
       when consensusFork >= ConsensusFork.Gloas:
         let shouldExtend = self.attestationPool[].forkChoice
           .should_build_on_full(
-            dag, head, dag.isPayloadStatusFull(head), proposalSlot)
+            dag, head, dag.headPayloadFull, proposalSlot)
       let
         timestamp = dag.timeParams
           .compute_timestamp_at_slot(forkyState.data, proposalSlot)
