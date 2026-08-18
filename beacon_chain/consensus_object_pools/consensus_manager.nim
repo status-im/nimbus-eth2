@@ -259,7 +259,6 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
         head = shortLog(self.dag.head), wallSlot
       return
 
-  let headChanged = newHead.blck != self.dag.head
   self.updateHead(newHead.blck)
   self.dag.updateHeadExecutionPayload(newHead.full)
 
