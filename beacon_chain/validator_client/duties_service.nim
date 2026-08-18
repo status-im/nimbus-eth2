@@ -130,6 +130,7 @@ proc pollForValidatorIndices*(
     vc.indicesAvailable.fire()
     vc.attesterDutyInvalidationEvent.fire()
     vc.proposerDutyInvalidationEvent.fire()
+    vc.syncDutyInvalidationEvent.fire()
 
 proc pollForAttesterDuties*(
     service: DutiesServiceRef,
@@ -650,6 +651,16 @@ proc restartPollingAttesterDuties(
   # Spawning new attestation duties task.
   service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
 
+proc restartPollingSyncDuties(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  # Cleaning up previous sync committee duties task.
+  if not(isNil(service.pollingSyncDutiesTask)) and
+     not(service.pollingSyncDutiesTask.finished()):
+    await cancelAndWait(service.pollingSyncDutiesTask)
+  # Spawning new sync committee duties task.
+  service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
+
 proc attesterDutiesLoop(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -778,12 +789,13 @@ proc syncCommitteeDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await service.waitForNextSlot()
-    if not(isNil(service.pollingSyncDutiesTask)) and
-       not(service.pollingSyncDutiesTask.finished()):
-      await cancelAndWait(service.pollingSyncDutiesTask)
-    # Spawning new attestation duties task.
-    service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
+    vc.syncDutyInvalidationEvent.clear()
+    await service.restartPollingSyncDuties()
+    let slotFut = service.waitForNextSlot()
+    await slotFut.raceWithEvent(vc.syncDutyInvalidationEvent)
+    if vc.syncDutyInvalidationEvent.isSet():
+      await service.restartPollingSyncDuties()
+    await slotFut
 
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let

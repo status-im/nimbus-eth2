@@ -251,6 +251,7 @@ type
     doppelExit*: AsyncEvent
     attesterDutyInvalidationEvent*: AsyncEvent
     proposerDutyInvalidationEvent*: AsyncEvent
+    syncDutyInvalidationEvent*: AsyncEvent
     attesterDependentRoots*: Table[Epoch, Eth2Digest]
     proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
