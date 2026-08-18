@@ -147,6 +147,12 @@ type
     validator_index*: ValidatorIndex
     slot*: Slot
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/types/duty.yaml#L56
+  RestPtcDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    slot*: Slot
+
   RestSyncCommitteeDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
@@ -563,6 +569,8 @@ type
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
+  GetPtcDutiesResponse* = DataRootEnclosedObject[seq[RestPtcDuty]]
+  GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
