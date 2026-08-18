@@ -13,12 +13,17 @@ import
   ./datatypes/[bellatrix, capella, deneb, gloas],
   ./presets
 
+import kzg4844/kzg_abi
+from kzg4844/kzg_abi import
+  FIELD_ELEMENTS_PER_CELL, BYTES_PER_FIELD_ELEMENT, BYTES_PER_CELL
+
 export eth2_ssz_serialization, presets
+export FIELD_ELEMENTS_PER_CELL, BYTES_PER_FIELD_ELEMENT, BYTES_PER_CELL
+export kzg_abi.CELLS_PER_EXT_BLOB
 
 type
   Bytes8 = eth_common_base.Bytes8
 
-type
   ForkchoiceState* = object
     head_block_hash*: Eth2Digest
     safe_block_hash*: Eth2Digest
@@ -80,10 +85,6 @@ const
   MAX_VERSIONED_HASHES_PER_REQUEST* = 128
   MAX_BLOBS_REQUEST* = MAX_VERSIONED_HASHES_PER_REQUEST
   MAX_BODIES_REQUEST* = 1 shl 5
-  CELLS_PER_EXT_BLOB* = 128
-  FIELD_ELEMENTS_PER_CELL* = 64
-  BYTES_PER_FIELD_ELEMENT* = 32
-  BYTES_PER_CELL* = FIELD_ELEMENTS_PER_CELL * BYTES_PER_FIELD_ELEMENT
   MAX_BAL_BYTES* = MAX_BYTES_PER_TX
   MAX_CLIENT_CODE_LENGTH* = 2
   MAX_CLIENT_NAME_LENGTH* = 64
@@ -94,7 +95,6 @@ type
   ExecutionRequests* = List[ByteList[Limit MAX_BYTES_PER_EXECUTION_REQUEST],
     Limit MAX_EXECUTION_REQUESTS_PER_PAYLOAD]
 
-type
   EngineFork* {.pure.} = enum
     Paris
     Shanghai
@@ -146,10 +146,9 @@ type
 
   BlobsBundleV2* = object
     commitments*: List[deneb.KzgCommitment, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-    proofs*: List[deneb.KzgProof, Limit (MAX_BLOB_COMMITMENTS_PER_BLOCK * CELLS_PER_EXT_BLOB)]
+    proofs*: List[deneb.KzgProof, Limit (MAX_BLOB_COMMITMENTS_PER_BLOCK * kzg_abi.CELLS_PER_EXT_BLOB)]
     blobs*: List[deneb.Blob, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
 
-type
   PayloadAttributesParis* = object
     timestamp*: uint64
     prev_randao*: Digest
@@ -282,7 +281,6 @@ type
     parent_beacon_block_root*: Digest
     execution_requests*: ExecutionRequests
 
-type
   ForkchoiceUpdateParis* = object
     forkchoice_state*: ForkchoiceState
     payload_attributes*: Optional[PayloadAttributesParis]
@@ -301,13 +299,12 @@ type
   ForkchoiceUpdateAmsterdam* = object
     forkchoice_state*: ForkchoiceState
     payload_attributes*: Optional[PayloadAttributesAmsterdam]
-    custody_columns*: Optional[BitArray[CELLS_PER_EXT_BLOB]]
+    custody_columns*: Optional[BitArray[kzg_abi.CELLS_PER_EXT_BLOB]]
 
   ForkchoiceUpdateResponse* = object
     payload_status*: PayloadStatus
     payload_id*: Optional[ByteVector[8]]
 
-type
   BuiltPayloadParis* = object
     payload*: ExecutionPayloadParis
     block_value*: UInt256
@@ -343,7 +340,6 @@ type
     execution_requests*: ExecutionRequests
     should_override_builder*: bool
 
-type
   ExecutionPayloadBodyParis* = object
     transactions*: List[ByteList[Limit MAX_BYTES_PER_TX], Limit MAX_TXS_PER_PAYLOAD]
 
@@ -360,7 +356,6 @@ type
     withdrawals*: List[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]
     block_access_list*: ByteList[Limit MAX_BAL_BYTES]
 
-type
   BodiesByHashRequest* = object
     block_hashes*: List[Digest, Limit MAX_BODIES_REQUEST]
 
@@ -398,7 +393,7 @@ type
 
   BlobsV4Request* = object
     versioned_hashes*: List[Digest, Limit MAX_BLOBS_REQUEST]
-    indices_bitarray*: BitArray[CELLS_PER_EXT_BLOB]
+    indices_bitarray*: BitArray[kzg_abi.CELLS_PER_EXT_BLOB]
 
   BlobAndProofV1* = object
     blob*: deneb.Blob
@@ -406,11 +401,11 @@ type
 
   BlobAndProofV2* = object
     blob*: deneb.Blob
-    proofs*: List[deneb.KzgProof, Limit CELLS_PER_EXT_BLOB]
+    proofs*: List[deneb.KzgProof, Limit kzg_abi.CELLS_PER_EXT_BLOB]
 
   BlobCellsAndProofs* = object
-    blob_cells*: List[Optional[array[BYTES_PER_CELL, byte]], Limit CELLS_PER_EXT_BLOB]
-    proofs*: List[Optional[deneb.KzgProof], Limit CELLS_PER_EXT_BLOB]
+    blob_cells*: List[Optional[array[BYTES_PER_CELL, byte]], Limit kzg_abi.CELLS_PER_EXT_BLOB]
+    proofs*: List[Optional[deneb.KzgProof], Limit kzg_abi.CELLS_PER_EXT_BLOB]
 
   BlobV1Entry* = object
     available*: bool
@@ -438,8 +433,7 @@ type
   BlobsV4Response* = object
     entries*: List[BlobV4Entry, Limit MAX_BLOBS_REQUEST]
 
-# for beacon use only
-type
+  # for beacon use only
   EnginePayloadStatus* = object
     status*: PayloadStatusCode
     latestValidHash*: Opt[Eth2Digest]
