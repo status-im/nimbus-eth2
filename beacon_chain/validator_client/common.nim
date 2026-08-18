@@ -1532,6 +1532,9 @@ proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
   vc.blocksSeen.mgetOrPut(eblck.slot, BlockDataItem()).scheduleCallbacks(eblck)
 
 proc registerHead*(vc: ValidatorClientRef, head: HeadChangeInfoObject) =
+  if vc.attachedValidators[].count() == 0:
+    return
+
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
     currentEpoch = currentSlot.epoch()
