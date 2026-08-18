@@ -155,6 +155,7 @@ proc pollForAttesterDuties*(
                   except ValidatorApiError as exc:
                     warn "Unable to get attester duties", epoch = epoch,
                          reason = exc.getFailureReason()
+                    vc.attesterDutiesInvalidationEvent.fire()
                     return 0
                   except CancelledError as exc:
                     debug "Attester duties processing was interrupted"
@@ -257,6 +258,7 @@ proc pollForSyncCommitteeDuties*(
               warn "Unable to get sync committee duties",
                    period = period, epoch = epoch,
                    reason = exc.getFailureReason()
+              vc.syncDutiesInvalidationEvent.fire()
               return 0
             except CancelledError as exc:
               debug "Sync committee duties processing was interrupted",
@@ -553,6 +555,7 @@ proc pollForBeaconProposers*(
     except ValidatorApiError as exc:
       notice "Unable to get proposer duties", slot = currentSlot,
              epoch = currentEpoch, reason = exc.getFailureReason()
+      vc.proposerDutiesInvalidationEvent.fire()
     except CancelledError as exc:
       debug "Proposer duties processing was interrupted"
       raise exc
