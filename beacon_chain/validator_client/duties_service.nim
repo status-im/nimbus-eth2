@@ -25,8 +25,8 @@ logScope: service = ServiceName
 type
   DutiesServiceLoop* = enum
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
-    ProposerPreparationLoop, ValidatorRegisterLoop, DynamicValidatorsLoop,
-    SlashPruningLoop
+    SelectionProofsLoop, ProposerPreparationLoop, ValidatorRegisterLoop,
+    DynamicValidatorsLoop, SlashPruningLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -34,6 +34,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerLoop: "proposer_loop"
   of IndicesLoop: "index_loop"
   of SyncCommitteeLoop: "sync_committee_loop"
+  of SelectionProofsLoop: "selection_proofs_loop"
   of ProposerPreparationLoop: "proposer_prepare_loop"
   of ValidatorRegisterLoop: "validator_register_loop"
   of DynamicValidatorsLoop: "dynamic_validators_loop"
@@ -344,27 +345,6 @@ proc pollForAttesterDuties*(
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new attester's duties received", slot = currentSlot
 
-    block:
-      let
-        moment = Moment.now()
-        sigres =
-          await vc.fillAttestationSelectionProofs(currentSlot,
-            currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
-
-      if vc.config.distributedEnabled:
-        debug "Attestation selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selectionsRequested,
-              selections_received = sigres.selectionsReceived,
-              selections_processed = sigres.selectionsProcessed,
-              total_elapsed_time = (Moment.now() - moment)
-      else:
-        debug "Attestation selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              total_elapsed_time = (Moment.now() - moment)
-
     let subscriptions =
       block:
         var res: seq[RestCommitteeSubscription]
@@ -444,27 +424,6 @@ proc pollForSyncCommitteeDuties*(
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new sync committee duties received", slot = currentSlot
 
-    block:
-      let
-        moment = Moment.now()
-        sigres =
-          await vc.fillSyncCommitteeSelectionProofs(currentSlot,
-            currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
-
-      if vc.config.distributedEnabled:
-        debug "Sync committee selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selectionsRequested,
-              selections_received = sigres.selectionsReceived,
-              selections_processed = sigres.selectionsProcessed,
-              total_elapsed_time = (Moment.now() - moment)
-      else:
-        debug "Sync committee selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              total_elapsed_time = (Moment.now() - moment)
-
     let
       periods =
         block:
@@ -513,6 +472,55 @@ proc pollForSyncCommitteeDuties*(
 
   service.pruneSyncCommitteeDuties(currentSlot)
   service.pruneSyncCommitteeSelectionProofs(currentSlot)
+
+proc fillSelectionProofs(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let
+    vc = service.client
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+
+  block:
+    let
+      moment = Moment.now()
+      sigres =
+        await vc.fillAttestationSelectionProofs(currentSlot,
+          currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+
+    if vc.config.distributedEnabled:
+      debug "Attestation selection proofs have been received",
+            signatures_requested = sigres.signaturesRequested,
+            signatures_received = sigres.signaturesReceived,
+            selections_requested = sigres.selectionsRequested,
+            selections_received = sigres.selectionsReceived,
+            selections_processed = sigres.selectionsProcessed,
+            total_elapsed_time = (Moment.now() - moment)
+    else:
+      debug "Attestation selection proofs have been received",
+            signatures_requested = sigres.signaturesRequested,
+            signatures_received = sigres.signaturesReceived,
+            total_elapsed_time = (Moment.now() - moment)
+
+  if vc.isPastAltairFork(currentSlot.epoch()):
+    let
+      moment = Moment.now()
+      sigres =
+        await vc.fillSyncCommitteeSelectionProofs(currentSlot,
+          currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+
+    if vc.config.distributedEnabled:
+      debug "Sync committee selection proofs have been received",
+            signatures_requested = sigres.signaturesRequested,
+            signatures_received = sigres.signaturesReceived,
+            selections_requested = sigres.selectionsRequested,
+            selections_received = sigres.selectionsReceived,
+            selections_processed = sigres.selectionsProcessed,
+            total_elapsed_time = (Moment.now() - moment)
+    else:
+      debug "Sync committee selection proofs have been received",
+            signatures_requested = sigres.signaturesRequested,
+            signatures_received = sigres.signaturesReceived,
+            total_elapsed_time = (Moment.now() - moment)
 
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
@@ -795,6 +803,22 @@ proc syncCommitteeDutiesLoop(
     if vc.config.monitoringType == BlockMonitoringType.Event:
       await service.waitForNewDuties(vc.syncDutiesInvalidationEvent)
 
+proc selectionProofsLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let vc = service.client
+  debug "Selection proofs loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+  while true:
+    let slotFut = service.waitForNextSlot()
+    await service.fillSelectionProofs()
+    await slotFut
+
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
     middleSlot = Slot(SLOTS_PER_EPOCH div 2)
@@ -884,6 +908,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
     proposeFut = service.proposerDutiesLoop()
     indicesFut = service.validatorIndexLoop()
     syncFut = service.syncCommitteeDutiesLoop()
+    selectionsFut = service.selectionProofsLoop()
     prepareFut = service.proposerPreparationsLoop()
     registerFut =
       if vc.config.payloadBuilderEnable:
@@ -911,6 +936,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
           FutureBase(proposeFut),
           FutureBase(indicesFut),
           FutureBase(syncFut),
+          FutureBase(selectionsFut),
           FutureBase(prepareFut),
           FutureBase(slashPruningFut)
         ]
@@ -924,6 +950,8 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
+        checkAndRestart(SelectionProofsLoop, selectionsFut,
+                        service.selectionProofsLoop())
         checkAndRestart(SyncCommitteeLoop, syncFut,
                         service.syncCommitteeDutiesLoop())
         checkAndRestart(ProposerPreparationLoop, prepareFut,
@@ -950,6 +978,8 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
           pending.add(indicesFut.cancelAndWait())
         if not(syncFut.finished()):
           pending.add(syncFut.cancelAndWait())
+        if not(selectionsFut.finished()):
+          pending.add(selectionsFut.cancelAndWait())
         if not(prepareFut.finished()):
           pending.add(prepareFut.cancelAndWait())
         if not(isNil(registerFut)) and not(registerFut.finished()):
