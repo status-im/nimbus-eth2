@@ -24,8 +24,6 @@ func decodeMediaType*(
   ok contentType.get.mediaType
 
 const
-  DecimalSet = {'0' .. '9'}
-    # Base10 (decimal) set of chars
   ValidatorKeySize = RawPubKeySize * 2
     # Size of `ValidatorPubKey` hexadecimal value (without 0x)
   ValidatorSigSize = RawSigSize * 2
@@ -44,7 +42,6 @@ const
 
 type
   EncodeTypes* =
-    BlobSidecarInfoObject |
     DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
@@ -1098,8 +1095,6 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.ProposerSlashing)
   of "attester_slashing":
     ok(EventTopic.AttesterSlashing)
-  of "blob_sidecar":
-    ok(EventTopic.BlobSidecar)
   of "data_column_sidecar":
     ok(EventTopic.DataColumnSidecar)
   of "finalized_checkpoint":
@@ -1151,8 +1146,6 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("proposer_slashing,")
   if EventTopic.AttesterSlashing in value:
     res.add("attester_slashing,")
-  if EventTopic.BlobSidecar in value:
-    res.add("blob_sidecar,")
   if EventTopic.DataColumnSidecar in value:
     res.add("data_column_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:
@@ -1238,7 +1231,7 @@ func decodeString*(t: typedesc[StateIdent],
       else:
         let res = ? parseRoot(value)
         ok(StateIdent(kind: StateQueryKind.Root, root: res))
-    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
+    elif (value[0] in Digits) and (value[1] in Digits):
       let res = ? Base10.decode(uint64, value)
       ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
     else:
@@ -1270,7 +1263,7 @@ func decodeString*(t: typedesc[BlockIdent],
       else:
         let res = ? parseRoot(value)
         ok(BlockIdent(kind: BlockQueryKind.Root, root: res))
-    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
+    elif (value[0] in Digits) and (value[1] in Digits):
       let res = ? Base10.decode(uint64, value)
       ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
     else:
