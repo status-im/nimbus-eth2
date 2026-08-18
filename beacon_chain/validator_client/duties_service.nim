@@ -644,25 +644,14 @@ proc raceWithEvent(
   if not(eventFut.finished()):
     await noCancel eventFut.cancelAndWait()
 
-proc restartPollingAttesterDuties(
-    service: DutiesServiceRef
+proc waitForNewDuties(
+    service: DutiesServiceRef,
+    event: AsyncEvent
 ) {.async: (raises: [CancelledError]).} =
-  # Cleaning up previous attestation duties task.
-  if not(isNil(service.pollingAttesterDutiesTask)) and
-     not(service.pollingAttesterDutiesTask.finished()):
-    await cancelAndWait(service.pollingAttesterDutiesTask)
-  # Spawning new attestation duties task.
-  service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
-
-proc restartPollingSyncDuties(
-    service: DutiesServiceRef
-) {.async: (raises: [CancelledError]).} =
-  # Cleaning up previous sync committee duties task.
-  if not(isNil(service.pollingSyncDutiesTask)) and
-     not(service.pollingSyncDutiesTask.finished()):
-    await cancelAndWait(service.pollingSyncDutiesTask)
-  # Spawning new sync committee duties task.
-  service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
+  let epochFut = service.waitForNextEpoch()
+  await epochFut.raceWithEvent(event)
+  if not(epochFut.finished()):
+    await noCancel epochFut.cancelAndWait()
 
 proc attesterDutiesLoop(
     service: DutiesServiceRef
@@ -676,13 +665,17 @@ proc attesterDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    vc.attesterDutiesInvalidationEvent.clear()
-    await service.restartPollingAttesterDuties()
     let slotFut = service.waitForNextSlot()
-    await slotFut.raceWithEvent(vc.attesterDutiesInvalidationEvent)
-    if vc.attesterDutiesInvalidationEvent.isSet():
-      await service.restartPollingAttesterDuties()
+    # Cleaning up previous attestation duties task.
+    if not(isNil(service.pollingAttesterDutiesTask)) and
+       not(service.pollingAttesterDutiesTask.finished()):
+      await cancelAndWait(service.pollingAttesterDutiesTask)
+    # Spawning new attestation duties task.
+    vc.attesterDutiesInvalidationEvent.clear()
+    service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
     await slotFut
+    if vc.config.monitoringType == BlockMonitoringType.Event:
+      await service.waitForNewDuties(vc.attesterDutiesInvalidationEvent)
 
 proc proposerDutiesLoop(
     service: DutiesServiceRef
@@ -696,13 +689,12 @@ proc proposerDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
+    let slotFut = service.waitForNextSlot()
     vc.proposerDutiesInvalidationEvent.clear()
     await service.pollForBeaconProposers()
-    let slotFut = service.waitForNextSlot()
-    await slotFut.raceWithEvent(vc.proposerDutiesInvalidationEvent)
-    if vc.proposerDutiesInvalidationEvent.isSet():
-      await service.pollForBeaconProposers()
     await slotFut
+    if vc.config.monitoringType == BlockMonitoringType.Event:
+      await service.waitForNewDuties(vc.proposerDutiesInvalidationEvent)
 
 proc validatorIndexLoop(
     service: DutiesServiceRef
@@ -792,13 +784,16 @@ proc syncCommitteeDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    vc.syncDutiesInvalidationEvent.clear()
-    await service.restartPollingSyncDuties()
     let slotFut = service.waitForNextSlot()
-    await slotFut.raceWithEvent(vc.syncDutiesInvalidationEvent)
-    if vc.syncDutiesInvalidationEvent.isSet():
-      await service.restartPollingSyncDuties()
+    if not(isNil(service.pollingSyncDutiesTask)) and
+       not(service.pollingSyncDutiesTask.finished()):
+      await cancelAndWait(service.pollingSyncDutiesTask)
+    # Spawning new attestation duties task.
+    vc.syncDutiesInvalidationEvent.clear()
+    service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
     await slotFut
+    if vc.config.monitoringType == BlockMonitoringType.Event:
+      await service.waitForNewDuties(vc.syncDutiesInvalidationEvent)
 
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
