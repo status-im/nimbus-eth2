@@ -524,6 +524,9 @@ proc runBlockEventMonitor(service: BlockServiceRef,
 
     if response.isSome():
       debug "Block monitoring connection has been established"
+      vc.attesterDutiesInvalidationEvent.fire()
+      vc.proposerDutiesInvalidationEvent.fire()
+      vc.syncDutiesInvalidationEvent.fire()
       try:
         await service.pollForEvents(node, response.get())
       except CancelledError as exc:
