@@ -58,7 +58,6 @@ type
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
     attSlashQueue*: AsyncEventQueue[gloas.AttesterSlashing]
-    blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
@@ -204,8 +203,6 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[ProposerSlashing](),
     attSlashQueue:
       newAsyncEventQueue[gloas.AttesterSlashing](),
-    blobSidecarQueue:
-      newAsyncEventQueue[BlobSidecarInfoObject](),
     columnSidecarQueue:
       newAsyncEventQueue[DataColumnSidecarInfoObject](),
     columnSidecarFullQueue:

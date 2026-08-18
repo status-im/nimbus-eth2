@@ -1544,21 +1544,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         Http400, VoluntaryExitValidationError, $res.error)
     return RestApiResponse.jsonMsgResponse(VoluntaryExitValidationSuccess)
 
-  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=v2.4.2#/Beacon/getBlobSidecars
-  # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/beacon/blob_sidecars/blob_sidecars.yaml
   router.api2(MethodGet, "/eth/v1/beacon/blob_sidecars/{block_id}") do (
       block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
-    # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/types/deneb/blob_sidecar.yaml#L2-L28
-    # The merkleization limit of the list is `MAX_BLOB_COMMITMENTS_PER_BLOCK`,
-    # the serialization limit is configurable and is:
-    # - `MAX_BLOBS_PER_BLOCK` from Deneb onward
-    # - `MAX_BLOBS_PER_BLOCK_ELECTRA` from Electra.
-    handleDataSidecarRequest[
-      InvalidBlobSidecarIndexValueError,
-      List[BlobSidecar, Limit MAX_BLOB_COMMITMENTS_PER_BLOCK]
-    ](
-      node, preferredContentType(jsonMediaType, sszMediaType),
-      block_id, indices, node.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalFulu)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlobs
   router.api2(MethodGet, "/eth/v1/beacon/blobs/{block_id}") do (
