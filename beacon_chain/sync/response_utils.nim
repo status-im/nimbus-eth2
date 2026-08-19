@@ -252,27 +252,27 @@ func validateBlocks*(
             Opt.none(ref ForkedSignedBeaconBlock)
         else:
           Opt.none(ref ForkedSignedBeaconBlock)
-      sidecars =
+      sidecarsCount =
         block:
-          var res: seq[ref fulu.DataColumnSidecar]
+          var res = 0
           if sindex < len(sidecars):
             if sidecars[sindex].slot() == slot:
               while sindex < len(sidecars):
                 let record = sidecars[sindex]
                 if record.slot() != slot:
                   break
-                res.add(record.sidecar)
+                inc(res)
                 inc(sindex)
           res
 
     if blck.isNone():
-      if len(sidecars) > 0:
+      if sidecarsCount > 0:
         return err(MissingErrorKind.Blocks)
     else:
       withBlck(blck.get()[]):
         when consensusFork == ConsensusFork.Fulu:
           let commitmentsLen = len(forkyBlck.message.body.blob_kzg_commitments)
-          if commitmentsLen > 0 and len(sidecars) == 0:
+          if (commitmentsLen > 0) and (sidecarsCount == 0):
             return err(MissingErrorKind.Sidecars)
         else:
           raiseAssert("checkResponse() already checked the fork!")
@@ -315,27 +315,27 @@ func validateBlocks*(
               Opt.none(ref SignedExecutionPayloadEnvelope)
         else:
           Opt.none(ref SignedExecutionPayloadEnvelope)
-      sidecars =
+      sidecarsCount =
         block:
-          var res: seq[ref gloas.DataColumnSidecar]
+          var res = 0
           if sindex < len(sidecars):
             if sidecars[sindex].slot() == slot:
               while sindex < len(sidecars):
                 let record = sidecars[sindex]
                 if record.slot() != slot:
                   break
-                res.add(record.sidecar)
+                inc(res)
                 inc(sindex)
           res
 
     if blck.isNone():
-      if (len(sidecars) > 0) or (envelope.isSome()):
+      if (sidecarsCount > 0) or (envelope.isSome()):
         return err(MissingErrorKind.Blocks)
     else:
-      if len(sidecars) > 0 and envelope.isNone():
+      if (sidecarsCount > 0) and envelope.isNone():
         return err(MissingErrorKind.Envelopes)
 
-      if len(sidecars) == 0 and envelope.isSome():
+      if (sidecarsCount == 0) and envelope.isSome():
         return err(MissingErrorKind.Sidecars)
 
       inc(bindex)
