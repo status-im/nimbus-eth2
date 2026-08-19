@@ -17,8 +17,8 @@ import
   kzg4844/kzg,
   ssz_serialization/[proofs, types],
   stew/[assign2, ptrops],
-  ./[crypto, helpers, digest, column_map],
-  ./datatypes/[fulu, deneb]
+  ./[column_map, crypto, digest, helpers],
+  ./datatypes/[deneb, fulu]
 
 from std/algorithm import sort
 from std/sequtils import anyIt, mapIt, newSeqWith, repeat, toSeq
@@ -98,62 +98,6 @@ func resolve_column_map_from_custody_groups*(
     for index in compute_columns_for_custody_group(cfg, group):
       columns.incl(index)
   columns
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix
-proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
-  ## `compute_matrix` helper demonstrates the relationship
-  ## between blobs and the `MatrixEntries`
-  var extended_matrix: seq[MatrixEntry]
-
-  for blbIdx, blob in blobs.pairs:
-    let cellsAndProofs = computeCellsAndKzgProofs(blob)
-    if cellsAndProofs.isErr:
-      return err("Computing Extended Matrix: Issue computing cells and proofs")
-
-    for i in 0..<fulu.CELLS_PER_EXT_BLOB:
-      extended_matrix.add(MatrixEntry(
-        cell: cellsAndProofs.get.cells[i],
-        kzg_proof: cellsAndProofs.get.proofs[i],
-        row_index: blbIdx.uint64,
-        column_index: i.uint64
-      ))
-
-  ok(extended_matrix)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#recover_matrix
-proc recover_matrix*(partial_matrix: seq[MatrixEntry],
-                     blobCount: int):
-                     Result[seq[MatrixEntry], cstring] =
-  ## This helper demonstrates how to apply recover_cells_and_kzg_proofs
-  ## The data structure for storing cells is implementation-dependent
-  var extended_matrix: seq[MatrixEntry]
-  for blob_index in 0..<blobCount:
-    var
-      cell_indices: seq[CellIndex]
-      cells: seq[Cell]
-
-    for e in partial_matrix:
-      if e.row_index == uint64(blob_index):
-        cell_indices.add(e.column_index)
-        cells.add(e.cell)
-
-    let recoveredCellsAndKzgProofs =
-      recoverCellsAndKzgProofs(cell_indices, cells)
-    if recoveredCellsAndKzgProofs.isErr:
-      return err("Issue in recovering cells and proofs")
-
-    for i in 0..<recoveredCellsAndKzgProofs.get.cells.len:
-      let
-        cell = recoveredCellsAndKzgProofs.get.cells[i]
-        proof = recoveredCellsAndKzgProofs.get.proofs[i]
-      extended_matrix.add(MatrixEntry(
-        cell: cell,
-        kzg_proof: proof,
-        row_index: blob_index.uint64,
-        column_index: i.uint64
-      ))
-
-  ok(extended_matrix)
 
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,

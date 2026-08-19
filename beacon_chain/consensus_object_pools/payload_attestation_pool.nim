@@ -13,7 +13,7 @@ import
   chronicles,
   # Internal
   ../spec/[eth2_merkleization, forks, validator],
-  "."/[spec_cache, blockchain_dag],
+  ./[spec_cache, blockchain_dag],
   ../beacon_clock
 
 from ../spec/beaconstate import get_ptc

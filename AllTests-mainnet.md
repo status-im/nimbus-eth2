@@ -311,10 +311,8 @@ AllTests-mainnet
 ```diff
 + EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)                                 OK
 + EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (gloas)                                OK
-+ EIP-7594: Compute Matrix                                                                   OK
 + EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)                               OK
 + EIP-7594: Verify DataColumnSidecar KZG Proofs (gloas, single)                              OK
-+ EIP:7594: Recover Matrix                                                                   OK
 + KZG: Recover Cells And Kzg Proofs Parallel - invalid                                       OK
 + KZG: Recover Cells And Kzg Proofs Parallel - valid                                         OK
 ```
