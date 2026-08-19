@@ -191,6 +191,12 @@ type
     message*: TrustedExecutionPayloadEnvelope
     signature*: TrustedSig
 
+  # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6230a3e0de8a8964fee7a4f276e480d6/types/gloas/execution_payload_envelope.yaml#L32-L45
+  SignedExecutionPayloadEnvelopeContents* = object
+    signed_execution_payload_envelope*: SignedExecutionPayloadEnvelope
+    kzg_proofs*: fulu.KzgProofs
+    blobs*: deneb.Blobs
+
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/beacon-chain.md#payloadattestationdata
   PayloadAttestationData* = object
     beacon_block_root*: Eth2Digest
