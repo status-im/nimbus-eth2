@@ -10,7 +10,7 @@
 import
   ../spec/forks,
   ../beacon_chain_db_light_client,
-  "."/[block_pools_types, blockchain_dag]
+  ./[block_pools_types, blockchain_dag]
 
 logScope: topics = "chaindag_lc"
 
