@@ -224,12 +224,6 @@ func groupSidecars*(
 
   ok(grouped)
 
-func groupEnvelopes*(
-    blocks: openArray[ForkedSignedBeaconBlock],
-    envelopes: openArray[ref SignedExecutionPayloadEnvelope]
-): seq[GloasSyncResponseRecord[forks.ForkedSignedBeaconBlock]] =
-  toResponse(blocks, envelopes)
-
 func validateBlocks*(
     srange: SyncRange,
     items: openArray[SyncResponseItem],
