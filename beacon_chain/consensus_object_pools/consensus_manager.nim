@@ -258,9 +258,10 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return
+    headChanged = newHead.blck != self.dag.head
 
   self.updateHead(newHead.blck)
-  self.dag.updateHeadExecutionPayload(newHead.full)
+  self.dag.updateHeadExecutionPayload(newHead.full, headChanged)
 
 func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
   # This is a tweaked version of the beacon_validators isSynced. TODO, refactor

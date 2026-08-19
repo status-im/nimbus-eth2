@@ -592,6 +592,7 @@ func init*(
     slot: Slot,
     blockRoot: Eth2Digest,
     stateRoot: Eth2Digest,
+    payloadFull: bool,
     epochTransition: bool,
     currentEpochDepRoot: Eth2Digest,
     nextEpochDepRoot: Eth2Digest
@@ -602,6 +603,7 @@ func init*(
       slot: slot,
       block_root: blockRoot,
       state_root: stateRoot,
+      payload_status: if payloadFull: "full" else: "empty",
       epoch_transition: epochTransition,
       current_epoch_dependent_root: currentEpochDepRoot,
       next_epoch_dependent_root: nextEpochDepRoot

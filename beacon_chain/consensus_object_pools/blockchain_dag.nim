@@ -2878,18 +2878,6 @@ proc updateHead*(
                                        depRoot)
     dag.onHeadChanged(data)
 
-  if not isNil(dag.onHeadV2Changed):
-    # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
-    let
-      headEpoch = dag.head.slot.epoch()
-      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
-      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
-
-    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
-      dag.headState.kind, dag.head.slot, dag.head.root,
-      dag.headState.root, epochTransition, curEpochDepRoot,
-      nextEpochDepRoot))
-
   let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
   if not(isAncestor):
     notice "Updated head block with chain reorg",
@@ -2962,13 +2950,35 @@ proc updateHead*(
       dag.onFinHappened(dag, data)
 
 proc updateHeadExecutionPayload*(
-    dag: ChainDAGRef, full: bool) =
+    dag: ChainDAGRef, full: bool, headChanged: bool) =
   ## Update the execution payload of the head block since Gloas, which should
   ## usually be invoked after the call of updateHead().
   if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return
 
+  let statusChanged = dag.headPayloadFull != full
+  if not (headChanged or statusChanged):
+    return
+
   dag.headPayloadFull = full
+
+  if not isNil(dag.onHeadV2Changed):
+    # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
+    let
+      finalized_checkpoint = dag.headState.finalized_checkpoint
+      finalizedSlot =
+        max(finalized_checkpoint.epoch.start_slot(), dag.finalizedHead.slot)
+      finalizedHead = dag.head.atSlot(finalizedSlot)
+      epochTransition = (finalizedHead != dag.finalizedHead)
+
+      headEpoch = dag.head.slot.epoch()
+      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
+      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
+
+    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
+      dag.headState.kind, dag.head.slot, dag.head.root,
+      dag.headState.root, full, epochTransition, curEpochDepRoot,
+      nextEpochDepRoot))
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   ## Lightweight check to see if it is likely that the given database has been
