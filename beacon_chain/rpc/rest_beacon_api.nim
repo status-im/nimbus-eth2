@@ -1639,24 +1639,75 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
-  # https://github.com/ethereum/beacon-APIs/blob/e46367867f207237ecb4839b333431144a08899b/apis/beacon/execution_payload/envelope_post.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6230a3e0de8a8964fee7a4f276e480d6/apis/beacon/execution_payload/envelope_post.yaml
   router.api(MethodPost, "/eth/v1/beacon/execution_payload_envelopes") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    let dres = decodeBodyJsonOrSsz(
-      SignedExecutionPayloadEnvelope, contentBody.get())
-    if dres.isErr():
-      return RestApiResponse.jsonError(dres.error())
-    let signedEnvelope = dres.get()
-
-    if node.dag.cfg.consensusForkAtEpoch(
-        signedEnvelope.message.slot.epoch) < ConsensusFork.Gloas:
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(
+        Http400, FailedToObtainConsensusForkError)
+    elif consensusVersion.get() < ConsensusFork.Gloas:
       return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
 
-    let res = await node.router.routeExecutionPayloadEnvelope(signedEnvelope)
+    let blobDataIncluded = parseBool(request.headers.getString(
+      "eth-blob-data-included"))
+    let (signedEnvelope, blobsBundle) =
+      if blobDataIncluded:
+        let dres = decodeBodyJsonOrSsz(
+          SignedExecutionPayloadEnvelopeContents, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(dres.error())
+        (
+          dres.get().signed_execution_payload_envelope,
+          Opt.some((dres.get().blobs, dres.get().kzg_proofs))
+        )
+      else:
+        let dres = decodeBodyJsonOrSsz(
+          SignedExecutionPayloadEnvelope, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(dres.error())
+        (dres.get(), Opt.none((deneb.Blobs, fulu.KzgProofs)))
+
+    if consensusVersion.get() != node.dag.cfg.consensusForkAtEpoch(
+        signedEnvelope.message.slot.epoch()):
+      return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+
+    let res = withConsensusFork(consensusVersion.get()):
+      when consensusFork == ConsensusFork.Heze:
+        debugHezeComment("")
+        return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+      elif consensusFork == ConsensusFork.Gloas:
+        let
+          blckId = BlockId(
+            root: signedEnvelope.message.beacon_block_root,
+            slot: signedEnvelope.message.slot)
+          signedBlck = block:
+            let trustedBlck = node.dag.getBlock(
+                blckId, consensusFork.TrustedSignedBeaconBlock).valueOr:
+              return RestApiResponse.jsonError(
+                Http400, ExecutionPayloadEnvelopeValidationError)
+            trustedBlck.asSigned()
+
+        if blobDataIncluded:
+          let sidecarsOpt = Opt.some(signedBlck.assemble_data_column_sidecars(
+            blobsBundle.get()[0].mapIt(kzg.KzgBlob(bytes: it)),
+            blobsBundle.get()[1].mapIt(kzg.KzgProof(it)),
+            supernodeMap))
+          await node.router.routeExecutionPayloadEnvelope(
+            signedBlck, signedEnvelope, sidecarsOpt)
+        else:
+          await node.router.routeExecutionPayloadEnvelope(
+            signedBlck, signedEnvelope, Opt.none(gloas.DataColumnSidecars),
+            gossipEnvelopeOnly = true)
+      else:
+        return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        ExecutionPayloadEnvelopeValidationError,

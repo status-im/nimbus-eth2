@@ -699,13 +699,19 @@ proc routeExecutionPayloadEnvelope*(
     signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    gossipEnvelopeOnly: bool = false,
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
-  let
-    wallTime = router[].getCurrentBeaconTime()
-    vRes = validateExecutionPayload(
-      router[].dag, router[].quarantine,
-      router.processor.envelopeQuarantine, signedEnvelope, wallTime)
+
+  let vRes =
+    if gossipEnvelopeOnly:
+      router[].processor[].processExecutionPayloadEnvelope(
+        MsgSource.api, signedEnvelope)
+    else:
+      let wallTime = router[].getCurrentBeaconTime()
+      validateExecutionPayload(
+        router[].dag, router[].quarantine,
+        router.processor.envelopeQuarantine, signedEnvelope, wallTime)
   if not isGoodForSending(vRes):
     warn "Envelope failed validation",
       envelope = shortLog(signedEnvelope.message),
@@ -722,6 +728,8 @@ proc routeExecutionPayloadEnvelope*(
   else:
     notice "Envelope sent",
       envelope = shortLog(signedEnvelope.message)
+  if gossipEnvelopeOnly:
+    return ok()
 
   # Publish sidecars
   let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
@@ -730,31 +738,6 @@ proc routeExecutionPayloadEnvelope*(
   (await router[].blockProcessor.addPayload(
       signedBlock, signedEnvelope, finalSidecars)).isOkOr:
     return err("Proposed envelope failed to add to the chain")
-
-  ok()
-
-# Beacon-API variant: only the envelope arrives, so it takes the
-# gossip ingest path rather than the direct addPayload above.
-proc routeExecutionPayloadEnvelope*(
-    router: ref MessageRouter,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
-    Future[SendResult] {.async: (raises: [CancelledError]).} =
-  block:
-    let res =
-      router[].processor[].processExecutionPayloadEnvelope(
-        MsgSource.api, signedEnvelope)
-    if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message), error = res.error()
-      return err(res.error()[1])
-
-  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
-  if res.isOk():
-    notice "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
-  else:
-    notice "Execution payload envelope not sent",
-      envelope = shortLog(signedEnvelope.message), error = res.error()
 
   ok()
 
