@@ -130,12 +130,9 @@ proc markFetchInFlight(
 
 proc clearFetchInFlight(
     self: GetBlobsServiceRef, root: Eth2Digest, marker: Future[void]) =
-  ## Release the claim on `root` and wake anyone waiting on it. Drops only
-  ## our own claim, leaving a later fetch that took over the root alone.
-  if self.elFetchInFlight.getOrDefault(root) == marker:
-    self.elFetchInFlight.del(root)
-  if not marker.finished():
-    marker.complete()
+  ## Release the claim on `root` and wake anyone waiting on it.
+  self.elFetchInFlight.del(root)
+  marker.complete()
 
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
@@ -171,19 +168,11 @@ proc attemptGetBlobs*(
 
   withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
-      template kzg_commitments_count(): int =
-        forkyBlck.message.body.blob_kzg_commitments.len
-
-      # A blobless block has nothing to ask the EL for.
-      if kzg_commitments_count() == 0:
-        return
-
       # A column sidecar arriving ahead of the block may have a fetch for this
       # root in flight already; wait for it instead of asking the EL for the
       # same blobs twice. `join`, so cancelling here leaves that fetch alone.
       let inFlight = self.elFetchInFlight.getOrDefault(forkyBlck.root)
       if inFlight != nil:
-        beacon_engine_getblobs_coalesced_total.inc()
         await inFlight.join()
         # Gossip columns completing during the wait can claim the block.
         if quarantine[].getSidecarless(forkyBlck.root).isNone():
@@ -200,11 +189,17 @@ proc attemptGetBlobs*(
           debug "Added data columns from EL blobpool to quarantine",
             root = forkyBlck.root, slot = forkyBlck.message.slot
           self.columnFirstFetched.del(forkyBlck.root)
+          if inFlight != nil:
+            # Waiting on that fetch is what kept us from issuing our own.
+            beacon_engine_getblobs_coalesced_total.inc()
           self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
           return
         # Columns vanished (pruned?) — fall through to EL fetch as fallback.
+
+      template kzg_commitments_count(): int =
+        forkyBlck.message.body.blob_kzg_commitments.len
 
       var
         blobs: seq[kzg.KzgBlob]
@@ -385,7 +380,7 @@ proc attemptGetBlobs*(
   # enqueue).
   self.blockProcessor.enqueuePayload(blck)
 
-proc attemptGetBlobsFromColumn*(
+proc attemptGetBlobsFromColumn(
     self: GetBlobsServiceRef,
     sidecar: ref fulu.DataColumnSidecar) {.async: (raises: [CancelledError]).} =
   ## Column-first variant: invoked when a column sidecar arrives via gossip
@@ -395,12 +390,6 @@ proc attemptGetBlobsFromColumn*(
   ## stores the recovered custody columns in the quarantine. Does NOT enqueue
   ## a block — when the block later arrives via gossip, eth2_processor will
   ## see the columns already waiting and proceed.
-
-  # A blobless block has nothing to ask the EL for, so there is no reason to
-  # touch the quarantines for this root at all.
-  if sidecar[].kzg_commitments.len == 0:
-    return
-
   let
     elManager = self.blockProcessor[].consensusManager.elManager
     quarantine = self.blockProcessor[].consensusManager.quarantine
@@ -422,12 +411,6 @@ proc attemptGetBlobsFromColumn*(
   # Dedup: only fire EL fetch once per block_root. Subsequent column
   # arrivals for the same block are no-ops on this path.
   if block_root in self.columnFirstFetched:
-    return
-
-  # Another fetch for this root is already talking to the EL, and its result
-  # lands in the same quarantine — nothing to wait around for.
-  if block_root in self.elFetchInFlight:
-    beacon_engine_getblobs_coalesced_total.inc()
     return
 
   # If the sidecarless block is already in the block quarantine, the
