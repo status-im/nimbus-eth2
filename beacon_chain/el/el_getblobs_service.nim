@@ -41,8 +41,8 @@ declareCounter beacon_engine_getblobs_hits_total,
 declareGauge beacon_engine_getblobs_slot_hit_rate,
   "engine_getBlobs hit rate (0..1) for the most recently completed slot with at least one request"
 
-declareCounter beacon_engine_getblobs_coalesced_total,
-  "engine_getBlobs invocations avoided because a fetch for the same block root was already in flight"
+declareCounter beacon_engine_getblobs_skipped_total,
+  "engine_getBlobs invocations not issued because an in-flight fetch for the same block root already retrieved the blobs"
 
 type
   GetBlobsService* = object
@@ -191,7 +191,7 @@ proc attemptGetBlobs*(
           self.columnFirstFetched.del(forkyBlck.root)
           if inFlight != nil:
             # Waiting on that fetch is what kept us from issuing our own.
-            beacon_engine_getblobs_coalesced_total.inc()
+            beacon_engine_getblobs_skipped_total.inc()
           self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
