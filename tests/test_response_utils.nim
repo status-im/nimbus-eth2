@@ -772,7 +772,7 @@ suite "Response utilities test suite":
           res.isErr() == true
           res.error == MissingErrorKind.Envelopes
 
-  test "checkResponse(SyncRange, ForkedSignedBeaconBlock) test":
+  test "checkResponse(SyncRange, ForkedSignedBeaconBlock) failures test":
     let
       b1 = createGloasBlock(Slot(100), createDigest(100), createDigest(99), 1)
       b2 = createGloasBlock(Slot(101), createDigest(101), createDigest(100), 2)
