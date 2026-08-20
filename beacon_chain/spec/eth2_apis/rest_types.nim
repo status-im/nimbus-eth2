@@ -570,7 +570,6 @@ type
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetPtcDutiesResponse* = DataRootEnclosedObject[seq[RestPtcDuty]]
-  GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
