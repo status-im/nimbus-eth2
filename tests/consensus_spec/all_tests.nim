@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 # BLS test vectors are covered by nim-blscurve:
@@ -15,5 +15,8 @@
 
 import
   ./test_fixture_fork_digest,
-  ./test_fixture_networking,
-  ./test_fixture_ssz_generic_types
+  ./test_fixture_networking
+
+  # https://github.com/ethereum/consensus-specs/pull/5520
+  # https://github.com/ethereum/consensus-specs/pull/5523
+  #./test_fixture_ssz_generic_types
