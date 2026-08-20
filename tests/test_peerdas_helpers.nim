@@ -524,15 +524,9 @@ suite "Gloas Partial Columns":
         beacon_block_root: root, slot: Slot(4242))
 
       let encoded = encodePartialDataColumnGroupId(groupId)
-      doAssert encoded.len == GLOAS_PARTIAL_GROUP_ID_LEN
-      doAssert encoded[0] == PARTIAL_DATA_COLUMN_GROUP_ID_VERSION_GLOAS
+      doAssert encoded.len == PARTIAL_DATA_COLUMN_GROUP_ID_LEN
+      doAssert encoded[0] == PARTIAL_DATA_COLUMN_GROUP_ID_VERSION
       doAssert decodePartialDataColumnGroupId(encoded).get() == groupId
-
-      # Fulu's version byte must not decode as Gloas.
-      block:
-        var fuluVersion = encoded
-        fuluVersion[0] = PARTIAL_DATA_COLUMN_GROUP_ID_VERSION_FULU
-        doAssert decodePartialDataColumnGroupId(fuluVersion).isErr
 
       block:
         var unknownVersion = encoded

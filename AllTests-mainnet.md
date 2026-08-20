@@ -724,44 +724,44 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
-## Partial Column Quarantine (Fulu)
+## Partial Column Quarantine
 ```diff
 + Assemble multiple columns for the same block independently                                 OK
 + Cell tracking is per-column                                                                OK
-+ Different block roots with same column index are independent                               OK
 + Different column indices are independent                                                   OK
++ Different group ids with same column index are independent                                 OK
 + Get entry for unknown key returns none                                                     OK
-+ Get header for unknown root returns none                                                   OK
-+ Header LRU evicts oldest entry when full                                                   OK
++ Get group id for unknown key returns none                                                  OK
++ Group ID LRU evicts oldest entry when full                                                 OK
++ Group IDs with same root but different slots are distinct keys                             OK
++ GroupID hash and equality                                                                  OK
 + Init creates empty quarantine                                                              OK
 + Mark all cells received                                                                    OK
 + Mark and check cell received                                                               OK
 + Mark cell received for non-existent entry is no-op                                         OK
 + Mark cell received with out-of-bounds blob index is no-op                                  OK
-+ Multiple headers for different roots                                                       OK
-+ Overwrite header with same root                                                            OK
++ Multiple group ids coexist                                                                 OK
 + PartialColumnKey equality                                                                  OK
 + PartialColumnKey hash differs for different keys                                           OK
 + Put and get entry                                                                          OK
-+ Put and get partial header                                                                 OK
++ Put and get group id                                                                       OK
 + Remove entry                                                                               OK
 + Remove entry does not affect other entries                                                 OK
-+ Remove header                                                                              OK
++ Remove group id                                                                            OK
 + Remove non-existent entry is no-op                                                         OK
-+ Remove non-existent header is no-op                                                        OK
-+ Removing entry does not remove header                                                      OK
-+ Removing header does not remove entries                                                    OK
++ Remove non-existent group id is no-op                                                      OK
++ Removing entry does not remove group id                                                    OK
++ Removing group id does not remove entries                                                  OK
 + addCells accumulates across multiple sidecars                                              OK
 + addCells ingests cells from a PartialDataColumnSidecar                                     OK
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
-+ assembleDataColumnSidecar preserves inclusion proof from header                            OK
 + assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
 + assembleDataColumnSidecar returns none for non-existent entry                              OK
 + assembleDataColumnSidecar returns none when cells incomplete                               OK
-+ assembleDataColumnSidecar returns none when header missing from cache                      OK
-+ assembleDataColumnSidecar returns none when header not validated                           OK
++ assembleDataColumnSidecar returns none when group id missing from cache                    OK
++ assembleDataColumnSidecar returns none when group id not validated                         OK
 + assembleDataColumnSidecar with cells added incrementally                                   OK
 + assembleDataColumnSidecar with markCellReceived (data overload)                            OK
 + cellsConsistent is false when an overlapping cell differs                                  OK
@@ -771,33 +771,21 @@ AllTests-mainnet
 + cellsConsistent is true when overlapping cells match                                       OK
 + getOrCreateEntry creates new entry                                                         OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
-+ getOrCreateEntry reflects header validation status                                         OK
++ getOrCreateEntry reflects group-id validation status                                       OK
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
 + hasCellReceived for out-of-bounds index returns false                                      OK
 + isComplete becomes true after incremental addCells                                         OK
 + isComplete returns false for non-existent entry                                            OK
 + isComplete returns false when cells are missing                                            OK
-+ isComplete returns false when header not validated                                         OK
-+ isComplete returns true when header validated and all cells received                       OK
++ isComplete returns false when group id not validated                                       OK
++ isComplete returns true when group id validated and all cells received                     OK
 + isComplete with single blob                                                                OK
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
-```
-## Partial Column Quarantine (Gloas)
-```diff
-+ Group IDs with same root but different slots are distinct keys                             OK
-+ GroupID hash and equality                                                                  OK
-+ Header LRU eviction (gloas, keyed by GroupID)                                              OK
-+ Init creates empty quarantine                                                              OK
-+ Remove header (group id) does not remove entries (gloas)                                   OK
-+ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
-+ assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
-+ cellsConsistent (gloas)                                                                    OK
-+ getOrCreateEntry reflects gloas group-id validation                                        OK
-+ isComplete and assembleDataColumnSidecar (gloas)                                           OK
-+ putPartialGroupID stores group id under itself                                             OK
++ pruneForBlock drops the group id and its entries                                           OK
++ pruneForBlock leaves other group ids alone                                                 OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff

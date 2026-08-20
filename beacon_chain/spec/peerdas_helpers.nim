@@ -467,109 +467,6 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
-proc assemble_partial_data_column_sidecars*(
-    signed_beacon_block: fulu.SignedBeaconBlock,
-    blobs: seq[Opt[KzgBlob]],
-    cell_proofs: seq[Opt[KzgProof]]):
-      tuple[
-        header: fulu.PartialDataColumnHeader,
-        sidecars: seq[fulu.PartialDataColumnSidecar]] =
-  ## Variant used when some blobs may be entirely missing from the supplied
-  ## row set (e.g. partial response from engine_getBlobsV3). Rows whose
-  ## blob is None are skipped in every column's bitmap; for present rows,
-  ## an individual (row, column) cell is still dropped if its matching
-  ## `cell_proofs` slot is None.
-  ##
-  ## The validated header is returned alongside the per-column sidecars so
-  ## the caller can install it in the partial column quarantine in one
-  ## step. `cell_proofs.len` must equal `blobs.len * CELLS_PER_EXT_BLOB`
-  ## (None-pad missing rows); otherwise the sidecar list comes back empty.
-  template blck(): auto = signed_beacon_block.message
-  template kzg_commitments: untyped = blck.body.blob_kzg_commitments
-
-  let
-    beacon_block_header =
-      BeaconBlockHeader(
-        slot: blck.slot,
-        proposer_index: blck.proposer_index,
-        parent_root: blck.parent_root,
-        state_root: blck.state_root,
-        body_root: hash_tree_root(blck.body))
-    signed_beacon_block_header =
-      SignedBeaconBlockHeader(
-        message: beacon_block_header,
-        signature: signed_beacon_block.signature)
-    inclusion_proof =
-      blck.body.build_proof(KZG_COMMITMENTS_GINDEX).expect("Valid gindex")
-    header = fulu.PartialDataColumnHeader(
-      kzg_commitments: kzg_commitments,
-      signed_block_header: signed_beacon_block_header,
-      kzg_commitments_inclusion_proof: inclusion_proof)
-
-  if kzg_commitments.len == 0 or blobs.len != kzg_commitments.len or
-      blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK) or
-      cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
-    return (header, static(default(seq[fulu.PartialDataColumnSidecar])))
-
-  # Accumulate per-column, iterating row-major so each present row's cells
-  # are computed exactly once and discarded before the next — the full
-  # row-by-column cell matrix never needs to be resident.
-  var
-    bitmaps = newSeqWith(
-      CELLS_PER_EXT_BLOB, fulu.CellsPresentBits.init(blobs.len))
-    columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
-    columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
-
-  for rowIndex in 0 ..< blobs.len:
-    let blob = blobs[rowIndex].valueOr:
-      continue
-    computeCells(blob).isErrOr:
-      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
-          continue
-        bitmaps[columnIndex][Natural(rowIndex)] = true
-        columns[columnIndex].add(value[columnIndex])
-        columnProofs[columnIndex].add(proof)
-
-  var sidecars = newSeqOfCap[fulu.PartialDataColumnSidecar](CELLS_PER_EXT_BLOB)
-  for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-    sidecars.add fulu.PartialDataColumnSidecar(
-      cells_present_bitmap: bitmaps[columnIndex],
-      partial_column: DataColumn.init(columns[columnIndex]),
-      kzg_proofs: deneb.KzgProofs.init(columnProofs[columnIndex]))
-
-  (header, sidecars)
-
-proc assemble_partial_data_column_sidecars*(
-    blobs: seq[KzgBlob], cell_proofs: seq[Opt[KzgProof]]): seq[fulu.PartialDataColumnSidecar] =
-  ## Returns a seq where element i corresponds to column index i.
-  if blobs.len == 0 or blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK) or
-      cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
-    return static(default(seq[fulu.PartialDataColumnSidecar]))
-
-  # Accumulate per-column, iterating row-major so each row's cells are
-  # computed exactly once and discarded before the next — `computeCells` is
-  # expensive and the full row-by-column matrix never needs to be resident.
-  var
-    bitmaps = newSeqWith(
-      CELLS_PER_EXT_BLOB, fulu.CellsPresentBits.init(blobs.len))
-    columns = newSeq[seq[KzgCell]](CELLS_PER_EXT_BLOB)
-    columnProofs = newSeq[seq[KzgProof]](CELLS_PER_EXT_BLOB)
-
-  for rowIndex in 0 ..< blobs.len:
-    computeCells(blobs[rowIndex]).isErrOr:
-      for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
-        let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
-          continue
-        bitmaps[columnIndex][Natural(rowIndex)] = true
-        columns[columnIndex].add(value[columnIndex])
-        columnProofs[columnIndex].add(proof)
-
-  (0 ..< CELLS_PER_EXT_BLOB).mapIt(fulu.PartialDataColumnSidecar(
-    cells_present_bitmap: bitmaps[it],
-    partial_column: DataColumn.init(columns[it]),
-    kzg_proofs: deneb.KzgProofs.init(columnProofs[it])))
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 proc assemble_partial_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
@@ -578,8 +475,8 @@ proc assemble_partial_data_column_sidecars*(
       tuple[
         group_id: gloas.PartialDataColumnGroupID,
         sidecars: seq[gloas.PartialDataColumnSidecar]] =
-  ## Gloas counterpart of the Fulu assembly above, returning a group id in
-  ## place of a header.
+  ## Returns one partial sidecar per column index, alongside the group id
+  ## binding them to the block.
   ##
   ## Rows whose blob is None are skipped in every column's bitmap; a present
   ## row still drops an individual cell whose `cell_proofs` slot is None.
@@ -627,11 +524,9 @@ proc assemble_partial_data_column_sidecars*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
 # Gloas sources the commitments from the bid instead of the header.
-proc verify_partial_data_column_sidecar_kzg_proofs*[
-    S: fulu.PartialDataColumnSidecar | gloas.PartialDataColumnSidecar,
-    K: deneb.KzgCommitments | gloas.KzgCommitments](
-    sidecar: S,
-    all_commitments: K,
+proc verify_partial_data_column_sidecar_kzg_proofs*(
+    sidecar: gloas.PartialDataColumnSidecar,
+    all_commitments: gloas.KzgCommitments,
     column_index: ColumnIndex): Result[void, cstring] =
   ## Verify the KZG proofs for partial data column sidecars.
 
@@ -741,21 +636,6 @@ func verify_data_column_sidecar_inclusion_proof*(
       get_subtree_index(gindex),
       sidecar.signed_block_header.message.body_root):
     return err("DataColumnSidecar: Inclusion proof is invalid")
-
-  ok()
-
-# https://github.com/MarcoPolo/consensus-specs/blob/ffee0018e44ba83da90ff41523a3ab88262e5a57/specs/fulu/p2p-interface.md#verify_partial_data_column_header_inclusion_proof
-func verify_partial_data_column_header_inclusion_proof*(
-    header: fulu.PartialDataColumnHeader): Result[void, cstring] =
-  ## Verify if the given KZG commitments are included in the given beacon block.
-  const gindex = KZG_COMMITMENTS_GINDEX
-  if not is_valid_merkle_branch(
-      hash_tree_root(header.kzg_commitments),
-      header.kzg_commitments_inclusion_proof,
-      KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH.int,
-      get_subtree_index(gindex),
-      header.signed_block_header.message.body_root):
-    return err("PartialDataColumnHeader: Inclusion proof is invalid")
 
   ok()
 
