@@ -253,3 +253,6 @@
 	url = https://github.com/ethpandaops/glamsterdam-devnets.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-libplum"]
+	path = vendor/nim-libplum
+	url = https://github.com/logos-storage/nim-libplum.git
