@@ -699,9 +699,9 @@ proc validateAndPublishEnvelope*(
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
-  let vRes = block:
-    let wallTime = router[].getCurrentBeaconTime()
-    validateExecutionPayload(
+  let
+    wallTime = router[].getCurrentBeaconTime()
+    vRes = validateExecutionPayload(
       router[].dag, router[].quarantine,
       router.processor.envelopeQuarantine, signedEnvelope, wallTime)
   if not isGoodForSending(vRes):
