@@ -885,6 +885,7 @@ proc initFullNode(
   node.dag.eaSlot = eaSlot
   node.list = clist
   node.fuluColumnQuarantine = fuluColumnQuarantine
+  node.gloasColumnQuarantine = gloasColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
