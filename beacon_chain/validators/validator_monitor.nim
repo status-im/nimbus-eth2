@@ -28,15 +28,10 @@ logScope: topics = "val_mon"
 #   hard to use in time series / graphs which depend on the metrics changing at
 #   a steady clock-based rate
 
-type
-  ValidatorCounterLabelKind {.pure.} = enum
-    Validator = 1,
-    MsgSource,
-    Block
-
-  ValidatorCounter = object
-    name: string
-    labelKind: ValidatorCounterLabelKind
+type ValidatorCounterLabelKind {.pure.} = enum
+  Validator = 1,
+  MsgSource,
+  Block
 
 var validatorCounters {.compileTime.}: Table[string, ValidatorCounterLabelKind]
 
