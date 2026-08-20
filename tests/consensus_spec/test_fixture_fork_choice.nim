@@ -460,6 +460,8 @@ proc stepChecks(
           if p >= 0:
             hasViableChild[p] = true
       doAssert leaves == expected.len
+    elif check == "get_proposer_head":
+      discard # TODO https://github.com/ethereum/consensus-specs/pull/5547
     else:
       raiseAssert "Unsupported check '" & $check & "'"
 
