@@ -223,6 +223,6 @@ suite "EF - Gloas - SSZ consensus objects " & preset():
           of "PartialDataColumnSidecar":
             checkSSZ(gloas.PartialDataColumnSidecar, path, hash)
           of "PartialDataColumnPartsMetadata":
-            checkSSZ(fulu.PartialDataColumnPartsMetadata, path, hash)
+            checkSSZ(gloas.PartialDataColumnPartsMetadata, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)
