@@ -475,6 +475,54 @@ proc pollForSyncCommitteeDuties*(
   service.pruneSyncCommitteeDuties(currentSlot)
   service.pruneSyncCommitteeSelectionProofs(currentSlot)
 
+proc fillAttestationSelections(
+    vc: ValidatorClientRef,
+    currentSlot: Slot
+) {.async: (raises: [CancelledError]).} =
+  let
+    moment = Moment.now()
+    sigres =
+      await vc.fillAttestationSelectionProofs(currentSlot,
+        currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+
+  if vc.config.distributedEnabled:
+    debug "Attestation selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          selections_requested = sigres.selectionsRequested,
+          selections_received = sigres.selectionsReceived,
+          selections_processed = sigres.selectionsProcessed,
+          total_elapsed_time = (Moment.now() - moment)
+  else:
+    debug "Attestation selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          total_elapsed_time = (Moment.now() - moment)
+
+proc fillSyncCommitteeSelections(
+    vc: ValidatorClientRef,
+    currentSlot: Slot
+) {.async: (raises: [CancelledError]).} =
+  let
+    moment = Moment.now()
+    sigres =
+      await vc.fillSyncCommitteeSelectionProofs(currentSlot,
+        currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+
+  if vc.config.distributedEnabled:
+    debug "Sync committee selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          selections_requested = sigres.selectionsRequested,
+          selections_received = sigres.selectionsReceived,
+          selections_processed = sigres.selectionsProcessed,
+          total_elapsed_time = (Moment.now() - moment)
+  else:
+    debug "Sync committee selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          total_elapsed_time = (Moment.now() - moment)
+
 proc fillSelectionProofs(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -482,47 +530,21 @@ proc fillSelectionProofs(
     vc = service.client
     currentSlot = vc.getCurrentSlot().get(Slot(0))
 
-  block:
-    let
-      moment = Moment.now()
-      sigres =
-        await vc.fillAttestationSelectionProofs(currentSlot,
-          currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
-
-    if vc.config.distributedEnabled:
-      debug "Attestation selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            selections_requested = sigres.selectionsRequested,
-            selections_received = sigres.selectionsReceived,
-            selections_processed = sigres.selectionsProcessed,
-            total_elapsed_time = (Moment.now() - moment)
-    else:
-      debug "Attestation selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            total_elapsed_time = (Moment.now() - moment)
-
   if vc.isPastAltairFork(currentSlot.epoch()):
     let
-      moment = Moment.now()
-      sigres =
-        await vc.fillSyncCommitteeSelectionProofs(currentSlot,
-          currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
-
-    if vc.config.distributedEnabled:
-      debug "Sync committee selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            selections_requested = sigres.selectionsRequested,
-            selections_received = sigres.selectionsReceived,
-            selections_processed = sigres.selectionsProcessed,
-            total_elapsed_time = (Moment.now() - moment)
-    else:
-      debug "Sync committee selection proofs have been received",
-            signatures_requested = sigres.signaturesRequested,
-            signatures_received = sigres.signaturesReceived,
-            total_elapsed_time = (Moment.now() - moment)
+      attestFut = vc.fillAttestationSelections(currentSlot)
+      syncFut = vc.fillSyncCommitteeSelections(currentSlot)
+    try:
+      await allFutures(attestFut, syncFut)
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      if not(attestFut.finished()):
+        pending.add(attestFut.cancelAndWait())
+      if not(syncFut.finished()):
+        pending.add(syncFut.cancelAndWait())
+      raise exc
+  else:
+    await vc.fillAttestationSelections(currentSlot)
 
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
@@ -1006,6 +1028,9 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         if not(isNil(service.pollingSyncDutiesTask)) and
            not(service.pollingSyncDutiesTask.finished()):
           pending.add(service.pollingSyncDutiesTask.cancelAndWait())
+        if not(isNil(service.fillingSelectionProofsTask)) and
+           not(service.fillingSelectionProofsTask.finished()):
+          pending.add(service.fillingSelectionProofsTask.cancelAndWait())
         if not(isNil(service.pruneSlashingDatabaseTask)) and
            not(service.pruneSlashingDatabaseTask.finished()):
           pending.add(service.pruneSlashingDatabaseTask.cancelAndWait())
