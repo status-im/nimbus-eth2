@@ -658,10 +658,11 @@ proc waitForNewDuties(
     service: DutiesServiceRef,
     event: AsyncEvent
 ) {.async: (raises: [CancelledError]).} =
-  let epochFut = service.waitForNextEpoch()
-  await epochFut.raceWithEvent(event)
-  if not(epochFut.finished()):
-    await noCancel epochFut.cancelAndWait()
+  if not(event.isSet()):
+    let epochFut = service.waitForNextEpoch()
+    await epochFut.raceWithEvent(event)
+    if not(epochFut.finished()):
+      await noCancel epochFut.cancelAndWait()
 
 proc attesterDutiesLoop(
     service: DutiesServiceRef
