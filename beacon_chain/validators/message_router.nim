@@ -694,24 +694,16 @@ proc routePayloadAttestationMessage*(
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
 
-proc routeExecutionPayloadEnvelope*(
+proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
-    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
-    gossipEnvelopeOnly: bool = false,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
-
-  let vRes =
-    if gossipEnvelopeOnly:
-      router[].processor[].processExecutionPayloadEnvelope(
-        MsgSource.api, signedEnvelope)
-    else:
-      let wallTime = router[].getCurrentBeaconTime()
-      validateExecutionPayload(
-        router[].dag, router[].quarantine,
-        router.processor.envelopeQuarantine, signedEnvelope, wallTime)
+  let vRes = block:
+    let wallTime = router[].getCurrentBeaconTime()
+    validateExecutionPayload(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, signedEnvelope, wallTime)
   if not isGoodForSending(vRes):
     warn "Envelope failed validation",
       envelope = shortLog(signedEnvelope.message),
@@ -728,8 +720,17 @@ proc routeExecutionPayloadEnvelope*(
   else:
     notice "Envelope sent",
       envelope = shortLog(signedEnvelope.message)
-  if gossipEnvelopeOnly:
-    return ok()
+
+  ok()
+
+proc routeExecutionPayloadEnvelope*(
+    router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  (await router.validateAndPublishEnvelope(signedEnvelope)).isOkOr:
+    return err(error())
 
   # Publish sidecars
   let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
