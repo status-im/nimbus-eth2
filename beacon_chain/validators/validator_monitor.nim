@@ -43,11 +43,10 @@ var validatorCounters {.compileTime.}: Table[string, ValidatorCounterLabelKind]
 func validatorCounterLabelKind(
     name: static string, labels: static openArray[string]
 ): ValidatorCounterLabelKind {.compileTime.} =
-  doAssert "validator" in labels
-  if labels.len == 1:
+  if labels == ["validator"]:
     ValidatorCounterLabelKind.Validator
   else:
-    doAssert labels.len == 2 and "src" in labels
+    doAssert labels == ["src", "validator"]
     if name.endsWith("_in_block"):
       ValidatorCounterLabelKind.Block
     else:
