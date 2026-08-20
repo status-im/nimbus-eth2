@@ -92,6 +92,7 @@ type
     seq[phase0.SignedAggregateAndProof] |
     seq[electra.SignedAggregateAndProof] |
     seq[gloas.SignedAggregateAndProof] |
+    seq[PayloadAttestationMessage] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
