@@ -952,10 +952,10 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
-        checkAndRestart(SelectionProofsLoop, selectionsFut,
-                        service.selectionProofsLoop())
         checkAndRestart(SyncCommitteeLoop, syncFut,
                         service.syncCommitteeDutiesLoop())
+        checkAndRestart(SelectionProofsLoop, selectionsFut,
+                        service.selectionProofsLoop())
         checkAndRestart(ProposerPreparationLoop, prepareFut,
                         service.proposerPreparationsLoop())
         if not(isNil(registerFut)):
