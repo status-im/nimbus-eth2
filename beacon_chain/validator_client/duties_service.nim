@@ -542,6 +542,7 @@ proc fillSelectionProofs(
         pending.add(attestFut.cancelAndWait())
       if not(syncFut.finished()):
         pending.add(syncFut.cancelAndWait())
+      await noCancel allFutures(pending)
       raise exc
   else:
     await vc.fillAttestationSelections(currentSlot)
