@@ -77,6 +77,7 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
     pollingAttesterDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
+    fillingSelectionProofsTask*: Future[void]
     pruneSlashingDatabaseTask*: Future[void]
     syncSubscriptionEpoch*: Opt[Epoch]
     lastSlashingEpoch*: Opt[Epoch]

@@ -819,8 +819,18 @@ proc selectionProofsLoop(
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
     let slotFut = service.waitForNextSlot()
-    await service.fillSelectionProofs()
-    await slotFut
+    try:
+      # Cleaning up previous selection proofs task.
+      if not(isNil(service.fillingSelectionProofsTask)) and
+         not(service.fillingSelectionProofsTask.finished()):
+        await cancelAndWait(service.fillingSelectionProofsTask)
+      # Spawning new selection proofs task.
+      service.fillingSelectionProofsTask = service.fillSelectionProofs()
+      await slotFut
+    except CancelledError as exc:
+      if not(slotFut.finished()):
+        await noCancel slotFut.cancelAndWait()
+      raise exc
 
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
