@@ -382,6 +382,7 @@ proc pollForAttesterDuties*(
         warn "Failed to subscribe validators to beacon committee subnets",
              slot = currentSlot, epoch = currentEpoch,
              subscriptions_count = len(subscriptions)
+        vc.attesterDutiesInvalidationEvent.fire()
 
   service.pruneAttesterDuties(currentEpoch)
 
@@ -467,6 +468,7 @@ proc pollForSyncCommitteeDuties*(
              slot = currentSlot, epoch = currentPeriod, period = currentPeriod,
              periods = periods, subscriptions_count = len(subscriptions),
              reason = reason
+        vc.syncDutiesInvalidationEvent.fire()
       else:
         service.syncSubscriptionEpoch = Opt.some(currentEpoch)
 
