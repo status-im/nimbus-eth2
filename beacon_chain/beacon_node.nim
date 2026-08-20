@@ -23,9 +23,9 @@ import
   ./networking/eth2_network,
   ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
-    blockchain_dag, block_quarantine, column_quarantine,
+    attestation_pool, blockchain_dag, block_quarantine, column_quarantine,
     column_reconstruction_backfiller, consensus_manager,
-    attestation_pool, execution_payload_pool, payload_attestation_pool,
+    envelope_quarantine, execution_payload_pool, payload_attestation_pool,
     sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
   ./spec/datatypes/[base, altair],
@@ -90,6 +90,7 @@ type
     dag*: ChainDAGRef
     list*: ChainListRef
     quarantine*: ref Quarantine
+    envelopeQuarantine*: ref EnvelopeQuarantine
     fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     getBlobsService*: GetBlobsServiceRef

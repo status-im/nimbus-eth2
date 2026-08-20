@@ -20,12 +20,13 @@ import
       forks, network, state_transition_block, validator],
   ../validators/message_router_mev
 
+from ../consensus_object_pools/column_quarantine import popSidecars
+from ../consensus_object_pools/envelope_quarantine import addOrphan
 from ../consensus_object_pools/payload_attestation_pool import
   getPayloadAttestations
 
 from std/sequtils import mapIt, toSeq
 from ../spec/column_map import supernodeMap
-from ../consensus_object_pools/column_quarantine import popSidecars
 
 export rest_utils
 
@@ -1698,6 +1699,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return
                 if gres.isOk():
                   debugGloasComment("when blobDataIncluded, blobs and kzg_proofs are discarded as no storage for them")
+                  node.envelopeQuarantine[].addOrphan(
+                    node.dag.finalizedHead.slot, signedEnvelope)
                   RestApiResponse.jsonError(Http202, MissingBeaconBlockError)
                 else:
                   RestApiResponse.jsonError(

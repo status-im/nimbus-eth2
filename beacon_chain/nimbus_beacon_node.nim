@@ -884,6 +884,7 @@ proc initFullNode(
   node.dag = dag
   node.dag.eaSlot = eaSlot
   node.list = clist
+  node.envelopeQuarantine = envelopeQuarantine
   node.fuluColumnQuarantine = fuluColumnQuarantine
   node.gloasColumnQuarantine = gloasColumnQuarantine
   node.quarantine = quarantine
