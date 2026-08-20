@@ -346,7 +346,7 @@ func getVanityMascot(consensusFork: ConsensusFork): string =
   of ConsensusFork.Heze:
     "?"
   of ConsensusFork.Gloas:
-    "?"
+    "🐻‍❄️"
   of ConsensusFork.Fulu:
     "🐅"
   of ConsensusFork.Electra:

@@ -99,7 +99,6 @@ RestJson.useDefaultSerializationFor(
   FinalizationInfoObject,
   Fork,
   FuluSignedBlockContents,
-  GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
   GetBlockHeadersResponse,
   GetDistributedKeystoresResponse,

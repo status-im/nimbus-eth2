@@ -9,9 +9,9 @@
 
 import std/strutils
 import chronicles, stew/base10
-import ".."/spec/eth2_apis/eth2_rest_serialization,
-       ".."/spec/datatypes/[phase0, altair]
-import "."/[common, fallback_service, scoring]
+import ../spec/eth2_apis/eth2_rest_serialization,
+       ../spec/datatypes/[phase0, altair]
+import ./[common, fallback_service, scoring]
 
 export eth2_rest_serialization, common
 

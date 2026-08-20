@@ -1106,17 +1106,15 @@ proc signAndSendProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
-  let signature = (await validator.getProposerPreferencesSignature(
-    fork, genesis_validators_root, data)).valueOr:
-    warn "Unable to sign proposer preferences",
-      validator = shortLog(validator), error_msg = error
-    node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
-      (data.validator_index, data.proposal_slot))
-    return
-  let signed = SignedProposerPreferences(message: data, signature: signature)
-
-  node.eventBus.proposerPreferencesQueue.emit(
-    EventProposerPreferencesObject(data: signed))
+  let
+    signature = (await validator.getProposerPreferencesSignature(
+      fork, genesis_validators_root, data)).valueOr:
+      warn "Unable to sign proposer preferences",
+        validator = shortLog(validator), error_msg = error
+      node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
+        (data.validator_index, data.proposal_slot))
+      return
+    signed = SignedProposerPreferences(message: data, signature: signature)
 
   discard await node.router.routeProposerPreferences(signed)
 
