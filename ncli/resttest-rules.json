@@ -4659,6 +4659,140 @@
     }
   },
   {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "method": "POST",
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/576460752303423488",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/18446744073709551615",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/18446744073709551616",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/foobar",
+      "method": "POST",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"2147483648\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"1099511627776\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"18446744073709551616\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
     "topics": ["validator", "beacon_committee_selections"],
     "request": {
       "url": "/eth/v1/validator/beacon_committee_selections",

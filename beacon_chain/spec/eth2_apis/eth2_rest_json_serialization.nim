@@ -187,6 +187,7 @@ RestJson.useDefaultSerializationFor(
   RestPayloadAttributes,
   RestPeerCount,
   RestProposerDuty,
+  RestPtcDuty,
   RestRoot,
   RestSignedBlockHeader,
   RestSignedContributionAndProof,

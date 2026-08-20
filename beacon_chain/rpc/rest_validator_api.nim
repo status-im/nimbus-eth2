@@ -312,6 +312,90 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/duties/ptc.yaml
+  router.api2(MethodPost, "/eth/v1/validator/duties/ptc/{epoch}") do (
+    epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      indexList =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                            InvalidValidatorIndexValueError,
+                                            $dres.error())
+          var res: HashSet[ValidatorIndex]
+          let items = dres.get()
+          for item in items:
+            let vres = item.toValidatorIndex()
+            if vres.isErr():
+              case vres.error()
+              of ValidatorIndexError.TooHighValue:
+                return RestApiResponse.jsonError(Http400,
+                                                TooHighValidatorIndexValueError)
+              of ValidatorIndexError.UnsupportedValue:
+                return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+            res.incl(vres.get())
+          if len(res) == 0:
+            return RestApiResponse.jsonError(Http400,
+                                            EmptyValidatorIndexArrayError)
+          res
+      qepoch =
+        block:
+          if epoch.isErr():
+            return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                            $epoch.error())
+          let
+            res = epoch.get()
+            wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+            wallEpoch = wallTime.slotOrZero(node.dag.timeParams).epoch
+          if res > wallEpoch + 1:
+            return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                        "Cannot request duties past next epoch")
+          res
+    if node.dag.cfg.consensusForkAtEpoch(qepoch) < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400,
+                                       EpochFromTheIncorrectForkError)
+    let
+      qhead =
+        block:
+          let res = node.getSyncedHead(qepoch)
+          if res.isErr():
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                            $res.error())
+          res.get()
+
+      shufflingRef = node.dag.getShufflingRef(qhead, qepoch, true).valueOr:
+        return RestApiResponse.jsonError(Http400, PrunedStateError)
+
+      duties =
+        block:
+          var res: seq[RestPtcDuty]
+          withState(node.dag.headState):
+            when consensusFork >= ConsensusFork.Gloas:
+              for slot in qepoch.slots():
+                var seen: HashSet[ValidatorIndex]
+                for validator_index in get_ptc(forkyState.data, slot):
+                  if validator_index notin indexList or
+                      seen.containsOrIncl(validator_index):
+                    continue
+                  node.dag.validatorKey(validator_index).isErrOr:
+                    res.add(
+                      RestPtcDuty(
+                        pubkey: value.toPubKey(),
+                        validator_index: validator_index,
+                        slot: slot))
+          res
+
+      optimistic = node.getShufflingOptimistic(
+        shufflingRef.attester_dependent_slot,
+        shufflingRef.attester_dependent_root)
+
+    RestApiResponse.jsonResponseWRoot(
+      duties, shufflingRef.attester_dependent_root, optimistic)
+
   router.api2(MethodGet, "/eth/v1/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
