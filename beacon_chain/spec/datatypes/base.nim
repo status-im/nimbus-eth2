@@ -914,7 +914,7 @@ template isomorphicCast*[T](x: auto): T =
       static:
         doAssert sizeof(T) == sizeof(U)
         doAssert getSizeofSig(T()) == getSizeofSig(U())
-    cast[ptr T](unsafeAddr x)[]
+    cast[ptr T](addr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =
   # Prune all cache information that is no longer relevant in order to process
