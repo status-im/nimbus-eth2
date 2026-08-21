@@ -94,7 +94,6 @@ RestJson.useDefaultSerializationFor(
   EventExecutionPayloadGossipObject,
   EventExecutionPayloadAvailableObject,
   EventPayloadAttributesObject,
-  EventProposerPreferencesObject,
   FastConfirmationInfoObject,
   FinalizationInfoObject,
   Fork,

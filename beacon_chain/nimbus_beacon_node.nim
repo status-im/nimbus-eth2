@@ -538,12 +538,23 @@ proc initFullNode(
     node.eventBus.execPayloadAvlQueue.emit(
       EventExecutionPayloadAvailableObject.init(data))
   proc onExecutionPayloadBidAdded(data: gloas.SignedExecutionPayloadBid) =
-    node.eventBus.execPayloadBidQueue.emit(data)
+    let epoch = data.message.slot.epoch
+    node.eventBus.execPayloadBidQueue.emit(
+      RestVersioned[gloas.SignedExecutionPayloadBid](
+        data: data,
+        jsonVersion: node.dag.cfg.consensusForkAtEpoch(epoch)))
   proc onPayloadAttestationMessageAdded(data: PayloadAttestationMessage) =
-    node.eventBus.payloadAttMsgQueue.emit(data)
+    let epoch = data.data.slot.epoch
+    node.eventBus.payloadAttMsgQueue.emit(
+      RestVersioned[PayloadAttestationMessage](
+        data: data,
+        jsonVersion: node.dag.cfg.consensusForkAtEpoch(epoch)))
   proc onProposerPreferencesAdded(data: SignedProposerPreferences) =
+    let epoch = data.message.proposal_slot.epoch
     node.eventBus.proposerPreferencesQueue.emit(
-      EventProposerPreferencesObject(data: data))
+      RestVersioned[SignedProposerPreferences](
+        data: data,
+        jsonVersion: node.dag.cfg.consensusForkAtEpoch(epoch)))
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
