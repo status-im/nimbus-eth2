@@ -601,6 +601,7 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
+  ProducePayloadAttestationDataResponse* = DataVersionEnclosedObject[PayloadAttestationData]
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
