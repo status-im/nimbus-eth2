@@ -298,6 +298,17 @@ func validateBlocks*(
             Opt.none(ref ForkedSignedBeaconBlock)
         else:
           Opt.none(ref ForkedSignedBeaconBlock)
+      commitmentsLen =
+        if blck.isSome():
+          withBlck(blck.get()[]):
+            when consensusFork == ConsensusFork.Gloas:
+              Opt.some(
+                len(forkyBlck.message.body.signed_execution_payload_bid.message.
+                    blob_kzg_commitments))
+            else:
+              raiseAssert("checkResponse() already checked the fork!")
+        else:
+          Opt.none(int)
       envelope =
         if bindex < len(items):
           if isNil(items[bindex].signedEnvelope):
@@ -329,7 +340,9 @@ func validateBlocks*(
       if (sidecarsCount > 0) and envelope.isNone():
         return err(MissingErrorKind.Envelopes)
 
-      if (sidecarsCount == 0) and envelope.isSome():
+      # `commitmentsLen` is always has value when blck.isSome().
+      if envelope.isSome() and (commitmentsLen.get() > 0) and
+        (sidecarsCount == 0):
         return err(MissingErrorKind.Sidecars)
 
       inc(bindex)

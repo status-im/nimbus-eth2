@@ -718,6 +718,7 @@ suite "Response utilities test suite":
         i2 = createGloasItem(Slot(101), createDigest(101), createDigest(100), 5, 1)
         i3 = createGloasItem(Slot(102), createDigest(102), createDigest(101), 0, 0)
         i4 = createGloasItem(Slot(103), createDigest(103), createDigest(102), 5, 1)
+        i5 = createGloasItem(Slot(104), createDigest(104), createDigest(103), 0, 0)
         c1 = createGloasColumnSidecarResponseRecordList(Slot(100), createDigest(100), columnMap)
         c2 = createGloasColumnSidecarResponseRecordList(Slot(101), createDigest(101), columnMap)
         c3 = createGloasColumnSidecarResponseRecordList(Slot(102), createDigest(102), columnMap)
@@ -762,6 +763,12 @@ suite "Response utilities test suite":
         check:
           res.isErr() == true
           res.error == MissingErrorKind.Sidecars
+
+      block:
+        let res = validateBlocks(
+          SyncRange.init(Slot(102)..Slot(104)), [i3, i4, i5], c4)
+        check:
+          res.isOk() == true
 
       block:
         var i5 = i1
