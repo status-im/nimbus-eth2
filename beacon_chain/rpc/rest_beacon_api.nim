@@ -1701,9 +1701,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               let gres = await node.router.validateAndPublishEnvelope(signedEnvelope)
               return
                 if gres.isOk():
+                  # Envelope should have added to quarantine in gossip
+                  # validation.
                   debugGloasComment("when blobDataIncluded, blobs and kzg_proofs are discarded as no storage for them")
-                  node.envelopeQuarantine[].addOrphan(
-                    node.dag.finalizedHead.slot, signedEnvelope)
                   RestApiResponse.jsonError(Http202, MissingBeaconBlockError)
                 else:
                   RestApiResponse.jsonError(
