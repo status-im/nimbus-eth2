@@ -713,9 +713,9 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 
-proc recover_blobs_from_data_columns*(
-  dataColumns: openArray[ref fulu.DataColumnSidecar]
-): Blobs =
+proc recover_blobs_from_data_columns*[
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+    dataColumns: openArray[ref T]): Blobs =
   const numCols = CELLS_PER_EXT_BLOB div 2
   var blobs: Blobs
 
