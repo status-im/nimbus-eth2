@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[typetraits, tables],
+  std/[tables, typetraits],
   results,
   stew/[arrayops, assign2, byteutils, endians2, io2, objects],
   serialization, chronicles, snappy,
@@ -19,10 +19,8 @@ import
           forks,
           presets,
           state_transition],
-  "."/[beacon_chain_db_light_client,
-       beacon_chain_db_quarantine,
-       db_utils,
-       filepath]
+  ./[beacon_chain_db_light_client, beacon_chain_db_quarantine, db_utils,
+     filepath]
 
 from ./spec/datatypes/capella import BeaconState
 from ./spec/datatypes/deneb import TrustedSignedBeaconBlock

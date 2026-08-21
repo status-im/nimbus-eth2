@@ -40,6 +40,9 @@ declareCounter beacon_engine_getblobs_hits_total,
 declareGauge beacon_engine_getblobs_slot_hit_rate,
   "engine_getBlobs hit rate (0..1) for the most recently completed slot with at least one request"
 
+declareCounter beacon_engine_getblobs_skipped_total,
+  "engine_getBlobs invocations not issued because an in-flight fetch for the same block root already retrieved the blobs"
+
 type
   GetBlobsService* = object
     blockGossipBus: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
@@ -59,6 +62,11 @@ type
     # Bounds the per-block fan-out: each custody column arriving via gossip
     # would otherwise trigger a redundant getBlobsV2 roundtrip.
     columnFirstFetched: Table[Eth2Digest, Slot]
+    # Roots with an EL fetch in flight, keeping at most one engine_getBlobs
+    # request per root outstanding across both paths. `columnFirstFetched`
+    # cannot do this: it is only written once the roundtrip completes, so
+    # both paths read it as empty for the duration of the request.
+    elFetchInFlight: Table[Eth2Digest, Future[void]]
 
   GetBlobsServiceRef* = ref GetBlobsService
 
@@ -100,6 +108,20 @@ proc recordEngineGetBlobs(
     inc self.slotHits
     beacon_engine_getblobs_hits_total.inc()
 
+proc markFetchInFlight(
+    self: GetBlobsServiceRef, root: Eth2Digest): Future[void] =
+  ## Claim `root` for an EL fetch. Hand the marker to `clearFetchInFlight`
+  ## once the fetch settles.
+  let marker = newFuture[void]("getBlobsService.elFetch")
+  self.elFetchInFlight[root] = marker
+  marker
+
+proc clearFetchInFlight(
+    self: GetBlobsServiceRef, root: Eth2Digest, marker: Future[void]) =
+  ## Release the claim on `root` and wake anyone waiting on it.
+  self.elFetchInFlight.del(root)
+  marker.complete()
+
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
     columns: seq[ref T]
@@ -134,6 +156,16 @@ proc attemptGetBlobs*(
 
   withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
+      # A column sidecar arriving ahead of the block may have a fetch for this
+      # root in flight already; wait for it instead of asking the EL for the
+      # same blobs twice. `join`, so cancelling here leaves that fetch alone.
+      let inFlight = self.elFetchInFlight.getOrDefault(forkyBlck.root)
+      if inFlight != nil:
+        await inFlight.join()
+        # Gossip columns completing during the wait can claim the block.
+        if quarantine[].getSidecarless(forkyBlck.root).isNone():
+          return
+
       # If the column-first path already populated quarantine for this root,
       # skip the EL fetch and enqueue with the existing columns.
       if forkyBlck.root in self.columnFirstFetched:
@@ -145,6 +177,10 @@ proc attemptGetBlobs*(
           debug "Added data columns from EL blobpool to quarantine",
             root = forkyBlck.root, slot = forkyBlck.message.slot
           self.columnFirstFetched.del(forkyBlck.root)
+          if inFlight != nil:
+            # Waiting on that fetch is what kept us from issuing our own.
+            beacon_engine_getblobs_skipped_total.inc()
+          self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
           return
@@ -157,24 +193,91 @@ proc attemptGetBlobs*(
         blobs: seq[kzg.KzgBlob]
         flat_proof: seq[kzg.KzgProof]
 
-      let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
-        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-        return
-      # check lengths of blobs with KZG commitments of the signed block
-      if blobsEl.len != kzg_commitments_count():
-        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-        return
-      self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
+      let fetchMarker = self.markFetchInFlight(forkyBlck.root)
+      defer: self.clearFetchInFlight(forkyBlck.root, fetchMarker)
 
-      blobs.setLen(blobsEl.len)
-      flat_proof = newSeqOfCap[kzg.KzgProof](
-        blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
-      # TODO https://github.com/nim-lang/Nim/issues/25848 means that
-      # enumerate(...) is required for lent to trigger
-      for i, item in enumerate(blobsEl):
-        assign(blobs[i].bytes, item.blob.data)
-        for proof in item.proofs:
-          flat_proof.add kzg.KzgProof(bytes: proof.data)
+      if self.partialColumns:
+        # Fulu partial-columns mode: prefer engine_getBlobsV3 so the EL can
+        # serve a per-blob optional response. A complete response flows into
+        # the existing full-assembly path below; a partial response is
+        # converted to PartialDataColumnSidecars, stowed in the partial
+        # column quarantine, and the block is left in sidecarless to await
+        # partial-column gossip — full column sidecars cannot yet be
+        # constructed, so enqueue must wait.
+        let blobsV3 = (await elManager.getBlobsV3(forkyBlck)).valueOr:
+          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+          return
+        if blobsV3.len != kzg_commitments_count():
+          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+          return
+
+        if blobsV3.anyIt(it.isNone):
+          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+
+          let numBlobs = kzg_commitments_count()
+          var
+            blobsOpt = newSeq[Opt[kzg.KzgBlob]](numBlobs)
+            cellProofsOpt = newSeq[Opt[kzg.KzgProof]](
+              numBlobs * fulu_preset.CELLS_PER_EXT_BLOB)
+          for i in 0 ..< numBlobs:
+            blobsV3[i].isErrOr:
+              blobsOpt[i] = Opt.some(kzg.KzgBlob(bytes: value.blob.data))
+              for j in 0 ..< fulu_preset.CELLS_PER_EXT_BLOB:
+                cellProofsOpt[
+                    i * fulu_preset.CELLS_PER_EXT_BLOB + j] =
+                  Opt.some(kzg.KzgProof(bytes: value.proofs[j].data))
+
+          let (header, partialSidecars) =
+            assemble_partial_data_column_sidecars(
+              forkyBlck, blobsOpt, cellProofsOpt)
+          if partialSidecars.len == 0:
+            return
+
+          self.partialColumnQuarantine[].putPartialHeader(
+            forkyBlck.root, newClone(header))
+          for columnIndex in 0 ..< partialSidecars.len:
+            discard self.partialColumnQuarantine[].getOrCreateEntry(
+              forkyBlck.root, ColumnIndex(columnIndex), numBlobs)
+            self.partialColumnQuarantine[].addCells(
+              forkyBlck.root, ColumnIndex(columnIndex),
+              newClone(partialSidecars[columnIndex]))
+
+          debug "Added partial data columns from EL blobpool to quarantine",
+            root = forkyBlck.root,
+            slot = forkyBlck.message.slot,
+            present = blobsV3.countIt(it.isSome),
+            total = blobsV3.len
+          return
+
+        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
+        blobs.setLen(blobsV3.len)
+        flat_proof = newSeqOfCap[kzg.KzgProof](
+          blobsV3.len * fulu_preset.CELLS_PER_EXT_BLOB)
+        # TODO https://github.com/nim-lang/Nim/issues/25848 means that
+        # enumerate(...) is required for lent to trigger
+        for i, item in enumerate(blobsV3):
+          assign(blobs[i].bytes, item.value.blob.data)
+          for proof in item.value.proofs:
+            flat_proof.add kzg.KzgProof(bytes: proof.data)
+      else:
+        let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
+          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+          return
+        # check lengths of blobs with KZG commitments of the signed block
+        if blobsEl.len != kzg_commitments_count():
+          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+          return
+        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
+
+        blobs.setLen(blobsEl.len)
+        flat_proof = newSeqOfCap[kzg.KzgProof](
+          blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
+        # TODO https://github.com/nim-lang/Nim/issues/25848 means that
+        # enumerate(...) is required for lent to trigger
+        for i, item in enumerate(blobsEl):
+          assign(blobs[i].bytes, item.blob.data)
+          for proof in item.proofs:
+            flat_proof.add kzg.KzgProof(bytes: proof.data)
 
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
@@ -262,7 +365,7 @@ proc attemptGetBlobs*(
   # enqueue).
   self.blockProcessor.enqueuePayload(blck)
 
-proc attemptGetBlobsFromColumn*(
+proc attemptGetBlobsFromColumn(
     self: GetBlobsServiceRef,
     sidecar: ref fulu.DataColumnSidecar) {.async: (raises: [CancelledError]).} =
   ## Column-first variant: invoked when a column sidecar arrives via gossip
@@ -300,6 +403,12 @@ proc attemptGetBlobsFromColumn*(
   # block — leave it alone.
   if quarantine[].getSidecarless(block_root).isSome():
     return
+
+  # Claim the root before yielding, so a block arriving mid-flight waits for
+  # this fetch rather than issuing an identical one. Released either way, so
+  # a fetch that came up empty is still retried by later column arrivals.
+  let fetchMarker = self.markFetchInFlight(block_root)
+  defer: self.clearFetchInFlight(block_root, fetchMarker)
 
   let blobsEl = (await elManager.getBlobsV2(sidecar[].kzg_commitments)).valueOr:
     self.recordEngineGetBlobs(slot, hit = false)

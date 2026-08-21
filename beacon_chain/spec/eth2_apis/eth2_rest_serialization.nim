@@ -92,6 +92,7 @@ type
     seq[phase0.SignedAggregateAndProof] |
     seq[electra.SignedAggregateAndProof] |
     seq[gloas.SignedAggregateAndProof] |
+    seq[PayloadAttestationMessage] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
@@ -140,6 +141,11 @@ type
     data*: T
     jsonVersion*: ConsensusFork
     sszContext*: ForkDigest
+
+  SomeVersionedEventObject* =
+    gloas.SignedExecutionPayloadBid |
+    PayloadAttestationMessage |
+    SignedProposerPreferences
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
@@ -282,6 +288,13 @@ proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
           w.writeField("data", forkyObject)
     else:
       default(string)
+
+proc prepareJsonStringResponse*[T: SomeVersionedEventObject](
+    _: typedesc[RestApiResponse], d: RestVersioned[T]): string =
+  withRestJsonWriter(w, string):
+    w.writeObject:
+      w.writeField("version", d.jsonVersion.toString())
+      w.writeField("data", d.data)
 
 proc prepareJsonStringResponse*(_: typedesc[RestApiResponse], d: auto): string =
   RestJson.encode(d)

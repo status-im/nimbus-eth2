@@ -893,7 +893,7 @@ func process_registry_updates*(
       maybe_exit_queue_info = Opt.some (? initiate_validator_exit(
         cfg, state, vidx, exit_queue_info, cache))
 
-    let validator = unsafeAddr state.validators.item(vidx)
+    let validator = addr state.validators.item(vidx)
     if is_eligible_for_activation(state, validator[]):
       let val_key =
         (FAR_FUTURE_EPOCH - validator[].activation_eligibility_epoch,

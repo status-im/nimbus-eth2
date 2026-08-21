@@ -708,10 +708,6 @@ proc addLightForwardBlock*(
 
   let stateVerifyTick = Moment.now()
 
-  if bdata.blob.isSome():
-    for blob in bdata.blob.get():
-      dag.db.putBlobSidecar(blob[])
-
   discard addResolvedHeadBlock(
     dag, dag.clearanceState,
     forkyBlck.asTrusted(),
