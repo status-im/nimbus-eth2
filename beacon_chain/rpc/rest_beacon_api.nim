@@ -1709,15 +1709,22 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   RestApiResponse.jsonError(
                     Http400, ExecutionPayloadEnvelopeValidationError)
             trustedBlck.asSigned()
+          kzgLen = signedBlck.message.body.signed_execution_payload_bid
+            .message.blob_kzg_commitments.len()
           sidecarsOpt =
             if blobDataIncluded:
+              if blobs.len != kzgLen:
+                return RestApiResponse.jsonError(
+                  Http400, InvalidBlockObjectError)
+              if kzgProofs.len != blobs.len * fulu.CELLS_PER_EXT_BLOB:
+                return RestApiResponse.jsonError(
+                  Http400, InvalidBlockObjectError)
               Opt.some(signedBlck.assemble_data_column_sidecars(
                 blobs.mapIt(kzg.KzgBlob(bytes: it)),
                 kzgProofs.mapIt(kzg.KzgProof(it)),
                 supernodeMap))
             else:
-              if signedBlck.message.body.signed_execution_payload_bid
-                  .message.blob_kzg_commitments.len() == 0:
+              if kzgLen == 0:
                 Opt.some(default(gloas.DataColumnSidecars))
               else:
                 node.gloasColumnQuarantine[].popSidecars(signedBlck.root)
