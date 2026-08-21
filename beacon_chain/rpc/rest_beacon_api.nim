@@ -1657,8 +1657,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     elif consensusVersion.get() < ConsensusFork.Gloas:
       return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
 
-    let blobDataIncluded = parseBool(request.headers.getString(
-      "eth-blob-data-included"))
+    let blobDataIncluded =
+      try:
+        parseBool(request.headers.getString("eth-blob-data-included"))
+      except ValueError:
+        return RestApiResponse.jsonError(Http400, FailedToObtainHeaderBoolError)
     let (signedEnvelope, blobs, kzgProofs) =
       if blobDataIncluded:
         let dres = decodeBodyJsonOrSsz(

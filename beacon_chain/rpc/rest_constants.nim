@@ -291,6 +291,8 @@ const
     "Failed to obtain consensus fork information"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
+  FailedToObtainHeaderBoolError* =
+    "Failed to obtain boolean from header"
   InvalidTimestampValue* =
     "Invalid or missing timestamp value"
   InvalidDataColumnSidecarIndexValueError* =
