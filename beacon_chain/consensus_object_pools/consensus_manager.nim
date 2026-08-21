@@ -258,8 +258,8 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
       warn "Head selection failed, using previous head",
         head = shortLog(self.dag.head), wallSlot
       return
+    headChanged = newHead.blck != self.dag.head
 
-  let headChanged = newHead.blck != self.dag.head
   self.updateHead(newHead.blck)
   self.dag.updateHeadExecutionPayload(newHead.full, headChanged)
 
@@ -391,7 +391,7 @@ proc prepareNextSlot*(
       when consensusFork >= ConsensusFork.Gloas:
         let shouldExtend = self.attestationPool[].forkChoice
           .should_build_on_full(
-            dag, head, dag.isPayloadStatusFull(head), proposalSlot)
+            dag, head, dag.headPayloadFull, proposalSlot)
       let
         timestamp = dag.timeParams
           .compute_timestamp_at_slot(forkyState.data, proposalSlot)

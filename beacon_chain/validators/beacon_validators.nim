@@ -1585,7 +1585,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   let newHead = await handleProposal(
     node, head,
     node.attestationPool[].forkChoice.should_build_on_full(
-      node.dag, head, node.dag.isPayloadStatusFull(head), slot), slot)
+      node.dag, head, node.dag.headPayloadFull, slot), slot)
   head = newHead
 
   # The latest point in time when we'll be sending out attestations

@@ -509,11 +509,6 @@ proc initFullNode(
       var res = data
       res.data.optimistic = Opt.some dag.is_optimistic(
         BlockId(slot: data.data.slot, root: data.data.block_root))
-      res.data.payload_status =
-        if dag.db.containsExecutionPayloadEnvelope(data.data.block_root):
-          "full"
-        else:
-          "empty"
       res
     node.eventBus.headV2Queue.emit(eventData)
   proc onChainReorg(data: ReorgInfoObject) =
