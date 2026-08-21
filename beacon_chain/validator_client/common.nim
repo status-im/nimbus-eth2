@@ -76,6 +76,7 @@ type
 
   DutiesServiceRef* = ref object of ClientServiceRef
     pollingAttesterDutiesTask*: Future[void]
+    pollingPtcDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
     pruneSlashingDatabaseTask*: Future[void]
     syncSubscriptionEpoch*: Opt[Epoch]
@@ -116,6 +117,10 @@ type
     epoch*: Epoch
     dependentRoot*: Eth2Digest
     duties*: seq[ProposerTask]
+
+  PtcDuties* = object
+    dependentRoot*: Eth2Digest
+    duties*: seq[RestPtcDuty]
 
   BeaconNodeRole* {.pure.} = enum
     Duties,
@@ -206,6 +211,7 @@ type
   SyncCommitteeDutiesMap* = Table[ValidatorPubKey, SyncPeriodDuties]
   ProposerMap* = Table[Epoch, ProposedData]
   SyncCommitteeProofsMap* = Table[Epoch, SyncCommitteeProofs]
+  PtcDutiesMap* = Table[Epoch, PtcDuties]
 
   DoppelgangerStatus* {.pure.} = enum
     None, Checking, Passed
@@ -251,6 +257,7 @@ type
     doppelExit*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
+    ptcDuties*: PtcDutiesMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     syncCommitteeProofs*: SyncCommitteeProofsMap
     timeParams*: TimeParams
@@ -986,6 +993,16 @@ proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
         res.add(duty[])
   res
 
+proc getPtcDutiesForSlot*(vc: ValidatorClientRef,
+                          slot: Slot): seq[RestPtcDuty] =
+  ## Returns all PTC duties for the given `slot`.
+  var res: seq[RestPtcDuty]
+  vc.ptcDuties.withValue(slot.epoch(), entry):
+    for duty in entry[].duties:
+      if duty.slot == slot:
+        res.add(duty)
+  res
+
 proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
                                     slot: Slot): seq[SyncCommitteeDuty] =
   ## Returns all `SyncCommitteeDuty` for the given `slot`.
@@ -1077,6 +1094,23 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             key: ValidatorPubKey, slot: Slot,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
+
+proc isPastGloasFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  doAssert(len(vc.forks) > 0)
+  doAssert(vc.forkConfig.isSome())
+  let gloasVersion =
+    try:
+      vc.forkConfig.get()[ConsensusFork.Gloas].version
+    except KeyError:
+      raiseAssert "Gloas fork should be in forks configuration"
+  var res = false
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      if item.current_version == gloasVersion:
+        res = true
+    else:
+      break
+  res
 
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
