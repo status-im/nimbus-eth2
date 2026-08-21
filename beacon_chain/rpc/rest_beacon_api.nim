@@ -1669,15 +1669,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if dres.isErr():
           return RestApiResponse.jsonError(dres.error())
         (
-          dres.get().signed_execution_payload_envelope,
-          dres.get().blobs, dres.get().kzg_proofs,
+          dres.unsafeGet().signed_execution_payload_envelope,
+          dres.unsafeGet().blobs, dres.unsafeGet().kzg_proofs,
         )
       else:
         let dres = decodeBodyJsonOrSsz(
           SignedExecutionPayloadEnvelope, contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(dres.error())
-        (dres.get(), default(deneb.Blobs), default(fulu.KzgProofs))
+        (dres.unsafeGet(), default(deneb.Blobs), default(fulu.KzgProofs))
 
     if consensusVersion.get() != node.dag.cfg.consensusForkAtEpoch(
         signedEnvelope.message.slot.epoch()):
