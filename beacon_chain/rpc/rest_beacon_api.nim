@@ -1692,7 +1692,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           signedBlck = block:
             let trustedBlck = node.dag.getBlock(
                 blckId, consensusFork.TrustedSignedBeaconBlock).valueOr:
-              # Block is not found in DAG, so boardcasting the envelope only.
+              # Block is not found in DAG, so broadcasting the envelope only.
               if blckId.root in node.quarantine[].unviable:
                 return RestApiResponse.jsonError(Http400, BlockInvalidError)
               let gres = await node.router.validateAndPublishEnvelope(signedEnvelope)
