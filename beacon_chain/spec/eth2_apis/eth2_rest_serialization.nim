@@ -910,11 +910,8 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     withConsensusFork(fork):
-      debugGloasComment ""
-      when consensusFork == ConsensusFork.Gloas:
-        return err("gloas produceblock not available yet")
-      elif consensusFork == ConsensusFork.Heze:
-        return err("heze produceblock not available yet")
+      when consensusFork >= ConsensusFork.Gloas:
+        return err("produceBlockV3 doesn't support Gloas or later forks")
       elif consensusFork >= ConsensusFork.Fulu:
         if blinded:
           let contents =

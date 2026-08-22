@@ -2289,7 +2289,6 @@ func onboard_builders_from_pending_deposits*(
   ## at the fork. This one-time onboarding is the only path through the
   ## validator deposit contract that creates builders; from the fork onward,
   ## builders are created and topped up only via `BuilderDepositRequest`.
-  debugGloasComment "In the slots leading up to the fork, implementations SHOULD validate pending deposit signatures and cache the results."
   let
     bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)

@@ -1012,7 +1012,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Gloas:
-            debugGloasComment("data columns")
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
@@ -1129,9 +1128,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     withConsensusFork(currentEpochFork):
       # TODO (cheatfate): handle broadcast_validation flag
       when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
         RestApiResponse.jsonError(
-          Http400, $consensusFork & " builder API unsupported")
+          Http400, $consensusFork & " publishBlindedBlockV2 unsupported")
       elif consensusFork >= ConsensusFork.Fulu:
         let
           restBlock = decodeBodyJsonOrSsz(

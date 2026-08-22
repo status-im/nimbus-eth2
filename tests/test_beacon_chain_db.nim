@@ -943,7 +943,7 @@ suite "Quarantine" & preset():
   func genBlockRoot(index: int): Eth2Digest =
     var res: Eth2Digest
     let tmp = uint64(index).toBytesLE()
-    copyMem(addr res.data[0], unsafeAddr tmp[0], sizeof(uint64))
+    copyMem(addr res.data[0], addr tmp[0], sizeof(uint64))
     res
 
   func genDataColumnSidecar[T: fulu.DataColumnSidecar](

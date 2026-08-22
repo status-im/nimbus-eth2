@@ -1884,7 +1884,6 @@ proc verify_execution_payload_envelope*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#block-processing
-debugGloasComment "readd gloas_mev block and, well the rest too"
 proc process_block*(
     cfg: RuntimeConfig,
     state: var gloas.BeaconState, blck: gloas.SomeBeaconBlock,
