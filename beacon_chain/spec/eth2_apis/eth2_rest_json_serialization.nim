@@ -1168,7 +1168,6 @@ proc readValue*(
   # `consensus_block_value`
 
   withConsensusFork(v.version):
-    debugGloasComment "re-add gloas mev"
     value =
       when consensusFork >= ConsensusFork.Gloas:
         if v.execution_payload_blinded:

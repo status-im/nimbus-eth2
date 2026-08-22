@@ -59,7 +59,7 @@ func init*(info: var phase0.EpochInfo, state: phase0.BeaconState) =
   info.validators.setLen(state.validators.len)
 
   for i in 0..<state.validators.len:
-    let v = unsafeAddr state.validators[i]
+    let v = addr state.validators[i]
     var flags: set[RewardFlags]
 
     if v[].slashed:
@@ -234,9 +234,9 @@ func is_unslashed_participating_index(
   # TODO hoist this conditional
   let epoch_participation =
     if epoch == get_current_epoch(state):
-      unsafeAddr state.current_epoch_participation
+      addr state.current_epoch_participation
     else:
-      unsafeAddr state.previous_epoch_participation
+      addr state.previous_epoch_participation
 
   is_active_validator(state.validators[validator_index], epoch) and
     has_flag(epoch_participation[][validator_index], flag_index) and
@@ -766,9 +766,9 @@ iterator get_flag_and_inactivity_deltas*(
       cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT
     epoch_participation =
       if previous_epoch == get_current_epoch(state):
-        unsafeAddr state.current_epoch_participation
+        addr state.current_epoch_participation
       else:
-        unsafeAddr state.previous_epoch_participation
+        addr state.previous_epoch_participation
     participating_increments = [
       get_unslashed_participating_increment(info, TIMELY_SOURCE_FLAG_INDEX),
       get_unslashed_participating_increment(info, TIMELY_TARGET_FLAG_INDEX),
@@ -1005,7 +1005,7 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
       state, total_balance)
 
   for vidx in state.validators.vindices:
-    let validator = unsafeAddr state.validators.item(vidx)
+    let validator = addr state.validators.item(vidx)
     if slashing_penalty_applies(validator[], epoch):
       let penalty = get_slashing_penalty(
         typeof(state).kind, validator[], adjusted_total_slashing_balance,
