@@ -9,11 +9,11 @@
 {.used.}
 
 import
-  std/net,
+  std/[net],
   unittest2,
   chronos,
   chronicles,
-  json_rpc/[rpcserver, errors],
+  json_rpc/[rpcserver, errors, rpcchannels, router],
   web3/[primitives, conversions, engine_api_types],
   eth/common/eth_types,
   ../beacon_chain/el/[el_conf, el_manager],
@@ -332,23 +332,18 @@ proc fcuValidEventually(
 
 suite "EL Manager - Helpers":
   test "Rewrite URLs":
-    var
+    const
       gethHttpUrl = "http://localhost:8545"
       gethHttpsUrl = "https://localhost:8545"
       gethWsUrl = "ws://localhost:8545"
       unspecifiedProtocolUrl = "localhost:8545"
 
-    fixupWeb3Urls gethHttpUrl
-    fixupWeb3Urls gethHttpsUrl
-    fixupWeb3Urls gethWsUrl
-    fixupWeb3Urls unspecifiedProtocolUrl
-
     check:
-      gethHttpUrl == "http://localhost:8545"
-      gethHttpsUrl == "https://localhost:8545"
-      unspecifiedProtocolUrl == "ws://localhost:8545"
+      fixupWeb3Urls(gethHttpUrl) == "http://localhost:8545"
+      fixupWeb3Urls(gethHttpsUrl) == "https://localhost:8545"
+      fixupWeb3Urls(unspecifiedProtocolUrl) == "ws://localhost:8545"
 
-      gethWsUrl == "ws://localhost:8545"
+      fixupWeb3Urls(gethWsUrl) == "ws://localhost:8545"
 
 func createELManager(
     engines: seq[EngineApiUrl], eth1Network: Opt[Eth1Network] = Opt.none(Eth1Network)
@@ -458,7 +453,7 @@ suite "EL Manager - forkchoiceUpdated":
     let startTime = Moment.now()
     let state2 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status2, payload2) = waitFor manager.forkchoiceUpdated(
+    let (status2, _) = waitFor manager.forkchoiceUpdated(
       state2, Opt.none(PayloadAttributesV3), deadline, false
     )
     let duration = Moment.now() - startTime
@@ -935,3 +930,46 @@ suite "EL Manager - WebSocket reconnection":
     check:
       waitFor manager.fcuValidEventually()
       setup.state.forkchoiceCallCount > healthyCalls + 3
+
+suite "EL Manager - RpcChannel":
+  test "recovers after timeout / degrated connection":
+    var
+      channel: RpcChannel
+      pairs = channel.open()
+
+    # Create the EL manager with the channel
+    let
+      engineUrl = EngineApiUrl.init(pairs)
+      manager = createELManager(@[engineUrl])
+      server = RpcChannelServer.new(pairs)
+      state = createMockEngineState()
+
+    setupMockEngineAPI(server, state)
+
+    state.responseDelay = 100.millis
+    server.start()
+    # Start the manager and let it connect
+    manager.start()
+
+    let state1 = ForkchoiceStateV1.init(ZERO_HASH, ZERO_HASH, ZERO_HASH)
+    for i in 0..<connectionStateChangeHysteresisThreshold + 1:
+      let (status1, _) = waitFor manager.forkchoiceUpdated(
+        state1, Opt.none(PayloadAttributesV3), sleepAsync(5.milliseconds), false)
+
+      check:
+        # timeout
+        status1 == PayloadExecutionStatus.syncing
+
+    state.responseDelay.reset()
+
+    var recovered = false
+    for i in 0..<connectionStateChangeHysteresisThreshold + 1:
+      let (status1, _) = waitFor manager.forkchoiceUpdated(
+        state1, Opt.none(PayloadAttributesV3), sleepAsync(50.milliseconds), false)
+      if status1 == PayloadExecutionStatus.valid:
+        recovered = true
+        break
+    check:
+      recovered
+    server.stop()
+    waitFor server.closeWait()

@@ -247,6 +247,9 @@
 	path = vendor/nim-boringssl
 	url = https://github.com/vacp2p/nim-boringssl.git
 	ignore = untracked
+[submodule "vendor/nim-async-channels"]
+	path = vendor/nim-async-channels
+	url = https://github.com/status-im/nim-async-channels
 	branch = master
 [submodule "vendor/glamsterdam-devnets"]
 	path = vendor/glamsterdam-devnets

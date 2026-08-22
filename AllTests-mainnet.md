@@ -348,6 +348,10 @@ AllTests-mainnet
 + getPayload with different forkchoiceUpdated attributes                                     OK
 + multiple sequential forkchoiceUpdated calls with payload attributes                        OK
 ```
+## EL Manager - RpcChannel
+```diff
++ recovers after timeout / degrated connection                                               OK
+```
 ## EL Manager - WebSocket reconnection
 ```diff
 + reconnects after EL restart (degraded connection)                                          OK
