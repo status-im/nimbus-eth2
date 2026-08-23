@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   stew/[bitops2, bitseqs, objects],
@@ -145,9 +145,9 @@ proc validate_light_client_update*(
   # Verify sync committee aggregate signature
   let sync_committee =
     if signature_period == store_period:
-      unsafeAddr store.current_sync_committee
+      addr store.current_sync_committee
     else:
-      unsafeAddr store.next_sync_committee
+      addr store.next_sync_committee
   let
     fork_version_slot = max(update.signature_slot, 1.Slot) - 1
     fork_version = cfg.forkVersionAtEpoch(fork_version_slot.epoch)

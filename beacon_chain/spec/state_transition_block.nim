@@ -168,7 +168,7 @@ proc check_proposer_slashing*(
   if header_1.proposer_index >= state.validators.lenu64:
     return err("check_proposer_slashing: invalid proposer index")
 
-  let proposer = unsafeAddr state.validators[header_1.proposer_index]
+  let proposer = addr state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer[], get_current_epoch(state)):
     return err("check_proposer_slashing: slashed proposer")
 
@@ -439,7 +439,7 @@ proc check_voluntary_exit*(
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
-  let validator = unsafeAddr state.validators[voluntary_exit.validator_index]
+  let validator = addr state.validators[voluntary_exit.validator_index]
 
   # Verify the validator is active
   if not is_active_validator(validator[], get_current_epoch(state)):
