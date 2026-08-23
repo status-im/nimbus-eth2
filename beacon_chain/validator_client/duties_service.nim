@@ -193,59 +193,41 @@ proc pollForPtcDuties*(
     service: DutiesServiceRef,
     epoch: Epoch
 ): Future[int] {.async: (raises: [CancelledError]).} =
-  var currentRoot: Opt[Eth2Digest]
   let vc = service.client
 
   if not(vc.isPastGloasFork(epoch)):
     return 0
 
-  let
-    indices = toSeq(vc.attachedValidators[].indices())
-    relevantDuties =
-      if len(indices) > 0:
-        var duties: seq[RestPtcDuty]
-        block mainLoop:
-          while true:
-            block innerLoop:
-              for chunk in indices.chunks(DutiesMaximumValidatorIds):
-                let res =
-                  try:
-                    await vc.getPtcDuties(
-                      epoch, chunk,
-                      vc.getMode()[FnKind.getAttesterDuties])
-                  except ValidatorApiError as exc:
-                    warn "Unable to get PTC duties", epoch = epoch,
-                         reason = exc.getFailureReason()
-                    return 0
-                  except CancelledError as exc:
-                    debug "PTC duties processing was interrupted"
-                    raise exc
-
-                if currentRoot.isNone():
-                  currentRoot = Opt.some(res.dependent_root)
-                else:
-                  if currentRoot.get() != res.dependent_root:
-                    duties.setLen(0)
-                    currentRoot = Opt.none(Eth2Digest)
-                    break innerLoop
-
-                for duty in res.data:
-                  if duty.pubkey in vc.attachedValidators[]:
-                    duties.add(duty)
-                break mainLoop
-        duties
-      else:
-        default(seq[RestPtcDuty])
-
-  if currentRoot.isNone():
+  let indices = toSeq(vc.attachedValidators[].indices())
+  if len(indices) == 0:
     return 0
 
-  let dependentRoot = currentRoot.get()
+  let res =
+    try:
+      await vc.getPtcDuties(
+        epoch, indices, vc.getMode()[FnKind.getAttesterDuties])
+    except ValidatorApiError as exc:
+      warn "Unable to get PTC duties", epoch = epoch,
+           reason = exc.getFailureReason()
+      return 0
+    except CancelledError as exc:
+      debug "PTC duties processing was interrupted"
+      raise exc
+
+  let
+    dependentRoot = res.dependent_root
+    relevantDuties =
+      block:
+        var duties: seq[RestPtcDuty]
+        for duty in res.data:
+          if duty.pubkey in vc.attachedValidators[]:
+            duties.add(duty)
+        duties
 
   vc.ptcDuties.withValue(epoch, entry):
     if entry[].dependentRoot == dependentRoot:
       return 0
-    warn "PTC duties re-organization",
+    info "PTC duties re-organization",
          prior_dependent_root = entry[].dependentRoot,
          dependent_root = dependentRoot, epoch = epoch
 
