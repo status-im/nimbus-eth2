@@ -12,8 +12,7 @@ import
   stew/shims/hashes,
   eth/p2p/discoveryv5/random2,
   chronicles,
-  ../spec/[crypto, digest, forks],
-  ../spec/datatypes/altair
+  ../spec/[crypto, digest, forks]
 
 export hashes, sets, tables, altair
 

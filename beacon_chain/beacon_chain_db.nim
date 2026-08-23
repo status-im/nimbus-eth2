@@ -22,9 +22,6 @@ import
   ./[beacon_chain_db_light_client, beacon_chain_db_quarantine, db_utils,
      filepath]
 
-from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
-
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
   kvstore_sqlite3

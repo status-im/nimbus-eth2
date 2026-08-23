@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import results, snappy, stew/[io2, endians2]
 import ./spec/[eth2_ssz_serialization, eth2_merkleization, forks]
@@ -237,7 +237,7 @@ proc init(t: typedesc[Chunk], kind, slot: uint64, plainSize: uint32,
   offset += ChainFileHeaderSize
 
   if len(data) > 0:
-    copyMem(addr dst[offset], unsafeAddr data[0], len(data))
+    copyMem(addr dst[offset], addr data[0], len(data))
     offset += len(data)
 
   footer.store(dst.toOpenArray(offset, offset + ChainFileFooterSize - 1))
