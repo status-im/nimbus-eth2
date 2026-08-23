@@ -409,17 +409,12 @@ suite "Beacon chain DB" & preset():
 
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 
-    var
-      buf: seq[byte]
-      blobSidecar: BlobSidecar
+    var blobSidecar: BlobSidecar
 
     check:
       not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.putBlobSidecar(blobSidecar0)
 
@@ -428,9 +423,6 @@ suite "Beacon chain DB" & preset():
       blobSidecar == blobSidecar0
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.putBlobSidecar(blobSidecar1)
 
@@ -440,9 +432,6 @@ suite "Beacon chain DB" & preset():
       db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       blobSidecar == blobSidecar1
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     check db.delBlobSidecar(blockRoot0, 3)
 
@@ -451,9 +440,6 @@ suite "Beacon chain DB" & preset():
       db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       blobSidecar == blobSidecar1
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.putBlobSidecar(blobSidecar2)
 
@@ -463,9 +449,6 @@ suite "Beacon chain DB" & preset():
       blobSidecar == blobSidecar1
       db.getBlobSidecar(blockRoot1, 2, blobSidecar)
       blobSidecar == blobSidecar2
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     check db.delBlobSidecar(blockRoot0, 2)
 
@@ -474,9 +457,6 @@ suite "Beacon chain DB" & preset():
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       db.getBlobSidecar(blockRoot1, 2, blobSidecar)
       blobSidecar == blobSidecar2
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     check db.delBlobSidecar(blockRoot1, 2)
 
@@ -484,9 +464,6 @@ suite "Beacon chain DB" & preset():
       not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.close()
 
