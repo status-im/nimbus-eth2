@@ -213,6 +213,7 @@ RestJson.useDefaultSerializationFor(
   SignedBeaconBlockHeader,
   SignedContributionAndProof,
   SignedExecutionPayloadEnvelope,
+  SignedExecutionPayloadEnvelopeContents,
   SignedProposerPreferences,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
