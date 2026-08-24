@@ -21,7 +21,6 @@ import
   ../validators/message_router_mev
 
 from ../consensus_object_pools/column_quarantine import popSidecars
-from ../consensus_object_pools/envelope_quarantine import addOrphan
 from ../consensus_object_pools/payload_attestation_pool import
   getPayloadAttestations
 
