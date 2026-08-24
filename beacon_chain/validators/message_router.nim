@@ -18,7 +18,7 @@ import
   ./activity_metrics,
   ../spec/datatypes/deneb
 
-from ../spec/column_map import contains, supernodeMap
+from ../spec/column_map import contains
 
 export eth2_processor, eth2_network
 
@@ -69,7 +69,7 @@ type
     fulu.DataColumnSidecars
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecarsForImport]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -175,7 +175,8 @@ proc publishSidecars(
     router: ref MessageRouter,
     _: fulu.SignedBeaconBlock,
     cols: fulu.DataColumnSidecars
-): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[fulu.DataColumnSidecarsForImport]] {.
+    async: (raises: [CancelledError]).} =
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
@@ -194,8 +195,10 @@ proc publishSidecars(
       notice "Data column sent",
         data_column = shortLog(cols[i][])
 
+  # Assembled locally, so they need no KZG check on the way back in.
   Opt.some(cols.filterIt(
-    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap))
+    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap
+  ).toTrustedImport())
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -234,9 +237,7 @@ proc addRoutedBlock(
   # into the chain
   let added =
     await router[].blockProcessor.addBlock(
-      # Sidecars routed here are assembled locally and have just been published
-      # to the network by us, so they don't get re-verified on the way in
-      MsgSource.api, blck, sidecarsOpt, verifiedColumns = supernodeMap)
+      MsgSource.api, blck, sidecarsOpt)
 
   if added.isErr():
     return

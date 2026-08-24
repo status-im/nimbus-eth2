@@ -63,6 +63,7 @@ type
     custodyMap*: ColumnMap
     lastMemoryNode: DoublyLinkedNode[RootTableRecord[A]]
     roots: Table[Eth2Digest, DoublyLinkedNode[RootTableRecord[A]]]
+    pendingVerify: Table[Eth2Digest, ColumnMap]
     list: DoublyLinkedList[RootTableRecord[A]]
     indexMap: seq[int]
     db: QuarantineDB
@@ -571,17 +572,11 @@ proc popSidecarsOrCount*[
 ](
     quarantine: var SidecarQuarantine[A, B, C],
     blockRoot: Eth2Digest
-): Result[tuple[sidecars: seq[ref A], verified: ColumnMap], int] =
+): Result[seq[ref A], int] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``.
   ## If some of the column sidecars are missing Opt.none() is returned.
   ## Note: Blocks should be checked for sidecars count first, otherwise
   ## result of this function would be always Opt.none().
-  ##
-  ## The returned `verified` map lists which indices of *this* result already
-  ## have their KZG proofs checked. It only makes sense together with the
-  ## returned sequence, so it must travel with it: the same block root can be
-  ## popped again with a different set of sidecars while an earlier result is
-  ## still being processed.
   let node = quarantine.roots.getOrDefault(blockRoot)
   if isNil(node):
     return err(0)
@@ -602,7 +597,7 @@ proc popSidecarsOrCount*[
 
   var
     sidecars: seq[ref A]
-    verified: ColumnMap
+    unverified: ColumnMap
 
   if supernode:
     # When supernode - we pop all sidecars.
@@ -613,8 +608,8 @@ proc popSidecarsOrCount*[
           "Record should only have loaded values, but it is `" &
             $sidecar.kind & "`")
         sidecars.add(sidecar.data)
-        if sidecar.verified:
-          verified.incl(ColumnIndex(sidecar.index))
+        if not sidecar.verified:
+          unverified.incl(ColumnIndex(sidecar.index))
   else:
     let allowPartial = node[].value.count >= NUMBER_OF_COLUMNS div 2
     for cindex in quarantine.custodyMap:
@@ -625,8 +620,8 @@ proc popSidecarsOrCount*[
         "Record should only have loaded values, but it is `" &
           $sidecar.kind & "`")
       sidecars.add(sidecar.data)
-      if sidecar.verified:
-        verified.incl(ColumnIndex(sidecar.index))
+      if not sidecar.verified:
+        unverified.incl(ColumnIndex(sidecar.index))
 
     doAssert(
       (allowPartial and len(sidecars) >= NUMBER_OF_COLUMNS div 2) or
@@ -637,7 +632,11 @@ proc popSidecarsOrCount*[
   # memory and disk.
   quarantine.removeNode(node, databaseCount)
 
-  ok((sidecars: sidecars, verified: verified))
+  # Gloas and newer forks verify columns separately
+  if not unverified.empty:
+    quarantine.pendingVerify[blockRoot] = unverified
+
+  ok(sidecars)
 
 proc popSidecars*[
     A: SomeDataColumnSidecar,
@@ -646,12 +645,18 @@ proc popSidecars*[
 ](
     quarantine: var SidecarQuarantine[A, B, C],
     blockRoot: Eth2Digest
-): tuple[sidecars: Opt[seq[ref A]], verified: ColumnMap] =
-  ## Pops the sidecars of ``blockRoot`` together with the map of those already
-  ## KZG-verified - see `popSidecarsOrCount()` on why the two belong together.
+): Opt[seq[ref A]] =
   let res = quarantine.popSidecarsOrCount(blockRoot).valueOr:
-    return (sidecars: Opt.none(seq[ref A]), verified: default(ColumnMap))
-  (sidecars: Opt.some(res.sidecars), verified: res.verified)
+    return Opt.none(seq[ref A])
+  Opt.some(res)
+
+func popPendingVerify*(
+    quarantine: var SomeColumnQuarantine,
+    blockRoot: Eth2Digest
+): ColumnMap =
+  var res: ColumnMap
+  discard quarantine.pendingVerify.pop(blockRoot, res)
+  res
 
 func fetchMissingSidecars*(
     quarantine: SomeColumnQuarantine,
@@ -990,6 +995,7 @@ func shortLog[A](rec: RootTableRecord[A]): string =
 func debugJsonDump*[A, B, C](q: SidecarQuarantine[A, B, C]): string =
   var
     records: seq[string]
+    pending: seq[string]
     minSlot = FAR_FUTURE_SLOT
     maxSlot = GENESIS_SLOT
 
@@ -999,6 +1005,10 @@ func debugJsonDump*[A, B, C](q: SidecarQuarantine[A, B, C]): string =
     if item.slot > maxSlot:
       maxSlot = item.slot
     records.add(shortLog(item))
+
+  for key, value in q.pendingVerify.pairs():
+    pending.add("\"" & shortLog(key) & "\":" & $value)
+
 
   let
     sminSlot =
@@ -1028,5 +1038,6 @@ func debugJsonDump*[A, B, C](q: SidecarQuarantine[A, B, C]): string =
   ",\"index_map\":[" & q.indexMap.mapIt($it).join(",") &
   "],\"records\":[" & records.join(",") &
   "],\"records_count\":" & $len(records) &
+  ",\"pending_verify\":{" & pending.join(",") & "}" &
   ",\"min_slot\":\"" & sminSlot &
   "\",\"max_slot\":\"" & smaxSlot & "\"}"

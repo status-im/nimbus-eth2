@@ -658,15 +658,14 @@ proc initFullNode(
             # Disable sidecars processing at block time.
             const sidecarsOpt = noSidecars
           else:
-            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+            let sidecarsOpt = Opt.none(fulu.DataColumnSidecarsForImport)
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
           const sidecarsOpt = noSidecars
         else:
           {.error: "Unkown fork: " & $consensusFork.}
 
         blockProcessor.addBlock(
-          MsgSource.gossip, forkyBlck, sidecarsOpt,
-          maybeFinalized = maybeFinalized)
+          MsgSource.gossip, forkyBlck, sidecarsOpt, maybeFinalized)
 
     untrustedBlockVerifier =
       proc(signedBlock: ForkedSignedBeaconBlock, blobs: Opt[BlobSidecars],
@@ -679,19 +678,13 @@ proc initFullNode(
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Gloas:
           # Disable sidecars processing at block time.
-          const
-            sidecarsOpt = noSidecars
-            verifiedColumns = default(ColumnMap)
+          const sidecarsOpt = noSidecars
         elif consensusFork == ConsensusFork.Fulu:
-          # Request manager columns may still be unverified, so
-          # `verifiedColumns` has to travel with these exact sidecars into
-          # `storeBlock` - several verifiers can run for the same root at once.
-          let (sidecarsOpt, verifiedColumns) =
+          let sidecarsOpt =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-              (sidecars: Opt.some(default(fulu.DataColumnSidecars)),
-               verified: default(ColumnMap))
+              Opt.some(default(fulu.DataColumnSidecarsForImport))
             else:
-              fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+              fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
           if sidecarsOpt.isNone():
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
@@ -701,15 +694,12 @@ proc initFullNode(
               else:
                 err(VerifierError.MissingParent)
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
-          const
-            sidecarsOpt = noSidecars
-            verifiedColumns = default(ColumnMap)
+          const sidecarsOpt = noSidecars
         else:
           {.error: "Unkown fork: " & $consensusFork.}
 
         await blockProcessor.addBlock(
-          MsgSource.sync, forkyBlck, sidecarsOpt, verifiedColumns,
-          maybeFinalized
+          MsgSource.sync, forkyBlck, sidecarsOpt, maybeFinalized
         )
     rmanBlockLoader = proc(
         blockRoot: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
@@ -756,13 +746,11 @@ proc initFullNode(
           block:
             template bid(): auto =
               blck.message.body.signed_execution_payload_bid
-            # Gloas verifies all columns in `addPayload`, so the verified map
-            # that comes with them isn't needed here.
             let sidecarsOpt =
               if bid.message.blob_kzg_commitments.len() == 0:
                 Opt.some(default(gloas.DataColumnSidecars))
               else:
-                gloasColumnQuarantine[].popSidecars(blockRoot).sidecars
+                gloasColumnQuarantine[].popSidecarsForImport(blockRoot)
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
               discard quarantine[].addSidecarless(dag.finalizedHead.slot, blck)

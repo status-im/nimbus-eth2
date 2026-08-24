@@ -323,9 +323,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check:
       bq.hasSidecars(fuluBlock1) == false
-      bq.popSidecars(fuluBlock1.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock1.root).isNone() == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot1, sidecars1, verified = false)
     check:
@@ -341,8 +341,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       bq.hasSidecars(fuluBlock1) == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
-    let dres = bq.popSidecars(fuluBlock1.root).sidecars
+      bq.popSidecars(fuluBlock2.root).isNone() == true
+    let dres = bq.popSidecars(fuluBlock1.root)
     check:
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
@@ -351,19 +351,19 @@ suite "ColumnQuarantine data structure test suite " & preset():
     bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 1
 
     bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 2
 
     bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
       len(bq) == counter + 3
 
     bq.put(broot2, sidecars2[7], verified = false)
@@ -371,7 +371,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.hasSidecars(fuluBlock2) == true
       len(bq) == len(sidecars2)
 
-    let eres = bq.popSidecars(fuluBlock2.root).sidecars
+    let eres = bq.popSidecars(fuluBlock2.root)
     check:
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
@@ -408,9 +408,9 @@ suite "ColumnQuarantine data structure test suite " & preset():
 
     check:
       bq.hasSidecars(fuluBlock1) == false
-      bq.popSidecars(fuluBlock1.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock1.root).isNone() == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot1, sidecars1, verified = false)
 
@@ -421,8 +421,8 @@ suite "ColumnQuarantine data structure test suite " & preset():
     check:
       bq.hasSidecars(fuluBlock1) == true
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
-    let dres = bq.popSidecars(fuluBlock1.root).sidecars
+      bq.popSidecars(fuluBlock2.root).isNone() == true
+    let dres = bq.popSidecars(fuluBlock1.root)
     check:
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
@@ -430,23 +430,23 @@ suite "ColumnQuarantine data structure test suite " & preset():
     bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == false
-      bq.popSidecars(fuluBlock2.root).sidecars.isNone() == true
+      bq.popSidecars(fuluBlock2.root).isNone() == true
 
     bq.put(broot2, sidecars2[7], verified = false)
     check:
       bq.hasSidecars(fuluBlock2) == true
 
-    let eres = bq.popSidecars(fuluBlock2.root).sidecars
+    let eres = bq.popSidecars(fuluBlock2.root)
     check:
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
@@ -472,48 +472,13 @@ suite "ColumnQuarantine data structure test suite " & preset():
       present.add(sc)
 
     check len(bq) == NUMBER_OF_COLUMNS div 2
-    let res = bq.popSidecars(broot).sidecars
+    let res = bq.popSidecars(broot)
     check:
       res.isOk()
       # Populated subset is returned; Empty custody slots are silently
       # skipped instead of crashing the node.
       res.get().len == NUMBER_OF_COLUMNS div 2
       compareSidecars(res.get(), present) == true
-
-  test "popSidecars binds verified map to the returned sidecars [node]":
-    # The same block root can be filled and popped more than once, and the
-    # results may hold different columns. Each `popSidecars()` therefore returns
-    # the map of already-verified indices for the sidecars it hands out, so a
-    # consumer holding an earlier result cannot end up looking at a later
-    # result's map.
-    const custodyColumns =
-      (0 ..< (NUMBER_OF_COLUMNS div 2 + 1)).mapIt(it.ColumnIndex)
-    var bq = FuluColumnQuarantine.init(cfg, custodyColumns, quarantine, 0, nil)
-    let broot = genBlockRoot(1)
-
-    # First set of columns for `broot`: index 0 arrives unverified, the rest
-    # already verified.
-    for i in 0 ..< (NUMBER_OF_COLUMNS div 2):
-      bq.put(broot, newClone(genFuluDataColumnSidecar(
-        index = i, slot = 1, proposer_index = 5)), verified = (i != 0))
-    let (first, firstVerified) = bq.popSidecars(broot)
-
-    # Second set for the same root, covering different indices, none of them
-    # verified.
-    for i in 1 .. (NUMBER_OF_COLUMNS div 2):
-      bq.put(broot, newClone(genFuluDataColumnSidecar(
-        index = i, slot = 1, proposer_index = 5)), verified = false)
-    let (second, secondVerified) = bq.popSidecars(broot)
-
-    check:
-      first.isSome() == true
-      second.isSome() == true
-      # The map obtained with the first result still describes that result ...
-      ColumnIndex(0) notin firstVerified
-      len(firstVerified) == NUMBER_OF_COLUMNS div 2 - 1
-      # ... while the second one reports its own columns, none of which have
-      # been verified.
-      secondVerified.empty() == true
 
   test "put()/fetchMissingSidecars/remove test [node]":
     let
@@ -1095,7 +1060,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           int(sidecars[0].sidecar[].signed_block_header.message.slot))
       sidecars2 =
         sidecars.toOpenArray(0, len(custodyColumns) - 1).mapIt(it.sidecar)
-      dres = bq.popSidecars(blockRoot2).sidecars
+      dres = bq.popSidecars(blockRoot2)
 
     check:
       dres.isOk()
@@ -1167,7 +1132,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
       sidecars3 =
         sidecars.toOpenArray(i3, i3 + len(custodyColumns) - 1).
           mapIt(it.sidecar)
-      dres3 = bq.popSidecars(blockRoot3).sidecars
+      dres3 = bq.popSidecars(blockRoot3)
 
     check:
       dres3.isOk()
@@ -1224,12 +1189,12 @@ suite "ColumnQuarantine data structure test suite " & preset():
     # Popping reloads the offloaded columns from disk. Because the `verified`
     # flag is now carried through the unload/load cycle, none of them should be
     # queued for re-verification.
-    let (dres, verifiedColumns) = bq.popSidecars(offloadedRoot)
+    let dres = bq.popSidecars(offloadedRoot)
     check:
       dres.isOk()
       dres.get().len == len(custodyColumns)
       lenDisk(bq) == 0
-      len(verifiedColumns) == len(custodyColumns)
+      bq.popPendingVerify(offloadedRoot).empty() == true
 
   test "database and memory overfill protection and pruning test [node]":
     let
@@ -1677,7 +1642,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
         bq.hasSidecars(block1) == true
         bq.hasSidecars(block2) == true
 
-      let sidecars1 = bq.popSidecars(sidecars[0].blockRoot).sidecars
+      let sidecars1 = bq.popSidecars(sidecars[0].blockRoot)
       check:
         sidecars1.isSome() == true
       case cvec[0]
@@ -1690,8 +1655,7 @@ suite "ColumnQuarantine data structure test suite " & preset():
           bq.lenMemory() == bq.sizeMemory() - 64
           bq.lenDisk() == len(custodyColumns) * 2 - 64
 
-      let sidecars2 =
-        bq.popSidecars(sidecars[len(custodyColumns)].blockRoot).sidecars
+      let sidecars2 = bq.popSidecars(sidecars[len(custodyColumns)].blockRoot)
 
       check:
         sidecars2.isSome() == true
@@ -2163,9 +2127,9 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     check:
       bq.hasSidecars(envl1.message.beacon_block_root) == false
-      bq.popSidecars(broot1).sidecars.isNone() == true
+      bq.popSidecars(broot1).isNone() == true
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot1, sidecars1, verified = false)
     check:
@@ -2181,8 +2145,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     check:
       bq.hasSidecars(envl1.message.beacon_block_root) == true
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
-    let dres = bq.popSidecars(broot1).sidecars
+      bq.popSidecars(broot2).isNone() == true
+    let dres = bq.popSidecars(broot1)
     check:
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
@@ -2191,19 +2155,19 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 1
 
     bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 2
 
     bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
       len(bq) == counter + 3
 
     bq.put(broot2, sidecars2[7], verified = false)
@@ -2211,7 +2175,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       bq.hasSidecars(envl2.message.beacon_block_root) == true
       len(bq) == len(sidecars2)
 
-    let eres = bq.popSidecars(broot2).sidecars
+    let eres = bq.popSidecars(broot2)
     check:
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
@@ -2248,9 +2212,9 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
 
     check:
       bq.hasSidecars(envl1.message.beacon_block_root) == false
-      bq.popSidecars(broot1).sidecars.isNone() == true
+      bq.popSidecars(broot1).isNone() == true
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot1, sidecars1, verified = false)
 
@@ -2261,8 +2225,8 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     check:
       bq.hasSidecars(envl1.message.beacon_block_root) == true
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
-    let dres = bq.popSidecars(broot1).sidecars
+      bq.popSidecars(broot2).isNone() == true
+    let dres = bq.popSidecars(broot1)
     check:
       dres.isOk()
       compareSidecars(dres.get(), sidecars1) == true
@@ -2270,23 +2234,23 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
     bq.put(broot2, sidecars2[1], verified = false)
     check:
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot2, sidecars2[3], verified = false)
     check:
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot2, sidecars2[5], verified = false)
     check:
       bq.hasSidecars(envl2.message.beacon_block_root) == false
-      bq.popSidecars(broot2).sidecars.isNone() == true
+      bq.popSidecars(broot2).isNone() == true
 
     bq.put(broot2, sidecars2[7], verified = false)
     check:
       bq.hasSidecars(envl2.message.beacon_block_root) == true
 
-    let eres = bq.popSidecars(broot2).sidecars
+    let eres = bq.popSidecars(broot2)
     check:
       eres.isOk()
       compareSidecars(eres.get(), sidecars2) == true
@@ -2309,7 +2273,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       present.add(sc)
 
     check len(bq) == NUMBER_OF_COLUMNS div 2
-    let res = bq.popSidecars(broot).sidecars
+    let res = bq.popSidecars(broot)
     check:
       res.isOk()
       res.get().len == NUMBER_OF_COLUMNS div 2
@@ -2881,7 +2845,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           int(sidecars[0].sidecar[].slot))
       sidecars2 =
         sidecars.toOpenArray(0, len(custodyColumns) - 1).mapIt(it.sidecar)
-      dres = bq.popSidecars(blockRoot2).sidecars
+      dres = bq.popSidecars(blockRoot2)
 
     check:
       dres.isOk()
@@ -2948,7 +2912,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
       sidecars3 =
         sidecars.toOpenArray(i3, i3 + len(custodyColumns) - 1).
           mapIt(it.sidecar)
-      dres3 = bq.popSidecars(blockRoot3).sidecars
+      dres3 = bq.popSidecars(blockRoot3)
 
     check:
       dres3.isOk()
@@ -3380,7 +3344,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
         bq.hasSidecars(envl1.message.beacon_block_root) == true
         bq.hasSidecars(envl2.message.beacon_block_root) == true
 
-      let sidecars1 = bq.popSidecars(sidecars[0].blockRoot).sidecars
+      let sidecars1 = bq.popSidecars(sidecars[0].blockRoot)
       check:
         sidecars1.isSome() == true
       case cvec[0]
@@ -3393,8 +3357,7 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
           bq.lenMemory() == bq.sizeMemory() - 64
           bq.lenDisk() == len(custodyColumns) * 2 - 64
 
-      let sidecars2 =
-        bq.popSidecars(sidecars[len(custodyColumns)].blockRoot).sidecars
+      let sidecars2 = bq.popSidecars(sidecars[len(custodyColumns)].blockRoot)
 
       check:
         sidecars2.isSome() == true

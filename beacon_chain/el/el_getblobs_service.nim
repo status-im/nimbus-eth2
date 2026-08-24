@@ -149,8 +149,8 @@ proc attemptGetBlobs*(
       # If the column-first path already populated quarantine for this root,
       # skip the EL fetch and enqueue with the existing columns.
       if forkyBlck.root in self.columnFirstFetched:
-        let (sidecarsOpt, verifiedColumns) =
-          self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+        let sidecarsOpt =
+          self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
         if sidecarsOpt.isSome():
           if not quarantine[].removeSidecarless(forkyBlck.root):
             return
@@ -159,7 +159,7 @@ proc attemptGetBlobs*(
           self.columnFirstFetched.del(forkyBlck.root)
           self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
-            MsgSource.gossip, forkyBlck, sidecarsOpt, verifiedColumns)
+            MsgSource.gossip, forkyBlck, sidecarsOpt)
           return
         # Columns vanished (pruned?) — fall through to EL fetch as fallback.
 
@@ -280,14 +280,12 @@ proc attemptGetBlobs*(
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
 
-      # The quarantine may hold columns from the request manager next to the
-      # ones just installed from the EL, so the verified map has to be carried
-      # along rather than assumed to cover everything.
-      let (sidecarsOpt, verifiedColumns) =
-        self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+      # The quarantine may hold request manager columns next to the ones just
+      # installed from the EL, so this pops a mix of trusted and untrusted.
+      let sidecarsOpt =
+        self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
 
-      self.blockProcessor.enqueueBlock(
-        MsgSource.gossip, forkyBlck, sidecarsOpt, verifiedColumns)
+      self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
     elif consensusFork == ConsensusFork.Heze:
       debugHezeComment "EL engine_getBlobs dispatch not yet wired for Heze"
     else:

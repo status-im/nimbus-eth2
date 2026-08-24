@@ -85,6 +85,20 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
+  # A `DataColumnSidecar` whose KZG proofs have already been checked. The type
+  # carries the trust along with the data, so it cannot drift onto a different
+  # set of columns; `distinct` keeps the contents read-only until converted
+  # back with `asSigned()`.
+  TrustedDataColumnSidecar* = distinct DataColumnSidecar
+
+  TrustedDataColumnSidecars* = seq[ref TrustedDataColumnSidecar]
+
+  DataColumnSidecarsForImport* = object
+    ## All columns of one block on their way to `storeBlock`, split by whether
+    ## their KZG proofs still need checking.
+    trusted*: TrustedDataColumnSidecars
+    untrusted*: DataColumnSidecars
+
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
     block_root*: Eth2Digest
@@ -543,6 +557,42 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+template asTrusted*(x: ref DataColumnSidecar): ref TrustedDataColumnSidecar =
+  ## Only for sidecars whose KZG proofs have actually been checked.
+  cast[ref TrustedDataColumnSidecar](x)
+
+template asSigned*(x: ref TrustedDataColumnSidecar): ref DataColumnSidecar =
+  cast[ref DataColumnSidecar](x)
+
+func len*(sidecars: DataColumnSidecarsForImport): int =
+  len(sidecars.trusted) + len(sidecars.untrusted)
+
+func all*(sidecars: DataColumnSidecarsForImport): DataColumnSidecars =
+  ## Every column, in ascending index order - both halves are already ordered.
+  var
+    res = newSeqOfCap[ref DataColumnSidecar](len(sidecars))
+    i, j = 0
+  while i < len(sidecars.trusted) and j < len(sidecars.untrusted):
+    if asSigned(sidecars.trusted[i])[].index <=
+        sidecars.untrusted[j][].index:
+      res.add(asSigned(sidecars.trusted[i]))
+      inc i
+    else:
+      res.add(sidecars.untrusted[j])
+      inc j
+  while i < len(sidecars.trusted):
+    res.add(asSigned(sidecars.trusted[i]))
+    inc i
+  while j < len(sidecars.untrusted):
+    res.add(sidecars.untrusted[j])
+    inc j
+  res
+
+func toTrustedImport*(
+    sidecars: DataColumnSidecars): DataColumnSidecarsForImport =
+  ## Only for sidecars built locally or read back from our own database.
+  DataColumnSidecarsForImport(trusted: sidecars.mapIt(asTrusted(it)))
 
 const
   KZG_COMMITMENTS_GINDEX* = get_generalized_index(
