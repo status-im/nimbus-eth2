@@ -457,16 +457,16 @@ proc makeSignedRequestAuth*(
     proposer: AttachedValidator,
     builder_url: string, slot: Slot,
     genesis_fork_version: presets.Version):
-    Future[Result[SignedRequestAuthV1, string]]
+    Future[Result[SignedBuilderRequestAuth, string]]
     {.async: (raises: [CancelledError]).} =
   let
-    msg = RequestAuthV1(
-      data: RequestAuthData.init(toBytes(builder_url)),
+    msg = BuilderRequestAuth(
+      data: BuilderRequestAuthData.init(toBytes(builder_url)),
       slot: slot)
     sig = (await proposer.getBuilderRequestAuthSignature(
         genesis_fork_version, msg)).valueOr:
       return err(error)
-  ok(SignedRequestAuthV1(
+  ok(SignedBuilderRequestAuth(
     message: msg,
     signature: sig))
 
@@ -478,7 +478,7 @@ proc getExecutionPayloadBidFromBuilder*(
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
     consensus_version: ConsensusFork,
-    request_auth: SignedRequestAuthV1,
+    request_auth: SignedBuilderRequestAuth,
 ): Future[Result[gloas.SignedExecutionPayloadBid, string]] {.
     async: (raises: [CancelledError]).} =
   info "Requesting execution payload bid",

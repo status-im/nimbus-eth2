@@ -12,28 +12,28 @@ import
   ../datatypes/[base, constants]
 
 const
-  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/builder.md#constants
-  DOMAIN_REQUEST_AUTH* = DomainType([byte 0x0b, 0x00, 0x00, 0x01])
-  MAX_DATA_SIZE: int64 = 4096
+  # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/builder.md#constants
+  DOMAIN_BUILDER_REQUEST_AUTH* = DomainType([byte 0x0b, 0x00, 0x00, 0x01])
+  MAX_BUILDER_AUTH_DATA_SIZE: int64 = 4096
 
 type
-  RequestAuthData* = List[byte, Limit MAX_DATA_SIZE]
+  BuilderRequestAuthData* = List[byte, Limit MAX_BUILDER_AUTH_DATA_SIZE]
 
-  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#requestauthv1
-  RequestAuthV1* = object
-    data*: RequestAuthData
+  # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#builderrequestauth
+  BuilderRequestAuth* = object
+    data*: BuilderRequestAuthData
     slot*: Slot
 
-  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#signedrequestauthv1
-  SignedRequestAuthV1* = object
-    message*: RequestAuthV1
+  # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#signedbuilderrequestauth
+  SignedBuilderRequestAuth* = object
+    message*: BuilderRequestAuth
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#builderpreferencesv1
-  BuilderPreferencesV1* = object
+  # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#builderpreferences
+  BuilderPreferences* = object
     max_execution_payment*: Gwei
 
-  # https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/specs/gloas/validator.md#builderpreferencesrequestv1
-  BuilderPreferencesRequestV1* = object
-    preferences*: BuilderPreferencesV1
-    auth*: SignedRequestAuthV1
+  # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#builderpreferences
+  BuilderPreferencesRequest* = object
+    preferences*: BuilderPreferences
+    auth*: SignedBuilderRequestAuth

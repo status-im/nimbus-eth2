@@ -52,7 +52,7 @@ proc getExecutionPayloadBidPlain*(
     parent_hash: Eth2Digest,
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
-    body: SignedRequestAuthV1
+    body: SignedBuilderRequestAuth
 ): RestPlainResponse {.
   rest, endpoint:
     "/eth/v1/builder/execution_payload_bid/{slot}/{parent_hash}/{parent_root}/{proposer_pubkey}",
@@ -66,7 +66,7 @@ proc getExecutionPayloadBid*(
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
     consensus_version: ConsensusFork,
-    body: SignedRequestAuthV1
+    body: SignedBuilderRequestAuth
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                    RestCommunicationError], raw: true).} =
@@ -117,17 +117,17 @@ proc submitSignedBeaconBlock*(
 
 proc submitBuilderPreferencesPlain*(
     proposer_pubkey: ValidatorPubKey,
-    body: BuilderPreferencesRequestV1
+    body: BuilderPreferencesRequest
 ): RestPlainResponse {.
   rest, endpoint: "/eth/v1/builder/builder_preferences/{proposer_pubkey}",
   meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/builder_preferences.yaml
+  ## https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/apis/builder/builder_preferences.yaml
 
 proc submitBuilderPreferences*(
     client: RestClientRef,
     consensus_version: ConsensusFork,
     proposer_pubkey: ValidatorPubKey,
-    body: BuilderPreferencesRequestV1
+    body: BuilderPreferencesRequest
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                    RestCommunicationError], raw: true).} =
