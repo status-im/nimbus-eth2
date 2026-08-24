@@ -659,24 +659,6 @@ proc registerValidators*(
           beacon_nodes_count = count, registrations = len(registrations),
           validators_count = vc.attachedValidators[].count()
 
-proc raceWithEvent(
-    future: Future[void].Raising([CancelledError]),
-    event: AsyncEvent
-) {.async: (raises: [CancelledError]).} =
-  let eventFut = event.wait()
-  try:
-    discard await race(future, eventFut)
-  except CancelledError as exc:
-    var pending: seq[Future[void]]
-    if not(future.finished()):
-      pending.add(future.cancelAndWait())
-    if not(eventFut.finished()):
-      pending.add(eventFut.cancelAndWait())
-    await noCancel allFutures(pending)
-    raise exc
-  if not(eventFut.finished()):
-    await noCancel eventFut.cancelAndWait()
-
 proc waitForNewDuties(
     service: DutiesServiceRef,
     event: AsyncEvent,
@@ -685,10 +667,13 @@ proc waitForNewDuties(
   let vc = service.client
   if vc.config.monitoringType == BlockMonitoringType.Event and
       not(event.isSet()) and vc.currentSlot().epoch() == lastPolledSlot.epoch():
-    let epochFut = service.waitForNextEpoch()
-    await epochFut.raceWithEvent(event)
-    if not(epochFut.finished()):
-      await noCancel epochFut.cancelAndWait()
+    let
+      epochFut = service.waitForNextEpoch()
+      eventFut = event.wait()
+    try:
+      discard await race(epochFut, eventFut)
+    finally:
+      await noCancel cancelAndWait(epochFut, eventFut)
 
 proc attesterDutiesLoop(
     service: DutiesServiceRef
