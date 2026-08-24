@@ -141,13 +141,8 @@ proc popSidecarsForImport*(
     blockRoot: Eth2Digest
 ): Opt[fulu.DataColumnSidecarsForImport] =
   ## Pop the columns of ``blockRoot``, split by whether their KZG proofs have
-  ## already been checked.
-  ##
-  ## The quarantine records the unverified indices of a pop in a table keyed by
-  ## block root; draining it here, with no `await` between the two calls, is
-  ## what makes it describe these exact sidecars. Read later - once the block
-  ## sits in the processing queue - it could answer for a different set of
-  ## columns popped for the same root in the meantime.
+  ## already been checked. The drain has to stay adjacent to the pop: read any
+  ## later, it could answer for another set of columns popped for the same root.
   let sidecars = quarantine.popSidecars(blockRoot).valueOr:
     return Opt.none(fulu.DataColumnSidecarsForImport)
   let unverified = quarantine.popPendingVerify(blockRoot)
@@ -164,8 +159,7 @@ proc popSidecarsForImport*(
     quarantine: var GloasColumnQuarantine,
     blockRoot: Eth2Digest
 ): Opt[gloas.DataColumnSidecars] =
-  ## Gloas checks every column in `addPayload`, so only the drain matters here:
-  ## nothing else ever collects the entry `popSidecars()` leaves behind.
+  ## Gloas checks every column in `addPayload`; only the drain matters here.
   let sidecars = quarantine.popSidecars(blockRoot)
   discard quarantine.popPendingVerify(blockRoot)
   sidecars
@@ -262,8 +256,6 @@ proc verifySidecars(
     signedBlock: fulu.SignedBeaconBlock,
     sidecarsOpt: Opt[fulu.DataColumnSidecarsForImport],
 ): Result[void, VerifierError] =
-  # Only the untrusted half is checked; the rest arrived from gossip, from the
-  # execution layer or from our own database, all of which already did.
   sidecarsOpt.isErrOr:
     if value.untrusted.len > 0 and
         signedBlock.message.body.blob_kzg_commitments.len > 0:
@@ -674,8 +666,7 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
             sidecarsOk = false # Pruned, or inconsistent DB
             break
           data_column_sidecars.add data_column
-        # Columns reach the database only once their KZG proofs have been
-        # checked, so they need not be checked again.
+        # Columns reach the database only after their proofs were checked.
         Opt.some data_column_sidecars.toTrustedImport()
       else:
         noSidecars
@@ -772,8 +763,7 @@ proc storeBlock(
 
   when consensusFork == ConsensusFork.Fulu:
     # Only request manager-sourced columns arrive unverified; getBlobsV2/V3/V4
-    # and CL gossip are both either trusted or verified. Which is which came
-    # along with these very sidecars, so no per-root lookup is needed here.
+    # and CL gossip are both either trusted or verified.
     ?verifySidecars(signedBlock, sidecarsOpt)
     debug "block_processor verifySidecars completed",
       verifySidecarsDur = Moment.now() - newPayloadTick,
@@ -976,8 +966,7 @@ proc addBlock*(
 
       when sidecarsOpt is Opt[fulu.DataColumnSidecarsForImport]:
         if sidecarsOpt.isSome:
-          # Put them back the way they came out, so the trusted ones don't have
-          # to be checked again on the next attempt.
+          # Put them back as they came out, so trusted ones stay trusted.
           let sidecars = sidecarsOpt.get
           self.fuluColumnQuarantine[].put(
             blockRoot, sidecars.untrusted, verified = false)

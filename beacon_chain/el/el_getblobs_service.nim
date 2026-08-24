@@ -280,8 +280,6 @@ proc attemptGetBlobs*(
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
 
-      # The quarantine may hold request manager columns next to the ones just
-      # installed from the EL, so this pops a mix of trusted and untrusted.
       let sidecarsOpt =
         self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
 

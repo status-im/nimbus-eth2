@@ -85,17 +85,14 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
-  # A `DataColumnSidecar` whose KZG proofs have already been checked. The type
-  # carries the trust along with the data, so it cannot drift onto a different
-  # set of columns; `distinct` keeps the contents read-only until converted
-  # back with `asSigned()`.
+  # A `DataColumnSidecar` whose KZG proofs have already been checked.
   TrustedDataColumnSidecar* = distinct DataColumnSidecar
 
   TrustedDataColumnSidecars* = seq[ref TrustedDataColumnSidecar]
 
   DataColumnSidecarsForImport* = object
-    ## All columns of one block on their way to `storeBlock`, split by whether
-    ## their KZG proofs still need checking.
+    ## All columns of one block, split by whether their proofs still need
+    ## checking.
     trusted*: TrustedDataColumnSidecars
     untrusted*: DataColumnSidecars
 
@@ -569,7 +566,7 @@ func len*(sidecars: DataColumnSidecarsForImport): int =
   len(sidecars.trusted) + len(sidecars.untrusted)
 
 func all*(sidecars: DataColumnSidecarsForImport): DataColumnSidecars =
-  ## Every column, in ascending index order - both halves are already ordered.
+  ## Every column, in ascending index order.
   var
     res = newSeqOfCap[ref DataColumnSidecar](len(sidecars))
     i, j = 0
