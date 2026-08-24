@@ -1726,7 +1726,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               if kzgLen == 0:
                 Opt.some(default(gloas.DataColumnSidecars))
               else:
-                node.gloasColumnQuarantine[].popSidecars(signedBlck.root)
+                node.gloasColumnQuarantine[].popSidecars(
+                  signedBlck.root, allColumns = true)
 
         if sidecarsOpt.isNone():
           return RestApiResponse.jsonError(
