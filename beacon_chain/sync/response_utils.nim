@@ -339,7 +339,7 @@ func validateBlocks*(
       if (sidecarsCount > 0) and envelope.isNone():
         return err(MissingErrorKind.Envelopes)
 
-      # `commitmentsLen` is always has value when blck.isSome().
+      # `commitmentsLen` is always has a value when blck.isSome().
       if envelope.isSome() and (commitmentsLen.get() > 0) and
         (sidecarsCount == 0):
         return err(MissingErrorKind.Sidecars)
