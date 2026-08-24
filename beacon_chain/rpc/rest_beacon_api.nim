@@ -1012,7 +1012,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Gloas:
-            debugGloasComment("data columns")
             await node.router.routeSignedBeaconBlock(
               forkyBlck, checkValidator = true)
           elif consensusFork == ConsensusFork.Fulu:
@@ -1129,9 +1128,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     withConsensusFork(currentEpochFork):
       # TODO (cheatfate): handle broadcast_validation flag
       when consensusFork >= ConsensusFork.Gloas:
-        debugGloasComment ""
         RestApiResponse.jsonError(
-          Http400, $consensusFork & " builder API unsupported")
+          Http400, $consensusFork & " publishBlindedBlockV2 unsupported")
       elif consensusFork >= ConsensusFork.Fulu:
         let
           restBlock = decodeBodyJsonOrSsz(
@@ -1569,14 +1567,24 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
 
-    var data_columns: fulu.DataColumnSidecars
-    for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
-      let dataColumnSidecar = new fulu.DataColumnSidecar
-      if node.dag.db.getDataColumnSidecar(bid.root, columnIndex, dataColumnSidecar[]):
-        data_columns.add dataColumnSidecar
-
-    let data = recover_blobs_from_data_columns(data_columns)
     let consensusFork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
+
+    template collectDataColumns(T: type): auto =
+      var data_columns: seq[ref T]
+      for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
+        let dataColumnSidecar = new T
+        if node.dag.db.getDataColumnSidecar(
+            bid.root, columnIndex, dataColumnSidecar[]):
+          data_columns.add dataColumnSidecar
+      data_columns
+
+    let data =
+      if consensusFork >= ConsensusFork.Gloas:
+        recover_blobs_from_data_columns(
+          collectDataColumns(gloas.DataColumnSidecar))
+      else:
+        recover_blobs_from_data_columns(
+          collectDataColumns(fulu.DataColumnSidecar))
 
     let final_data = block:
       var res: Blobs

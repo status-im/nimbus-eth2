@@ -80,7 +80,7 @@ export
   eth_types_json_serialization.writeValue
 
 # https://github.com/ethereum/consensus-specs/releases
-const SPEC_VERSION* = "1.7.0-alpha.13"
+const SPEC_VERSION* = "1.7.0-alpha.14"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -914,7 +914,7 @@ template isomorphicCast*[T](x: auto): T =
       static:
         doAssert sizeof(T) == sizeof(U)
         doAssert getSizeofSig(T()) == getSizeofSig(U())
-    cast[ptr T](unsafeAddr x)[]
+    cast[ptr T](addr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =
   # Prune all cache information that is no longer relevant in order to process

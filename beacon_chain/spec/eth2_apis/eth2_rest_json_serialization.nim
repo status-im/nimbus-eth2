@@ -94,12 +94,10 @@ RestJson.useDefaultSerializationFor(
   EventExecutionPayloadGossipObject,
   EventExecutionPayloadAvailableObject,
   EventPayloadAttributesObject,
-  EventProposerPreferencesObject,
   FastConfirmationInfoObject,
   FinalizationInfoObject,
   Fork,
   FuluSignedBlockContents,
-  GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
   GetBlockHeadersResponse,
   GetDistributedKeystoresResponse,
@@ -188,6 +186,7 @@ RestJson.useDefaultSerializationFor(
   RestPayloadAttributes,
   RestPeerCount,
   RestProposerDuty,
+  RestPtcDuty,
   RestRoot,
   RestSignedBlockHeader,
   RestSignedContributionAndProof,
@@ -1169,7 +1168,6 @@ proc readValue*(
   # `consensus_block_value`
 
   withConsensusFork(v.version):
-    debugGloasComment "re-add gloas mev"
     value =
       when consensusFork >= ConsensusFork.Gloas:
         if v.execution_payload_blinded:

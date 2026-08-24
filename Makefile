@@ -16,8 +16,6 @@ LOG_LEVEL := DEBUG
 # used by Make targets that launch a beacon node
 RUNTIME_LOG_LEVEL := INFO
 
-LINK_PCRE := 0
-
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 

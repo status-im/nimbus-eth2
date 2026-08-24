@@ -39,8 +39,7 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import
-  containsExecutionPayloadEnvelope, getDataColumnSidecar, putBlobSidecar,
-  putDataColumnSidecars
+  containsExecutionPayloadEnvelope, getDataColumnSidecar, putDataColumnSidecars
 
 export sszdump, signatures_batch
 

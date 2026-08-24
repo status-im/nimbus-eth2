@@ -112,6 +112,12 @@ type
     # [Modified in Gloas:EIP7688]
     kzg_proofs*: KzgProofs
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumnpartsmetadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-cellsbitlist
+  PartialDataColumnPartsMetadata* = object
+    available*: BitSeq
+    requests*: BitSeq
+
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#executionpayload
   ExecutionPayload* {.sszActiveFields: [
       1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1].} = object

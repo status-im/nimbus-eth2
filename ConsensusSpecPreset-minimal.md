@@ -120,6 +120,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Altair - Operations - Deposit - ineffective_deposit_with_bad_fork_version   OK
 + [Valid]   EF - Altair - Operations - Deposit - ineffective_deposit_with_current_fork_versi OK
 + [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_decompression          OK
++ [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_identity               OK
++ [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_not_on_curve           OK
 + [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_subgroup               OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_eth1_withdrawal_credentials     OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_max                             OK
@@ -407,6 +409,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Operations - Deposit - ineffective_deposit_with_current_fork_ve OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - ineffective_deposit_with_previous_fork_v OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_decompression       OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_identity            OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_not_on_curve        OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_subgroup            OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_eth1_withdrawal_credentials  OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_max                          OK
@@ -742,6 +746,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Operations - Deposit - ineffective_deposit_with_current_fork_vers OK
 + [Valid]   EF - Capella - Operations - Deposit - ineffective_deposit_with_previous_fork_ver OK
 + [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_identity              OK
++ [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_not_on_curve          OK
 + [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_subgroup              OK
 + [Valid]   EF - Capella - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
 + [Valid]   EF - Capella - Operations - Deposit - new_deposit_max                            OK
@@ -1145,6 +1151,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Operations - Deposit - ineffective_deposit_with_current_fork_versio OK
 + [Valid]   EF - Deneb - Operations - Deposit - ineffective_deposit_with_previous_fork_versi OK
 + [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_decompression           OK
++ [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_identity                OK
++ [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_not_on_curve            OK
 + [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_subgroup                OK
 + [Valid]   EF - Deneb - Operations - Deposit - new_deposit_eth1_withdrawal_credentials      OK
 + [Valid]   EF - Deneb - Operations - Deposit - new_deposit_max                              OK
@@ -1622,6 +1630,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Electra - Operations - Deposit - ineffective_deposit_with_current_fork_vers OK
 + [Valid]   EF - Electra - Operations - Deposit - ineffective_deposit_with_previous_fork_ver OK
 + [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_identity              OK
++ [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_not_on_curve          OK
 + [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_subgroup              OK
 + [Valid]   EF - Electra - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
 + [Valid]   EF - Electra - Operations - Deposit - new_deposit_max                            OK
@@ -2565,6 +2575,7 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - fork_invalid_builder_deposit_followed_by_valid_builder_deposit [Preset OK
 + EF - Gloas - Fork - fork_invalid_validator_deposit_followed_by_builder_credentials [Preset OK
 + EF - Gloas - Fork - fork_many_next_epoch [Preset: minimal]                                 OK
++ EF - Gloas - Fork - fork_missed_slots_before_fork [Preset: minimal]                        OK
 + EF - Gloas - Fork - fork_mixed_pending_deposits [Preset: minimal]                          OK
 + EF - Gloas - Fork - fork_multiple_builder_deposits [Preset: minimal]                       OK
 + EF - Gloas - Fork - fork_multiple_deposits_same_builder [Preset: minimal]                  OK
@@ -2719,6 +2730,10 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Gloas - Operations - Builder Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
 + [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
@@ -3362,6 +3377,10 @@ ConsensusSpecPreset-minimal
 ```
 ## EF - Heze - Operations - Builder Deposit Request  [Preset: minimal]
 ```diff
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
 + [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
@@ -4072,6 +4091,8 @@ ConsensusSpecPreset-minimal
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: minima OK
@@ -5293,6 +5314,8 @@ ConsensusSpecPreset-minimal
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: minima OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
@@ -5658,6 +5681,8 @@ ConsensusSpecPreset-minimal
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: minima OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
@@ -6025,6 +6050,8 @@ ConsensusSpecPreset-minimal
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: minima OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
@@ -6236,10 +6263,12 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bal OK
 + [Valid]   EF - gloas - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pres OK
 + [Valid]   EF - gloas - Sanity - Blocks - attestation [Preset: minimal]                     OK
++ [Valid]   EF - gloas - Sanity - Blocks - attestations_after_missed_slot_use_applied_parent OK
 + [Valid]   EF - gloas - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
 + [Valid]   EF - gloas - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
 + [Valid]   EF - gloas - Sanity - Blocks - bls_change [Preset: minimal]                      OK
 + [Valid]   EF - gloas - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: mini OK
++ [Valid]   EF - gloas - Sanity - Blocks - builder_payment_weight_no_double_counting_target_ OK
 + [Valid]   EF - gloas - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition [Preset: minimal]          OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition_large_validator_set [Prese OK
@@ -6403,6 +6432,8 @@ ConsensusSpecPreset-minimal
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: minim OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: minimal]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: minima OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: minimal]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: minimal]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: min OK
@@ -6595,10 +6626,12 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_bala OK
 + [Valid]   EF - heze - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Prese OK
 + [Valid]   EF - heze - Sanity - Blocks - attestation [Preset: minimal]                      OK
++ [Valid]   EF - heze - Sanity - Blocks - attestations_after_missed_slot_use_applied_parent_ OK
 + [Valid]   EF - heze - Sanity - Blocks - attester_slashing [Preset: minimal]                OK
 + [Valid]   EF - heze - Sanity - Blocks - balance_driven_status_transitions [Preset: minimal OK
 + [Valid]   EF - heze - Sanity - Blocks - bls_change [Preset: minimal]                       OK
 + [Valid]   EF - heze - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: minim OK
++ [Valid]   EF - heze - Sanity - Blocks - builder_payment_weight_no_double_counting_target_e OK
 + [Valid]   EF - heze - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal] OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_block_transition [Preset: minimal]           OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_block_transition_large_validator_set [Preset OK
@@ -8140,6 +8173,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/voting_source_within_two_epo OK
   ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root  Skip
   ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_roo Skip
++ ForkChoice - minimal/altair/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary      OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/basic                        OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/incompatible_justification_u OK
 + ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/incompatible_justification_u OK
@@ -8188,6 +8222,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/voting_source_within_two_ OK
   ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_ro Skip
   ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ Skip
++ ForkChoice - minimal/bellatrix/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary   OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/basic                     OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/incompatible_justificatio OK
 + ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/incompatible_justificatio OK
@@ -8240,6 +8275,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
   ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
++ ForkChoice - minimal/capella/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary     OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/basic                       OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
@@ -8288,6 +8324,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoc OK
   ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root   Skip
   ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root Skip
++ ForkChoice - minimal/deneb/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary       OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
 + ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/incompatible_justification_up OK
@@ -8342,6 +8379,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/electra/fork_choice/get_head/pyspec_tests/voting_source_within_two_ep OK
   ForkChoice - minimal/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - minimal/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
++ ForkChoice - minimal/electra/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary     OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/basic                       OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
 + ForkChoice - minimal/electra/fork_choice/on_block/pyspec_tests/incompatible_justification_ OK
@@ -8396,6 +8434,7 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/fulu/fork_choice/get_head/pyspec_tests/voting_source_within_two_epoch OK
   ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
   ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
++ ForkChoice - minimal/fulu/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary        OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/basic                          OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/incompatible_justification_upd OK
 + ForkChoice - minimal/fulu/fork_choice/on_block/pyspec_tests/incompatible_justification_upd OK
