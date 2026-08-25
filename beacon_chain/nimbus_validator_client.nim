@@ -309,40 +309,90 @@ proc runVCSlotLoop(
         node_status = $vc.beaconNodes[0].status,
         delay = shortLog(delay)
 
-proc new*(
+proc updateBeaconNodesFromUrls(
+    vc: ValidatorClientRef,
+    urls: seq[Uri]): Future[Opt[void]] {.async: (raises: []).} =
+  var
+    missingRoles = AllBeaconNodeRoles
+    servers = newSeqOfCap[BeaconNodeServerRef](len(urls))
+    pendingConfig: Table[
+      string, tuple[isNew: bool, roles: set[BeaconNodeRole], index: int]]
+  for index, url in urls.pairs():
+    let
+      (remoteUri, roles) = beaconNodeUriComponents(url).valueOr:
+        warn "Unable to process remote beacon node URI", reason = error
+        continue
+      endpoint = $remoteUri
+    pendingConfig.withValue(endpoint, value):
+      missingRoles.excl(roles)
+      value.roles.incl(roles)
+    do:
+      var
+        isNew = true
+        res: BeaconNodeServerRef
+      for node in vc.beaconNodes:
+        if node.endpoint == endpoint:
+          res = node
+          isNew = false
+          break
+      if res == nil:
+        res = BeaconNodeServerRef.init(remoteUri, roles, index).valueOr:
+          warn "Unable to initialize remote beacon node",
+                url = $url, error = error
+          nil
+      if res != nil:
+        servers.add(res)
+        missingRoles.excl(roles)
+        pendingConfig[endpoint] = (isNew: isNew, roles: roles, index: index)
+  if len(missingRoles) != 0:
+    if len(servers) == 0:
+      error "Not enough beacon nodes available",
+            nodes_count = len(servers)
+    else:
+      error "Beacon nodes do not cover all required roles",
+            missing_roles = $missingRoles, nodes_count = len(servers)
+    var pending: seq[Future[void]]
+    for node in servers:
+      pendingConfig.withValue(node.endpoint, value):
+        if value.isNew and node.client != nil:
+          pending.add(node.client.closeWait())
+    await noCancel allFutures(pending)
+    return err()
+
+  swap(vc.beaconNodes, servers)
+  for node in vc.beaconNodes:
+    pendingConfig.withValue(node.endpoint, value):
+      if value.isNew and node.status != RestBeaconNodeStatus.Noname:
+        debug "Beacon node was initialized", node = node
+      if value.roles != node.roles:
+        debug "Updating beacon node roles", node = node,
+              new_roles = shortLog(value.roles)
+        node.roles = value.roles
+      if value.index != node.index:
+        debug "Updating beacon node index", node = node,
+              new_index = value.index
+        node.index = value.index
+
+  var pending: seq[Future[void]]
+  for node in servers:
+    if node.endpoint notin pendingConfig:
+      debug "Removing beacon node", node = node
+      node.roles = {BeaconNodeRole.NoTimeCheck}
+      node.index = -1
+      if node.client != nil:
+        pending.add(node.client.closeWait())
+  await noCancel allFutures(pending)
+  ok()
+
+proc new(
     T: type ValidatorClientRef,
     config: ValidatorClientConf,
     rng: ref HmacDrbgContext
 ): ValidatorClientRef =
-  let beaconNodes =
-    block:
-      var servers: seq[BeaconNodeServerRef]
-      for index, url in config.beaconNodes.pairs():
-        let res = BeaconNodeServerRef.init(url, index)
-        if res.isErr():
-          warn "Unable to initialize remote beacon node",
-                url = $url, error = res.error()
-        else:
-          if res.get().status != RestBeaconNodeStatus.Noname:
-            debug "Beacon node was initialized", node = res.get()
-          servers.add(res.get())
-      let missingRoles = getMissingRoles(servers)
-      if len(missingRoles) != 0:
-        if len(servers) == 0:
-          fatal "Not enough beacon nodes available",
-                nodes_count = len(servers)
-          quit 1
-        else:
-          fatal "Beacon nodes do not cover all required roles",
-                missing_roles = $missingRoles, nodes_count = len(servers)
-          quit 1
-      servers
-
   when declared(waitSignal):
     ValidatorClientRef(
       rng: rng,
       config: config,
-      beaconNodes: beaconNodes,
       preGenesisEvent: newAsyncEvent(),
       genesisEvent: newAsyncEvent(),
       nodesAvailable: newAsyncEvent(),
@@ -358,7 +408,6 @@ proc new*(
     ValidatorClientRef(
       rng: rng,
       config: config,
-      beaconNodes: beaconNodes,
       preGenesisEvent: newAsyncEvent(),
       genesisEvent: newAsyncEvent(),
       nodesAvailable: newAsyncEvent(),
@@ -394,6 +443,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
        genesis_root = vc.beaconGenesis.genesis_validators_root
 
   vc.beaconClock = await vc.initClock()
+  vc.nodesAvailable.fire()
 
   vc.metricsServer = (await vc.config.initMetricsServer()).valueOr:
     raise newException(ValidatorClientError,
@@ -645,11 +695,45 @@ template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
     await noCancel allFutures(pending)
     false
 
+proc configReloadTask(
+    vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
+  if vc.config.configFile.isNone:
+    return
+
+  proc didChangeConfig(
+      config: ValidatorClientConf) {.async: (raises: [CancelledError]).} =
+    if config == vc.config:
+      return
+
+    if not(vc.nodesAvailable.isSet()):
+      info "Delaying configuration reload until genesis information available"
+      await vc.nodesAvailable.wait()
+
+    if config.beaconNodes != vc.config.beaconNodes:
+      info "Updating beacon node configuration"
+      (await vc.updateBeaconNodesFromUrls(config.beaconNodes)).isOkOr:
+        warn "Failed to apply new beacon node configuration"
+        return
+      vc.config.beaconNodes = config.beaconNodes
+      if vc.fallbackService != nil:
+        vc.fallbackService.changesEvent.fire()
+
+    if config == vc.config:
+      notice "Configuration reloaded"
+    else:
+      warn "Remaining configuration changes require a restart to take effect"
+
+  await typeof(vc.config).monitorConfigChanges(didChangeConfig)
+
 proc runValidatorClient*(
     config: ValidatorClientConf,
     rng: ref HmacDrbgContext
 ) {.async: (raises: []).} =
   let vc = ValidatorClientRef.new(config, rng)
+  (await vc.updateBeaconNodesFromUrls(vc.config.beaconNodes)).isOkOr:
+    quit 1
+  vc.configReloadFut = vc.configReloadTask()
+  defer: await noCancel vc.configReloadFut.cancelAndWait()
   if not vc.runWithSignals(asyncInit vc):
     return
   if not vc.runWithSignals(asyncRun vc):

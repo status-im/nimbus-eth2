@@ -223,6 +223,7 @@ type
 
   ValidatorClient* = object
     config*: ValidatorClientConf
+    configReloadFut*: Future[void].Raising([CancelledError])
     metricsServer*: Opt[MetricsHttpServerRef]
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
@@ -559,6 +560,9 @@ proc `$`*(bn: BeaconNodeServerRef): string =
     bn.logIdent & "[" & bn.ident.get() & "]"
   else:
     bn.logIdent
+
+func hash*(bn: BeaconNodeServerRef): Hash =
+  hash(bn.endpoint)
 
 proc validatorLog*(key: ValidatorPubKey,
                    index: ValidatorIndex): string =
@@ -899,14 +903,21 @@ proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
                                userAgent = nimbusAgentStr)
   ok(client)
 
-proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
-           index: int): Result[BeaconNodeServerRef, string] =
-  doAssert(index >= 0)
+func beaconNodeUriComponents*(
+    remote: Uri
+): Result[tuple[remoteUri: Uri, roles: set[BeaconNodeRole]], string] =
   let
     remoteUri = normalizeUri(remote).valueOr:
       return err($error)
     roles = parseRoles(remoteUri.anchor).valueOr:
       return err($error)
+  ok((remoteUri: remoteUri, roles: roles))
+
+proc init*(t: typedesc[BeaconNodeServerRef],
+           remoteUri: Uri, roles: set[BeaconNodeRole],
+           index: int): Result[BeaconNodeServerRef, string] =
+  doAssert(index >= 0)
+  let
     server =
       block:
         let res = initClient(remoteUri)
@@ -923,6 +934,11 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
             roles: roles, logIdent: $remoteUri, uri: remoteUri,
             status: RestBeaconNodeStatus.Noname)
   ok(server)
+
+proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
+           index: int): Result[BeaconNodeServerRef, string] =
+  let (remoteUri, roles) = ? beaconNodeUriComponents(remote)
+  BeaconNodeServerRef.init(remoteUri, roles, index)
 
 proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
   var res: set[BeaconNodeRole] = AllBeaconNodeRoles

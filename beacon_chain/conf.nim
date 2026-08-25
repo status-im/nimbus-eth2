@@ -1211,6 +1211,11 @@ type
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
+func `==`*(a, b: InputFile): bool {.borrow.}
+func `==`*(a, b: InputDir): bool {.borrow.}
+func `==`*(a, b: OutFile): bool {.borrow.}
+func `==`*(a, b: OutDir): bool {.borrow.}
+
 proc loadEth2Network*(eth2Network: Option[string]): Eth2NetworkMetadata =
   let metadata =
     if eth2Network.isSome:

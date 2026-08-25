@@ -46,6 +46,13 @@ proc preGenesisNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
   vc.beaconNodes.filterIt(it.status notin {RestBeaconNodeStatus.Synced,
                                            RestBeaconNodeStatus.OptSynced})
 
+proc waitNodeChanges*(
+    vc: ValidatorClientRef) {.async: (raises: [CancelledError], raw: true).} =
+  doAssert(not(isNil(vc.fallbackService)))
+  if vc.fallbackService.changesEvent.isSet():
+    vc.fallbackService.changesEvent.clear()
+  vc.fallbackService.changesEvent.wait()
+
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
                 roles: set[BeaconNodeRole], waitChanges: bool) {.
