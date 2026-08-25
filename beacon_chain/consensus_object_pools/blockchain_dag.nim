@@ -1128,6 +1128,20 @@ proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, bid: BlockId):
     else:
       (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
 
+proc loadExecutionGasLimit*(dag: ChainDAGRef, bid: BlockId): Opt[uint64] =
+  ## The `gas_limit` of the execution payload committed to by the block, i.e.
+  ## the bid's `gas_limit` post-Gloas (the envelope must match the bid).
+  let blockData = dag.getForkedBlock(bid).valueOr:
+    return Opt.none(uint64)
+
+  withBlck(blockData):
+    when consensusFork >= ConsensusFork.Gloas:
+      Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.gas_limit
+    elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+      Opt.some forkyBlck.message.body.execution_payload.gas_limit
+    else:
+      Opt.none(uint64)
+
 proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, blck: BlockRef):
     tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
   if blck.executionBlockHash.isNone() or blck.executionParentHash.isNone():
@@ -1146,6 +1160,26 @@ proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, blck: BlockRef):
         cur = cur.parent
 
   (blck.executionBlockHash, blck.executionParentHash)
+
+proc loadExecutionParent*(dag: ChainDAGRef, blck: BlockRef): Opt[BlockRef] =
+  ## The ancestor whose execution payload `blck` builds on, i.e. the block
+  ## whose payload `block_hash` equals `blck`'s payload `parent_block_hash`.
+  ## Unlike `executionParent`, this loads the hashes of ancestors on demand.
+  let (_, parentHash) = dag.loadExecutionAndParentBlockHash(blck)
+  if parentHash.isNone() or isNil(blck.parent):
+    return Opt.none(BlockRef)
+  if parentHash.get().isZero():
+    return Opt.some(blck.parent)
+
+  var cur = blck.parent
+  for _ in 0 ..< EXECUTION_PARENT_MAX_DEPTH:
+    if isNil(cur):
+      break
+    let (blockHash, _) = dag.loadExecutionAndParentBlockHash(cur)
+    if blockHash.isSome() and blockHash.get() == parentHash.get():
+      return Opt.some(cur)
+    cur = cur.parent
+  Opt.none(BlockRef)
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
