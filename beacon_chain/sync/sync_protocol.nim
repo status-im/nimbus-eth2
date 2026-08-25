@@ -772,10 +772,6 @@ p2pProtocol BeaconSync(version = 1,
 
     let
       wallSlot = peer.networkState.getBeaconTime().slotOrZero(dag.timeParams)
-
-      # `minimum_request_slot = max(
-      #    current_slot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS,
-      #    compute_start_slot_at_epoch(HEZE_FORK_EPOCH))`
       lookbackFloor =
         if wallSlot >= MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS:
           wallSlot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS
