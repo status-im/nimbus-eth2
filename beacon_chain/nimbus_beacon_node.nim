@@ -341,7 +341,7 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
         (proc() = notice "🐅 Blob parameters updated 🐅"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
-  debugGloasComment "don't know vanity mascot yet"
+  debugHezeComment "don't know vanity mascot yet"
   case consensusFork
   of ConsensusFork.Heze:
     "?"
@@ -890,6 +890,7 @@ proc initFullNode(
   node.dag.eaSlot = eaSlot
   node.list = clist
   node.fuluColumnQuarantine = fuluColumnQuarantine
+  node.gloasColumnQuarantine = gloasColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool

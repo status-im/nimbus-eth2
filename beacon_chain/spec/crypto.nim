@@ -409,7 +409,7 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
     err "bls: cannot parse value"
 
 func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
-  equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
+  equalMem(addr a.blob[0], addr b.blob[0], sizeof(a.blob))
 
 func isZero*(x: ValidatorPubKey): bool =
   var tmp {.noinit.}: uint64
@@ -429,7 +429,7 @@ template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
   static: doAssert sizeof(Hash) <= x.blob.len div 2
   # We use rough "middle" of blob for the hash, assuming this is where most of
   # the entropy is found
-  cast[ptr Hash](unsafeAddr x.blob[x.blob.len div 2])[]
+  cast[ptr Hash](addr x.blob[x.blob.len div 2])[]
 
 # Comparison/Sorting
 # ----------------------------------------------------------------------

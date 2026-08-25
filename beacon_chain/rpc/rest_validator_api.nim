@@ -387,6 +387,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                         pubkey: value.toPubKey(),
                         validator_index: validator_index,
                         slot: slot))
+            else:
+              # Don't return inaccurate/misleading empty duties
+              return RestApiResponse.jsonError(Http503, StateNotFoundError)
           res
 
       optimistic = node.getShufflingOptimistic(

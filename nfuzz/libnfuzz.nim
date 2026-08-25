@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 # Required for deserialisation of ValidatorSig in Attestation due to
 # https://github.com/nim-lang/Nim/issues/11225
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   stew/ptrops, chronicles,
@@ -63,7 +63,7 @@ func copyState(state: phase0.BeaconState, xoutput: ptr byte,
   xoutput_size[] = resultState.len.uint
   # TODO: improvement might be to write directly to buffer with xoutputStream
   # and SszWriter (but then need to ensure length doesn't overflow)
-  copyMem(xoutput, unsafeAddr resultState[0], xoutput_size[])
+  copyMem(xoutput, addr resultState[0], xoutput_size[])
   result = true
 
 template decodeAndProcess(typ, process: untyped): bool =
@@ -141,7 +141,7 @@ func nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
   decodeAndProcess(BlockHeaderInput):
     process_block_header(data.state, data.beaconBlock.message, flags, cache).isOk
 
-from ".."/beacon_chain/validator_bucket_sort import sortValidatorBuckets
+from ../beacon_chain/validator_bucket_sort import sortValidatorBuckets
 
 proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError].} =
@@ -185,7 +185,7 @@ func nfuzz_shuffle(input_seed: ptr byte, xoutput: var openArray[uint64]): bool
   for i in 0..<list_size:
     # ValidatorIndex is currently wrongly uint32 so we copy this 1 by 1,
     # assumes passed xoutput is zeroed.
-    copyMem(offset(addr xoutput, i), shuffled_seq[i].unsafeAddr,
+    copyMem(offset(addr xoutput, i), shuffled_seq[i].addr,
       sizeof(ValidatorIndex))
 
   true

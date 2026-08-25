@@ -24,8 +24,6 @@ const
   largeRequestsTimeout = 6.minutes  # Downloading large items such as states.
   smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
 
-from ./spec/datatypes/deneb import asSigVerified, shortLog
-
 type
   TrustedNodeSyncKind* {.pure.} = enum
     TrustedBlockRoot,
