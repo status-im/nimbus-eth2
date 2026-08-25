@@ -215,8 +215,6 @@ type
   PresetIncompatibleError* = object of CatchableError
 
 func gossipClockDisparityDuration*(cfg: RuntimeConfig): Duration {.inline.} =
-  doAssert cfg.MAXIMUM_GOSSIP_CLOCK_DISPARITY <=
-    Duration.high.milliseconds.uint64
   milliseconds(cfg.MAXIMUM_GOSSIP_CLOCK_DISPARITY.int64)
 
 const
@@ -1292,9 +1290,6 @@ proc readRuntimeConfig*(
     CONFIRMATION_BYZANTINE_THRESHOLD_RANGE, `in`)
 
   # Networking
-  checkParsedValue(
-    "MAX_REQUEST_BLOCKS", cfg.MAX_REQUEST_BLOCKS,
-    1'u64 .. MAX_REQUEST_BLOCKS, `in`)
   checkParsedValue(
     "EPOCHS_PER_SUBNET_SUBSCRIPTION",
     cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION,

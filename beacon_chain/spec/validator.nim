@@ -776,8 +776,6 @@ func compute_subscribed_subnet(
     doAssert sizeof(UInt256) * 8 == NODE_ID_BITS
     doAssert ATTESTATION_SUBNET_PREFIX_BITS < sizeof(SubnetId) * 8
 
-  doAssert epochsPerSubnetSubscription > 0
-
   let
     node_id_prefix = truncate(
       node_id shr (
@@ -798,10 +796,6 @@ iterator compute_subscribed_subnets*(
     node_id: UInt256, epoch: Epoch,
     epochsPerSubnetSubscription: uint64 = EPOCHS_PER_SUBNET_SUBSCRIPTION,
     subnetsPerNode: uint64 = SUBNETS_PER_NODE): SubnetId =
-  doAssert epochsPerSubnetSubscription > 0
-  doAssert subnetsPerNode > 0
-  doAssert subnetsPerNode <= ATTESTATION_SUBNET_COUNT
-
   for index in 0'u64 ..< subnetsPerNode:
     yield compute_subscribed_subnet(
       node_id, epoch, index, epochsPerSubnetSubscription)

@@ -135,16 +135,20 @@ suite "Runtime network configuration":
   test "networking guardrails reject invalid values":
     let base = "PRESET_BASE: " & const_preset & "\n"
 
-    expect PresetFileError:
-      discard readRuntimeConfig(
+    let
+      (zeroRequestCfg, zeroRequestUnknowns) = readRuntimeConfig(
         base & "MAX_REQUEST_BLOCKS: 0\n",
         "runtime-config-max-request-zero")
-
-    expect PresetFileError:
-      discard readRuntimeConfig(
+      (maxRequestCfg, maxRequestUnknowns) = readRuntimeConfig(
         base &
-        "MAX_REQUEST_BLOCKS: " & $(MAX_REQUEST_BLOCKS + 1) & "\n",
-        "runtime-config-max-request-too-large")
+        "MAX_REQUEST_BLOCKS: " & $(high(uint64)) & "\n",
+        "runtime-config-max-request-max")
+
+    check:
+      zeroRequestUnknowns.len == 0
+      zeroRequestCfg.MAX_REQUEST_BLOCKS == 0
+      maxRequestUnknowns.len == 0
+      maxRequestCfg.MAX_REQUEST_BLOCKS == high(uint64)
 
     expect PresetFileError:
       discard readRuntimeConfig(
