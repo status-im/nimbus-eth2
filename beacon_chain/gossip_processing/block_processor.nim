@@ -14,7 +14,7 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt, filterIt, mapIt
+from std/sequtils import anyIt, filterIt
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
@@ -152,7 +152,7 @@ proc popSidecarsForImport*(
     if sidecar[].index in unverified:
       res.untrusted.add(sidecar)
     else:
-      res.trusted.add(asTrusted(sidecar))
+      res.trusted.add(sidecar)
   Opt.some(res)
 
 proc popSidecarsForImport*(
@@ -971,7 +971,7 @@ proc addBlock*(
           self.fuluColumnQuarantine[].put(
             blockRoot, sidecars.untrusted, verified = false)
           self.fuluColumnQuarantine[].put(
-            blockRoot, sidecars.trusted.mapIt(asSigned(it)), verified = true)
+            blockRoot, sidecars.trusted.asSeq, verified = true)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
         # In Gloas, block is enqueued with NoSidecar so we need not to care
         # about quarantine.
