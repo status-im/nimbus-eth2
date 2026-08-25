@@ -123,16 +123,16 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    timeParams: TimeParams,
+    cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let futureSlot =
-    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Attestation slot in the future")
 
   let pastSlot =
-    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime - cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if not pastSlot.afterGenesis:
     return ok()
 
@@ -153,16 +153,16 @@ func check_propagation_slot_range(
   ok()
 
 func check_slot_exact(
-    timeParams: TimeParams,
+    cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[Slot, ValidationError] =
   let futureSlot =
-    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Sync committee slot in the future")
 
   let pastSlot =
-    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime - cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if pastSlot.afterGenesis and msgSlot < pastSlot.slot:
     return errIgnore("Sync committee slot in the past")
 
@@ -526,7 +526,7 @@ proc validateDataColumnSidecar*(
   # `block_header.slot <= current_slot`(a client MAY queue future sidecars for
   # processing at the appropriate slot).
   if not (block_header.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("DataColumnSidecar: slot too high")
 
   # [IGNORE] The sidecar is from a slot greater than the latest
@@ -761,7 +761,7 @@ proc validateBeaconBlock*(
   # signed_beacon_block.message.slot <= current_slot (a client MAY queue future
   # blocks for processing at the appropriate slot).
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("BeaconBlock: slot too high")
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
@@ -938,7 +938,7 @@ proc validateExecutionPayload*(
 
   # No matching block can exist: blocks [IGNORE] future slots.
   if not (envelope.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("ExecutionPayload: slot too high")
 
   # [IGNORE] The envelope's block root `envelope.beacon_block_root` has been
@@ -1100,7 +1100,7 @@ proc validateAttestation*(
   # [IGNORE]
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
   # modifies this for Deneb and newer forks.
-  ?pool.dag.timeParams.check_propagation_slot_range(slot, wallTime)
+  ?pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue attestations
@@ -1289,7 +1289,7 @@ proc validateAggregate*(
   #
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
   # modifies this for Deneb and newer forks.
-  ?pool.dag.timeParams.check_propagation_slot_range(slot, wallTime)
+  ?pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
 
   let aggregator_index = ValidatorIndex.init(aggregate_and_proof.aggregator_index).valueOr:
     return pool.checkedReject("Aggregate: invalid aggregator index")
@@ -1635,7 +1635,7 @@ proc validateSyncCommitteeMessage*(
     # [IGNORE] The message's slot is for the current slot (with a
     # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
     # `sync_committee_message.slot == current_slot`.
-    let v = dag.timeParams.check_slot_exact(msg.slot, wallTime)
+    let v = dag.cfg.check_slot_exact(msg.slot, wallTime)
     if v.isErr():
       return err(v.error())
 
@@ -1724,7 +1724,7 @@ proc validateContribution*(
     # [IGNORE] The contribution's slot is for the current slot
     # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
     # i.e. contribution.slot == current_slot.
-    let v = dag.timeParams.check_slot_exact(
+    let v = dag.cfg.check_slot_exact(
       msg.message.contribution.slot, wallTime)
     if v.isErr():  # [IGNORE]
       return err(v.error())
@@ -1886,7 +1886,7 @@ proc validateLightClientFinalityUpdate*(
         forkyFinalityUpdate.signature_slot
       else:
         GENESIS_SLOT
-    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    currentTime = wallTime + dag.cfg.gossipClockDisparityDuration
     forwardTime = signature_slot
       .light_client_finality_update_time(dag.timeParams)
   if currentTime < forwardTime:
@@ -1924,7 +1924,7 @@ proc validateLightClientOptimisticUpdate*(
         forkyOptimisticUpdate.signature_slot
       else:
         GENESIS_SLOT
-    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    currentTime = wallTime + dag.cfg.gossipClockDisparityDuration
     forwardTime = signature_slot
       .light_client_optimistic_update_time(dag.timeParams)
   if currentTime < forwardTime:
@@ -2109,7 +2109,7 @@ proc validatePayloadAttestationMessage*(
   # [IGNORE] The message's slot is for the current slot (with a
   # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e `data.slot == current_slot`.
   block:
-    let v = dag.timeParams.check_slot_exact(data.slot, wallTime)
+    let v = dag.cfg.check_slot_exact(data.slot, wallTime)
     if v.isErr():
       return err(v.error())
 
@@ -2291,7 +2291,7 @@ proc validateInclusionList*(
   # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
   # `message.slot == current_slot`.
   block:
-    let v = dag.timeParams.check_slot_exact(message.slot, wallTime)
+    let v = dag.cfg.check_slot_exact(message.slot, wallTime)
     if v.isErr():
       return err(v.error())
 

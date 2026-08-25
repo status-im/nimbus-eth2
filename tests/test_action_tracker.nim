@@ -59,6 +59,30 @@ suite "subnet tracker":
       tracker.stabilitySubnets(Slot(0)).countOnes() == 2
       tracker.aggregateSubnets(Slot(0)).countOnes() == 0
 
+  test "should use runtime stability subnet parameters":
+    let
+      tracker64 = ActionTracker.init(
+        default(UInt256), false,
+        epochsPerSubnetSubscription = 64,
+        subnetsPerNode = 1)
+      tracker256 = ActionTracker.init(
+        default(UInt256), false,
+        epochsPerSubnetSubscription = 256,
+        subnetsPerNode = 1)
+
+    check:
+      tracker64.stabilitySubnets(Slot(0)).countOnes() == 1
+      tracker256.stabilitySubnets(Slot(0)).countOnes() == 1
+
+    var selectionDiffers = false
+    for e in 0'u64 .. 512'u64:
+      if tracker64.stabilitySubnets(Epoch(e).start_slot()) !=
+          tracker256.stabilitySubnets(Epoch(e).start_slot()):
+        selectionDiffers = true
+        break
+
+    check selectionDiffers
+
   test "should register sync committee duties":
     var tracker = ActionTracker.init(default(UInt256), false)
     let

@@ -32,6 +32,7 @@ type
 
   LightBlockProcessor* = ref object
     timeParams: TimeParams
+    gossipClockDisparity: Duration
     getBeaconTime: GetBeaconTimeFn
     lightBlockVerifier: LightBlockVerifier
     lightEnvelopeVerifier: LightEnvelopeVerifier
@@ -39,11 +40,13 @@ type
 
 proc initLightBlockProcessor*(
     timeParams: TimeParams,
+    gossipClockDisparity: Duration,
     getBeaconTime: GetBeaconTimeFn,
     lightBlockVerifier: LightBlockVerifier,
     lightEnvelopeVerifier: LightEnvelopeVerifier): LightBlockProcessor =
   LightBlockProcessor(
     timeParams: timeParams,
+    gossipClockDisparity: gossipClockDisparity,
     getBeaconTime: getBeaconTime,
     lightBlockVerifier: lightBlockVerifier,
     lightEnvelopeVerifier: lightEnvelopeVerifier)
@@ -54,7 +57,7 @@ proc validateBeaconBlock(
     wallTime: BeaconTime): Result[void, ValidationError] =
   ## Minimally validate a block for potential relevance.
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeParams)):
+      (wallTime + self.gossipClockDisparity).slotOrZero(self.timeParams)):
     return errIgnore("BeaconBlock: slot too high")
 
   if not signed_beacon_block.message.is_execution_block():
@@ -137,7 +140,7 @@ proc validateExecutionPayload(
   ## Minimally validate an envelope for potential relevance.
   template envelope: untyped = signed_execution_payload_envelope.message
   if not (envelope.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(self.timeParams)):
+      (wallTime + self.gossipClockDisparity).slotOrZero(self.timeParams)):
     return errIgnore("ExecutionPayload: slot too high")
 
   if envelope.payload.block_hash.isZero:
