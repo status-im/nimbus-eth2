@@ -738,7 +738,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
   # The request MUST be encoded as an SSZ-container - the DSL encodes the three
   # request fields as exactly that.
   proc inclusionListsByIndices(

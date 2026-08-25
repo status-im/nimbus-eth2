@@ -175,7 +175,7 @@ suite "Inclusion list pool" & preset():
       not pool[].addInclusionList(il, is_timely = true, wallTime)
       pool[].numSeen(slot + 1, committee[0]) == 0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
   test "Serves stored lists, signature included" & preset():
     var signature: ValidatorSig
     signature.blob[0] = 0xAB

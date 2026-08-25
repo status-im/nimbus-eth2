@@ -141,7 +141,7 @@ func getInclusionListTransactions*(
   pool.buckets[idx].store.get_inclusion_list_transactions(
     committee, only_timely)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
 func getInclusionLists*(
     pool: InclusionListPool, slot: Slot,
     inclusion_list_committee_root: Eth2Digest,

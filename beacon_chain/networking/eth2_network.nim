@@ -890,7 +890,7 @@ func chunkMaxSize[T](): uint32 =
   elif T is gloas.DataColumnSidecar:
     MAX_DATA_COLUMN_SIDECAR_SIZE.uint32
   elif T is heze.SignedInclusionList:
-    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#type-specific-ssz-bounds
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#type-specific-ssz-bounds
     MAX_SIGNED_INCLUSION_LIST_SIZE.uint32
   else:
     static: doAssert MAX_PAYLOAD_SIZE < high(uint32).uint64
