@@ -296,7 +296,7 @@ suite "EIP-7594 Unit Tests":
       doAssert (waitFor tp.recover_cells_and_proofs_parallel(tooFew)).isErr
     testRecoverParallelInvalid()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md
 proc buildCommitmentsAndCellProofs(blobs: seq[KzgBlob]):
     tuple[commitments: gloas.KzgCommitments, cell_proofs: seq[Opt[KzgProof]]] =
   ## Cell proofs are laid out row-major, as the assembly helpers expect.

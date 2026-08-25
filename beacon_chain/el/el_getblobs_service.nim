@@ -28,7 +28,7 @@ import
   ./el_manager
 
 from std/enumerate import enumerate
-from std/sequtils import anyIt, countIt, filterIt
+from std/sequtils import filterIt
 from stew/assign2 import assign
 
 declareCounter beacon_engine_getblobs_requests_total,
@@ -180,7 +180,6 @@ proc attemptGetBlobs*(
           if inFlight != nil:
             # Waiting on that fetch is what kept us from issuing our own.
             beacon_engine_getblobs_skipped_total.inc()
-          self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
           return
@@ -196,88 +195,24 @@ proc attemptGetBlobs*(
       let fetchMarker = self.markFetchInFlight(forkyBlck.root)
       defer: self.clearFetchInFlight(forkyBlck.root, fetchMarker)
 
-      if self.partialColumns:
-        # Fulu partial-columns mode: prefer engine_getBlobsV3 so the EL can
-        # serve a per-blob optional response. A complete response flows into
-        # the existing full-assembly path below; a partial response is
-        # converted to PartialDataColumnSidecars, stowed in the partial
-        # column quarantine, and the block is left in sidecarless to await
-        # partial-column gossip — full column sidecars cannot yet be
-        # constructed, so enqueue must wait.
-        let blobsV3 = (await elManager.getBlobsV3(forkyBlck)).valueOr:
-          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-          return
-        if blobsV3.len != kzg_commitments_count():
-          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-          return
+      let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
+        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+        return
+      # check lengths of blobs with KZG commitments of the signed block
+      if blobsEl.len != kzg_commitments_count():
+        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
+        return
+      self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
 
-        if blobsV3.anyIt(it.isNone):
-          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-
-          let numBlobs = kzg_commitments_count()
-          var
-            blobsOpt = newSeq[Opt[kzg.KzgBlob]](numBlobs)
-            cellProofsOpt = newSeq[Opt[kzg.KzgProof]](
-              numBlobs * fulu_preset.CELLS_PER_EXT_BLOB)
-          for i in 0 ..< numBlobs:
-            blobsV3[i].isErrOr:
-              blobsOpt[i] = Opt.some(kzg.KzgBlob(bytes: value.blob.data))
-              for j in 0 ..< fulu_preset.CELLS_PER_EXT_BLOB:
-                cellProofsOpt[
-                    i * fulu_preset.CELLS_PER_EXT_BLOB + j] =
-                  Opt.some(kzg.KzgProof(bytes: value.proofs[j].data))
-
-          let (header, partialSidecars) =
-            assemble_partial_data_column_sidecars(
-              forkyBlck, blobsOpt, cellProofsOpt)
-          if partialSidecars.len == 0:
-            return
-
-          self.partialColumnQuarantine[].putPartialHeader(
-            forkyBlck.root, newClone(header))
-          for columnIndex in 0 ..< partialSidecars.len:
-            discard self.partialColumnQuarantine[].getOrCreateEntry(
-              forkyBlck.root, ColumnIndex(columnIndex), numBlobs)
-            self.partialColumnQuarantine[].addCells(
-              forkyBlck.root, ColumnIndex(columnIndex),
-              newClone(partialSidecars[columnIndex]))
-
-          debug "Added partial data columns from EL blobpool to quarantine",
-            root = forkyBlck.root,
-            slot = forkyBlck.message.slot,
-            present = blobsV3.countIt(it.isSome),
-            total = blobsV3.len
-          return
-
-        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
-        blobs.setLen(blobsV3.len)
-        flat_proof = newSeqOfCap[kzg.KzgProof](
-          blobsV3.len * fulu_preset.CELLS_PER_EXT_BLOB)
-        # TODO https://github.com/nim-lang/Nim/issues/25848 means that
-        # enumerate(...) is required for lent to trigger
-        for i, item in enumerate(blobsV3):
-          assign(blobs[i].bytes, item.value.blob.data)
-          for proof in item.value.proofs:
-            flat_proof.add kzg.KzgProof(bytes: proof.data)
-      else:
-        let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
-          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-          return
-        # check lengths of blobs with KZG commitments of the signed block
-        if blobsEl.len != kzg_commitments_count():
-          self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
-          return
-        self.recordEngineGetBlobs(forkyBlck.message.slot, hit = true)
-
-        blobs.setLen(blobsEl.len)
-        flat_proof = newSeqOfCap[kzg.KzgProof](
-          blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
-        # TODO https://github.com/nim-lang/Nim/issues/25848 means that
-        # enumerate(...) is required for lent to trigger
-        for i, item in enumerate(blobsEl):
-          assign(blobs[i].bytes, item.blob.data)
-          for proof in item.proofs:
-            flat_proof.add kzg.KzgProof(bytes: proof.data)
+      blobs.setLen(blobsEl.len)
+      flat_proof = newSeqOfCap[kzg.KzgProof](
+        blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
+      # TODO https://github.com/nim-lang/Nim/issues/25848 means that
+      # enumerate(...) is required for lent to trigger
+      for i, item in enumerate(blobsEl):
+        assign(blobs[i].bytes, item.blob.data)
+        for proof in item.proofs:
+          flat_proof.add kzg.KzgProof(bytes: proof.data)
 
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still

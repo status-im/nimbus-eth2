@@ -14,7 +14,7 @@ import
   ssz_serialization/bitseqs,
   ../spec/[datatypes/base, digest, presets]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md
 
 from ../spec/datatypes/deneb import KzgProofs
 from ../spec/datatypes/fulu import ColumnIndex
@@ -246,7 +246,7 @@ func isComplete*(
       return false
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
 func assembleDataColumnSidecar*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
