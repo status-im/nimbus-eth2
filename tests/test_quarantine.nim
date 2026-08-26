@@ -20,13 +20,13 @@ from std/sequtils import mapIt, toSeq
 func genBlockRoot(index: int): Eth2Digest =
   var res: Eth2Digest
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr res.data[0], unsafeAddr tmp[0], sizeof(uint64))
+  copyMem(addr res.data[0], addr tmp[0], sizeof(uint64))
   res
 
 func genKzgCommitment(index: int): KzgCommitment =
   var res: KzgCommitment
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr res.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
+  copyMem(addr res.bytes[0], addr tmp[0], sizeof(uint64))
   res
 
 func genFuluDataColumnSidecar(
@@ -1942,6 +1942,67 @@ suite "ColumnQuarantine data structure test suite " & preset():
       bq.put(
         genBlockRoot(int.high), sidecars.mapIt(it.sidecar), verified = false)
 
+  test "ColumnQuarantine: update() database reload test [node]":
+    let
+      droppedColumns = (1 .. 8).mapIt(ColumnIndex(it))
+      limitedColumns = [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+      fullColumns = droppedColumns & limitedColumns
+
+    var bq = FuluColumnQuarantine.init(cfg, fullColumns, quarantine, 2, nil)
+
+    # Older half of the records gets offloaded to disk.
+    for i in 0 ..< bq.sizeMemory() * 2:
+      let
+        index = i mod len(bq.custodyColumns)
+        slot = i div len(bq.custodyColumns) + 100
+      bq.put(genBlockRoot(slot), newClone(genFuluDataColumnSidecar(
+        int(bq.custodyColumns[index]), slot, proposer_index = i)),
+        verified = false)
+
+    check:
+      lenDisk(bq) == bq.sizeMemory()
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
+        bq.sizeMemory()
+
+    # Non-custodied columns remain in database.
+    bq.update(cfg, limitedColumns)
+
+    check:
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
+        bq.sizeMemory()
+
+    let
+      diskCount1 = lenDisk(bq)
+      databaseCount1 =
+        quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar])
+      # Reloads from database, ignoring non-custodied columns.
+      res1 = bq.popSidecars(genBlockRoot(100))
+
+    check:
+      res1.get().mapIt(it[].index) == limitedColumns
+      lenDisk(bq) == diskCount1 - len(limitedColumns)
+      # Non-custodied columns should also be removed.
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
+        databaseCount1 - len(fullColumns)
+
+    bq.update(cfg, fullColumns)
+
+    let blockRoot = genBlockRoot(101)
+    for i, column in droppedColumns.pairs():
+      bq.put(blockRoot, newClone(genFuluDataColumnSidecar(
+        int(column), slot = 101, proposer_index = i)), verified = false)
+
+    let
+      databaseCount2 =
+        quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar])
+      # Columns in memory again, so popping ignores stale database copies.
+      res2 = bq.popSidecars(genBlockRoot(101))
+
+    check:
+      res2.get().mapIt(it[].index) == fullColumns
+      quarantine.sidecarsCount(typedesc[fulu.DataColumnSidecar]) ==
+        databaseCount2 - len(fullColumns)
+
 suite "GloasColumnQuarantine data structure test suite " & preset():
   setup:
     let
@@ -3641,3 +3702,63 @@ suite "GloasColumnQuarantine data structure test suite " & preset():
               item.blockRoot,
               item.sidecar[].slot,
               item.sidecar[].index) == false
+
+  test "GloasColumnQuarantine: update() database reload test [node]":
+    let
+      droppedColumns = (1 .. 8).mapIt(ColumnIndex(it))
+      limitedColumns = [63, 64, 65, 66, 95, 96, 97, 98].mapIt(ColumnIndex(it))
+      fullColumns = droppedColumns & limitedColumns
+
+    var bq = GloasColumnQuarantine.init(cfg, fullColumns, quarantine, 2, nil)
+
+    # Older half of the records gets offloaded to disk.
+    for i in 0 ..< bq.sizeMemory() * 2:
+      let
+        index = i mod len(bq.custodyColumns)
+        slot = i div len(bq.custodyColumns) + 100
+      bq.put(genBlockRoot(slot), newClone(genGloasDataColumnSidecar(
+        int(bq.custodyColumns[index]), slot)), verified = false)
+
+    check:
+      lenDisk(bq) == bq.sizeMemory()
+      quarantine.sidecarsCount(typedesc[gloas.DataColumnSidecar]) ==
+        bq.sizeMemory()
+
+    # Non-custodied columns remain in database.
+    bq.update(cfg, limitedColumns)
+
+    check:
+      quarantine.sidecarsCount(typedesc[gloas.DataColumnSidecar]) ==
+        bq.sizeMemory()
+
+    let
+      diskCount1 = lenDisk(bq)
+      databaseCount1 =
+        quarantine.sidecarsCount(typedesc[gloas.DataColumnSidecar])
+      # Reloads from database, ignoring non-custodied columns.
+      res1 = bq.popSidecars(genBlockRoot(100))
+
+    check:
+      res1.get().mapIt(it[].index) == limitedColumns
+      lenDisk(bq) == diskCount1 - len(limitedColumns)
+      # Non-custodied columns should also be removed.
+      quarantine.sidecarsCount(typedesc[gloas.DataColumnSidecar]) ==
+        databaseCount1 - len(fullColumns)
+
+    bq.update(cfg, fullColumns)
+
+    let blockRoot = genBlockRoot(101)
+    for column in droppedColumns:
+      bq.put(blockRoot, newClone(genGloasDataColumnSidecar(int(column), 101)),
+             verified = false)
+
+    let
+      databaseCount2 =
+        quarantine.sidecarsCount(typedesc[gloas.DataColumnSidecar])
+      # Columns in memory again, so popping ignores stale database copies.
+      res2 = bq.popSidecars(genBlockRoot(101))
+
+    check:
+      res2.get().mapIt(it[].index) == fullColumns
+      quarantine.sidecarsCount(typedesc[gloas.DataColumnSidecar]) ==
+        databaseCount2 - len(fullColumns)

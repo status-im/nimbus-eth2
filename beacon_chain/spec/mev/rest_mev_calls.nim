@@ -51,7 +51,8 @@ proc getExecutionPayloadBidPlain*(
     slot: Slot,
     parent_hash: Eth2Digest,
     parent_root: Eth2Digest,
-    proposer_pubkey: ValidatorPubKey
+    proposer_pubkey: ValidatorPubKey,
+    body: SignedBuilderRequestAuth
 ): RestPlainResponse {.
   rest, endpoint:
     "/eth/v1/builder/execution_payload_bid/{slot}/{parent_hash}/{parent_root}/{proposer_pubkey}",
@@ -63,16 +64,16 @@ proc getExecutionPayloadBid*(
     slot: Slot,
     parent_hash: Eth2Digest,
     parent_root: Eth2Digest,
-    proposer_pubkey: ValidatorPubKey
+    proposer_pubkey: ValidatorPubKey,
+    consensus_version: ConsensusFork,
+    body: SignedBuilderRequestAuth
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                    RestCommunicationError], raw: true).} =
-  debugGloasComment""
-  # The `SignedRequestAuthV1` request body is optional to send; a builder MAY
-  # still refuse unauthenticated requests (401). None sent for now.
   client.getExecutionPayloadBidPlain(
-    slot, parent_hash, parent_root, proposer_pubkey,
+    slot, parent_hash, parent_root, proposer_pubkey, body,
     restAcceptType = "application/octet-stream",
+    extraHeaders = @[("eth-consensus-version", toString(consensus_version))]
   )
 
 proc submitBlindedBlockV2Plain*(
@@ -93,4 +94,44 @@ proc submitBlindedBlock*(
     body,
     restAcceptType = "application/octet-stream,application/json;q=0.5",
     extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
+  )
+
+proc submitSignedBeaconBlockPlain*(
+    body: gloas.SignedBeaconBlock,
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v1/builder/beacon_blocks",
+  meth: MethodPost, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/beacon_blocks.yaml
+
+proc submitSignedBeaconBlock*(
+    client: RestClientRef,
+    body: gloas.SignedBeaconBlock,
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  client.submitSignedBeaconBlockPlain(
+    body,
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
+    extraHeaders = @[("eth-consensus-version", toString(typeof(body).kind))]
+  )
+
+proc submitBuilderPreferencesPlain*(
+    proposer_pubkey: ValidatorPubKey,
+    body: BuilderPreferencesRequest
+): RestPlainResponse {.
+  rest, endpoint: "/eth/v1/builder/builder_preferences/{proposer_pubkey}",
+  meth: MethodPost, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/apis/builder/builder_preferences.yaml
+
+proc submitBuilderPreferences*(
+    client: RestClientRef,
+    consensus_version: ConsensusFork,
+    proposer_pubkey: ValidatorPubKey,
+    body: BuilderPreferencesRequest
+): Future[RestPlainResponse] {.
+  async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                   RestCommunicationError], raw: true).} =
+  client.submitBuilderPreferencesPlain(
+    proposer_pubkey, body,
+    extraHeaders = @[("eth-consensus-version", toString(consensus_version))]
   )

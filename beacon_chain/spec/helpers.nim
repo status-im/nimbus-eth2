@@ -31,6 +31,11 @@ const
   ETH_TO_GWEI = 1_000_000_000.Gwei
   GWEI_TO_WEI* = 1_000_000_000'u64 # 1 Gwei = 10^9 Wei
 
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_builder_withdrawal_credential
+func is_builder_withdrawal_credential*(
+    withdrawal_credentials: Eth2Digest): bool =
+  withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
+
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
 
@@ -208,19 +213,6 @@ func add_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): Participation
 func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   (flags and flag) == flag
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#verify_blob_sidecar_inclusion_proof
-func verify_blob_sidecar_inclusion_proof*(
-    blob_sidecar: BlobSidecar): Result[void, string] =
-  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
-  if not is_valid_merkle_branch(
-      hash_tree_root(blob_sidecar.kzg_commitment),
-      blob_sidecar.kzg_commitment_inclusion_proof,
-      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
-      get_subtree_index(gindex),
-      blob_sidecar.signed_block_header.message.body_root):
-    return err("BlobSidecar: inclusion proof not valid")
-  ok()
 
 func create_blob_sidecars*(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,

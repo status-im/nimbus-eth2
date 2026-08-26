@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2023-2024 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -43,6 +43,14 @@ eth2_sepolia_genesis_end:
 cdecl(eth2_sepolia_genesis_size):
     .quad    eth2_sepolia_genesis_end - eth2_sepolia_genesis_data
 
+eth2_plataberget_genesis_data:
+    .incbin "glamsterdam-devnets/network-configs/devnet-8/metadata/genesis.ssz"
+eth2_plataberget_genesis_end:
+    .global cdecl(eth2_plataberget_genesis_size)
+    .p2align 3
+cdecl(eth2_plataberget_genesis_size):
+    .quad    eth2_plataberget_genesis_end - eth2_plataberget_genesis_data
+
 #if defined(__linux__) && (defined(__pie__) || defined(__pic__))
     .section	.data.rel.ro,"aw",@progbits
 #elif defined(__APPLE__)
@@ -58,3 +66,8 @@ cdecl(eth2_mainnet_genesis):
     .p2align 3
 cdecl(eth2_sepolia_genesis):
     .quad eth2_sepolia_genesis_data
+
+    .global cdecl(eth2_plataberget_genesis)
+    .p2align 3
+cdecl(eth2_plataberget_genesis):
+    .quad eth2_plataberget_genesis_data

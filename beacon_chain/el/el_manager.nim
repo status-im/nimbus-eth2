@@ -20,7 +20,7 @@ import
   # Local modules:
   ../spec/[engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
-  "."/[el_conf, engine_api_conversions]
+  ./[el_conf, engine_api_conversions]
 
 from std/sequtils import anyIt, filterIt, mapIt
 from std/times import getTime, toUnix
@@ -1092,6 +1092,7 @@ proc checkChainId(
           of mainnet: 1.u256
           of sepolia: 11155111.u256
           of hoodi: 560048.u256
+          of plataberget: 7091047534.u256
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
               url = connection.engineUrl,

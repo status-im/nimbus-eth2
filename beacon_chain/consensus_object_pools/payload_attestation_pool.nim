@@ -13,7 +13,7 @@ import
   chronicles,
   # Internal
   ../spec/[eth2_merkleization, forks, validator],
-  "."/[spec_cache, blockchain_dag],
+  ./[spec_cache, blockchain_dag],
   ../beacon_clock
 
 from ../spec/beaconstate import get_ptc
@@ -186,3 +186,15 @@ proc getPayloadAttestationsForBlock*(
   payload_attestation_pool_block_packing_secs.inc(packingDur.toFloatSeconds())
 
   payload_attestations
+
+iterator getPayloadAttestations*(
+    pool: var PayloadAttestationPool, slot: Opt[Slot]
+): PayloadAttestation =
+  for poolSlot, slotEntries in pool.attestations.mpairs:
+    if slot.isSome() and poolSlot != slot.get():
+      continue
+    for key, entry in slotEntries.mpairs:
+      if entry.aggregated.isNone():
+        entry.aggregated = pool.aggregateMessages(poolSlot, entry)
+      if entry.aggregated.isSome():
+        yield entry.aggregated.get()

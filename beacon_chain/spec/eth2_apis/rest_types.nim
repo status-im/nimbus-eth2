@@ -57,13 +57,12 @@ type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
     Head, HeadV2, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar,
-    SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
+    ProposerSlashing, AttesterSlashing, DataColumnSidecar, SingleAttestation,
+    FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate,
     ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
     ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage,
     FastConfirmation, PayloadAttributes, ProposerPreferences
-
 
   EventTopics* = set[EventTopic]
 
@@ -144,6 +143,12 @@ type
     slot*: Slot
 
   RestProposerDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    slot*: Slot
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/types/duty.yaml#L56
+  RestPtcDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
     slot*: Slot
@@ -564,7 +569,7 @@ type
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
-  GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
+  GetPtcDutiesResponse* = DataRootEnclosedObject[seq[RestPtcDuty]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
@@ -596,6 +601,7 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
+  ProducePayloadAttestationDataResponse* = DataVersionEnclosedObject[PayloadAttestationData]
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]

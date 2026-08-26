@@ -12,7 +12,7 @@ import
   ../beacon_chain/spec/[forks, presets, signatures, state_transition],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, validator_change_pool],
-  "."/[testutil, testblockutil, testdbutil]
+  ./[testutil, testblockutil, testdbutil]
 
 func makeSignedBeaconBlockHeader(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,

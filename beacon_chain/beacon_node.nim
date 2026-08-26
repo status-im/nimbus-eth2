@@ -58,13 +58,13 @@ type
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
     attSlashQueue*: AsyncEventQueue[gloas.AttesterSlashing]
-    blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
     fastConfirmationQueue*: AsyncEventQueue[FastConfirmationInfoObject]
     payloadAttributesQueue*: AsyncEventQueue[EventPayloadAttributesObject]
-    proposerPreferencesQueue*: AsyncEventQueue[EventProposerPreferencesObject]
+    proposerPreferencesQueue*: AsyncEventQueue[
+      RestVersioned[SignedProposerPreferences]]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
@@ -75,8 +75,10 @@ type
     execPayloadAddedQueue*: AsyncEventQueue[EventExecutionPayloadObject]
     execPayloadGossipAddedQueue*: AsyncEventQueue[EventExecutionPayloadGossipObject]
     execPayloadAvlQueue*: AsyncEventQueue[EventExecutionPayloadAvailableObject]
-    execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
-    payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
+    execPayloadBidQueue*: AsyncEventQueue[
+      RestVersioned[gloas.SignedExecutionPayloadBid]]
+    payloadAttMsgQueue*: AsyncEventQueue[
+      RestVersioned[PayloadAttestationMessage]]
 
   BeaconNode* = ref object
     nickname*: string
@@ -92,6 +94,7 @@ type
     list*: ChainListRef
     quarantine*: ref Quarantine
     fuluColumnQuarantine*: ref FuluColumnQuarantine
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
     columnReconstructionBackfiller*: ColumnReconstructionBackfillerRef
     attestationPool*: ref AttestationPool
@@ -204,8 +207,6 @@ func init*(T: type EventBus): T =
       newAsyncEventQueue[ProposerSlashing](),
     attSlashQueue:
       newAsyncEventQueue[gloas.AttesterSlashing](),
-    blobSidecarQueue:
-      newAsyncEventQueue[BlobSidecarInfoObject](),
     columnSidecarQueue:
       newAsyncEventQueue[DataColumnSidecarInfoObject](),
     columnSidecarFullQueue:
@@ -217,7 +218,7 @@ func init*(T: type EventBus): T =
     payloadAttributesQueue:
       newAsyncEventQueue[EventPayloadAttributesObject](),
     proposerPreferencesQueue:
-      newAsyncEventQueue[EventProposerPreferencesObject](),
+      newAsyncEventQueue[RestVersioned[SignedProposerPreferences]](),
     reorgQueue:
       newAsyncEventQueue[ReorgInfoObject](),
     contribQueue:
@@ -235,7 +236,7 @@ func init*(T: type EventBus): T =
     execPayloadAvlQueue:
       newAsyncEventQueue[EventExecutionPayloadAvailableObject](),
     execPayloadBidQueue:
-      newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
+      newAsyncEventQueue[RestVersioned[gloas.SignedExecutionPayloadBid]](),
     payloadAttMsgQueue:
-      newAsyncEventQueue[PayloadAttestationMessage](),
+      newAsyncEventQueue[RestVersioned[PayloadAttestationMessage]](),
   )

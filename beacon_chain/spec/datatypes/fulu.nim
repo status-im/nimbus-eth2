@@ -104,7 +104,7 @@ type
     block_root*: Eth2Digest
     indices*: DataColumnIndices
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumnpartsmetadata
   PartialDataColumnPartsMetadata* = object
     available*: BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     requests*: BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]

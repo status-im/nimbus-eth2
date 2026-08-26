@@ -10,7 +10,7 @@
 
 import
   std/algorithm,
-  "."/[crypto, helpers]
+  ./[crypto, helpers]
 from std/sequtils import mapIt
 from std/math import `^`
 export helpers

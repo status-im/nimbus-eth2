@@ -5,14 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
-import std/sequtils
 import chronicles, metrics
-import ".."/beacon_node,
-       ".."/spec/forks,
-       "."/[rest_beacon_api, rest_utils, state_ttl_cache]
+import ../beacon_node,
+       ../spec/forks,
+       ./[rest_beacon_api, rest_utils, state_ttl_cache]
 
+from std/sequtils import mapIt
 from ../fork_choice/proto_array import ProtoArrayItem, items
 
 export rest_utils
@@ -25,12 +25,26 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(
       MethodGet, "/eth/v1/debug/beacon/data_column_sidecars/{block_id}") do (
       block_id: BlockIdent, indices: seq[uint64]) -> RestApiResponse:
-    handleDataSidecarRequest[
-      InvalidDataColumnSidecarIndexValueError,
-      List[fulu.DataColumnSidecar, NUMBER_OF_COLUMNS],
-    ](
-      node, preferredContentType(jsonMediaType, sszMediaType),
-      block_id, indices)
+    let
+      blockIdent = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+      bid = node.getBlockId(blockIdent).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+    if bid.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
+      handleDataSidecarRequest[
+        InvalidDataColumnSidecarIndexValueError,
+        List[gloas.DataColumnSidecar, NUMBER_OF_COLUMNS],
+      ](
+        node, preferredContentType(jsonMediaType, sszMediaType),
+        block_id, indices)
+    else:
+      handleDataSidecarRequest[
+        InvalidDataColumnSidecarIndexValueError,
+        List[fulu.DataColumnSidecar, NUMBER_OF_COLUMNS],
+      ](
+        node, preferredContentType(jsonMediaType, sszMediaType),
+        block_id, indices)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getState
   router.api2(MethodGet, "/eth/v1/debug/beacon/states/{state_id}") do (

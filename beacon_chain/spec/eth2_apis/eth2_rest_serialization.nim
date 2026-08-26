@@ -24,8 +24,6 @@ func decodeMediaType*(
   ok contentType.get.mediaType
 
 const
-  DecimalSet = {'0' .. '9'}
-    # Base10 (decimal) set of chars
   ValidatorKeySize = RawPubKeySize * 2
     # Size of `ValidatorPubKey` hexadecimal value (without 0x)
   ValidatorSigSize = RawSigSize * 2
@@ -44,7 +42,6 @@ const
 
 type
   EncodeTypes* =
-    BlobSidecarInfoObject |
     DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
@@ -78,7 +75,10 @@ type
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
-    fulu_mev.SignedBlindedBeaconBlock
+    fulu_mev.SignedBlindedBeaconBlock |
+    BuilderPreferencesRequest |
+    SignedBuilderRequestAuth |
+    gloas.SignedBeaconBlock
 
   EncodeArrays* =
     seq[phase0.Attestation] |
@@ -92,6 +92,7 @@ type
     seq[phase0.SignedAggregateAndProof] |
     seq[electra.SignedAggregateAndProof] |
     seq[gloas.SignedAggregateAndProof] |
+    seq[PayloadAttestationMessage] |
     seq[SignedValidatorRegistrationV1] |
     seq[ValidatorIndex] |
     seq[RestBeaconCommitteeSelection] |
@@ -140,6 +141,11 @@ type
     data*: T
     jsonVersion*: ConsensusFork
     sszContext*: ForkDigest
+
+  SomeVersionedEventObject* =
+    gloas.SignedExecutionPayloadBid |
+    PayloadAttestationMessage |
+    SignedProposerPreferences
 
   RestBlockTypes* = phase0.BeaconBlock | altair.BeaconBlock |
                     bellatrix.BeaconBlock | capella.BeaconBlock |
@@ -282,6 +288,13 @@ proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
           w.writeField("data", forkyObject)
     else:
       default(string)
+
+proc prepareJsonStringResponse*[T: SomeVersionedEventObject](
+    _: typedesc[RestApiResponse], d: RestVersioned[T]): string =
+  withRestJsonWriter(w, string):
+    w.writeObject:
+      w.writeField("version", d.jsonVersion.toString())
+      w.writeField("data", d.data)
 
 proc prepareJsonStringResponse*(_: typedesc[RestApiResponse], d: auto): string =
   RestJson.encode(d)
@@ -664,6 +677,40 @@ proc decodeBodyJsonOrSsz*(
     err(RestErrorMessage.init(Http415, InvalidContentTypeError,
                               [$body.contentType]))
 
+proc decodeBodyJsonOrSsz*(
+    t: typedesc[seq[PayloadAttestationMessage]],
+    body: ContentBody
+): Result[seq[PayloadAttestationMessage], RestErrorMessage] =
+  if body.contentType == ApplicationJsonMediaType:
+    let data =
+      try:
+        RestJson.decode(
+          body.data,
+          seq[PayloadAttestationMessage])
+      except SerializationError as exc:
+        debug "Failed to deserialize REST JSON data",
+              err = exc.formatMsg("<data>")
+        return err(
+          RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+    ok(data)
+  elif body.contentType == OctetStreamMediaType:
+    let data =
+      try:
+        SSZ.decode(
+          body.data,
+          List[PayloadAttestationMessage, Limit PTC_SIZE])
+      except SerializationError as exc:
+        debug "Failed to deserialize REST SSZ data",
+              err = exc.formatMsg("<data>")
+        return err(
+          RestErrorMessage.init(Http400, UnableDecodeError,
+                                [exc.formatMsg("<data>")]))
+    ok(data.asSeq)
+  else:
+    err(RestErrorMessage.init(Http415, InvalidContentTypeError,
+                              [$body.contentType]))
+
 proc decodeBytesJsonOrSsz*(
     T: typedesc[MevDecodeTypes],
     data: openArray[byte],
@@ -863,11 +910,8 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
           except ValueError:
             return err("Incorrect `Eth-Consensus-Block-Value` header value")
     withConsensusFork(fork):
-      debugGloasComment ""
-      when consensusFork == ConsensusFork.Gloas:
-        return err("gloas produceblock not available yet")
-      elif consensusFork == ConsensusFork.Heze:
-        return err("heze produceblock not available yet")
+      when consensusFork >= ConsensusFork.Gloas:
+        return err("produceBlockV3 doesn't support Gloas or later forks")
       elif consensusFork >= ConsensusFork.Fulu:
         if blinded:
           let contents =
@@ -1061,8 +1105,6 @@ func decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.ProposerSlashing)
   of "attester_slashing":
     ok(EventTopic.AttesterSlashing)
-  of "blob_sidecar":
-    ok(EventTopic.BlobSidecar)
   of "data_column_sidecar":
     ok(EventTopic.DataColumnSidecar)
   of "finalized_checkpoint":
@@ -1114,8 +1156,6 @@ func encodeString*(value: set[EventTopic]): Result[string, cstring] =
     res.add("proposer_slashing,")
   if EventTopic.AttesterSlashing in value:
     res.add("attester_slashing,")
-  if EventTopic.BlobSidecar in value:
-    res.add("blob_sidecar,")
   if EventTopic.DataColumnSidecar in value:
     res.add("data_column_sidecar,")
   if EventTopic.FinalizedCheckpoint in value:
@@ -1201,7 +1241,7 @@ func decodeString*(t: typedesc[StateIdent],
       else:
         let res = ? parseRoot(value)
         ok(StateIdent(kind: StateQueryKind.Root, root: res))
-    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
+    elif (value[0] in Digits) and (value[1] in Digits):
       let res = ? Base10.decode(uint64, value)
       ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
     else:
@@ -1233,7 +1273,7 @@ func decodeString*(t: typedesc[BlockIdent],
       else:
         let res = ? parseRoot(value)
         ok(BlockIdent(kind: BlockQueryKind.Root, root: res))
-    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
+    elif (value[0] in Digits) and (value[1] in Digits):
       let res = ? Base10.decode(uint64, value)
       ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
     else:
@@ -1299,8 +1339,8 @@ func decodeString*(t: typedesc[ConsensusFork],
   ConsensusFork.init(toLowerAscii(value)) or
     err("Unsupported or invalid beacon block fork version")
 
-proc decodeString*(t: typedesc[EventBeaconBlockObject],
-                   value: string): Result[EventBeaconBlockObject, string] =
+proc decodeString*(t: typedesc[HeadChangeInfoObject],
+                   value: string): Result[HeadChangeInfoObject, string] =
   try:
     ok(RestJson.decode(value, t))
   except SerializationError as exc:

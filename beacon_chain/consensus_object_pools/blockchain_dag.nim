@@ -14,8 +14,8 @@ import
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/forks,
-  ".."/[beacon_chain_db, beacon_clock, era_db],
-  "."/[block_pools_types, block_quarantine]
+  ../[beacon_chain_db, beacon_clock, era_db],
+  ./[block_pools_types, block_quarantine]
 
 export
   eth2_merkleization, eth2_ssz_serialization,
@@ -128,7 +128,7 @@ func get_fork_choice_balances*(
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
-    let validator = unsafeAddr validators[i]
+    let validator = addr validators[i]
     if validator[].is_active_validator(epoch):
       result[i] = ForkChoiceBalance(
         if validator[].slashed:
@@ -870,10 +870,10 @@ proc getState(
 
   let rollbackAddr =
     # Any restore point will do as long as it's not the object being updated
-    if unsafeAddr(state) == unsafeAddr(dag.headState):
-      unsafeAddr dag.clearanceState
+    if addr(state) == addr(dag.headState):
+      addr dag.clearanceState
     else:
-      unsafeAddr dag.headState
+      addr dag.headState
 
   let v = addr state
   func rollback() =
@@ -904,10 +904,10 @@ proc getStateByParent(
 
   let rollbackAddr =
     # Any restore point will do as long as it's not the object being updated
-    if unsafeAddr(state) == unsafeAddr(dag.headState):
-      unsafeAddr dag.clearanceState
+    if addr(state) == addr(dag.headState):
+      addr dag.clearanceState
     else:
-      unsafeAddr dag.headState
+      addr dag.headState
 
   let v = addr state
   func rollback() =
@@ -2654,11 +2654,6 @@ proc hasExecutionCheckpoint*(
   # Return true if it is either EMPTY or FULL
   parentBlockHash == latestBlockHash or parentBlockHash == latestParentHash
 
-func isPayloadStatusFull*(dag: ChainDAGRef, head: BlockRef): bool =
-  ## Whether `head.payload_status == PAYLOAD_STATUS_FULL`, as consumed by
-  ## https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-should_build_on_full
-  head == dag.headPayload
-
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/validator.md#attestation
 func attestationDataIndex*(
     dag: ChainDAGRef, blck: BlockRef, slot: Slot): CommitteeIndex =
@@ -2668,7 +2663,7 @@ func attestationDataIndex*(
   let payloadPresent =
     if blck == dag.head:
       # If nothing extends the head yet, fork choice holds the verdict
-      dag.isPayloadStatusFull(blck)
+      dag.headPayloadFull
     else:
       # Else a descendant already recorded whether it extended this payload
       withState(dag.headState):
@@ -2883,18 +2878,6 @@ proc updateHead*(
                                        depRoot)
     dag.onHeadChanged(data)
 
-  if not isNil(dag.onHeadV2Changed):
-    # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
-    let
-      headEpoch = dag.head.slot.epoch()
-      curEpochDepRoot = dag.getEpochDepRoot(headEpoch, 1)
-      nextEpochDepRoot = dag.getEpochDepRoot(headEpoch, 0)
-
-    dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
-      dag.headState.kind, dag.head.slot, dag.head.root,
-      dag.headState.root, epochTransition, curEpochDepRoot,
-      nextEpochDepRoot))
-
   let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
   if not(isAncestor):
     notice "Updated head block with chain reorg",
@@ -2972,18 +2955,14 @@ proc updateHeadExecutionPayload*(
   ## usually be invoked after the call of updateHead().
   if dag.head.slot.epoch < dag.cfg.GLOAS_FORK_EPOCH:
     return
-  let newHeadPayload =
-    if full:
-      dag.head
-    else:
-      dag.head.parent
-  if newHeadPayload == dag.headPayload:
-    return
-  dag.headPayload = newHeadPayload
 
-  # `updateHead` already emits head_v2 on a head change; only emit here for a
-  # pure payload flip (head unchanged) to avoid double-emitting.
-  if not headChanged and not isNil(dag.onHeadV2Changed):
+  let statusChanged = dag.headPayloadFull != full
+  if not (headChanged or statusChanged):
+    return
+
+  dag.headPayloadFull = full
+
+  if not isNil(dag.onHeadV2Changed):
     # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/eventstream/index.yaml#L62-L66
     let
       finalized_checkpoint = dag.headState.finalized_checkpoint
@@ -2998,7 +2977,7 @@ proc updateHeadExecutionPayload*(
 
     dag.onHeadV2Changed(HeadV2ChangeInfoObject.init(
       dag.headState.kind, dag.head.slot, dag.head.root,
-      dag.headState.root, epochTransition, curEpochDepRoot,
+      dag.headState.root, full, epochTransition, curEpochDepRoot,
       nextEpochDepRoot))
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =

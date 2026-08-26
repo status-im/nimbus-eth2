@@ -16,8 +16,6 @@ LOG_LEVEL := DEBUG
 # used by Make targets that launch a beacon node
 RUNTIME_LOG_LEVEL := INFO
 
-LINK_PCRE := 0
-
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
@@ -253,7 +251,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--fulu-fork-epoch 2 \
+		--fulu-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp true \

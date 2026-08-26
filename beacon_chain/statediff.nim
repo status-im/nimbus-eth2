@@ -89,7 +89,7 @@ func getMutableValidatorStatuses(state: capella.BeaconState):
   if not result.setLen(state.validators.len):
     raiseAssert "same limit as validators"
   for i in 0 ..< state.validators.len:
-    let validator = unsafeAddr state.validators.data[i]
+    let validator = addr state.validators.data[i]
     assign(result[i].effective_balance, validator.effective_balance)
     assign(result[i].slashed, validator.slashed)
     assign(
@@ -99,7 +99,7 @@ func getMutableValidatorStatuses(state: capella.BeaconState):
     assign(result[i].exit_epoch, validator.exit_epoch)
     assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
-from "."/spec/beaconstate import has_eth1_withdrawal_credential
+from ./spec/beaconstate import has_eth1_withdrawal_credential
 
 func getValidatorWithdrawalChanges(
     presummary: BeaconStateDiffPreSnapshot, state: capella.BeaconState):

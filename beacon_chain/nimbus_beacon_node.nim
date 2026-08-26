@@ -341,12 +341,12 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
         (proc() = notice "🐅 Blob parameters updated 🐅"))
 
 func getVanityMascot(consensusFork: ConsensusFork): string =
-  debugGloasComment "don't know vanity mascot yet"
+  debugHezeComment "don't know vanity mascot yet"
   case consensusFork
   of ConsensusFork.Heze:
     "?"
   of ConsensusFork.Gloas:
-    "?"
+    "🐻‍❄️"
   of ConsensusFork.Fulu:
     "🐅"
   of ConsensusFork.Electra:
@@ -509,11 +509,6 @@ proc initFullNode(
       var res = data
       res.data.optimistic = Opt.some dag.is_optimistic(
         BlockId(slot: data.data.slot, root: data.data.block_root))
-      res.data.payload_status =
-        if dag.db.containsExecutionPayloadEnvelope(data.data.block_root):
-          "full"
-        else:
-          "empty"
       res
     node.eventBus.headV2Queue.emit(eventData)
   proc onChainReorg(data: ReorgInfoObject) =
@@ -543,12 +538,23 @@ proc initFullNode(
     node.eventBus.execPayloadAvlQueue.emit(
       EventExecutionPayloadAvailableObject.init(data))
   proc onExecutionPayloadBidAdded(data: gloas.SignedExecutionPayloadBid) =
-    node.eventBus.execPayloadBidQueue.emit(data)
+    let epoch = data.message.slot.epoch
+    node.eventBus.execPayloadBidQueue.emit(
+      RestVersioned[gloas.SignedExecutionPayloadBid](
+        data: data,
+        jsonVersion: node.dag.cfg.consensusForkAtEpoch(epoch)))
   proc onPayloadAttestationMessageAdded(data: PayloadAttestationMessage) =
-    node.eventBus.payloadAttMsgQueue.emit(data)
+    let epoch = data.data.slot.epoch
+    node.eventBus.payloadAttMsgQueue.emit(
+      RestVersioned[PayloadAttestationMessage](
+        data: data,
+        jsonVersion: node.dag.cfg.consensusForkAtEpoch(epoch)))
   proc onProposerPreferencesAdded(data: SignedProposerPreferences) =
+    let epoch = data.message.proposal_slot.epoch
     node.eventBus.proposerPreferencesQueue.emit(
-      EventProposerPreferencesObject(data: data))
+      RestVersioned[SignedProposerPreferences](
+        data: data,
+        jsonVersion: node.dag.cfg.consensusForkAtEpoch(epoch)))
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
@@ -885,6 +891,7 @@ proc initFullNode(
   node.dag.eaSlot = eaSlot
   node.list = clist
   node.fuluColumnQuarantine = fuluColumnQuarantine
+  node.gloasColumnQuarantine = gloasColumnQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
@@ -2738,14 +2745,9 @@ proc doRunBeaconNode(
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
   # to use it
-  if config.trustedSetupFile.isSome:
-    kzg.loadTrustedSetup(config.trustedSetupFile.get(), 7).isOkOr:
-      fatal "Cannot load KZG trusted setup from file", msg = error
-      quit(QuitFailure)
-  else:
-    kzg.loadTrustedSetupFromString(kzg.trustedSetup, 7).isOkOr:
-      fatal "Cannot load KZG trusted setup using default data", msg = error
-      quit(QuitFailure)
+  kzg.loadTrustedSetupFromString(kzg.trustedSetup, 7).isOkOr:
+    fatal "Cannot load KZG trusted setup using default data", msg = error
+    quit(QuitFailure)
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return

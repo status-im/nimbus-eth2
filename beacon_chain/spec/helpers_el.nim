@@ -10,7 +10,7 @@
 import
   std/typetraits,
   eth/common/eth_types_rlp,
-  "."/[helpers, state_transition_block]
+  ./[helpers, state_transition_block]
 
 func readExecutionTransaction(
     txBytes: bellatrix.Transaction): Result[EthTransaction, string] =

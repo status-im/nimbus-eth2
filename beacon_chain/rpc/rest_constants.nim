@@ -254,6 +254,9 @@ const
     "v1/beacon/blocks, v1/beacon/blinded_blocks, and " &
     "v1/builder/states/{state_id}/expected_withdrawals have been removed: " &
     "https://github.com/ethereum/beacon-APIs/pull/549"
+  DeprecatedRemovalFulu* =
+    "v1/beacon/blob_sidecars/{block_id} and blob_sidecar EVENT removed: " &
+    "https://github.com/ethereum/beacon-APIs/pull/577"
   DeprecatedRemovalNimbusGraffiti* =
     "nimbus/v1/graffiti has been removed. For runtime graffiti updates, use " &
     "standard Keymanager API endpoint /eth/v1/validator/{pubkey}/graffiti " &
@@ -288,10 +291,10 @@ const
     "Failed to obtain consensus fork information"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
+  FailedToObtainHeaderBoolError* =
+    "Failed to obtain boolean from header"
   InvalidTimestampValue* =
     "Invalid or missing timestamp value"
-  InvalidBlobSidecarIndexValueError* =
-    "Invalid blob index"
   InvalidDataColumnSidecarIndexValueError* =
     "Invalid data column index"
   InvalidBroadcastValidationType* =
@@ -314,3 +317,11 @@ const
     "Invalid execution payload envelope, it won't validate, so it's rejected"
   ExecutionPayloadEnvelopeValidationSuccess* =
     "The execution payload envelope was validated successfully and has been broadcast"
+  MissingBeaconBlockError* =
+    "Missing block by the block_root/beacon_block_root"
+  MissingBlobsAndKzgProofsError* =
+    "Missing blobs and kzg_proofs"
+  PayloadAttestationValidationError* =
+    "Some errors happened while validating payload attestation message(s)"
+  PayloadAttestationValidationSuccess* =
+    "Payload attestation message object(s) was broadcast"

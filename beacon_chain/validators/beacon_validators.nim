@@ -480,7 +480,7 @@ proc proposeBlockAux(
         else:
           state[].forky(fork).data.latest_execution_payload_bid.parent_block_hash,
         state[].forky(fork).data.get_block_root_at_slot(slot - 1),
-        validator.pubkey)
+        validator)
 
   let
     engineBid =
@@ -1011,13 +1011,13 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
-proc checkPayloadPresent(node: BeaconNode, blck: BlockRef): bool =
+proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): bool =
   if blck.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
     node.dag.db.containsExecutionPayloadEnvelope(blck.root)
   else:
     true
 
-proc checkBlobDataAvailable(node: BeaconNode, blck: BlockRef): bool =
+proc checkBlobDataAvailable*(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
     when consensusFork >= ConsensusFork.Gloas:
       let forkyBlck =
@@ -1065,7 +1065,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
       validator_index: validator_index.uint64, data: data, signature: signature
     )
 
-  await node.router.routePayloadAttestationMessage(
+  discard await node.router.routePayloadAttestationMessage(
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
@@ -1106,17 +1106,15 @@ proc signAndSendProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
-  let signature = (await validator.getProposerPreferencesSignature(
-    fork, genesis_validators_root, data)).valueOr:
-    warn "Unable to sign proposer preferences",
-      validator = shortLog(validator), error_msg = error
-    node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
-      (data.validator_index, data.proposal_slot))
-    return
-  let signed = SignedProposerPreferences(message: data, signature: signature)
-
-  node.eventBus.proposerPreferencesQueue.emit(
-    EventProposerPreferencesObject(data: signed))
+  let
+    signature = (await validator.getProposerPreferencesSignature(
+      fork, genesis_validators_root, data)).valueOr:
+      warn "Unable to sign proposer preferences",
+        validator = shortLog(validator), error_msg = error
+      node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
+        (data.validator_index, data.proposal_slot))
+      return
+    signed = SignedProposerPreferences(message: data, signature: signature)
 
   discard await node.router.routeProposerPreferences(signed)
 
@@ -1587,7 +1585,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   let newHead = await handleProposal(
     node, head,
     node.attestationPool[].forkChoice.should_build_on_full(
-      node.dag, head, node.dag.isPayloadStatusFull(head), slot), slot)
+      node.dag, head, node.dag.headPayloadFull, slot), slot)
   head = newHead
 
   # The latest point in time when we'll be sending out attestations

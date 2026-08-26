@@ -12,8 +12,8 @@ import
   stew/ptrops,
   metrics,
   # Status
-  chronicles, chronos,
-  ../spec/signatures_batch,
+  chronicles, chronos, chronos/threadsync,
+  ../spec/[peerdas_helpers, signatures_batch],
   ../consensus_object_pools/[blockchain_dag, spec_cache]
 
 export signatures_batch, blockchain_dag
@@ -88,8 +88,7 @@ type
     Valid
     Timeout
 
-  FutureBatchResult = Future[BatchResult].Raising([])
-  FutureTask = Future[void].Raising([])
+  FutureBatchResult = Future[BatchResult].Raising([CancelledError])
 
   Eager = proc(): bool {.gcsafe, raises: [].}
     ## Callback that returns true if eager processing should be done to lower
@@ -108,7 +107,8 @@ type
 
   VerifierItem = object
     verifier: ref BatchVerifier
-    inflight: Future[void].Raising([])
+    signal: ThreadSignalPtr
+    inflight: Future[void].Raising([CancelledError])
 
   BatchCrypto* = object
     batches: Deque[ref Batch]
@@ -125,7 +125,9 @@ type
       ## Each batch verification reqires a separate verifier
     verifier: int
 
-    kzgLimit: AsyncSemaphore
+    kzgSignals: AsyncQueue[ThreadSignalPtr]
+      ## Pending KZG verifications, InflightKzgVerifications verifiers
+
     pruneTime: Moment ## last time we had to prune something
 
     counts: tuple[signatures, batches, aggregates: int64]
@@ -138,9 +140,6 @@ type
 
     processor: Future[void].Raising([CancelledError])
 
-    disp: DispatcherHandle
-      # Cached thread-local dispatcher handle
-
   BatchTask = object
     ok: Atomic[bool]
     setsPtr: ptr UncheckedArray[SignatureSet]
@@ -148,8 +147,7 @@ type
     secureRandomBytes: array[32, byte]
     taskpool: Taskpool
     cache: ptr BatchedBLSVerifierCache
-    future: FutureTask
-    disp: DispatcherHandle
+    signal: ThreadSignalPtr
 
   KzgTask = object
     ok: Atomic[bool]
@@ -158,30 +156,44 @@ type
     cellsPtr: ptr UncheckedArray[KzgCell]
     proofsPtr: ptr UncheckedArray[KzgProof]
     numCells: int
-    future: FutureTask
-    disp: DispatcherHandle
+    signal: ThreadSignalPtr
 
 proc new*(
-    T: type BatchCrypto,
-    rng: ref HmacDrbgContext,
-    timeParams: TimeParams,
-    eager: Eager,
-    genesis_validators_root: Eth2Digest,
-    taskpool: Taskpool,
-): ref BatchCrypto =
+    T: type BatchCrypto, rng: ref HmacDrbgContext, timeParams: TimeParams,
+    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: Taskpool):
+    Result[ref BatchCrypto, string] =
   let res = (ref BatchCrypto)(
-    taskpool: taskpool,
-    rng: rng,
-    timeParams: timeParams,
+    taskpool: taskpool, rng: rng, timeParams: timeParams,
     eager: eager,
     genesis_validators_root: genesis_validators_root,
-    pruneTime: Moment.now(),
-    kzgLimit: newAsyncSemaphore(InflightKzgVerifications),
-    disp: getThreadDispatcher().handle(),
-  )
-  for i in 0 ..< res.verifiers.len:
-    res.verifiers[i] = VerifierItem(verifier: BatchVerifier.new(rng, taskpool))
-  res
+    pruneTime: Moment.now())
+
+  for i in 0..<res.verifiers.len:
+    res.verifiers[i] = VerifierItem(
+      verifier: BatchVerifier.new(rng, taskpool),
+      signal: block:
+        let sig = ThreadSignalPtr.new()
+        sig.valueOr:
+          for j in 0..<i:
+            discard res.verifiers[j].signal.close()
+          return err(sig.error())
+    )
+
+  res.kzgSignals = newAsyncQueue[ThreadSignalPtr](
+    maxsize = InflightKzgVerifications)
+  for _ in 0..<InflightKzgVerifications:
+    let sig = ThreadSignalPtr.new().valueOr:
+      for j in 0..<res.verifiers.len:
+        discard res.verifiers[j].signal.close()
+      for j in 0..<res.kzgSignals.len:
+        discard res.kzgSignals[j].close()
+      return err(error)
+    try:
+      res.kzgSignals.addLastNoWait(sig)
+    except AsyncQueueFullError:
+      raiseAssert "Unreachable, maxsize items are added"
+
+  ok res
 
 func full(batch: Batch): bool =
   batch.items.len() >= BatchedCryptoSize
@@ -195,7 +207,6 @@ proc complete(batchItem: var BatchItem, v: BatchResult) =
 
 proc complete(batchItem: var BatchItem, ok: bool) =
   batchItem.fut.complete(if ok: BatchResult.Valid else: BatchResult.Invalid)
-  batchItem.fut = nil
 
 proc skip(batch: var Batch) =
   for res in batch.items.mitems():
@@ -227,14 +238,6 @@ proc complete(batchCrypto: var BatchCrypto, batch: var Batch, ok: bool) =
 
     reset(batchCrypto.counts)
 
-proc completeTask[Task](udata: pointer) {.nimcall, gcsafe, raises: [].} =
-  ## Completion callback for batchVerifyTask - completes the future on
-  ## the async thread via callSoon
-  let task = cast[ptr Task](udata)
-  let fut = move(task[].future)
-  if not fut.finished():
-    fut.complete()
-
 proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
   # Task suitable for running in taskpools - look, no GC!
   let
@@ -245,8 +248,7 @@ proc batchVerifyTask(task: ptr BatchTask) {.nimcall.} =
 
   task[].ok.store(sync ok)
 
-  # Signal completion on the async thread via callSoon
-  callSoon(task[].disp, completeTask[BatchTask], task)
+  discard task[].signal.fireSync()
 
 proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
   # Inlining this `proc` leads to compilation problems on Nim 2.0
@@ -265,8 +267,7 @@ proc kzgProofsTask(task: ptr KzgTask) {.nimcall.} =
 
   task[].ok.store(ok)
 
-  # Signal completion on the async thread via callSoon
-  callSoon(task[].disp, completeTask[KzgTask], task)
+  discard task[].signal.fireSync()
 
 proc spawnKzgTask(tp: Taskpool, task: ptr KzgTask) =
   # Keep `tp.spawn` out of `{.async.}` procs - see `spawnBatchVerifyTask`
@@ -288,28 +289,30 @@ func combineAll(
   sigsets
 
 proc batchVerifyAsync(
-    verifier: ref BatchVerifier, batch: ref Batch, disp: DispatcherHandle
-): Future[bool] {.async: (raises: []).} =
+    verifier: ref BatchVerifier,
+    signal: ThreadSignalPtr,
+    batch: ref Batch): Future[bool] {.async: (raises: [CancelledError]).} =
   let sigsets = batch[].multiSets.combineAll(verifier)
-  let future = FutureTask.init("batch_verify", {FutureFlag.OwnCancelSchedule})
   var task = BatchTask(
     setsPtr: makeUncheckedArray(baseAddr sigsets),
     numSets: sigsets.len,
     taskpool: verifier[].taskpool,
     cache: addr verifier[].sigVerifCache,
-    future: future,
-    disp: disp,
+    signal: signal,
   )
   verifier[].rng[].generate(task.secureRandomBytes)
 
-  # The loop below never cancels tasks, thus the `task` instace stays alive
-  # until after the task is finished
+  # task will stay allocated in the async environment at least until the signal
+  # has fired at which point it's safe to release it
   let taskPtr = addr task
   doAssert verifier[].taskpool.numThreads > 1,
-    "Must have at least one separate thread for task pool"
+    "Must have at least one separate thread or signal will never be fired"
   verifier[].taskpool.spawnBatchVerifyTask(taskPtr)
-
-  await future
+  try:
+    await signal.wait()
+  except AsyncError as exc:
+    warn "Batch verification verification failed - report bug", err = exc.msg
+    return false
 
   # `sigsets` must be used after the `await` or it is freed on suspension
   # while the worker still reads it through `task.setsPtr`:
@@ -319,8 +322,10 @@ proc batchVerifyAsync(
   task.ok.load()
 
 proc processBatch(
-    batchCrypto: ref BatchCrypto, batch: ref Batch, verifier: ref BatchVerifier
-) {.async: (raises: []).} =
+    batchCrypto: ref BatchCrypto,
+    batch: ref Batch,
+    verifier: ref BatchVerifier,
+    signal: ThreadSignalPtr) {.async: (raises: [CancelledError]).} =
   let numSets = batch[].multiSets.len
 
   if numSets == 0:
@@ -361,7 +366,7 @@ proc processBatch(
         break
       r
     elif batchCrypto[].taskpool.numThreads > 1 and numSets > 3:
-      await batchVerifyAsync(verifier, batch, batchCrypto.disp)
+      await batchVerifyAsync(verifier, signal, batch)
     else:
       let secureRandomBytes = verifier[].rng[].generate(array[32, byte])
       batchVerifySerial(
@@ -403,8 +408,9 @@ proc processLoop(batchCrypto: ref BatchCrypto) {.async: (raises: [CancelledError
       await batchCrypto[].verifiers[verifier].inflight
 
     batchCrypto[].verifiers[verifier].inflight = batchCrypto.processBatch(
-      batchCrypto[].batches.popFirst(), batchCrypto[].verifiers[verifier].verifier
-    )
+      batchCrypto[].batches.popFirst(),
+      batchCrypto[].verifiers[verifier].verifier,
+      batchCrypto[].verifiers[verifier].signal)
 
 proc getBatch(batchCrypto: var BatchCrypto): ref Batch =
   if batchCrypto.batches.len() == 0 or
@@ -420,11 +426,11 @@ proc scheduleProcessor(batchCrypto: ref BatchCrypto) =
     batchCrypto.processor = batchCrypto.processLoop()
 
 proc verifySoon(
-    batchCrypto: ref BatchCrypto, name: static string, sigset: SignatureSet
-): Future[BatchResult] {.async: (raises: [], raw: true).} =
+    batchCrypto: ref BatchCrypto, name: static string,
+    sigset: SignatureSet): Future[BatchResult]{.async: (raises: [CancelledError], raw: true).} =
   let
     batch = batchCrypto[].getBatch()
-    fut = newFuture[BatchResult](name, {FutureFlag.OwnCancelSchedule})
+    fut = newFuture[BatchResult](name)
 
   batch[].multiSets.withValue(sigset.message, multiSet):
     multiSet[].add sigset
@@ -679,7 +685,7 @@ proc scheduleKzgCheck(
     batchCrypto: ref BatchCrypto,
     commitments: seq[KzgCommitment], cellIndices: seq[CellIndex],
     cells: seq[KzgCell], proofs: seq[KzgProof]):
-    Future[BatchResult] {.async: (raises: []).} =
+    Future[BatchResult] {.async: (raises: [CancelledError]).} =
   ## Verify the KZG proofs of a data column on the task pool
   if batchCrypto.taskpool.numThreads <= 1:
     return toBatchResult verifyCellKzgProofBatch(
@@ -687,13 +693,12 @@ proc scheduleKzgCheck(
 
   let
     created = Moment.now()
-
-  await noCancel batchCrypto.kzgLimit.acquire()
+    signal = await batchCrypto.kzgSignals.popFirst()
   defer:
     try:
-      batchCrypto.kzgLimit.release()
-    except AsyncError:
-      raiseAssert "Unreachable"
+      batchCrypto[].kzgSignals.addLastNoWait(signal)
+    except AsyncQueueFullError:
+      raiseAssert "Unreachable, pops and adds are balanced"
 
   let
     startTick = Moment.now()
@@ -710,26 +715,23 @@ proc scheduleKzgCheck(
 
     return BatchResult.Timeout
 
-  let future = FutureTask.init("kzg_verify", {FutureFlag.OwnCancelSchedule})
   var task = KzgTask(
     commitmentsPtr: makeUncheckedArray(baseAddr commitments),
     cellIndicesPtr: makeUncheckedArray(baseAddr cellIndices),
     cellsPtr: makeUncheckedArray(baseAddr cells),
     proofsPtr: makeUncheckedArray(baseAddr proofs),
     numCells: cells.len,
-    future: future,
-    disp: batchCrypto.disp,
-  )
+    signal: signal)
 
-  # task will stay allocated in the async environment at least until the
-  # callSoon completion callback has fired
+  # task will stay allocated in the async environment at least until the signal
+  # has fired at which point it's safe to release it
   let taskPtr = addr task
   batchCrypto[].taskpool.spawnKzgTask(taskPtr)
-
-  await future
-
-  # TODO https://github.com/nim-lang/Nim/issues/26041
-  #      don't forget to touch task after await
+  try:
+    await signal.wait()
+  except AsyncError as exc:
+    warn "Column KZG proof verification failed - report bug", err = exc.msg
+    return BatchResult.Invalid
 
   toBatchResult(task.ok.load())
 

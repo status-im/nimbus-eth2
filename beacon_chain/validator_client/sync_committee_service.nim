@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/sets,
@@ -13,7 +13,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types,
   ../validators/activity_metrics,
-  "."/[common, api, selection_proofs]
+  ./[common, api, selection_proofs]
 
 const
   ServiceName = "sync_committee_service"
@@ -365,7 +365,7 @@ proc publishSyncMessagesAndContributions(
     slot = slot
 
   block:
-    let 
+    let
       currentFork = vc.getConsensusFork(vc.forkAtEpoch(slot.epoch))
       delay = vc.getDelay(
         slot.sync_committee_message_deadline(vc.timeParams, currentFork))

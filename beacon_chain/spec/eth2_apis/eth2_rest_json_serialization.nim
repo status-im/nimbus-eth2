@@ -60,7 +60,6 @@ RestJson.useDefaultSerializationFor(
   BLSToExecutionChange,
   BeaconBlockHeader,
   BlobSidecar,
-  BlobSidecarInfoObject,
   Builder,
   BuilderDepositRequest,
   BuilderExitRequest,
@@ -95,12 +94,10 @@ RestJson.useDefaultSerializationFor(
   EventExecutionPayloadGossipObject,
   EventExecutionPayloadAvailableObject,
   EventPayloadAttributesObject,
-  EventProposerPreferencesObject,
   FastConfirmationInfoObject,
   FinalizationInfoObject,
   Fork,
   FuluSignedBlockContents,
-  GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
   GetBlockHeadersResponse,
   GetDistributedKeystoresResponse,
@@ -189,6 +186,7 @@ RestJson.useDefaultSerializationFor(
   RestPayloadAttributes,
   RestPeerCount,
   RestProposerDuty,
+  RestPtcDuty,
   RestRoot,
   RestSignedBlockHeader,
   RestSignedContributionAndProof,
@@ -215,6 +213,7 @@ RestJson.useDefaultSerializationFor(
   SignedBeaconBlockHeader,
   SignedContributionAndProof,
   SignedExecutionPayloadEnvelope,
+  SignedExecutionPayloadEnvelopeContents,
   SignedProposerPreferences,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
@@ -333,6 +332,10 @@ RestJson.useDefaultSerializationFor(
   gloas.SignedAggregateAndProof,
   gloas.SignedExecutionPayloadBid,
   gloas.TrustedAttestation,
+  gloas_mev.BuilderRequestAuth,
+  gloas_mev.SignedBuilderRequestAuth,
+  gloas_mev.BuilderPreferences,
+  gloas_mev.BuilderPreferencesRequest,
   heze.BeaconBlock,
   heze.BeaconBlockBody,
   heze.BeaconState,
@@ -1166,7 +1169,6 @@ proc readValue*(
   # `consensus_block_value`
 
   withConsensusFork(v.version):
-    debugGloasComment "re-add gloas mev"
     value =
       when consensusFork >= ConsensusFork.Gloas:
         if v.execution_payload_blinded:

@@ -22,7 +22,7 @@ import
     sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
-  "."/[gossip_validation, block_processor, batch_validation],
+  ./[gossip_validation, block_processor, batch_validation],
   ../nimbus_binary_common
 
 export
@@ -239,15 +239,12 @@ proc new*(T: type Eth2Processor,
     envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
-      rng,
-      dag.cfg.timeParams,
-      eager = proc(): bool =
-        # Only run eager attestation signature verification if we're not
-        # processing blocks in order to give priority to block processing
-        not blockProcessor[].hasBlocks(),
-      genesis_validators_root = dag.genesis_validators_root,
-      taskpool,
-    ),
+      rng, dag.cfg.timeParams,
+      # Only run eager attestation signature verification if we're not
+      # processing blocks in order to give priority to block processing
+      eager = proc(): bool = not blockProcessor[].hasBlocks(),
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
   )
 
 # Each validator logs, validates then passes valid data to its destination

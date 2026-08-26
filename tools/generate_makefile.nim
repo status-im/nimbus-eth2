@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2024 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,11 +7,11 @@
 
 {.push raises: [].}
 
-# Generate a Makefile from the JSON file produce by the Nim compiler with
+# Generate a Makefile from the JSON file produced by the Nim compiler with
 # "--compileOnly". Suitable for Make-controlled parallelisation, down to the GCC
 # LTO level.
 
-import std/[json, os, strutils]
+import std/[cmdline, json, os, strutils]
 
 # Ripped off from Nim's `linkViaResponseFile()` in "compiler/extccomp.nim".
 # It lets us get around a command line length limit on Windows.
@@ -24,14 +24,17 @@ proc processLinkCmd(cmd, linkerArgs: string): string {.raises: [IOError].} =
 
   if cmd.len > 0 and cmd[0] == '"':
     inc i
-    while i < cmd.len and cmd[i] != '"': inc i
+    while i < cmd.len and cmd[i] != '"':
+      inc i
     last = i
     inc i
   else:
-    while i < cmd.len and cmd[i] != ' ': inc i
+    while i < cmd.len and cmd[i] != ' ':
+      inc i
     last = i
 
-  while i < cmd.len and cmd[i] == ' ': inc i
+  while i < cmd.len and cmd[i] == ' ':
+    inc i
 
   let args = cmd.substr(i)
   writeFile(linkerArgs, args.replace('\\', '/'))
@@ -74,62 +77,60 @@ proc main() =
     makefile.close()
 
   var
-    objectPath: string
-    found: bool
+    objects: seq[string]
     cmd: string
 
   try:
     try:
       for compile in data["compile"]:
         cmd = compile[1].getStr().replace('\\', '/')
-        objectPath = ""
-        found = false
-        for token in split(cmd, Whitespace + {'\''}):
-          if found and token.len > 0 and token.endsWith(".o"):
-            objectPath = token
+        var
+          next = false
+          found = false
+        for token in parseCmdLine(cmd):
+          if next:
+            if token.len > 0 and token.endsWith(".o"):
+              makefile.writeLine(token & ":")
+              makefile.writeLine("\t " & cmd)
+
+              objects.add token
+              found = true
             break
+
           if token == "-o":
-            found = true
-        if found == false or objectPath == "":
+            next = true
+
+        if not found:
           echo "Could not find the object file in this command: ", cmd
           quit(QuitFailure)
-        try:
-          makefile.writeLine("$#: $#" % [
-            objectPath.replace('\\', '/'),
-            compile[0].getStr().replace('\\', '/')])
-          makefile.writeLine("\t+ $#\n" % cmd)
-        except ValueError:
-          # https://github.com/nim-lang/Nim/pull/23356
-          raiseAssert "Arguments match the format string"
     except KeyError:
       echo "File lacks `compile` key: ", jsonPath
       quit(QuitFailure)
 
-    var objects: seq[string]
-    try:
-      for obj in data["link"]:
-        objects.add(obj.getStr().replace('\\', '/'))
-    except KeyError:
-      echo "File lacks `link` key: ", jsonPath
-      quit(QuitFailure)
-    try:
-      makefile.writeLine("OBJECTS := $#\n" % objects.join(" \\\n"))
-    except ValueError:
-      # https://github.com/nim-lang/Nim/pull/23356
-      raiseAssert "Arguments match the format string"
 
-    makefile.writeLine(".PHONY: build")
+    makefile.writeLine("OBJECTS := " & objects.join(" \\\n"))
+
+    # The json instructions contain exactly the files that need to be rebuilt
+    # (ie source modified / flags changed etc) so we mark all objects PHONY to
+    # force them to be rebuilt
+    # TODO change detection does not deeply cover changes in C file includes etc
+    makefile.writeLine(".PHONY: build $(OBJECTS)")
     makefile.writeLine("build: $(OBJECTS)")
+
     let linkerArgs = makefilePath & ".linkerArgs"
     try:
-      makefile.writeLine("\t+ $#" % processLinkCmd(
-        data["linkcmd"].getStr().replace('\\', '/'), linkerArgs))
+      # + ensures the jobserver protocol is active in the linker command, for
+      # LTO + jobserver purposes
+      makefile.writeLine(
+        "\t+ " & processLinkCmd(data["linkcmd"].getStr().replace('\\', '/'), linkerArgs)
+      )
     except IOError as exc:
       echo "Failed to write file: ", linkerArgs, " - [IOError]: ", exc.msg
       quit(QuitFailure)
-    except ValueError:
-      # https://github.com/nim-lang/Nim/pull/23356
-      raiseAssert "Arguments match the format string"
+    except KeyError as exc:
+      echo "Missing linkcmd"
+      quit(QuitFailure)
+
     if data.hasKey("extraCmds"):
       try:
         for cmd in data["extraCmds"]:

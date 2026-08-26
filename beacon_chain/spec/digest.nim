@@ -132,7 +132,7 @@ template hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
   # digests are already good hashes
   var h {.noinit.}: Hash
-  copyMem(addr h, unsafeAddr x.data[0], static(sizeof(Hash)))
+  copyMem(addr h, addr x.data[0], static(sizeof(Hash)))
   h
 
 func `==`*(a, b: Eth2Digest): bool =
@@ -141,7 +141,7 @@ func `==`*(a, b: Eth2Digest): bool =
   else:
     # nimcrypto uses a constant-time comparison for all MDigest types which for
     # Eth2Digest is unnecessary - the type should never hold a secret!
-    equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
+    equalMem(addr a.data[0], addr b.data[0], sizeof(a.data))
 
 func isZero*(x: Eth2Digest): bool =
   var tmp {.noinit.}: uint64

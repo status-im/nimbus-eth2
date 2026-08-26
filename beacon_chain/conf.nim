@@ -678,13 +678,6 @@ type
         desc: "Reindex historical states for archive access"
         name: "reindex".}: bool
 
-      trustedSetupFile* {.
-        hidden
-        desc: "Alternative EIP-4844 trusted setup file"
-        defaultValue: none(string)
-        defaultValueDesc: "Baked in trusted setup"
-        name: "debug-trusted-setup-file" .}: Option[string]
-
       bandwidthEstimate* {.
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
@@ -931,7 +924,7 @@ type
         defaultValue: false .}: bool
 
       downloadDepositSnapshot* {.
-        desc: "Also try to download a snapshot of the deposit contract state"
+        obsolete: "Deposit snapshots not needed for checkpoint sync as of EIP-6110"
         defaultValue: false
         name: "with-deposit-snapshot" .}: bool
 
@@ -1238,7 +1231,8 @@ proc shortNetworkName*(eth2Network: Option[string]): string =
   # network that can be used for directories etc.
   if eth2Network.isSome() and
       eth2Network.get() in
-      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "sepolia"]:
+      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "sepolia",
+       "plataberget"]:
     eth2Network.get()
   else:
     eth2Network.loadEth2Network().cfg.name()

@@ -27,7 +27,8 @@
 import
   chronicles,
   ../extras,
-  ./[beaconstate, eth2_merkleization, forks, helpers, validator, signatures],
+  ./[beaconstate, deposit_sig_cache, eth2_merkleization, forks, helpers, validator,
+     signatures],
   kzg4844/kzg_abi, kzg4844/kzg
 
 from std/algorithm import fill, sorted
@@ -167,7 +168,7 @@ proc check_proposer_slashing*(
   if header_1.proposer_index >= state.validators.lenu64:
     return err("check_proposer_slashing: invalid proposer index")
 
-  let proposer = unsafeAddr state.validators[header_1.proposer_index]
+  let proposer = addr state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer[], get_current_epoch(state)):
     return err("check_proposer_slashing: slashed proposer")
 
@@ -321,7 +322,7 @@ proc process_attester_slashing*(
 
   ok((proposer_reward, cur_exit_queue_info))
 
-from ".."/validator_bucket_sort import
+from ../validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.0/specs/phase0/beacon-chain.md#deposits
@@ -438,7 +439,7 @@ proc check_voluntary_exit*(
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
-  let validator = unsafeAddr state.validators[voluntary_exit.validator_index]
+  let validator = addr state.validators[voluntary_exit.validator_index]
 
   # Verify the validator is active
   if not is_active_validator(validator[], get_current_epoch(state)):
@@ -1806,6 +1807,13 @@ proc process_block*(
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
+  # "In the slots leading up to the fork, implementations SHOULD validate
+  # pending deposit signatures and cache the results. The pending deposit queue
+  # might be large and verifying many signatures at the fork could be slow."
+  cacheBuilderDepositSigs(
+    cfg.GENESIS_FORK_VERSION, blck.body.execution_requests.deposits)
+
   ok(operations_rewards)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork-choice.md#new-verify_execution_payload_envelope
@@ -1876,7 +1884,6 @@ proc verify_execution_payload_envelope*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#block-processing
-debugGloasComment "readd gloas_mev block and, well the rest too"
 proc process_block*(
     cfg: RuntimeConfig,
     state: var gloas.BeaconState, blck: gloas.SomeBeaconBlock,
@@ -1902,6 +1909,9 @@ proc process_block*(
     parent_slot)
   operations_rewards.sync_aggregate = ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, flags, cache)
+
+  if state.finalized_checkpoint.epoch >= cfg.GLOAS_FORK_EPOCH:
+    clearBuilderDepositSigCache()
 
   ok(operations_rewards)
 

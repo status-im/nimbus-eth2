@@ -73,6 +73,8 @@ import # Unit test
   ./test_reconstruction_backfiller,
   ./test_sync_range,
   ./test_block_buffer,
+  ./test_sync_dag,
+  ./test_response_utils,
   ./test_quarantine,
   ./test_keymanager_api   # currently has to run after test_remote_keystore
 
