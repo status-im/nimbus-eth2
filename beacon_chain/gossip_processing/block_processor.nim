@@ -14,7 +14,7 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
-from std/sequtils import anyIt, filterIt
+from std/sequtils import anyIt
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
@@ -130,10 +130,38 @@ type
 
   NoSidecars* = typeof(())
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecarsForImport] |
     Opt[gloas.DataColumnSidecars]
 
 const noSidecars* = default(NoSidecars)
+
+proc popSidecarsForImport*(
+    quarantine: var FuluColumnQuarantine,
+    blockRoot: Eth2Digest
+): Opt[fulu.DataColumnSidecarsForImport] =
+  ## Pop the columns of ``blockRoot``, split by whether their KZG proofs have
+  ## already been checked. The drain has to stay adjacent to the pop: read any
+  ## later, it could answer for another set of columns popped for the same root.
+  let sidecars = quarantine.popSidecars(blockRoot).valueOr:
+    return Opt.none(fulu.DataColumnSidecarsForImport)
+  let unverified = quarantine.popPendingVerify(blockRoot)
+
+  var res: fulu.DataColumnSidecarsForImport
+  for sidecar in sidecars:
+    if sidecar[].index in unverified:
+      res.untrusted.add(sidecar)
+    else:
+      res.trusted.add(sidecar)
+  Opt.some(res)
+
+proc popSidecarsForImport*(
+    quarantine: var GloasColumnQuarantine,
+    blockRoot: Eth2Digest
+): Opt[gloas.DataColumnSidecars] =
+  ## Gloas checks every column in `addPayload`; only the drain matters here.
+  let sidecars = quarantine.popSidecars(blockRoot)
+  discard quarantine.popPendingVerify(blockRoot)
+  sidecars
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -225,11 +253,12 @@ proc verifySidecars(
 
 proc verifySidecars(
     signedBlock: fulu.SignedBeaconBlock,
-    sidecarsOpt: Opt[fulu.DataColumnSidecars],
+    sidecarsOpt: Opt[fulu.DataColumnSidecarsForImport],
 ): Result[void, VerifierError] =
   sidecarsOpt.isErrOr:
-    if value.len > 0 and signedBlock.message.body.blob_kzg_commitments.len > 0:
-      verify_data_column_sidecar_kzg_proofs(value).isOkOr:
+    if value.untrusted.len > 0 and
+        signedBlock.message.body.blob_kzg_commitments.len > 0:
+      verify_data_column_sidecar_kzg_proofs(value.untrusted).isOkOr:
         debug "data column validation failed",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -240,17 +269,23 @@ proc verifySidecars(
 
 proc storeSidecars(
     self: BlockProcessor,
-    sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
+    sidecarsOpt: Opt[fulu.DataColumnSidecarsForImport] |
+                 Opt[gloas.DataColumnSidecars]
 ) =
   sidecarsOpt.isErrOr:
-    self.consensusManager.dag.db.putDataColumnSidecars(value)
-    if self.onDataColumnsStored != nil and value.len > 0:
+    let sidecars =
+      when value is gloas.DataColumnSidecars:
+        value
+      else:
+        value.items()
+    self.consensusManager.dag.db.putDataColumnSidecars(sidecars)
+    if self.onDataColumnsStored != nil and sidecars.len > 0:
       let slot =
         when value is gloas.DataColumnSidecars:
           # [Modified in Gloas:EIP7732] carries `slot` directly.
-          value[0][].slot
+          sidecars[0][].slot
         else:
-          value[0][].signed_block_header.message.slot
+          sidecars[0][].signed_block_header.message.slot
       self.onDataColumnsStored(slot)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
@@ -465,9 +500,9 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-            Opt.some(default(fulu.DataColumnSidecars))
+            Opt.some(default(fulu.DataColumnSidecarsForImport))
           else:
-            self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+            self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
       elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
         const sidecarsOpt = noSidecars
       else:
@@ -630,7 +665,8 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
             sidecarsOk = false # Pruned, or inconsistent DB
             break
           data_column_sidecars.add data_column
-        Opt.some data_column_sidecars
+        # Columns reach the database only after their proofs were checked.
+        Opt.some data_column_sidecars.toTrustedImport()
       else:
         noSidecars
 
@@ -727,13 +763,7 @@ proc storeBlock(
   when consensusFork == ConsensusFork.Fulu:
     # Only request manager-sourced columns arrive unverified; getBlobsV2/V3/V4
     # and CL gossip are both either trusted or verified.
-    let pendingVerify =
-      self.fuluColumnQuarantine[].popPendingVerify(signedBlock.root)
-    if not pendingVerify.empty:
-      sidecarsOpt.isErrOr:
-        let toVerify = value.filterIt(it[].index in pendingVerify)
-        if toVerify.len > 0:
-          ?verifySidecars(signedBlock, Opt.some(toVerify))
+    ?verifySidecars(signedBlock, sidecarsOpt)
     debug "block_processor verifySidecars completed",
       verifySidecarsDur = Moment.now() - newPayloadTick,
       blck = shortLog(signedBlock.message),
@@ -933,10 +963,14 @@ proc addBlock*(
       # becomes canonical, it is vital to import it as quickly as possible.
       self.enqueueFromDb(blck.message.parent_root)
 
-      when sidecarsOpt is Opt[fulu.DataColumnSidecars]:
+      when sidecarsOpt is Opt[fulu.DataColumnSidecarsForImport]:
         if sidecarsOpt.isSome:
+          # Put them back as they came out, so trusted ones stay trusted.
+          let sidecars = sidecarsOpt.get
           self.fuluColumnQuarantine[].put(
-            blockRoot, sidecarsOpt.get, verified = false)
+            blockRoot, sidecars.untrusted, verified = false)
+          self.fuluColumnQuarantine[].put(
+            blockRoot, sidecars.trusted.asSeq, verified = true)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
         # In Gloas, block is enqueued with NoSidecar so we need not to care
         # about quarantine.
@@ -1117,7 +1151,7 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           if bid.message.blob_kzg_commitments.len() == 0:
             Opt.some(default(gloas.DataColumnSidecars))
           else:
-            self.gloasColumnQuarantine[].popSidecars(blck.root)
+            self.gloasColumnQuarantine[].popSidecarsForImport(blck.root)
         if sidecarsOpt.isNone():
           let dag = self.consensusManager.dag
           # As sidecars are missing, put envelope back to quarantine.
