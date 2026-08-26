@@ -278,7 +278,7 @@ proc storeSidecars(
       when value is gloas.DataColumnSidecars:
         value
       else:
-        value.all()
+        value.items()
     self.consensusManager.dag.db.putDataColumnSidecars(sidecars)
     if self.onDataColumnsStored != nil and sidecars.len > 0:
       let slot =

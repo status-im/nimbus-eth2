@@ -572,7 +572,7 @@ func add*(x: var TrustedDataColumnSidecars, v: ref DataColumnSidecar) =
 func len*(sidecars: DataColumnSidecarsForImport): int =
   len(sidecars.trusted) + len(sidecars.untrusted)
 
-func all*(sidecars: DataColumnSidecarsForImport): DataColumnSidecars =
+func items*(sidecars: DataColumnSidecarsForImport): DataColumnSidecars =
   ## Every column, in ascending index order.
   var
     res = newSeqOfCap[ref DataColumnSidecar](len(sidecars))
