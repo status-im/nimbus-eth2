@@ -1709,6 +1709,97 @@ proc produceAttestationData*(
     raise (ref ValidatorApiError)(
       msg: "Failed to produce attestation data", data: failures)
 
+proc producePayloadAttestationData*(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    strategy: ApiStrategyKind
+): Future[PayloadAttestationData] {.
+   async: (raises: [CancelledError, ValidatorApiError]). } =
+  const RequestName = "producePayloadAttestationData"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse,
+      ProducePayloadAttestationDataResponse,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AttestationData},
+      producePayloadAttestationDataPlain(it, slot)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProducePayloadAttestationDataResponse].err(
+          apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(producePayloadAttestationData,
+                                response.data, response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProducePayloadAttestationDataResponse].err($res.error)
+          else:
+            ApiResponse[ProducePayloadAttestationDataResponse].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProducePayloadAttestationDataResponse].err(
+            ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProducePayloadAttestationDataResponse].err(
+            ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[ProducePayloadAttestationDataResponse].err(
+            ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProducePayloadAttesationDataResponse].err(
+            ResponseUnexpectedError)
+    if res.isErr():
+      raise(ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get().data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestPlainResponse,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AttestationData},
+      producePayloadAttestationDataPlain(it, slot))
+
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(producePayloadAttestationDataResponse,
+                                response.data, response.contentType)
+          if res.isOk(): return res get().data
+
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          false
+        of 500:
+          handle500()
+          false
+        of 503:
+          handle503()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+  
+  raise (ref ValidatorApiError)(
+    msg: "Failed to produce payload attestation data", data: failures)
+
 proc submitPoolAttestationsV2*(
     vc: ValidatorClientRef,
     data: seq[ForkyAttestation],

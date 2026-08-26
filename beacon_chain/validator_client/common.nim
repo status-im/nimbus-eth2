@@ -93,6 +93,8 @@ type
 
   SyncCommitteeServiceRef* = ref object of ClientServiceRef
 
+  PayloadAttestationServiceRef* = ref object of ClientServiceRef
+
   DoppelgangerServiceRef* = ref object of ClientServiceRef
     enabled*: bool
 
@@ -232,6 +234,7 @@ type
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
+    payloadAttestationServiceRef*: PayloadAttestationServiceRef
     doppelgangerService*: DoppelgangerServiceRef
     runSlotLoopFut*: Future[void].Raising([CancelledError])
     runKeystoreCachePruningLoopFut*: Future[void]
