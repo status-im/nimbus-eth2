@@ -687,24 +687,17 @@ proc attesterDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    let
-      lastPolledSlot = vc.currentSlot()
-      slotFut = service.waitForNextSlot()
-    try:
-      # Cleaning up previous attestation duties task.
-      if not(isNil(service.pollingAttesterDutiesTask)) and
-         not(service.pollingAttesterDutiesTask.finished()):
-        await cancelAndWait(service.pollingAttesterDutiesTask)
-      # Spawning new attestation duties task.
-      vc.attesterDutiesInvalidationEvent.clear()
-      service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
-      await slotFut
-      await service.waitForNewDuties(
-        vc.attesterDutiesInvalidationEvent, lastPolledSlot)
-    except CancelledError as exc:
-      if not(slotFut.finished()):
-        await noCancel slotFut.cancelAndWait()
-      raise exc
+    let lastPolledSlot = vc.currentSlot()
+    # Cleaning up previous attestation duties task.
+    if not(isNil(service.pollingAttesterDutiesTask)) and
+       not(service.pollingAttesterDutiesTask.finished()):
+      await cancelAndWait(service.pollingAttesterDutiesTask)
+    # Spawning new attestation duties task.
+    vc.attesterDutiesInvalidationEvent.clear()
+    service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
+    await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.attesterDutiesInvalidationEvent, lastPolledSlot)
 
 proc proposerDutiesLoop(
     service: DutiesServiceRef
@@ -718,19 +711,12 @@ proc proposerDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    let
-      lastPolledSlot = vc.currentSlot()
-      slotFut = service.waitForNextSlot()
-    try:
-      vc.proposerDutiesInvalidationEvent.clear()
-      await service.pollForBeaconProposers()
-      await slotFut
-      await service.waitForNewDuties(
-        vc.proposerDutiesInvalidationEvent, lastPolledSlot)
-    except CancelledError as exc:
-      if not(slotFut.finished()):
-        await noCancel slotFut.cancelAndWait()
-      raise exc
+    let lastPolledSlot = vc.currentSlot()
+    vc.proposerDutiesInvalidationEvent.clear()
+    await service.pollForBeaconProposers()
+    await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.proposerDutiesInvalidationEvent, lastPolledSlot)
 
 proc validatorIndexLoop(
     service: DutiesServiceRef
@@ -820,24 +806,17 @@ proc syncCommitteeDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    let
-      lastPolledSlot = vc.currentSlot()
-      slotFut = service.waitForNextSlot()
-    try:
-      # Cleaning up previous sync committee duties task.
-      if not(isNil(service.pollingSyncDutiesTask)) and
-         not(service.pollingSyncDutiesTask.finished()):
-        await cancelAndWait(service.pollingSyncDutiesTask)
-      # Spawning new sync committee duties task.
-      vc.syncDutiesInvalidationEvent.clear()
-      service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
-      await slotFut
-      await service.waitForNewDuties(
-        vc.syncDutiesInvalidationEvent, lastPolledSlot)
-    except CancelledError as exc:
-      if not(slotFut.finished()):
-        await noCancel slotFut.cancelAndWait()
-      raise exc
+    let lastPolledSlot = vc.currentSlot()
+    # Cleaning up previous sync committee duties task.
+    if not(isNil(service.pollingSyncDutiesTask)) and
+       not(service.pollingSyncDutiesTask.finished()):
+      await cancelAndWait(service.pollingSyncDutiesTask)
+    # Spawning new sync committee duties task.
+    vc.syncDutiesInvalidationEvent.clear()
+    service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
+    await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.syncDutiesInvalidationEvent, lastPolledSlot)
 
 proc selectionProofsLoop(
     service: DutiesServiceRef
@@ -851,19 +830,13 @@ proc selectionProofsLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    let slotFut = service.waitForNextSlot()
-    try:
-      # Cleaning up previous selection proofs task.
-      if not(isNil(service.fillingSelectionProofsTask)) and
-         not(service.fillingSelectionProofsTask.finished()):
-        await cancelAndWait(service.fillingSelectionProofsTask)
-      # Spawning new selection proofs task.
-      service.fillingSelectionProofsTask = service.fillSelectionProofs()
-      await slotFut
-    except CancelledError as exc:
-      if not(slotFut.finished()):
-        await noCancel slotFut.cancelAndWait()
-      raise exc
+    # Cleaning up previous selection proofs task.
+    if not(isNil(service.fillingSelectionProofsTask)) and
+       not(service.fillingSelectionProofsTask.finished()):
+      await cancelAndWait(service.fillingSelectionProofsTask)
+    # Spawning new selection proofs task.
+    service.fillingSelectionProofsTask = service.fillSelectionProofs()
+    await service.waitForNextSlot()
 
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
