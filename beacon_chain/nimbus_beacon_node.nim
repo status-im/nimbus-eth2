@@ -2745,14 +2745,9 @@ proc doRunBeaconNode(
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
   # to use it
-  if config.trustedSetupFile.isSome:
-    kzg.loadTrustedSetup(config.trustedSetupFile.get(), 7).isOkOr:
-      fatal "Cannot load KZG trusted setup from file", msg = error
-      quit(QuitFailure)
-  else:
-    kzg.loadTrustedSetupFromString(kzg.trustedSetup, 7).isOkOr:
-      fatal "Cannot load KZG trusted setup using default data", msg = error
-      quit(QuitFailure)
+  kzg.loadTrustedSetupFromString(kzg.trustedSetup, 7).isOkOr:
+    fatal "Cannot load KZG trusted setup using default data", msg = error
+    quit(QuitFailure)
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return

@@ -213,6 +213,7 @@ AllTests-mainnet
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
++ ColumnQuarantine: update() database reload test [node]                                     OK
 + ColumnQuarantine: update(empty:grow) [node->node] test                                     OK
 + ColumnQuarantine: update(empty:grow) [node->supernode] test                                OK
 + ColumnQuarantine: update(empty:shrink) [node->node] test                                   OK
@@ -479,6 +480,7 @@ AllTests-mainnet
 ```diff
 + Empty in-memory scenario test [node]                                                       OK
 + Empty in-memory scenario test [supernode]                                                  OK
++ GloasColumnQuarantine: update() database reload test [node]                                OK
 + GloasColumnQuarantine: update(empty:grow) [node->node] test                                OK
 + GloasColumnQuarantine: update(empty:grow) [node->supernode] test                           OK
 + GloasColumnQuarantine: update(empty:shrink) [node->node] test                              OK
