@@ -13,7 +13,6 @@ import
   ./datatypes/[bellatrix, capella, deneb, gloas],
   ./presets
 
-import kzg4844/kzg_abi
 from kzg4844/kzg_abi import
   FIELD_ELEMENTS_PER_CELL, BYTES_PER_FIELD_ELEMENT, BYTES_PER_CELL
 
