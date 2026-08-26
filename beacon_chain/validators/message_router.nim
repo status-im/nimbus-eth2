@@ -694,11 +694,9 @@ proc routePayloadAttestationMessage*(
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
 
-proc routeExecutionPayloadEnvelope*(
+proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
-    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
   let
@@ -723,6 +721,17 @@ proc routeExecutionPayloadEnvelope*(
     notice "Envelope sent",
       envelope = shortLog(signedEnvelope.message)
 
+  ok()
+
+proc routeExecutionPayloadEnvelope*(
+    router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  (await router.validateAndPublishEnvelope(signedEnvelope)).isOkOr:
+    return err(error())
+
   # Publish sidecars
   let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
 
@@ -730,31 +739,6 @@ proc routeExecutionPayloadEnvelope*(
   (await router[].blockProcessor.addPayload(
       signedBlock, signedEnvelope, finalSidecars)).isOkOr:
     return err("Proposed envelope failed to add to the chain")
-
-  ok()
-
-# Beacon-API variant: only the envelope arrives, so it takes the
-# gossip ingest path rather than the direct addPayload above.
-proc routeExecutionPayloadEnvelope*(
-    router: ref MessageRouter,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
-    Future[SendResult] {.async: (raises: [CancelledError]).} =
-  block:
-    let res =
-      router[].processor[].processExecutionPayloadEnvelope(
-        MsgSource.api, signedEnvelope)
-    if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message), error = res.error()
-      return err(res.error()[1])
-
-  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
-  if res.isOk():
-    notice "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
-  else:
-    notice "Execution payload envelope not sent",
-      envelope = shortLog(signedEnvelope.message), error = res.error()
 
   ok()
 

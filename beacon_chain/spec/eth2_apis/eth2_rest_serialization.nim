@@ -76,8 +76,8 @@ type
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
     fulu_mev.SignedBlindedBeaconBlock |
-    BuilderPreferencesRequestV1 |
-    SignedRequestAuthV1 |
+    BuilderPreferencesRequest |
+    SignedBuilderRequestAuth |
     gloas.SignedBeaconBlock
 
   EncodeArrays* =

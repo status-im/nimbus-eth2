@@ -291,6 +291,8 @@ const
     "Failed to obtain consensus fork information"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
+  FailedToObtainHeaderBoolError* =
+    "Failed to obtain boolean from header"
   InvalidTimestampValue* =
     "Invalid or missing timestamp value"
   InvalidDataColumnSidecarIndexValueError* =
@@ -315,6 +317,10 @@ const
     "Invalid execution payload envelope, it won't validate, so it's rejected"
   ExecutionPayloadEnvelopeValidationSuccess* =
     "The execution payload envelope was validated successfully and has been broadcast"
+  MissingBeaconBlockError* =
+    "Missing block by the block_root/beacon_block_root"
+  MissingBlobsAndKzgProofsError* =
+    "Missing blobs and kzg_proofs"
   PayloadAttestationValidationError* =
     "Some errors happened while validating payload attestation message(s)"
   PayloadAttestationValidationSuccess* =

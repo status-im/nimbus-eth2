@@ -20,6 +20,7 @@ import
       forks, network, state_transition_block, validator],
   ../validators/message_router_mev
 
+from ../consensus_object_pools/column_quarantine import popSidecars
 from ../consensus_object_pools/payload_attestation_pool import
   getPayloadAttestations
 
@@ -1647,24 +1648,103 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonMsgResponse(ExecutionPayloadBidValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
-  # https://github.com/ethereum/beacon-APIs/blob/e46367867f207237ecb4839b333431144a08899b/apis/beacon/execution_payload/envelope_post.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/e20dfabd6230a3e0de8a8964fee7a4f276e480d6/apis/beacon/execution_payload/envelope_post.yaml
   router.api(MethodPost, "/eth/v1/beacon/execution_payload_envelopes") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
 
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    let dres = decodeBodyJsonOrSsz(
-      SignedExecutionPayloadEnvelope, contentBody.get())
-    if dres.isErr():
-      return RestApiResponse.jsonError(dres.error())
-    let signedEnvelope = dres.get()
-
-    if node.dag.cfg.consensusForkAtEpoch(
-        signedEnvelope.message.slot.epoch) < ConsensusFork.Gloas:
+    let
+      headerVersion = request.headers.getString("eth-consensus-version")
+      consensusVersion = ConsensusFork.init(headerVersion)
+    if consensusVersion.isNone():
+      return RestApiResponse.jsonError(
+        Http400, FailedToObtainConsensusForkError)
+    elif consensusVersion.get() < ConsensusFork.Gloas:
       return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
 
-    let res = await node.router.routeExecutionPayloadEnvelope(signedEnvelope)
+    let blobDataIncluded =
+      try:
+        parseBool(request.headers.getString("eth-blob-data-included"))
+      except ValueError:
+        return RestApiResponse.jsonError(Http400, FailedToObtainHeaderBoolError)
+    let (signedEnvelope, blobs, kzgProofs) =
+      if blobDataIncluded:
+        let dres = decodeBodyJsonOrSsz(
+          SignedExecutionPayloadEnvelopeContents, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(dres.error())
+        (
+          dres.unsafeGet().signed_execution_payload_envelope,
+          dres.unsafeGet().blobs, dres.unsafeGet().kzg_proofs,
+        )
+      else:
+        let dres = decodeBodyJsonOrSsz(
+          SignedExecutionPayloadEnvelope, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(dres.error())
+        (dres.unsafeGet(), default(deneb.Blobs), default(fulu.KzgProofs))
+
+    if consensusVersion.get() != node.dag.cfg.consensusForkAtEpoch(
+        signedEnvelope.message.slot.epoch()):
+      return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+
+    let res = withConsensusFork(consensusVersion.get()):
+      when consensusFork == ConsensusFork.Heze:
+        debugHezeComment("")
+        return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+      elif consensusFork == ConsensusFork.Gloas:
+        let
+          blckId = BlockId(
+            root: signedEnvelope.message.beacon_block_root,
+            slot: signedEnvelope.message.slot)
+          signedBlck = block:
+            let trustedBlck = node.dag.getBlock(
+                blckId, consensusFork.TrustedSignedBeaconBlock).valueOr:
+              # Block is not found in DAG, so broadcasting the envelope only.
+              if blckId.root in node.quarantine[].unviable:
+                return RestApiResponse.jsonError(Http400, BlockInvalidError)
+              let gres = await node.router.validateAndPublishEnvelope(signedEnvelope)
+              return
+                if gres.isOk():
+                  # Envelope should have added to quarantine in gossip
+                  # validation.
+                  debugGloasComment("when blobDataIncluded, blobs and kzg_proofs are discarded as no storage for them")
+                  RestApiResponse.jsonError(Http202, MissingBeaconBlockError)
+                else:
+                  RestApiResponse.jsonError(
+                    Http400, ExecutionPayloadEnvelopeValidationError)
+            trustedBlck.asSigned()
+          kzgLen = signedBlck.message.body.signed_execution_payload_bid
+            .message.blob_kzg_commitments.len()
+          sidecarsOpt =
+            if blobDataIncluded:
+              if blobs.len != kzgLen:
+                return RestApiResponse.jsonError(
+                  Http400, InvalidBlockObjectError)
+              if kzgProofs.len != blobs.len * fulu.CELLS_PER_EXT_BLOB:
+                return RestApiResponse.jsonError(
+                  Http400, InvalidBlockObjectError)
+              Opt.some(signedBlck.assemble_data_column_sidecars(
+                blobs.mapIt(kzg.KzgBlob(bytes: it)),
+                kzgProofs.mapIt(kzg.KzgProof(it)),
+                supernodeMap))
+            else:
+              if kzgLen == 0:
+                Opt.some(default(gloas.DataColumnSidecars))
+              else:
+                node.gloasColumnQuarantine[].popSidecars(
+                  signedBlck.root, allColumns = true)
+
+        if sidecarsOpt.isNone():
+          return RestApiResponse.jsonError(
+            Http400, MissingBlobsAndKzgProofsError)
+        await node.router.routeExecutionPayloadEnvelope(
+          signedBlck, signedEnvelope, sidecarsOpt)
+      else:
+        return RestApiResponse.jsonError(Http400, SlotFromTheIncorrectForkError)
+
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        ExecutionPayloadEnvelopeValidationError,

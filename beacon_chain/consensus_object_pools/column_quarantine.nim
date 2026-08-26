@@ -456,11 +456,8 @@ proc loadRoot[
 ) =
   for sidecar in quarantine.db.sidecars(A, blockRoot):
     let index = quarantine.getIndex(sidecar.index)
-    doAssert(index >= 0,
-      "Incorrect sidecar index " & $sidecar.index & " points to " & $index)
-    doAssert(record.sidecars[index].isUnloaded(),
-      "Database storage is inconsistent, record should be `Unloaded`, " &
-      "but it is `" & $record.sidecars[index].kind & "`")
+    if (index < 0) or not(record.sidecars[index].isUnloaded()):
+      continue
     record.sidecars[index].load(newClone(sidecar))
     dec(record.unloaded)
     inc(quarantine.memSidecarsCount)
@@ -571,7 +568,8 @@ proc popSidecarsOrCount*[
     C: SomeSidecarAddedCallback
 ](
     quarantine: var SidecarQuarantine[A, B, C],
-    blockRoot: Eth2Digest
+    blockRoot: Eth2Digest,
+    allColumns: bool
 ): Result[seq[ref A], int] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``.
   ## If some of the column sidecars are missing Opt.none() is returned.
@@ -599,7 +597,7 @@ proc popSidecarsOrCount*[
     sidecars: seq[ref A]
     unverified: ColumnMap
 
-  if supernode:
+  if supernode or allColumns:
     # When supernode - we pop all sidecars.
     for sidecar in node[].value.sidecars:
       # Supernode could have some of the columns not filled.
@@ -644,9 +642,10 @@ proc popSidecars*[
     C: SomeSidecarAddedCallback
 ](
     quarantine: var SidecarQuarantine[A, B, C],
-    blockRoot: Eth2Digest
+    blockRoot: Eth2Digest,
+    allColumns: bool = false
 ): Opt[seq[ref A]] =
-  let res = quarantine.popSidecarsOrCount(blockRoot).valueOr:
+  let res = quarantine.popSidecarsOrCount(blockRoot, allColumns).valueOr:
     return Opt.none(seq[ref A])
   Opt.some(res)
 
@@ -939,8 +938,8 @@ proc update*[
       # We do account sidecars which are useful in new configuration, but
       # its possible that some sidecars will be left on disk which can't be
       # used in new configuration, and we can't delete it easily. But this
-      # sidecars will be deleted as soon as sidecars with same `block_root`
-      # will be popped out from quarantine.
+      # sidecars will be ignored by `loadRoot()` and deleted as soon as
+      # sidecars with same `block_root` will be popped out from quarantine.
       diskSidecarsCount.inc(unloaded)
       memSidecarsCount.inc(count - unloaded)
     else:

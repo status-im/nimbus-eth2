@@ -24,7 +24,6 @@ const
   FuluSlot = Slot(96000)
   emptyFork = Fork()
   emptyVersion = emptyFork.current_version
-  emptyRoot = Eth2Digest()
 
 type
   MevBlocks = fulu_mev.SignedBlindedBeaconBlock
@@ -45,7 +44,7 @@ proc keyGen(rng: var HmacDrbgContext): BlsResult[ValidatorPrivKey] =
   ok(ValidatorPrivKey(seckey))
 
 func specifiedFeeRecipient(x: int): Eth1Address =
-  copyMem(addr result, unsafeAddr x, sizeof x)
+  copyMem(addr result, addr x, sizeof x)
 
 proc prepareRegistration(
     genesis_fork_version: Version,
@@ -99,7 +98,7 @@ proc prepare(
     )))
     block_root = hash_tree_root(blindedBlock)
   T(message: blindedBlock,
-    signature: get_block_signature(emptyFork, emptyRoot, slot, block_root,
+    signature: get_block_signature(emptyFork, ZERO_HASH, slot, block_root,
                                    privateKey).toValidatorSig())
 
 proc jsonResponseSignedBuilderBid(
