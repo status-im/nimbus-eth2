@@ -547,7 +547,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(
               Http500, "Proposal state is not available")
           engineBid = block:
-            debugGloasComment("should_extend_payload")
             (await node.getExecutionPayload(
                 consensusFork, qhead, state, proposer,
                 node.dag.validatorKey(proposer).get().toPubKey(),
@@ -555,7 +554,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http500,
                 "Engine payload is not available")
           message = block:
-            debugGloasComment("parent_execution_requests")
             (node.makeEngineBlock(
                 consensusFork, state[].forky(consensusFork), cache[],
                 proposer, qrandao, qgraffiti, qhead, qslot,
