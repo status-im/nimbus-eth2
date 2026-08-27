@@ -2030,17 +2030,12 @@ proc validateExecutionPayloadBid*(
       # `parent_gas_limit` is the `gas_limit` of that execution payload.
       #
       # The execution payload identified by `bid.parent_block_hash` is either
-      # the parent block's own payload (`Timely`) or the payload the parent
-      # block builds on (`Withheld`), which can differ from the parent block's
-      # bid `gas_limit`.
+      # the parent block's own payload or one the parent block builds on
+      # (withheld), whose `gas_limit` can differ from the parent block's bid.
       let parentPayloadBlck =
-        case payloadAvailability
-        of PayloadAvailability.Timely:
-          parentBlck
-        of PayloadAvailability.Withheld:
-          dag.loadExecutionParent(parentBlck).valueOr:
-            return errIgnore(
-              "ExecutionPayloadBid: parent execution payload block unknown")
+        dag.executionParent(parentBlck, bid.parent_block_hash).valueOr:
+          return errIgnore(
+            "ExecutionPayloadBid: parent execution payload block unknown")
       let parentGasLimit =
         dag.loadExecutionGasLimit(parentPayloadBlck.bid).valueOr:
           return errIgnore(
