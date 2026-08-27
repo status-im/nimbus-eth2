@@ -128,7 +128,7 @@ func get_fork_choice_balances*(
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
-    let validator = unsafeAddr validators[i]
+    let validator = addr validators[i]
     if validator[].is_active_validator(epoch):
       result[i] = ForkChoiceBalance(
         if validator[].slashed:
@@ -870,10 +870,10 @@ proc getState(
 
   let rollbackAddr =
     # Any restore point will do as long as it's not the object being updated
-    if unsafeAddr(state) == unsafeAddr(dag.headState):
-      unsafeAddr dag.clearanceState
+    if addr(state) == addr(dag.headState):
+      addr dag.clearanceState
     else:
-      unsafeAddr dag.headState
+      addr dag.headState
 
   let v = addr state
   func rollback() =
@@ -904,10 +904,10 @@ proc getStateByParent(
 
   let rollbackAddr =
     # Any restore point will do as long as it's not the object being updated
-    if unsafeAddr(state) == unsafeAddr(dag.headState):
-      unsafeAddr dag.clearanceState
+    if addr(state) == addr(dag.headState):
+      addr dag.clearanceState
     else:
-      unsafeAddr dag.headState
+      addr dag.headState
 
   let v = addr state
   func rollback() =
