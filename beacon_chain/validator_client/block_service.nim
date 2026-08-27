@@ -718,7 +718,7 @@ proc runBlockMonitor(
 
       var pendingCancellations: seq[Future[void]]
       for node, fut in pendingTasks:
-        if not(node in newPendingTasks):
+        if node notin newPendingTasks:
           debug "Stopping block monitoring", node = node
           pendingCancellations.add(fut.cancelAndWait())
       await noCancel allFutures(pendingCancellations)
