@@ -644,6 +644,11 @@ p2pProtocol BeaconSync(version = 1,
     if reqCount == 0 or reqColumns.len == 0:
       raise newException(InvalidInputsError, "Empty range requested")
 
+    if  reqCount >= MAX_REQUEST_DATA_COLUMN_SIDECARS or
+        reqColumns.lenu64 * reqCount > MAX_REQUEST_DATA_COLUMN_SIDECARS:
+      raise newException(InvalidInputsError,
+        "Request exceeds MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS")
+
     let
       dag = peer.networkState.dag
       epochBoundary =
