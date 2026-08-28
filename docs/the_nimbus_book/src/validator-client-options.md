@@ -62,12 +62,12 @@ Before usage, all the roles are stripped from beacon node URLs.
 
 ### Reloading the configuration
 
-The configuration can be defined in a TOML file, and loaded using the `--config-file` option. Command line arguments take precendece over the config file. The config file can be reloaded while running, as follows.
+The configuration can be defined in a TOML file, and loaded using the `--config-file` option. Command line arguments take precedence over the config file. The config file can be reloaded while running, as follows.
 
 === "Linux / BSD / macOS"
 
     ```sh
-    pkill SIGHUP nimbus_validator_client
+    pkill -SIGHUP nimbus_validator_client
     ```
 
 === "Windows"
@@ -75,7 +75,7 @@ The configuration can be defined in a TOML file, and loaded using the `--config-
     ```ps1
     Get-Process nimbus_validator_client -EA SilentlyContinue | % {
         $n = "Local\chronos-events-$($_.Id)-sighup"
-        try { $e = [System.Threading.EventWaitHandle]::OpenExisting($n) } catch { continue }
+        try { $e = [System.Threading.EventWaitHandle]::OpenExisting($n) } catch { return }
         try { if (-not $e.Set()) { Write-Host "Failed to signal reload" } } finally { $e.Dispose() }
     }
     ```
