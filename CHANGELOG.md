@@ -1,3 +1,54 @@
+2026-08-28 v26.8.0
+==================
+
+The Nimbus consensus client `v26.8.0` is a `medium-urgency` release with additional beacon API support. Because it enables QUIC gossip support, it listens on a new UDP port, by default 9001 and configurable with the `--quic-port` option.
+
+### Improvements
+
+- Support Platåberget testnet with `--network=plataberget`:
+  https://github.com/status-im/nimbus-eth2/pull/8893
+
+- Enable QUIC gossip:
+  https://github.com/status-im/nimbus-eth2/pull/8762
+
+- Implement getAttestationsRewards beacon API endpoint:
+  https://github.com/status-im/nimbus-eth2/pull/8649
+
+- Implement state root lookups for `getState` and related beacon API endpoints:
+  https://github.com/status-im/nimbus-eth2/pull/8819
+
+- Emit beacon API SSE `head` event on chain reorg:
+  https://github.com/status-im/nimbus-eth2/pull/8874
+
+- Optimize KZG verification using thread pooling:
+  https://github.com/status-im/nimbus-eth2/pull/8810
+
+- Restore `--peerdas-supernode` functionality beyond light supernodes:
+  https://github.com/status-im/nimbus-eth2/pull/8767
+
+- Initialize validator monitor metrics on startup:
+  https://github.com/status-im/nimbus-eth2/pull/8915
+
+### Fixes
+
+- Avoid overlapping getBlobsV2 engine API calls:
+  https://github.com/status-im/nimbus-eth2/pull/8884
+
+- Fix standalone light client peers acquisition regression:
+  https://github.com/status-im/nimbus-eth2/pull/8790
+
+- Avoid potentially incorrect BLS signature batch verification results:
+  https://github.com/status-im/nimbus-eth2/pull/8804
+
+- Fix column quarantine crash:
+  https://github.com/status-im/nimbus-eth2/pull/8944
+
+- Synchronize column custody group subscription properly across fork transitions:
+  https://github.com/status-im/nimbus-eth2/pull/8766
+
+- Tighten req/resp SSZ encoding validation:
+  https://github.com/status-im/nimbus-eth2/pull/8744
+
 2026-07-13 v26.7.0
 ==================
 
