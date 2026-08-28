@@ -698,9 +698,6 @@ template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
 
 proc configReloadTask(
     vc: ValidatorClientRef) {.async: (raises: [CancelledError]).} =
-  if vc.config.configFile.isNone:
-    return
-
   proc didChangeConfig(
       config: ValidatorClientConf) {.async: (raises: [CancelledError]).} =
     if config == vc.config:
