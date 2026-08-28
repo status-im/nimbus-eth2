@@ -681,7 +681,7 @@ template firstSuccessSequential*(
            responseType: typedesc,
            timeout: Duration,
            statuses: set[RestBeaconNodeStatus],
-           roles: set[BeaconNodeRole],
+           rolesParam: set[BeaconNodeRole],
            body: untyped,
            handlers: untyped
          ): untyped =
@@ -701,12 +701,12 @@ template firstSuccessSequential*(
       try:
         if iterations == 0:
           # We are not going to wait for BNs if there some available.
-          await vc.waitNodes(timerFut, statuses, roles, false)
+          await vc.waitNodes(timerFut, statuses, rolesParam, false)
         else:
           # We get here only, if all the requests are failed. To avoid requests
           # spam we going to wait for changes in BNs statuses.
-          await vc.waitNodes(timerFut, statuses, roles, true)
-        vc.filterNodes(statuses, roles)
+          await vc.waitNodes(timerFut, statuses, rolesParam, true)
+        vc.filterNodes(statuses, rolesParam)
       except CancelledError as exc:
         # waitNodes do not cancel `timoutFuture`.
         if not(isNil(timerFut)) and not(timerFut.finished()):
@@ -723,6 +723,8 @@ template firstSuccessSequential*(
     var exitNow = false
 
     for node {.inject.} in onlineNodes:
+      if node.roles * rolesParam == {}:
+        continue
       it = node.client
       var bodyFut = body
 
