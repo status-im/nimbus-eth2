@@ -696,6 +696,8 @@ proc runBlockMonitor(
     BeaconNodeServerRef, Future[void].Raising([CancelledError])]
 
   while true:
+    let changesFut = vc.waitNodeChanges()
+
     proc monitor(
         fut: var Future[void].Raising([CancelledError]),
         node: BeaconNodeServerRef) =
@@ -731,7 +733,7 @@ proc runBlockMonitor(
       pendingTasks = move(newPendingTasks)
 
     try:
-      await vc.waitNodeChanges()
+      await changesFut
     except CancelledError as exc:
       var pending: seq[Future[void]]
       for fut in pendingTasks.values():
