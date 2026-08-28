@@ -276,13 +276,13 @@ proc monitorConfigChanges*(
 ): Future[void] {.async: (raises: [CancelledError]).} =
   doAssert cb != nil
 
-  proc reloadConfig {.async: (raises: [CancelledError], raw: true).} =
+  proc reloadConfig {.async: (raises: [CancelledError]).} =
     let config = ConfType.loadWithBanners(
         helpBanner = "", copyright = "", versions = [],
         quitOnFailure = false).valueOr:
       warn "Config reload failed - previous config applies", reason = error
       return
-    cb(config)
+    await cb(config)
 
   when defined(windows):
     let hEvent = openEvent("sighup").valueOr:
