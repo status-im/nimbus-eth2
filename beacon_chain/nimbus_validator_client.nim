@@ -731,6 +731,7 @@ proc runValidatorClient*(
 ) {.async: (raises: []).} =
   let vc = ValidatorClientRef.new(config, rng)
   (await vc.updateBeaconNodesFromUrls(vc.config.beaconNodes)).isOkOr:
+    fatal "Failed to initialize beacon nodes"
     quit 1
   vc.configReloadFut = vc.configReloadTask()
   defer: await noCancel vc.configReloadFut.cancelAndWait()
