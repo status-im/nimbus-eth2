@@ -2274,12 +2274,10 @@ func add_builder_to_registry*(
       deposit_epoch: slot.epoch,
       withdrawable_epoch: FAR_FUTURE_EPOCH)
   if state.builders.lenu64 == index:
-    # TODO handle this potential failure (?) differently
-    discard state.builders.add builder
-    debugGloasComment "this isn't really safe"
-    bucket_sorted_builders.add index.ValidatorIndex
+    state.builders.add builder
   else:
     state.builders.mitem(index) = builder
+  bucket_sorted_builders.add index.ValidatorIndex
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
 func onboard_builders_from_pending_deposits*(

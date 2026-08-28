@@ -69,7 +69,7 @@ type
     fulu.DataColumnSidecars
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecarsForImport]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -175,7 +175,8 @@ proc publishSidecars(
     router: ref MessageRouter,
     _: fulu.SignedBeaconBlock,
     cols: fulu.DataColumnSidecars
-): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[fulu.DataColumnSidecarsForImport]] {.
+    async: (raises: [CancelledError]).} =
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
@@ -194,8 +195,10 @@ proc publishSidecars(
       notice "Data column sent",
         data_column = shortLog(cols[i][])
 
+  # Assembled locally, so they need no KZG check on the way back in.
   Opt.some(cols.filterIt(
-    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap))
+    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap
+  ).toTrustedImport())
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -694,11 +697,9 @@ proc routePayloadAttestationMessage*(
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
 
-proc routeExecutionPayloadEnvelope*(
+proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
-    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
   let
@@ -723,6 +724,17 @@ proc routeExecutionPayloadEnvelope*(
     notice "Envelope sent",
       envelope = shortLog(signedEnvelope.message)
 
+  ok()
+
+proc routeExecutionPayloadEnvelope*(
+    router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  (await router.validateAndPublishEnvelope(signedEnvelope)).isOkOr:
+    return err(error())
+
   # Publish sidecars
   let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
 
@@ -730,31 +742,6 @@ proc routeExecutionPayloadEnvelope*(
   (await router[].blockProcessor.addPayload(
       signedBlock, signedEnvelope, finalSidecars)).isOkOr:
     return err("Proposed envelope failed to add to the chain")
-
-  ok()
-
-# Beacon-API variant: only the envelope arrives, so it takes the
-# gossip ingest path rather than the direct addPayload above.
-proc routeExecutionPayloadEnvelope*(
-    router: ref MessageRouter,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope):
-    Future[SendResult] {.async: (raises: [CancelledError]).} =
-  block:
-    let res =
-      router[].processor[].processExecutionPayloadEnvelope(
-        MsgSource.api, signedEnvelope)
-    if not res.isGoodForSending:
-      warn "Execution payload envelope failed validation",
-        envelope = shortLog(signedEnvelope.message), error = res.error()
-      return err(res.error()[1])
-
-  let res = await router[].network.broadcastExecutionPayloadEnvelope(signedEnvelope)
-  if res.isOk():
-    notice "Execution payload envelope sent",
-      envelope = shortLog(signedEnvelope.message)
-  else:
-    notice "Execution payload envelope not sent",
-      envelope = shortLog(signedEnvelope.message), error = res.error()
 
   ok()
 

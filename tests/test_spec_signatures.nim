@@ -326,10 +326,10 @@ suite "Message signatures":
     let
       version0 = fork0.current_version
       version1 = fork1.current_version
-      auth0 = default(RequestAuthV1)
+      auth0 = default(BuilderRequestAuth)
       auth1 = block:
         var v = auth0
-        v.data = RequestAuthData.init(@[byte 0xaa])
+        v.data = BuilderRequestAuthData.init(@[byte 0xaa])
         v
       sig = get_builder_request_auth_signature(
         version0, auth0, privkey0).toValidatorSig

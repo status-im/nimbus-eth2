@@ -182,7 +182,7 @@ proc attemptGetBlobs*(
       # skip the EL fetch and enqueue with the existing columns.
       if forkyBlck.root in self.columnFirstFetched:
         let sidecarsOpt =
-          self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+          self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
         if sidecarsOpt.isSome():
           if not quarantine[].removeSidecarless(forkyBlck.root):
             return
@@ -318,7 +318,8 @@ proc attemptGetBlobs*(
       # column sidecars we just installed.
       self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
 
-      let sidecarsOpt = self.fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+      let sidecarsOpt =
+        self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
 
       self.blockProcessor.enqueueBlock(MsgSource.gossip, forkyBlck, sidecarsOpt)
     elif consensusFork == ConsensusFork.Heze:

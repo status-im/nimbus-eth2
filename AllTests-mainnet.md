@@ -213,6 +213,7 @@ AllTests-mainnet
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
++ ColumnQuarantine: update() database reload test [node]                                     OK
 + ColumnQuarantine: update(empty:grow) [node->node] test                                     OK
 + ColumnQuarantine: update(empty:grow) [node->supernode] test                                OK
 + ColumnQuarantine: update(empty:shrink) [node->node] test                                   OK
@@ -479,6 +480,7 @@ AllTests-mainnet
 ```diff
 + Empty in-memory scenario test [node]                                                       OK
 + Empty in-memory scenario test [supernode]                                                  OK
++ GloasColumnQuarantine: update() database reload test [node]                                OK
 + GloasColumnQuarantine: update(empty:grow) [node->node] test                                OK
 + GloasColumnQuarantine: update(empty:grow) [node->supernode] test                           OK
 + GloasColumnQuarantine: update(empty:shrink) [node->node] test                              OK
@@ -857,6 +859,27 @@ AllTests-mainnet
 + Verifying Signer / Many remotes                                                            OK
 + Verifying Signer / Single remote                                                           OK
 + version 1                                                                                  OK
+```
+## Response utilities test suite
+```diff
++ checkResponse(SyncRange, ForkedSignedBeaconBlock) failures test                            OK
++ checkResponse(SyncRange, ForkedSignedBeaconBlock) test                                     OK
++ checkResponse(SyncRange, SignedExecutionPayloadEnvelope) test                              OK
++ checkResponse(roots, ForkedSignedBeaconBlock) test                                         OK
++ checkResponse(roots, SignedExecutionPayloadEnvelope) test                                  OK
++ combineResponse() test                                                                     OK
++ groupSidecars(DataColumnsByRootIdentifier, fulu.DataColumnSidecar) [node] test             OK
++ groupSidecars(DataColumnsByRootIdentifier, fulu.DataColumnSidecar) [supernode] test        OK
++ groupSidecars(DataColumnsByRootIdentifier, gloas.DataColumnSidecar) [node] test            OK
++ groupSidecars(DataColumnsByRootIdentifier, gloas.DataColumnSidecar) [supernode] test       OK
++ groupSidecars(SyncRange, ColumnMap, fulu.DataColumnSidecar) [node] test                    OK
++ groupSidecars(SyncRange, ColumnMap, fulu.DataColumnSidecar) [supernode] test               OK
++ groupSidecars(SyncRange, ColumnMap, gloas.DataColumnSidecar) [node] test                   OK
++ groupSidecars(SyncRange, ColumnMap, gloas.DataColumnSidecar) [supernode] test              OK
++ validateBlocks(SyncRange, SyncResponseItem, FuluColumnSidecarResponseRecord) [node] test   OK
++ validateBlocks(SyncRange, SyncResponseItem, FuluColumnSidecarResponseRecord) [supernode] t OK
++ validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [node] test  OK
++ validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [supernode]  OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
