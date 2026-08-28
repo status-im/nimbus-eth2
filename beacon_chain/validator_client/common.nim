@@ -940,12 +940,6 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
   let (remoteUri, roles) = ? beaconNodeUriComponents(remote)
   BeaconNodeServerRef.init(remoteUri, roles, index)
 
-proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
-  var res: set[BeaconNodeRole] = AllBeaconNodeRoles
-  for node in n.items():
-    res.excl(node.roles)
-  res
-
 proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
            duty: RestAttesterDuty,
            slotSig: Opt[ValidatorSig]): DutyAndProof =
