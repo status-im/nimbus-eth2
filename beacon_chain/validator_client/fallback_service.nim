@@ -119,6 +119,8 @@ proc checkCompatible(
     try:
       debug "Requesting beacon node network configuration"
       let res = await node.client.getSpecVC()
+      if node.index < 0:
+        return RestBeaconNodeStatus.Offline
       res.data.data
     except CancelledError as exc:
       debug "Configuration request was interrupted"
@@ -233,7 +235,8 @@ proc checkNode(vc: ValidatorClientRef,
   let nstatus = node.status
   debug "Checking beacon node", endpoint = node, status = node.status
 
-  if nstatus in {RestBeaconNodeStatus.Noname}:
+  if node.index >= 0 and
+     nstatus in {RestBeaconNodeStatus.Noname}:
     let
       status = node.checkName()
       failure = ApiNodeFailure.init(ApiFailure.NoError, "checkName",
@@ -242,7 +245,8 @@ proc checkNode(vc: ValidatorClientRef,
     if status != RestBeaconNodeStatus.Offline:
       return nstatus != status
 
-  if nstatus in {RestBeaconNodeStatus.Offline,
+  if node.index >= 0 and
+     nstatus in {RestBeaconNodeStatus.Offline,
                  RestBeaconNodeStatus.UnexpectedCode,
                  RestBeaconNodeStatus.UnexpectedResponse,
                  RestBeaconNodeStatus.InternalError}:
@@ -254,7 +258,8 @@ proc checkNode(vc: ValidatorClientRef,
     if status != RestBeaconNodeStatus.Online:
       return nstatus != status
 
-  if nstatus in {RestBeaconNodeStatus.Offline,
+  if node.index >= 0 and
+     nstatus in {RestBeaconNodeStatus.Offline,
                  RestBeaconNodeStatus.UnexpectedCode,
                  RestBeaconNodeStatus.UnexpectedResponse,
                  RestBeaconNodeStatus.InternalError,
@@ -268,7 +273,8 @@ proc checkNode(vc: ValidatorClientRef,
     if status != RestBeaconNodeStatus.Compatible:
       return nstatus != status
 
-  if nstatus in {RestBeaconNodeStatus.Offline,
+  if node.index >= 0 and
+     nstatus in {RestBeaconNodeStatus.Offline,
                  RestBeaconNodeStatus.UnexpectedCode,
                  RestBeaconNodeStatus.UnexpectedResponse,
                  RestBeaconNodeStatus.InternalError,

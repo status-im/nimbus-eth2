@@ -133,7 +133,11 @@ proc close(dt: DoubleTimeout): Future[void] {.async: (raises: []).} =
     await cancelAndWait(dt.timeoutFuture)
 
 proc `$`*[T](s: ApiScore[T]): string =
-  var res = Base10.toString(uint64(s.index))
+  var res =
+    if s.index >= 0:
+      Base10.toString(uint64(s.index))
+    else:
+      "-1"
   res.add(": ")
   if s.score.isSome():
     res.add(shortScore(s.score.get()))
