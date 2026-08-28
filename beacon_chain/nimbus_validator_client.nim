@@ -320,7 +320,8 @@ proc updateBeaconNodesFromUrls(
   for index, url in urls.pairs():
     let
       (remoteUri, roles) = beaconNodeUriComponents(url).valueOr:
-        warn "Unable to process remote beacon node URI", reason = error
+        warn "Unable to process remote beacon node URI",
+              url = $url, error = error
         continue
       endpoint = $remoteUri
     pendingConfig.withValue(endpoint, value):
