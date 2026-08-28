@@ -492,9 +492,10 @@ proc runBlockEventMonitor(service: BlockServiceRef,
   logScope:
     node = node
 
-  while true:
-    while node.status notin statuses:
+  while node.roles * roles != {}:
+    if node.status notin statuses:
       await vc.waitNodes(nil, statuses, roles, true)
+      continue
 
     let response =
       block:
@@ -539,7 +540,9 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
                          slot: Slot, waitTime: Duration,
                          index: int): Future[bool] {.
      async: (raises: [CancelledError]).} =
-  let vc = service.client
+  let
+    vc = service.client
+    roles = {BeaconNodeRole.BlockProposalData}
 
   logScope:
     node = node
@@ -552,6 +555,8 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
   let bres =
     try:
       await sleepAsync(waitTime)
+      if node.roles * roles == {}:
+        return false
       await node.client.getBlockHeader(BlockIdent.init(BlockIdentType.Head))
     except RestError as exc:
       debug "Unable to obtain block header",
@@ -595,7 +600,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
   logScope:
     node = node
 
-  while true:
+  while node.roles * roles != {}:
     let currentSlot {.used.} =
       (await vc.checkedWaitForNextSlot(ZeroTimeDiff, false)).valueOr:
         continue
@@ -696,7 +701,7 @@ proc runBlockMonitor(
         node: BeaconNodeServerRef) =
       doAssert isNil(fut)
       fut = pendingTasks.getOrDefault(node)
-      if isNil(fut):
+      if isNil(fut) or fut.finished():
         debug "Starting block monitoring", node = node
         fut =
           case vc.config.monitoringType
