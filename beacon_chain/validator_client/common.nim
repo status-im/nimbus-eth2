@@ -906,11 +906,11 @@ proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
 func beaconNodeUriComponents*(
     remote: Uri
 ): Result[tuple[remoteUri: Uri, roles: set[BeaconNodeRole]], string] =
-  let
-    remoteUri = normalizeUri(remote).valueOr:
-      return err($error)
-    roles = parseRoles(remoteUri.anchor).valueOr:
-      return err($error)
+  var remoteUri = normalizeUri(remote).valueOr:
+    return err($error)
+  let roles = parseRoles(remoteUri.anchor).valueOr:
+    return err($error)
+  remoteUri.anchor = ""
   ok((remoteUri: remoteUri, roles: roles))
 
 proc init*(t: typedesc[BeaconNodeServerRef],
