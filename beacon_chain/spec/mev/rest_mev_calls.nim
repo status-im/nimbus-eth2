@@ -66,14 +66,20 @@ proc getExecutionPayloadBid*(
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
     consensus_version: ConsensusFork,
-    body: SignedBuilderRequestAuth
+    req_started_at: Moment,
+    timeout_ms: Duration,
+    body: SignedBuilderRequestAuth,
 ): Future[RestPlainResponse] {.
   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                    RestCommunicationError], raw: true).} =
   client.getExecutionPayloadBidPlain(
     slot, parent_hash, parent_root, proposer_pubkey, body,
-    restAcceptType = "application/octet-stream",
-    extraHeaders = @[("eth-consensus-version", toString(consensus_version))]
+    restAcceptType = "application/octet-stream,application/json;q=0.5",
+    extraHeaders = @[
+      ("eth-consensus-version", toString(consensus_version)),
+      ("date-milliseconds", $req_started_at.epochNanoSeconds().nanoseconds().milliseconds()),
+      ("x-timeout-ms", $timeout_ms.milliseconds())
+    ]
   )
 
 proc submitBlindedBlockV2Plain*(
