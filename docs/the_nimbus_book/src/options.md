@@ -137,7 +137,7 @@ The following options are available:
      --suggested-gas-limit     Suggested gas limit [=60000000].
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
-     --payload-builder-get-bid-timeout  Payload builder get bid request timeout in milliseconds [=500].
+     --payload-builder-get-bid-timeout  Payload builder get bid request timeout in milliseconds [=1000].
      --local-block-value-boost  Increase execution layer block values for builder bid comparison by a percentage
                                [=10].
      --history                 Retention strategy for historical data (archive/prune) [=prune].
