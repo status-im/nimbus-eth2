@@ -57,7 +57,7 @@ proc getExecutionPayloadBidPlain*(
   rest, endpoint:
     "/eth/v1/builder/execution_payload_bid/{slot}/{parent_hash}/{parent_root}/{proposer_pubkey}",
   meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/execution_payload_bid.yaml
+  ## https://github.com/ethereum/builder-specs/blob/38f11441c194d150386f567b4d7087ec86d4118c/apis/builder/execution_payload_bid.yaml
 
 proc getExecutionPayloadBid*(
     client: RestClientRef,

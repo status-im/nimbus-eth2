@@ -470,7 +470,7 @@ proc makeSignedRequestAuth*(
     message: msg,
     signature: sig))
 
-# https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/execution_payload_bid.yaml
+# https://github.com/ethereum/builder-specs/blob/38f11441c194d150386f567b4d7087ec86d4118c/apis/builder/execution_payload_bid.yaml
 proc getExecutionPayloadBidFromBuilder*(
     payloadBuilderClient: RestClientRef,
     slot: Slot,
@@ -501,12 +501,19 @@ proc getExecutionPayloadBidFromBuilder*(
   if response.status != 200:
     return err("getExecutionPayloadBid: HTTP error " & $response.status)
 
-  let bid =
-    try:
-      SSZ.decode(response.data, gloas.SignedExecutionPayloadBid)
-    except SerializationError as exc:
-      return err("getExecutionPayloadBid SSZ decode error: " & exc.msg)
-  ok(bid)
+  debugHezeComment("")
+  let res = decodeBytesJsonOrSsz(
+    GetExecutionPayloadBidResponseGloas,
+    response.data,
+    response.contentType,
+    response.headers.getString("eth-consensus-version"),
+  ).valueOr:
+    return err(
+      "Unable to decode bid response from builder: " & $error & " with HTTP status " &
+        $response.status & ", Content-Type " & $response.contentType & " and content " &
+        $response.data
+    )
+  ok(res.data)
 
 proc getBuilderExecutionPayloadBid*(
     node: BeaconNode,
