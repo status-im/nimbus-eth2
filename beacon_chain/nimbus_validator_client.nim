@@ -12,7 +12,8 @@ import
   ./rpc/rest_key_management_api,
   ./validator_client/[
     common, fallback_service, duties_service, fork_service, block_service,
-    doppelganger_service, attestation_service, sync_committee_service],
+    doppelganger_service, attestation_service, sync_committee_service,
+    payload_attestation_service],
   ./buildinfo
 
 const
@@ -454,6 +455,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.
     vc.attestationService = await AttestationServiceRef.init(vc)
     vc.blockService = await BlockServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
+    vc.payloadAttestationService = await PayloadAttestationServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
     if not(isNil(vc.keymanagerServer)):
       vc.keymanagerHost = newClone KeymanagerHost.init(
@@ -559,6 +561,7 @@ proc asyncRun*(
   vc.attestationService.start()
   vc.blockService.start()
   vc.syncCommitteeService.start()
+  vc.payloadAttestationService.start()
 
   if not(isNil(vc.keymanagerServer)):
     doAssert not(isNil(vc.keymanagerHost))
@@ -608,6 +611,7 @@ proc asyncRun*(
   pending.add(vc.attestationService.stop())
   pending.add(vc.blockService.stop())
   pending.add(vc.syncCommitteeService.stop())
+  pending.add(vc.payloadAttestationService.stop())
   if not isNil(vc.keymanagerServer):
     pending.add(vc.keymanagerServer.stop())
   await noCancel allFutures(pending)
