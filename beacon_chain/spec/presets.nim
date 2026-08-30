@@ -329,8 +329,8 @@ when const_preset == "mainnet":
       SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
-      # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_DUE_BPS: 7500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
@@ -548,8 +548,8 @@ elif const_preset == "gnosis":
       SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
-      # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_DUE_BPS: 7500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
@@ -763,8 +763,8 @@ elif const_preset == "minimal":
       SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
-      # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_DUE_BPS: 7500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
