@@ -571,7 +571,8 @@ proc popSidecarsOrCount*[
     C: SomeSidecarAddedCallback
 ](
     quarantine: var SidecarQuarantine[A, B, C],
-    blockRoot: Eth2Digest
+    blockRoot: Eth2Digest,
+    allColumns: bool
 ): Result[seq[ref A], int] =
   ## Function returns sequence of column sidecars for block root ``blockRoot``.
   ## If some of the column sidecars are missing Opt.none() is returned.
@@ -599,7 +600,7 @@ proc popSidecarsOrCount*[
     sidecars: seq[ref A]
     unverified: ColumnMap
 
-  if supernode:
+  if supernode or allColumns:
     # When supernode - we pop all sidecars.
     for sidecar in node[].value.sidecars:
       # Supernode could have some of the columns not filled.
@@ -644,9 +645,10 @@ proc popSidecars*[
     C: SomeSidecarAddedCallback
 ](
     quarantine: var SidecarQuarantine[A, B, C],
-    blockRoot: Eth2Digest
+    blockRoot: Eth2Digest,
+    allColumns: bool = false
 ): Opt[seq[ref A]] =
-  let res = quarantine.popSidecarsOrCount(blockRoot).valueOr:
+  let res = quarantine.popSidecarsOrCount(blockRoot, allColumns).valueOr:
     return Opt.none(seq[ref A])
   Opt.some(res)
 

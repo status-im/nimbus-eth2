@@ -732,7 +732,7 @@ suite "Partial Column Quarantine":
 
   # gloas.DataColumnSidecar carries slot + beacon_block_root instead of
   # signed_block_header / kzg_commitments / inclusion proof:
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   test "assembleDataColumnSidecar produces correct DataColumnSidecar":
     var quarantine = PartialColumnQuarantine.init()
     let

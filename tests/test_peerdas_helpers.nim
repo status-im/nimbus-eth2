@@ -111,45 +111,6 @@ proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
     gloasSidecars: gloasSidecars)
 
 suite "EIP-7594 Unit Tests":
-  test "EIP-7594: Compute Matrix":
-    proc testComputeExtendedMatrix() =
-      var rng = initRand(126)
-      let
-        blob_count = rng.rand(1..(deneb.MAX_BLOB_COMMITMENTS_PER_BLOCK.int))
-        input_blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
-        extended_matrix = compute_matrix(input_blobs)
-      doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
-      for row in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
-        doAssert len(row) == kzg_abi.CELLS_PER_EXT_BLOB
-    testComputeExtendedMatrix()
-
-  test "EIP:7594: Recover Matrix":
-    proc testRecoverMatrix() =
-      var rng = initRand(126)
-
-      # Number of samples we shall be recovering
-      const N_SAMPLES = kzg_abi.CELLS_PER_EXT_BLOB div 2
-
-      # Compute an extended matrix with a random
-      # blob count for this test
-      let
-        blob_count = rng.rand(1..(NUMBER_OF_COLUMNS.int))
-        blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
-        extended_matrix = compute_matrix(blobs)
-
-      # Construct a matrix with some entries missing
-      var partial_matrix: seq[MatrixEntry]
-      for blob_entries in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
-        let blb_entry = blob_entries
-        partial_matrix.add(blb_entry[0..N_SAMPLES-1])
-
-      # Given the partial matrix, recover the missing entries
-      let recovered_matrix = recover_matrix(partial_matrix, blob_count)
-
-      # Ensure that the recovered matrix matches the original matrix
-      doAssert recovered_matrix.get == extended_matrix.get, "Both matrices don't match!"
-    testRecoverMatrix()
-
   test "EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)":
     proc testSingleFulu() =
       var rng = initRand(41)

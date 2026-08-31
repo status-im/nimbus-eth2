@@ -3520,6 +3520,40 @@
     }
   },
   {
+    "topics": ["beacon", "execution_payload_envelope"],
+    "request": {
+      "url": "/eth/v1/beacon/execution_payload_envelopes",
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "eth-consensus-version": "gloas",
+        "eth-blob-data-included": "0"
+      },
+      "body": {"content-type": "application/json", "data": "{}"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "body": [{"operator": "jstructcmpnsav", "value": {"message": "Unable to decode data"}}]
+    }
+  },
+  {
+    "topics": ["beacon", "execution_payload_envelope"],
+    "request": {
+      "url": "/eth/v1/beacon/execution_payload_envelopes",
+      "method": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "eth-consensus-version": "gloas",
+        "eth-blob-data-included": "1"
+      },
+      "body": {"content-type": "application/json", "data": "{}"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "body": [{"operator": "jstructcmpnsav", "value": {"message": "Unable to decode data"}}]
+    }
+  },
+  {
     "topics": ["beacon", "beacon_light_client_bootstrap_blockroot"],
     "request": {
       "url": "/eth/v1/beacon/light_client/bootstrap/0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4648,6 +4682,140 @@
     "topics": ["validator", "attester_duties"],
     "request": {
       "url": "/eth/v1/validator/duties/attester/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"18446744073709551616\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "method": "POST",
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/576460752303423488",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/18446744073709551615",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/18446744073709551616",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"0\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/foobar",
+      "method": "POST",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"2147483648\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "500"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[\"1099511627776\"]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "ptc_duties"],
+    "request": {
+      "url": "/eth/v1/validator/duties/ptc/0",
       "method": "POST",
       "headers": {"Accept": "application/json"},
       "body": {"content-type": "application/json", "data": "[\"18446744073709551616\"]"}

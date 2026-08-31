@@ -2289,7 +2289,6 @@ func onboard_builders_from_pending_deposits*(
   ## at the fork. This one-time onboarding is the only path through the
   ## validator deposit contract that creates builders; from the fork onward,
   ## builders are created and topped up only via `BuilderDepositRequest`.
-  debugGloasComment "In the slots leading up to the fork, implementations SHOULD validate pending deposit signatures and cache the results."
   let
     bucket_sorted_validators = sortValidatorBuckets(state.validators.asSeq)
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
@@ -2957,7 +2956,7 @@ func upgrade_to_next*(
     proposer_lookahead: initialize_proposer_lookahead(pre, cache)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/fork.md#upgrading-the-state
 # upgrade_to_gloas
 func upgrade_to_next*(
     cfg: RuntimeConfig, pre: fulu.BeaconState, cache: var StateCache):
@@ -3022,8 +3021,13 @@ func upgrade_to_next*(
 
     # [Modified in Gloas:EIP7732]
     latest_execution_payload_bid: gloas.ExecutionPayloadBid(
+      parent_block_hash: pre.latest_execution_payload_header.parent_hash,
+      parent_block_root: pre.latest_block_header.parent_root,
       block_hash: pre.latest_execution_payload_header.block_hash,
+      prev_randao: pre.latest_execution_payload_header.prev_randao,
       gas_limit: pre.latest_execution_payload_header.gas_limit,
+      builder_index: BUILDER_INDEX_SELF_BUILD,
+      slot: pre.latest_block_header.slot,
       execution_requests_root:
         hash_tree_root(default(gloas.ExecutionRequests)),
     ),

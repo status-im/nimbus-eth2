@@ -1106,17 +1106,15 @@ proc signAndSendProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
     fork: Fork, genesis_validators_root: Eth2Digest,
     data: ProposerPreferences) {.async: (raises: [CancelledError]).} =
-  let signature = (await validator.getProposerPreferencesSignature(
-    fork, genesis_validators_root, data)).valueOr:
-    warn "Unable to sign proposer preferences",
-      validator = shortLog(validator), error_msg = error
-    node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
-      (data.validator_index, data.proposal_slot))
-    return
-  let signed = SignedProposerPreferences(message: data, signature: signature)
-
-  node.eventBus.proposerPreferencesQueue.emit(
-    EventProposerPreferencesObject(data: signed))
+  let
+    signature = (await validator.getProposerPreferencesSignature(
+      fork, genesis_validators_root, data)).valueOr:
+      warn "Unable to sign proposer preferences",
+        validator = shortLog(validator), error_msg = error
+      node.sentProposerPreferences[data.proposal_slot.epoch.uint64 mod 2].excl(
+        (data.validator_index, data.proposal_slot))
+      return
+    signed = SignedProposerPreferences(message: data, signature: signature)
 
   discard await node.router.routeProposerPreferences(signed)
 
@@ -1587,7 +1585,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
   let newHead = await handleProposal(
     node, head,
     node.attestationPool[].forkChoice.should_build_on_full(
-      node.dag, head, node.dag.isPayloadStatusFull(head), slot), slot)
+      node.dag, head, node.dag.headPayloadFull, slot), slot)
   head = newHead
 
   # The latest point in time when we'll be sending out attestations

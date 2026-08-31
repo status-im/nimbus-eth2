@@ -9,20 +9,24 @@
 
 # Uncategorized helper functions from the spec
 import
-  chronicles,
-  chronos,
-  results,
-  taskpools,
+  chronos, chronos/threadsync, chronicles, results, taskpools,
   eth/p2p/discoveryv5/node,
   kzg4844/kzg,
   ssz_serialization/[proofs, types],
-  stew/[assign2, ptrops],
-  ./[crypto, helpers, digest, column_map],
-  ./datatypes/[fulu, deneb]
+  stew/assign2,
+  ./[column_map, crypto, digest, helpers],
+  ./datatypes/[deneb, fulu]
 
 from std/algorithm import sort
 from std/sequtils import anyIt, mapIt, newSeqWith, repeat, toSeq
 from stew/staticfor import staticFor
+
+# Generics sandwich (https://github.com/nim-lang/Nim/issues/11225): because
+# `recover_cells_and_proofs_parallel` is generic, its body is semchecked at
+# each callsite, where every symbol it references must also be visible -
+# including the `threadsync` ones. Re-export them so callers don't have to
+# import `threadsync` themselves just to instantiate it.
+export threadsync
 
 type
   CellBytes = array[fulu.CELLS_PER_EXT_BLOB, Cell]
@@ -99,62 +103,6 @@ func resolve_column_map_from_custody_groups*(
       columns.incl(index)
   columns
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/fulu/das-core.md#compute_matrix
-proc compute_matrix*(blobs: seq[KzgBlob]): Result[seq[MatrixEntry], cstring] =
-  ## `compute_matrix` helper demonstrates the relationship
-  ## between blobs and the `MatrixEntries`
-  var extended_matrix: seq[MatrixEntry]
-
-  for blbIdx, blob in blobs.pairs:
-    let cellsAndProofs = computeCellsAndKzgProofs(blob)
-    if cellsAndProofs.isErr:
-      return err("Computing Extended Matrix: Issue computing cells and proofs")
-
-    for i in 0..<fulu.CELLS_PER_EXT_BLOB:
-      extended_matrix.add(MatrixEntry(
-        cell: cellsAndProofs.get.cells[i],
-        kzg_proof: cellsAndProofs.get.proofs[i],
-        row_index: blbIdx.uint64,
-        column_index: i.uint64
-      ))
-
-  ok(extended_matrix)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/fulu/das-core.md#recover_matrix
-proc recover_matrix*(partial_matrix: seq[MatrixEntry],
-                     blobCount: int):
-                     Result[seq[MatrixEntry], cstring] =
-  ## This helper demonstrates how to apply recover_cells_and_kzg_proofs
-  ## The data structure for storing cells is implementation-dependent
-  var extended_matrix: seq[MatrixEntry]
-  for blob_index in 0..<blobCount:
-    var
-      cell_indices: seq[CellIndex]
-      cells: seq[Cell]
-
-    for e in partial_matrix:
-      if e.row_index == uint64(blob_index):
-        cell_indices.add(e.column_index)
-        cells.add(e.cell)
-
-    let recoveredCellsAndKzgProofs =
-      recoverCellsAndKzgProofs(cell_indices, cells)
-    if recoveredCellsAndKzgProofs.isErr:
-      return err("Issue in recovering cells and proofs")
-
-    for i in 0..<recoveredCellsAndKzgProofs.get.cells.len:
-      let
-        cell = recoveredCellsAndKzgProofs.get.cells[i]
-        proof = recoveredCellsAndKzgProofs.get.proofs[i]
-      extended_matrix.add(MatrixEntry(
-        cell: cell,
-        kzg_proof: proof,
-        row_index: blob_index.uint64,
-        column_index: i.uint64
-      ))
-
-  ok(extended_matrix)
-
 proc recover_cells_and_proofs_parallel*(
     tp: Taskpool,
     dataColumns: seq[ref fulu.DataColumnSidecar] |
@@ -184,39 +132,35 @@ proc recover_cells_and_proofs_parallel*(
     if blobCount != column.column.len:
       return err("DataColumns do not have the same length")
 
-  type
-    TaskFuture = Future[void].Raising([CancelledError])
-    Task = object
-      pendingIndices: seq[CellIndex]
-      pendingCells: seq[Cell]
-      ok: Flowvar[bool]
+  let tsp = ThreadSignalPtr.new().valueOr:
+    return err("Could not allocate signal")
 
-  let disp = getThreadDispatcher().handle()
-  var wait = TaskFuture.init("peerdas.task")
+  var wait = tsp.wait() # `wait` before task-ended check to avoid race
 
   defer:
     await wait.cancelAndWait()
+    # If there's an error closing the TSP, there's nothing we can do about it
+    # here..
+    discard tsp.close()
 
-  proc completeWait(udata: pointer) =
-    let wait = cast[ptr TaskFuture](udata)
-    if not wait[].finished():
-      wait[].complete()
+  type Task = object
+    pendingIndices: seq[CellIndex]
+    pendingCells: seq[Cell]
+    ok: Flowvar[bool]
 
-  proc workerRecover(
-      idxPtr: ptr CellIndex,
-      cellsPtr: ptr Cell,
-      columnCount: int,
-      res: ptr CellsAndProofs,
-      disp: DispatcherHandle,
-      wait: ptr TaskFuture,
-  ): bool =
+  proc workerRecover(idxPtr: ptr CellIndex, cellsPtr: ptr Cell,
+                     columnCount: int, res: ptr CellsAndProofs, tsp: ThreadSignalPtr): bool =
+    let
+      idxArr = cast[ptr UncheckedArray[CellIndex]](idxPtr)
+      cellsArr = cast[ptr UncheckedArray[Cell]](cellsPtr)
+    # Use toOpenArray to create views without copying
     defer:
-      disp.callSoon(completeWait, wait)
+      discard tsp.fireSync()
 
     res[] = recoverCellsAndKzgProofs(
-      idxPtr.makeOpenArray(columnCount), cellsPtr.makeOpenArray(columnCount)
-    ).valueOr:
-      return false
+      idxArr.toOpenArray(0, columnCount - 1),
+      cellsArr.toOpenArray(0, columnCount - 1)).valueOr:
+        return false
     true
 
   var
@@ -271,10 +215,13 @@ proc recover_cells_and_proofs_parallel*(
 
           try:
             await wait
+          except AsyncError:
+            hadError = true
+            break spawning
           except CancelledError:
             hadTimeout = true
             break spawning
-          wait = TaskFuture.init("peerdas.nexttask")
+          wait = tsp.wait()
         addr tasks[found]
 
       # Set up pointers to actual data
@@ -288,8 +235,7 @@ proc recover_cells_and_proofs_parallel*(
         addr taskPtr[].pendingCells[0],
         columnCount,
         addr res[spawned],
-        disp,
-        addr wait,
+        tsp,
       )
       inc spawned
 
@@ -730,9 +676,9 @@ func get_validators_custody_requirement*(cfg: RuntimeConfig,
   min(max(count.uint64, cfg.VALIDATOR_CUSTODY_REQUIREMENT),
       cfg.NUMBER_OF_CUSTODY_GROUPS.uint64)
 
-proc recover_blobs_from_data_columns*(
-  dataColumns: openArray[ref fulu.DataColumnSidecar]
-): Blobs =
+proc recover_blobs_from_data_columns*[
+    T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
+    dataColumns: openArray[ref T]): Blobs =
   const numCols = CELLS_PER_EXT_BLOB div 2
   var blobs: Blobs
 

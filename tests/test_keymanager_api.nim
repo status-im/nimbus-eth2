@@ -142,7 +142,7 @@ const
   # vcSecretsDir = vcDataDir / "secrets"
 
 func specifiedFeeRecipient(x: int): Eth1Address =
-  copyMem(addr result, unsafeAddr x, sizeof x)
+  copyMem(addr result, addr x, sizeof x)
 
 func contains*(keylist: openArray[KeystoreInfo], key: ValidatorPubKey): bool =
   for item in keylist:

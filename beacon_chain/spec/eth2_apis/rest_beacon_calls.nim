@@ -390,6 +390,35 @@ proc submitPoolAttestations2Ssz*[T: ForkyAttestation](
     restContentType = $OctetStreamMediaType,
     extraHeaders = @[("eth-consensus-version", fork.toString())])
 
+proc submitPoolPayloadAttestationsPlain*(
+    body: seq[PayloadAttestationMessage]
+): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/pool/payload_attestations",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPayloadAttestationMessages
+
+proc submitPoolPayloadAttestations*(
+    client: RestClientRef,
+    fork: ConsensusFork,
+    body: seq[PayloadAttestationMessage]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  client.submitPoolPayloadAttestationsPlain(
+    body, extraHeaders = @[("eth-consensus-version", fork.toString())])
+
+proc submitPoolPayloadAttestationsSsz*(
+    client: RestClientRef,
+    fork: ConsensusFork,
+    body: seq[PayloadAttestationMessage]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  client.submitPoolPayloadAttestationsPlain(
+    body,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[("eth-consensus-version", fork.toString())])
+
 proc getPoolAttesterSlashingsV2Plain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/pool/attester_slashings",
      meth: MethodGet.}

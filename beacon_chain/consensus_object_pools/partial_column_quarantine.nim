@@ -246,7 +246,7 @@ func isComplete*(
       return false
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
 func assembleDataColumnSidecar*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,

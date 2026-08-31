@@ -28,6 +28,14 @@ proc getProposerDutiesPlain*(
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
 
+proc getPtcDutiesPlain*(
+       epoch: Epoch,
+       body: seq[ValidatorIndex]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/duties/ptc/{epoch}",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getPtcDuties
+
 proc getSyncCommitteeDutiesPlain*(
        epoch: Epoch,
        body: seq[ValidatorIndex]
@@ -53,6 +61,13 @@ proc produceAttestationDataPlain*(
      rest, endpoint: "/eth/v1/validator/attestation_data",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
+
+proc producePayloadAttestationDataPlain*(
+       slot: Slot
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/payload_attestation_data/{slot}",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/producePayloadAttestationData
 
 proc getAggregatedAttestationPlainV2*(
     attestation_data_root: Eth2Digest,

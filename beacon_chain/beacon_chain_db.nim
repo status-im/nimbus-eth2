@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[typetraits, tables],
+  std/[tables, typetraits],
   results,
   stew/[arrayops, assign2, byteutils, endians2, io2, objects],
   serialization, chronicles, snappy,
@@ -19,13 +19,8 @@ import
           forks,
           presets,
           state_transition],
-  "."/[beacon_chain_db_light_client,
-       beacon_chain_db_quarantine,
-       db_utils,
-       filepath]
-
-from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
+  ./[beacon_chain_db_light_client, beacon_chain_db_quarantine, db_utils,
+     filepath]
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -1187,13 +1182,6 @@ proc getBlockSSZ*(
     fork: ConsensusFork): bool =
   withConsensusFork(fork):
     getBlockSSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
-
-proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                       data: var seq[byte]): bool =
-  let dataPtr = addr data # Short-lived
-  func decode(data: openArray[byte]) =
-    assign(dataPtr[], data)
-  db.blobs.get(blobkey(root, index), decode).expectDb()
 
 proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                      value: var BlobSidecar): bool =

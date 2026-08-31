@@ -181,15 +181,13 @@ switch("warningAsError", "ImplicitDefaultValue:on")
 switch("warningAsError", "ImplicitTemplateRedefinition:on")
 switch("warningAsError", "InvalidCmpOp:on")
 switch("warningAsError", "LongLiterals:on")
-switch("warningAsError", "ProveField:on")
 switch("warningAsError", "StmtListLambda:on")
 switch("warningAsError", "UnreachableCode:on")
+switch("warningAsError", "UnreachableElse:on")
 switch("warningAsError", "UnusedImport:on")
 switch("hintAsError", "ConvFromXtoItselfNotNeeded:on")
 switch("hintAsError", "DuplicateModuleImport:on")
 
-#   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 28) Hint: 'sszCheck' cannot raise 'YamlConstructionError' [XCannotRaiseY]
-#   1 nimbus-eth2/tests/consensus_spec/test_fixture_ssz_generic_types.nim(238, 51) Hint: 'sszCheck' cannot raise 'YamlParserError' [XCannotRaiseY]
 #   1 nimbus-eth2/vendor/nim-testutils/testutils/moduletests.nim(17, 24) Hint: 'main' cannot raise 'CatchableError' [XCannotRaiseY]
 #   2 nimbus-eth2/tests/consensus_spec/test_fixture_light_client_sync.nim(135, 20) Hint: 'loadTestMeta' cannot raise 'YamlConstructionError' [XCannotRaiseY]
 #   2 nimbus-eth2/tests/consensus_spec/test_fixture_light_client_sync.nim(135, 43) Hint: 'loadTestMeta' cannot raise 'YamlParserError' [XCannotRaiseY]
