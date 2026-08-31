@@ -1078,41 +1078,36 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
 
-proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+proc isPastConsensusFork(
+    vc: ValidatorClientRef,
+    consensusFork: static ConsensusFork,
+    epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
   doAssert(vc.forkConfig.isSome())
-  let electraVersion =
+
+  let forkVersion =
     try:
-      vc.forkConfig.get()[ConsensusFork.Electra].version
+      vc.forkConfig.get()[consensusFork].version
     except KeyError:
-      raiseAssert "Electra fork should be in forks configuration"
+      raiseAssert $consensusFork & " fork should be in forks configuration"
+
   var res = false
   for item in vc.forks:
     if item.epoch <= epoch:
-      if item.current_version == electraVersion:
+      if item.current_version == forkVersion:
         res = true
     else:
       break
   res
+
+proc isPastGloasFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  vc.isPastConsensusFork(ConsensusFork.Gloas, epoch)
+
+proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  vc.isPastConsensusFork(ConsensusFork.Electra, epoch)
 
 proc isPastAltairFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
-  doAssert(len(vc.forks) > 0)
-  doAssert(vc.forkConfig.isSome())
-
-  let altairVersion =
-    try:
-      vc.forkConfig.get()[ConsensusFork.Altair].version
-    except KeyError:
-      raiseAssert "Altair fork should be in forks configuration"
-
-  var res = false
-  for item in vc.forks:
-    if item.epoch <= epoch:
-      if item.current_version == altairVersion:
-        res = true
-    else:
-      break
-  res
+  vc.isPastConsensusFork(ConsensusFork.Altair, epoch)
 
 proc getForkEpoch*(vc: ValidatorClientRef, fork: ConsensusFork): Opt[Epoch] =
   doAssert(len(vc.forks) > 0)
