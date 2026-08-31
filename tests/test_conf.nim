@@ -71,7 +71,6 @@ suite "Configuration parsing":
     test "negative epoch":
       reject "3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb500:-1000"
 
-
 suite "Runtime network configuration":
   test "defaults preserve compiled networking values":
     let (cfg, unknowns) = readRuntimeConfig(
@@ -87,45 +86,22 @@ suite "Runtime network configuration":
       cfg.gossipClockDisparityDuration ==
         MAXIMUM_GOSSIP_CLOCK_DISPARITY
 
-  test "custom networking values and quoted Hash32 parse":
-    const nonZeroHash =
-      "0x000102030405060708090a0b0c0d0e0f" &
-      "101112131415161718191a1b1c1d1e1f"
-
+  test "custom networking values":
     let
       base = "PRESET_BASE: " & const_preset & "\n"
-
-      (plainCfg, plainUnknowns) = readRuntimeConfig(
-        base &
-        "TERMINAL_BLOCK_HASH: " & nonZeroHash & "\n",
-        "runtime-config-unquoted-hash")
-
       (cfg, unknowns) = readRuntimeConfig(
         base &
-        "TERMINAL_BLOCK_HASH: \"" & nonZeroHash & "\"\n" &
+        "TERMINAL_BLOCK_HASH: \"ignored legacy value\"\n" &
         "MAX_REQUEST_BLOCKS: 256\n" &
         "EPOCHS_PER_SUBNET_SUBSCRIPTION: 64\n" &
         "MAXIMUM_GOSSIP_CLOCK_DISPARITY: 1000\n" &
         "SUBNETS_PER_NODE: 1\n",
         "runtime-config-custom")
 
-      (singleQuotedCfg, singleQuoteUnknowns) = readRuntimeConfig(
-        base &
-        "TERMINAL_BLOCK_HASH: '" & nonZeroHash & "'\n",
-        "runtime-config-single-quoted-hash")
-
     check:
-      plainUnknowns.len == 0
       unknowns.len == 0
-      singleQuoteUnknowns.len == 0
-
-      plainCfg.TERMINAL_BLOCK_HASH !=
-        defaultRuntimeConfig.TERMINAL_BLOCK_HASH
       cfg.TERMINAL_BLOCK_HASH ==
-        plainCfg.TERMINAL_BLOCK_HASH
-      singleQuotedCfg.TERMINAL_BLOCK_HASH ==
-        plainCfg.TERMINAL_BLOCK_HASH
-
+        defaultRuntimeConfig.TERMINAL_BLOCK_HASH
       cfg.MAX_REQUEST_BLOCKS == 256
       cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION == 64
       cfg.SUBNETS_PER_NODE == 1

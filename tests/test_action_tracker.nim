@@ -17,7 +17,10 @@ from ../beacon_chain/consensus_object_pools/block_pools_types import
 
 suite "subnet tracker":
   test "should register stability subnets on attester duties":
-    var tracker = ActionTracker.init(default(UInt256), false)
+    var tracker = ActionTracker.init(
+        default(UInt256), false,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)
 
     check:
       tracker.stabilitySubnets(Slot(0)).countOnes() == 2
@@ -84,7 +87,10 @@ suite "subnet tracker":
     check selectionDiffers
 
   test "should register sync committee duties":
-    var tracker = ActionTracker.init(default(UInt256), false)
+    var tracker = ActionTracker.init(
+        default(UInt256), false,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)
     let
       pk0 = ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get()
       pk1 = ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get()
@@ -120,14 +126,20 @@ suite "subnet tracker":
       not tracker.hasSyncDuty(pk0, Epoch(1024))
 
   test "should subscribe to all subnets when flag is enabled":
-    let tracker = ActionTracker.init(default(UInt256), subscribeAllAttnets = true)
+    let tracker = ActionTracker.init(
+      default(UInt256), true,
+      EPOCHS_PER_SUBNET_SUBSCRIPTION,
+      SUBNETS_PER_NODE)
 
     check:
       tracker.stabilitySubnets(Slot(0)).countOnes() == 64  # All 64 subnets
       tracker.aggregateSubnets(Slot(0)).countOnes() == 0
 
   test "should register and prune PTC duties":
-    var tracker = ActionTracker.init(default(UInt256), false)
+    var tracker = ActionTracker.init(
+        default(UInt256), false,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)
     tracker.updateSlot(Slot(100))
 
     check:
@@ -163,7 +175,10 @@ suite "subnet tracker":
 
   test "should track PTC duties in slot bitmaps":
     var
-      tracker = ActionTracker.init(default(UInt256), false)
+      tracker = ActionTracker.init(
+        default(UInt256), false,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)
       beaconProposers: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]
     let shufflingRef = ShufflingRef(
       epoch: Epoch(1),

@@ -47,7 +47,7 @@ type
 
     subscribeAllAttnets: bool
 
-    epochsPerSubnetSubscription: uint64
+    epochsPerSubnetSubscription: UInt256
     subnetsPerNode: uint64
 
     currentSlot: Slot
@@ -306,8 +306,8 @@ func init*(
     T: type ActionTracker,
     nodeId: UInt256,
     subscribeAllAttnets: bool,
-    epochsPerSubnetSubscription: uint64 = EPOCHS_PER_SUBNET_SUBSCRIPTION,
-    subnetsPerNode: uint64 = SUBNETS_PER_NODE): T =
+    epochsPerSubnetSubscription: uint64,
+    subnetsPerNode: uint64): T =
   doAssert epochsPerSubnetSubscription > 0
   doAssert subnetsPerNode > 0
   doAssert subnetsPerNode <= ATTESTATION_SUBNET_COUNT
@@ -315,6 +315,6 @@ func init*(
   T(
     nodeId: nodeId,
     subscribeAllAttnets: subscribeAllAttnets,
-    epochsPerSubnetSubscription: epochsPerSubnetSubscription,
+    epochsPerSubnetSubscription: epochsPerSubnetSubscription.u256,
     subnetsPerNode: subnetsPerNode,
   )

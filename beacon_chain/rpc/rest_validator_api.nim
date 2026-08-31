@@ -172,7 +172,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $epoch.error())
         let
           res = epoch.get()
-          wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+          wallTime = node.beaconClock.now() + node.dag.cfg.gossipClockDisparityDuration
           wallEpoch = wallTime.slotOrZero(node.dag.timeParams).epoch
         if res > wallEpoch + 1:
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,

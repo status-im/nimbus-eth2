@@ -222,6 +222,7 @@ const
 
   # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
+    "TERMINAL_BLOCK_HASH",  # legacy transition value; no longer consumed
     "TTFB_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "RESP_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "    MAX_BLOBS_PER_BLOCK",         # parsed separately
@@ -940,7 +941,7 @@ template parse(T: type Eth1Address, input: string): T =
   Eth1Address.fromHex(input)
 
 template parse(T: type Hash32, input: string): T =
-  Hash32.fromHex(input.strip(chars = {'"', '\''}))
+  Hash32.fromHex(input)
 
 template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)

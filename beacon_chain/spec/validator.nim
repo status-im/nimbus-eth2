@@ -770,7 +770,7 @@ func payloadFailSafeInEffect*(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 func compute_subscribed_subnet(
     node_id: UInt256, epoch: Epoch, index: uint64,
-    epochsPerSubnetSubscription: uint64): SubnetId =
+    epochsPerSubnetSubscription: UInt256): SubnetId =
   # Ensure neither `truncate` loses information
   static:
     doAssert sizeof(UInt256) * 8 == NODE_ID_BITS
@@ -780,10 +780,11 @@ func compute_subscribed_subnet(
     node_id_prefix = truncate(
       node_id shr (
         NODE_ID_BITS - static(ATTESTATION_SUBNET_PREFIX_BITS.int)), uint64)
-    node_offset = truncate(
-      node_id mod epochsPerSubnetSubscription.u256, uint64)
+    node_offset = node_id mod epochsPerSubnetSubscription
     permutation_seed = eth2digest(uint_to_bytes(
-      uint64((epoch + node_offset) div epochsPerSubnetSubscription)))
+      truncate(
+        (uint64(epoch).u256 + node_offset) div epochsPerSubnetSubscription,
+        uint64)))
     permutated_prefix = compute_shuffled_index(
       node_id_prefix,
       1 shl ATTESTATION_SUBNET_PREFIX_BITS,
@@ -794,8 +795,8 @@ func compute_subscribed_subnet(
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 iterator compute_subscribed_subnets*(
     node_id: UInt256, epoch: Epoch,
-    epochsPerSubnetSubscription: uint64 = EPOCHS_PER_SUBNET_SUBSCRIPTION,
-    subnetsPerNode: uint64 = SUBNETS_PER_NODE): SubnetId =
+    epochsPerSubnetSubscription: UInt256,
+    subnetsPerNode: uint64): SubnetId =
   for index in 0'u64 ..< subnetsPerNode:
     yield compute_subscribed_subnet(
       node_id, epoch, index, epochsPerSubnetSubscription)
