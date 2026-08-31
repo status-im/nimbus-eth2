@@ -92,7 +92,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
     if state.shouldFailNewPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: newPayloadV4 failed")
+        (ref RpcResponseError)(code: -32603, msg: "Internal error: newPayloadV4 failed")
 
     PayloadStatusV1(
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
@@ -110,7 +110,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
     if state.shouldFailNewPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: newPayloadV5 failed")
+        (ref RpcResponseError)(code: -32603, msg: "Internal error: newPayloadV5 failed")
 
     PayloadStatusV1(
       status: PayloadExecutionStatus.valid, latestValidHash: Opt.some(payload.blockHash)
@@ -124,7 +124,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
       await sleepAsync(state.responseDelay)
 
     if state.shouldFailForkchoice:
-      raise (ref ApplicationError)(
+      raise (ref RpcResponseError)(
         code: -32603, msg: "Internal error: forkchoiceUpdatedV3 failed"
       )
 
@@ -148,7 +148,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
       await sleepAsync(state.responseDelay)
 
     if state.shouldFailForkchoice:
-      raise (ref ApplicationError)(
+      raise (ref RpcResponseError)(
         code: -32603, msg: "Internal error: forkchoiceUpdatedV4 failed"
       )
 
@@ -171,7 +171,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
     if state.shouldFailGetPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: getPayloadV4 failed")
+        (ref RpcResponseError)(code: -32603, msg: "Internal error: getPayloadV4 failed")
 
     GetPayloadV4Response()
 
@@ -182,7 +182,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
 
     if state.shouldFailGetPayload:
       raise
-        (ref ApplicationError)(code: -32603, msg: "Internal error: getPayloadV6 failed")
+        (ref RpcResponseError)(code: -32603, msg: "Internal error: getPayloadV6 failed")
 
     GetPayloadV6Response()
 
@@ -192,7 +192,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
       await sleepAsync(state.responseDelay)
 
     if state.shouldFailChainId:
-      raise (ref ApplicationError)(
+      raise (ref RpcResponseError)(
         code: -32603, msg: "Internal error: chain id query failed"
       )
 

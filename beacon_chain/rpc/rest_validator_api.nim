@@ -161,6 +161,59 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonResponseWRoot(
       duties, epochRef.proposer_dependent_root, optimistic)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getProposerDutiesV2
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/duties/proposer.v2.yaml
+  router.api2(MethodGet, "/eth/v2/validator/duties/proposer/{epoch}") do (
+    epoch: Epoch) -> RestApiResponse:
+    let qepoch =
+      block:
+        if epoch.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           $epoch.error())
+        let
+          res = epoch.get()
+          wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+          wallEpoch = wallTime.slotOrZero(node.dag.timeParams).epoch
+        if res > wallEpoch + 1:
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                        "Cannot request duties past next epoch")
+        res
+    let qhead =
+      block:
+        let res = node.getSyncedHead(qepoch)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                           $res.error())
+        res.get()
+    let epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
+      return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+
+    let duties =
+      block:
+        var res: seq[RestProposerDuty]
+        for i, bp in epochRef.beacon_proposers:
+          if i == 0 and qepoch == 0:
+            # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
+            # Slot(0) at Epoch(0) do not have a proposer.
+            continue
+
+          if bp.isSome():
+            res.add(
+              RestProposerDuty(
+                pubkey: node.dag.validatorKey(bp.get()).get().toPubKey(),
+                validator_index: bp.get(),
+                slot: qepoch.start_slot() + i
+              )
+            )
+        res
+
+    let optimistic = node.getShufflingOptimistic(
+      epochRef.shufflingRef.attester_dependent_slot,
+      epochRef.shufflingRef.attester_dependent_root)
+
+    RestApiResponse.jsonResponseWRoot(
+      duties, epochRef.shufflingRef.attester_dependent_root, optimistic)
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
   router.api2(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -547,7 +600,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(
               Http500, "Proposal state is not available")
           engineBid = block:
-            debugGloasComment("should_extend_payload")
             (await node.getExecutionPayload(
                 consensusFork, qhead, state, proposer,
                 node.dag.validatorKey(proposer).get().toPubKey(),
@@ -555,7 +607,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http500,
                 "Engine payload is not available")
           message = block:
-            debugGloasComment("parent_execution_requests")
             (node.makeEngineBlock(
                 consensusFork, state[].forky(consensusFork), cache[],
                 proposer, qrandao, qgraffiti, qhead, qslot,

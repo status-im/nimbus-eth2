@@ -34,7 +34,7 @@
 #   https://github.com/nim-lang/Nim/issues/14421
 # * Throughout, we're affected by inefficient `let` borrowing, meaning we
 #   often have to take the address of a sequence item due to the above - look
-#   for `let ... = unsafeAddr sequence[idx]`
+#   for `let ... = addr sequence[idx]`
 # * Throughout, we're affected by the overloading rules that prefer a `var`
 #   overload to a non-var overload - look for `asSeq()` - when the `var`
 #   overload is used, the hash tree cache is cleared, which, aside from being

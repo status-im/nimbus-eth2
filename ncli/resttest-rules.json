@@ -4287,6 +4287,65 @@
     }
   },
   {
+    "topics": ["validator", "proposer_duties_v2"],
+    "request": {
+      "url": "/eth/v2/validator/duties/proposer/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "execution_optimistic": false, "data": [{"pubkey": "", "validator_index": "", "slot": ""}]}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties_v2", "mainnet"],
+    "comment": "Maximum epoch + 1 for mainnet parameters",
+    "request": {
+      "url": "/eth/v2/validator/duties/proposer/576460752303423488",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties_v2"],
+    "request": {
+      "url": "/eth/v2/validator/duties/proposer/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties_v2"],
+    "request": {
+      "url": "/eth/v2/validator/duties/proposer/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "proposer_duties_v2"],
+    "request": {
+      "url": "/eth/v2/validator/duties/proposer/foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
     "topics": ["validator", "blocks"],
     "request": {
       "url": "/eth/v1/validator/blocks/0",

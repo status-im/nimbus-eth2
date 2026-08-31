@@ -435,12 +435,22 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
     vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
 
 proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
-                   response: RestHttpResponseRef) {.
+                   response: RestHttpResponseRef, topic: static EventTopic) {.
      async: (raises: [CancelledError]).} =
+  when topic == EventTopic.HeadV2:
+    const topicString = "head_v2"
+    type HeadChangeInfoObjectType = HeadV2ChangeInfoObject
+  else:
+    static: doAssert topic == EventTopic.Head
+    const topicString = "head"
+    type HeadChangeInfoObjectType = HeadChangeInfoObject
+    template data(head: HeadChangeInfoObject): auto = head
+
   let vc = service.client
 
   logScope:
     node = node
+    event_topic = topicString
 
   while true:
     let events =
@@ -459,17 +469,17 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
       case event.name
       of "data":
         let
-          head = HeadChangeInfoObject.decodeString(event.data).valueOr:
+          head = HeadChangeInfoObjectType.decodeString(event.data).valueOr:
             debug "Got invalid head event format", reason = error
             return
           blck = EventBeaconBlockObject(
-            slot: head.slot,
-            block_root: head.block_root,
-            optimistic: head.optimistic)
+            slot: head.data.slot,
+            block_root: head.data.block_root,
+            optimistic: head.data.optimistic)
         vc.registerBlock(blck, node)
-        vc.registerHead(head)
+        vc.registerHead(head.data)
       of "event":
-        if event.data != "head":
+        if event.data != topicString:
           debug "Got unexpected event name field", event_name = event.name,
                 event_data = event.data
       else:
@@ -497,10 +507,8 @@ proc runBlockEventMonitor(service: BlockServiceRef,
       block:
         var resp: HttpClientResponseRef
         try:
-          resp = await node.client.subscribeEventStream({EventTopic.Head})
-          if resp.status == 200:
-            Opt.some(resp)
-          else:
+          template logErrorMessage(
+              resp: HttpClientResponseRef, topicString: string) =
             let body = await resp.getBodyBytes()
             await resp.closeWait()
             let
@@ -508,15 +516,37 @@ proc runBlockEventMonitor(service: BlockServiceRef,
                         contentType: resp.contentType, data: body)
               reason = plain.getErrorMessage()
             debug "Unable to obtain events stream", code = resp.status,
-                  reason = reason
-            Opt.none(HttpClientResponseRef)
+                  reason = reason, event_topic = topicString
+
+          let
+            currentSlot = vc.getCurrentSlot().get(Slot(0))
+            afterGloas = vc.isPastGloasFork(currentSlot.epoch())
+          if afterGloas:
+            resp = await node.client.subscribeEventStream({EventTopic.HeadV2})
+            if resp.status == 200:
+              Opt.some((resp: resp, useHeadV2: true))
+            else:
+              logErrorMessage(resp, "head_v2")
+              resp = await node.client.subscribeEventStream({EventTopic.Head})
+              if resp.status == 200:
+                Opt.some((resp: resp, useHeadV2: false))
+              else:
+                logErrorMessage(resp, "head")
+                Opt.none(tuple[resp: HttpClientResponseRef, useHeadV2: bool])
+          else:
+            resp = await node.client.subscribeEventStream({EventTopic.Head})
+            if resp.status == 200:
+              Opt.some((resp: resp, useHeadV2: false))
+            else:
+              logErrorMessage(resp, "head")
+              Opt.none(tuple[resp: HttpClientResponseRef, useHeadV2: bool])
         except HttpError as exc:
           debug "Unable to obtain events stream", reason = $exc.msg
-          Opt.none(HttpClientResponseRef)
+          Opt.none(tuple[resp: HttpClientResponseRef, useHeadV2: bool])
         except RestError as exc:
           if not(isNil(resp)): await resp.closeWait()
           debug "Unable to obtain events stream", reason = $exc.msg
-          Opt.none(HttpClientResponseRef)
+          Opt.none(tuple[resp: HttpClientResponseRef, useHeadV2: bool])
         except CancelledError as exc:
           if not(isNil(resp)): await resp.closeWait()
           debug "Block monitoring loop has been interrupted"
@@ -527,13 +557,17 @@ proc runBlockEventMonitor(service: BlockServiceRef,
       vc.attesterDutiesInvalidationEvent.fire()
       vc.proposerDutiesInvalidationEvent.fire()
       vc.syncDutiesInvalidationEvent.fire()
+      let (resp, useHeadV2) = response.get()
       try:
-        await service.pollForEvents(node, response.get())
+        if useHeadV2:
+          await service.pollForEvents(node, resp, EventTopic.HeadV2)
+        else:
+          await service.pollForEvents(node, resp, EventTopic.Head)
       except CancelledError as exc:
         raise exc
       finally:
         debug "Block monitoring connection has been lost"
-        await response.get().closeWait()
+        await resp.closeWait()
 
 proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
                          slot: Slot, waitTime: Duration,
