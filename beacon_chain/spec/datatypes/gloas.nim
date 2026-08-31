@@ -916,12 +916,16 @@ template builder_index*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.6/specs/electra/light-client/sync-protocol.md#new-constants
 const
+  SYNC_AGGREGATE_GINDEX_GLOAS* = get_generalized_index(
+    BeaconBlockBody, "sync_aggregate")
   EXECUTION_BLOCK_HASH_GINDEX* = get_generalized_index(
     capella.BeaconBlockBody, "execution_payload", "block_hash")
   EXECUTION_BLOCK_HASH_GINDEX_DENEB* = get_generalized_index(
     deneb.BeaconBlockBody, "execution_payload", "block_hash")
   EXECUTION_BLOCK_HASH_GINDEX_GLOAS* = get_generalized_index(BeaconBlockBody,
     "signed_execution_payload_bid", "message", "parent_block_hash")
+  FINALIZED_CHECKPOINT_GINDEX_GLOAS* = get_generalized_index(
+    BeaconState, "finalized_checkpoint")
   FINALIZED_ROOT_GINDEX_GLOAS* = get_generalized_index(
     BeaconState, "finalized_checkpoint", "root")
   CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS* = get_generalized_index(
@@ -929,16 +933,22 @@ const
   NEXT_SYNC_COMMITTEE_GINDEX_GLOAS* = get_generalized_index(
     BeaconState, "next_sync_committee")
 static:
+  doAssert SYNC_AGGREGATE_GINDEX_GLOAS == 355.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 2856.GeneralizedIndex
+  doAssert FINALIZED_CHECKPOINT_GINDEX_GLOAS == 367.GeneralizedIndex
   doAssert FINALIZED_ROOT_GINDEX_GLOAS == 735.GeneralizedIndex
   doAssert CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS == 2945.GeneralizedIndex
   doAssert NEXT_SYNC_COMMITTEE_GINDEX_GLOAS == 2946.GeneralizedIndex
 
 type
+  SyncAggregateBranch* =
+    array[log2trunc(SYNC_AGGREGATE_GINDEX_GLOAS), Eth2Digest]
   ExecutionBranch* =
     array[log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS), Eth2Digest]
+  FinalizedCheckpointBranch* =
+    array[log2trunc(FINALIZED_CHECKPOINT_GINDEX_GLOAS), Eth2Digest]
   FinalityBranch* =
     array[log2trunc(FINALIZED_ROOT_GINDEX_GLOAS), Eth2Digest]
   CurrentSyncCommitteeBranch* =
@@ -1044,6 +1054,29 @@ type
       ## Max number of active participants in a sync committee
       ## (used to calculate safety threshold)
     current_max_active_participants*: uint64
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientBlockData* = object
+    proposer_index*: uint64
+    state_root*: Eth2Digest
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature_root*: Eth2Digest
+    sync_aggregate_branch*: SyncAggregateBranch
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientEpochData* = object
+    epoch*: Epoch
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    finalized_checkpoint*: Checkpoint
+    finalized_checkpoint_branch*: FinalizedCheckpointBranch
+
+    execution_block_hash*: Eth2Digest
+    execution_branch*: ExecutionBranch
+
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
+    current_sync_committee*: List[SyncCommittee, 1]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
@@ -1241,10 +1274,19 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
     signature_slot: v.signature_slot
   )
 
+func shortLog*(v: LightClientEpochData): auto =
+  (
+    epoch: v.epoch,
+    parent: shortLog(v.parent_block_header),
+    finalized: shortLog(v.finalized_checkpoint),
+    has_current_sync_committee: v.current_sync_committee.len > 0
+  )
+
 chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+chronicles.formatIt LightClientEpochData: shortLog(it)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_gloas*(

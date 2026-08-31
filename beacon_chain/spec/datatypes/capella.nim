@@ -673,6 +673,21 @@ type
       ## (used to calculate safety threshold)
     current_max_active_participants*: uint64
 
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientEpochData* = object
+    epoch*: Epoch
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    finalized_checkpoint*: Checkpoint
+    finalized_checkpoint_branch*: altair.FinalizedCheckpointBranch
+
+    execution*: ExecutionPayloadHeader
+    execution_branch*: ExecutionBranch
+
+    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
+    current_sync_committee*: List[SyncCommittee, 1]
+
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/capella/light-client/sync-protocol.md#get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
@@ -780,10 +795,19 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
     signature_slot: v.signature_slot
   )
 
+func shortLog*(v: LightClientEpochData): auto =
+  (
+    epoch: v.epoch,
+    parent: shortLog(v.parent_block_header),
+    finalized: shortLog(v.finalized_checkpoint),
+    has_current_sync_committee: v.current_sync_committee.len > 0
+  )
+
 chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+chronicles.formatIt LightClientEpochData: shortLog(it)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/capella/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_capella*(
