@@ -1060,17 +1060,18 @@ proc storePayload(
   if not isNil(dag.onEnvelopeAvailable):
     dag.onEnvelopeAvailable(signedEnvelope)
 
-  # The execution payload has added to the clearance state successfully, so try
-  # adding to the current state.
-  let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
-
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
       dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
     warn "on_execution_payload failed", error,
       blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
+  # Trigger fork choice to select the head and head payload status, then update
+  # the execution head.
   if optimisticStatusRes.isSome():
+    let previousExecutionValid = (not isNil(dag.head.parent)) and
+      dag.head.parent.optimisticStatus == OptimisticStatus.valid
+    self.consensusManager[].updateHead(dag.head.slot)
     await self.consensusManager.updateExecutionHead(
       deadline, retry = previousExecutionValid, self.getBeaconTime)
 

@@ -15,9 +15,11 @@ import
   confutils/defs,
   nimcrypto/[hmac, utils, sha2],
   results,
-  stew/byteutils
+  stew/byteutils,
+  stew/io2
 
 from std/os import `/`, fileExists
+from ../filepath import secureWriteFile
 
 export rand, results
 
@@ -109,12 +111,12 @@ proc checkJwtSecret*(
       return loadJwtSecretFile(InputFile jwtSecretPath)
     var newSecret: JwtSharedKey
     rng(distinctBase newSecret)
-    try:
-      writeFile(jwtSecretPath, distinctBase(newSecret).to0xHex())
-    except IOError as exc:
+    let writeRes = secureWriteFile(jwtSecretPath, distinctBase(newSecret).to0xHex())
+    if writeRes.isErr():
       # Allow continuing to run, though this is effectively fatal for a merge
       # client using authentication. This keeps it lower-risk initially.
-      warn "Could not write JWT secret to data directory", jwtSecretPath, err = exc.msg
+      warn "Could not write JWT secret to data directory", jwtSecretPath,
+        errorMsg = ioErrorMsg(writeRes.error), errorCode = $writeRes.error
 
     notice "JWT secret generated", jwtSecretPath
 
