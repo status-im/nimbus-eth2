@@ -9,13 +9,11 @@
 {.used.}
 
 import
-  # Beacon chain internals
-  ../../beacon_chain/spec/[beaconstate, forks, signatures],
-  # Test utilities
-  ../testblockutil,
-  unittest2
+  unittest2,
+  ../../beacon_chain/spec/beaconstate,
+  ../testblockutil
 
-from ../../beacon_chain/spec/datatypes/constants import BUILDER_WITHDRAWAL_PREFIX
+from ../../beacon_chain/spec/signatures import get_deposit_signature
 
 const
   depositAmount = 32_000_000_000.Gwei
