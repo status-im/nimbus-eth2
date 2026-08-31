@@ -745,7 +745,7 @@ proc validateDataColumnSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
 proc validatePartialDataColumnSidecar*(
     dag: ChainDAGRef,
     partialColumnQuarantine: ref PartialColumnQuarantine,
@@ -764,8 +764,7 @@ proc validatePartialDataColumnSidecar*(
   if not (compute_subnet_for_data_column_sidecar(column_index) == subnet_id):
     return dag.checkedReject("PartialDataColumnSidecar: not for correct subnet")
 
-  # [REJECT] A header and/or cells are present in the message -- Gloas removed
-  # the header, so cells must be present
+  # [REJECT] The message contains at least one cell
   # [REJECT] The cell count equals the number of set bits in the bitmap
   # [REJECT] The proof count equals the number of set bits in the bitmap
   block:
@@ -773,10 +772,16 @@ proc validatePartialDataColumnSidecar*(
     if v.isErr:
       return dag.checkedReject(v.error)
 
-  # [IGNORE] A valid block for the Group ID's `slot` has been seen (via gossip
-  # or non-gossip sources). If not yet seen, a client SHOULD queue the sidecar
-  # for deferred validation and possible processing once the block is received
-  # or retrieved. A client SHOULD queue at least 1 sidecar per peer per subnet.
+  # [IGNORE] The group ID's block has been seen (via gossip or non-gossip
+  # sources)
+  # (MAY be queued until block is retrieved)
+  # (SHOULD queue at least one sidecar per peer per subnet)
+  #
+  # [REJECT] The group ID's block passes validation
+  #
+  # The spec separates these: a block in `store.blocks` but not in
+  # `store.block_states` is REJECT. A block reachable via `getBlockRef` has
+  # already passed validation here, so the two collapse into one IGNORE.
   let blck =
     block:
       let
@@ -792,31 +797,28 @@ proc validatePartialDataColumnSidecar*(
         else:
           return errIgnore("PartialDataColumnSidecar: block in incorrect fork")
 
-  # [REJECT] The Group ID's `slot` matches the slot of the block with root
-  # `beacon_block_root`. The `beacon_block_root` is also identified by the
-  # Group ID.
+  # [REJECT] The group ID's slot matches the slot of the block
   if not (blck.message.slot == group_id.slot):
     return dag.checkedReject("PartialDataColumnSidecar: slot mismatched")
 
   template bid(): auto = blck.message.body.signed_execution_payload_bid.message
 
-  # [REJECT] The cells present bitmap length is equal to the number of KZG
-  # commitments in `bid.blob_kzg_commitments`.
+  # [REJECT] The cells present bitmap length equals the number of bid
+  # commitments
   if sidecar.cells_present_bitmap.len != bid.blob_kzg_commitments.len:
     return dag.checkedReject(
       "PartialDataColumnSidecar: bitmap length does not match commitments")
 
   # The optional check "for cells the receiver already has, the sidecar's cell
-  # and proof data are equal to the local copy" is not encoded in the spec. The
-  # sender MUST always send valid cell and proof data; receivers MAY perform
-  # this equality check against their local copy as an additional safeguard.
+  # and proof data are equal to the local copy" is not encoded below. The sender
+  # MUST always send valid cell and proof data; receivers MAY perform this
+  # equality check against their local copy as an additional safeguard.
   if not partialColumnQuarantine[].cellsConsistent(
       group_id, column_index, sidecar):
     return dag.checkedReject(
       "PartialDataColumnSidecar: cells conflict with previously seen cells")
 
-  # [REJECT] The sidecar's cell and proof data is valid as verified by
-  # `verify_partial_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments, column_index)`.
+  # [REJECT] The sidecar's cell and proof data passes KZG verification
   block:
     let v = verify_partial_data_column_sidecar_kzg_proofs(
       sidecar, bid.blob_kzg_commitments, column_index)

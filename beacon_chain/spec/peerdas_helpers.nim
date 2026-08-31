@@ -467,7 +467,7 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 proc assemble_partial_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
     blobs: seq[Opt[KzgBlob]],
@@ -522,7 +522,7 @@ proc assemble_partial_data_column_sidecars*(
 
   (group_id, sidecars)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
 # Gloas sources the commitments from the bid instead of the header.
 proc verify_partial_data_column_sidecar_kzg_proofs*(
     sidecar: gloas.PartialDataColumnSidecar,
@@ -553,19 +553,18 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
 func verify_partial_data_column_sidecar*(
     sidecar: gloas.PartialDataColumnSidecar): Result[void, cstring] =
   ## Self-consistency [REJECT] rules, i.e. those needing neither chain state
-  ## nor KZG. Unlike Fulu there is no header, so a cell-less message carries
-  ## nothing and is rejected.
+  ## nor KZG.
   var cellsPresent = 0
   for i in 0 ..< sidecar.cells_present_bitmap.len:
     if sidecar.cells_present_bitmap[Natural(i)]:
       inc cellsPresent
 
   if cellsPresent == 0:
-    return err("PartialDataColumnSidecar: no cells present")
+    return err("PartialDataColumnSidecar: partial message is semantically empty")
 
   if sidecar.partial_column.len != cellsPresent:
     return err("PartialDataColumnSidecar: cell count does not match bitmap")

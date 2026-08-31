@@ -8,7 +8,7 @@
 {.push raises: [].}
 {.used.}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md
 
 import
   stew/endians2,
@@ -31,7 +31,7 @@ func gid(slot: int, rootSeed: int): gloas.PartialDataColumnGroupID =
   gloas.PartialDataColumnGroupID(
     slot: Slot(slot), beacon_block_root: genDigest(rootSeed))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 func genSidecar(
     blobIndices: openArray[int], startCellId: int = 0
 ): ref gloas.PartialDataColumnSidecar =
