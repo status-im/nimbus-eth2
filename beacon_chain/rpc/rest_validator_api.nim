@@ -1232,13 +1232,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if blck.slot != qslot:
       return RestApiResponse.jsonError(Http400, BlockNotFoundError)
 
-    let
-      payload_present = await node.checkPayloadPresent(blck)
-      pdata = PayloadAttestationData(
-        beacon_block_root: blck.root,
-        slot: qslot,
-        payload_present: payload_present,
-        blob_data_available: node.checkBlobDataAvailable(blck))
+    let pdata = PayloadAttestationData(
+      beacon_block_root: blck.root,
+      slot: qslot,
+      payload_present: node.checkPayloadPresent(blck),
+      blob_data_available: node.checkBlobDataAvailable(blck))
 
     if contentType == sszMediaType:
       RestApiResponse.sszResponse(

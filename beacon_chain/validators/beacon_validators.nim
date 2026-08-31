@@ -1011,16 +1011,9 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
-proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): Future[bool] {.
-    async: (raises: [CancelledError]).} =
+proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): bool =
   if blck.slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return true
-
-  let payloadDue =
-    node.beaconClock.fromNow(blck.slot.payload_deadline(node.dag.timeParams))
-  if payloadDue.inFuture:
-    await sleepAsync(payloadDue.offset)
-
   node.dag.db.containsExecutionPayloadEnvelope(blck.root)
 
 proc checkBlobDataAvailable*(node: BeaconNode, blck: BlockRef): bool =
@@ -1046,24 +1039,13 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
                                      genesis_validators_root: Eth2Digest,
                                      validator: AttachedValidator,
                                      validator_index: ValidatorIndex,
-                                     slot: Slot,
-                                     blck: BlockRef)
+                                     data: PayloadAttestationData)
                                      {.async: (raises: [CancelledError]).} =
   let
-    payload_present = await node.checkPayloadPresent(blck)
-    blob_data_available = node.checkBlobDataAvailable(blck)
-
-    data = PayloadAttestationData(
-      beacon_block_root: blck.root,
-      slot: slot,
-      payload_present: payload_present,
-      blob_data_available: blob_data_available,
-    )
-
     signature = await(
       validator.getPayloadAttestationSignature(fork, genesis_validators_root, data)
     ).valueOr:
-      warn "Unble to sign payload attestation",
+      warn "Unable to sign payload attestation",
         validator = shortLog(validator), data = shortLog(data), error_msg = error
       return
 
@@ -1075,13 +1057,19 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
-    node: BeaconNode, head: BlockRef, slot: Slot) =
+    node: BeaconNode, head: BlockRef, slot: Slot
+) {.async: (raises: [CancelledError]).} =
   ## Perform payload attestation duties for PTC members
 
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#constructing-the-payloadattestationmessage
+  let payloadDue =
+    node.beaconClock.fromNow(slot.payload_deadline(node.dag.timeParams))
+  if payloadDue.inFuture:
+    await sleepAsync(payloadDue.offset)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/validator.md#constructing-the-payloadattestationmessage
   # - If the validator has not seen any beacon block for the assigned slot, do
   #   not submit a payload attestation; it will be ignored anyway.
   let target = head.atSlot(slot)
@@ -1095,6 +1083,11 @@ proc sendPayloadAttestations(
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
+    data = PayloadAttestationData(
+      beacon_block_root: target.blck.root,
+      slot: slot,
+      payload_present: node.checkPayloadPresent(target.blck),
+      blob_data_available: node.checkBlobDataAvailable(target.blck))
 
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
@@ -1106,7 +1099,7 @@ proc sendPayloadAttestations(
           continue
 
         asyncSpawn createAndSendPayloadAttestation(
-          node, fork, genesis_validators_root, validator, vidx, slot, head)
+          node, fork, genesis_validators_root, validator, vidx, data)
 
 proc signAndSendProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
@@ -1620,7 +1613,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
-  sendPayloadAttestations(node, head, slot)
+  await node.sendPayloadAttestations(head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
