@@ -1011,11 +1011,17 @@ proc sendSyncCommitteeContributions(
       asyncSpawn signAndSendContribution(
         node, validator, subcommitteeIdx, head, slot)
 
-proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): bool =
-  if blck.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
-    node.dag.db.containsExecutionPayloadEnvelope(blck.root)
-  else:
-    true
+proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): Future[bool] {.
+    async: (raises: [CancelledError]).} =
+  if blck.slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
+    return true
+
+  let payloadDue =
+    node.beaconClock.fromNow(blck.slot.payload_deadline(node.dag.timeParams))
+  if payloadDue.inFuture:
+    await sleepAsync(payloadDue.offset)
+
+  node.dag.db.containsExecutionPayloadEnvelope(blck.root)
 
 proc checkBlobDataAvailable*(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
@@ -1044,7 +1050,7 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
                                      blck: BlockRef)
                                      {.async: (raises: [CancelledError]).} =
   let
-    payload_present = node.checkPayloadPresent(blck)
+    payload_present = await node.checkPayloadPresent(blck)
     blob_data_available = node.checkBlobDataAvailable(blck)
 
     data = PayloadAttestationData(
@@ -1614,6 +1620,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
+  sendPayloadAttestations(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
@@ -1633,21 +1640,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
-
-  let payloadAttestationCutOff = node.beaconClock.fromNow(
-    slot.payload_attestation_deadline(node.dag.timeParams))
-  if payloadAttestationCutOff.inFuture:
-    debug "Waiting to send payload attestations",
-      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
-    if head.slot == slot:
-      # Send as soon as the execution payload envelope for this slot's
-      # block arrives, or at the deadline whichever comes first.
-      discard await node.consensusManager[].expectEnvelope(head.root)
-        .withTimeout(payloadAttestationCutOff.offset)
-    else:
-      await sleepAsync(payloadAttestationCutOff.offset)
-
-  sendPayloadAttestations(node, head, slot)
 
   await node.sendProposerPreferences(head, slot)
 
