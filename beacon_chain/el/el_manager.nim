@@ -635,6 +635,14 @@ proc getBlobsV3(
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV3(versioned_hashes)
 
+proc getBlobsV4(
+    connection: ELConnection,
+    versioned_hashes: seq[engine_api.VersionedHash],
+    indices_bitarray: FixedBytes[16]
+): Future[GetBlobsV4Response] {.async: (raises: [CatchableError]).} =
+  let rpcClient = await connection.connectedRpcClient()
+  await rpcClient.engine_getBlobsV4(versioned_hashes, indices_bitarray)
+
 type
   StatusRelation = enum
     newStatusIsPreferable
@@ -824,6 +832,31 @@ proc getBlobsV3*(
     .mapIt(
       it.getBlobsV3(
         kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
+      )
+    )
+    .firstOrCancel(deadline)
+
+proc getBlobsV4*(
+    m: ELManager,
+    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    indices_bitarray: FixedBytes[16]
+): Future[Opt[seq[Opt[BlobCellsAndProofsV1]]]] {.
+    async: (raises: [CancelledError], raw: true)
+.} =
+  mixin getBlobsV4
+
+  template kzg_commitments(): auto =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    else:
+      blck.message.body.blob_kzg_commitments
+
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  m.elConnections
+    .mapIt(
+      it.getBlobsV4(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it)),
+        indices_bitarray
       )
     )
     .firstOrCancel(deadline)
