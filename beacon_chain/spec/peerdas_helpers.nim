@@ -202,7 +202,7 @@ proc recover_cells_and_proofs_parallel*(
               found = i
               break
             if t.ok.isReady:
-              if not t.ok.sync():
+              if not sync(move(t.ok)):
                 hadError = true
               t.ok.reset()
               if hadError:
@@ -243,7 +243,7 @@ proc recover_cells_and_proofs_parallel*(
   for t in tasks.mitems():
     # Always consume ok
     if t.ok.isSpawned():
-      hadError = not t.ok.sync() or hadError
+      hadError = not sync(move(t.ok)) or hadError
       t.ok.reset()
 
   if hadError:
