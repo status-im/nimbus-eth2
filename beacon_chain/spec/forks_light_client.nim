@@ -88,6 +88,13 @@ type
     altair.LightClientBlockData |
     gloas.LightClientBlockData
 
+  ForkyLightClientBootstrapData* =
+    altair.LightClientBootstrapData |
+    capella.LightClientBootstrapData |
+    deneb.LightClientBootstrapData |
+    electra.LightClientBootstrapData |
+    gloas.LightClientBootstrapData
+
   ForkyLightClientEpochData* =
     altair.LightClientEpochData |
     capella.LightClientEpochData |
@@ -222,6 +229,7 @@ template kind*(
       altair.LightClientHeader |
       altair.LightClientStore |
       altair.LightClientBlockData |
+      altair.LightClientBootstrapData |
       altair.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Altair
 
@@ -230,6 +238,7 @@ template kind*(
       capella.SomeLightClientObject |
       capella.LightClientHeader |
       capella.LightClientStore |
+      capella.LightClientBootstrapData |
       capella.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Capella
 
@@ -238,6 +247,7 @@ template kind*(
       deneb.SomeLightClientObject |
       deneb.LightClientHeader |
       deneb.LightClientStore |
+      deneb.LightClientBootstrapData |
       deneb.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Deneb
 
@@ -246,6 +256,7 @@ template kind*(
       electra.SomeLightClientObject |
       electra.LightClientHeader |
       electra.LightClientStore |
+      electra.LightClientBootstrapData |
       electra.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Electra
 
@@ -255,6 +266,7 @@ template kind*(
       gloas.LightClientHeader |
       gloas.LightClientStore |
       gloas.LightClientBlockData |
+      gloas.LightClientBootstrapData |
       gloas.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Gloas
 
@@ -1428,7 +1440,7 @@ func toElectraLightClientHeader(
       transactions_root: hash_tree_root(payload.transactions),
       withdrawals_root: hash_tree_root(payload.withdrawals)),
     execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+      EXECUTION_PAYLOAD_GINDEX).get)
 
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1441,7 +1453,7 @@ func toElectraLightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
     execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
     execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+      EXECUTION_PAYLOAD_GINDEX).get)
 
 func toGloasLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095

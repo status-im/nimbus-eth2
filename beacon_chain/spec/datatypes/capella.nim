@@ -674,19 +674,24 @@ type
     current_max_active_participants*: uint64
 
   # https://hackmd.io/@etan-status/decentralized-cl-sync
-  LightClientEpochData* = object
-    epoch*: Epoch
-    parent_block_header*: BeaconBlockHeader
-    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
-
-    finalized_checkpoint*: Checkpoint
-    finalized_checkpoint_branch*: altair.FinalizedCheckpointBranch
+  LightClientBootstrapData* = object
+    current_sync_committee*: List[SyncCommittee, 1]
+    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
 
     execution*: ExecutionPayloadHeader
     execution_branch*: ExecutionBranch
 
-    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
-    current_sync_committee*: List[SyncCommittee, 1]
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientEpochData* = object
+    epoch*: Epoch
+    
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    bootstrap_data*: LightClientBootstrapData
+
+    finalized_checkpoint*: Checkpoint
+    finalized_checkpoint_branch*: altair.FinalizedCheckpointBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/capella/light-client/sync-protocol.md#get_lc_execution_root
 func get_lc_execution_root*(

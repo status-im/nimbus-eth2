@@ -700,19 +700,23 @@ type
     current_max_active_participants*: uint64
 
   # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientBootstrapData* = object
+    current_sync_committee*: List[SyncCommittee, 1]
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
+
+    execution*: deneb.ExecutionPayloadHeader
+    execution_branch*: capella.ExecutionBranch
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
   LightClientEpochData* = object
     epoch*: Epoch
     parent_block_header*: BeaconBlockHeader
     block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
 
+    bootstrap_data*: LightClientBootstrapData
+
     finalized_checkpoint*: Checkpoint
     finalized_checkpoint_branch*: FinalizedCheckpointBranch
-
-    execution*: deneb.ExecutionPayloadHeader
-    execution_branch*: capella.ExecutionBranch
-
-    current_sync_committee_branch*: CurrentSyncCommitteeBranch
-    current_sync_committee*: List[SyncCommittee, 1]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(

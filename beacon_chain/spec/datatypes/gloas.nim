@@ -1064,19 +1064,24 @@ type
     sync_aggregate_branch*: SyncAggregateBranch
 
   # https://hackmd.io/@etan-status/decentralized-cl-sync
-  LightClientEpochData* = object
-    epoch*: Epoch
-    parent_block_header*: BeaconBlockHeader
-    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
-
-    finalized_checkpoint*: Checkpoint
-    finalized_checkpoint_branch*: FinalizedCheckpointBranch
+  LightClientBootstrapData* = object
+    current_sync_committee*: List[SyncCommittee, 1]
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
     execution_block_hash*: Eth2Digest
     execution_branch*: ExecutionBranch
 
-    current_sync_committee_branch*: CurrentSyncCommitteeBranch
-    current_sync_committee*: List[SyncCommittee, 1]
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientEpochData* = object
+    epoch*: Epoch
+
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    bootstrap_data*: LightClientBootstrapData
+
+    finalized_checkpoint*: Checkpoint
+    finalized_checkpoint_branch*: FinalizedCheckpointBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(

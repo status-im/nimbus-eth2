@@ -690,16 +690,21 @@ type
     sync_aggregate_branch*: SyncAggregateBranch
 
   # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientBootstrapData* = object
+    current_sync_committee*: List[SyncCommittee, 1]
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
   LightClientEpochData* = object
     epoch*: Epoch
+    
     parent_block_header*: BeaconBlockHeader
     block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
 
+    bootstrap_data*: LightClientBootstrapData
+
     finalized_checkpoint*: Checkpoint
     finalized_checkpoint_branch*: FinalizedCheckpointBranch
-
-    current_sync_committee_branch*: CurrentSyncCommitteeBranch
-    current_sync_committee*: List[SyncCommittee, 1]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#is_valid_light_client_header
 func is_valid_light_client_header*(
