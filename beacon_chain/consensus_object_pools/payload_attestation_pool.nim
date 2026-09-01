@@ -31,9 +31,9 @@ type
     messages*: Table[uint64, PayloadAttestationMessage]
     aggregated*: Opt[PayloadAttestation]
 
-  PayloadAttestationSlot* = object
-    entries*: Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]
-    seen*: HashSet[uint64]
+  PayloadAttestationSlot = object
+    entries: Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]
+    seen: HashSet[uint64]
 
   PayloadAttestationPool* = object
     dag*: ChainDAGRef
@@ -192,9 +192,6 @@ iterator getPayloadAttestations*(
       continue
     for key, entry in slotState.entries.mpairs:
       if entry.aggregated.isNone():
-        entry.aggregated = pool.aggregateMessages(poolSlot, entry)
-      if entry.aggregated.isSome():
-        yield entry.aggregated.get()
         entry.aggregated = pool.aggregateMessages(poolSlot, entry)
       if entry.aggregated.isSome():
         yield entry.aggregated.get()
