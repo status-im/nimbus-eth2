@@ -377,10 +377,6 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
 
   if not(epochDuties.isDefault()):
     if epochDuties.dependentRoot != dependentRoot:
-      warn "Proposer duties re-organization", duties_count = len(duties),
-           wall_slot = currentSlot, epoch = epoch,
-           prior_dependent_root = epochDuties.dependentRoot,
-           dependent_root = dependentRoot
       let tasks =
         block:
           var res: seq[ProposerTask]
@@ -481,6 +477,7 @@ proc pollForEvents(service: BlockServiceRef, node: BeaconNodeServerRef,
             block_root: head.data.block_root,
             optimistic: head.data.optimistic)
         vc.registerBlock(blck, node)
+        vc.registerHead(head.data)
       of "event":
         if event.data != topicString:
           debug "Got unexpected event name field", event_name = event.name,
@@ -557,6 +554,9 @@ proc runBlockEventMonitor(service: BlockServiceRef,
 
     if response.isSome():
       debug "Block monitoring connection has been established"
+      vc.attesterDutiesInvalidationEvent.fire()
+      vc.proposerDutiesInvalidationEvent.fire()
+      vc.syncDutiesInvalidationEvent.fire()
       let (resp, useHeadV2) = response.get()
       try:
         if useHeadV2:

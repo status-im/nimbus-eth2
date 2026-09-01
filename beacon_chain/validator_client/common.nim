@@ -77,6 +77,7 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
     pollingAttesterDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
+    fillingSelectionProofsTask*: Future[void]
     pruneSlashingDatabaseTask*: Future[void]
     syncSubscriptionEpoch*: Opt[Epoch]
     lastSlashingEpoch*: Opt[Epoch]
@@ -249,6 +250,11 @@ type
     nodesAvailable*: AsyncEvent
     indicesAvailable*: AsyncEvent
     doppelExit*: AsyncEvent
+    attesterDutiesInvalidationEvent*: AsyncEvent
+    proposerDutiesInvalidationEvent*: AsyncEvent
+    syncDutiesInvalidationEvent*: AsyncEvent
+    attesterDependentRoots*: Table[Epoch, Eth2Digest]
+    proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
@@ -1521,6 +1527,75 @@ proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
 
   vc.blocksSeen.mgetOrPut(eblck.slot, BlockDataItem()).scheduleCallbacks(eblck)
+
+proc registerHead*(
+    vc: ValidatorClientRef,
+    head: HeadChangeInfoObject | HeadV2ChangeInfoObjectData) =
+  when head is HeadChangeInfoObject:
+    template current_epoch_dependent_root(head: HeadChangeInfoObject): auto =
+      head.previous_duty_dependent_root
+    template next_epoch_dependent_root(head: HeadChangeInfoObject): auto =
+      head.current_duty_dependent_root
+
+  if vc.attachedValidators[].count() == 0:
+    return
+
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+    nextEpoch = currentEpoch + 1'u64
+
+    headEpoch = head.slot.epoch()
+
+  template didInvalidate(
+      dependentRoots: Table[Epoch, Eth2Digest],
+      epoch: Epoch, dependentRoot: Eth2Digest): bool =
+    dependentRoots.getOrDefault(epoch, dependentRoot) != dependentRoot
+
+  if not(vc.attesterDutiesInvalidationEvent.isSet()):
+    let didInvalidate =
+      if nextEpoch == headEpoch:
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.current_epoch_dependent_root)
+      elif currentEpoch == headEpoch:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.current_epoch_dependent_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.next_epoch_dependent_root)
+      elif currentEpoch == headEpoch + 1:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.next_epoch_dependent_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.block_root)
+      elif currentEpoch > headEpoch + 1:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.block_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.block_root)
+      else:
+        false
+    if didInvalidate:
+      debug "Attester duties invalidated by head event",
+            head_slot = head.slot, block_root = shortLog(head.block_root)
+      vc.attesterDutiesInvalidationEvent.fire()
+
+  if not(vc.proposerDutiesInvalidationEvent.isSet()):
+    let didInvalidate =
+      if nextEpoch == headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.current_epoch_dependent_root)
+      elif currentEpoch == headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.next_epoch_dependent_root)
+      elif currentEpoch > headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.block_root)
+      else:
+        false
+    if didInvalidate:
+      debug "Proposer duties invalidated by head event",
+            head_slot = head.slot, block_root = shortLog(head.block_root)
+      vc.proposerDutiesInvalidationEvent.fire()
 
 proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
   var blocksSeen: Table[Slot, BlockDataItem]
