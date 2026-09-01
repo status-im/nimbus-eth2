@@ -73,18 +73,17 @@ suite "subnet tracker":
         epochsPerSubnetSubscription = 256,
         subnetsPerNode = 1)
 
+    let
+      subnets64 = tracker64.stabilitySubnets(Epoch(64).start_slot())
+      subnets256 = tracker256.stabilitySubnets(Epoch(64).start_slot())
+
     check:
-      tracker64.stabilitySubnets(Slot(0)).countOnes() == 1
-      tracker256.stabilitySubnets(Slot(0)).countOnes() == 1
-
-    var selectionDiffers = false
-    for e in 0'u64 .. 512'u64:
-      if tracker64.stabilitySubnets(Epoch(e).start_slot()) !=
-          tracker256.stabilitySubnets(Epoch(e).start_slot()):
-        selectionDiffers = true
-        break
-
-    check selectionDiffers
+      subnets64.countOnes() == 1
+      subnets256.countOnes() == 1
+      subnets64[16]
+      not subnets64[49]
+      subnets256[49]
+      not subnets256[16]
 
   test "should register sync committee duties":
     var tracker = ActionTracker.init(
