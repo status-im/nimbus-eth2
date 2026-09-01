@@ -8,6 +8,8 @@
 {.push raises: [], gcsafe.}
 
 import
+  # Standard library
+  std/sets,
   # Status libraries
   metrics,
   chronicles,
@@ -29,10 +31,13 @@ type
     messages*: Table[uint64, PayloadAttestationMessage]
     aggregated*: Opt[PayloadAttestation]
 
+  PayloadAttestationSlot* = object
+    entries*: Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]
+    seen*: HashSet[uint64]
+
   PayloadAttestationPool* = object
     dag*: ChainDAGRef
-    attestations*: Table[Slot,
-      Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]]
+    attestations*: Table[Slot, PayloadAttestationSlot]
 
 func init*(T: type PayloadAttestationPool, dag: ChainDAGRef): T =
   T(dag: dag)
@@ -53,40 +58,32 @@ func pruneOldEntries(pool: var PayloadAttestationPool, wallTime: BeaconTime) =
 func isSeen*(
     pool: var PayloadAttestationPool, message: PayloadAttestationMessage
 ): bool =
-  pool.attestations.withValue(message.data.slot, slotEntries):
-    let key = (
-      message.data.beacon_block_root, message.data.payload_present,
-      message.data.blob_data_available,
-    )
-
-    slotEntries[].withValue(key, entry):
-      return message.validator_index in entry[].messages
-
+  pool.attestations.withValue(message.data.slot, slotState):
+    return message.validator_index in slotState[].seen
   false
 
 func addPayloadAttestation*(
     pool: var PayloadAttestationPool, message: PayloadAttestationMessage,
     wallTime: BeaconTime): bool =
-  template beacon_block_root: untyped = message.data.beacon_block_root
-
   let
     slot = message.data.slot
     validator_index = message.validator_index
-    key = (beacon_block_root,
-           message.data.payload_present,
-           message.data.blob_data_available)
 
   pool.pruneOldEntries(wallTime)
 
-  # create an entry for this attestation data
-  let
-    entry = addr pool.attestations.mgetOrPut(slot).mgetOrPut(
-      key, PayloadAttestationEntry(data: message.data))
+  let slotState = addr pool.attestations.mgetOrPut(
+    slot, default(PayloadAttestationSlot))
 
-  # Check for duplicate
-  if entry[].messages.hasKeyOrPut(validator_index, message):
+  if slotState[].seen.containsOrIncl(validator_index):
     return false
 
+  let
+    key = (message.data.beacon_block_root,
+           message.data.payload_present,
+           message.data.blob_data_available)
+    entry = addr slotState[].entries.mgetOrPut(
+      key, PayloadAttestationEntry(data: message.data))
+  entry[].messages[validator_index] = message
   entry[].aggregated = Opt.none(PayloadAttestation)
 
   true
@@ -132,8 +129,8 @@ func getAggregatedPayloadAttestation*(
     key: (Eth2Digest, bool, bool)): Opt[PayloadAttestation] =
   ## Get aggregated payload attestation for a specific attestation data
 
-  pool.attestations.withValue(slot, slotEntries):
-    slotEntries[].withValue(key, entry):
+  pool.attestations.withValue(slot, slotState):
+    slotState[].entries.withValue(key, entry):
       if entry[].aggregated.isNone():
         entry[].aggregated = pool.aggregateMessages(slot, entry[])
       return entry[].aggregated
@@ -159,8 +156,8 @@ proc getPayloadAttestationsForBlock*(
     payload_attestations: seq[PayloadAttestation]
     totalCandidates = 0
 
-  pool.attestations.withValue(attestation_slot, slotEntries):
-    for key, entry in slotEntries[]:
+  pool.attestations.withValue(attestation_slot, slotState):
+    for key, entry in slotState[].entries:
       # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_payload_attestation
       # process_payload_attestation requires
       # `data.beacon_block_root == state.latest_block_header.parent_root`,
@@ -190,11 +187,14 @@ proc getPayloadAttestationsForBlock*(
 iterator getPayloadAttestations*(
     pool: var PayloadAttestationPool, slot: Opt[Slot]
 ): PayloadAttestation =
-  for poolSlot, slotEntries in pool.attestations.mpairs:
+  for poolSlot, slotState in pool.attestations.mpairs:
     if slot.isSome() and poolSlot != slot.get():
       continue
-    for key, entry in slotEntries.mpairs:
+    for key, entry in slotState.entries.mpairs:
       if entry.aggregated.isNone():
+        entry.aggregated = pool.aggregateMessages(poolSlot, entry)
+      if entry.aggregated.isSome():
+        yield entry.aggregated.get()
         entry.aggregated = pool.aggregateMessages(poolSlot, entry)
       if entry.aggregated.isSome():
         yield entry.aggregated.get()
