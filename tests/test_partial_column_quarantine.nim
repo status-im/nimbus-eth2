@@ -130,11 +130,10 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(5)
 
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(4)))
+      cellsReceived: BitSeq.init(4)))
     check:
       quarantine.hasEntry(id, colIdx)
       quarantine.getEntry(id, colIdx).isSome()
-      quarantine.getEntry(id, colIdx).get().groupIdValidated == true
       quarantine.getEntry(id, colIdx).get().cellsReceived.len == 4
 
   test "Get entry for unknown key returns none":
@@ -148,9 +147,9 @@ suite "Partial Column Quarantine":
     let id = gid(1, 1)
 
     quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(3)))
+      cellsReceived: BitSeq.init(3)))
     quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntry(
-      groupIdValidated: false, cellsReceived: BitSeq.init(5)))
+      cellsReceived: BitSeq.init(5)))
 
     check:
       quarantine.hasEntry(id, ColumnIndex(0))
@@ -164,13 +163,13 @@ suite "Partial Column Quarantine":
     let colIdx = ColumnIndex(7)
 
     quarantine.putEntry(gid(1, 1), colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(2)))
+      cellsReceived: BitSeq.init(2)))
     quarantine.putEntry(gid(2, 2), colIdx, PartialColumnEntry(
-      groupIdValidated: false, cellsReceived: BitSeq.init(4)))
+      cellsReceived: BitSeq.init(4)))
 
     check:
-      quarantine.getEntry(gid(1, 1), colIdx).get().groupIdValidated == true
-      quarantine.getEntry(gid(2, 2), colIdx).get().groupIdValidated == false
+      quarantine.getEntry(gid(1, 1), colIdx).get().cellsReceived.len == 2
+      quarantine.getEntry(gid(2, 2), colIdx).get().cellsReceived.len == 4
 
   test "Remove entry":
     var quarantine = PartialColumnQuarantine.init()
@@ -179,7 +178,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(3)
 
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(2)))
+      cellsReceived: BitSeq.init(2)))
     check quarantine.hasEntry(id, colIdx)
 
     quarantine.removeEntry(id, colIdx)
@@ -192,9 +191,9 @@ suite "Partial Column Quarantine":
     let id = gid(1, 1)
 
     quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(2)))
+      cellsReceived: BitSeq.init(2)))
     quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(3)))
+      cellsReceived: BitSeq.init(3)))
 
     quarantine.removeEntry(id, ColumnIndex(0))
     check:
@@ -216,7 +215,6 @@ suite "Partial Column Quarantine":
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 6)
     check:
       entry.cellsReceived.len == 6
-      entry.groupIdValidated == false
       quarantine.hasEntry(id, colIdx)
 
   test "getOrCreateEntry returns existing entry":
@@ -229,27 +227,36 @@ suite "Partial Column Quarantine":
     cellBits.setBit(0)
     cellBits.setBit(2)
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: cellBits))
+      cellsReceived: cellBits))
 
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 10)
     check:
       # The existing entry, not a fresh one sized for 10 blobs
       entry.cellsReceived.len == 3
-      entry.groupIdValidated == true
       entry.cellsReceived[0] == true
       entry.cellsReceived[1] == false
       entry.cellsReceived[2] == true
 
-  test "getOrCreateEntry reflects group-id validation status":
+  test "Group id arriving after the cells still completes the entry":
     var quarantine = PartialColumnQuarantine.init()
-    let id = gid(3, 1)
+    let
+      id = gid(3, 1)
+      colIdx = ColumnIndex(0)
 
-    let entry1 = quarantine.getOrCreateEntry(id, ColumnIndex(0), numBlobs = 3)
-    check entry1.groupIdValidated == false
+    let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 2)
+    check entry == quarantine.getEntry(id, colIdx).get()
+    quarantine.addCells(id, colIdx, genSidecar([0, 1], startCellId = 1))
+
+    # Every cell is in, but the group id has not been validated yet.
+    check:
+      not quarantine.isComplete(id, colIdx)
+      quarantine.assembleDataColumnSidecar(id, colIdx).isNone()
 
     quarantine.putGroupId(id)
-    let entry2 = quarantine.getOrCreateEntry(id, ColumnIndex(1), numBlobs = 3)
-    check entry2.groupIdValidated == true
+
+    check:
+      quarantine.isComplete(id, colIdx)
+      quarantine.assembleDataColumnSidecar(id, colIdx).isSome()
 
   test "getOrCreateEntry new entry has properly sized cells and proofs":
     var quarantine = PartialColumnQuarantine.init()
@@ -262,8 +269,7 @@ suite "Partial Column Quarantine":
       entry.cellsReceived.len == numBlobs
     for i in 0 ..< numBlobs:
       check:
-        entry.cells[i].isNone()
-        entry.proofs[i].isNone()
+        entry.cellsReceived[i] == false
         entry.cellsReceived[i] == false
 
   # --- Cell tracking ---
@@ -275,7 +281,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(4)))
+      cellsReceived: BitSeq.init(4)))
 
     quarantine.markCellReceived(id, colIdx, 1)
     quarantine.markCellReceived(id, colIdx, 3)
@@ -298,7 +304,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(3)))
+      cellsReceived: BitSeq.init(3)))
 
     quarantine.markCellReceived(id, colIdx, 10)
     check not quarantine.hasCellReceived(id, colIdx, 10)
@@ -314,7 +320,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(2)))
+      cellsReceived: BitSeq.init(2)))
 
     check not quarantine.hasCellReceived(id, colIdx, 5)
 
@@ -326,7 +332,7 @@ suite "Partial Column Quarantine":
       numBlobs = 6
 
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(numBlobs)))
+      cellsReceived: BitSeq.init(numBlobs)))
 
     for i in 0 ..< numBlobs:
       quarantine.markCellReceived(id, colIdx, i)
@@ -338,9 +344,9 @@ suite "Partial Column Quarantine":
     let id = gid(1, 1)
 
     quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(3)))
+      cellsReceived: BitSeq.init(3)))
     quarantine.putEntry(id, ColumnIndex(1), PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(3)))
+      cellsReceived: BitSeq.init(3)))
 
     quarantine.markCellReceived(id, ColumnIndex(0), 1)
 
@@ -366,12 +372,10 @@ suite "Partial Column Quarantine":
 
     let updated = quarantine.getEntry(id, colIdx).get()
     check:
-      updated.cells[1].get() == cell
-      updated.proofs[1].get() == proof
-      updated.cells[0].isNone()
-      updated.cells[2].isNone()
-      updated.proofs[0].isNone()
-      updated.proofs[2].isNone()
+      updated.cells[1] == cell
+      updated.proofs[1] == proof
+      not quarantine.hasCellReceived(id, colIdx, 0)
+      not quarantine.hasCellReceived(id, colIdx, 2)
 
   test "markCellReceived with data on non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
@@ -433,7 +437,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putGroupId(id)
     quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(3)))
+      cellsReceived: BitSeq.init(3)))
 
     quarantine.removeGroupId(id)
     check:
@@ -446,7 +450,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putGroupId(id)
     quarantine.putEntry(id, ColumnIndex(0), PartialColumnEntry(
-      groupIdValidated: true, cellsReceived: BitSeq.init(3)))
+      cellsReceived: BitSeq.init(3)))
 
     quarantine.removeEntry(id, ColumnIndex(0))
     check:
@@ -474,12 +478,12 @@ suite "Partial Column Quarantine":
 
     let updated = quarantine.getEntry(id, colIdx).get()
     check:
-      updated.cells[0].get() == gen[KzgCell](100)
-      updated.proofs[0].get() == gen[KzgProof](100)
-      updated.cells[2].get() == gen[KzgCell](101)
-      updated.proofs[2].get() == gen[KzgProof](101)
-      updated.cells[1].isNone()
-      updated.cells[3].isNone()
+      updated.cells[0] == gen[KzgCell](100)
+      updated.proofs[0] == gen[KzgProof](100)
+      updated.cells[2] == gen[KzgCell](101)
+      updated.proofs[2] == gen[KzgProof](101)
+      not quarantine.hasCellReceived(id, colIdx, 1)
+      not quarantine.hasCellReceived(id, colIdx, 3)
 
   test "addCells accumulates across multiple sidecars":
     var quarantine = PartialColumnQuarantine.init()
@@ -500,8 +504,8 @@ suite "Partial Column Quarantine":
 
     let updated = quarantine.getEntry(id, colIdx).get()
     check:
-      updated.cells[0].get() == gen[KzgCell](10)
-      updated.cells[2].get() == gen[KzgCell](20)
+      updated.cells[0] == gen[KzgCell](10)
+      updated.cells[2] == gen[KzgCell](20)
 
   test "addCells on non-existent entry is no-op":
     var quarantine = PartialColumnQuarantine.init()
@@ -519,11 +523,11 @@ suite "Partial Column Quarantine":
     check entry == quarantine.getEntry(id, colIdx).get()
 
     quarantine.addCells(id, colIdx, genSidecar([1], startCellId = 50))
-    check quarantine.getEntry(id, colIdx).get().cells[1].get() ==
+    check quarantine.getEntry(id, colIdx).get().cells[1] ==
       gen[KzgCell](50)
 
     quarantine.addCells(id, colIdx, genSidecar([1], startCellId = 99))
-    check quarantine.getEntry(id, colIdx).get().cells[1].get() ==
+    check quarantine.getEntry(id, colIdx).get().cells[1] ==
       gen[KzgCell](99)
 
   test "addCells is independent across columns":
@@ -619,7 +623,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 2)
-    check entry.groupIdValidated == false
+    check entry == quarantine.getEntry(id, colIdx).get()
     quarantine.addCells(id, colIdx, genSidecar([0, 1], startCellId = 1))
 
     check not quarantine.isComplete(id, colIdx)
@@ -632,7 +636,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putGroupId(id)
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 3)
-    check entry.groupIdValidated == true
+    check entry == quarantine.getEntry(id, colIdx).get()
     quarantine.addCells(id, colIdx, genSidecar([0, 2], startCellId = 1))
 
     check not quarantine.isComplete(id, colIdx)
@@ -696,7 +700,7 @@ suite "Partial Column Quarantine":
       colIdx = ColumnIndex(0)
 
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 2)
-    check entry.groupIdValidated == false
+    check entry == quarantine.getEntry(id, colIdx).get()
     quarantine.addCells(id, colIdx, genSidecar([0, 1], startCellId = 1))
 
     check quarantine.assembleDataColumnSidecar(id, colIdx).isNone()
@@ -709,7 +713,7 @@ suite "Partial Column Quarantine":
 
     quarantine.putGroupId(id)
     let entry = quarantine.getOrCreateEntry(id, colIdx, numBlobs = 3)
-    check entry.groupIdValidated == true
+    check entry == quarantine.getEntry(id, colIdx).get()
     quarantine.addCells(id, colIdx, genSidecar([0, 2], startCellId = 1))
 
     check quarantine.assembleDataColumnSidecar(id, colIdx).isNone()
@@ -723,10 +727,9 @@ suite "Partial Column Quarantine":
     var allReceived = BitSeq.init(1)
     allReceived.setBit(0)
     quarantine.putEntry(id, colIdx, PartialColumnEntry(
-      groupIdValidated: true,
       cellsReceived: allReceived,
-      cells: @[Opt.some(gen[KzgCell](1))],
-      proofs: @[Opt.some(gen[KzgProof](1))]))
+      cells: @[gen[KzgCell](1)],
+      proofs: @[gen[KzgProof](1)]))
 
     check quarantine.assembleDataColumnSidecar(id, colIdx).isNone()
 

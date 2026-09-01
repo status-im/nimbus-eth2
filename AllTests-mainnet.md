@@ -475,6 +475,7 @@ AllTests-mainnet
 + Assemble partial data column sidecars                                                      OK
 + Assemble partial data column sidecars with missing rows                                    OK
 + Assemble rejects mismatched blob and proof counts                                          OK
++ Partial KZG inputs skip cells already verified                                             OK
 + PartialDataColumnGroupID encoding                                                          OK
 + Verify PartialDataColumnSidecar KZG proofs                                                 OK
 + Verify PartialDataColumnSidecar self-consistency                                           OK
@@ -732,6 +733,7 @@ AllTests-mainnet
 + Get group id for unknown key returns none                                                  OK
 + Group ID LRU evicts oldest entry when full                                                 OK
 + Group IDs with same root but different slots are distinct keys                             OK
++ Group id arriving after the cells still completes the entry                                OK
 + GroupID hash and equality                                                                  OK
 + Init creates empty quarantine                                                              OK
 + Mark all cells received                                                                    OK
@@ -769,7 +771,6 @@ AllTests-mainnet
 + cellsConsistent is true when overlapping cells match                                       OK
 + getOrCreateEntry creates new entry                                                         OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
-+ getOrCreateEntry reflects group-id validation status                                       OK
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
 + hasCellReceived for out-of-bounds index returns false                                      OK

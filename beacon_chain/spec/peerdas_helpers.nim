@@ -18,7 +18,7 @@ import
   ./datatypes/[deneb, fulu]
 
 from std/algorithm import sort
-from std/sequtils import anyIt, mapIt, newSeqWith, repeat, toSeq
+from std/sequtils import anyIt, countIt, mapIt, newSeqWith, repeat, toSeq
 from stew/staticfor import staticFor
 
 # Generics sandwich (https://github.com/nim-lang/Nim/issues/11225): because
@@ -470,28 +470,51 @@ proc assemble_partial_data_column_sidecars*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
 # Gloas sources the commitments from the bid instead of the header.
+func partial_data_column_kzg_inputs*(
+    sidecar: gloas.PartialDataColumnSidecar,
+    all_commitments: gloas.KzgCommitments,
+    already_verified: BitSeq):
+      Result[tuple[commitments: seq[KzgCommitment],
+                   cells: seq[KzgCell],
+                   proofs: seq[KzgProof]], cstring] =
+  ## Gather the commitment/cell/proof triples that still need verifying.
+  ## Blob indices set in `already_verified` are skipped: those cells were
+  ## checked against the same commitments when first received, and the
+  ## caller has confirmed the incoming bytes match the stored copy.
+  var
+    commitments = newSeqOfCap[KzgCommitment](sidecar.partial_column.len)
+    cells = newSeqOfCap[KzgCell](sidecar.partial_column.len)
+    proofs = newSeqOfCap[KzgProof](sidecar.partial_column.len)
+    cellIdx = 0
+
+  for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
+    if not sidecar.cells_present_bitmap[Natural(blobIdx)]:
+      continue
+    if blobIdx >= all_commitments.len:
+      return err("PartialDataColumnSidecar: bitmap exceeds commitments")
+    if cellIdx >= sidecar.partial_column.len or
+        cellIdx >= sidecar.kzg_proofs.len:
+      return err("PartialDataColumnSidecar: cell count does not match bitmap")
+    if blobIdx >= already_verified.len or not already_verified[blobIdx]:
+      commitments.add all_commitments[blobIdx]
+      cells.add sidecar.partial_column[cellIdx]
+      proofs.add sidecar.kzg_proofs[cellIdx]
+    inc cellIdx
+
+  ok((commitments, cells, proofs))
+
 proc verify_partial_data_column_sidecar_kzg_proofs*(
     sidecar: gloas.PartialDataColumnSidecar,
     all_commitments: gloas.KzgCommitments,
     column_index: ColumnIndex): Result[void, cstring] =
   ## Verify the KZG proofs for partial data column sidecars.
-
-  # Collect the commitments for the blobs present in the bitmap
-  var commitments = newSeqOfCap[KzgCommitment](sidecar.partial_column.len)
-  for i in 0 ..< sidecar.cells_present_bitmap.len:
-    if sidecar.cells_present_bitmap[Natural(i)]:
-      if i >= all_commitments.len:
-        return err("PartialDataColumnSidecar: bitmap exceeds commitments")
-      commitments.add all_commitments[i]
+  let inputs =
+    ? partial_data_column_kzg_inputs(sidecar, all_commitments, BitSeq.init(0))
 
   # The cell index is the column index for all cells in this column
-  let cellIndices = repeat(CellIndex(column_index), commitments.len)
-
-  # Batch verify that the cells match the corresponding commitments and proofs
-
   let res = verifyCellKzgProofBatch(
-      commitments, cellIndices, sidecar.partial_column.asSeq,
-      sidecar.kzg_proofs.asSeq).valueOr:
+      inputs.commitments, repeat(CellIndex(column_index), inputs.cells.len),
+      inputs.cells, inputs.proofs).valueOr:
     return err("PartialDataColumnSidecar: validation error")
 
   if not res:
@@ -504,10 +527,8 @@ func verify_partial_data_column_sidecar*(
     sidecar: gloas.PartialDataColumnSidecar): Result[void, cstring] =
   ## Self-consistency [REJECT] rules, i.e. those needing neither chain state
   ## nor KZG.
-  var cellsPresent = 0
-  for i in 0 ..< sidecar.cells_present_bitmap.len:
-    if sidecar.cells_present_bitmap[Natural(i)]:
-      inc cellsPresent
+  let cellsPresent = (0 ..< sidecar.cells_present_bitmap.len).countIt(
+    sidecar.cells_present_bitmap[Natural(it)])
 
   if cellsPresent == 0:
     return err("PartialDataColumnSidecar: partial message is semantically empty")

@@ -758,3 +758,15 @@ proc scheduleDataColumnSidecarCheck*(
       data_column_sidecar[].column.len),
     data_column_sidecar[].column.asSeq,
     data_column_sidecar[].kzg_proofs.asSeq)
+
+proc schedulePartialDataColumnSidecarCheck*(
+    batchCrypto: ref BatchCrypto,
+    commitments: seq[KzgCommitment],
+    cells: seq[KzgCell],
+    proofs: seq[KzgProof],
+    column_index: ColumnIndex): FutureBatchResult =
+  ## Schedule KZG proof verification of the cells carried by a partial data
+  ## column sidecar. The caller supplies the matching bid commitments, having
+  ## already dropped any cell it holds a verified copy of.
+  batchCrypto.scheduleKzgCheck(
+    commitments, repeat(CellIndex(column_index), cells.len), cells, proofs)

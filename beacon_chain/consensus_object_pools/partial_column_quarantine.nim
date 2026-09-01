@@ -32,13 +32,12 @@ const
 type
   PartialColumnEntry* = object
     ## Tracks accumulated cells for a single (group_id, column_index) pair.
-    groupIdValidated*: bool
-      ## The group ID has been acknowledged for a block we know about.
     cellsReceived*: BitSeq
-      ## Per-blob cell presence tracking, indexed by blob index.
-    cells*: seq[Opt[KzgCell]]
+      ## Per-blob cell presence tracking, indexed by blob index. A slot in
+      ## `cells`/`proofs` is only meaningful once its bit here is set.
+    cells*: seq[KzgCell]
       ## Accumulated cell data, indexed by blob index.
-    proofs*: seq[Opt[KzgProof]]
+    proofs*: seq[KzgProof]
       ## Accumulated KZG proofs, indexed by blob index.
 
   PartialColumnKey* = object
@@ -130,10 +129,9 @@ func getOrCreateEntry*(
     return value
 
   let entry = PartialColumnEntry(
-    groupIdValidated: quarantine.hasGroupId(groupId),
     cellsReceived: BitSeq.init(numBlobs),
-    cells: newSeq[Opt[KzgCell]](numBlobs),
-    proofs: newSeq[Opt[KzgProof]](numBlobs))
+    cells: newSeq[KzgCell](numBlobs),
+    proofs: newSeq[KzgProof](numBlobs))
   quarantine.entries.put(key, entry)
   entry
 
@@ -162,8 +160,8 @@ func markCellReceived*(
     return
   if blobIndex < entry.cellsReceived.len:
     entry.cellsReceived.setBit(blobIndex)
-    entry.cells[blobIndex] = Opt.some(cell)
-    entry.proofs[blobIndex] = Opt.some(proof)
+    entry.cells[blobIndex] = cell
+    entry.proofs[blobIndex] = proof
     quarantine.entries.put(key, entry)
 
 func hasCellReceived*(
@@ -179,6 +177,16 @@ func hasCellReceived*(
   false
 
 # --- Cell ingestion and assembly ---
+
+func receivedCells*(
+    quarantine: var PartialColumnQuarantine,
+    groupId: PartialDataColumnGroupID,
+    columnIndex: ColumnIndex): BitSeq =
+  ## Blob indices whose cells are already stored, and so already KZG-verified.
+  let entry = quarantine.entries.get(
+      PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
+    return BitSeq.init(0)
+  entry.cellsReceived
 
 func cellsConsistent*(
     quarantine: var PartialColumnQuarantine,
@@ -198,11 +206,9 @@ func cellsConsistent*(
          cellIdx < sidecar.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len and
          entry.cellsReceived[blobIdx]:
-        if entry.cells[blobIdx].isSome and
-            entry.cells[blobIdx].get != sidecar.partial_column[cellIdx]:
+        if entry.cells[blobIdx] != sidecar.partial_column[cellIdx]:
           return false
-        if entry.proofs[blobIdx].isSome and
-            entry.proofs[blobIdx].get != sidecar.kzg_proofs[cellIdx]:
+        if entry.proofs[blobIdx] != sidecar.kzg_proofs[cellIdx]:
           return false
       cellIdx.inc
   true
@@ -225,8 +231,8 @@ func addCells*(
          cellIdx < s.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len:
         entry.cellsReceived.setBit(blobIdx)
-        entry.cells[blobIdx] = Opt.some(s.partial_column[cellIdx])
-        entry.proofs[blobIdx] = Opt.some(s.kzg_proofs[cellIdx])
+        entry.cells[blobIdx] = s.partial_column[cellIdx]
+        entry.proofs[blobIdx] = s.kzg_proofs[cellIdx]
       cellIdx.inc
 
   quarantine.entries.put(key, entry)
@@ -236,10 +242,10 @@ func isComplete*(
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex): bool =
   ## True once the group ID is validated and every cell has been received.
+  if not quarantine.hasGroupId(groupId):
+    return false
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
-    return false
-  if not entry.groupIdValidated:
     return false
   for received in entry.cellsReceived:
     if not received:
@@ -253,31 +259,21 @@ func assembleDataColumnSidecar*(
     columnIndex: ColumnIndex): Opt[DataColumnSidecar] =
   ## Assemble a full DataColumnSidecar from accumulated partial cells.
   ## None if the entry is incomplete or the group ID is not cached.
+  let stored = quarantine.groupIds.get(groupId).valueOr:
+    return Opt.none(DataColumnSidecar)
+
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return Opt.none(DataColumnSidecar)
 
-  if not entry.groupIdValidated:
-    return Opt.none(DataColumnSidecar)
   for received in entry.cellsReceived:
     if not received:
       return Opt.none(DataColumnSidecar)
 
-  let stored = quarantine.groupIds.get(groupId).valueOr:
-    return Opt.none(DataColumnSidecar)
-
-  let numBlobs = entry.cellsReceived.len
-  var
-    column = newSeqOfCap[KzgCell](numBlobs)
-    proofs = newSeqOfCap[KzgProof](numBlobs)
-  for i in 0 ..< numBlobs:
-    column.add(entry.cells[i].get())
-    proofs.add(entry.proofs[i].get())
-
   Opt.some(DataColumnSidecar(
     index: columnIndex,
-    column: column,
-    kzg_proofs: proofs,
+    column: entry.cells,
+    kzg_proofs: entry.proofs,
     slot: stored.slot,
     beacon_block_root: stored.beacon_block_root))
 

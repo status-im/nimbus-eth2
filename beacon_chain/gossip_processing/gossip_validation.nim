@@ -748,11 +748,13 @@ proc validateDataColumnSidecar*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
 proc validatePartialDataColumnSidecar*(
     dag: ChainDAGRef,
+    batchCrypto: ref BatchCrypto,
     partialColumnQuarantine: ref PartialColumnQuarantine,
     partial_data_column_sidecar: ref gloas.PartialDataColumnSidecar,
     group_id: gloas.PartialDataColumnGroupID,
     column_index: ColumnIndex,
-    subnet_id: uint64): Result[void, ValidationError] =
+    subnet_id: uint64
+): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
   ## The column index is inferred from the gossipsub topic subnet.
   template sidecar(): auto = partial_data_column_sidecar[]
 
@@ -782,26 +784,26 @@ proc validatePartialDataColumnSidecar*(
   # The spec separates these: a block in `store.blocks` but not in
   # `store.block_states` is REJECT. A block reachable via `getBlockRef` has
   # already passed validation here, so the two collapse into one IGNORE.
-  let blck =
-    block:
-      let
-        blckRef = dag.getBlockRef(group_id.beacon_block_root).valueOr:
-          return errIgnore("PartialDataColumnSidecar: block not yet seen")
-        forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
-          info "block is missing, database corrupt?",
-            root = shortLog(group_id.beacon_block_root)
-          return errIgnore("PartialDataColumnSidecar: block not yet seen")
-      withBlck(forkedBlock):
-        when consensusFork == ConsensusFork.Gloas:
-          forkyBlck
-        else:
-          return errIgnore("PartialDataColumnSidecar: block in incorrect fork")
+  let blckRef = dag.getBlockRef(group_id.beacon_block_root).valueOr:
+    return errIgnore("PartialDataColumnSidecar: block not yet seen")
 
   # [REJECT] The group ID's slot matches the slot of the block
-  if not (blck.message.slot == group_id.slot):
+  #
+  # Checked against the block id so a mismatch costs no block load.
+  if not (blckRef.bid.slot == group_id.slot):
     return dag.checkedReject("PartialDataColumnSidecar: slot mismatched")
 
-  template bid(): auto = blck.message.body.signed_execution_payload_bid.message
+  # Only the bid is needed from the block, so copy that rather than the block.
+  let bid = block:
+    let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
+      info "block is missing, database corrupt?",
+        root = shortLog(group_id.beacon_block_root)
+      return errIgnore("PartialDataColumnSidecar: block not yet seen")
+    withBlck(forkedBlock):
+      when consensusFork == ConsensusFork.Gloas:
+        forkyBlck.message.body.signed_execution_payload_bid.message
+      else:
+        return errIgnore("PartialDataColumnSidecar: block in incorrect fork")
 
   # [REJECT] The cells present bitmap length equals the number of bid
   # commitments
@@ -819,11 +821,25 @@ proc validatePartialDataColumnSidecar*(
       "PartialDataColumnSidecar: cells conflict with previously seen cells")
 
   # [REJECT] The sidecar's cell and proof data passes KZG verification
-  block:
-    let v = verify_partial_data_column_sidecar_kzg_proofs(
-      sidecar, bid.blob_kzg_commitments, column_index)
-    if v.isErr:
-      return dag.checkedReject(v.error)
+  #
+  # Cells already held for this (group id, column) are dropped from the batch:
+  # the equality check above proves they are byte-identical to copies that were
+  # verified against these same commitments when first received.
+  let kzgInputs = partial_data_column_kzg_inputs(
+      sidecar, bid.blob_kzg_commitments,
+      partialColumnQuarantine[].receivedCells(group_id, column_index)).valueOr:
+    return dag.checkedReject(error)
+
+  if kzgInputs.cells.len > 0:
+    case await batchCrypto.schedulePartialDataColumnSidecarCheck(
+        kzgInputs.commitments, kzgInputs.cells, kzgInputs.proofs, column_index)
+    of BatchResult.Invalid:
+      return dag.checkedReject("PartialDataColumnSidecar: validation failed")
+    of BatchResult.Timeout:
+      beacon_data_column_sidecars_dropped_queue_full.inc()
+      return errIgnore("PartialDataColumnSidecar: timeout checking KZG proofs")
+    of BatchResult.Valid:
+      discard # keep going only in this case
 
   ok()
 

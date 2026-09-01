@@ -476,6 +476,62 @@ suite "Gloas Partial Columns":
           sidecar, shortened, ColumnIndex(2)).isErr
     testKzg()
 
+  test "Partial KZG inputs skip cells already verified":
+    proc testKzgInputs() =
+      var rng = initRand(50)
+      let
+        blobs = createSampleKzgBlobs(3, rng.rand(int))
+        (commitments, cellProofs) = buildCommitmentsAndCellProofs(blobs)
+        blck = gloasBlockWithCommitments(commitments, Slot(5))
+        (_, sidecars) = assemble_partial_data_column_sidecars(
+          blck, blobs.mapIt(Opt.some(it)), cellProofs)
+        sidecar = sidecars[1]
+
+      # Nothing held locally: every present cell needs verifying.
+      block:
+        let inputs = partial_data_column_kzg_inputs(
+          sidecar, commitments, BitSeq.init(0)).expect("valid bitmap")
+        doAssert inputs.cells.len == 3
+        doAssert inputs.commitments.len == 3
+        doAssert inputs.proofs.len == 3
+
+      # Blob 1 already held: it drops out, and the surviving commitments stay
+      # aligned with their cells.
+      block:
+        var have = BitSeq.init(3)
+        have.setBit(1)
+        let inputs = partial_data_column_kzg_inputs(
+          sidecar, commitments, have).expect("valid bitmap")
+        doAssert inputs.cells.len == 2
+        doAssert inputs.commitments == @[commitments[0], commitments[2]]
+        doAssert inputs.cells == @[sidecar.partial_column[0],
+                                   sidecar.partial_column[2]]
+        doAssert inputs.proofs == @[sidecar.kzg_proofs[0],
+                                    sidecar.kzg_proofs[2]]
+        # The reduced batch must still verify against those commitments.
+        doAssert verifyCellKzgProofBatch(
+          inputs.commitments, @[CellIndex(1), CellIndex(1)],
+          inputs.cells, inputs.proofs).get(false)
+
+      # Everything already held: nothing left to verify.
+      block:
+        var have = BitSeq.init(3)
+        for i in 0 ..< 3:
+          have.setBit(i)
+        let inputs = partial_data_column_kzg_inputs(
+          sidecar, commitments, have).expect("valid bitmap")
+        doAssert inputs.cells.len == 0
+        doAssert inputs.commitments.len == 0
+        doAssert inputs.proofs.len == 0
+
+      # A bitmap reaching past the commitments is still rejected.
+      block:
+        let shortened =
+          gloas.KzgCommitments(commitments.asSeq[0 ..< commitments.len - 1])
+        doAssert partial_data_column_kzg_inputs(
+          sidecar, shortened, BitSeq.init(0)).isErr
+    testKzgInputs()
+
   test "PartialDataColumnGroupID encoding":
     proc testGroupId() =
       var root: Eth2Digest
