@@ -84,6 +84,10 @@ type
     electra.LightClientStore |
     gloas.LightClientStore
 
+  ForkyLightClientBlockData* =
+    altair.LightClientBlockData |
+    gloas.LightClientBlockData
+
   ForkyLightClientEpochData* =
     altair.LightClientEpochData |
     capella.LightClientEpochData |
@@ -217,6 +221,7 @@ template kind*(
       altair.SomeLightClientObject |
       altair.LightClientHeader |
       altair.LightClientStore |
+      altair.LightClientBlockData |
       altair.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Altair
 
@@ -249,6 +254,7 @@ template kind*(
       gloas.SomeLightClientObject |
       gloas.LightClientHeader |
       gloas.LightClientStore |
+      gloas.LightClientBlockData |
       gloas.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Gloas
 
@@ -434,6 +440,15 @@ template LightClientStore*(
     altair.LightClientStore
   else:
     {.error: "LightClientStore unsupported in " & $kind.}
+
+template LightClientBlockData*(
+    kind: static LightClientDataFork): typedesc =
+  when kind >= LightClientDataFork.Gloas:
+    gloas.LightClientBlockData
+  elif kind >= LightClientDataFork.Altair:
+    altair.LightClientBlockData
+  else:
+    {.error: "LightClientBlockData unsupported in " & $kind.}
 
 template LightClientEpochData*(
     kind: static LightClientDataFork): typedesc =
