@@ -816,7 +816,7 @@ func shortLog*(v: LightClientEpochData): auto =
     epoch: v.epoch,
     parent: shortLog(v.parent_block_header),
     finalized: shortLog(v.finalized_checkpoint),
-    has_current_sync_committee: v.current_sync_committee.len > 0
+    has_current_sync_committee: v.bootstrap_data.current_sync_committee.len > 0
   )
 
 chronicles.formatIt LightClientBootstrap: shortLog(it)
