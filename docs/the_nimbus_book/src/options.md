@@ -51,7 +51,6 @@ The following options are available:
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
-     --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
      --peerdas-supernode       Subscribe to all column subnets, thereby becoming a PeerDAS supernode [=false].
      --light-supernode         Subscribe to the first half of column subnets [=false].
      --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
@@ -62,6 +61,7 @@ The following options are available:
      --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=*].
      --tcp-port                Listening TCP port for Ethereum LibP2P traffic [=9000].
+     --quic-port               Listening UDP port for Ethereum LibP2P traffic over QUIC [=9001].
      --udp-port                Listening UDP port for node discovery [=9000].
      --max-peers               The target number of peers to connect to [=160].
      --hard-max-peers          The maximum number of peers to connect to. Defaults to maxPeers * 1.5.

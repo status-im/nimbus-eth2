@@ -20,7 +20,7 @@ import
   # Local modules:
   ../spec/[engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
-  "."/[el_conf, engine_api_conversions]
+  ./[el_conf, engine_api_conversions]
 
 from std/sequtils import anyIt, filterIt, mapIt
 from std/times import getTime, toUnix
@@ -56,7 +56,7 @@ const
   # https://github.com/ethereum/execution-apis/blob/74feb592ce7b3a33fd8f6866d9464f8028c8a5e3/src/engine/osaka.md#request-2
   GETBLOBS_TIMEOUT = 1.seconds
 
-  connectionStateChangeHysteresisThreshold = 15
+  connectionStateChangeHysteresisThreshold* = 15
     ## How many unsuccessful/successful requests we must see
     ## before declaring the connection as degraded/restored
 
@@ -77,7 +77,7 @@ type
       # V4 is a superset of the earlier versions so we can use it for cache
       # equivalence purposes
 
-  PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponse]]
+  PayloadReq = tuple[params: PayloadParams, resp: Future[ForkchoiceUpdatedResponseV1]]
 
   ELManager* = ref object
     eth1Network: Opt[Eth1Network]
@@ -274,7 +274,13 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.
     warn "Engine API connection failed", err = web3Res.error
     false
   else:
-    connection.web3 = Opt.some(web3Res.get)
+    let web3 = web3Res.get
+    web3.onDisconnect = proc() =
+      connection.web3.isErrOr:
+        if value == web3:
+          debug "Connection to EL node lost", url = url(connection.engineUrl)
+          connection.web3 = Opt.none(Web3)
+    connection.web3 = Opt.some(web3)
     true
 
 proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
@@ -344,7 +350,8 @@ proc getPayload(
         payloadReq.resp != nil and
         payloadReq.params.state.headBlockHash == params.state.headBlockHash and
         payloadReq.params.attributes == params.attributes and
-        (not payloadReq.resp.completed or payloadReq.resp.value().payloadId.isSome())
+        (not payloadReq.resp.finished or (payloadReq.resp.completed and
+           payloadReq.resp.value().payloadId.isSome()))
 
       forkchoiceUpdated = await(
         if useLastPayload:
@@ -386,28 +393,20 @@ proc getPayload(
       limit = MAX_EXTRA_DATA_BYTES
     raise newException(CatchableError, "Execution payload extraData exceeds max size")
 
-  when compiles(payload.executionPayload.withdrawals):
-    when payload.executionPayload.withdrawals is Opt:
-      template maybeEmpty(v: Opt): untyped =
-        v.valueOr(@[])
-    else:
-      template maybeEmpty(v: auto): untyped =
-        v
-
-    if params.attributes.withdrawals != payload.executionPayload.withdrawals.maybeEmpty:
-      warn "Execution client returned unexpected payload withdrawals",
-        url = connection.engineUrl.url,
-        payloadId,
-        withdrawals_from_cl_len = params.attributes.withdrawals.len,
-        withdrawals_from_el_len = payload.executionPayload.withdrawals.maybeEmpty.len,
-        withdrawals_from_cl =
-          mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
-        withdrawals_from_el = mapIt(
-          payload.executionPayload.withdrawals.maybeEmpty, it.asConsensusWithdrawal
-        )
-      raise newException(
-        CatchableError, "Execution client returned mismatching withdrawals"
+  if params.attributes.withdrawals != payload.executionPayload.withdrawals:
+    warn "Execution client returned unexpected payload withdrawals",
+      url = connection.engineUrl.url,
+      payloadId,
+      withdrawals_from_cl_len = params.attributes.withdrawals.len,
+      withdrawals_from_el_len = payload.executionPayload.withdrawals.len,
+      withdrawals_from_cl =
+        mapIt(params.attributes.withdrawals, it.asConsensusWithdrawal),
+      withdrawals_from_el = mapIt(
+        payload.executionPayload.withdrawals, it.asConsensusWithdrawal
       )
+    raise newException(
+      CatchableError, "Execution client returned mismatching withdrawals"
+    )
 
   payload
 
@@ -456,6 +455,7 @@ func init*(
     withdrawals: sink seq[capella.Withdrawal],
     consensusHead: Eth2Digest,
     slot: Slot,
+    targetGasLimit: uint64,
 ): T =
   T(
     timestamp: Quantity timestamp,
@@ -464,6 +464,7 @@ func init*(
     withdrawals: withdrawals.toEngineWithdrawals(),
     parentBeaconBlockRoot: consensusHead.to(Hash32),
     slotNumber: Quantity(slot),
+    targetGasLimit: Quantity(targetGasLimit),
   )
 
 func init(
@@ -771,24 +772,24 @@ proc getBlobsV2*(
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError], raw: true).} =
   mixin getBlobsV2
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
-    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  template kzg_commitments(): auto =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    else:
+      blck.message.body.blob_kzg_commitments
 
-    m.elConnections
-      .mapIt(
-        it.getBlobsV2(
-          blck.message.body.blob_kzg_commitments.mapIt(
-            kzg_commitment_to_versioned_hash(it)
-          )
-        )
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+
+  m.elConnections
+    .mapIt(
+      it.getBlobsV2(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
       )
-      .firstOrCancel(deadline)
+    )
+    .firstOrCancel(deadline)
 
 proc getBlobsV2*(
-    m: ELManager, kzg_commitments: KzgCommitments
+    m: ELManager, kzg_commitments: deneb.KzgCommitments
 ): Future[Opt[seq[BlobAndProofV2]]] {.async: (raises: [CancelledError], raw: true).} =
   ## Variant used by the column-first sidecar retrieval path: derives
   ## versioned hashes from `kzg_commitments` directly, without requiring the
@@ -806,26 +807,26 @@ proc getBlobsV2*(
     .firstOrCancel(deadline)
 
 proc getBlobsV3*(
-    m: ELManager, blck: fulu.SignedBeaconBlock
+    m: ELManager, blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock
 ): Future[Opt[seq[Opt[BlobAndProofV2]]]] {.
     async: (raises: [CancelledError], raw: true)
 .} =
   mixin getBlobsV3
 
-  when blck is gloas.SignedBeaconBlock:
-    debugGloasComment "handle correctly for Gloas?"
-    return err()
-  else:
-    let deadline = sleepAsync(GETBLOBS_TIMEOUT)
-    m.elConnections
-      .mapIt(
-        it.getBlobsV3(
-          blck.message.body.blob_kzg_commitments.mapIt(
-            kzg_commitment_to_versioned_hash(it)
-          )
-        )
+  template kzg_commitments(): auto =
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    else:
+      blck.message.body.blob_kzg_commitments
+
+  let deadline = sleepAsync(GETBLOBS_TIMEOUT)
+  m.elConnections
+    .mapIt(
+      it.getBlobsV3(
+        kzg_commitments.mapIt(kzg_commitment_to_versioned_hash(it))
       )
-      .firstOrCancel(deadline)
+    )
+    .firstOrCancel(deadline)
 
 template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
   if m.elConnections.len == 0:
@@ -836,11 +837,11 @@ template sendNewPayload(payload: untyped; args: varargs[untyped]): untyped =
     var
       res = Opt.none PayloadExecutionStatus
       responseProcessor = ELConsensusViolationDetector.init()
-      requests = m.elConnections.mapIt:
-        let req = unpackVarargs(it.newPayload, payload, args)
-        it.engineApiRequest(req, "newPayload", startTime)
-      pending = requests
-      earlyDeadline = sleepAsync(multiTimeout)
+    let requests = m.elConnections.mapIt:
+      let req = unpackVarargs(it.newPayload, payload, args)
+      it.engineApiRequest(req, "newPayload", startTime)
+    var pending = requests
+    let earlyDeadline = sleepAsync(multiTimeout)
 
     defer:
       await cancelAndWait(pending)
@@ -956,7 +957,7 @@ proc newPayload*(
     retry: bool,
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   let blob_versioned_hashes =
-    envelope.payload.transactions.asSeq.all_blob_versioned_hashes().valueOr:
+    envelope.payload.transactions.all_blob_versioned_hashes().valueOr:
       debug "Envelope has invalid blob transaction", err = error
       return Opt.none(PayloadExecutionStatus)
   await m.newPayload(
@@ -1016,13 +1017,12 @@ proc forkchoiceUpdated*(
 
   let startTime = Moment.now
 
-  var
-    responseProcessor = ELConsensusViolationDetector.init()
-    requests = m.elConnections.mapIt:
+  var responseProcessor = ELConsensusViolationDetector.init()
+  let requests = m.elConnections.mapIt:
       let req = it.forkchoiceUpdated(state, payloadAttributes, retry)
       engineApiRequest(it, req, "forkchoiceUpdated", startTime)
-    pending = requests
-    earlyDeadline = sleepAsync(multiTimeout)
+  var pending = requests
+  let earlyDeadline = sleepAsync(multiTimeout)
 
   defer:
     await cancelAndWait(pending)
@@ -1092,6 +1092,7 @@ proc checkChainId(
           of mainnet: 1.u256
           of sepolia: 11155111.u256
           of hoodi: 560048.u256
+          of plataberget: 7091047534.u256
       if expectedChain != providerChain:
         warn "The specified EL client is connected to a different chain",
               url = connection.engineUrl,

@@ -13,7 +13,7 @@ import
   metrics,
   # Status
   chronicles, chronos, chronos/threadsync,
-  ../spec/signatures_batch,
+  ../spec/[peerdas_helpers, signatures_batch],
   ../consensus_object_pools/[blockchain_dag, spec_cache]
 
 export signatures_batch, blockchain_dag
@@ -79,6 +79,9 @@ const
   InflightVerifications = 2
     ## Maximum number of concurrent in-flight verifications
 
+  InflightKzgVerifications = 2
+    ## Maximum number of concurrent in-flight KZG verifications
+
 type
   BatchResult* {.pure.} = enum
     Invalid # Invalid by default
@@ -122,6 +125,9 @@ type
       ## Each batch verification reqires a separate verifier
     verifier: int
 
+    kzgSignals: AsyncQueue[ThreadSignalPtr]
+      ## Pending KZG verifications, InflightKzgVerifications verifiers
+
     pruneTime: Moment ## last time we had to prune something
 
     counts: tuple[signatures, batches, aggregates: int64]
@@ -141,6 +147,15 @@ type
     secureRandomBytes: array[32, byte]
     taskpool: Taskpool
     cache: ptr BatchedBLSVerifierCache
+    signal: ThreadSignalPtr
+
+  KzgTask = object
+    ok: Atomic[bool]
+    commitmentsPtr: ptr UncheckedArray[KzgCommitment]
+    cellIndicesPtr: ptr UncheckedArray[CellIndex]
+    cellsPtr: ptr UncheckedArray[KzgCell]
+    proofsPtr: ptr UncheckedArray[KzgProof]
+    numCells: int
     signal: ThreadSignalPtr
 
 proc new*(
@@ -163,6 +178,20 @@ proc new*(
             discard res.verifiers[j].signal.close()
           return err(sig.error())
     )
+
+  res.kzgSignals = newAsyncQueue[ThreadSignalPtr](
+    maxsize = InflightKzgVerifications)
+  for _ in 0..<InflightKzgVerifications:
+    let sig = ThreadSignalPtr.new().valueOr:
+      for j in 0..<res.verifiers.len:
+        discard res.verifiers[j].signal.close()
+      for j in 0..<res.kzgSignals.len:
+        discard res.kzgSignals[j].close()
+      return err(error)
+    try:
+      res.kzgSignals.addLastNoWait(sig)
+    except AsyncQueueFullError:
+      raiseAssert "Unreachable, maxsize items are added"
 
   ok res
 
@@ -228,6 +257,22 @@ proc spawnBatchVerifyTask(tp: Taskpool, task: ptr BatchTask) =
   # Possibly related to: https://github.com/nim-lang/Nim/issues/22305
   tp.spawn batchVerifyTask(task)
 
+proc kzgProofsTask(task: ptr KzgTask) {.nimcall.} =
+  # Task suitable for running in taskpools - look, no GC!
+  let ok = verifyCellKzgProofBatch(
+    task[].commitmentsPtr.toOpenArray(0, task[].numCells - 1),
+    task[].cellIndicesPtr.toOpenArray(0, task[].numCells - 1),
+    task[].cellsPtr.toOpenArray(0, task[].numCells - 1),
+    task[].proofsPtr.toOpenArray(0, task[].numCells - 1)).get(false)
+
+  task[].ok.store(ok)
+
+  discard task[].signal.fireSync()
+
+proc spawnKzgTask(tp: Taskpool, task: ptr KzgTask) =
+  # Keep `tp.spawn` out of `{.async.}` procs - see `spawnBatchVerifyTask`
+  tp.spawn kzgProofsTask(task)
+
 func combine(
     multiSet: MultiSignatureSet,
     verifier: ref BatchVerifier): SignatureSet =
@@ -268,6 +313,11 @@ proc batchVerifyAsync(
   except AsyncError as exc:
     warn "Batch verification verification failed - report bug", err = exc.msg
     return false
+
+  # `sigsets` must be used after the `await` or it is freed on suspension
+  # while the worker still reads it through `task.setsPtr`:
+  # https://github.com/nim-lang/Nim/issues/26041
+  discard sigsets
 
   task.ok.load()
 
@@ -420,7 +470,8 @@ proc scheduleAttestationCheck*(
 proc scheduleAggregateChecks*(
     batchCrypto: ref BatchCrypto,
     fork: Fork,
-    signedAggregateAndProof: electra.SignedAggregateAndProof,
+    signedAggregateAndProof:
+      electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     aggregateSig: CookedSig,
     dag: ChainDAGRef,
     attesting_indices: openArray[ValidatorIndex],
@@ -598,3 +649,112 @@ proc schedulePayloadAttestationCheck*(
         fork, genesis_validators_root, msg, pubkey, sig)
 
   ok((fut, sig))
+
+proc scheduleInclusionListCheck*(
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      genesis_validators_root: Eth2Digest,
+      msg: InclusionList,
+      pubkey: CookedPubKey,
+      signature: ValidatorSig
+    ): Result[tuple[fut: FutureBatchResult, sig: CookedSig], cstring] =
+  ## Schedule crypto verification of an inclusion list
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred inclusion list check otherwise.
+  ##
+  let
+    sig = signature.load().valueOr:
+      return err("inclusion list: cannot load signature")
+    fut = batchCrypto.verifySoon("batch_validation.scheduleInclusionListCheck"):
+      inclusion_list_signature_set(
+        fork, genesis_validators_root, msg, pubkey, sig)
+
+  ok((fut, sig))
+
+func toBatchResult(valid: bool): BatchResult =
+  if valid:
+    BatchResult.Valid
+  else:
+    BatchResult.Invalid
+
+proc scheduleKzgCheck(
+    batchCrypto: ref BatchCrypto,
+    commitments: seq[KzgCommitment], cellIndices: seq[CellIndex],
+    cells: seq[KzgCell], proofs: seq[KzgProof]):
+    Future[BatchResult] {.async: (raises: [CancelledError]).} =
+  ## Verify the KZG proofs of a data column on the task pool
+  if batchCrypto.taskpool.numThreads <= 1:
+    return toBatchResult verifyCellKzgProofBatch(
+      commitments, cellIndices, cells, proofs).get(false)
+
+  let
+    created = Moment.now()
+    signal = await batchCrypto.kzgSignals.popFirst()
+  defer:
+    try:
+      batchCrypto[].kzgSignals.addLastNoWait(signal)
+    except AsyncQueueFullError:
+      raiseAssert "Unreachable, pops and adds are balanced"
+
+  let
+    startTick = Moment.now()
+    slotDuration = batchCrypto.timeParams.SLOT_DURATION
+
+  # If the hardware is too slow to keep up or an event caused a temporary
+  # buildup of column checks, the check will be dropped so as to recover and
+  # not cause even further buildup - this puts an (elastic) upper bound
+  # on the amount of queued-up work
+  if created + slotDuration < startTick:
+    if batchCrypto[].pruneTime + slotDuration < startTick:
+      notice "Column check queue pruned, skipping data column validation"
+      batchCrypto[].pruneTime = startTick
+
+    return BatchResult.Timeout
+
+  var task = KzgTask(
+    commitmentsPtr: makeUncheckedArray(baseAddr commitments),
+    cellIndicesPtr: makeUncheckedArray(baseAddr cellIndices),
+    cellsPtr: makeUncheckedArray(baseAddr cells),
+    proofsPtr: makeUncheckedArray(baseAddr proofs),
+    numCells: cells.len,
+    signal: signal)
+
+  # task will stay allocated in the async environment at least until the signal
+  # has fired at which point it's safe to release it
+  let taskPtr = addr task
+  batchCrypto[].taskpool.spawnKzgTask(taskPtr)
+  try:
+    await signal.wait()
+  except AsyncError as exc:
+    warn "Column KZG proof verification failed - report bug", err = exc.msg
+    return BatchResult.Invalid
+
+  toBatchResult(task.ok.load())
+
+proc scheduleDataColumnSidecarCheck*(
+    batchCrypto: ref BatchCrypto,
+    data_column_sidecar: ref fulu.DataColumnSidecar): FutureBatchResult =
+  ## Schedule KZG proof verification of a fulu data column sidecar
+  batchCrypto.scheduleKzgCheck(
+    data_column_sidecar[].kzg_commitments.asSeq,
+    repeat(CellIndex(data_column_sidecar[].index),
+      data_column_sidecar[].column.len),
+    data_column_sidecar[].column.asSeq,
+    data_column_sidecar[].kzg_proofs.asSeq)
+
+proc scheduleDataColumnSidecarCheck*(
+    batchCrypto: ref BatchCrypto,
+    data_column_sidecar: ref gloas.DataColumnSidecar,
+    kzg_commitments: seq[KzgCommitment]): FutureBatchResult =
+  ## Schedule KZG proof verification of a gloas data column sidecar against the
+  ## commitments carried by the execution payload bid
+  batchCrypto.scheduleKzgCheck(
+    kzg_commitments,
+    repeat(CellIndex(data_column_sidecar[].index),
+      data_column_sidecar[].column.len),
+    data_column_sidecar[].column.asSeq,
+    data_column_sidecar[].kzg_proofs.asSeq)

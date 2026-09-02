@@ -46,9 +46,9 @@ const
   LowestScoreAggregatedAttestation* =
     phase0.Attestation(
       aggregation_bits: CommitteeValidatorsBits(BitSeq.init(1)))
-  LowestScoreAggregatedElectraAttestation* =
-    electra.Attestation(
-      aggregation_bits: AggregationBits(BitSeq.init(1)))
+  LowestScoreAggregatedGloasAttestation* =
+    gloas.Attestation(
+      aggregation_bits: BitSeq.init(1))
 
 static:
   doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
@@ -56,13 +56,13 @@ static:
 type
   # https://github.com/ethereum/beacon-APIs/blob/v2.4.2/apis/eventstream/index.yaml
   EventTopic* {.pure.} = enum
-    Head, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
-    ProposerSlashing, AttesterSlashing, BlobSidecar, DataColumnSidecar,
-    SingleAttestation, FinalizedCheckpoint, ChainReorg, ContributionAndProof,
+    Head, HeadV2, Block, BlockGossip, VoluntaryExit, BLSToExecutionChange,
+    ProposerSlashing, AttesterSlashing, DataColumnSidecar, SingleAttestation,
+    FinalizedCheckpoint, ChainReorg, ContributionAndProof,
     LightClientFinalityUpdate, LightClientOptimisticUpdate,
     ExecutionPayloadAdded, ExecutionPayloadGossipAdded,
-    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage
-
+    ExecutionPayloadAvailable, ExecutionPayloadBid, PayloadAttestationMessage,
+    FastConfirmation, PayloadAttributes, ProposerPreferences
 
   EventTopics* = set[EventTopic]
 
@@ -143,6 +143,12 @@ type
     slot*: Slot
 
   RestProposerDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    slot*: Slot
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/types/duty.yaml#L56
+  RestPtcDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
     slot*: Slot
@@ -472,8 +478,9 @@ type
       aggregateAndProof* {.
         serializedFieldName: "aggregate_and_proof".}: phase0.AggregateAndProof
     of Web3SignerRequestKind.AggregateAndProofV2:
-      forkedAggregateAndProof* {.
-        serializedFieldName: "aggregate_and_proof".}: ForkedAggregateAndProof
+      aggregateAndProofV2* {.
+        serializedFieldName: "aggregate_and_proof".}:
+          Web3SignerForkedAggregateAndProof
     of Web3SignerRequestKind.Attestation:
       attestation*: AttestationData
     of Web3SignerRequestKind.BlockV2:
@@ -539,11 +546,30 @@ type
     validator_index*: RestValidatorIndex
     reward*: RestReward
 
+  # `inclusion_delay` is phase0-only and therefore never part of the response
+  RestIdealAttestationReward* = object
+    effective_balance*: uint64
+    head*: RestReward
+    target*: RestReward
+    source*: RestReward
+    inactivity*: RestReward
+
+  RestTotalAttestationReward* = object
+    validator_index*: RestValidatorIndex
+    head*: RestReward
+    target*: RestReward
+    source*: RestReward
+    inactivity*: RestReward
+
+  RestAttestationsRewards* = object
+    ideal_rewards*: seq[RestIdealAttestationReward]
+    total_rewards*: seq[RestTotalAttestationReward]
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[phase0.Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
-  GetBlockAttestationsResponse* = DataEnclosedObject[seq[phase0.Attestation]]
+  GetPtcDutiesResponse* = DataRootEnclosedObject[seq[RestPtcDuty]]
   GetBlockHeaderResponse* = DataOptimisticAndFinalizedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockRootResponse* = DataOptimisticObject[RestRoot]
@@ -575,6 +601,7 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
+  ProducePayloadAttestationDataResponse* = DataVersionEnclosedObject[PayloadAttestationData]
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
@@ -670,8 +697,6 @@ template withForkyBlck*(
     const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyData: untyped {.inject, used.} = x.denebData
     template forkyBlck: untyped {.inject, used.} = x.denebData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.denebData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.denebData.blobs
     body
   of ConsensusFork.Capella:
     const consensusFork {.inject, used.} = ConsensusFork.Capella
@@ -843,9 +868,6 @@ func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
 func init*(t: typedesc[StateIdent], v: Slot): StateIdent =
   StateIdent(kind: StateQueryKind.Slot, slot: v)
 
-func init*(t: typedesc[StateIdent], v: Eth2Digest): StateIdent =
-  StateIdent(kind: StateQueryKind.Root, root: v)
-
 func init*(t: typedesc[BlockIdent], v: BlockIdentType): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Named, value: v)
 
@@ -855,16 +877,8 @@ func init*(t: typedesc[BlockIdent], v: Slot): BlockIdent =
 func init*(t: typedesc[BlockIdent], v: Eth2Digest): BlockIdent =
   BlockIdent(kind: BlockQueryKind.Root, root: v)
 
-func init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
-  ValidatorIdent(kind: ValidatorQueryKind.Index, index: RestValidatorIndex(v))
-
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
-
-func init*(t: typedesc[RestBlockInfo],
-           v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
-  withBlck(v):
-    RestBlockInfo(slot: forkyBlck.message.slot, blck: forkyBlck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: Gwei, status: string,
@@ -912,7 +926,7 @@ func init*(
     t: typedesc[Web3SignerRequest],
     fork: Fork,
     genesis_validators_root: Eth2Digest,
-    data: electra.AggregateAndProof,
+    data: electra.AggregateAndProof | gloas.AggregateAndProof,
     signingRoot: Opt[Eth2Digest] = Opt.none(Eth2Digest)
 ): Web3SignerRequest =
   Web3SignerRequest(
@@ -921,8 +935,13 @@ func init*(
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
-    forkedAggregateAndProof:
-      ForkedAggregateAndProof.init(data, typeof(data).kind)
+    aggregateAndProofV2:
+      when data is gloas.AggregateAndProof:
+        Web3SignerForkedAggregateAndProof(
+          kind: ConsensusFork.Gloas, gloasData: data)
+      else:
+        Web3SignerForkedAggregateAndProof(
+          kind: ConsensusFork.Electra, electraData: data)
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
@@ -1118,16 +1137,9 @@ func init*(t: typedesc[RestSignedContributionAndProof],
     ),
     signature: signature)
 
-func len*(p: RestWithdrawalPrefix): int = sizeof(p)
-
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string): RestErrorMessage =
   RestErrorMessage(code: code, message: message)
-
-func init*(t: typedesc[RestErrorMessage], code: int,
-           message: string, stacktrace: string): RestErrorMessage =
-  RestErrorMessage(code: code, message: message,
-                   stacktraces: Opt.some(@[stacktrace]))
 
 func init*(t: typedesc[RestErrorMessage], code: int,
            message: string, stacktrace: openArray[string]): RestErrorMessage =
@@ -1174,9 +1186,12 @@ const
     capella.BeaconState, "historical_summaries")
   HISTORICAL_SUMMARIES_GINDEX_ELECTRA* = get_generalized_index(
     electra.BeaconState, "historical_summaries")
+  HISTORICAL_SUMMARIES_GINDEX_GLOAS* = get_generalized_index(
+    gloas.BeaconState, "historical_summaries")
 static:
   doAssert HISTORICAL_SUMMARIES_GINDEX == 59.GeneralizedIndex
   doAssert HISTORICAL_SUMMARIES_GINDEX_ELECTRA == 91.GeneralizedIndex
+  doAssert HISTORICAL_SUMMARIES_GINDEX_GLOAS == 2950.GeneralizedIndex
 
 type
   # Note: these could go in separate Capella/Electra spec files if they were
@@ -1185,6 +1200,8 @@ type
     array[log2trunc(HISTORICAL_SUMMARIES_GINDEX), Eth2Digest]
   HistoricalSummariesProofElectra* =
     array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_ELECTRA), Eth2Digest]
+  HistoricalSummariesProofGloas* =
+    array[log2trunc(HISTORICAL_SUMMARIES_GINDEX_GLOAS), Eth2Digest]
 
   # REST API types
   GetHistoricalSummariesV1Response* = object
@@ -1199,13 +1216,21 @@ type
     proof*: HistoricalSummariesProofElectra
     slot*: Slot
 
+  GetHistoricalSummariesV1ResponseGloas* = object
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
+    proof*: HistoricalSummariesProofGloas
+    slot*: Slot
+
   ForkyGetHistoricalSummariesV1Response* =
     GetHistoricalSummariesV1Response |
-    GetHistoricalSummariesV1ResponseElectra
+    GetHistoricalSummariesV1ResponseElectra |
+    GetHistoricalSummariesV1ResponseGloas
 
   HistoricalSummariesFork* {.pure.} = enum
     Capella = 0,
-    Electra = 1
+    Electra = 1,
+    Gloas = 2
 
   # REST client response type
   ForkedHistoricalSummariesWithProof* = object
@@ -1214,10 +1239,14 @@ type
       GetHistoricalSummariesV1Response
     of HistoricalSummariesFork.Electra: electraData*:
       GetHistoricalSummariesV1ResponseElectra
+    of HistoricalSummariesFork.Gloas: gloasData*:
+      GetHistoricalSummariesV1ResponseGloas
 
 template historical_summaries_gindex*(
     kind: static HistoricalSummariesFork): GeneralizedIndex =
   case kind
+  of HistoricalSummariesFork.Gloas:
+    HISTORICAL_SUMMARIES_GINDEX_GLOAS
   of HistoricalSummariesFork.Electra:
     HISTORICAL_SUMMARIES_GINDEX_ELECTRA
   of HistoricalSummariesFork.Capella:
@@ -1225,32 +1254,38 @@ template historical_summaries_gindex*(
 
 template getHistoricalSummariesResponse*(
     kind: static HistoricalSummariesFork): auto =
-  when kind >= HistoricalSummariesFork.Electra:
+  when kind >= HistoricalSummariesFork.Gloas:
+    GetHistoricalSummariesV1ResponseGloas
+  elif kind >= HistoricalSummariesFork.Electra:
     GetHistoricalSummariesV1ResponseElectra
   elif kind >= HistoricalSummariesFork.Capella:
     GetHistoricalSummariesV1Response
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
-    historical_summaries: GetHistoricalSummariesV1Response,
-): T =
-    ForkedHistoricalSummariesWithProof(
-      kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries
-    )
+    historical_summaries: GetHistoricalSummariesV1Response): T =
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Capella, capellaData: historical_summaries)
 
 template init*(
     T: type ForkedHistoricalSummariesWithProof,
-    historical_summaries: GetHistoricalSummariesV1ResponseElectra,
-): T =
-    ForkedHistoricalSummariesWithProof(
-      kind: HistoricalSummariesFork.Electra, electraData: historical_summaries
-    )
+    historical_summaries: GetHistoricalSummariesV1ResponseElectra): T =
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Electra, electraData: historical_summaries)
+
+template init*(
+    T: type ForkedHistoricalSummariesWithProof,
+    historical_summaries: GetHistoricalSummariesV1ResponseGloas): T =
+  ForkedHistoricalSummariesWithProof(
+    kind: HistoricalSummariesFork.Gloas, gloasData: historical_summaries)
 
 func historicalSummariesForkAtConsensusFork*(
     consensusFork: ConsensusFork): Opt[HistoricalSummariesFork] =
   static:
-    doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Electra
-  if consensusFork >= ConsensusFork.Electra:
+    doAssert HistoricalSummariesFork.high == HistoricalSummariesFork.Gloas
+  if consensusFork >= ConsensusFork.Gloas:
+    Opt.some HistoricalSummariesFork.Gloas
+  elif consensusFork >= ConsensusFork.Electra:
     Opt.some HistoricalSummariesFork.Electra
   elif consensusFork >= ConsensusFork.Capella:
     Opt.some HistoricalSummariesFork.Capella

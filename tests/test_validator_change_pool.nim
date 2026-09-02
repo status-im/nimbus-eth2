@@ -12,7 +12,7 @@ import
   ../beacon_chain/spec/[forks, presets, signatures, state_transition],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, validator_change_pool],
-  "."/[testutil, testblockutil, testdbutil]
+  ./[testutil, testblockutil, testdbutil]
 
 func makeSignedBeaconBlockHeader(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
@@ -94,7 +94,7 @@ suite "Validator change pool testing suite":
 
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS_ELECTRA + 5:
       for j in 0'u64 .. i:
-        let msg = dag.headState.makeElectraAttesterSlashing(
+        let msg = dag.headState.makeAttesterSlashing(
           [j], Slot(1), makeFakeHash(0), makeFakeHash(1))
 
         if i == 0:
@@ -106,7 +106,7 @@ suite "Validator change pool testing suite":
         when consensusFork >= ConsensusFork.Electra:
           check:
             pool[].getBeaconBlockValidatorChanges(
-                cfg, forkyState.data).electra_attester_slashings.lenu64 ==
+                cfg, forkyState.data).attester_slashings.lenu64 ==
               min(i + 1, MAX_ATTESTER_SLASHINGS_ELECTRA)
 
   test "addValidatorChangeMessage/getVoluntaryExitMessage":

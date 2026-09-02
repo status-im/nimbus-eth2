@@ -16,7 +16,7 @@ import
   ./[testutil, teststateutil]
 
 from std/algorithm import sort
-from std/sequtils import allIt, toSeq
+from std/sequtils import allIt, countIt
 from snappy import encodeFramed, uncompressedLenFramed
 from ../beacon_chain/consensus_object_pools/block_pools_types import
   ChainDAGRef
@@ -136,10 +136,37 @@ doAssert testStates.toOpenArray(0, testStates.len - 2).allIt(it.len > 8)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
     check:
       db.getStateRef(ConsensusFork.Phase0, ZERO_HASH).isNil
       db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
+
+  test "head blocks roundtrip" & preset():
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
+    var a, b, c: Eth2Digest
+    a.data[0] = 1
+    b.data[0] = 2
+    c.data[0] = 3
+
+    check:
+      db.getHeadBlock().isNone
+      db.getHeadBlocks().len == 0
+
+    db.putHeadBlock(a)
+    db.putHeadBlocks(@[a, b])
+    check:
+      db.getHeadBlock() == Opt.some(a)
+      db.getHeadBlocks() == @[a, b]
+
+    db.putHeadBlock(c)
+    check:
+      db.getHeadBlock() == Opt.some(c)
+      db.getHeadBlocks() == @[a, b]
+
+    db.putHeadBlocks(@[c])
+    check:
+      db.getHeadBlock() == Opt.some(c)
+      db.getHeadBlocks() == @[c]
 
   template doBlockTest(consensusFork: static ConsensusFork): untyped =
     block:
@@ -255,13 +282,14 @@ suite "Beacon chain DB" & preset():
 
   template doRollbackTest(consensusFork: static ConsensusFork): untyped =
     block:
-      var
+      let
         db = cfg.makeTestDB(SLOTS_PER_EPOCH)
         validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-        dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      var dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      let
         state = ForkedHashedBeaconState.new(
           (ref consensusFork.BeaconState)(slot: 10.Slot)[])
-        root = Eth2Digest()
+        root = ZERO_HASH
 
       db.putCorruptState(consensusFork, root)
 
@@ -291,7 +319,7 @@ suite "Beacon chain DB" & preset():
         consensusFork.doRollbackTest()
 
   test "find ancestors" & preset():
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
 
     let
       a0 = withDigest(
@@ -301,32 +329,32 @@ suite "Beacon chain DB" & preset():
       a2 = withDigest(
         (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root))
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 0
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 0
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 0
     doAssert db.getBeaconBlockSummary(a2.root).isNone()
 
     db.putBlock(a2)
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 1
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 0
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 1
     doAssert db.getBeaconBlockSummary(a2.root).get().slot == a2.message.slot
 
     db.putBlock(a1)
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 2
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 0
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 2
 
     db.putBlock(a0)
 
-    doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 1
-    doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 3
+    doAssert db.getAncestorSummaries(a0.root).countIt(true) == 1
+    doAssert db.getAncestorSummaries(a2.root).countIt(true) == 3
 
   test "sanity check genesis roundtrip" & preset():
     # This is a really dumb way of checking that we can roundtrip a genesis
     # state. We've been bit by this because we've had a bug in the BLS
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
 
     let
       state = newClone(initialize_hashed_beacon_state_from_eth1(
@@ -345,7 +373,7 @@ suite "Beacon chain DB" & preset():
       hash_tree_root(state2[]) == state[].root
 
   test "sanity check state diff roundtrip" & preset():
-    var db = BeaconChainDB.new("", cfg, inMemory = true)
+    let db = BeaconChainDB.new("", cfg, inMemory = true)
 
     # TODO htr(diff) probably not interesting/useful, but stand-in
     let
@@ -381,17 +409,12 @@ suite "Beacon chain DB" & preset():
 
       db = cfg.makeTestDB(SLOTS_PER_EPOCH)
 
-    var
-      buf: seq[byte]
-      blobSidecar: BlobSidecar
+    var blobSidecar: BlobSidecar
 
     check:
       not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.putBlobSidecar(blobSidecar0)
 
@@ -400,9 +423,6 @@ suite "Beacon chain DB" & preset():
       blobSidecar == blobSidecar0
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.putBlobSidecar(blobSidecar1)
 
@@ -412,9 +432,6 @@ suite "Beacon chain DB" & preset():
       db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       blobSidecar == blobSidecar1
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     check db.delBlobSidecar(blockRoot0, 3)
 
@@ -423,9 +440,6 @@ suite "Beacon chain DB" & preset():
       db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       blobSidecar == blobSidecar1
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.putBlobSidecar(blobSidecar2)
 
@@ -435,9 +449,6 @@ suite "Beacon chain DB" & preset():
       blobSidecar == blobSidecar1
       db.getBlobSidecar(blockRoot1, 2, blobSidecar)
       blobSidecar == blobSidecar2
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     check db.delBlobSidecar(blockRoot0, 2)
 
@@ -446,9 +457,6 @@ suite "Beacon chain DB" & preset():
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       db.getBlobSidecar(blockRoot1, 2, blobSidecar)
       blobSidecar == blobSidecar2
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     check db.delBlobSidecar(blockRoot1, 2)
 
@@ -456,9 +464,6 @@ suite "Beacon chain DB" & preset():
       not db.getBlobSidecar(blockRoot0, 3, blobSidecar)
       not db.getBlobSidecar(blockRoot0, 2, blobSidecar)
       not db.getBlobSidecar(blockRoot1, 2, blobSidecar)
-      not db.getBlobSidecarSZ(blockRoot0, 3, buf)
-      not db.getBlobSidecarSZ(blockRoot0, 2, buf)
-      not db.getBlobSidecarSZ(blockRoot1, 2, buf)
 
     db.close()
 
@@ -915,7 +920,7 @@ suite "Quarantine" & preset():
   func genBlockRoot(index: int): Eth2Digest =
     var res: Eth2Digest
     let tmp = uint64(index).toBytesLE()
-    copyMem(addr res.data[0], unsafeAddr tmp[0], sizeof(uint64))
+    copyMem(addr res.data[0], addr tmp[0], sizeof(uint64))
     res
 
   func genDataColumnSidecar[T: fulu.DataColumnSidecar](
@@ -1086,7 +1091,7 @@ suite "Quarantine" & preset():
 
 suite "FinalizedBlocks" & preset():
   test "Basic ops" & preset():
-    var
+    let
       db = SqStoreRef.init("", "test", inMemory = true).expect(
         "working database (out of memory?)")
 

@@ -11,9 +11,10 @@
 # please keep imports clear of `rest_utils` or any other module which imports
 # beacon node's specific networking code.
 
-import std/[strutils, tables]
+import std/tables
 import chronos, chronicles, confutils,
-       results, stew/[base10, io2], blscurve, presto
+       results, stew/[base10, io2], blscurve, presto,
+       nimcrypto/utils
 import ../spec/[keystore, crypto]
 import ../spec/eth2_apis/rest_keymanager_types
 import ../validators/[slashing_protection, keystore_management,
@@ -67,7 +68,7 @@ proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
     block:
       var default: string
       try:
-        var stream = memoryOutput()
+        let stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
         writer.writeField("message", msg)
@@ -85,9 +86,10 @@ func checkAuthorization*(
   let authorizations = request.headers.getList("authorization")
   if authorizations.len > 0:
     for authHeader in authorizations:
-      let parts = authHeader.split(' ', maxsplit = 1)
-      if parts.len == 2 and parts[0] == "Bearer":
-        if parts[1] == host.keymanagerToken:
+      let auth = getAuthorization(authHeader).valueOr:
+        return err invalidAuthorizationHeader
+      if auth.scheme == "bearer":
+        if equalMemFull(auth.credentials, host.keymanagerToken):
           return ok()
         else:
           return err incorrectToken
@@ -97,7 +99,7 @@ func checkAuthorization*(
 
 proc authErrorResponse(error: AuthorizationError): RestApiResponse =
   let status = case error:
-    of missingBearerScheme, noAuthorizationHeader:
+    of missingBearerScheme, invalidAuthorizationHeader, noAuthorizationHeader:
       Http401
     of incorrectToken:
       Http403
@@ -232,15 +234,17 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
     var
       response: DeleteKeystoresResponse
-      nodeSPDIR =
-        try:
-          toSPDIR(host.validatorPool[].slashingProtection)
-        except IOError as exc:
-          return keymanagerApiError(
-            Http500, "Internal server error; " & $exc.msg)
-      # Hash table to keep the removal status of all keys form request
-      keysAndDeleteStatus = initTable[PubKeyBytes, RequestItemStatus]()
       responseSPDIR: SPDIR
+
+      # Hash table to keep the removal status of all keys form request
+      keysAndDeleteStatus: Table[PubKeyBytes, RequestItemStatus]
+
+    let nodeSPDIR =
+      try:
+        toSPDIR(host.validatorPool[].slashingProtection)
+      except IOError as exc:
+        return keymanagerApiError(
+          Http500, "Internal server error; " & $exc.msg)
 
     responseSPDIR.metadata = nodeSPDIR.metadata
 

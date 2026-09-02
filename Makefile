@@ -16,8 +16,6 @@ LOG_LEVEL := DEBUG
 # used by Make targets that launch a beacon node
 RUNTIME_LOG_LEVEL := INFO
 
-LINK_PCRE := 0
-
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
@@ -57,7 +55,6 @@ TOOLS_CORE_CUSTOMCOMPILE := \
 
 TOOLS_CORE := \
 	resttest \
-	mev_mock \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
@@ -212,7 +209,7 @@ restapi-test:
 		--base-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 0 )) \
 		--base-rest-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 2 )) \
 		--base-metrics-port $$(( $(REST_TEST_BASE_PORT) + EXECUTOR_NUMBER * 4 + 3 )) \
-		--resttest-delay 30 \
+		--resttest-delay 2 \
 		--kill-old-processes
 
 SIGNER_TYPE := nimbus
@@ -225,7 +222,7 @@ local-testnet-minimal:
 		--signer-nodes 1 \
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
-		--fulu-fork-epoch 10000 \
+		--fulu-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp false \
@@ -254,7 +251,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
-		--fulu-fork-epoch 2 \
+		--fulu-fork-epoch 0 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp true \
@@ -312,7 +309,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal -d:FIELD_ELEMENTS_PER_BLOB=4 $(TEST_MODULES_FLAGS) && \
+			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
@@ -492,7 +489,7 @@ GOERLI_TESTNETS_PARAMS := \
 	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--debug-tcp=true \
 	--debug-quic=true \
-	--debug-quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
+	--quic-port=$$(( $(BASE_PORT) + $(NODE_ID) + 2000 )) \
 	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
 	--metrics \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
@@ -679,7 +676,7 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			clang -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
 				--std=c17 \
 				-Weverything -Werror \
 				-Wno-declaration-after-statement -Wno-nullability-extension \
@@ -693,8 +690,8 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
-				--std=c17 -flto \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-nullability-extension \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
@@ -709,11 +706,12 @@ test_libnimbus_lc: libnimbus_lc.a
 			if (( $${WITH_UBSAN:-0} )); then \
 				EXTRA_FLAGS+=('-fsanitize=undefined'); \
 			fi; \
-			gcc -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
-				--std=c17 -flto \
+			$(CC) -D__DIR__="\"beacon_chain/libnimbus_lc\"" \
+				--std=c17 \
 				-pedantic -pedantic-errors \
 				-Wall -Wextra -Werror -Wno-maybe-uninitialized \
-				-Wno-stringop-overflow \
+				-Wno-nullability-extension  \
+				-Wno-stringop-overflow -Wno-stringop-overread \
 				-Wno-unsafe-buffer-usage -Wno-unknown-warning-option \
 				-o build/test_libnimbus_lc \
 				beacon_chain/libnimbus_lc/test_libnimbus_lc.c \

@@ -42,6 +42,7 @@ proc eventHandler*[T](response: HttpResponseRef,
                       serverEvent: string) {.async.} =
   var empty: seq[T]
   let key = eventQueue.register()
+  defer: eventQueue.unregister(key)
 
   while true:
     var exitLoop = false
@@ -80,8 +81,6 @@ proc eventHandler*[T](response: HttpResponseRef,
     if exitLoop or len(events) == 0:
       break
 
-  eventQueue.unregister(key)
-
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
   router.api2(MethodGet, "/eth/v1/events") do (
@@ -106,7 +105,13 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
     var response = request.getResponse()
+
     response.keepAlive = false
+    # Instruct nginx/reverse proxy to disable buffering, which can disrupt SSE.
+    response.setHeader("X-Accel-Buffering", "no")
+    response.setHeader("X-Accel-Expires", "0")
+    response.setHeader("Cache-Control", "no-cache, no-store")
+
     try:
       await response.prepareSSE()
     except HttpError:
@@ -120,6 +125,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if EventTopic.Head in eventTopics:
           let handler = response.eventHandler(node.eventBus.headQueue,
                                               "head")
+          res.add(handler)
+        if EventTopic.HeadV2 in eventTopics:
+          let handler = response.eventHandler(node.eventBus.headV2Queue,
+                                              "head_v2")
           res.add(handler)
         if EventTopic.Block in eventTopics:
           let handler = response.eventHandler(node.eventBus.blocksQueue,
@@ -148,10 +157,6 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if EventTopic.AttesterSlashing in eventTopics:
           let handler = response.eventHandler(node.eventBus.attSlashQueue,
                                               "attester_slashing")
-          res.add(handler)
-        if EventTopic.BlobSidecar in eventTopics:
-          let handler = response.eventHandler(node.eventBus.blobSidecarQueue,
-                                              "blob_sidecar")
           res.add(handler)
         if EventTopic.DataColumnSidecar in eventTopics:
           let handler = response.eventHandler(node.eventBus.columnSidecarQueue,
@@ -198,6 +203,18 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if EventTopic.PayloadAttestationMessage in eventTopics:
           let handler = response.eventHandler(node.eventBus.payloadAttMsgQueue,
                                               "payload_attestation_message")
+          res.add(handler)
+        if EventTopic.FastConfirmation in eventTopics:
+          let handler = response.eventHandler(node.eventBus.fastConfirmationQueue,
+                                              "fast_confirmation")
+          res.add(handler)
+        if EventTopic.PayloadAttributes in eventTopics:
+          let handler = response.eventHandler(
+            node.eventBus.payloadAttributesQueue, "payload_attributes")
+          res.add(handler)
+        if EventTopic.ProposerPreferences in eventTopics:
+          let handler = response.eventHandler(
+            node.eventBus.proposerPreferencesQueue, "proposer_preferences")
           res.add(handler)
         res
 

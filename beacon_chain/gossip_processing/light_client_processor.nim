@@ -5,14 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   chronos, metrics,
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
-  ".."/[beacon_clock, sszdump],
-  "."/gossip_validation
+  ../[beacon_clock, sszdump],
+  ./gossip_validation
 
 export sszdump, gossip_validation, light_client_sync, block_pools_types
 

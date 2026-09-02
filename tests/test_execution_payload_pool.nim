@@ -15,7 +15,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     execution_payload_pool, blockchain_dag],
   ../beacon_chain/beacon_clock,
-  "."/[testutil, testdbutil]
+  ./[testutil, testdbutil]
 
 func makeBid(
     slot: Slot,
@@ -23,6 +23,7 @@ func makeBid(
     parentBlockRoot: Eth2Digest,
     parentBlockHash: Eth2Digest,
     value: Gwei): gloas.SignedExecutionPayloadBid =
+  debugHezeComment "Heze has different SignedExecutionPayloadBid"
   gloas.SignedExecutionPayloadBid(
     message: gloas.ExecutionPayloadBid(
       slot: slot,
@@ -33,7 +34,7 @@ func makeBid(
       fee_recipient: default(ExecutionAddress),
       gas_limit: 30000000,
       value: value,
-      blob_kzg_commitments: default(KzgCommitments)),
+      blob_kzg_commitments: default(gloas.KzgCommitments)),
     signature: default(ValidatorSig))
 
 suite "Execution Payload Bid Pool":
@@ -54,42 +55,53 @@ suite "Execution Payload Bid Pool":
 
   test "Empty pool returns none":
     check:
-      not pool.getHighestBidForSlotAndParent(1.Slot, parentHash1).isSome()
-      not pool.hasBidForBlockRoot(blockRoot)
-      not pool.getBidForBlockRoot(blockRoot).isSome()
-      not pool.hasSeenBidFromBuilder(1.Slot, 0)
+      not pool.getHighestBidForSlotAndParent(
+        1.Slot, blockRoot, PayloadAvailability.Timely).isSome()
+      not pool.hasSeenBidFromBuilder(
+        1.Slot, 0, blockRoot, PayloadAvailability.Timely)
 
   test "Add and retrieve highest bid":
     let bid = makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei)
 
-    pool.addBid(bid, wallTime)
+    pool.addBid(bid, PayloadAvailability.Timely, wallTime)
 
+    let highest = pool.getHighestBidForSlotAndParent(
+      10.Slot, blockRoot, PayloadAvailability.Timely)
     check:
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).isSome()
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.value == 100.Gwei
-      pool.getHighestBidForSlotAndParent(10.Slot, parentHash1).get().message.builder_index == 1
+      highest.isSome()
+      highest.get().message.value == 100.Gwei
+      highest.get().message.builder_index == 1
 
   test "Duplicate detection - same builder same slot":
     let
       bid1 = makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei)
       bid2 = makeBid(10.Slot, 1, blockRoot, parentHash1, 200.Gwei)
 
-    pool.addBid(bid1, wallTime)
-    check pool.hasSeenBidFromBuilder(10.Slot, 1)
+    pool.addBid(bid1, PayloadAvailability.Timely, wallTime)
+    check pool.hasSeenBidFromBuilder(
+      10.Slot, 1, blockRoot, PayloadAvailability.Timely)
 
-    pool.addBid(bid2, wallTime)
+    pool.addBid(bid2, PayloadAvailability.Timely, wallTime)
 
-    let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
+    let highest = pool.getHighestBidForSlotAndParent(
+      10.Slot, blockRoot, PayloadAvailability.Timely)
     check:
       highest.isSome()
       highest.get().message.value == 100.Gwei
 
   test "Highest bid selection - different builders":
-    pool.addBid(makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei), wallTime)
-    pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei), wallTime)
-    pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 150.Gwei), wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 3, blockRoot, parentHash1, 150.Gwei),
+      PayloadAvailability.Timely, wallTime)
 
-    let highest = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
+    let highest = pool.getHighestBidForSlotAndParent(
+      10.Slot, blockRoot, PayloadAvailability.Timely)
     check:
       highest.isSome()
       highest.get().message.value == 200.Gwei
@@ -102,39 +114,64 @@ suite "Execution Payload Bid Pool":
       newRoot = Eth2Digest.fromHex(
         "0x2222222222222222222222222222222222222222222222222222222222222222")
 
-    pool.addBid(makeBid(10.Slot, 1, oldRoot, parentHash1, 100.Gwei), wallTime)
-    pool.addBid(makeBid(100.Slot, 2, newRoot, parentHash1, 200.Gwei), wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 1, oldRoot, parentHash1, 100.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(100.Slot, 2, newRoot, parentHash1, 200.Gwei),
+      PayloadAvailability.Timely, wallTime)
 
     check:
-      pool.hasBidForBlockRoot(oldRoot)
-      pool.hasBidForBlockRoot(newRoot)
+      10.Slot in pool.slotBids
+      100.Slot in pool.slotBids
 
     pool.prune(50.Slot)
 
     check:
-      not pool.hasBidForBlockRoot(oldRoot)
-      pool.hasBidForBlockRoot(newRoot)
+      10.Slot notin pool.slotBids
+      100.Slot in pool.slotBids
 
   test "Track seen bids":
-    pool.addBid(makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei), wallTime)
-    pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei), wallTime)
-    pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 50.Gwei), wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 2, blockRoot, parentHash1, 200.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 3, blockRoot, parentHash1, 50.Gwei),
+      PayloadAvailability.Timely, wallTime)
 
     check:
-      pool.hasSeenBidFromBuilder(10.Slot, 1)
-      pool.hasSeenBidFromBuilder(10.Slot, 2)
-      pool.hasSeenBidFromBuilder(10.Slot, 3)
+      pool.hasSeenBidFromBuilder(
+        10.Slot, 1, blockRoot, PayloadAvailability.Timely)
+      pool.hasSeenBidFromBuilder(
+        10.Slot, 2, blockRoot, PayloadAvailability.Timely)
+      pool.hasSeenBidFromBuilder(
+        10.Slot, 3, blockRoot, PayloadAvailability.Timely)
 
     check pool.slotBids.len == 1
 
-  test "Multiple bids for different parents same slot":
-    pool.addBid(makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei), wallTime)
-    pool.addBid(makeBid(10.Slot, 2, blockRoot, parentHash2, 150.Gwei), wallTime)
-    pool.addBid(makeBid(10.Slot, 3, blockRoot, parentHash1, 120.Gwei), wallTime)
+  test "Multiple bids for different beacon parent roots same slot":
+    let
+      blockRoot1 = blockRoot
+      blockRoot2 = Eth2Digest.fromHex(
+        "0x3333333333333333333333333333333333333333333333333333333333333333")
+    pool.addBid(
+      makeBid(10.Slot, 1, blockRoot1, parentHash1, 100.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 2, blockRoot2, parentHash1, 150.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 3, blockRoot1, parentHash1, 120.Gwei),
+      PayloadAvailability.Timely, wallTime)
 
     let
-      highest1 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash1)
-      highest2 = pool.getHighestBidForSlotAndParent(10.Slot, parentHash2)
+      highest1 = pool.getHighestBidForSlotAndParent(
+        10.Slot, blockRoot1, PayloadAvailability.Timely)
+      highest2 = pool.getHighestBidForSlotAndParent(
+        10.Slot, blockRoot2, PayloadAvailability.Timely)
 
     check:
       highest1.isSome()
@@ -145,11 +182,29 @@ suite "Execution Payload Bid Pool":
       highest2.get().message.value == 150.Gwei
       highest2.get().message.builder_index == 2
 
-    check:
-      pool.hasSeenBidFromBuilder(10.Slot, 1)
-      pool.hasSeenBidFromBuilder(10.Slot, 2)
-      pool.hasSeenBidFromBuilder(10.Slot, 3)
+    check pool.slotBids[10.Slot].highestBids.len == 2
 
-    check pool.slotBids.len == 1
+  test "Multiple bids for different execution parent hashes same slot":
+    pool.addBid(
+      makeBid(10.Slot, 1, blockRoot, parentHash1, 100.Gwei),
+      PayloadAvailability.Timely, wallTime)
+    pool.addBid(
+      makeBid(10.Slot, 2, blockRoot, parentHash2, 200.Gwei),
+      PayloadAvailability.Withheld, wallTime)
+
+    let
+      bidTimely = pool.getHighestBidForSlotAndParent(
+        10.Slot, blockRoot, PayloadAvailability.Timely)
+      bidWithheld = pool.getHighestBidForSlotAndParent(
+        10.Slot, blockRoot, PayloadAvailability.Withheld)
+
+    check:
+      bidTimely.isSome()
+      bidTimely.get().message.value == 100.Gwei
+      bidTimely.get().message.builder_index == 1
+
+      bidWithheld.isSome()
+      bidWithheld.get().message.value == 200.Gwei
+      bidWithheld.get().message.builder_index == 2
 
     check pool.slotBids[10.Slot].highestBids.len == 2

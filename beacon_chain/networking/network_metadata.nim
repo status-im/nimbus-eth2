@@ -34,16 +34,18 @@ from std/strutils import
 
 export RuntimeConfig
 
-const
-  vendorDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
+when IsMainnetSupported or IsGnosisSupported:
+  const vendorDir =
+    currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor"
 
-  incbinEnabled* = sizeof(pointer) == 8
+const incbinEnabled* = sizeof(pointer) == 8
 
 type
   Eth1Network* = enum
     mainnet
     sepolia
     hoodi
+    plataberget
 
   GenesisMetadataKind* = enum
     NoGenesis
@@ -259,6 +261,9 @@ elif IsMainnetSupported:
 
       sepoliaGenesisVar {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
       sepoliaGenesisSizeVar {.importc: "eth2_sepolia_genesis_size".}: int
+
+      platabergetGenesisVar {.importc: "eth2_plataberget_genesis".}: ptr UncheckedArray[byte]
+      platabergetGenesisSizeVar {.importc: "eth2_plataberget_genesis_size".}: int
     {.pop.}
 
     template mainnetGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: mainnetGenesisVar
@@ -266,6 +271,9 @@ elif IsMainnetSupported:
 
     template sepoliaGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: sepoliaGenesisVar
     template sepoliaGenesisSize*(): int = {.noSideEffect.}: sepoliaGenesisSizeVar
+
+    template platabergetGenesis*(): ptr UncheckedArray[byte] = {.noSideEffect.}: platabergetGenesisVar
+    template platabergetGenesisSize*(): int = {.noSideEffect.}: platabergetGenesisSizeVar
 
     # let `.incbin` in assembly file find the binary file through search path
     {.passc: "-I" & escape(vendorDir).}
@@ -279,6 +287,9 @@ elif IsMainnetSupported:
       sepoliaGenesis* = slurp(
         vendorDir & "/sepolia/metadata/genesis.ssz")
 
+      platabergetGenesis* = slurp(
+        vendorDir & "/glamsterdam-devnets/network-configs/devnet-8/metadata/genesis.ssz")
+
   const
     mainnetMetadata = loadCompileTimeNetworkMetadata(
       vendorDir & "/mainnet/metadata",
@@ -289,6 +300,12 @@ elif IsMainnetSupported:
       vendorDir & "/sepolia/metadata",
       Opt.some sepolia,
       useBakedInGenesis = Opt.some "sepolia")
+
+    # https://blog.ethereum.org/2026/08/17/plataberget-testnet
+    platabergetMetadata = loadCompileTimeNetworkMetadata(
+      vendorDir & "/glamsterdam-devnets/network-configs/devnet-8/metadata",
+      Opt.some plataberget,
+      useBakedInGenesis = Opt.some "plataberget")
 
     # File can be reproduced by `cd vendor/hoodi`, then `git lfs install` and
     # `git lfs pull`, and then from repo root:
@@ -324,6 +341,11 @@ elif IsMainnetSupported:
       doAssert network.cfg.FULU_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.GLOAS_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.BLOB_SCHEDULE.len == 2
+
+    checkConfigConsistency(platabergetMetadata.cfg)
+    doAssert platabergetMetadata.cfg.GLOAS_FORK_EPOCH < FAR_FUTURE_EPOCH
+    doAssert platabergetMetadata.cfg.HEZE_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert platabergetMetadata.cfg.BLOB_SCHEDULE.len == 1
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
   template loadRuntimeMetadata(): auto =
@@ -369,6 +391,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata =
         hoodiMetadata
       of "sepolia":
         sepoliaMetadata
+      of "plataberget":
+        platabergetMetadata
       else:
         loadRuntimeMetadata()
 
@@ -428,6 +452,11 @@ when IsMainnetSupported or IsGnosisSupported:
     of "sepolia":
       when IsMainnetSupported:
         bakedInGenesisStateAsBytes sepolia
+      else:
+        raiseAssert availableOnlyInMainnetBuild
+    of "plataberget":
+      when IsMainnetSupported:
+        bakedInGenesisStateAsBytes plataberget
       else:
         raiseAssert availableOnlyInMainnetBuild
     of "gnosis":

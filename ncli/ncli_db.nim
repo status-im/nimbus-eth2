@@ -44,7 +44,6 @@ type
     putState = "Store a given BeaconState in the database"
     dumpBlock = "Extract a (trusted) SignedBeaconBlock from the database"
     putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
-    putBlob = "Store a given BlobSidecar in the database"
     rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
     verifyEra = "Verify a single era file"
     exportEra = "Export historical data to era store in current directory"
@@ -132,12 +131,6 @@ type
         defaultValue: false
         name: "set-genesis"
         desc: "Update genesis to this block"}: bool
-
-    of DbCmd.putBlob:
-      blobFile {.
-        argument
-        name: "file"
-        desc: "Files to import".}: seq[string]
 
     of DbCmd.rewindState:
       blockRoot* {.
@@ -242,19 +235,19 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     dag = withTimerRet(timers[tInit]):
       ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
-  var
+  let
     (start, ends) = dag.getSlotRange(conf.benchSlot, conf.benchSlots)
     blockRefs = dag.getBlockRange(max(start, Slot 1), ends)
-    blocks: (
-      seq[phase0.TrustedSignedBeaconBlock],
-      seq[altair.TrustedSignedBeaconBlock],
-      seq[bellatrix.TrustedSignedBeaconBlock],
-      seq[capella.TrustedSignedBeaconBlock],
-      seq[deneb.TrustedSignedBeaconBlock],
-      seq[electra.TrustedSignedBeaconBlock],
-      seq[fulu.TrustedSignedBeaconBlock],
-      seq[gloas.TrustedSignedBeaconBlock],
-      seq[heze.TrustedSignedBeaconBlock])
+  var blocks: (
+    seq[phase0.TrustedSignedBeaconBlock],
+    seq[altair.TrustedSignedBeaconBlock],
+    seq[bellatrix.TrustedSignedBeaconBlock],
+    seq[capella.TrustedSignedBeaconBlock],
+    seq[deneb.TrustedSignedBeaconBlock],
+    seq[electra.TrustedSignedBeaconBlock],
+    seq[fulu.TrustedSignedBeaconBlock],
+    seq[gloas.TrustedSignedBeaconBlock],
+    seq[heze.TrustedSignedBeaconBlock])
 
   echo "Loaded head slot ", dag.head.slot,
     " selected ", blockRefs.len, " blocks"
@@ -296,18 +289,18 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   let stateData = newClone(dag.headState)
 
   var
-    cache = StateCache()
-    info = ForkedEpochInfo()
-    loadedState = (
-      (ref phase0.HashedBeaconState)(),
-      (ref altair.HashedBeaconState)(),
-      (ref bellatrix.HashedBeaconState)(),
-      (ref capella.HashedBeaconState)(),
-      (ref deneb.HashedBeaconState)(),
-      (ref electra.HashedBeaconState)(),
-      (ref fulu.HashedBeaconState)(),
-      (ref gloas.HashedBeaconState)(),
-      (ref heze.HashedBeaconState)())
+    cache: StateCache
+    info: ForkedEpochInfo
+  let loadedState = (
+    (ref phase0.HashedBeaconState)(),
+    (ref altair.HashedBeaconState)(),
+    (ref bellatrix.HashedBeaconState)(),
+    (ref capella.HashedBeaconState)(),
+    (ref deneb.HashedBeaconState)(),
+    (ref electra.HashedBeaconState)(),
+    (ref fulu.HashedBeaconState)(),
+    (ref gloas.HashedBeaconState)(),
+    (ref heze.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -325,7 +318,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
             dag.cfg, stateData[], stateData[].slot + 1, cache,
             info, {}).expect("Slot processing can't fail with correct inputs")
 
-      var start = Moment.now()
+      let start = Moment.now()
       withTimer(timers[tApplyBlock]):
         if conf.resetCache:
           cache = StateCache()
@@ -503,30 +496,6 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
       if conf.setGenesis:
         db.putGenesisBlock(forkyBlck.root)
 
-proc cmdPutBlob(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string, cfg)
-  defer: db.close()
-
-  for file in conf.blobFile:
-    if shouldShutDown: quit QuitSuccess
-
-    let
-      blob =
-        try:
-          SSZ.decode(readAllBytes(file).tryGet(), BlobSidecar)
-        except ResultError[IoErrorCode] as e:
-          echo "Couldn't load ", file, ": ", e.msg
-          continue
-        except SerializationError as e:
-          echo "Malformed ", file, ": ", e.msg
-          continue
-      res = blob.verify_blob_sidecar_inclusion_proof()
-    if res.isErr:
-      echo "Invalid ", file, ": ", res.error
-      continue
-
-    db.putBlobSidecar(blob)
-
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
   let db = BeaconChainDB.new(conf.databaseDir.string, cfg, readOnly = true)
@@ -556,11 +525,14 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
   let
-    f = EraFile.open(conf.eraFile).valueOr:
-      echo error
+    era = Era.fromEraFile(cfg, io2.splitPath(conf.eraFile).tail).valueOr:
+      echo conf.eraFile & ": name does not match {network}-{era:05d}-{root}.era"
+      quit 1
+    f = EraFile.open(conf.eraFile, era).valueOr:
+      echo conf.eraFile & ": " & error
       quit 1
     root = f.verify(cfg).valueOr:
-      echo error
+      echo conf.eraFile & ": " & error
       quit 1
   echo root
 
@@ -674,7 +646,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         warn "Failed to rename era file to its final name (Exception)",
           name, tmpName, error = e.msg
     else:
-      if (let e = io2.removeFile(name); e.isErr):
+      if (let e = io2.removeFile(tmpName); e.isErr):
         warn "Failed to clean up incomplete era file", tmpName, error = e.error
 
   printTimers(true, timers)
@@ -761,14 +733,12 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   let
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
-
-  var
     (start, ends) = dag.getSlotRange(conf.perfSlot, conf.perfSlots)
     blockRefs = dag.getBlockRange(start, ends)
-    perfs = newSeq[ValidatorPerformance](
-      dag.headState.validators.len())
-    cache = StateCache()
-    info = ForkedEpochInfo()
+  var
+    perfs = newSeq[ValidatorPerformance](dag.headState.validators.len())
+    cache: StateCache
+    info: ForkedEpochInfo
     blck: phase0.TrustedSignedBeaconBlock
 
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -1156,7 +1126,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
       if nextSlot.is_epoch:
         withState(tmpState[]):
-          var stateData = newClone(forkyState.data)
+          let stateData = newClone(forkyState.data)
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
             stateData[], cache, cfg, flags)
 
@@ -1214,7 +1184,7 @@ when isMainModule:
   when defined(posix):
     c_signal(SIGTERM, exitOnSigterm)
 
-  var
+  let
     conf = DbConf.load()
     cfg = getRuntimeConfig(conf.eth2Network)
 
@@ -1229,8 +1199,6 @@ when isMainModule:
     cmdDumpBlock(conf, cfg)
   of DbCmd.putBlock:
     cmdPutBlock(conf, cfg)
-  of DbCmd.putBlob:
-    cmdPutBlob(conf, cfg)
   of DbCmd.rewindState:
     cmdRewindState(conf, cfg)
   of DbCmd.verifyEra:

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 # Test for spec functions and helpers outside of the EF test vectors - mainly
@@ -28,8 +28,8 @@ suite "Beacon state" & preset():
     check: state.data.validators.lenu64 == SLOTS_PER_EPOCH
 
   test "process_slots":
+    let state = initGenesisState(cfg, SLOTS_PER_EPOCH)
     var
-      state = initGenesisState(cfg, SLOTS_PER_EPOCH)
       cache: StateCache
       info: ForkedEpochInfo
     check:
@@ -38,9 +38,10 @@ suite "Beacon state" & preset():
       process_slots(cfg, state[], Slot 1, cache, info, {slotProcessed}).isOk()
 
   test "latest_block_root":
-    var
+    let
       state = initGenesisState(cfg, SLOTS_PER_EPOCH)
       genBlock = get_initial_beacon_block(state[])
+    var
       cache: StateCache
       info: ForkedEpochInfo
 
@@ -60,8 +61,8 @@ suite "Beacon state" & preset():
       state[].phase0Data.latest_block_root == blck.root
 
   test "get_beacon_proposer_index":
+    let state = initGenesisState(cfg, SLOTS_PER_EPOCH)
     var
-      state = initGenesisState(cfg, SLOTS_PER_EPOCH)
       cache: StateCache
       info: ForkedEpochInfo
 
@@ -81,10 +82,10 @@ suite "Beacon state" & preset():
         state[].phase0Data.data, cache, Epoch(2).start_slot()).isNone()
 
   test "dependent_root":
-    var
+    let
       state = initGenesisState(cfg, SLOTS_PER_EPOCH)
       genBlock = get_initial_beacon_block(state[])
-      cache: StateCache
+    var cache: StateCache
 
     check:
       state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
@@ -108,10 +109,10 @@ suite "Beacon state" & preset():
       state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
 
   test "can_advance_slots":
-    var
+    let
       state = initGenesisState(cfg, SLOTS_PER_EPOCH)
       genBlock = get_initial_beacon_block(state[])
-      cache: StateCache
+    var cache: StateCache
 
     check:
       state[].can_advance_slots(genBlock.root, Slot(0))

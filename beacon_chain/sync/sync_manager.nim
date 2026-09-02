@@ -163,7 +163,7 @@ proc newSyncManager*[A, B](
   of SyncQueueKind.Backward:
     (getBackfillSlotCb, getFrontfillSlotCb, getBackfillSlotCb)
 
-  var res = SyncManager[A, B](
+  let res = SyncManager[A, B](
     pool: pool,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
@@ -200,7 +200,9 @@ proc getBlocks[A, B](man: SyncManager[A, B], peer: A,
         sync_ident = man.ident,
         topics = "syncman"
 
-  beaconBlocksByRange_v2(peer, req.data.slot, req.data.count, 1'u64)
+  beaconBlocksByRange_v2(
+    peer, req.data.slot, req.data.count, 1'u64,
+    maxResponseItems = req.data.count.int)
 
 proc remainingSlots(man: SyncManager): uint64 =
   let
@@ -232,7 +234,8 @@ proc getSyncBlockData*[T](
 
   let blocksRange =
     block:
-      let res = await beaconBlocksByRange_v2(peer, slot, 1'u64, 1'u64)
+      let res = await beaconBlocksByRange_v2(
+        peer, slot, 1'u64, 1'u64, maxResponseItems = 1)
       if res.isErr():
         peer.updateScore(PeerScoreNoValues)
         return err("Failed to receive blocks on request [" & $res.error & "]")
@@ -278,7 +281,7 @@ proc getSyncBlockData[A, B](
         peer_speed = sr.item.netKbps(),
         index = index,
         blocks_count = len(blocks),
-        blocks_map = getShortMap(sr, blocks.toSeq()),
+        blocks_map = getShortMap(sr, blocks.asSeq()),
         sync_ident = man.ident,
         topics = "syncman"
 

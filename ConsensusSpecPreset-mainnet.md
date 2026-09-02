@@ -118,6 +118,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Altair - Operations - Deposit - ineffective_deposit_with_bad_fork_version   OK
 + [Valid]   EF - Altair - Operations - Deposit - ineffective_deposit_with_current_fork_versi OK
 + [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_decompression          OK
++ [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_identity               OK
++ [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_not_on_curve           OK
 + [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_subgroup               OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_eth1_withdrawal_credentials     OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_max                             OK
@@ -400,6 +402,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Bellatrix - Operations - Deposit - ineffective_deposit_with_current_fork_ve OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - ineffective_deposit_with_previous_fork_v OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_decompression       OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_identity            OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_not_on_curve        OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_subgroup            OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_eth1_withdrawal_credentials  OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_max                          OK
@@ -731,6 +735,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Operations - Deposit - ineffective_deposit_with_current_fork_vers OK
 + [Valid]   EF - Capella - Operations - Deposit - ineffective_deposit_with_previous_fork_ver OK
 + [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_identity              OK
++ [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_not_on_curve          OK
 + [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_subgroup              OK
 + [Valid]   EF - Capella - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
 + [Valid]   EF - Capella - Operations - Deposit - new_deposit_max                            OK
@@ -1128,6 +1134,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Deneb - Operations - Deposit - ineffective_deposit_with_current_fork_versio OK
 + [Valid]   EF - Deneb - Operations - Deposit - ineffective_deposit_with_previous_fork_versi OK
 + [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_decompression           OK
++ [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_identity                OK
++ [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_not_on_curve            OK
 + [Valid]   EF - Deneb - Operations - Deposit - key_validate_invalid_subgroup                OK
 + [Valid]   EF - Deneb - Operations - Deposit - new_deposit_eth1_withdrawal_credentials      OK
 + [Valid]   EF - Deneb - Operations - Deposit - new_deposit_max                              OK
@@ -1567,6 +1575,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Electra - Operations - Deposit - ineffective_deposit_with_current_fork_vers OK
 + [Valid]   EF - Electra - Operations - Deposit - ineffective_deposit_with_previous_fork_ver OK
 + [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_identity              OK
++ [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_not_on_curve          OK
 + [Valid]   EF - Electra - Operations - Deposit - key_validate_invalid_subgroup              OK
 + [Valid]   EF - Electra - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
 + [Valid]   EF - Electra - Operations - Deposit - new_deposit_max                            OK
@@ -2083,30 +2093,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_with_exce OK
 + [Valid]   EF - Fulu - Operations - Consolidation Request - switch_to_compounding_with_pend OK
 ```
-## EF - Fulu - Operations - Deposit  [Preset: mainnet]
-```diff
-+ [Invalid] EF - Fulu - Operations - Deposit - invalid_bad_merkle_proof                      OK
-+ [Invalid] EF - Fulu - Operations - Deposit - invalid_wrong_deposit_for_deposit_count       OK
-+ [Valid]   EF - Fulu - Operations - Deposit - correct_sig_but_forked_state                  OK
-+ [Valid]   EF - Fulu - Operations - Deposit - effective_deposit_with_genesis_fork_version   OK
-+ [Valid]   EF - Fulu - Operations - Deposit - incorrect_sig_new_deposit                     OK
-+ [Valid]   EF - Fulu - Operations - Deposit - incorrect_sig_top_up                          OK
-+ [Valid]   EF - Fulu - Operations - Deposit - incorrect_withdrawal_credentials_top_up       OK
-+ [Valid]   EF - Fulu - Operations - Deposit - ineffective_deposit_with_bad_fork_version     OK
-+ [Valid]   EF - Fulu - Operations - Deposit - ineffective_deposit_with_current_fork_version OK
-+ [Valid]   EF - Fulu - Operations - Deposit - ineffective_deposit_with_previous_fork_versio OK
-+ [Valid]   EF - Fulu - Operations - Deposit - key_validate_invalid_decompression            OK
-+ [Valid]   EF - Fulu - Operations - Deposit - key_validate_invalid_subgroup                 OK
-+ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_eth1_withdrawal_credentials       OK
-+ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_max                               OK
-+ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_non_versioned_withdrawal_credenti OK
-+ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_over_max                          OK
-+ [Valid]   EF - Fulu - Operations - Deposit - new_deposit_under_max                         OK
-+ [Valid]   EF - Fulu - Operations - Deposit - success_top_up_to_withdrawn_validator         OK
-+ [Valid]   EF - Fulu - Operations - Deposit - top_up__less_effective_balance                OK
-+ [Valid]   EF - Fulu - Operations - Deposit - top_up__max_effective_balance                 OK
-+ [Valid]   EF - Fulu - Operations - Deposit - top_up__zero_balance                          OK
-```
 ## EF - Fulu - Operations - Deposit Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_eth1_credenti OK
@@ -2116,7 +2102,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_max_effective OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_min_activatio OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_pending_depos OK
-+ [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_set_start_ind OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_invali OK
 + [Valid]   EF - Fulu - Operations - Deposit Request - process_deposit_request_top_up_max_ef OK
@@ -2370,8 +2355,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    BeaconBlockBody                                                               OK
 +   Testing    BeaconBlockHeader                                                             OK
 +   Testing    BeaconState                                                                   OK
-+   Testing    BlobIdentifier                                                                OK
-+   Testing    BlobSidecar                                                                   OK
 +   Testing    Checkpoint                                                                    OK
 +   Testing    ConsolidationRequest                                                          OK
 +   Testing    ContributionAndProof                                                          OK
@@ -2396,6 +2379,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnHeader                                                       OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
@@ -2457,8 +2441,6 @@ ConsensusSpecPreset-mainnet
 + EF - Fulu - Transition - transition_with_btec_right_before_fork [Preset: mainnet]          OK
 + EF - Fulu - Transition - transition_with_consolidation_request_right_after_fork [Preset: m OK
 + EF - Fulu - Transition - transition_with_deposit_request_right_after_fork [Preset: mainnet OK
-+ EF - Fulu - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]        OK
-+ EF - Fulu - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]       OK
 + EF - Fulu - Transition - transition_with_finality [Preset: mainnet]                        OK
 + EF - Fulu - Transition - transition_with_leaking_at_fork [Preset: mainnet]                 OK
 + EF - Fulu - Transition - transition_with_leaking_pre_fork [Preset: mainnet]                OK
@@ -2478,10 +2460,12 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Fork - fork_base_state [Preset: mainnet]                                      OK
 + EF - Gloas - Fork - fork_builder_deposit_followed_by_non_builder_credentials [Preset: main OK
 + EF - Gloas - Fork - fork_builder_deposit_uses_deposit_slot_epoch [Preset: mainnet]         OK
++ EF - Gloas - Fork - fork_builder_deposit_version [Preset: mainnet]                         OK
 + EF - Gloas - Fork - fork_builder_deposit_with_existing_validator_pubkey_builder_creds [Pre OK
 + EF - Gloas - Fork - fork_invalid_builder_deposit_followed_by_valid_builder_deposit [Preset OK
 + EF - Gloas - Fork - fork_invalid_validator_deposit_followed_by_builder_credentials [Preset OK
 + EF - Gloas - Fork - fork_many_next_epoch [Preset: mainnet]                                 OK
++ EF - Gloas - Fork - fork_missed_slots_before_fork [Preset: mainnet]                        OK
 + EF - Gloas - Fork - fork_mixed_pending_deposits [Preset: mainnet]                          OK
 + EF - Gloas - Fork - fork_multiple_builder_deposits [Preset: mainnet]                       OK
 + EF - Gloas - Fork - fork_multiple_deposits_same_builder [Preset: mainnet]                  OK
@@ -2490,6 +2474,7 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Fork - fork_no_pending_deposits [Preset: mainnet]                             OK
 + EF - Gloas - Fork - fork_pending_deposit_for_existing_validator [Preset: mainnet]          OK
 + EF - Gloas - Fork - fork_pending_deposit_validator_credentials [Preset: mainnet]           OK
++ EF - Gloas - Fork - fork_proposer_lookahead_slashed_validators_carried_over [Preset: mainn OK
 + EF - Gloas - Fork - fork_random_low_balances [Preset: mainnet]                             OK
 + EF - Gloas - Fork - fork_random_misc_balances [Preset: mainnet]                            OK
 + EF - Gloas - Fork - fork_single_builder_deposit [Preset: mainnet]                          OK
@@ -2527,6 +2512,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_old_target_epoch                 OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_previous_source_root             OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one  OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one_ OK
++ [Invalid] EF - Gloas - Operations - Attestation - invalid_same_slot_attestation_index_one_ OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_source_root_is_target_root       OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_few_aggregation_bits         OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_too_many_aggregation_bits        OK
@@ -2535,8 +2522,11 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_0           OK
 + [Invalid] EF - Gloas - Operations - Attestation - invalid_wrong_index_for_slot_1           OK
 + [Valid]   EF - Gloas - Operations - Attestation - at_max_inclusion_slot                    OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_accumulates       OK
 + [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_no_double_countin OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_no_increment_for_ OK
 + [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_tracking          OK
++ [Valid]   EF - Gloas - Operations - Attestation - builder_payment_weight_tracking_previous OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_max_incl OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_min_incl OK
 + [Valid]   EF - Gloas - Operations - Attestation - correct_attestation_included_at_one_epoc OK
@@ -2550,14 +2540,12 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_epoch_delay OK
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_min_inclusi OK
 + [Valid]   EF - Gloas - Operations - Attestation - incorrect_target_included_at_sqrt_epoch_ OK
-+ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_false_historical_slot   OK
 + [Valid]   EF - Gloas - Operations - Attestation - matching_payload_gets_head_flag          OK
-+ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_historical_slot    OK
-+ [Valid]   EF - Gloas - Operations - Attestation - matching_payload_true_same_slot          OK
 + [Valid]   EF - Gloas - Operations - Attestation - mismatched_payload_no_head_flag          OK
 + [Valid]   EF - Gloas - Operations - Attestation - multi_proposer_index_iterations          OK
 + [Valid]   EF - Gloas - Operations - Attestation - one_basic_attestation                    OK
 + [Valid]   EF - Gloas - Operations - Attestation - previous_epoch                           OK
++ [Valid]   EF - Gloas - Operations - Attestation - same_slot_attestation_ignores_payload_av OK
 + [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
 + [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_one_previou OK
 + [Valid]   EF - Gloas - Operations - Attestation - valid_attestation_data_index_zero_previo OK
@@ -2622,6 +2610,47 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Block Header - invalid_slot_block_header               OK
 + [Valid]   EF - Gloas - Operations - Block Header - basic_block_header                      OK
 ```
+## EF - Gloas - Operations - Builder Deposit Request  [Preset: mainnet]
+```diff
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
++ [Valid]   EF - Gloas - Operations - Builder Deposit Request - process_builder_deposit_requ OK
+```
+## EF - Gloas - Operations - Builder Exit Request  [Preset: mainnet]
+```diff
++ [Valid]   EF - Gloas - Operations - Builder Exit Request - process_builder_exit_request__a OK
++ [Valid]   EF - Gloas - Operations - Builder Exit Request - process_builder_exit_request__i OK
++ [Valid]   EF - Gloas - Operations - Builder Exit Request - process_builder_exit_request__p OK
++ [Valid]   EF - Gloas - Operations - Builder Exit Request - process_builder_exit_request__p OK
++ [Valid]   EF - Gloas - Operations - Builder Exit Request - process_builder_exit_request__s OK
++ [Valid]   EF - Gloas - Operations - Builder Exit Request - process_builder_exit_request__u OK
++ [Valid]   EF - Gloas - Operations - Builder Exit Request - process_builder_exit_request__w OK
+```
 ## EF - Gloas - Operations - Consolidation Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Gloas - Operations - Consolidation Request - basic_switch_to_compounding    OK
@@ -2635,62 +2664,11 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_with_exc OK
 + [Valid]   EF - Gloas - Operations - Consolidation Request - switch_to_compounding_with_pen OK
 ```
-## EF - Gloas - Operations - Deposit  [Preset: mainnet]
-```diff
-+ [Invalid] EF - Gloas - Operations - Deposit - invalid_bad_merkle_proof                     OK
-+ [Invalid] EF - Gloas - Operations - Deposit - invalid_wrong_deposit_for_deposit_count      OK
-+ [Valid]   EF - Gloas - Operations - Deposit - correct_sig_but_forked_state                 OK
-+ [Valid]   EF - Gloas - Operations - Deposit - effective_deposit_with_genesis_fork_version  OK
-+ [Valid]   EF - Gloas - Operations - Deposit - incorrect_sig_new_deposit                    OK
-+ [Valid]   EF - Gloas - Operations - Deposit - incorrect_sig_top_up                         OK
-+ [Valid]   EF - Gloas - Operations - Deposit - incorrect_withdrawal_credentials_top_up      OK
-+ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_bad_fork_version    OK
-+ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_current_fork_versio OK
-+ [Valid]   EF - Gloas - Operations - Deposit - ineffective_deposit_with_previous_fork_versi OK
-+ [Valid]   EF - Gloas - Operations - Deposit - key_validate_invalid_decompression           OK
-+ [Valid]   EF - Gloas - Operations - Deposit - key_validate_invalid_subgroup                OK
-+ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_eth1_withdrawal_credentials      OK
-+ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_max                              OK
-+ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_non_versioned_withdrawal_credent OK
-+ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_over_max                         OK
-+ [Valid]   EF - Gloas - Operations - Deposit - new_deposit_under_max                        OK
-+ [Valid]   EF - Gloas - Operations - Deposit - top_up__less_effective_balance               OK
-+ [Valid]   EF - Gloas - Operations - Deposit - top_up__max_effective_balance                OK
-+ [Valid]   EF - Gloas - Operations - Deposit - top_up__zero_balance                         OK
-```
 ## EF - Gloas - Operations - Deposit Request  [Preset: mainnet]
 ```diff
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_top OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__new_builder OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_fu OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__no_reuse_no OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__nonstandard OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_exit OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_firs OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__reuses_slot OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__bu OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__em OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__ne OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__pe OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
-+ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__routing__va OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_cre OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_pub OK
++ [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request__builder_pub OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_eth1_credent OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_extra_gwei   OK
 + [Valid]   EF - Gloas - Operations - Deposit Request - process_deposit_request_greater_than OK
@@ -2720,6 +2698,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -2728,7 +2707,20 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Parent Execution Payload  [Preset: mainnet]
 ```diff
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_builder_de OK
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_builder_ex OK
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_consolidat OK
++ [Invalid] EF - Gloas - Operations - Parent Execution Payload - invalid_too_many_withdrawal OK
 + [Invalid] EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - deposit_requests_greater_th OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_deposit_request OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_exit_requests   OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_consolidation_requests  OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_withdrawal_requests     OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -2778,6 +2770,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_current_epoc OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_old_epoch    OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_empty_previous_epo OK
++ [Valid]   EF - Gloas - Operations - Proposer Slashing - builder_payment_not_deleted_foreig OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - header_slot_at_epoch_end           OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - header_slot_at_epoch_start         OK
 + [Valid]   EF - Gloas - Operations - Proposer Slashing - headers_differ_multiple_roots      OK
@@ -2821,11 +2814,6 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Gloas - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
-+ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__bad_ OK
-+ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
-+ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inac OK
-+ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
-+ [Invalid] EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pend OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_incorrect_signature           OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_already_exited      OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_validator_exit_in_future      OK
@@ -2837,10 +2825,10 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_f OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_f OK
++ [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit__invalid__builder_inde OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Invalid] EF - Gloas - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_ver OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - basic                                 OK
-+ [Valid]   EF - Gloas - Operations - Voluntary Exit - builder_voluntary_exit__success       OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit    OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - exit_existing_churn_and_balance_multi OK
 + [Valid]   EF - Gloas - Operations - Voluntary Exit - exit_existing_churn_and_churn_limit_b OK
@@ -2884,6 +2872,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_payments_exceed_limit_blocks_oth OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_index_wrap_around          OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped   OK
++ [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_withdrawals_limit          OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_sweep_zero_balance_skipped       OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_uses_fee_recipient_address       OK
 + [Valid]   EF - Gloas - Operations - Withdrawals - builder_withdrawal_insufficient_balance  OK
@@ -2969,9 +2958,9 @@ ConsensusSpecPreset-mainnet
 +   Testing    BeaconBlockBody                                                               OK
 +   Testing    BeaconBlockHeader                                                             OK
 +   Testing    BeaconState                                                                   OK
-+   Testing    BlobIdentifier                                                                OK
-+   Testing    BlobSidecar                                                                   OK
 +   Testing    Builder                                                                       OK
++   Testing    BuilderDepositRequest                                                         OK
++   Testing    BuilderExitRequest                                                            OK
 +   Testing    BuilderPendingPayment                                                         OK
 +   Testing    BuilderPendingWithdrawal                                                      OK
 +   Testing    Checkpoint                                                                    OK
@@ -2990,7 +2979,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionPayloadEnvelope                                                      OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
-+   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
@@ -3069,8 +3057,6 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Transition - transition_with_attester_slashing_right_before_fork [Preset: mai OK
 + EF - Gloas - Transition - transition_with_btec_right_after_fork [Preset: mainnet]          OK
 + EF - Gloas - Transition - transition_with_btec_right_before_fork [Preset: mainnet]         OK
-+ EF - Gloas - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]       OK
-+ EF - Gloas - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]      OK
 + EF - Gloas - Transition - transition_with_finality [Preset: mainnet]                       OK
 + EF - Gloas - Transition - transition_with_leaking_at_fork [Preset: mainnet]                OK
 + EF - Gloas - Transition - transition_with_leaking_pre_fork [Preset: mainnet]               OK
@@ -3093,6 +3079,12 @@ ConsensusSpecPreset-mainnet
 ```diff
 + EF - Heze - Fork - after_fork_deactivate_validators_from_gloas_to_heze [Preset: mainnet]   OK
 + EF - Heze - Fork - after_fork_deactivate_validators_wo_block_from_gloas_to_heze [Preset: m OK
+  EF - Heze - Fork - fork_base_state [Preset: mainnet]                                       Skip
++ EF - Heze - Fork - fork_many_next_epoch [Preset: mainnet]                                  OK
++ EF - Heze - Fork - fork_next_epoch [Preset: mainnet]                                       OK
++ EF - Heze - Fork - fork_next_epoch_with_block [Preset: mainnet]                            OK
++ EF - Heze - Fork - fork_random_low_balances [Preset: mainnet]                              OK
++ EF - Heze - Fork - fork_random_misc_balances [Preset: mainnet]                             OK
 ```
 ## EF - Heze - Operations - Attestation  [Preset: mainnet]
 ```diff
@@ -3119,6 +3111,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Heze - Operations - Attestation - invalid_old_target_epoch                  OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_previous_source_root              OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one   OK
++ [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one_h OK
++ [Invalid] EF - Heze - Operations - Attestation - invalid_same_slot_attestation_index_one_t OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_source_root_is_target_root        OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_too_few_aggregation_bits          OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_too_many_aggregation_bits         OK
@@ -3127,8 +3121,11 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Heze - Operations - Attestation - invalid_wrong_index_for_slot_0            OK
 + [Invalid] EF - Heze - Operations - Attestation - invalid_wrong_index_for_slot_1            OK
 + [Valid]   EF - Heze - Operations - Attestation - at_max_inclusion_slot                     OK
++ [Valid]   EF - Heze - Operations - Attestation - builder_payment_weight_accumulates        OK
 + [Valid]   EF - Heze - Operations - Attestation - builder_payment_weight_no_double_counting OK
++ [Valid]   EF - Heze - Operations - Attestation - builder_payment_weight_no_increment_for_z OK
 + [Valid]   EF - Heze - Operations - Attestation - builder_payment_weight_tracking           OK
++ [Valid]   EF - Heze - Operations - Attestation - builder_payment_weight_tracking_previous_ OK
 + [Valid]   EF - Heze - Operations - Attestation - correct_attestation_included_at_max_inclu OK
 + [Valid]   EF - Heze - Operations - Attestation - correct_attestation_included_at_min_inclu OK
 + [Valid]   EF - Heze - Operations - Attestation - correct_attestation_included_at_one_epoch OK
@@ -3142,14 +3139,12 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Attestation - incorrect_target_included_at_epoch_delay  OK
 + [Valid]   EF - Heze - Operations - Attestation - incorrect_target_included_at_min_inclusio OK
 + [Valid]   EF - Heze - Operations - Attestation - incorrect_target_included_at_sqrt_epoch_d OK
-+ [Valid]   EF - Heze - Operations - Attestation - matching_payload_false_historical_slot    OK
 + [Valid]   EF - Heze - Operations - Attestation - matching_payload_gets_head_flag           OK
-+ [Valid]   EF - Heze - Operations - Attestation - matching_payload_true_historical_slot     OK
-+ [Valid]   EF - Heze - Operations - Attestation - matching_payload_true_same_slot           OK
 + [Valid]   EF - Heze - Operations - Attestation - mismatched_payload_no_head_flag           OK
 + [Valid]   EF - Heze - Operations - Attestation - multi_proposer_index_iterations           OK
 + [Valid]   EF - Heze - Operations - Attestation - one_basic_attestation                     OK
 + [Valid]   EF - Heze - Operations - Attestation - previous_epoch                            OK
++ [Valid]   EF - Heze - Operations - Attestation - same_slot_attestation_ignores_payload_ava OK
 + [Valid]   EF - Heze - Operations - Attestation - valid_attestation_data_index_one_previous OK
 + [Valid]   EF - Heze - Operations - Attestation - valid_attestation_data_index_one_previous OK
 + [Valid]   EF - Heze - Operations - Attestation - valid_attestation_data_index_zero_previou OK
@@ -3214,6 +3209,47 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Heze - Operations - Block Header - invalid_slot_block_header                OK
 + [Valid]   EF - Heze - Operations - Block Header - basic_block_header                       OK
 ```
+## EF - Heze - Operations - Builder Deposit Request  [Preset: mainnet]
+```diff
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
++ [Valid]   EF - Heze - Operations - Builder Deposit Request - process_builder_deposit_reque OK
+```
+## EF - Heze - Operations - Builder Exit Request  [Preset: mainnet]
+```diff
++ [Valid]   EF - Heze - Operations - Builder Exit Request - process_builder_exit_request__al OK
++ [Valid]   EF - Heze - Operations - Builder Exit Request - process_builder_exit_request__in OK
++ [Valid]   EF - Heze - Operations - Builder Exit Request - process_builder_exit_request__pe OK
++ [Valid]   EF - Heze - Operations - Builder Exit Request - process_builder_exit_request__pe OK
++ [Valid]   EF - Heze - Operations - Builder Exit Request - process_builder_exit_request__su OK
++ [Valid]   EF - Heze - Operations - Builder Exit Request - process_builder_exit_request__un OK
++ [Valid]   EF - Heze - Operations - Builder Exit Request - process_builder_exit_request__wr OK
+```
 ## EF - Heze - Operations - Consolidation Request  [Preset: mainnet]
 ```diff
 + [Valid]   EF - Heze - Operations - Consolidation Request - basic_switch_to_compounding     OK
@@ -3227,62 +3263,11 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Consolidation Request - switch_to_compounding_with_exce OK
 + [Valid]   EF - Heze - Operations - Consolidation Request - switch_to_compounding_with_pend OK
 ```
-## EF - Heze - Operations - Deposit  [Preset: mainnet]
-```diff
-+ [Invalid] EF - Heze - Operations - Deposit - invalid_bad_merkle_proof                      OK
-+ [Invalid] EF - Heze - Operations - Deposit - invalid_wrong_deposit_for_deposit_count       OK
-+ [Valid]   EF - Heze - Operations - Deposit - correct_sig_but_forked_state                  OK
-+ [Valid]   EF - Heze - Operations - Deposit - effective_deposit_with_genesis_fork_version   OK
-+ [Valid]   EF - Heze - Operations - Deposit - incorrect_sig_new_deposit                     OK
-+ [Valid]   EF - Heze - Operations - Deposit - incorrect_sig_top_up                          OK
-+ [Valid]   EF - Heze - Operations - Deposit - incorrect_withdrawal_credentials_top_up       OK
-+ [Valid]   EF - Heze - Operations - Deposit - ineffective_deposit_with_bad_fork_version     OK
-+ [Valid]   EF - Heze - Operations - Deposit - ineffective_deposit_with_current_fork_version OK
-+ [Valid]   EF - Heze - Operations - Deposit - ineffective_deposit_with_previous_fork_versio OK
-+ [Valid]   EF - Heze - Operations - Deposit - key_validate_invalid_decompression            OK
-+ [Valid]   EF - Heze - Operations - Deposit - key_validate_invalid_subgroup                 OK
-+ [Valid]   EF - Heze - Operations - Deposit - new_deposit_eth1_withdrawal_credentials       OK
-+ [Valid]   EF - Heze - Operations - Deposit - new_deposit_max                               OK
-+ [Valid]   EF - Heze - Operations - Deposit - new_deposit_non_versioned_withdrawal_credenti OK
-+ [Valid]   EF - Heze - Operations - Deposit - new_deposit_over_max                          OK
-+ [Valid]   EF - Heze - Operations - Deposit - new_deposit_under_max                         OK
-+ [Valid]   EF - Heze - Operations - Deposit - top_up__less_effective_balance                OK
-+ [Valid]   EF - Heze - Operations - Deposit - top_up__max_effective_balance                 OK
-+ [Valid]   EF - Heze - Operations - Deposit - top_up__zero_balance                          OK
-```
 ## EF - Heze - Operations - Deposit Request  [Preset: mainnet]
 ```diff
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_top_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_top_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_top_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_top_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_top_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__new_builder  OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__new_builder_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__new_builder_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__new_builder_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__new_builder_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__new_builder_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__new_builder_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__no_reuse_fut OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__no_reuse_non OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__nonstandard_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__reuses_exite OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__reuses_first OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__reuses_slot_ OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__bui OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__emp OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__new OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__new OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__new OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__pen OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__val OK
-+ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__routing__val OK
++ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_cred OK
++ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_pubk OK
++ [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request__builder_pubk OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_eth1_credenti OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_extra_gwei    OK
 + [Valid]   EF - Heze - Operations - Deposit Request - process_deposit_request_greater_than_ OK
@@ -3307,6 +3292,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
++ [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_n OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_s OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_w OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_w OK
@@ -3317,10 +3303,24 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_s OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
 + [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
++ [Valid]   EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_v OK
 ```
 ## EF - Heze - Operations - Parent Execution Payload  [Preset: mainnet]
 ```diff
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_builder_dep OK
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_builder_exi OK
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_consolidati OK
++ [Invalid] EF - Heze - Operations - Parent Execution Payload - invalid_too_many_withdrawal_ OK
 + [Invalid] EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - deposit_requests_greater_tha OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_deposit_requests OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_exit_requests    OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_consolidation_requests   OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - max_withdrawal_requests      OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
@@ -3370,6 +3370,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Proposer Slashing - builder_payment_empty_current_epoch OK
 + [Valid]   EF - Heze - Operations - Proposer Slashing - builder_payment_empty_old_epoch     OK
 + [Valid]   EF - Heze - Operations - Proposer Slashing - builder_payment_empty_previous_epoc OK
++ [Valid]   EF - Heze - Operations - Proposer Slashing - builder_payment_not_deleted_foreign OK
 + [Valid]   EF - Heze - Operations - Proposer Slashing - header_slot_at_epoch_end            OK
 + [Valid]   EF - Heze - Operations - Proposer Slashing - header_slot_at_epoch_start          OK
 + [Valid]   EF - Heze - Operations - Proposer Slashing - headers_differ_multiple_roots       OK
@@ -3413,11 +3414,6 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Heze - Operations - Voluntary Exit  [Preset: mainnet]
 ```diff
-+ [Invalid] EF - Heze - Operations - Voluntary Exit - builder_voluntary_exit__invalid__bad_s OK
-+ [Invalid] EF - Heze - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inact OK
-+ [Invalid] EF - Heze - Operations - Voluntary Exit - builder_voluntary_exit__invalid__inact OK
-+ [Invalid] EF - Heze - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pendi OK
-+ [Invalid] EF - Heze - Operations - Voluntary Exit - builder_voluntary_exit__invalid__pendi OK
 + [Invalid] EF - Heze - Operations - Voluntary Exit - invalid_incorrect_signature            OK
 + [Invalid] EF - Heze - Operations - Voluntary Exit - invalid_validator_already_exited       OK
 + [Invalid] EF - Heze - Operations - Voluntary Exit - invalid_validator_exit_in_future       OK
@@ -3429,10 +3425,10 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Heze - Operations - Voluntary Exit - invalid_voluntary_exit_with_current_fo OK
 + [Invalid] EF - Heze - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
 + [Invalid] EF - Heze - Operations - Voluntary Exit - invalid_voluntary_exit_with_genesis_fo OK
++ [Invalid] EF - Heze - Operations - Voluntary Exit - voluntary_exit__invalid__builder_index OK
 + [Invalid] EF - Heze - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
 + [Invalid] EF - Heze - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_vers OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - basic                                  OK
-+ [Valid]   EF - Heze - Operations - Voluntary Exit - builder_voluntary_exit__success        OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit     OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - exit_existing_churn_and_balance_multip OK
 + [Valid]   EF - Heze - Operations - Voluntary Exit - exit_existing_churn_and_churn_limit_ba OK
@@ -3476,6 +3472,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_payments_exceed_limit_blocks_othe OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_index_wrap_around           OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_not_withdrawable_skipped    OK
++ [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_withdrawals_limit           OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_sweep_zero_balance_skipped        OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_uses_fee_recipient_address        OK
 + [Valid]   EF - Heze - Operations - Withdrawals - builder_withdrawal_insufficient_balance   OK
@@ -3561,9 +3558,9 @@ ConsensusSpecPreset-mainnet
 +   Testing    BeaconBlockBody                                                               OK
 +   Testing    BeaconBlockHeader                                                             OK
 +   Testing    BeaconState                                                                   OK
-+   Testing    BlobIdentifier                                                                OK
-+   Testing    BlobSidecar                                                                   OK
 +   Testing    Builder                                                                       OK
++   Testing    BuilderDepositRequest                                                         OK
++   Testing    BuilderExitRequest                                                            OK
 +   Testing    BuilderPendingPayment                                                         OK
 +   Testing    BuilderPendingWithdrawal                                                      OK
 +   Testing    Checkpoint                                                                    OK
@@ -3582,7 +3579,6 @@ ConsensusSpecPreset-mainnet
 +   Testing    ExecutionPayloadEnvelope                                                      OK
 +   Testing    ExecutionRequests                                                             OK
 +   Testing    Fork                                                                          OK
-+   Testing    ForkChoiceNode                                                                OK
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalSummary                                                             OK
 +   Testing    InclusionList                                                                 OK
@@ -3663,8 +3659,6 @@ ConsensusSpecPreset-mainnet
 + EF - Heze - Transition - transition_with_attester_slashing_right_before_fork [Preset: main OK
 + EF - Heze - Transition - transition_with_btec_right_after_fork [Preset: mainnet]           OK
 + EF - Heze - Transition - transition_with_btec_right_before_fork [Preset: mainnet]          OK
-+ EF - Heze - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]        OK
-+ EF - Heze - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]       OK
 + EF - Heze - Transition - transition_with_finality [Preset: mainnet]                        OK
 + EF - Heze - Transition - transition_with_leaking_at_fork [Preset: mainnet]                 OK
 + EF - Heze - Transition - transition_with_leaking_pre_fork [Preset: mainnet]                OK
@@ -3811,6 +3805,8 @@ ConsensusSpecPreset-mainnet
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
++ [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
 + [Valid]   EF - Phase 0 - Operations - EF - Phase 0 - Operations - Deposit  [Preset: mainne OK
@@ -4946,6 +4942,8 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: mainne OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
@@ -5281,6 +5279,8 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: mainne OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
@@ -5298,8 +5298,6 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
 + Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
 + Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
 + Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
 + Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
 + Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
@@ -5439,7 +5437,6 @@ ConsensusSpecPreset-mainnet
 ```diff
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]           OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
-+ [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: main OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_exceed_max_blobs_per_block [Preset: mainne OK
@@ -5449,8 +5446,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_is_execution_enabled_false [Preset: mainne OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_max_blobs_per_block_two_txs [Preset: mainn OK
++ [Invalid] EF - fulu - Sanity - Blocks - invalid_old_style_deposit_rejected [Preset: mainne OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_one_blob_max_plus_one_txs [Preset: mainnet OK
-+ [Invalid] EF - fulu - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mainn OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - fulu - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
@@ -5467,11 +5464,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - fulu - Sanity - Blocks - block_transition_randomized_payload [Preset: mainn OK
 + [Valid]   EF - fulu - Sanity - Blocks - bls_change [Preset: mainnet]                       OK
 + [Valid]   EF - fulu - Sanity - Blocks - cl_exit_and_el_withdrawal_request_in_same_block [P OK
-+ [Valid]   EF - fulu - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]           OK
-+ [Valid]   EF - fulu - Sanity - Blocks - deposit_in_block [Preset: mainnet]                 OK
 + [Valid]   EF - fulu - Sanity - Blocks - deposit_request_max_per_payload [Preset: mainnet]  OK
 + [Valid]   EF - fulu - Sanity - Blocks - deposit_request_with_same_pubkey_different_withdra OK
-+ [Valid]   EF - fulu - Sanity - Blocks - deposit_top_up [Preset: mainnet]                   OK
 + [Valid]   EF - fulu - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet] OK
 + [Valid]   EF - fulu - Sanity - Blocks - effective_balance_increase_changes_lookahead [Pres OK
 + [Valid]   EF - fulu - Sanity - Blocks - empty_block_transition [Preset: mainnet]           OK
@@ -5510,8 +5504,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
 + [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: ma OK
 + [Valid]   EF - fulu - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: ma OK
-+ [Valid]   EF - fulu - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
-+ [Valid]   EF - fulu - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mainn OK
 + [Valid]   EF - fulu - Sanity - Blocks - voluntary_exit [Preset: mainnet]                   OK
 + [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_switch_to_compounding_request_same_ OK
 + [Valid]   EF - fulu - Sanity - Blocks - withdrawal_and_withdrawal_request_same_validator [ OK
@@ -5626,6 +5618,8 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: mainne OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
@@ -5640,11 +5634,10 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
 + Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
 + Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits__builder_deposit_domain [Preset: mainnet]      OK
 + Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
 + Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
 + Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
 + Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
 + Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
 + Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
@@ -5665,6 +5658,8 @@ ConsensusSpecPreset-mainnet
 ## EF - gloas - Epoch Processing - Proposer lookahead [Preset: mainnet]
 ```diff
 + Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
++ Proposer lookahead - proposer_lookahead_does_not_contain_slashed_validators [Preset: mainn OK
++ Proposer lookahead - proposer_lookahead_full_with_many_slashed_validators [Preset: mainnet OK
 + Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
 ```
 ## EF - gloas - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
@@ -5788,31 +5783,39 @@ ConsensusSpecPreset-mainnet
 ```diff
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]          OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset: OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mai OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [ OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pres OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]     OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expecte OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_propose OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]    OK
-+ [Invalid] EF - gloas - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: main OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_old_style_deposit_rejected [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]   OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_invalid_signature [Pr OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_too_old_slot [Preset: OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_payload_attestation_wrong_beacon_block_ro OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainn OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pr OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_attestations [Preset: mainnet]   OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_attester_slashings [Preset: main OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_bls_to_execution_changes [Preset OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_deposits [Preset: mainnet]       OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_payload_attestations [Preset: ma OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_proposer_slashings [Preset: main OK
++ [Invalid] EF - gloas - Sanity - Blocks - invalid_too_many_voluntary_exits [Preset: mainnet OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sa OK
 + [Invalid] EF - gloas - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt OK
 + [Invalid] EF - gloas - Sanity - Blocks - process_parent_execution_payload__wrong_execution OK
 + [Invalid] EF - gloas - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]       OK
 + [Invalid] EF - gloas - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdra OK
 + [Valid]   EF - gloas - Sanity - Blocks - attestation [Preset: mainnet]                     OK
++ [Valid]   EF - gloas - Sanity - Blocks - attestations_after_missed_slot_use_applied_parent OK
 + [Valid]   EF - gloas - Sanity - Blocks - attester_slashing [Preset: mainnet]               OK
 + [Valid]   EF - gloas - Sanity - Blocks - balance_driven_status_transitions [Preset: mainne OK
 + [Valid]   EF - gloas - Sanity - Blocks - bls_change [Preset: mainnet]                      OK
 + [Valid]   EF - gloas - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: main OK
-+ [Valid]   EF - gloas - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]          OK
-+ [Valid]   EF - gloas - Sanity - Blocks - deposit_in_block [Preset: mainnet]                OK
-+ [Valid]   EF - gloas - Sanity - Blocks - deposit_top_up [Preset: mainnet]                  OK
++ [Valid]   EF - gloas - Sanity - Blocks - builder_payment_weight_no_double_counting_target_ OK
 + [Valid]   EF - gloas - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_block_transition [Preset: mainnet]          OK
 + [Valid]   EF - gloas - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]          OK
@@ -5826,14 +5829,24 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pre OK
 + [Valid]   EF - gloas - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]       OK
 + [Valid]   EF - gloas - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pre OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_attestations [Preset: mainnet]                OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_attester_slashings [Preset: mainnet]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_bls_to_execution_changes [Preset: mainnet]    OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_deposits [Preset: mainnet]                    OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_payload_attestations [Preset: mainnet]        OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_proposer_slashings [Preset: mainnet]          OK
++ [Valid]   EF - gloas - Sanity - Blocks - max_voluntary_exits [Preset: mainnet]             OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisf OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsati OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sat OK
 + [Valid]   EF - gloas - Sanity - Blocks - missed_payload_next_block_without_withdrawals_uns OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_recovery_resumes_with_remaining_wi OK
++ [Valid]   EF - gloas - Sanity - Blocks - missed_payload_recovery_resumes_without_remaining OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_proposer_slashings_same_block  OK
 + [Valid]   EF - gloas - Sanity - Blocks - multiple_different_validator_exits_same_block [Pr OK
 + [Valid]   EF - gloas - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: m OK
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet]   OK
++ [Valid]   EF - gloas - Sanity - Blocks - proposer_lookahead_excludes_slashed_validators [P OK
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]          OK
 + [Valid]   EF - gloas - Sanity - Blocks - proposer_slashing [Preset: mainnet]               OK
 + [Valid]   EF - gloas - Sanity - Blocks - skipped_slots [Preset: mainnet]                   OK
@@ -5844,8 +5857,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset:  OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: m OK
 + [Valid]   EF - gloas - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: m OK
-+ [Valid]   EF - gloas - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset OK
-+ [Valid]   EF - gloas - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: main OK
 + [Valid]   EF - gloas - Sanity - Blocks - voluntary_exit [Preset: mainnet]                  OK
 + [Valid]   EF - gloas - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]   OK
 ```
@@ -5953,6 +5964,8 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_incorrect_withdrawal_credentials_top_up [Preset:  OK
 + Pending deposits - apply_pending_deposit_ineffective_deposit_with_bad_fork_version [Preset OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_decompression [Preset: mainn OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_identity [Preset: mainnet]   OK
++ Pending deposits - apply_pending_deposit_key_validate_invalid_not_on_curve [Preset: mainne OK
 + Pending deposits - apply_pending_deposit_key_validate_invalid_subgroup [Preset: mainnet]   OK
 + Pending deposits - apply_pending_deposit_min_activation [Preset: mainnet]                  OK
 + Pending deposits - apply_pending_deposit_non_versioned_withdrawal_credentials [Preset: mai OK
@@ -5967,11 +5980,10 @@ ConsensusSpecPreset-mainnet
 + Pending deposits - apply_pending_deposit_under_min_activation [Preset: mainnet]            OK
 + Pending deposits - apply_pending_deposit_with_previous_fork_version [Preset: mainnet]      OK
 + Pending deposits - ineffective_deposit_with_current_fork_version [Preset: mainnet]         OK
++ Pending deposits - process_pending_deposits__builder_deposit_domain [Preset: mainnet]      OK
 + Pending deposits - process_pending_deposits_balance_above_churn [Preset: mainnet]          OK
 + Pending deposits - process_pending_deposits_balance_equal_churn [Preset: mainnet]          OK
 + Pending deposits - process_pending_deposits_eth1_bridge_transition_complete [Preset: mainn OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_not_applied [Preset: ma OK
-+ Pending deposits - process_pending_deposits_eth1_bridge_transition_pending [Preset: mainne OK
 + Pending deposits - process_pending_deposits_limit_is_reached [Preset: mainnet]             OK
 + Pending deposits - process_pending_deposits_mixture_of_skipped_and_above_churn [Preset: ma OK
 + Pending deposits - process_pending_deposits_multiple_for_new_validator [Preset: mainnet]   OK
@@ -5992,6 +6004,8 @@ ConsensusSpecPreset-mainnet
 ## EF - heze - Epoch Processing - Proposer lookahead [Preset: mainnet]
 ```diff
 + Proposer lookahead - proposer_lookahead_does_not_contain_exited_validators [Preset: mainne OK
++ Proposer lookahead - proposer_lookahead_does_not_contain_slashed_validators [Preset: mainn OK
++ Proposer lookahead - proposer_lookahead_full_with_many_slashed_validators [Preset: mainnet OK
 + Proposer lookahead - proposer_lookahead_in_state_matches_computed_lookahead [Preset: mainn OK
 ```
 ## EF - heze - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
@@ -6096,31 +6110,39 @@ ConsensusSpecPreset-mainnet
 ```diff
 + [Invalid] EF - heze - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]           OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Preset:  OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: main OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block [P OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Prese OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_block_sig [Preset: mainnet]      OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_expected OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_proposer_index_sig_from_proposer OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_incorrect_state_root [Preset: mainnet]     OK
-+ [Invalid] EF - heze - Sanity - Blocks - invalid_only_increase_deposit_count [Preset: mainn OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_old_style_deposit_rejected [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_parent_from_same_slot [Preset: mainnet]    OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_invalid_signature [Pre OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_too_old_slot [Preset:  OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_payload_attestation_wrong_beacon_block_roo OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mainne OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [Pre OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attestations [Preset: mainnet]    OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_attester_slashings [Preset: mainn OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_bls_to_execution_changes [Preset: OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_deposits [Preset: mainnet]        OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_payload_attestations [Preset: mai OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_proposer_slashings [Preset: mainn OK
++ [Invalid] EF - heze - Sanity - Blocks - invalid_too_many_voluntary_exits [Preset: mainnet] OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_sam OK
 + [Invalid] EF - heze - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_isnt_ OK
 + [Invalid] EF - heze - Sanity - Blocks - process_parent_execution_payload__wrong_execution_ OK
 + [Invalid] EF - heze - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]        OK
 + [Invalid] EF - heze - Sanity - Blocks - voluntary_exit_fails_after_parent_payload_withdraw OK
 + [Valid]   EF - heze - Sanity - Blocks - attestation [Preset: mainnet]                      OK
++ [Valid]   EF - heze - Sanity - Blocks - attestations_after_missed_slot_use_applied_parent_ OK
 + [Valid]   EF - heze - Sanity - Blocks - attester_slashing [Preset: mainnet]                OK
 + [Valid]   EF - heze - Sanity - Blocks - balance_driven_status_transitions [Preset: mainnet OK
 + [Valid]   EF - heze - Sanity - Blocks - bls_change [Preset: mainnet]                       OK
 + [Valid]   EF - heze - Sanity - Blocks - builder_payment_after_missed_epochs [Preset: mainn OK
-+ [Valid]   EF - heze - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]           OK
-+ [Valid]   EF - heze - Sanity - Blocks - deposit_in_block [Preset: mainnet]                 OK
-+ [Valid]   EF - heze - Sanity - Blocks - deposit_top_up [Preset: mainnet]                   OK
++ [Valid]   EF - heze - Sanity - Blocks - builder_payment_weight_no_double_counting_target_e OK
 + [Valid]   EF - heze - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet] OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_block_transition [Preset: mainnet]           OK
 + [Valid]   EF - heze - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]           OK
@@ -6134,10 +6156,19 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_full_participation_leaking [Pres OK
 + [Valid]   EF - heze - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]        OK
 + [Valid]   EF - heze - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [Pres OK
++ [Valid]   EF - heze - Sanity - Blocks - max_attestations [Preset: mainnet]                 OK
++ [Valid]   EF - heze - Sanity - Blocks - max_attester_slashings [Preset: mainnet]           OK
++ [Valid]   EF - heze - Sanity - Blocks - max_bls_to_execution_changes [Preset: mainnet]     OK
++ [Valid]   EF - heze - Sanity - Blocks - max_deposits [Preset: mainnet]                     OK
++ [Valid]   EF - heze - Sanity - Blocks - max_payload_attestations [Preset: mainnet]         OK
++ [Valid]   EF - heze - Sanity - Blocks - max_proposer_slashings [Preset: mainnet]           OK
++ [Valid]   EF - heze - Sanity - Blocks - max_voluntary_exits [Preset: mainnet]              OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_satisfy OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_with_withdrawals_unsatis OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_sati OK
 + [Valid]   EF - heze - Sanity - Blocks - missed_payload_next_block_without_withdrawals_unsa OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_recovery_resumes_with_remaining_wit OK
++ [Valid]   EF - heze - Sanity - Blocks - missed_payload_recovery_resumes_without_remaining_ OK
 + [Valid]   EF - heze - Sanity - Blocks - multiple_different_proposer_slashings_same_block [ OK
 + [Valid]   EF - heze - Sanity - Blocks - multiple_different_validator_exits_same_block [Pre OK
 + [Valid]   EF - heze - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: ma OK
@@ -6152,8 +6183,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset: m OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: ma OK
 + [Valid]   EF - heze - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: ma OK
-+ [Valid]   EF - heze - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Preset: OK
-+ [Valid]   EF - heze - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mainn OK
 + [Valid]   EF - heze - Sanity - Blocks - voluntary_exit [Preset: mainnet]                   OK
 + [Valid]   EF - heze - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet]    OK
 ```
@@ -6376,6 +6405,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
   ForkChoice - mainnet/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root  Skip
   ForkChoice - mainnet/altair/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_roo Skip
++ ForkChoice - mainnet/altair/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary      OK
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/basic                        OK
 + ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
   ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
@@ -6395,6 +6425,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
   ForkChoice - mainnet/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_ro Skip
   ForkChoice - mainnet/bellatrix/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ Skip
++ ForkChoice - mainnet/bellatrix/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary   OK
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/basic                     OK
 + ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
   ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
@@ -6405,7 +6436,6 @@ ConsensusSpecPreset-mainnet
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
-  ForkChoice - mainnet/bellatrix/fork_choice/should_override_forkchoice_update/pyspec_tests/ Skip
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea OK
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ OK
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
@@ -6419,13 +6449,13 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
   ForkChoice - mainnet/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - mainnet/capella/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
++ ForkChoice - mainnet/capella/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary     OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/basic                       OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
   ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
-  ForkChoice - mainnet/capella/fork_choice/should_override_forkchoice_update/pyspec_tests/sh Skip
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greate OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_no OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
@@ -6439,6 +6469,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
   ForkChoice - mainnet/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root   Skip
   ForkChoice - mainnet/deneb/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root Skip
++ ForkChoice - mainnet/deneb/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary       OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_data_unavailable      OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof       OK
@@ -6450,7 +6481,6 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/simple_blob_data              OK
-  ForkChoice - mainnet/deneb/fork_choice/should_override_forkchoice_update/pyspec_tests/shou Skip
 + ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea OK
 + ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ OK
 + ForkChoice - mainnet/electra/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
@@ -6464,6 +6494,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/electra/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
   ForkChoice - mainnet/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root Skip
   ForkChoice - mainnet/electra/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_ro Skip
++ ForkChoice - mainnet/electra/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary     OK
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/basic                       OK
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/invalid_data_unavailable    OK
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/invalid_incorrect_proof     OK
@@ -6475,7 +6506,6 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_blo OK
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - mainnet/electra/fork_choice/on_block/pyspec_tests/simple_blob_data            OK
-  ForkChoice - mainnet/electra/fork_choice/should_override_forkchoice_update/pyspec_tests/sh Skip
 + ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greater OK
 + ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_not OK
 + ForkChoice - mainnet/fulu/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_at OK
@@ -6489,6 +6519,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/fulu/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestati OK
   ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_head_root    Skip
   ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/basic_is_parent_root  Skip
++ ForkChoice - mainnet/fulu/fork_choice/get_proposer_head/pyspec_tests/epoch_boundary        OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/basic                          OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root       OK
   ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/on_block_future_block          Skip
@@ -6512,7 +6543,59 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost                 OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
-  ForkChoice - mainnet/fulu/fork_choice/should_override_forkchoice_update/pyspec_tests/shoul Skip
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greate OK
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/genesis                       OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/get_head_empty_payload_tiebre OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/get_head_full_payload_tiebrea OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
++ ForkChoice - mainnet/gloas/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - mainnet/gloas/fork_choice/get_parent_payload_status/pyspec_tests/get_parent_p OK
++ ForkChoice - mainnet/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - mainnet/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - mainnet/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - mainnet/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - mainnet/gloas/fork_choice/on_attestation/pyspec_tests/validate_on_attestation OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
+  ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_parent_full_accepts_ OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/on_block_parent_full_rejects_ OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block OK
++ ForkChoice - mainnet/gloas/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_execution_payload_envelope/pyspec_tests/on_execu OK
++ ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/on_payload_attestation_message/pyspec_tests/on_payl OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_data_availability/pyspec_tests/payload_data OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
++ ForkChoice - mainnet/gloas/fork_choice/payload_timeliness/pyspec_tests/payload_timeliness_ OK
 ```
 ## Sync
 ```diff

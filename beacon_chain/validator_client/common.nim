@@ -14,20 +14,20 @@ import
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils,
   metrics, metrics/chronos_httpserver,
-  ".."/spec/datatypes/[base, phase0, altair],
-  ".."/spec/[eth2_merkleization, helpers, signatures, validator],
-  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
+  ../spec/datatypes/[base, phase0, altair],
+  ../spec/[eth2_merkleization, helpers, signatures, validator],
+  ../spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
-  ".."/consensus_object_pools/[block_pools_types, common_tools],
-  ".."/validators/[keystore_management, validator_pool, slashing_protection,
+  ../consensus_object_pools/[block_pools_types, common_tools],
+  ../validators/[keystore_management, validator_pool, slashing_protection,
                    validator_duties],
-  ".."/[conf, beacon_clock, version, nimbus_binary_common]
+  ../[conf, beacon_clock, version, nimbus_binary_common, nimbus_rest_common]
 
 from std/times import Time, toUnix, fromUnix, getTime
 
 export
-  os, sets, sequtils, chronos, chronicles, confutils,
-  nimbus_binary_common, version, conf, tables, results, base10,
+  os, sets, sequtils, chronos, chronicles, confutils, nimbus_binary_common,
+  nimbus_rest_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
@@ -77,6 +77,7 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
     pollingAttesterDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
+    fillingSelectionProofsTask*: Future[void]
     pruneSlashingDatabaseTask*: Future[void]
     syncSubscriptionEpoch*: Opt[Epoch]
     lastSlashingEpoch*: Opt[Epoch]
@@ -224,7 +225,6 @@ type
   ValidatorClient* = object
     config*: ValidatorClientConf
     metricsServer*: Opt[MetricsHttpServerRef]
-    graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
     forkService*: ForkServiceRef
@@ -250,6 +250,11 @@ type
     nodesAvailable*: AsyncEvent
     indicesAvailable*: AsyncEvent
     doppelExit*: AsyncEvent
+    attesterDutiesInvalidationEvent*: AsyncEvent
+    proposerDutiesInvalidationEvent*: AsyncEvent
+    syncDutiesInvalidationEvent*: AsyncEvent
+    attesterDependentRoots*: Table[Epoch, Eth2Digest]
+    proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
@@ -693,6 +698,7 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     AGGREGATE_DUE_BPS_GLOAS: parseBps "AGGREGATE_DUE_BPS_GLOAS",
     SYNC_MESSAGE_DUE_BPS_GLOAS: parseBps "SYNC_MESSAGE_DUE_BPS_GLOAS",
     CONTRIBUTION_DUE_BPS_GLOAS: parseBps "CONTRIBUTION_DUE_BPS_GLOAS",
+    PAYLOAD_DUE_BPS: parseBps "PAYLOAD_DUE_BPS",
     PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
@@ -895,7 +901,8 @@ proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
     socketFlags = {SocketFlags.TcpNoDelay}
     address = ? getHttpAddress(uri)
     client = RestClientRef.new(address, flags = flags,
-                               socketFlags = socketFlags)
+                               socketFlags = socketFlags,
+                               userAgent = nimbusAgentStr)
   ok(client)
 
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
@@ -1077,41 +1084,36 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
 
-proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+proc isPastConsensusFork(
+    vc: ValidatorClientRef,
+    consensusFork: static ConsensusFork,
+    epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
   doAssert(vc.forkConfig.isSome())
-  let electraVersion =
+
+  let forkVersion =
     try:
-      vc.forkConfig.get()[ConsensusFork.Electra].version
+      vc.forkConfig.get()[consensusFork].version
     except KeyError:
-      raiseAssert "Electra fork should be in forks configuration"
+      raiseAssert $consensusFork & " fork should be in forks configuration"
+
   var res = false
   for item in vc.forks:
     if item.epoch <= epoch:
-      if item.current_version == electraVersion:
+      if item.current_version == forkVersion:
         res = true
     else:
       break
   res
+
+proc isPastGloasFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  vc.isPastConsensusFork(ConsensusFork.Gloas, epoch)
+
+proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  vc.isPastConsensusFork(ConsensusFork.Electra, epoch)
 
 proc isPastAltairFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
-  doAssert(len(vc.forks) > 0)
-  doAssert(vc.forkConfig.isSome())
-
-  let altairVersion =
-    try:
-      vc.forkConfig.get()[ConsensusFork.Altair].version
-    except KeyError:
-      raiseAssert "Altair fork should be in forks configuration"
-
-  var res = false
-  for item in vc.forks:
-    if item.epoch <= epoch:
-      if item.current_version == altairVersion:
-        res = true
-    else:
-      break
-  res
+  vc.isPastConsensusFork(ConsensusFork.Altair, epoch)
 
 proc getForkEpoch*(vc: ValidatorClientRef, fork: ConsensusFork): Opt[Epoch] =
   doAssert(len(vc.forks) > 0)
@@ -1287,6 +1289,16 @@ proc getValidatorRegistration(
   else:
     ok(PendingValidatorRegistration(registration: registration, future: sigfut))
 
+proc isConsistent(
+    vc: ValidatorClientRef,
+    validatorRegistration: SignedValidatorRegistrationV1,
+    validator: AttachedValidator,
+    epoch: Epoch): bool =
+  validatorRegistration.message.fee_recipient ==
+    vc.getFeeRecipient(validator, epoch) and
+  validatorRegistration.message.gas_limit ==
+    vc.getGasLimit(validator)
+
 proc prepareRegistrationList*(
     vc: ValidatorClientRef,
     timestamp: Time,
@@ -1308,6 +1320,7 @@ proc prepareRegistrationList*(
     gasLimit = 0
     cached = 0
     timed = 0
+    stale = 0
 
   for validator in vc.attachedValidators[].items():
     let res = vc.getValidatorRegistration(validator, timestamp, genesis_fork_version)
@@ -1340,8 +1353,14 @@ proc prepareRegistrationList*(
       if sres.isOk():
         var reg = messages[index]
         reg.signature = sres.get()
+        let
+          validator = validators[index]
+          currentSlot = vc.beaconClock.toSlot(timestamp).slot
+        if not vc.isConsistent(reg, validator, currentSlot.epoch()):
+          inc(stale)
+          continue
         registrations.add(reg)
-        validators[index].externalBuilderRegistration = Opt.some(reg)
+        validator.externalBuilderRegistration = Opt.some(reg)
         inc(succeed)
       else:
         inc(bad)
@@ -1351,7 +1370,7 @@ proc prepareRegistrationList*(
   debug "Validator registrations prepared", total = total, succeed = succeed,
         cached = cached, bad = bad, errors = errors,
         index_missing = indexMissing, fee_missing = feeMissing,
-        incorrect_time = timed
+        incorrect_time = timed, stale = stale
 
   registrations
 
@@ -1508,6 +1527,75 @@ proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
 
   vc.blocksSeen.mgetOrPut(eblck.slot, BlockDataItem()).scheduleCallbacks(eblck)
+
+proc registerHead*(
+    vc: ValidatorClientRef,
+    head: HeadChangeInfoObject | HeadV2ChangeInfoObjectData) =
+  when head is HeadChangeInfoObject:
+    template current_epoch_dependent_root(head: HeadChangeInfoObject): auto =
+      head.previous_duty_dependent_root
+    template next_epoch_dependent_root(head: HeadChangeInfoObject): auto =
+      head.current_duty_dependent_root
+
+  if vc.attachedValidators[].count() == 0:
+    return
+
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+    nextEpoch = currentEpoch + 1'u64
+
+    headEpoch = head.slot.epoch()
+
+  template didInvalidate(
+      dependentRoots: Table[Epoch, Eth2Digest],
+      epoch: Epoch, dependentRoot: Eth2Digest): bool =
+    dependentRoots.getOrDefault(epoch, dependentRoot) != dependentRoot
+
+  if not(vc.attesterDutiesInvalidationEvent.isSet()):
+    let didInvalidate =
+      if nextEpoch == headEpoch:
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.current_epoch_dependent_root)
+      elif currentEpoch == headEpoch:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.current_epoch_dependent_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.next_epoch_dependent_root)
+      elif currentEpoch == headEpoch + 1:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.next_epoch_dependent_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.block_root)
+      elif currentEpoch > headEpoch + 1:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.block_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.block_root)
+      else:
+        false
+    if didInvalidate:
+      debug "Attester duties invalidated by head event",
+            head_slot = head.slot, block_root = shortLog(head.block_root)
+      vc.attesterDutiesInvalidationEvent.fire()
+
+  if not(vc.proposerDutiesInvalidationEvent.isSet()):
+    let didInvalidate =
+      if nextEpoch == headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.current_epoch_dependent_root)
+      elif currentEpoch == headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.next_epoch_dependent_root)
+      elif currentEpoch > headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.block_root)
+      else:
+        false
+    if didInvalidate:
+      debug "Proposer duties invalidated by head event",
+            head_slot = head.slot, block_root = shortLog(head.block_root)
+      vc.proposerDutiesInvalidationEvent.fire()
 
 proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
   var blocksSeen: Table[Slot, BlockDataItem]

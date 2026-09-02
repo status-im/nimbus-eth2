@@ -37,6 +37,8 @@ import # Unit test
   ./test_gossip_validation,
   ./test_helpers,
   ./test_honest_validator,
+  ./test_inclusion_list,
+  ./test_inclusion_list_pool,
   ./test_keystore,
   ./test_keystore_management,
   ./test_key_splitting,
@@ -47,6 +49,7 @@ import # Unit test
   ./test_payload_attestation_pool,
   ./test_peer_pool,
   ./test_peerdas_helpers,
+  ./test_quarantine_types,
   ./test_remote_keystore,
   ./test_spec,
   ./test_spec_signatures,
@@ -67,6 +70,11 @@ import # Unit test
   ./test_beacon_chain_file,
   ./test_mev_calls,
   ./test_column_map,
+  ./test_reconstruction_backfiller,
+  ./test_sync_range,
+  ./test_block_buffer,
+  ./test_sync_dag,
+  ./test_response_utils,
   ./test_quarantine,
   ./test_keymanager_api   # currently has to run after test_remote_keystore
 

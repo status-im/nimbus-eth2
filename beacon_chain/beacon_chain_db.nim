@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[typetraits, tables],
+  std/[tables, typetraits],
   results,
   stew/[arrayops, assign2, byteutils, endians2, io2, objects],
   serialization, chronicles, snappy,
@@ -19,13 +19,8 @@ import
           forks,
           presets,
           state_transition],
-  "."/[beacon_chain_db_light_client,
-       beacon_chain_db_quarantine,
-       db_utils,
-       filepath]
-
-from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
+  ./[beacon_chain_db_light_client, beacon_chain_db_quarantine, db_utils,
+     filepath]
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -209,6 +204,8 @@ type
       ## for future deposits, beyond the `finalized` branch from EIP-4881.
       ## Those extra hashes may be set to ZERO_HASH when importing from a
       ## compressed EIP-4881 `DepositTreeSnapshot`.
+    kHeadBlocks
+      ## List of pointers to all head blocks in the fork choice. v26.7.0+
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -488,7 +485,7 @@ proc new*(T: type BeaconChainDBV0,
           db: SqStoreRef,
           readOnly = false
     ): BeaconChainDBV0 =
-  var
+  let
     # V0 compatibility tables - these were created WITHOUT ROWID which is slow
     # for large blobs
     backendV0 = kvStore db.openKvStore(
@@ -505,7 +502,8 @@ proc new*(T: type BeaconChainDBV0,
 
 proc new*(T: type BeaconChainDB,
           db: SqStoreRef,
-          cfg: RuntimeConfig
+          cfg: RuntimeConfig,
+          lightClientDataImportBackfill = false
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -523,13 +521,13 @@ proc new*(T: type BeaconChainDB,
 
   debugGloasComment "use actual names when closer"
 
-  var
-    genesisDepositsSeq =
-      DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
-    immutableValidatorsDb =
-      DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
+  let genesisDepositsSeq =
+    DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
+  var immutableValidatorsDb =
+    DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
 
-    # V1 - expected-to-be small rows get without rowid optimizations
+  # V1 - expected-to-be small rows get without rowid optimizations
+  let
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
     blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
@@ -601,15 +599,20 @@ proc new*(T: type BeaconChainDB,
           "lc_electra_current_branches"
         else:
           "",
+      gloasCurrentBranches:
+        if cfg.GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_gloas_current_branches"
+        else:
+          "",
       altairSyncCommittees: "lc_altair_sync_committees",
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
   static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
 
-  var blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
+  let blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
-  var columns = [
+  let columns = [
     nil, # Phase0
     nil, # Altair
     nil, # Bellatrix
@@ -679,7 +682,8 @@ proc new*(T: type BeaconChainDB,
           dir: string,
           cfg: RuntimeConfig,
           inMemory = false,
-          readOnly = false
+          readOnly = false,
+          lightClientDataImportBackfill = false
     ): BeaconChainDB =
   let db =
     if inMemory:
@@ -694,7 +698,7 @@ proc new*(T: type BeaconChainDB,
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
-  BeaconChainDB.new(db, cfg)
+  BeaconChainDB.new(db, cfg, lightClientDataImportBackfill)
 
 template getQuarantineDB*(db: BeaconChainDB): QuarantineDB =
   db.quarantine
@@ -1088,12 +1092,17 @@ proc delStateDiff*(db: BeaconChainDB, root: Eth2Digest) =
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kHeadBlock), key)
 
+proc putHeadBlocks*(db: BeaconChainDB, keys: seq[Eth2Digest]) =
+  doAssert keys.len > 0
+  db.keyValues.putSSZ(subkey(kHeadBlocks), keys)
+
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kTailBlock), key)
 
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
+{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
 proc getPhase0Block(
     db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
@@ -1104,6 +1113,7 @@ proc getPhase0Block(
   else:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
+{.pop.}
 
 proc getBlock*[X: ForkyTrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: typedesc[X]): Opt[T] =
@@ -1172,13 +1182,6 @@ proc getBlockSSZ*(
     fork: ConsensusFork): bool =
   withConsensusFork(fork):
     getBlockSSZ(db, key, data, consensusFork.TrustedSignedBeaconBlock)
-
-proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
-                       data: var seq[byte]): bool =
-  let dataPtr = addr data # Short-lived
-  func decode(data: openArray[byte]) =
-    assign(dataPtr[], data)
-  db.blobs.get(blobkey(root, index), decode).expectDb()
 
 proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                      value: var BlobSidecar): bool =
@@ -1400,6 +1403,10 @@ proc getHeadBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kHeadBlock), Eth2Digest) or
     db.v0.getHeadBlock()
 
+proc getHeadBlocks*(db: BeaconChainDB): seq[Eth2Digest] =
+  if db.keyValues.getSSZ(subkey(kHeadBlocks), result) != GetResult.found:
+    result.reset()
+
 proc getTailBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
   db.backend.getRaw(subkey(kTailBlock), Eth2Digest)
 
@@ -1469,7 +1476,7 @@ proc containsExecutionPayloadEnvelope*(
   db.envelopes.contains(root.data).expectDb()
 
 proc containsDataColumnSidecar*(
-    db: BeaconChainDB, consensusFork: static ConsensusFork,
+    db: BeaconChainDB, consensusFork: ConsensusFork,
     root: Eth2Digest, index: ColumnIndex): bool =
   if db.columns[consensusFork] == nil:
     return false

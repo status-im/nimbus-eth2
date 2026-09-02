@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -60,8 +60,8 @@ suite "subnet tracker":
       tracker.aggregateSubnets(Slot(0)).countOnes() == 0
 
   test "should register sync committee duties":
-    var
-      tracker = ActionTracker.init(default(UInt256), false)
+    var tracker = ActionTracker.init(default(UInt256), false)
+    let
       pk0 = ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get()
       pk1 = ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get()
 
@@ -96,7 +96,7 @@ suite "subnet tracker":
       not tracker.hasSyncDuty(pk0, Epoch(1024))
 
   test "should subscribe to all subnets when flag is enabled":
-    var tracker = ActionTracker.init(default(UInt256), subscribeAllAttnets = true)
+    let tracker = ActionTracker.init(default(UInt256), subscribeAllAttnets = true)
 
     check:
       tracker.stabilitySubnets(Slot(0)).countOnes() == 64  # All 64 subnets
@@ -140,12 +140,11 @@ suite "subnet tracker":
   test "should track PTC duties in slot bitmaps":
     var
       tracker = ActionTracker.init(default(UInt256), false)
-      shufflingRef = ShufflingRef(
-        epoch: Epoch(1),
-        attester_dependent_root: ZERO_HASH,
-        shuffled_active_validator_indices: @[]
-      )
       beaconProposers: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]
+    let shufflingRef = ShufflingRef(
+      epoch: Epoch(1),
+      attester_dependent_root: ZERO_HASH,
+      shuffled_active_validator_indices: @[])
 
     tracker.registerPTCDuty(Slot(32), ValidatorIndex(0))  # First slot of epoch
     tracker.registerPTCDuty(Slot(47), ValidatorIndex(1))  # Mid epoch

@@ -44,6 +44,7 @@ type
 
   PeerSyncPeerState* {.final.} = ref object of RootObj
     statusLastTime: chronos.Moment
+    metadataLastTime: chronos.Moment
     statusMsg: StatusMsg
     statusMsgV2: Opt[StatusMsgV2]
 
@@ -355,6 +356,32 @@ proc updateStatus*(peer: Peer): Future[bool] {.async: (raises: [CancelledError])
 
     await peer.handleStatusV1(nstate, theirStatus)
 
+proc upgradeMetadata(metadata: altair.MetaData): fulu.MetaData =
+  fulu.MetaData(
+    seq_number: metadata.seq_number,
+    attnets: metadata.attnets,
+    syncnets: metadata.syncnets
+  )
+
+proc updateMetadata*(
+    peer: Peer
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let nstate = peer.networkState(PeerSync)
+  if nstate.getWallEpoch >= nstate.cfg.FULU_FORK_EPOCH:
+    let metadata = await peer.getMetadata_v3()
+    if metadata.isErr():
+      return false
+    peer.state(PeerSync).metadataLastTime = Moment.now()
+    peer.metadata = Opt.some(metadata.get())
+    true
+  else:
+    let metadata = await peer.getMetadata_v2()
+    if metadata.isErr():
+      return false
+    peer.state(PeerSync).metadataLastTime = Moment.now()
+    peer.metadata = Opt.some(upgradeMetadata(metadata.get()))
+    true
+
 proc getHeadRoot*(peer: Peer): Eth2Digest =
   let
     state = peer.networkState(PeerSync)
@@ -431,8 +458,12 @@ proc getEarliestAvailableSlot*(peer: Peer): Opt[Slot] =
   Opt.some(msg.earliestAvailableSlot)
 
 proc getStatusLastTime*(peer: Peer): chronos.Moment =
-  ## Returns head slot for specific peer ``peer``.
+  ## Returns last time of ``peer`` status update.
   peer.state(PeerSync).statusLastTime
+
+proc getMetadataLastTime*(peer: Peer): chronos.Moment =
+  ## Returns last time of ``peer`` metadata update.
+  peer.state(PeerSync).metadataLastTime
 
 proc init*(T: type PeerSync.NetworkState,
     dag: ChainDAGRef, getBeaconTime: GetBeaconTimeFn): T =

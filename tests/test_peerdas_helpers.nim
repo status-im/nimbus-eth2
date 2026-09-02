@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2026 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,12 +10,15 @@
 
 import
   std/random,
+  chronicles,
+  chronos,
+  taskpools,
   unittest2,
   results,
   kzg4844/[kzg_abi, kzg],
   ./consensus_spec/[os_ops, fixtures_utils],
   ../beacon_chain/spec/[helpers, peerdas_helpers],
-  ../beacon_chain/spec/datatypes/[fulu, gloas, deneb]
+  ../beacon_chain/spec/datatypes/[deneb, fulu, gloas]
 
 from std/strutils import rsplit
 
@@ -29,9 +32,9 @@ block:
 # such that BLS modulus does not overflow
 const MAX_TOP_BYTE = 114
 
-proc createSampleKzgBlobs(n: int, seed: int): seq[KzgBlob] =
+func createSampleKzgBlobs(n: int, seed: int): seq[KzgBlob] =
   var
-    blobs: seq[KzgBlob] = @[]
+    blobs: seq[KzgBlob]
     # Initialize the PRNG with the given seed
     rng = initRand(seed)
   for blobIndex in 0..<n:
@@ -54,7 +57,7 @@ iterator chunks[T](lst: seq[T], n: int): seq[T] =
 
 type
   BuiltSidecars = object
-    commitments: KzgCommitments
+    commitments: gloas.KzgCommitments
     fuluSidecars: seq[fulu.DataColumnSidecar]
     gloasSidecars: seq[gloas.DataColumnSidecar]
 
@@ -64,18 +67,17 @@ proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
   var
     allCells = newSeq[array[kzg_abi.CELLS_PER_EXT_BLOB, KzgCell]](blobs.len)
     allProofs = newSeq[array[kzg_abi.CELLS_PER_EXT_BLOB, KzgProof]](blobs.len)
-    commitmentsSeq = newSeqOfCap[KzgCommitment](blobs.len)
+    commitments = newSeqOfCap[KzgCommitment](blobs.len)
 
   for i, blob in blobs:
-    let cp = computeCellsAndKzgProofs(blob).valueOr:
-      raiseAssert "computeCellsAndKzgProofs failed"
-    allCells[i] = cp.cells
-    allProofs[i] = cp.proofs
+    let cp = computeCellsAndKzgProofs(blob)
+    doAssert cp.isOk, "computeCellsAndKzgProofs failed"
+    cp.isErrOr:
+      allCells[i] = value.cells
+      allProofs[i] = value.proofs
     let c = blobToKzgCommitment(blob).valueOr:
       raiseAssert "blobToKzgCommitment failed"
-    commitmentsSeq.add(c)
-
-  let commitments = KzgCommitments.init(commitmentsSeq)
+    commitments.add(c)
 
   var
     fuluSidecars =
@@ -94,13 +96,13 @@ proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
     fuluSidecars.add fulu.DataColumnSidecar(
       index: ColumnIndex(columnIndex),
       column: DataColumn.init(col),
-      kzg_commitments: commitments,
+      kzg_commitments: deneb.KzgCommitments.init(commitments),
       kzg_proofs: deneb.KzgProofs.init(cpr))
 
     gloasSidecars.add gloas.DataColumnSidecar(
       index: ColumnIndex(columnIndex),
-      column: DataColumn.init(col),
-      kzg_proofs: deneb.KzgProofs.init(cpr))
+      column: col,
+      kzg_proofs: cpr)
 
   BuiltSidecars(
     commitments: commitments,
@@ -108,46 +110,6 @@ proc buildSidecarsFromBlobs(blobs: seq[KzgBlob]): BuiltSidecars =
     gloasSidecars: gloasSidecars)
 
 suite "EIP-7594 Unit Tests":
-  test "EIP-7594: Compute Matrix":
-    proc testComputeExtendedMatrix() =
-      var
-        rng = initRand(126)
-        blob_count = rng.rand(1..(deneb.MAX_BLOB_COMMITMENTS_PER_BLOCK.int))
-      let
-        input_blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
-        extended_matrix = compute_matrix(input_blobs)
-      doAssert extended_matrix.get.len == kzg_abi.CELLS_PER_EXT_BLOB * blob_count
-      for row in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
-        doAssert len(row) == kzg_abi.CELLS_PER_EXT_BLOB
-    testComputeExtendedMatrix()
-
-  test "EIP:7594: Recover Matrix":
-    proc testRecoverMatrix() =
-      var rng = initRand(126)
-
-      # Number of samples we shall be recovering
-      const N_SAMPLES = kzg_abi.CELLS_PER_EXT_BLOB div 2
-
-      # Compute an extended matrix with a random
-      # blob count for this test
-      let
-        blob_count = rng.rand(1..(NUMBER_OF_COLUMNS.int))
-        blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
-        extended_matrix = compute_matrix(blobs)
-
-      # Construct a matrix with some entries missing
-      var partial_matrix: seq[MatrixEntry]
-      for blob_entries in chunks(extended_matrix.get, kzg_abi.CELLS_PER_EXT_BLOB):
-        var blb_entry = blob_entries
-        partial_matrix.add(blb_entry[0..N_SAMPLES-1])
-
-      # Given the partial matrix, recover the missing entries
-      let recovered_matrix = recover_matrix(partial_matrix, blob_count)
-
-      # Ensure that the recovered matrix matches the original matrix
-      doAssert recovered_matrix.get == extended_matrix.get, "Both matrices don't match!"
-    testRecoverMatrix()
-
   test "EIP-7594: Verify DataColumnSidecar KZG Proofs (fulu, single)":
     proc testSingleFulu() =
       var rng = initRand(41)
@@ -185,9 +147,9 @@ suite "EIP-7594 Unit Tests":
       # Corrupting a single proof must make verification fail.
       block:
         var sidecar = built.gloasSidecars[0]
-        var flipped = sidecar.kzg_proofs.asSeq
+        var flipped = sidecar.kzg_proofs
         flipped[0].bytes[0] = flipped[0].bytes[0] xor 0xff'u8
-        sidecar.kzg_proofs = deneb.KzgProofs.init(flipped)
+        sidecar.kzg_proofs = flipped
         doAssert verify_data_column_sidecar_kzg_proofs(
           sidecar, built.commitments).isErr
 
@@ -198,7 +160,7 @@ suite "EIP-7594 Unit Tests":
           fullCommitments = built.commitments.asSeq
           shortened = fullCommitments[0 ..< fullCommitments.len - 1]
         doAssert verify_data_column_sidecar_kzg_proofs(
-          sidecar, KzgCommitments.init(shortened)).isErr
+          sidecar, deneb.KzgCommitments.init(shortened)).isErr
     testSingleGloas()
 
   test "EIP-7594: Batch Verify DataColumnSidecar KZG Proofs (fulu)":
@@ -263,9 +225,9 @@ suite "EIP-7594 Unit Tests":
       # Corrupting a proof anywhere in the batch must fail the whole batch.
       block:
         var corrupted = sidecars
-        var flipped = corrupted[0].kzg_proofs.asSeq
+        var flipped = corrupted[0].kzg_proofs
         flipped[0].bytes[0] = flipped[0].bytes[0] xor 0xff'u8
-        corrupted[0].kzg_proofs = deneb.KzgProofs.init(flipped)
+        corrupted[0].kzg_proofs = flipped
         doAssert verify_data_column_sidecar_kzg_proofs(
           corrupted, commitments).isErr
 
@@ -275,7 +237,62 @@ suite "EIP-7594 Unit Tests":
           fullCommitments = commitments.asSeq
           shortened = fullCommitments[0 ..< fullCommitments.len - 1]
         doAssert verify_data_column_sidecar_kzg_proofs(
-          sidecars, KzgCommitments.init(shortened)).isErr
+          sidecars, deneb.KzgCommitments.init(shortened)).isErr
     testBatchGloas()
+
+  test "KZG: Recover Cells And Kzg Proofs Parallel - valid":
+    proc testRecoverParallelValid() =
+      var rng = initRand(126)
+      let
+        blob_count = rng.rand(1..8)
+        blobs = createSampleKzgBlobs(blob_count, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+
+      # Half the columns is enough to recover the rest
+      var colInput = newSeq[ref gloas.DataColumnSidecar]()
+      for columnIndex in countup(0, kzg_abi.CELLS_PER_EXT_BLOB - 1, 2):
+        colInput.add((ref gloas.DataColumnSidecar)(
+          index: ColumnIndex(columnIndex),
+          column: built.gloasSidecars[columnIndex].column))
+
+      var tp =
+        try: Taskpool.new()
+        except CatchableError as exc: raiseAssert exc.msg
+      defer: tp.shutdown()
+      let recovered = (waitFor tp.recover_cells_and_proofs_parallel(colInput)).valueOr:
+        raiseAssert "recover_cells_and_proofs_parallel failed"
+
+      # The recovered cells and proofs must match the originals for each blob
+      doAssert recovered.len == blob_count
+      for row in 0 ..< blob_count:
+        let cp = computeCellsAndKzgProofs(blobs[row]).valueOr:
+          raiseAssert "computeCellsAndKzgProofs failed"
+        for columnIndex in 0 ..< kzg_abi.CELLS_PER_EXT_BLOB:
+          doAssert recovered[row].cells[columnIndex].bytes ==
+            cp.cells[columnIndex].bytes
+          doAssert recovered[row].proofs[columnIndex].bytes ==
+            cp.proofs[columnIndex].bytes
+    testRecoverParallelValid()
+
+  test "KZG: Recover Cells And Kzg Proofs Parallel - invalid":
+    proc testRecoverParallelInvalid() =
+      var rng = initRand(126)
+      let
+        blobs = createSampleKzgBlobs(2, rng.rand(int))
+        built = buildSidecarsFromBlobs(blobs)
+
+      # Fewer than half the columns cannot be recovered from
+      var tooFew = newSeq[ref gloas.DataColumnSidecar]()
+      for columnIndex in countup(0, (kzg_abi.CELLS_PER_EXT_BLOB div 2) - 2, 2):
+        tooFew.add((ref gloas.DataColumnSidecar)(
+          index: ColumnIndex(columnIndex),
+          column: built.gloasSidecars[columnIndex].column))
+
+      var tp =
+        try: Taskpool.new()
+        except CatchableError as exc: raiseAssert exc.msg
+      defer: tp.shutdown()
+      doAssert (waitFor tp.recover_cells_and_proofs_parallel(tooFew)).isErr
+    testRecoverParallelInvalid()
 
 doAssert freeTrustedSetup().isOk

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # BLS signatures can be combined such that multiple signatures are aggregated.
 # Each time a new signature is added, the corresponding public key must be
@@ -33,6 +33,7 @@ from std/sequtils import mapIt
 from std/tables import Table, withValue, `[]=`
 
 from nimcrypto/utils import burnMem
+from stew/staticfor import staticFor
 
 export results, blscurve, rand, json_serialization
 
@@ -118,14 +119,6 @@ func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   ValidatorPubKey(blob: pubKey.toRaw())
 
 func load*(v: ValidatorPubKey): Opt[CookedPubKey] =
-  ## Parse signature blob - this may fail
-  var val: blscurve.PublicKey
-  if fromBytes(val, v.blob):
-    Opt.some CookedPubKey(val)
-  else:
-    Opt.none CookedPubKey
-
-func load*(v: UncompressedPubKey): Opt[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
@@ -295,14 +288,6 @@ proc blsFastAggregateVerify*(
 
   fastAggregateVerify(unwrapped, message, blscurve.Signature(signature))
 
-func blsFastAggregateVerify*(
-       publicKeys: openArray[CookedPubKey],
-       message: openArray[byte],
-       signature: ValidatorSig
-     ): bool =
-  let parsedSig = signature.load()
-  parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
-
 proc blsFastAggregateVerify*(
        publicKeys: openArray[ValidatorPubKey],
        message: openArray[byte],
@@ -396,12 +381,6 @@ func toHex*(x: BlsCurveType): string =
 func toHex*(x: CookedPubKey): string =
   toHex(x.toPubKey())
 
-func `$`*(x: CookedPubKey): string =
-  $(x.toPubKey())
-
-func toValidatorSig*(x: TrustedSig): ValidatorSig =
-  ValidatorSig(blob: x.blob)
-
 func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())
 
@@ -430,7 +409,16 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
     err "bls: cannot parse value"
 
 func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
-  equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
+  equalMem(addr a.blob[0], addr b.blob[0], sizeof(a.blob))
+
+func isZero*(x: ValidatorPubKey): bool =
+  var tmp {.noinit.}: uint64
+  var tmp2 = 0'u64
+  static: doAssert sizeof(x.blob) mod sizeof(tmp) == 0
+  staticFor i, 0 ..< sizeof(x.blob) div sizeof(tmp):
+    copyMem(addr tmp, addr x.blob[i * sizeof(tmp)], sizeof(tmp))
+    tmp2 = tmp2 or tmp
+  tmp2 == 0
 
 func `==`*(a, b: ValidatorPrivKey): bool {.error: "Secret keys should stay secret".}
 
@@ -441,7 +429,7 @@ template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
   static: doAssert sizeof(Hash) <= x.blob.len div 2
   # We use rough "middle" of blob for the hash, assuming this is where most of
   # the entropy is found
-  cast[ptr Hash](unsafeAddr x.blob[x.blob.len div 2])[]
+  cast[ptr Hash](addr x.blob[x.blob.len div 2])[]
 
 # Comparison/Sorting
 # ----------------------------------------------------------------------
@@ -531,20 +519,6 @@ func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [Val
     raise (ref ValueError)(msg: $v.error)
   v[]
 
-# For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError].} =
-  let v = T.fromRaw(data)
-  if v.isErr:
-    raise (ref ValueError)(msg: $v.error)
-  v[]
-
-# For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError].} =
-  let v = T.fromRaw(data)
-  if v.isErr:
-    raise (ref ValueError)(msg: $v.error)
-  v[]
-
 func infinity*(T: type ValidatorSig): T =
   result.blob[0] = byte 0xC0
 
@@ -552,16 +526,15 @@ func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
 {.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22060
-proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
-  var
-    pubkey: blscurve.PublicKey
+func keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
+  var pubkey: blscurve.PublicKey
   let bytes = rng.generate(array[32, byte])
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
 {.pop.}
 
-proc secretShareId(x: uint32) : blscurve.ID =
+func secretShareId(x: uint32): blscurve.ID =
   let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]
   blscurve.ID.fromUint32(bytes)
 
@@ -583,7 +556,7 @@ func generateSecretShares*(sk: ValidatorPrivKey,
     let share = SecretShare(key: ValidatorPrivKey(secret), id: numericShareId)
     shares.add(share)
 
-  return ok shares
+  ok shares
 
 func toSignatureShare*(sig: CookedSig, id: uint32): SignatureShare =
   result.sign = blscurve.Signature(sig)
@@ -604,4 +577,4 @@ proc confirmShares*(pubKey: ValidatorPubKey,
     let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id);
     signs.add(signature)
   let recovered = signs.recoverSignature()
-  return pubKey.blsVerify(confirmationData, recovered)
+  pubKey.blsVerify(confirmationData, recovered)

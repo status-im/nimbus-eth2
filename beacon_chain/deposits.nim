@@ -8,13 +8,16 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[os, sequtils, times],
+  std/times,
   stew/[byteutils, base10],
   chronicles,
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/signatures,
   ./validators/keystore_management,
-  "."/[conf, beacon_clock, filepath]
+  ./[conf, beacon_clock, filepath]
+
+from std/os import dirExists, `/`
+from std/sequtils import mapIt
 
 type
   ValidatorStorageKind {.pure.} = enum
@@ -177,7 +180,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   # inputs are correct:
   var validators: seq[ValidatorStorage]
   if config.exitAllValidatorsFlag:
-    var keystoreCache = KeystoreCacheRef.init()
+    let keystoreCache = KeystoreCacheRef.init()
     for keystore in listLoadableKeystores(config, keystoreCache):
       validators.add ValidatorStorage(kind: ValidatorStorageKind.Keystore,
                                       privateKey: keystore.privateKey)

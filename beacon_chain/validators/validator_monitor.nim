@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/tables,
+  std/[macros, strutils, tables],
   metrics, chronicles,
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
@@ -27,6 +27,34 @@ logScope: topics = "val_mon"
 # * Per-epoch metrics are being updated while syncing, which makes them a bit
 #   hard to use in time series / graphs which depend on the metrics changing at
 #   a steady clock-based rate
+
+type ValidatorCounterLabelKind {.pure.} = enum
+  Validator = 1,
+  MsgSource,
+  Block
+
+var validatorCounters {.compileTime.}: Table[string, ValidatorCounterLabelKind]
+
+func validatorCounterLabelKind(
+    name: static string, labels: static openArray[string]
+): ValidatorCounterLabelKind {.compileTime.} =
+  if labels == ["validator"]:
+    ValidatorCounterLabelKind.Validator
+  else:
+    doAssert labels == ["src", "validator"]
+    if name.endsWith("_in_block"):
+      ValidatorCounterLabelKind.Block
+    else:
+      ValidatorCounterLabelKind.MsgSource
+
+template declareValCounter(
+    identifier: untyped,
+    help: static string, labels: static openArray[string]) =
+  declareCounter identifier, help, labels
+  static:
+    const name = astToStr(identifier)
+    doAssert name notin validatorCounters
+    validatorCounters[name] = name.validatorCounterLabelKind(labels)
 
 declareGauge validator_monitor_balance_gwei,
   "The validator's balance in gwei.", labels = ["validator"]
@@ -49,21 +77,21 @@ declareGauge validator_exit_epoch,
 declareGauge validator_withdrawable_epoch,
   "Set to the epoch where the validator will be withdrawable.", labels = ["validator"]
 
-declareCounter validator_monitor_prev_epoch_on_chain_attester_hit,
+declareValCounter validator_monitor_prev_epoch_on_chain_attester_hit,
   "Incremented if the validator is flagged as a previous epoch attester during per epoch processing", labels = ["validator"]
-declareCounter validator_monitor_prev_epoch_on_chain_attester_miss,
+declareValCounter validator_monitor_prev_epoch_on_chain_attester_miss,
   "Incremented if the validator is not flagged as a previous epoch attester during per epoch processing", labels = ["validator"]
-declareCounter validator_monitor_prev_epoch_on_chain_head_attester_hit,
+declareValCounter validator_monitor_prev_epoch_on_chain_head_attester_hit,
   "Incremented if the validator is flagged as a previous epoch head attester during per epoch processing", labels = ["validator"]
-declareCounter validator_monitor_prev_epoch_on_chain_head_attester_miss,
+declareValCounter validator_monitor_prev_epoch_on_chain_head_attester_miss,
   "Incremented if the validator is not flagged as a previous epoch head attester during per epoch processing", labels = ["validator"]
-declareCounter validator_monitor_prev_epoch_on_chain_target_attester_hit,
+declareValCounter validator_monitor_prev_epoch_on_chain_target_attester_hit,
   "Incremented if the validator is flagged as a previous epoch target attester during per epoch processing", labels = ["validator"]
-declareCounter validator_monitor_prev_epoch_on_chain_target_attester_miss,
+declareValCounter validator_monitor_prev_epoch_on_chain_target_attester_miss,
   "Incremented if the validator is not flagged as a previous epoch target attester during per epoch processing", labels = ["validator"]
-declareCounter validator_monitor_prev_epoch_on_chain_source_attester_hit,
+declareValCounter validator_monitor_prev_epoch_on_chain_source_attester_hit,
   "Incremented if the validator is flagged as a previous epoch source attester during per epoch processing", labels = ["validator"]
-declareCounter validator_monitor_prev_epoch_on_chain_source_attester_miss,
+declareValCounter validator_monitor_prev_epoch_on_chain_source_attester_miss,
   "Incremented if the validator is not flagged as a previous epoch source attester during per epoch processing", labels = ["validator"]
 
 declareGauge validator_monitor_prev_epoch_attestations_total,
@@ -106,48 +134,48 @@ declareGauge validator_monitor_validator_in_next_sync_committee,
 
 declareGauge validator_monitor_validators_total,
   "Count of validators that are specifically monitored by this beacon node"
-declareCounter validator_monitor_unaggregated_attestation,
+declareValCounter validator_monitor_unaggregated_attestation,
   "Number of unaggregated attestations seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_unaggregated_attestation_delay_seconds,
   "The delay between when the validator should send the attestation and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_committee_messages,
+declareValCounter validator_monitor_sync_committee_messages,
   "Number of sync committee messages seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_sync_committee_messages_delay_seconds,
   "The delay between when the validator should send the sync committee message and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_contributions,
+declareValCounter validator_monitor_sync_contributions,
   "Number of sync contributions seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_sync_contributions_delay_seconds,
   "The delay between when the aggregator should send the sync contribution and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_aggregated_attestation,
+declareValCounter validator_monitor_aggregated_attestation,
   "Number of aggregated attestations seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_aggregated_attestation_delay_seconds,
   "The delay between then the validator should send the aggregate and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_attestation_in_aggregate,
+declareValCounter validator_monitor_attestation_in_aggregate,
   "Number of times an attestation has been seen in an aggregate", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_committee_message_in_contribution,
+declareValCounter validator_monitor_sync_committee_message_in_contribution,
   "Number of times a sync committee message has been seen in a sync contribution", labels = ["src", "validator"]
 declareHistogram validator_monitor_attestation_in_aggregate_delay_seconds,
   "The delay between when the validator should send the aggregate and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_attestation_in_block,
+declareValCounter validator_monitor_attestation_in_block,
   "Number of times an attestation has been seen in a block", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_committee_message_in_block,
+declareValCounter validator_monitor_sync_committee_message_in_block,
   "Number of times a validator's sync committee message has been seen in a sync aggregate", labels = ["src", "validator"]
 declareGauge validator_monitor_attestation_in_block_delay_slots,
   "The excess slots (beyond the minimum delay) between the attestation slot and the block slot.", labels = ["src", "validator"]
-declareCounter validator_monitor_beacon_block,
+declareValCounter validator_monitor_beacon_block,
   "Number of beacon blocks seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_beacon_block_delay_seconds,
   "The delay between when the validator should send the block and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_exit,
+declareValCounter validator_monitor_exit,
   "Number of beacon exits seen", labels = ["src", "validator"]
-declareCounter validator_monitor_proposer_slashing,
+declareValCounter validator_monitor_proposer_slashing,
   "Number of proposer slashings seen", labels = ["src", "validator"]
-declareCounter validator_monitor_attester_slashing,
+declareValCounter validator_monitor_attester_slashing,
   "Number of attester slashings seen", labels = ["src", "validator"]
 
-declareCounter validator_monitor_block_hit,
+declareValCounter validator_monitor_block_hit,
   "Number of times a block proposed by the validator was included an epoch later", labels = ["validator"]
-declareCounter validator_monitor_block_miss,
+declareValCounter validator_monitor_block_miss,
   "Number of times the validator was expected to propose a block but no block was included", labels = ["validator"]
 
 const
@@ -226,13 +254,37 @@ func update_if_lt[T](current: var Opt[T], val: T) =
   if current.isNone() or val < current.get():
     current = Opt.some(val)
 
-func addMonitor*(
+macro initValidatorMetricsImpl(id: string) =
+  let code = newStmtList()
+  for name, labelKind in validatorCounters:
+    let name = ident name
+    case labelKind
+    of ValidatorCounterLabelKind.Validator:
+      code.add quote do:
+        `name`.inc(0, [`id`])
+    of ValidatorCounterLabelKind.MsgSource:
+      for src in MsgSource:
+        let src = newStrLitNode($src)
+        code.add quote do:
+          `name`.inc(0, [`src`, `id`])
+    of ValidatorCounterLabelKind.Block:
+      code.add quote do:
+        `name`.inc(0, ["block", `id`])
+  code
+
+proc initValidatorMetrics(id: string) =
+  initValidatorMetricsImpl(id)
+
+proc addMonitor*(
     self: var ValidatorMonitor, pubkey: ValidatorPubKey,
     index: Opt[ValidatorIndex]) =
   if pubkey in self.monitors:
     return
 
   let id = shortLog(pubkey)
+  if not self.totals:
+    id.initValidatorMetrics()
+
   let monitor = (ref MonitoredValidator)(id: id, index: index)
 
   self.monitors[pubkey] = monitor
@@ -259,11 +311,14 @@ proc addAutoMonitor*(
   info "Started monitoring validator",
     validator = shortLog(pubkey), pubkey, index
 
-func init*(
+proc init*(
     T: type ValidatorMonitor,
     cfg: RuntimeConfig,
     autoRegister = false,
     totals = false): T =
+  if totals:
+    total.initValidatorMetrics()
+
   T(cfg: cfg, autoRegister: autoRegister, totals: totals)
 
 template summaryIdx(epoch: Epoch): int = (epoch.uint64 mod 2).int
@@ -688,7 +743,9 @@ proc registerAggregate*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    aggregate_and_proof: phase0.AggregateAndProof | electra.AggregateAndProof,
+    aggregate_and_proof:
+      phase0.AggregateAndProof | electra.AggregateAndProof |
+      gloas.AggregateAndProof,
     attesting_indices: openArray[ValidatorIndex]) =
   let
     slot = aggregate_and_proof.aggregate.data.slot
@@ -892,7 +949,9 @@ proc registerProposerSlashing*(
 
 proc registerAttesterSlashing*(
     self: var ValidatorMonitor, src: MsgSource,
-    slashing: phase0.AttesterSlashing | electra.AttesterSlashing) =
+    slashing:
+      phase0.AttesterSlashing | electra.AttesterSlashing |
+      gloas.AttesterSlashing) =
   let data = slashing.attestation_1.data
 
   for idx in slashing.attestation_2.attesting_indices:

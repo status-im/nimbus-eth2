@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[strutils, sequtils],
@@ -136,9 +136,9 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
     outbound: v.outbound,
     appScore: v.appScore,
     behaviourPenalty: v.behaviourPenalty,
-    sendConnAvail: v.sendConn != nil,
-    closed: v.sendConn != nil and v.sendConn.closed,
-    atEof: v.sendConn != nil and v.sendConn.atEof,
+    sendConnAvail: v.sendStream != nil,
+    closed: v.sendStream != nil and v.sendStream.closed,
+    atEof: v.sendStream != nil and v.sendStream.atEof,
     address:
       if v.address.isSome():
         $v.address.get()
@@ -205,37 +205,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     RestApiResponse.jsonResponse((peers: res))
 
   router.api2(MethodPost, "/nimbus/v1/graffiti") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
-    if contentBody.isNone:
-      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-
-    template setGraffitiAux(node: BeaconNode,
-                            graffitiStr: string): RestApiResponse =
-      node.graffitiBytes = try:
-        GraffitiBytes.init(graffitiStr)
-      except CatchableError as err:
-        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         err.msg)
-      RestApiResponse.jsonResponse((result: true))
-
-    let body = contentBody.get()
-    if body.contentType == ApplicationJsonMediaType:
-      let graffitiBytes = decodeBody(GraffitiBytes, body)
-      if graffitiBytes.isErr():
-        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         $graffitiBytes.error())
-      node.graffitiBytes = graffitiBytes.get()
-      RestApiResponse.jsonResponse((result: true))
-    elif body.contentType == TextPlainMediaType:
-      node.setGraffitiAux body.strData()
-    elif body.contentType == UrlEncodedMediaType:
-      node.setGraffitiAux decodeUrl(body.strData())
-    else:
-      RestApiResponse.jsonError(
-        Http400, "Unsupported content type: " & $body.contentType)
+      contentBody: Option[ContentBody]) -> RestApiResponse:
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodGet, "/nimbus/v1/graffiti") do () -> RestApiResponse:
-    RestApiResponse.jsonResponse(node.graffitiBytes)
+    RestApiResponse.jsonError(Http410, DeprecatedRemovalNimbusGraffiti)
 
   router.api2(MethodPost, "/nimbus/v1/chronicles/settings") do (
     log_level: Option[string]) -> RestApiResponse:
@@ -593,7 +567,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     for peer in node.network.peers.values():
       if peer.connectionState == Connected:
         let
-          nodeId = peer.fetchNodeIdFromPeerId().get()
+          nodeId = peer.fetchNodeIdFromPeerId()
           enrcgc = peer.getEnrCgc()
           metcgc = peer.getMetadataCgc()
           cgc =
@@ -639,8 +613,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           enr_cgc: enrField,
           meta_cgc: metField,
           cgc: int(cgc),
-          columns: columnMap.mapIt(int(it)).toSeq(),
-          intersection: intersectMap.mapIt(int(it)).toSeq(),
+          columns: columnMap.mapIt(int(it)),
+          intersection: intersectMap.mapIt(int(it)),
           agent: $peer.getRemoteAgent(),
           agent_full:
             node.network.switch.peerStore[AgentBook][peer.peerId],
@@ -666,7 +640,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         supernode_peers_count: RestNumeric(supernodePeers),
         incoming_peers_count: RestNumeric(incomingPeers),
         outgoing_peers_count: RestNumeric(outgoingPeers),
-        custody_map: localMap.mapIt(int(it)).toSeq(),
+        custody_map: localMap.mapIt(int(it)),
         columns_count: RestNumeric(len(localMap)),
         counts: counts,
         fill_rate: fillRate,

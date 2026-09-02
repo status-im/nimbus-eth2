@@ -31,9 +31,10 @@ const
   OpAttSlashingDir            = OpDir/"attester_slashing"
   OpBlockHeaderDir            = OpDir/"block_header"
   OpBlsToExecutionChangeDir   = OpDir/"bls_to_execution_change"
+  OpBuilderDepositRequestDir  = OpDir/"builder_deposit_request"
+  OpBuilderExitRequestDir     = OpDir/"builder_exit_request"
   OpConsolidationRequestDir   = OpDir/"consolidation_request"
   OpDepositRequestDir         = OpDir/"deposit_request"
-  OpDepositsDir               = OpDir/"deposit"
   OpWithdrawalRequestDir      = OpDir/"withdrawal_request"
   OpParentExecutionPayloadDir = OpDir/"parent_execution_payload"
   OpExecutionPayloadBidDir    = OpDir/"execution_payload_bid"
@@ -48,8 +49,9 @@ const
 
 const testDirs = toHashSet([
   OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
-  OpBlsToExecutionChangeDir, OpConsolidationRequestDir, OpDepositRequestDir,
-  OpDepositsDir, OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
+  OpBlsToExecutionChangeDir, OpBuilderDepositRequestDir, OpBuilderExitRequestDir,
+  OpConsolidationRequestDir, OpDepositRequestDir,
+  OpWithdrawalRequestDir, OpParentExecutionPayloadDir,
   OpExecutionPayloadBidDir, OpPayloadAttestationDir, OpProposerSlashingDir,
   OpSyncAggregateDir, OpVoluntaryExitDir, OpVoluntaryExitChurnDir,
   OpWithdrawalsDir
@@ -93,29 +95,31 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var gloas.BeaconState, attestation: electra.Attestation):
+      preState: var gloas.BeaconState, attestation: gloas.Attestation):
       Result[void, cstring] =
     var cache: StateCache
     let
       total_active_balance = get_total_active_balance(preState, cache)
       base_reward_per_increment =
         get_base_reward_per_increment(total_active_balance)
+      parent_slot = preState.latest_execution_payload_bid.slot
 
     # This returns the proposer reward for including the attestation, which
     # isn't tested here.
     discard ? process_attestation(
-      preState, attestation, {strictVerification}, base_reward_per_increment, cache)
+      preState, attestation, {strictVerification}, base_reward_per_increment,
+      parent_slot, cache)
     ok()
 
   for path in walkTests(OpAttestationsDir):
-    runTest[electra.Attestation, typeof applyAttestation](
+    runTest[gloas.Attestation, typeof applyAttestation](
       OpAttestationsDir, suiteName, "Attestation", "attestation",
       applyAttestation, path)
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
       preState: var gloas.BeaconState,
-      attesterSlashing: electra.AttesterSlashing): Result[void, cstring] =
+      attesterSlashing: gloas.AttesterSlashing): Result[void, cstring] =
     var cache: StateCache
     doAssert (? process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {},
@@ -123,7 +127,7 @@ suite baseDescription & "Attester Slashing " & preset():
     ok()
 
   for path in walkTests(OpAttSlashingDir):
-    runTest[electra.AttesterSlashing, typeof applyAttesterSlashing](
+    runTest[gloas.AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, suiteName, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
 
@@ -174,57 +178,76 @@ suite baseDescription & "Consolidation Request " & preset():
       OpConsolidationRequestDir, suiteName, "Consolidation Request",
       "consolidation_request", applyConsolidationRequest, path)
 
-suite baseDescription & "Deposit " & preset():
-  func applyDeposit(
-      preState: var gloas.BeaconState, deposit: Deposit):
-      Result[void, cstring] =
-    process_deposit(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[], deposit, {})
-
-  for path in walkTests(OpDepositsDir):
-    runTest[Deposit, typeof applyDeposit](
-      OpDepositsDir, suiteName, "Deposit", "deposit", applyDeposit, path)
-
 suite baseDescription & "Deposit Request " & preset():
   func applyDepositRequest(
       preState: var gloas.BeaconState, depositRequest: DepositRequest):
       Result[void, cstring] =
-    var pending = get_pending_validators(defaultRuntimeConfig, preState)
+    # [Modified in Gloas:EIP8282] deposit requests are queued like Fulu
     process_deposit_request(
-      defaultRuntimeConfig, preState,
-      sortValidatorBuckets(preState.validators.asSeq)[],
-      sortValidatorBuckets(preState.builders.asSeq)[], pending, depositRequest, {})
+      defaultRuntimeConfig, preState, depositRequest, {})
 
   for path in walkTests(OpDepositRequestDir):
     runTest[DepositRequest, typeof applyDepositRequest](
       OpDepositRequestDir, suiteName, "Deposit Request", "deposit_request",
       applyDepositRequest, path)
 
+suite baseDescription & "Builder Deposit Request " & preset():
+  func applyBuilderDepositRequest(
+      preState: var gloas.BeaconState,
+      builderDepositRequest: gloas.BuilderDepositRequest):
+      Result[void, cstring] =
+    process_builder_deposit_request(
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.builders.asSeq)[], builderDepositRequest)
+    ok()
+
+  for path in walkTests(OpBuilderDepositRequestDir):
+    runTest[gloas.BuilderDepositRequest, typeof applyBuilderDepositRequest](
+      OpBuilderDepositRequestDir, suiteName, "Builder Deposit Request",
+      "builder_deposit_request", applyBuilderDepositRequest, path)
+
+suite baseDescription & "Builder Exit Request " & preset():
+  func applyBuilderExitRequest(
+      preState: var gloas.BeaconState,
+      builderExitRequest: gloas.BuilderExitRequest):
+      Result[void, cstring] =
+    process_builder_exit_request(
+      defaultRuntimeConfig, preState,
+      sortValidatorBuckets(preState.builders.asSeq)[], builderExitRequest)
+    ok()
+
+  for path in walkTests(OpBuilderExitRequestDir):
+    runTest[gloas.BuilderExitRequest, typeof applyBuilderExitRequest](
+      OpBuilderExitRequestDir, suiteName, "Builder Exit Request",
+      "builder_exit_request", applyBuilderExitRequest, path)
+
 suite baseDescription & "Parent Execution Payload " & preset():
-  proc applyParentExecutionPayload(
+  proc applyParentExecPayload(
       preState: var gloas.BeaconState,
       blck: gloas.BeaconBlock): Result[void, cstring] =
     var cache: StateCache
     process_parent_execution_payload(
-      defaultRuntimeConfig, preState, blck, cache)
+      defaultRuntimeConfig, preState, blck, {}, cache)
 
   for path in walkTests(OpParentExecutionPayloadDir):
-    runTest[gloas.BeaconBlock, typeof applyParentExecutionPayload](
+    runTest[gloas.BeaconBlock, typeof applyParentExecPayload](
       OpParentExecutionPayloadDir, suiteName, "Parent Execution Payload",
-      "block", applyParentExecutionPayload, path)
+      "block", applyParentExecPayload, path)
 
 suite baseDescription & "Execution Payload Bid " & preset():
   proc applyExecutionPayloadBid(
       preState: var gloas.BeaconState,
-      blck: gloas.BeaconBlock): Result[void, cstring] =
-    process_execution_payload_bid(
-      defaultRuntimeConfig, preState, blck)
+      signedBid: gloas.SignedExecutionPayloadBid): Result[void, cstring] =
+    var cache: StateCache
+    let parent_slot = preState.latest_execution_payload_bid.slot
+    doAssert (? process_execution_payload_bid(
+      defaultRuntimeConfig, preState, signedBid, cache)) == parent_slot
+    ok()
 
   for path in walkTests(OpExecutionPayloadBidDir):
-    runTest[gloas.BeaconBlock, typeof applyExecutionPayloadBid](
+    runTest[gloas.SignedExecutionPayloadBid, typeof applyExecutionPayloadBid](
       OpExecutionPayloadBidDir, suiteName, "Execution Payload Bid",
-      "block", applyExecutionPayloadBid, path)
+      "execution_payload_bid", applyExecutionPayloadBid, path)
 
 suite baseDescription & "Payload Attestation " & preset():
   proc applyPayloadAttestation(

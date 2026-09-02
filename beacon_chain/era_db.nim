@@ -32,7 +32,7 @@ type
 
     files: seq[EraFile]
 
-proc open*(_: type EraFile, name: string): Result[EraFile, string] =
+proc open*(_: type EraFile, name: string, era: Era): Result[EraFile, string] =
   var
     f = Opt[IoHandle].ok(? openFile(name, {OpenFlags.Read}).mapErr(ioErrorMsg))
 
@@ -52,6 +52,8 @@ proc open*(_: type EraFile, name: string): Result[EraFile, string] =
     stateIdx = ? f[].readIndex()
   if stateIdx.offsets.len() != 1:
     return err("State index length invalid")
+  if stateIdx.startSlot.era != era:
+    return err("State index does not match era")
 
   ? f[].setFilePos(stateIdxPos, SeekPosition.SeekCurrent).mapErr(ioErrorMsg)
 
@@ -63,6 +65,8 @@ proc open*(_: type EraFile, name: string): Result[EraFile, string] =
     let idx = ? f[].readIndex()
     if idx.offsets.lenu64() != SLOTS_PER_HISTORICAL_ROOT:
       return err("Block index length invalid")
+    if idx.startSlot + idx.offsets.lenu64() != stateIdx.startSlot:
+      return err("Block index does not match state")
 
     idx
   else:
@@ -272,13 +276,21 @@ iterator eras*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): EraPath =
   except OSError: # On windows only ...
     discard
 
+proc getEraFile*(
+    _: type EraFile,
+    cfg: RuntimeConfig,
+    eraDir: string,
+    era: Era
+): Opt[EraPath] =
+  ## Find the file at specific era in the given directory.
+  for e in EraFile.eras(cfg, eraDir):
+    if e.era == era:
+      return Opt.some(e)
+  Opt.none(EraPath)
+
 proc genesis*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =
   ## Find the genesis era file (era 0) in the given directory.
-  for e in EraFile.eras(cfg, eraDir):
-    if e.era == 0:
-      return Opt.some(e)
-
-  Opt.none(EraPath)
+  EraFile.getEraFile(cfg, eraDir, Era(0))
 
 proc latest*(_: type EraFile, cfg: RuntimeConfig, eraDir: string): Opt[EraPath] =
   ## Find the most recent era file in the given directory, if any.
@@ -312,7 +324,7 @@ proc getEraFile(
     return err("No such era file")
 
   let
-    f = EraFile.open(path).valueOr:
+    f = EraFile.open(path, era).valueOr:
       # TODO allow caller to differentiate between invalid and missing era file,
       #      then move logging elsewhere
       warn "Failed to open era file", path, error = error
@@ -413,6 +425,31 @@ proc getState*(
     ok()
   except CatchableError as exc:
     err(exc.msg)
+
+proc getHeadBlockId*(db: EraDB, eraPath: EraPath): Result[Opt[BlockId], string] =
+  let handle = ? EraFile.open(eraPath.path, eraPath.era)
+
+  var
+    bytes: seq[byte]
+    slot = handle[].blockIdx.startSlot + lenu64(handle[].blockIdx.offsets) - 1
+
+  while true:
+    ? getBlockSSZ(handle, slot, bytes)
+    if len(bytes) > 0:
+      break
+    if slot == handle[].blockIdx.startSlot:
+      break
+    slot = slot - 1
+
+  if len(bytes) == 0:
+    return ok(Opt.none(BlockId))
+
+  let blck =
+    try:
+      newClone(readSszForkedSignedBeaconBlock(db.cfg, bytes))
+    except CatchableError as exc:
+      return err("Unable to deserialize the block: " & exc.msg)
+  ok(Opt.some(BlockId(slot: blck[].slot, root: blck[].root)))
 
 type
   PartialBeaconState = object
@@ -559,7 +596,7 @@ when isMainModule:
         "0xbacd20f09da907734434f052bd4c9503aa16bab1960e89ea20610d08d064481c")
 
   let
-    f = EraFile.open(dbPath & "/mainnet-00001-40cf2f3c.era").expect(
+    f = EraFile.open(dbPath & "/mainnet-00001-40cf2f3c.era", Era(1)).expect(
       "opening works")
   doAssert f.verify(cfg).isOk()
 

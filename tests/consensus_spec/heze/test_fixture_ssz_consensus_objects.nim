@@ -31,8 +31,6 @@ from ../../../beacon_chain/spec/datatypes/bellatrix import PowBlock
 from ../../../beacon_chain/spec/datatypes/capella import
   BLSToExecutionChange, SignedBLSToExecutionChange, HistoricalSummary,
   Withdrawal
-from ../../../beacon_chain/spec/datatypes/deneb import
-  BlobIdentifier, BlobSidecar
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -118,18 +116,20 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           let hash = loadExpectedHashTreeRoot(path)
 
           case sszType:
-          of "AggregateAndProof": checkSSZ(electra.AggregateAndProof, path, hash)
-          of "Attestation": checkSSZ(electra.Attestation, path, hash)
+          of "AggregateAndProof": checkSSZ(gloas.AggregateAndProof, path, hash)
+          of "Attestation": checkSSZ(gloas.Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
-          of "AttesterSlashing": checkSSZ(electra.AttesterSlashing, path, hash)
+          of "AttesterSlashing": checkSSZ(gloas.AttesterSlashing, path, hash)
           of "BeaconBlock": checkSSZ(heze.BeaconBlock, path, hash)
           of "BeaconBlockBody": checkSSZ(heze.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
           of "BeaconState": checkSSZ(heze.BeaconState, path, hash)
-          of "BlobIdentifier": checkSSZ(BlobIdentifier, path, hash)
-          of "BlobSidecar": checkSSZ(BlobSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Builder": checkSSZ(Builder, path, hash)
+          of "BuilderDepositRequest":
+            checkSSZ(gloas.BuilderDepositRequest, path, hash)
+          of "BuilderExitRequest":
+            checkSSZ(gloas.BuilderExitRequest, path, hash)
           of "BuilderPendingPayment": checkSSZ(BuilderPendingPayment, path, hash)
           of "BuilderPendingWithdrawal":
             checkSSZ(BuilderPendingWithdrawal, path, hash)
@@ -154,16 +154,14 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "ExecutionPayloadBid":
             checkSSZ(heze.ExecutionPayloadBid, path, hash)
           of "ExecutionRequests":
-            checkSSZ(electra.ExecutionRequests, path, hash)
+            checkSSZ(gloas.ExecutionRequests, path, hash)
           of "Fork": checkSSZ(Fork, path, hash)
-          of "ForkChoiceNode":
-            debugHezeComment "skipping ForkChoiceNode test for now"
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "InclusionList": checkSSZ(heze.InclusionList, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation":
-            checkSSZ(electra.IndexedAttestation, path, hash)
+            checkSSZ(gloas.IndexedAttestation, path, hash)
           of "IndexedPayloadAttestation":
             checkSSZ(IndexedPayloadAttestation, path, hash)
           of "LightClientBootstrap":
@@ -193,7 +191,7 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "ProposerPreferences": checkSSZ(ProposerPreferences, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
-            checkSSZ(electra.SignedAggregateAndProof, path, hash)
+            checkSSZ(gloas.SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(heze.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
@@ -224,8 +222,11 @@ suite "EF - Heze - SSZ consensus objects " & preset():
           of "WithdrawalRequest": checkSSZ(WithdrawalRequest, path, hash)
           of "Validator": checkSSZ(Validator, path, hash)
           of "VoluntaryExit": checkSSZ(VoluntaryExit, path, hash)
-          of "PartialDataColumnGroupID", "PartialDataColumnPartsMetadata",
-             "PartialDataColumnSidecar":
-            debugHezeComment "Skipping PartialDataColumn tests for now"
+          of "PartialDataColumnGroupID":
+            checkSSZ(gloas.PartialDataColumnGroupID, path, hash)
+          of "PartialDataColumnSidecar":
+            checkSSZ(gloas.PartialDataColumnSidecar, path, hash)
+          of "PartialDataColumnPartsMetadata":
+            checkSSZ(gloas.PartialDataColumnPartsMetadata, path, hash)
           else:
             raise newException(ValueError, "Unsupported test: " & sszType)

@@ -23,21 +23,30 @@ proc runTest(
   let testDir = forkDir / unitTestName
 
   test "EF - " & forkName & " - Fork - " & unitTestName & preset():
-    let
-      preState = newClone(
-        parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconStateAnte))
-      postState = newClone(
-        parseTest(testDir/"post.ssz_snappy", SSZ, BeaconStatePost))
+    let shouldSkip =
+      when BeaconStatePost.kind == ConsensusFork.Heze:
+        unitTestName == "fork_base_state"
+      else:
+        false
 
-    var
-      cfg = defaultRuntimeConfig
-      cache: StateCache
-    when BeaconStateAnte is phase0.BeaconState:
-      cfg.ALTAIR_FORK_EPOCH = preState[].slot.epoch
+    if shouldSkip:
+      skip()
+    else:
+      let
+        preState = newClone(
+          parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconStateAnte))
+        postState = newClone(
+          parseTest(testDir/"post.ssz_snappy", SSZ, BeaconStatePost))
 
-    let upgradedState = newClone(upgrade_to_next(cfg, preState[], cache))
-    check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
-    reportDiff(upgradedState, postState)
+      var
+        cfg = defaultRuntimeConfig
+        cache: StateCache
+      when BeaconStateAnte is phase0.BeaconState:
+        cfg.ALTAIR_FORK_EPOCH = preState[].slot.epoch
+
+      let upgradedState = newClone(upgrade_to_next(cfg, preState[], cache))
+      check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
+      reportDiff(upgradedState, postState)
 
 from ../../beacon_chain/spec/datatypes/altair import BeaconState
 

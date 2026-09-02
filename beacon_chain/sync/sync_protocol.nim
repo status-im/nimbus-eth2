@@ -9,8 +9,8 @@
 
 import
   chronicles, chronos, snappy, snappy/codec,
-  ../spec/[helpers, forks, network],
-  ".."/[beacon_clock],
+  ../spec/[eth2_ssz_serialization, helpers, forks, network],
+  ../beacon_clock,
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag,
   ../rpc/rest_constants
@@ -23,8 +23,6 @@ const
     ## Allow syncing ~64 blocks/sec (minus request costs)
   envelopeResponseCost = allowedOpsPerSecondCost(64)
     ## Part of beacon block so keep it aligned with block's
-  blobResponseCost = allowedOpsPerSecondCost(1000)
-    ## Multiple can exist per block, they are much smaller than blocks
   dataColumnResponseCost = allowedOpsPerSecondCost(8000)
     ## 8 data columns take the same memory as 1 blob approximately
 
@@ -39,10 +37,8 @@ type
     slot: Slot
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS_DENEB]
-  BlobIdentifierList* = List[
+  BlobIdentifierList = List[
     BlobIdentifier, Limit MAX_SUPPORTED_REQUEST_BLOB_SIDECARS]
-  DataColumnIdentifierList* = List[
-    DataColumnIdentifier, Limit (MAX_REQUEST_DATA_COLUMN_SIDECARS)]
   DataColumnsByRootIdentifierList* = List[
     DataColumnsByRootIdentifier, Limit (MAX_REQUEST_BLOCKS_DENEB)]
 
@@ -134,7 +130,7 @@ proc readChunkPayload*(
       return neterr InvalidContextBytes
 
   withConsensusFork(contextFork):
-    when consensusFork >= ConsensusFork.Fulu:
+    when consensusFork == ConsensusFork.Fulu:
       let res = await readChunkPayload(conn, peer, fulu.DataColumnSidecar)
       if res.isOk:
         let contextEpoch = res.get.signed_block_header.message.slot.epoch
@@ -146,103 +142,33 @@ proc readChunkPayload*(
     else:
       return neterr InvalidContextBytes
 
-{.pop.} # TODO fix p2p macro for raises
+proc readChunkPayload*(
+    conn: Connection, peer: Peer,
+    MsgType: type (ref gloas.DataColumnSidecar)):
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+  let contextFork =
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
 
-template getBlobSidecarsByRoot(
-    versionNumber: static string, peer: Peer, dag: ChainDAGRef, response: auto,
-    blobIds: BlobIdentifierList, maxReqSidecars: uint64) =
-  trace "got v" & versionNumber & " blobs range request",
-    peer, len = blobIds.len
-  if blobIds.len == 0:
-    raise newException(InvalidInputsError, "No blobs requested")
-  if blobIds.lenu64 > maxReqSidecars:
-    raise newException(InvalidInputsError, "Exceeding blob request limit")
-
-  let count = blobIds.len
-
-  var
-    found = 0
-    bytes: seq[byte]
-
-  for i in 0..<count:
-    let blockRef = dag.getBlockRef(blobIds[i].block_root).valueOr:
-      continue
-    let index = blobIds[i].index
-    if dag.db.getBlobSidecarSZ(blockRef.bid.root, index, bytes):
-      let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-        warn "Cannot read blob size, database corrupt?",
-          bytes = bytes.len(), blck = shortLog(blockRef), blobindex = index
-        continue
-
-      peer.awaitQuota(
-        blobResponseCost, "blob_sidecars_by_root/" & versionNumber)
-      peer.network.awaitQuota(
-        blobResponseCost, "blob_sidecars_by_root/" & versionNumber)
-
-      await response.writeBytesSZ(
-        uncompressedLen, bytes,
-        peer.network.forkDigestAtEpoch(blockRef.slot.epoch).data)
-      inc found
-
-  debug "Blob root v" & versionNumber & " request done",
-    peer, roots = blobIds.len, count, found
-
-template getBlobSidecarsByRange(
-    versionNumber: static string, peer: Peer, dag: ChainDAGRef, response: auto,
-    startSlot: Slot, reqCount: uint64, blobsPerBlock: uint64,
-    maxReqSidecars: uint64) =
-  trace "got v" & versionNumber & " blobs range request",
-    peer, startSlot, count = reqCount
-  if reqCount == 0:
-    raise newException(InvalidInputsError, "Empty range requested")
-
-  let epochBoundary =
-    if dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS >= dag.head.slot.epoch:
-      GENESIS_EPOCH
+  withConsensusFork(contextFork):
+    when consensusFork >= ConsensusFork.Gloas:
+      let res = await readChunkPayload(conn, peer, gloas.DataColumnSidecar)
+      if res.isOk:
+        let contextEpoch = res.get.slot.epoch
+        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
+          return neterr InvalidContextBytes
+        return ok newClone(res.get)
+      else:
+        return err(res.error)
     else:
-      dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
+      return neterr InvalidContextBytes
 
-  if startSlot.epoch < epochBoundary:
-    raise newException(ResourceUnavailableError, BlobsOutOfRange)
-
-  var blockIds: array[MAX_SUPPORTED_REQUEST_BLOB_SIDECARS.int, BlockId]
-  let
-    count = int min(reqCount, maxReqSidecars)
-    endIndex = count - 1
-    startIndex =
-      dag.getBlockRange(startSlot, blockIds.toOpenArray(0, endIndex))
-
-  var
-    found = 0'u64
-    bytes: seq[byte]
-
-  block outer:
-    for i in startIndex .. endIndex:
-      for j in 0 ..< blobsPerBlock:
-        if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
-          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-            warn "Cannot read blobs sidecar size, database corrupt?",
-              bytes = bytes.len(), blck = shortLog(blockIds[i])
-            continue
-
-          # TODO extract from libp2pProtocol
-          peer.awaitQuota(
-            blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
-          peer.network.awaitQuota(
-            blobResponseCost, "blobs_sidecars_by_range/" & versionNumber)
-
-          await response.writeBytesSZ(
-            uncompressedLen, bytes,
-            peer.network.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
-          inc found
-        else:
-          break
-
-        if found >= maxReqSidecars:
-          break outer
-
-  debug "BlobSidecar v" & versionNumber & " range request done",
-    peer, startSlot, count = reqCount, found
+{.pop.} # TODO fix p2p macro for raises
 
 p2pProtocol BeaconSync(version = 1,
                        networkState = BeaconSyncNetworkState):
@@ -373,7 +299,96 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
+  proc beaconBlocksByHead(
+      peer: Peer,
+      beaconRoot: Eth2Digest,
+      reqCount: uint64,
+      response: MultipleChunksResponse[
+        ref ForkedSignedBeaconBlock, Limit MAX_REQUEST_BLOCKS_DENEB])
+      {.async, libp2pProtocol("beacon_blocks_by_head", 1).} =
+    trace "got blocks by head request",
+      peer, beaconRoot = shortLog(beaconRoot), count = reqCount
+    if reqCount == 0:
+      raise newException(InvalidInputsError, "Empty request")
+
+    let
+      dag = peer.networkState.dag
+      count = int min(reqCount, MAX_REQUEST_BLOCKS_DENEB)
+
+      # The epoch range we are required to serve, per spec:
+      # `[current_epoch - compute_min_epochs_for_block_requests(), current_epoch]`
+      serveFloorEpoch =
+        if dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS >= dag.head.slot.epoch:
+          GENESIS_EPOCH
+        else:
+          dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
+
+      startBid = dag.getBlockId(beaconRoot).valueOr:
+        # We have no record of this block - peers MAY respond with
+        # `ResourceUnavailable` when `beacon_root` is outside the served range
+        # or simply unknown.
+        raise newException(ResourceUnavailableError, BlocksUnavailable)
+
+    if startBid.slot.epoch < serveFloorEpoch:
+      # `beacon_root` is older than the epoch range we are required to serve.
+      raise newException(ResourceUnavailableError, BlocksUnavailable)
+
+    var
+      cur = startBid
+      found = 0
+      bytes: seq[byte]
+
+    while found < count:
+      if not dag.getBlockSZ(cur, bytes):
+        # Block bytes unavailable (e.g. summary present but block pruned).
+        break
+
+      let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+        warn "Cannot read block size, database corrupt?",
+          bytes = bytes.len(), blck = shortLog(cur)
+        break
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(blockResponseCost, "beacon_blocks_by_head/1")
+      peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_head/1")
+
+      await response.writeBytesSZ(
+        uncompressedLen, bytes,
+        peer.network.forkDigestAtEpoch(cur.slot.epoch).data)
+
+      inc found
+
+      if found >= count:
+        break
+
+      if cur.slot == GENESIS_SLOT:
+        break
+
+      # Walk the parent chain via the block summary table (root-indexed),
+      # not via `dag.parent` - `dag.parent` for finalized blocks goes
+      # through `getBlockIdAtSlot` (slot-indexed `dag.db.finalizedBlocks`),
+      # which can run out before the summary table does. Every block we
+      # have stored has a summary, so this walk spans the full available
+      # history regardless of which side of the finalized head we're on.
+      let summary = dag.db.getBeaconBlockSummary(cur.root).valueOr:
+        break
+      let parentBid = dag.getBlockId(summary.parent_root).valueOr:
+        # Parent is not known to us - we've reached the lower bound of
+        # locally available history (typically `dag.backfill.slot` on a
+        # checkpoint-synced node, not genesis).
+        break
+
+      if parentBid.slot.epoch < serveFloorEpoch:
+        # Next ancestor falls outside the epoch range we are required to
+        # serve - stop per spec.
+        break
+
+      cur = parentBid
+
+    debug "Block head request done",
+      peer, beaconRoot = shortLog(beaconRoot), count = reqCount, found
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyrange-v1
   proc executionPayloadEnvelopesByRange(
       peer: Peer,
       startSlot: Slot,
@@ -430,7 +445,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "Envelope range request done", peer, startSlot, count
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#executionpayloadenvelopesbyroot-v1
   proc executionPayloadEnvelopesByRoot(
       peer: Peer,
       blockRoots: BlockRootsList,
@@ -473,30 +488,14 @@ p2pProtocol BeaconSync(version = 1,
     debug "Envelope root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
   proc blobSidecarsByRoot(
       peer: Peer,
       blobIds: BlobIdentifierList,
       response: MultipleChunksResponse[
         ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)])
       {.async, libp2pProtocol("blob_sidecars_by_root", 1).} =
-    # TODO Semantically, this request should return a non-ref, but doing so
-    #      runs into extreme inefficiency due to the compiler introducing
-    #      hidden copies - in future nim versions with move support, this should
-    #      be revisited
-    # TODO This code is more complicated than it needs to be, since the type
-    #      of the multiple chunks response is not actually used in this server
-    #      implementation (it's used to derive the signature of the client
-    #      function, not in the code below!)
-    # TODO although you can't tell from this function definition, a magic
-    #      client call that returns `seq[ref BlobSidecar]` will
-    #      will be generated by the libp2p macro - we guarantee that seq items
-    #      are `not-nil` in the implementation
-    getBlobSidecarsByRoot(
-      "1", peer, peer.networkState.dag, response, blobIds,
-      peer.networkState.dag.cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
+    debug "Blob root request done", peer, len = blobIds.len
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
   proc blobSidecarsByRange(
       peer: Peer,
       startSlot: Slot,
@@ -504,18 +503,7 @@ p2pProtocol BeaconSync(version = 1,
       response: MultipleChunksResponse[
         ref BlobSidecar, Limit(MAX_SUPPORTED_REQUEST_BLOB_SIDECARS)])
       {.async, libp2pProtocol("blob_sidecars_by_range", 1).} =
-    # TODO This code is more complicated than it needs to be, since the type
-    #      of the multiple chunks response is not actually used in this server
-    #      implementation (it's used to derive the signature of the client
-    #      function, not in the code below!)
-    # TODO although you can't tell from this function definition, a magic
-    #      client call that returns `seq[ref BlobSidecar]` will
-    #      will be generated by the libp2p macro - we guarantee that seq items
-    #      are `not-nil` in the implementation
-    getBlobSidecarsByRange(
-      "1", peer, peer.networkState.dag, response, startSlot, reqCount,
-      peer.networkState.dag.cfg.MAX_BLOBS_PER_BLOCK_ELECTRA,
-      peer.networkState.dag.cfg.MAX_REQUEST_BLOB_SIDECARS_ELECTRA)
+    debug "BlobSidecar range request done", peer, startSlot, count = reqCount
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/fulu/p2p-interface.md#datacolumnsidecarsbyroot-v1
   proc dataColumnSidecarsByRoot(
@@ -565,14 +553,19 @@ p2pProtocol BeaconSync(version = 1,
           continue
         requiredBid = bsid.bid
 
+      # The requested block predates the earliest slot for which we can
+      # guarantee serving data columns - respond with `ResourceUnavailable`.
+      if requiredBid.slot < dag.earliestAvailableSlot():
+        raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
+
       if requiredBid.slot.epoch < epochBoundary:
         continue
 
-      let indices =
-        colIds[i].indices
-      for id in indices:
+      let blockFork = dag.cfg.consensusForkAtEpoch(requiredBid.slot.epoch)
+
+      for id in colIds[i].indices:
         if dag.db.getDataColumnSidecarSZ(
-            ConsensusFork.Fulu, requiredBid.root, id, bytes):
+            blockFork, requiredBid.root, id, bytes):
           let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
             warn "Cannot read data column size, database corrupt?",
               bytes = bytes.len, blck = shortLog(requiredBid), columnIndex = id
@@ -587,7 +580,7 @@ p2pProtocol BeaconSync(version = 1,
           inc found
 
           # additional logging for devnets
-          trace "responsded to data column sidecar by root request",
+          trace "responded to data column sidecar by root request",
             peer, blck = shortLog(requiredBid), columnIndex = id
 
     debug "Data column root request done",
@@ -609,6 +602,11 @@ p2pProtocol BeaconSync(version = 1,
     if reqCount == 0 or reqColumns.len == 0:
       raise newException(InvalidInputsError, "Empty range requested")
 
+    if  reqCount > MAX_REQUEST_DATA_COLUMN_SIDECARS or
+        reqColumns.lenu64 * reqCount > MAX_REQUEST_DATA_COLUMN_SIDECARS:
+      raise newException(InvalidInputsError,
+        "Request exceeds MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS")
+
     let
       dag = peer.networkState.dag
       epochBoundary =
@@ -620,6 +618,11 @@ p2pProtocol BeaconSync(version = 1,
             dag.cfg.MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS
 
     if startSlot.epoch < epochBoundary:
+      raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
+
+    # The requested range starts before the earliest slot for which we can
+    # guarantee serving data columns - respond with `ResourceUnavailable`.
+    if startSlot < dag.earliestAvailableSlot():
       raise newException(ResourceUnavailableError, DataColumnsOutOfRange)
 
     var blockIds: array[int(MAX_REQUEST_DATA_COLUMN_SIDECARS), BlockId]
@@ -635,9 +638,10 @@ p2pProtocol BeaconSync(version = 1,
 
     block outer:
       for i in startIndex..endIndex:
+        let blockFork = dag.cfg.consensusForkAtEpoch(blockIds[i].slot.epoch)
         for k in reqColumns:
           if dag.db.getDataColumnSidecarSZ(
-              ConsensusFork.Fulu, blockIds[i].root, ColumnIndex k, bytes):
+              blockFork, blockIds[i].root, ColumnIndex k, bytes):
             let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
               warn "Cannot read data column sidecar size, database corrup?",
                 bytes = bytes.len, blck = shortLog(blockIds[i])
@@ -660,6 +664,34 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
+
+# Gloas client stubs for `data_column_sidecars_by_root/1` and
+# `data_column_sidecars_by_range/1`.
+const
+  dataColumnSidecarsByRootProtocolId =
+    "/eth2/beacon_chain/req/data_column_sidecars_by_root/1/ssz_snappy"
+  dataColumnSidecarsByRangeProtocolId =
+    "/eth2/beacon_chain/req/data_column_sidecars_by_range/1/ssz_snappy"
+
+proc dataColumnSidecarsByRootGloas*(
+    peer: Peer, colIds: DataColumnsByRootIdentifierList, maxResponseItems: int):
+    Future[NetRes[List[ref gloas.DataColumnSidecar, Limit MAX_REQUEST_DATA_COLUMN_SIDECARS]]]
+    {.async: (raises: [CancelledError], raw: true).} =
+  makeEth2Request(
+    peer, dataColumnSidecarsByRootProtocolId, SSZ.encode(colIds),
+    List[ref gloas.DataColumnSidecar, Limit MAX_REQUEST_DATA_COLUMN_SIDECARS],
+    Limit maxResponseItems, RESP_TIMEOUT_DUR)
+
+proc dataColumnSidecarsByRangeGloas*(
+    peer: Peer, startSlot: Slot, reqCount: uint64,
+    reqColumns: List[ColumnIndex, NUMBER_OF_COLUMNS], maxResponseItems: int):
+    Future[NetRes[List[ref gloas.DataColumnSidecar, Limit MAX_REQUEST_DATA_COLUMN_SIDECARS]]]
+    {.async: (raises: [CancelledError], raw: true).} =
+  makeEth2Request(
+    peer, dataColumnSidecarsByRangeProtocolId,
+    SSZ.encode((startSlot, reqCount, reqColumns)),
+    List[ref gloas.DataColumnSidecar, Limit MAX_REQUEST_DATA_COLUMN_SIDECARS],
+    Limit maxResponseItems, RESP_TIMEOUT_DUR)
 
 func init*(T: type BeaconSync.NetworkState, dag: ChainDAGRef): T =
   T(

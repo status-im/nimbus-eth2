@@ -9,7 +9,7 @@
 
 import
   presto/client,
-  "."/[rest_types, eth2_rest_serialization]
+  ./[rest_types, eth2_rest_serialization]
 
 export client, rest_types, eth2_rest_serialization
 
@@ -27,6 +27,14 @@ proc getProposerDutiesPlain*(
      rest, endpoint: "/eth/v1/validator/duties/proposer/{epoch}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
+
+proc getPtcDutiesPlain*(
+       epoch: Epoch,
+       body: seq[ValidatorIndex]
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/duties/ptc/{epoch}",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getPtcDuties
 
 proc getSyncCommitteeDutiesPlain*(
        epoch: Epoch,
@@ -53,6 +61,13 @@ proc produceAttestationDataPlain*(
      rest, endpoint: "/eth/v1/validator/attestation_data",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
+
+proc producePayloadAttestationDataPlain*(
+       slot: Slot
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/payload_attestation_data/{slot}",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/producePayloadAttestationData
 
 proc getAggregatedAttestationPlainV2*(
     attestation_data_root: Eth2Digest,

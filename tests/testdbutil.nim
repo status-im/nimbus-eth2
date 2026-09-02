@@ -8,9 +8,10 @@
 {.push raises: [], gcsafe.}
 
 import
+  std/sequtils,
   chronicles,
   ../beacon_chain/beacon_chain_db,
-  ../beacon_chain/consensus_object_pools/blockchain_dag,
+  ../beacon_chain/consensus_object_pools/[attestation_pool, blockchain_dag],
   ../beacon_chain/spec/[forks, state_transition],
   eth/db/[kvstore, kvstore_sqlite3],
   ./[testblockutil, teststateutil]
@@ -20,7 +21,8 @@ export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 proc makeTestDB*(
     cfg: RuntimeConfig,
     validators: Natural,
-    eth1Data = Opt.none(Eth1Data)): BeaconChainDB =
+    eth1Data = Opt.none(Eth1Data),
+    lightClientDataImportBackfill = true): BeaconChainDB =
   # Blob support requires DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH
   # Data column support requires GLOAS_FORK_EPOCH != FAR_FUTURE_EPOCH
   var cfg = cfg
@@ -44,7 +46,9 @@ proc makeTestDB*(
       forkyState.data.eth1_data = eth1Data.get
       forkyState.root = hash_tree_root(forkyState.data)
 
-  result = BeaconChainDB.new("", cfg, inMemory = true)
+  result = BeaconChainDB.new(
+    "", cfg, inMemory = true,
+    lightClientDataImportBackfill = lightClientDataImportBackfill)
   ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(
@@ -85,3 +89,30 @@ proc getEarliestInvalidBlockRoot*(
     curBlck = curBlck.parent
 
   curBlck.root
+
+func allExpectedBlockIds(
+    dag: ChainDAGRef, minSlot = GENESIS_SLOT): HashSet[BlockId] =
+  for head in dag.heads:
+    var cur = head
+    while cur != nil and cur.slot >= minSlot and
+        not result.containsOrIncl(cur.bid):
+      cur = cur.parent
+
+func forkBlocksMatchHeads*(dag: ChainDAGRef): bool =
+  let expected = dag.allExpectedBlockIds
+  expected.len == dag.forkBlocks.len and
+  expected.allIt(dag.containsForkBlock(it.root))
+
+func forkChoiceMatchesHeads*(pool: AttestationPool): bool =
+  let expected = pool.dag.allExpectedBlockIds
+  expected.len == pool.forkChoice.backend.proto_array.indices.len and
+  expected.allIt(it.root in pool.forkChoice.backend)
+
+func lcDataMatchesHeads*(dag: ChainDAGRef): bool =
+  let expected =
+    if dag.lcDataStore.importMode != LightClientDataImportMode.None:
+      dag.allExpectedBlockIds(minSlot = dag.lcDataStore.cache.tailSlot)
+    else:
+      HashSet[BlockId]()
+  expected.len == dag.lcDataStore.cache.data.len and
+  expected.allIt(it in dag.lcDataStore.cache.data)

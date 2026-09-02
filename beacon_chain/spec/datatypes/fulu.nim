@@ -85,11 +85,14 @@ type
 
   DataColumnSidecars* = seq[ref DataColumnSidecar]
 
-  DataColumnSidecarInfoObject* = object
-    block_root*: Eth2Digest
-    index*: ColumnIndex
-    slot*: Slot
-    kzg_commitments*: KzgCommitments
+  # Column sidecars whose KZG proofs have already been checked.
+  TrustedDataColumnSidecars* = distinct DataColumnSidecars
+
+  DataColumnSidecarsForImport* = object
+    ## All columns of one block, split by whether their proofs still need
+    ## checking.
+    trusted*: TrustedDataColumnSidecars
+    untrusted*: DataColumnSidecars
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#datacolumnidentifier
   DataColumnIdentifier* = object
@@ -101,22 +104,28 @@ type
     block_root*: Eth2Digest
     indices*: DataColumnIndices
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#partialdatacolumnpartsmetadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumnpartsmetadata
   PartialDataColumnPartsMetadata* = object
-    available*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    requests*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    available*: BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    requests*: BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#partialdatacolumnheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnheader
   PartialDataColumnHeader* = object
     kzg_commitments*: KzgCommitments
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitments_inclusion_proof*:
       array[KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/fulu/p2p-interface.md#encoding-and-decoding-responses
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumngroupid
+  PartialDataColumnGroupID* = object
+    beacon_block_root*: Eth2Digest
+
+  CellsPresentBits* = BitList[Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/fulu/partial-columns/p2p-interface.md#partialdatacolumnsidecar
   PartialDataColumnSidecar* = object
-    cells_present_bitmap*: BitArray[int(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
-    partial_columns*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
+    cells_present_bitmap*: CellsPresentBits
+    partial_column*: List[KzgCell, Limit(MAX_BLOB_COMMITMENTS_PER_BLOCK)]
     kzg_proofs*: deneb.KzgProofs
     # Optional header, only sent on eager pushes
     header*: List[PartialDataColumnHeader, 1]
@@ -473,7 +482,7 @@ func shortLog*(v: DataColumnSidecar): auto =
 func shortLog*(v: PartialDataColumnSidecar): auto =
   (
     cells_present: v.cells_present_bitmap,
-    partial_columns: v.partial_columns.len,
+    partial_column: v.partial_column.len,
     kzg_proofs: v.kzg_proofs.len,
     has_header: v.header.len > 0,
   )
@@ -543,6 +552,50 @@ template asTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+template asTrusted*(x: DataColumnSidecars): TrustedDataColumnSidecars =
+  ## Only for columns whose KZG proofs have actually been checked.
+  TrustedDataColumnSidecars(x)
+
+template asSeq*(x: TrustedDataColumnSidecars): DataColumnSidecars =
+  DataColumnSidecars(x)
+
+func len*(x: TrustedDataColumnSidecars): int {.borrow.}
+
+# `borrow` cannot match `seq`'s generic `T` return, so these convert explicitly
+func `[]`*(x: TrustedDataColumnSidecars, i: int): ref DataColumnSidecar =
+  DataColumnSidecars(x)[i]
+
+func add*(x: var TrustedDataColumnSidecars, v: ref DataColumnSidecar) =
+  DataColumnSidecars(x).add(v)
+
+func len*(sidecars: DataColumnSidecarsForImport): int =
+  len(sidecars.trusted) + len(sidecars.untrusted)
+
+func items*(sidecars: DataColumnSidecarsForImport): DataColumnSidecars =
+  ## Every column, in ascending index order.
+  var
+    res = newSeqOfCap[ref DataColumnSidecar](len(sidecars))
+    i, j = 0
+  while i < len(sidecars.trusted) and j < len(sidecars.untrusted):
+    if sidecars.trusted[i][].index <= sidecars.untrusted[j][].index:
+      res.add(sidecars.trusted[i])
+      inc i
+    else:
+      res.add(sidecars.untrusted[j])
+      inc j
+  while i < len(sidecars.trusted):
+    res.add(sidecars.trusted[i])
+    inc i
+  while j < len(sidecars.untrusted):
+    res.add(sidecars.untrusted[j])
+    inc j
+  res
+
+func toTrustedImport*(
+    sidecars: DataColumnSidecars): DataColumnSidecarsForImport =
+  ## Only for sidecars built locally or read back from our own database.
+  DataColumnSidecarsForImport(trusted: sidecars.asTrusted)
 
 const
   KZG_COMMITMENTS_GINDEX* = get_generalized_index(

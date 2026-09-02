@@ -217,6 +217,7 @@ type
       name: "agent-string" .}: string
 
     subscribeAllSubnets* {.
+      hidden
       defaultValue: false,
       desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" .}: bool
@@ -236,12 +237,6 @@ type
       defaultValue: false,
       desc: "Backward compatible partial data column sidecar support",
       name: "debug-partial-columns" .}: bool
-
-    debugEnableReconstruction* {.
-      hidden
-      defaultValue: false,
-      desc: "Enables column reconstruction for the currently running beacon node"
-      name: "debug-enable-reconstruction" .}: bool
 
     slashingDbKind* {.
       hidden
@@ -323,15 +318,14 @@ type
       quicEnabled* {.
         hidden
         desc: "Enable QUIC transport"
-        defaultValue: false
+        defaultValue: true
         name: "debug-quic" .}: bool
 
       quicPort* {.
-        hidden
         desc: "Listening UDP port for Ethereum LibP2P traffic over QUIC"
         defaultValue: defaultEth2QuicPort
         defaultValueDesc: $defaultEth2QuicPortDesc
-        name: "debug-quic-port" .}: Port
+        name: "quic-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
@@ -365,6 +359,11 @@ type
       weakSubjectivityCheckpoint* {.
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
+
+      forceResync* {.
+        hidden
+        desc: "Delete the existing beacon chain database and resync from scratch"
+        name: "force-resync" .}: bool
 
       externalBeaconApiUrl* {.
         desc: "External beacon API to use for syncing (on empty database)"
@@ -554,6 +553,12 @@ type
         defaultValueDesc: $LightClientDataImportMode.OnlyNew
         name: "light-client-data-import-mode" .}: LightClientDataImportMode
 
+      lightClientDataImportBackfill* {.
+        hidden
+        desc: "Collect additional data for enabling peers to backfill light client data (experimental)"
+        defaultValue: false
+        name: "debug-light-client-data-import-backfill" .}: bool
+
       lightClientDataMaxPeriods* {.
         desc: "Maximum number of sync committee periods to retain light client data"
         name: "light-client-data-max-periods" .}: Option[uint64]
@@ -673,20 +678,13 @@ type
         desc: "Reindex historical states for archive access"
         name: "reindex".}: bool
 
-      trustedSetupFile* {.
-        hidden
-        desc: "Alternative EIP-4844 trusted setup file"
-        defaultValue: none(string)
-        defaultValueDesc: "Baked in trusted setup"
-        name: "debug-trusted-setup-file" .}: Option[string]
-
       bandwidthEstimate* {.
         hidden
         desc: "Bandwidth estimate for the node (bits per second)"
         name: "debug-bandwidth-estimate" .}: Option[Natural]
 
       rpcEnabled* {.
-        obsolete: "Superceded by REST API as of v1.7.0"
+        hidden
         name: "rpc" .}: Option[bool]
 
       rpcPort* {.
@@ -847,14 +845,13 @@ type
         quicExtEnabled* {.
           hidden
           desc: "Enable QUIC transport"
-          defaultValue: false
+          defaultValue: true
           name: "debug-quic" .}: bool
 
         quicPortExt* {.
-          hidden
           desc: "External QUIC port"
           defaultValue: defaultEth2QuicPort
-          name: "debug-quic-port" .}: Port
+          name: "quic-port" .}: Port
 
         seqNumber* {.
           desc: "Record sequence number"
@@ -912,6 +909,11 @@ type
         desc: "Recent trusted finalized block root to initialize light client from"
         name: "trusted-block-root" .}: Option[Eth2Digest]
 
+      forceResyncTNS* {.
+        hidden
+        desc: "Delete the existing beacon chain database and resync from scratch"
+        name: "force-resync" .}: bool
+
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"
         defaultValue: true
@@ -922,7 +924,7 @@ type
         defaultValue: false .}: bool
 
       downloadDepositSnapshot* {.
-        desc: "Also try to download a snapshot of the deposit contract state"
+        obsolete: "Deposit snapshots not needed for checkpoint sync as of EIP-6110"
         defaultValue: false
         name: "with-deposit-snapshot" .}: bool
 
@@ -1028,8 +1030,8 @@ type
 
     keymanagerPort* {.
       desc: "Listening port for the REST keymanager API"
-      defaultValue: defaultEth2RestPort
-      defaultValueDesc: $defaultEth2RestPortDesc
+      defaultValue: defaultVcKeymanagerPort
+      defaultValueDesc: $defaultVcKeymanagerPortDesc
       name: "keymanager-port" .}: Port
 
     keymanagerAddress* {.
@@ -1229,7 +1231,8 @@ proc shortNetworkName*(eth2Network: Option[string]): string =
   # network that can be used for directories etc.
   if eth2Network.isSome() and
       eth2Network.get() in
-      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "sepolia"]:
+      ["mainnet", "minimal", "gnosis", "chiado", "hoodi", "sepolia",
+       "plataberget"]:
     eth2Network.get()
   else:
     eth2Network.loadEth2Network().cfg.name()
@@ -1393,7 +1396,6 @@ proc eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
   string config.eraDirFlag.get(OutDir(config.dataDir / "era"))
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
@@ -1410,9 +1412,7 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     else: fail()
   else:
     fail()
-{.pop.}
 
-{.push warning[ProveField]:off.}  # https://github.com/nim-lang/Nim/issues/22791
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   proc fail {.noreturn.} =
     raiseAssert "outWalletFile should be used only in the right context"
@@ -1429,7 +1429,6 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
     else: fail()
   else:
     fail()
-{.pop.}
 
 func databaseDir*(dataDir: OutDir): string =
   dataDir / "db"

@@ -58,16 +58,6 @@ type
       array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
   BlobSidecars* = seq[ref BlobSidecar]
 
-  # https://github.com/ethereum/beacon-APIs/blob/4882aa0803b622b75bab286b285599d70b7a2429/apis/eventstream/index.yaml#L138-L142
-  # Spec object, not only internal, because it gets serialized out for the
-  # event stream Beacon API
-  BlobSidecarInfoObject* = object
-    block_root*: Eth2Digest
-    index*: BlobIndex
-    slot*: Slot
-    kzg_commitment*: KzgCommitment
-    versioned_hash*: string  # TODO should be string; VersionedHash not distinct
-
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object
     block_root*: Eth2Digest
@@ -691,7 +681,7 @@ func is_valid_light_client_header*(
   if epoch < cfg.CAPELLA_FORK_EPOCH:
     return
       header.execution == static(default(ExecutionPayloadHeader)) and
-      header.execution_branch == static(default(ExecutionBranch))
+      header.execution_branch.isZero
 
   is_valid_merkle_branch(
     get_lc_execution_root(header, cfg),
@@ -780,7 +770,7 @@ func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     has_next_sync_committee:
-      v.next_sync_committee != static(default(typeof(v.next_sync_committee))),
+      not v.next_sync_committee.isZero,
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

@@ -17,7 +17,7 @@ import
   eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/ordered_trie,
   # Internal
-  "."/[eth2_merkleization, forks, ssz_codec]
+  ./[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
 # fails to compile if the export is not done here also. Exporting rlp avoids a
@@ -27,7 +27,14 @@ export
   eth2_merkleization, forks, ssz_codec, rlp, eth_types_rlp.append
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/weak-subjectivity.md#constants
-const ETH_TO_GWEI = 1_000_000_000.Gwei
+const
+  ETH_TO_GWEI = 1_000_000_000.Gwei
+  GWEI_TO_WEI* = 1_000_000_000'u64 # 1 Gwei = 10^9 Wei
+
+# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/beacon-chain.md#new-is_builder_withdrawal_credential
+func is_builder_withdrawal_credential*(
+    withdrawal_credentials: Eth2Digest): bool =
+  withdrawal_credentials.data[0] == BUILDER_WITHDRAWAL_PREFIX
 
 func toEther*(gwei: Gwei): Ether =
   (gwei div ETH_TO_GWEI).Ether
@@ -207,19 +214,6 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   (flags and flag) == flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#verify_blob_sidecar_inclusion_proof
-func verify_blob_sidecar_inclusion_proof*(
-    blob_sidecar: BlobSidecar): Result[void, string] =
-  let gindex = kzg_commitment_inclusion_proof_gindex(blob_sidecar.index)
-  if not is_valid_merkle_branch(
-      hash_tree_root(blob_sidecar.kzg_commitment),
-      blob_sidecar.kzg_commitment_inclusion_proof,
-      KZG_COMMITMENT_INCLUSION_PROOF_DEPTH,
-      get_subtree_index(gindex),
-      blob_sidecar.signed_block_header.message.body_root):
-    return err("BlobSidecar: inclusion proof not valid")
-  ok()
-
 func create_blob_sidecars*(
     forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
     kzg_proofs: deneb.KzgProofs,
@@ -262,8 +256,7 @@ template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
-  store.next_sync_committee !=
-    static(default(typeof(store.next_sync_committee)))
+  not store.next_sync_committee.isZero
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
@@ -435,7 +428,8 @@ func compute_timestamp_at_slot*(
   state.genesis_time +
     slots_since_genesis * timeParams.SLOT_DURATION.seconds.uint64
 
-template append*(w: var RlpWriter, v: bellatrix.Transaction) =
+template append*(
+    w: var RlpWriter, v: bellatrix.Transaction | gloas.Transaction) =
   w.appendRawBytes(distinctBase v)
 
 template append*(w: var RlpWriter, withdrawal: capella.Withdrawal) =
@@ -469,6 +463,35 @@ func computeRequestsHash*(
     mixInRequests(DEPOSIT_REQUEST_TYPE, requests.deposits)
     mixInRequests(WITHDRAWAL_REQUEST_TYPE, requests.withdrawals)
     mixInRequests(CONSOLIDATION_REQUEST_TYPE, requests.consolidations)
+
+  requestsHash.to(EthHash32)
+
+# https://eips.ethereum.org/EIPS/eip-7685
+# [Modified in Gloas:EIP8282] also commits to builder deposit/exit requests
+func computeRequestsHash*(
+    requests: gloas.ExecutionRequests): EthHash32 =
+
+  template individualHash(requestType, requestList): Digest =
+    computeDigest:
+      h.update([requestType.byte])
+      for request in requestList:
+        h.update SSZ.encode(request)
+
+  let requestsHash = computeDigest:
+    template mixInRequests(requestType, requestList): untyped =
+      if requestList.len > 0:
+        h.update(individualHash(requestType, requestList).data)
+
+    static:
+      doAssert DEPOSIT_REQUEST_TYPE < WITHDRAWAL_REQUEST_TYPE
+      doAssert WITHDRAWAL_REQUEST_TYPE < CONSOLIDATION_REQUEST_TYPE
+      doAssert CONSOLIDATION_REQUEST_TYPE < BUILDER_DEPOSIT_REQUEST_TYPE
+      doAssert BUILDER_DEPOSIT_REQUEST_TYPE < BUILDER_EXIT_REQUEST_TYPE
+    mixInRequests(DEPOSIT_REQUEST_TYPE, requests.deposits)
+    mixInRequests(WITHDRAWAL_REQUEST_TYPE, requests.withdrawals)
+    mixInRequests(CONSOLIDATION_REQUEST_TYPE, requests.consolidations)
+    mixInRequests(BUILDER_DEPOSIT_REQUEST_TYPE, requests.builder_deposits)
+    mixInRequests(BUILDER_EXIT_REQUEST_TYPE, requests.builder_exits)
 
   requestsHash.to(EthHash32)
 

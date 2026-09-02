@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/tables,
+  std/[sets, tables],
   # Status
   results,
   chronicles,
@@ -55,6 +55,8 @@ type
     fcPruningFromOutdatedFinalizedRoot
     fcUnknownBlockIdAtSlot
     fcUnknownShufflingRef
+    fcInvalidAttestation
+    fcInvalidPayloadAttestation
 
   Index* = int
   Delta* = int64
@@ -68,7 +70,9 @@ type
        fcPreviousHeadUnknown,
        fcCurrentHeadUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick:
+    of fcInconsistentTick,
+       fcInvalidAttestation,
+       fcInvalidPayloadAttestation:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,
@@ -108,9 +112,11 @@ type
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
+    fullBlockIndices*: Table[Eth2Digest, Index]
     unrealized*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
     previousProposerBoostScore*: Gwei
+    emptyPreferredRoot*: Eth2Digest
 
   ProtoNode* = object
     bid*: BlockId
@@ -118,6 +124,7 @@ type
     checkpoints*: FinalityCheckpoints
     sharedFinalizedEpoch*: Epoch
     weight*: int64
+    pendingWeight*: int64
     invalid*: bool
     bestChild*: Opt[Index]
     bestDescendant*: Opt[Index]
@@ -142,6 +149,15 @@ type
     current_root*: Eth2Digest
     next_root*: Eth2Digest
     slot*: Slot
+    payload_present*: bool
+    next_payload_present*: bool
+    current_pending*: bool
+    next_pending*: bool
+
+  PtcVoteTally* = object
+    voted*: BitArray[int PTC_SIZE]
+    present*: BitArray[int PTC_SIZE]
+    available*: BitArray[int PTC_SIZE]
 
   BalanceSource* = object
     # Effective balances / slashings in `info` based on historical checkpoint.
@@ -156,16 +172,21 @@ type
     confirmation_byzantine_threshold*: uint64
     proto_array*: ProtoArray
     confirmed*: BlockId
+    latest_fcr_event_slot*: Slot
     current_epoch_observed_justified*: BalanceSource
     previous_epoch_greatest_unrealized_checkpoint*: Checkpoint
     previous_slot_head*, current_slot_head*: Eth2Digest
     votes*: seq[VoteTracker]
     balances*: seq[ForkChoiceBalance]
+    ptc_votes*: array[2,
+      tuple[slot: Slot, tallies: Table[Eth2Digest, PtcVoteTally]]]
+    timely_proposer_blocks*: HashSet[Eth2Digest]
 
   QueuedAttestation* = object
     attesting_indices*: seq[ValidatorIndex]
     block_root*: Eth2Digest
     slot*: Slot
+    committee_index*: CommitteeIndex
 
   ForkChoice* = object
     backend*: ForkChoiceBackend
@@ -177,6 +198,8 @@ func shortLog*(vote: VoteTracker): auto =
     slot: vote.slot,
     current_root: shortLog(vote.current_root),
     next_root: shortLog(vote.next_root),
+    payload_present: vote.payload_present,
+    next_payload_present: vote.next_payload_present
   )
 
 chronicles.formatIt VoteTracker: it.shortLog

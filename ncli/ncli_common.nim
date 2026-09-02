@@ -38,8 +38,8 @@ type
     inclusion_delay*: Opt[uint64]
 
   ParticipationFlags* = object
-    currentEpochParticipation: EpochParticipationFlags
-    previousEpochParticipation: EpochParticipationFlags
+    currentEpochParticipation: gloas.EpochParticipationFlags
+    previousEpochParticipation: gloas.EpochParticipationFlags
 
   PubkeyToIndexTable = Table[ValidatorPubKey, ValidatorIndex]
 
@@ -57,9 +57,9 @@ func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
     when consensusFork > ConsensusFork.Phase0:
       template flags: untyped = auxiliaryState.epochParticipationFlags
       flags.currentEpochParticipation =
-        forkyState.data.current_epoch_participation
+        forkyState.data.current_epoch_participation.asSeq
       flags.previousEpochParticipation =
-        forkyState.data.previous_epoch_participation
+        forkyState.data.previous_epoch_participation.asSeq
 
 from std/sequtils import allIt
 
@@ -194,7 +194,7 @@ func collectSlashings(
       state, total_balance)
 
   for index in 0 ..< state.validators.len:
-    let validator = unsafeAddr state.validators[index]
+    let validator = addr state.validators[index]
     if slashing_penalty_applies(validator[], epoch):
       rewardsAndPenalties[index].slashing_outcome +=
         get_slashing_penalty(
@@ -377,6 +377,11 @@ func collectFromAttestations(
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0.Gwei
+      let parent_slot =
+        when consensusFork >= ConsensusFork.Gloas:
+          forkyState.data.latest_execution_payload_bid.slot
+        else:
+          GENESIS_SLOT
       for attestation in forkyBlck.message.body.attestations:
         doAssert check_attestation(
           forkyState.data, attestation, {}, cache).isOk
@@ -384,11 +389,11 @@ func collectFromAttestations(
           if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              epochParticipationFlags.currentEpochParticipation)
+              epochParticipationFlags.currentEpochParticipation, parent_slot)
           else:
             get_proposer_reward(
               forkyState.data, attestation, base_reward_per_increment, cache,
-              epochParticipationFlags.previousEpochParticipation)
+              epochParticipationFlags.previousEpochParticipation, parent_slot)
         rewardsAndPenalties[forkyBlck.message.proposer_index]
           .proposer_outcome += proposerReward.int64
         let inclusionDelay = forkyState.data.slot - attestation.data.slot

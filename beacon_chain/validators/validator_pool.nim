@@ -643,13 +643,14 @@ proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
     await v.signData(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/validator.md#broadcast-aggregate
-proc getAggregateAndProofSignature*(v: AttachedValidator,
-                                    fork: Fork,
-                                    genesis_validators_root: Eth2Digest,
-                                    aggregate_and_proof: phase0.AggregateAndProof |
-                                                         electra.AggregateAndProof,
-                                   ): Future[SignatureResult]
-                                   {.async: (raises: [CancelledError]).} =
+proc getAggregateAndProofSignature*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    aggregate_and_proof:
+      phase0.AggregateAndProof | electra.AggregateAndProof |
+      gloas.AggregateAndProof,
+): Future[SignatureResult] {.async: (raises: [CancelledError]).} =
   case v.kind
   of ValidatorKind.Local:
     SignatureResult.ok(
@@ -848,3 +849,16 @@ proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
         v.data.privateKey).toValidatorSig())
   of ValidatorKind.Remote:
     return SignatureResult.err("ProposerPreferences: remote signing not yet supported")
+
+proc getBuilderRequestAuthSignature*(
+    v: AttachedValidator, genesis_fork_version: Version,
+    request_auth: BuilderRequestAuth):
+    Future[SignatureResult] {.async: (raises: [CancelledError]).} =
+  case v.kind
+  of ValidatorKind.Local:
+    SignatureResult.ok(
+      get_builder_request_auth_signature(
+        genesis_fork_version, request_auth,
+        v.data.privateKey).toValidatorSig())
+  of ValidatorKind.Remote:
+    return SignatureResult.err("RequestAuth: remote signing not yet supported")

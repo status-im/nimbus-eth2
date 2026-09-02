@@ -191,6 +191,12 @@ const
     "Some errors happened while validating contribution and proof(s)"
   ContributionAndProofValidationSuccess* =
     "Contribution and proof(s) was broadcast"
+  InvalidProposerPreferencesError* =
+    "Unable to decode proposer preferences message(s)"
+  ProposerPreferencesValidationError* =
+    "Some errors happened while validating proposer preferences"
+  ProposerPreferencesValidationSuccess* =
+    "Proposer preferences were broadcast"
   ProduceContributionError* =
     "Unable to produce contribution using the passed parameters"
   InternalServerError* =
@@ -248,14 +254,19 @@ const
     "v1/beacon/blocks, v1/beacon/blinded_blocks, and " &
     "v1/builder/states/{state_id}/expected_withdrawals have been removed: " &
     "https://github.com/ethereum/beacon-APIs/pull/549"
+  DeprecatedRemovalFulu* =
+    "v1/beacon/blob_sidecars/{block_id} and blob_sidecar EVENT removed: " &
+    "https://github.com/ethereum/beacon-APIs/pull/577"
+  DeprecatedRemovalNimbusGraffiti* =
+    "nimbus/v1/graffiti has been removed. For runtime graffiti updates, use " &
+    "standard Keymanager API endpoint /eth/v1/validator/{pubkey}/graffiti " &
+    "(https://ethereum.github.io/keymanager-APIs/)"
   BlockIncorrectFork* =
     "Block has incorrect fork"
   ValidatorNotActive* =
     "Validator inactive"
   BlocksUnavailable* =
     "Requested block slot is unavailable"
-  BlobsOutOfRange* =
-    "Requested slot is outside of blobs window"
   DataColumnsOutOfRange* =
     "Requested slot is outside of data columns window"
   InvalidBlsToExecutionChangeObjectError* =
@@ -278,10 +289,10 @@ const
     "Failed to obtain consensus fork information"
   FailedToObtainForkError* =
     "Failed to obtain fork information"
+  FailedToObtainHeaderBoolError* =
+    "Failed to obtain boolean from header"
   InvalidTimestampValue* =
     "Invalid or missing timestamp value"
-  InvalidBlobSidecarIndexValueError* =
-    "Invalid blob index"
   InvalidDataColumnSidecarIndexValueError* =
     "Invalid data column index"
   InvalidBroadcastValidationType* =
@@ -300,3 +311,15 @@ const
     "Invalid execution payload bid, it won't validate, so it's rejected"
   ExecutionPayloadBidValidationSuccess* =
     "The execution payload bid was validated successfully and has been broadcast"
+  ExecutionPayloadEnvelopeValidationError* =
+    "Invalid execution payload envelope, it won't validate, so it's rejected"
+  ExecutionPayloadEnvelopeValidationSuccess* =
+    "The execution payload envelope was validated successfully and has been broadcast"
+  MissingBeaconBlockError* =
+    "Missing block by the block_root/beacon_block_root"
+  MissingBlobsAndKzgProofsError* =
+    "Missing blobs and kzg_proofs"
+  PayloadAttestationValidationError* =
+    "Some errors happened while validating payload attestation message(s)"
+  PayloadAttestationValidationSuccess* =
+    "Payload attestation message object(s) was broadcast"

@@ -14,7 +14,7 @@ import
   ./rest_utils,
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, spec_cache, validator_change_pool],
-  ../spec/[forks, state_transition]
+  ../spec/[beaconstate, forks, state_transition, state_transition_epoch]
 
 export rest_utils
 
@@ -242,4 +242,105 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
       response,
       node.getBlockOptimistic(bdata),
       node.dag.isFinalized(bid)
+    )
+
+  # https://ethereum.github.io/beacon-APIs/#/Rewards/getAttestationsRewards
+  router.api2(
+    MethodPost, "/eth/v1/beacon/rewards/attestations/{epoch}") do (
+      epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      qepoch = epoch.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                         $error)
+
+      idents =
+        if contentBody.isSome():
+          decodeBody(seq[ValidatorIdent], contentBody.get()).valueOr:
+            return RestApiResponse.jsonError(
+              Http400, InvalidRequestBodyError, $error)
+        else:
+          default(seq[ValidatorIdent])
+
+    # `qepoch + 2` must not overflow when computing the state slot below
+    if qepoch >= MaxEpoch - 2:
+      return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+
+    # Attestation rewards for `epoch` are applied during the transition at the
+    # end of `epoch + 1`, so the pre-transition state at its last slot is needed.
+    let stateSlot = (qepoch + 2).start_slot() - 1
+    if stateSlot > node.dag.head.slot:
+      return RestApiResponse.jsonError(
+        Http404, StateNotFoundError,
+        "Requested epoch rewards are not available yet")
+
+    let bsi = node.dag.getBlockIdAtSlot(stateSlot).valueOr:
+      return RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+    var
+      cache = StateCache()
+      tmpState = assignClone(node.dag.headState)
+
+    if not updateState(
+      node.dag, tmpState[], bsi, false, cache, node.dag.updateFlags):
+        return RestApiResponse.jsonError(Http404, StateNotFoundError)
+
+    # An empty `selected` reports every eligible validator
+    var
+      selected: HashSet[ValidatorIndex]
+      keys: seq[ValidatorPubKey]
+    for item in idents:
+      case item.kind
+      of ValidatorQueryKind.Index:
+        let vindex = item.index.toValidatorIndex().valueOr:
+          case error
+          of ValidatorIndexError.TooHighValue:
+            return RestApiResponse.jsonError(
+              Http400, TooHighValidatorIndexValueError)
+          of ValidatorIndexError.UnsupportedValue:
+            return RestApiResponse.jsonError(
+              Http400, UnsupportedValidatorIndexValueError)
+        if uint64(vindex) >= lenu64(tmpState[].validators):
+          return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
+        selected.incl(vindex)
+      of ValidatorQueryKind.Key:
+        keys.add(item.key)
+
+    for optIndex in keysToIndices(node.restKeysCache, tmpState[], keys):
+      let vindex = optIndex.valueOr:
+        return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
+      selected.incl(vindex)
+
+    let response =
+      withState(tmpState[]):
+        when consensusFork >= ConsensusFork.Altair:
+          let rewards = get_attestation_rewards(
+            node.dag.cfg, forkyState.data, cache, node.dag.updateFlags,
+            selected)
+
+          var res: RestAttestationsRewards
+          for reward in rewards.ideal_rewards:
+            res.ideal_rewards.add RestIdealAttestationReward(
+              effective_balance: uint64(reward.effective_balance),
+              head: RestReward(reward.head),
+              target: RestReward(reward.target),
+              source: RestReward(reward.source),
+              # Ideal participation is never penalized for inactivity
+              inactivity: RestReward(0))
+          for reward in rewards.total_rewards:
+            res.total_rewards.add RestTotalAttestationReward(
+              validator_index: RestValidatorIndex(reward.validator_index),
+              head: RestReward(reward.head),
+              target: RestReward(reward.target),
+              source: RestReward(reward.source),
+              inactivity: RestReward(reward.inactivity))
+          res
+        else:
+          return RestApiResponse.jsonError(
+            Http400, UnsupportedForkError,
+            "Attestation rewards are not available before the Altair fork")
+
+    RestApiResponse.jsonResponseFinalized(
+      response,
+      node.getStateOptimistic(tmpState[]),
+      node.dag.isFinalized(bsi.bid)
     )

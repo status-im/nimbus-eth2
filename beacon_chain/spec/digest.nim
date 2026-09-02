@@ -1,11 +1,11 @@
 # beacon_chain
-# Copyright (c) 2018-2024 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 # Consensus hash function / digest
 #
@@ -132,7 +132,7 @@ template hash*(x: Eth2Digest): Hash =
   ## Hash for digests for Nim hash tables
   # digests are already good hashes
   var h {.noinit.}: Hash
-  copyMem(addr h, unsafeAddr x.data[0], static(sizeof(Hash)))
+  copyMem(addr h, addr x.data[0], static(sizeof(Hash)))
   h
 
 func `==`*(a, b: Eth2Digest): bool =
@@ -141,7 +141,7 @@ func `==`*(a, b: Eth2Digest): bool =
   else:
     # nimcrypto uses a constant-time comparison for all MDigest types which for
     # Eth2Digest is unnecessary - the type should never hold a secret!
-    equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
+    equalMem(addr a.data[0], addr b.data[0], sizeof(a.data))
 
 func isZero*(x: Eth2Digest): bool =
   var tmp {.noinit.}: uint64
@@ -151,6 +151,13 @@ func isZero*(x: Eth2Digest): bool =
     copyMem(addr tmp, addr x.data[i*sizeof(tmp)], sizeof(tmp))
     tmp2 = tmp2 or tmp
   tmp2 == 0
+
+func isZero*[N: static int](x: array[N, Eth2Digest]): bool =
+  static: doAssert N <= 32     # don't unroll too much
+  var nonzero = 0'u64
+  staticFor i, 0 ..< N:
+    nonzero = nonzero or uint64(not x[i].isZero)
+  nonzero == 0
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [IOError].} =
   w.writeValue $a

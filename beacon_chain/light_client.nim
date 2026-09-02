@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   metrics,
@@ -15,7 +15,7 @@ import
   ./spec/datatypes/altair,
   ./spec/helpers,
   ./sync/light_client_manager,
-  "."/[beacon_clock, conf_light_client]
+  ./[beacon_clock, conf_light_client]
 
 export LightClientFinalizationMode, eth2_network, conf_light_client
 

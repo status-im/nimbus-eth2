@@ -398,7 +398,7 @@ rm -rf "${DATA_DIR}/pids/*"
 mkdir -p "${DATA_DIR}/pids" "${DATA_DIR}/logs"
 
 scripts/makedir.sh "${DATA_DIR}"
-echo x > "${DATA_DIR}/keymanager-token"
+echo testToken > "${DATA_DIR}/keymanager-token"
 
 JWT_FILE="${DATA_DIR}/jwtsecret"
 echo "Generating JWT file '$JWT_FILE'..."
@@ -688,7 +688,7 @@ done
 
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
   log "Rebuilding binaries ${BINARIES}"
-  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:FIELD_ELEMENTS_PER_BLOB=4096" ${BINARIES}
+  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
@@ -1123,7 +1123,7 @@ for NUM_NODE in $(seq 1 "${NUM_NODES}"); do
     --udp-port=$(( BASE_PORT + NUM_NODE - 1 )) \
     --debug-tcp=${P2P_TCP_ENABLED} \
     --debug-quic=${P2P_QUIC_ENABLED} \
-    --debug-quic-port=$(( BASE_PORT + 2000 + NUM_NODE - 1 )) \
+    --quic-port=$(( BASE_PORT + 2000 + NUM_NODE - 1 )) \
     --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
@@ -1235,7 +1235,7 @@ if [ "$LC_NODES" -ge "1" ]; then
       --udp-port=$(( UDP_PORT ))  \
       --debug-tcp=${P2P_TCP_ENABLED} \
       --debug-quic=${P2P_QUIC_ENABLED} \
-      --debug-quic-port=$(( QUIC_PORT )) \
+      --quic-port=$(( QUIC_PORT )) \
       --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
       --nat="extip:127.0.0.1" \
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \

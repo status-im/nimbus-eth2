@@ -12,8 +12,7 @@ import
   stew/shims/hashes,
   eth/p2p/discoveryv5/random2,
   chronicles,
-  ../spec/[crypto, digest, forks],
-  ../spec/datatypes/altair
+  ../spec/[crypto, digest, forks]
 
 export hashes, sets, tables, altair
 
@@ -296,8 +295,8 @@ proc produceSyncAggregateAux(
   var
     aggregateSig {.noinit.}: AggregateSignature
     initialized = false
-    startTime = Moment.now
     aggregate: SyncAggregate
+  let startTime = Moment.now
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if contributions.subnets[subcommitteeIdx].totalParticipants == 0:
       continue

@@ -5,14 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import chronos, chronicles
 import
   ../spec/network,
   ../networking/eth2_network,
   ../beacon_clock,
-  "."/[light_client_sync_helpers, light_client_protocol, sync_manager]
+  ./[light_client_sync_helpers, light_client_protocol, sync_manager]
 export sync_manager
 
 logScope:
@@ -133,7 +133,8 @@ proc doRequest(
 ): Future[LightClientUpdatesByRangeResponse] {.async: (raises: [ResponseError, CancelledError]).} =
   let (startPeriod, count) = key
   doAssert count > 0 and count <= MAX_REQUEST_LIGHT_CLIENT_UPDATES
-  let response = await peer.lightClientUpdatesByRange(startPeriod, count)
+  let response = await peer.lightClientUpdatesByRange(
+    startPeriod, count, maxResponseItems = count.int)
   if response.isOk:
     let e = distinctBase(response.get)
       .checkLightClientUpdates(startPeriod, count)

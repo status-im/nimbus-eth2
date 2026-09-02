@@ -30,7 +30,7 @@ When building from source, you will need additional build dependencies to be ins
     sudo apt-get install build-essential git-lfs
 
     # Fedora
-    dnf install @development-tools
+    dnf install @development-tools gcc-g++
 
     # Arch Linux, using an AUR manager
     yourAURmanager -S base-devel git-lfs

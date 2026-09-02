@@ -80,8 +80,8 @@ cli do(
     true
 
   ChainDAGRef.preInit(db, genesisState[])
-  let rng = HmacDrbgContext.new()
-  var
+  let
+    rng = HmacDrbgContext.new()
     validatorMonitor = newClone(ValidatorMonitor.init(cfg))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     taskpool =
@@ -89,19 +89,21 @@ cli do(
         Taskpool.new()
       except Exception as exc:
         raiseAssert "Failed to initialize Taskpool: " & exc.msg
-    verifier = BatchVerifier.init(rng, taskpool)
-    quarantine = newClone(Quarantine.init(cfg))
-    attPool = AttestationPool.init(dag, quarantine)
+  var verifier = BatchVerifier.init(rng, taskpool)
+  let quarantine = newClone(Quarantine.init(cfg))
+  var attPool = AttestationPool.init(dag, quarantine)
+  let
     batchCrypto = BatchCrypto.new(
       rng, cfg.timeParams, eager,
       genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
         "working batcher")
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(rng, cfg)
+  var
     payloadAttestationPool = PayloadAttestationPool.init(dag)
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
-    tmpState = assignClone(dag.headState)
+  let tmpState = assignClone(dag.headState)
 
   let replayState = assignClone(dag.headState)
 
@@ -292,6 +294,7 @@ cli do(
 
       epb =
         when consensusFork >= ConsensusFork.Heze:
+          debugHezeComment "Heze inclusion_list_bits"
           let bid =
             heze.ExecutionPayloadBid(
               parent_block_hash: state.data.latest_block_hash,
@@ -305,12 +308,13 @@ cli do(
               slot: slot,
               value: 0.Gwei,
               execution_payment: 0.Gwei,
-              blob_kzg_commitments: default(KzgCommitments),
+              blob_kzg_commitments: default(gloas.KzgCommitments),
               execution_requests_root:
-                hash_tree_root(default(ExecutionRequests)))
+                hash_tree_root(default(gloas.ExecutionRequests)),
+              inclusion_list_bits: default(InclusionListBits))
           heze.SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
-        elif consensusFork == ConsensusFork.Gloas:
+        elif consensusFork >= ConsensusFork.Gloas:
           let bid =
             gloas.ExecutionPayloadBid(
               parent_block_hash: state.data.latest_block_hash,
@@ -324,9 +328,9 @@ cli do(
               slot: slot,
               value: 0.Gwei,
               execution_payment: 0.Gwei,
-              blob_kzg_commitments: default(KzgCommitments),
+              blob_kzg_commitments: default(gloas.KzgCommitments),
               execution_requests_root:
-                hash_tree_root(default(ExecutionRequests)))
+                hash_tree_root(default(gloas.ExecutionRequests)))
           gloas.SignedExecutionPayloadBid(
             message: bid, signature: ValidatorSig.infinity())
         else:
@@ -354,7 +358,7 @@ cli do(
         sync_aggregate,
         default(consensusFork.ExecutionPayloadForSigning),
         {},
-        default(ExecutionRequests),
+        default(consensusFork.ExecutionRequests),
         epb,
         payload_attestations
       ).expect("block")

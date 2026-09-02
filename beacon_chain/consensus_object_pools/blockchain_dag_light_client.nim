@@ -10,7 +10,7 @@
 import
   ../spec/forks,
   ../beacon_chain_db_light_client,
-  "."/[block_pools_types, blockchain_dag]
+  ./[block_pools_types, blockchain_dag]
 
 logScope: topics = "chaindag_lc"
 
@@ -110,6 +110,7 @@ proc initLightClientDataStore*(
     db: db,
     serve: config.serve,
     importMode: config.importMode,
+    importBackfill: config.importBackfill,
     maxPeriods: maxPeriods,
     onLightClientFinalityUpdate: config.onLightClientFinalityUpdate,
     onLightClientOptimisticUpdate: config.onLightClientOptimisticUpdate)
@@ -743,51 +744,12 @@ proc initLightClientDataForPeriod(
     dag.lcDataStore.db.sealPeriod(period)
   ok()
 
-proc initLightClientDataCache*(dag: ChainDAGRef) =
-  ## Initialize cached light client data
-  if not dag.shouldImportLcData:
-    return
-
-  # Initialize tail slot.
-  # Both state and blocks must be available to construct light client data,
-  # see `cacheLightClientData`. If blocks are unavailable, most parts of the
-  # `LightClientHeader` could be reconstructed from the corresponding post-state
-  # but `execution_branch` (since Capella) requires full block availability.
-  # If the assumed-to-be-available range of states / blocks turns out to be
-  # actually unavailable (database inconsistencies), the `tailSlot` will adjust
-  # using `handleUnexpectedLightClientError`. This is unexpected and is logged,
-  # but recoverable by excluding the unavailable range from LC data collection.
-  let targetTailSlot = max(
-    # User configured horizon
-    dag.targetLightClientTailSlot,
-    max(
-      # State availability, needed for `cacheLightClientData`
-      dag.tail.slot,
-      # Block availability, needed for `LightClientHeader.execution_branch`
-      dag.backfill.slot))
-
-  dag.lcDataStore.cache.tailSlot = max(dag.head.slot, targetTailSlot)
-  if dag.head.slot < dag.lcDataStore.cache.tailSlot:
-    return
-
-  # Import light client data for finalized period through finalized head
-  let
-    finalizedSlot = max(dag.finalizedHead.blck.slot, targetTailSlot)
-    finalizedPeriod = finalizedSlot.sync_committee_period
-  var res =
-    if dag.lcDataStore.importMode == LightClientDataImportMode.OnlyNew:
-      Opt[void].ok()
-    elif finalizedSlot >= dag.lcDataStore.cache.tailSlot:
-      Opt[void].ok()
-    else:
-      dag.lcDataStore.cache.tailSlot = finalizedSlot
-      dag.initLightClientDataForPeriod(finalizedPeriod)
-
-  let lightClientStartTick = Moment.now()
-  logScope:
-    lightClientDataMaxPeriods = dag.lcDataStore.maxPeriods
-    importMode = dag.lcDataStore.importMode
-  debug "Initializing cached LC data", res, targetTailSlot
+proc loadHead(dag: ChainDAGRef, head: BlockRef): Opt[void] =
+  ## Initialize light client data for a given head's non-finalized blocks.
+  let tailSlot = dag.lcDataStore.cache.tailSlot
+  if head.slot < tailSlot:
+    return ok()
+  result.ok()
 
   proc isSyncAggregateCanonical(
       dag: ChainDAGRef, state: ForkyHashedBeaconState,
@@ -809,33 +771,39 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   # Build list of blocks to process.
   # As it is slow to load states in descending order,
   # build a reverse todo list to then process them in ascending order
-  let tailSlot = dag.lcDataStore.cache.tailSlot
   var
-    blocks = newSeqOfCap[BlockId](dag.head.slot - tailSlot + 1)
-    bid = dag.head.bid
+    blocks = newSeqOfCap[BlockId](head.slot - tailSlot + 1)
+    bid = head.bid
   while bid.slot > tailSlot:
     blocks.add bid
+    if bid in dag.lcDataStore.cache.data:
+      break
     bid = dag.existingParent(bid).valueOr:
       dag.handleUnexpectedLightClientError(bid.slot)
-      res.err()
+      result.err()
       break
   if bid.slot == tailSlot:
     blocks.add bid
 
-  # Process blocks (reuses `dag.headState`, but restores it to the current head)
+  # Process blocks (reuses `dag.clearanceState`)
   var cache: StateCache
-  for i in countdown(blocks.high, blocks.low):
+  let startIndex =
+    if blocks[^1] in dag.lcDataStore.cache.data:
+      blocks.high - 1
+    else:
+      blocks.high
+  for i in countdown(startIndex, 0):
     bid = blocks[i]
     if not dag.updateExistingState(
-        dag.headState, bid.atSlot(), save = false, cache):
+        dag.clearanceState, bid.atSlot(), save = false, cache):
       dag.handleUnexpectedLightClientError(bid.slot)
-      res.err()
+      result.err()
       continue
     let bdata = dag.getExistingForkedBlock(bid).valueOr:
       dag.handleUnexpectedLightClientError(bid.slot)
-      res.err()
+      result.err()
       continue
-    withStateAndBlck(dag.headState, bdata):
+    withStateAndBlck(dag.clearanceState, bdata):
       when consensusFork >= ConsensusFork.Altair:
         if i == blocks.high:
           let
@@ -864,6 +832,64 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
           dag.createLightClientUpdate(
             forkyState, forkyBlck, parentBid = blocks[i + 1])
       else: raiseAssert "Unreachable"
+
+proc initLightClientDataCache*(dag: ChainDAGRef) =
+  ## Initialize cached light client data
+  if not dag.shouldImportLcData:
+    return
+
+  # Initialize tail slot.
+  # Both state and blocks must be available to construct light client data,
+  # see `cacheLightClientData`. If blocks are unavailable, most parts of the
+  # `LightClientHeader` could be reconstructed from the corresponding post-state
+  # but `execution_branch` (since Capella) requires full block availability.
+  # If the assumed-to-be-available range of states / blocks turns out to be
+  # actually unavailable (database inconsistencies), the `tailSlot` will adjust
+  # using `handleUnexpectedLightClientError`. This is unexpected and is logged,
+  # but recoverable by excluding the unavailable range from LC data collection.
+  let targetTailSlot = max(
+    # User configured horizon
+    dag.targetLightClientTailSlot,
+    max(
+      # State availability, needed for `cacheLightClientData`
+      dag.tail.slot,
+      # Block availability, needed for `LightClientHeader.execution_branch`
+      dag.backfill.slot))
+
+  var maxHeadSlot = dag.head.slot
+  for additionalHead in dag.heads:
+    if additionalHead.slot > maxHeadSlot:
+      maxHeadSlot = additionalHead.slot
+
+  dag.lcDataStore.cache.tailSlot = max(maxHeadSlot, targetTailSlot)
+  if maxHeadSlot < dag.lcDataStore.cache.tailSlot:
+    return
+
+  # Import light client data for finalized period through finalized head
+  let
+    finalizedSlot = max(dag.finalizedHead.blck.slot, targetTailSlot)
+    finalizedPeriod = finalizedSlot.sync_committee_period
+  var res =
+    if dag.lcDataStore.importMode == LightClientDataImportMode.OnlyNew:
+      Opt[void].ok()
+    elif finalizedSlot >= dag.lcDataStore.cache.tailSlot:
+      Opt[void].ok()
+    else:
+      dag.lcDataStore.cache.tailSlot = finalizedSlot
+      dag.initLightClientDataForPeriod(finalizedPeriod)
+
+  let lightClientStartTick = Moment.now()
+  logScope:
+    lightClientDataMaxPeriods = dag.lcDataStore.maxPeriods
+    importMode = dag.lcDataStore.importMode
+  debug "Initializing cached LC data", res, targetTailSlot
+
+  # Import non-finalized light client data (reuses `dag.clearanceState`)
+  if dag.loadHead(dag.head).isErr:
+    res.err()
+  for additionalHead in dag.heads:
+    if dag.loadHead(additionalHead).isErr:
+      res.err()
 
   # Import initial `LightClientBootstrap`
   if dag.finalizedHead.slot >= dag.lcDataStore.cache.tailSlot:
@@ -1052,10 +1078,12 @@ proc getLightClientBootstrap(
   # Ensure `current_sync_committee_branch` is known
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand and
       not dag.hasCurrentSyncCommitteeBranch(slot):
-    let
-      bsi = dag.getExistingBlockIdAtSlot(slot).valueOr:
-        return default(ForkedLightClientBootstrap)
-      tmpState = assignClone(dag.headState)
+    let bsi = dag.getExistingBlockIdAtSlot(slot).valueOr:
+      return default(ForkedLightClientBootstrap)
+    if bsi.bid.root != blockRoot:
+      debug "LC bootstrap unavailable: Not canonical", blockRoot
+      return default(ForkedLightClientBootstrap)
+    let tmpState = assignClone(dag.headState)
     dag.withUpdatedExistingState(tmpState[], bsi) do:
       withState(updatedState):
         when consensusFork >= ConsensusFork.Altair:

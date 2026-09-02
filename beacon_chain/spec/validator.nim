@@ -10,7 +10,7 @@
 
 import
   std/algorithm,
-  "."/[crypto, helpers]
+  ./[crypto, helpers]
 from std/sequtils import mapIt
 from std/math import `^`
 export helpers
@@ -461,7 +461,7 @@ func compute_proposer_indices*(
 
   proposerIndices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-compute_balance_weighted_selection
 iterator compute_balance_weighted_selection*(
     state: gloas.BeaconState | heze.BeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest, size: uint64,
@@ -560,18 +560,25 @@ func get_beacon_proposer_index*(
       return res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/fulu/beacon-chain.md#new-get_beacon_proposer_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-get_beacon_proposer_indices
 func get_beacon_proposer_indices*(
-    state: ForkyBeaconState, epoch: Epoch
-): seq[Opt[ValidatorIndex]] =
+    state: electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
+           heze.BeaconState, epoch: Epoch): seq[Opt[ValidatorIndex]] =
   ## Return the proposer indices for the given `epoch`.
-  let indices = get_active_validator_indices(state, epoch)
   let seed = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER)
 
   debugGloasComment "temporary workaround for Gloas"
   when typeof(state).kind >= ConsensusFork.Gloas:
+    # [Modified in Gloas:EIP8045] Build the active-and-unslashed candidate
+    # set in a single pass, avoiding a second copy of the active indices.
+    var indices = newSeqOfCap[ValidatorIndex](state.validators.len)
+    for vidx in get_active_validator_indices(state, epoch):
+      if not state.validators[vidx].slashed:
+        indices.add vidx
     let proposers = compute_proposer_indices(state, epoch, seed, indices)
     proposers.mapIt(Opt.some(it))
   else:
+    let indices = get_active_validator_indices(state, epoch)
     compute_proposer_indices(state, epoch, seed, indices)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
@@ -602,33 +609,29 @@ func get_beacon_proposer_indices*(
     # function does not require shuffled indices post Fulu
     get_beacon_proposer_indices(state, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
-func is_valid_proposal_slot*(
-    state: gloas.BeaconState | heze.BeaconState,
-    slot: Slot, validator_index: uint64): bool =
-  ## Check if the validator is the proposer for the given slot in the current or
-  ## next epoch.
-  let start_slot = state.get_current_epoch().start_slot()
-  if slot < start_slot or
-      slot - start_slot >= state.proposer_lookahead.lenu64:
-    return false
-  state.proposer_lookahead.item(slot - start_slot) == validator_index
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#broadcasting-signedproposerpreferences
+# The signature of this function diverges from the spec to avoid
+# passing the full beacon state through an inline iterator which
+# triggers stack-materialization of the enclosing case object.
+# https://github.com/nim-lang/Nim/issues/25287
+# https://github.com/nim-lang/Nim/issues/25694
 iterator get_upcoming_proposal_slots*(
-    state: gloas.BeaconState | heze.BeaconState,
+    proposer_lookahead:
+      HashArray[Limit((MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH), uint64],
+    current_epoch: Epoch,
+    state_slot: Slot,
     validator_index: uint64): Slot =
-  ## Yield the future slots in the current epoch and the slots in the next
-  ## epoch for which ``validator_index`` is proposing.
+  ## Get the future slots within the proposer lookahead for which
+  ## ``validator_index`` is proposing.
   const total_slots = (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH
   for offset in 0'u64 ..< total_slots:
-    if state.proposer_lookahead.item(offset) == validator_index:
+    if proposer_lookahead.item(offset) == validator_index:
       let
         epoch_offset = offset div SLOTS_PER_EPOCH
         slot_in_epoch = offset mod SLOTS_PER_EPOCH
-        slot = (state.get_current_epoch() + epoch_offset).start_slot +
+        slot = (current_epoch + epoch_offset).start_slot +
           slot_in_epoch
-      if slot > state.slot:
+      if slot > state_slot:
         yield slot
 
 func initialize_proposer_lookahead*(state: electra.BeaconState,
@@ -719,6 +722,51 @@ func livenessFailsafeInEffect*(
 
   false
 
+func payloadFailSafeInEffect*(
+    execution_payload_availability: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)],
+    block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
+    slot: Slot): bool =
+  ## Gloas counterpart to `livenessFailSafeInEffect`. A withheld
+  ## payload costs a payload rather than a block
+  const
+    MAX_MISSING_CONTIGUOUS = 3
+    MAX_MISSING_WINDOW = 8
+
+  static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGUOUS
+  if slot <= MAX_MISSING_CONTIGUOUS:
+    return false
+
+  let
+    faultInspectionWindow = min(distinctBase(slot) - 1, SLOTS_PER_EPOCH)
+    baseIndex = (slot + SLOTS_PER_HISTORICAL_ROOT - faultInspectionWindow) mod
+      SLOTS_PER_HISTORICAL_ROOT
+    endIndex = baseIndex + faultInspectionWindow - 1
+
+  var
+    totalMissing = 0
+    streakLen = 0
+    previousPayloadMissing = false
+
+  for i in baseIndex .. endIndex:
+    let
+      prev = (i mod SLOTS_PER_HISTORICAL_ROOT).int
+      cur = ((i + 1) mod SLOTS_PER_HISTORICAL_ROOT).int
+    if block_roots[cur] == block_roots[prev]:
+      continue    # empty slot, no payload was promised
+
+    if previousPayloadMissing:    # a later block exists
+      totalMissing += 1
+      if totalMissing > MAX_MISSING_WINDOW:
+        return true
+      streakLen += 1
+      if streakLen > MAX_MISSING_CONTIGUOUS:
+        return true
+    else:
+      streakLen = 0
+    previousPayloadMissing = not execution_payload_availability[cur]
+
+  false
+
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
 func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
     SubnetId =
@@ -775,10 +823,9 @@ proc compute_on_chain_aggregate*(
     totalLen = 0
   for i, a in aggregates:
     let committee_index = ? get_committee_index_one(a.committee_bits)
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     totalLen += a.aggregation_bits.len
@@ -786,7 +833,7 @@ proc compute_on_chain_aggregate*(
   prev_committee_index.reset()
 
   var
-    aggregation_bits = AggregationBits.init(totalLen)
+    aggregation_bits = gloas.AggregationBits.init(totalLen)
     pos = 0
     filledLen = 0
   for i, a in aggregates:
@@ -794,10 +841,9 @@ proc compute_on_chain_aggregate*(
       committee_index = ? get_committee_index_one(a.committee_bits)
       first = pos == 0
 
-    if prev_committee_index.isNone:
-      prev_committee_index = Opt.some committee_index
-    elif committee_index.distinctBase <= prev_committee_index.get.distinctBase:
-      continue
+    prev_committee_index.isErrOr:
+      if committee_index.distinctBase <= value.distinctBase:
+        continue
     prev_committee_index = Opt.some committee_index
 
     for b in a.aggregation_bits:
@@ -818,7 +864,7 @@ proc compute_on_chain_aggregate*(
   let signature = agg.finish()
 
   ok electra.Attestation(
-      aggregation_bits: aggregation_bits,
+      aggregation_bits: toElectraAggregationBits(aggregation_bits),
       data: data,
       committee_bits: committee_bits,
       signature: signature.toValidatorSig(),

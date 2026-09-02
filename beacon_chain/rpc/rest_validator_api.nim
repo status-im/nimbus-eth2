@@ -9,13 +9,13 @@
 
 import std/[typetraits, sets, sequtils]
 import stew/base10, chronicles
-import ".."/[beacon_chain_db, beacon_node],
-       ".."/networking/eth2_network,
-       ".."/consensus_object_pools/[blockchain_dag, spec_cache,
-                                    attestation_pool, sync_committee_msg_pool],
-       ".."/validators/[beacon_validators, block_payloads],
-       ".."/spec/[beaconstate, forks, network, state_transition_block],
-       "."/[rest_utils, state_ttl_cache]
+import ../[beacon_chain_db, beacon_node],
+       ../networking/eth2_network,
+       ../consensus_object_pools/[blockchain_dag, spec_cache,
+                                  attestation_pool, sync_committee_msg_pool],
+       ../validators/[beacon_validators, block_payloads],
+       ../spec/[beaconstate, forks, network, state_transition_block],
+       ./[rest_utils, state_ttl_cache]
 
 export rest_utils
 
@@ -160,6 +160,59 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.jsonResponseWRoot(
       duties, epochRef.proposer_dependent_root, optimistic)
+
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getProposerDutiesV2
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/duties/proposer.v2.yaml
+  router.api2(MethodGet, "/eth/v2/validator/duties/proposer/{epoch}") do (
+    epoch: Epoch) -> RestApiResponse:
+    let qepoch =
+      block:
+        if epoch.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           $epoch.error())
+        let
+          res = epoch.get()
+          wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+          wallEpoch = wallTime.slotOrZero(node.dag.timeParams).epoch
+        if res > wallEpoch + 1:
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                        "Cannot request duties past next epoch")
+        res
+    let qhead =
+      block:
+        let res = node.getSyncedHead(qepoch)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                           $res.error())
+        res.get()
+    let epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
+      return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+
+    let duties =
+      block:
+        var res: seq[RestProposerDuty]
+        for i, bp in epochRef.beacon_proposers:
+          if i == 0 and qepoch == 0:
+            # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
+            # Slot(0) at Epoch(0) do not have a proposer.
+            continue
+
+          if bp.isSome():
+            res.add(
+              RestProposerDuty(
+                pubkey: node.dag.validatorKey(bp.get()).get().toPubKey(),
+                validator_index: bp.get(),
+                slot: qepoch.start_slot() + i
+              )
+            )
+        res
+
+    let optimistic = node.getShufflingOptimistic(
+      epochRef.shufflingRef.attester_dependent_slot,
+      epochRef.shufflingRef.attester_dependent_root)
+
+    RestApiResponse.jsonResponseWRoot(
+      duties, epochRef.shufflingRef.attester_dependent_root, optimistic)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
   router.api2(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
@@ -312,6 +365,93 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.jsonError(Http404, StateNotFoundError)
 
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/duties/ptc.yaml
+  router.api2(MethodPost, "/eth/v1/validator/duties/ptc/{epoch}") do (
+    epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      indexList =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                            InvalidValidatorIndexValueError,
+                                            $dres.error())
+          var res: HashSet[ValidatorIndex]
+          let items = dres.get()
+          for item in items:
+            let vres = item.toValidatorIndex()
+            if vres.isErr():
+              case vres.error()
+              of ValidatorIndexError.TooHighValue:
+                return RestApiResponse.jsonError(Http400,
+                                                TooHighValidatorIndexValueError)
+              of ValidatorIndexError.UnsupportedValue:
+                return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+            res.incl(vres.get())
+          if len(res) == 0:
+            return RestApiResponse.jsonError(Http400,
+                                            EmptyValidatorIndexArrayError)
+          res
+      qepoch =
+        block:
+          if epoch.isErr():
+            return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                            $epoch.error())
+          let
+            res = epoch.get()
+            wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+            wallEpoch = wallTime.slotOrZero(node.dag.timeParams).epoch
+          if res > wallEpoch + 1:
+            return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                        "Cannot request duties past next epoch")
+          res
+    if node.dag.cfg.consensusForkAtEpoch(qepoch) < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400,
+                                       EpochFromTheIncorrectForkError)
+    let
+      qhead =
+        block:
+          let res = node.getSyncedHead(qepoch)
+          if res.isErr():
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                            $res.error())
+          res.get()
+
+      shufflingRef = node.dag.getShufflingRef(qhead, qepoch, true).valueOr:
+        return RestApiResponse.jsonError(Http400, PrunedStateError)
+
+      duties =
+        block:
+          var res: seq[RestPtcDuty]
+          withState(node.dag.headState):
+            when consensusFork >= ConsensusFork.Gloas:
+              for slot in qepoch.slots():
+                var seen: HashSet[ValidatorIndex]
+                for validator_index in get_ptc(forkyState.data, slot):
+                  if validator_index notin indexList or
+                      seen.containsOrIncl(validator_index):
+                    continue
+                  node.dag.validatorKey(validator_index).isErrOr:
+                    res.add(
+                      RestPtcDuty(
+                        pubkey: value.toPubKey(),
+                        validator_index: validator_index,
+                        slot: slot))
+            else:
+              # Don't return inaccurate/misleading empty duties
+              return RestApiResponse.jsonError(Http503, StateNotFoundError)
+          res
+
+      optimistic = node.getShufflingOptimistic(
+        shufflingRef.attester_dependent_slot,
+        shufflingRef.attester_dependent_root)
+
+    RestApiResponse.jsonResponseWRoot(
+      duties, shufflingRef.attester_dependent_root, optimistic)
+
   router.api2(MethodGet, "/eth/v1/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
@@ -459,17 +599,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           state = node.dag.getProposalState(qhead, qslot, cache[]).valueOr:
             return RestApiResponse.jsonError(
               Http500, "Proposal state is not available")
-          engineBid = (await node.getExecutionPayload(
-              consensusFork, qhead, state, proposer,
-              node.dag.validatorKey(proposer).get().toPubKey())).valueOr:
-            return RestApiResponse.jsonError(Http500,
-              "Engine payload is not available")
-          message = (node.makeEngineBlock(
-              consensusFork, state[].forky(consensusFork), cache[],
-              proposer, qrandao, qgraffiti, qhead, qslot,
-              engineBid.eps, engineBid.execution_requests)).valueOr:
-            return RestApiResponse.jsonError(
-              Http500, "Engine block production failed: " & error)
+          engineBid = block:
+            (await node.getExecutionPayload(
+                consensusFork, qhead, state, proposer,
+                node.dag.validatorKey(proposer).get().toPubKey(),
+                false)).valueOr:
+              return RestApiResponse.jsonError(Http500,
+                "Engine payload is not available")
+          message = block:
+            (node.makeEngineBlock(
+                consensusFork, state[].forky(consensusFork), cache[],
+                proposer, qrandao, qgraffiti, qhead, qslot,
+                engineBid.eps, engineBid.execution_requests,
+                default(consensusFork.ExecutionRequests), {})).valueOr:
+              return RestApiResponse.jsonError(
+                Http500, "Engine block production failed: " & error)
           blockContents = electra.BlockContents(
             `block`: message.blck,
             kzg_proofs: message.blobsBundle.proofs,
@@ -494,7 +638,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(
           Http500, "Unsupported fork for block production: " & $consensusFork)
 
-  # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/attestation_data.yaml
   router.api2(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
@@ -524,20 +668,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Http400, InvalidSlotValueError,
             "Slot cannot be more than an epoch in the past")
 
-        let qindex =
-          block:
-            if committee_index.isNone():
-              return RestApiResponse.jsonError(Http400,
-                                               MissingCommitteeIndexValueError)
-            let res = committee_index.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidCommitteeIndexValueError,
-                                               $res.error())
-            if node.dag.cfg.consensusForkAtEpoch(qslot.epoch) >= ConsensusFork.Electra:
-              0.CommitteeIndex
-            else:
-              res.get()
         let qhead =
           block:
             let res = node.getSyncedHead(qslot)
@@ -556,9 +686,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   Http503, BeaconNodeInSyncError)
               qbs.blck
 
-        let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
-          return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
-        makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
+        let
+          epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
+            return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
+          attestationHead = qhead.atSlot(qslot)
+        makeAttestationData(
+          epochRef, attestationHead,
+          node.dag.attestationDataIndex(attestationHead.blck, qslot))
     RestApiResponse.jsonResponse(adata)
 
   router.api2(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
@@ -606,13 +740,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let
       qfork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
       forked =
-        if qfork >= ConsensusFork.Electra:
-          let electra_attestation =
+        if qfork >= ConsensusFork.Gloas:
+          let attestation =
+            node.attestationPool[].getGloasAggregatedAttestation(
+              qslot, root, committee_index).valueOr:
+              return RestApiResponse.jsonError(Http404,
+                UnableToGetAggregatedAttestationError)
+          ForkedAttestation.init(attestation, qfork)
+        elif qfork >= ConsensusFork.Electra:
+          let attestation =
             node.attestationPool[].getElectraAggregatedAttestation(
               qslot, root, committee_index).valueOr:
               return RestApiResponse.jsonError(Http404,
                 UnableToGetAggregatedAttestationError)
-          ForkedAttestation.init(electra_attestation, qfork)
+          ForkedAttestation.init(attestation, qfork)
         else:
           return RestApiResponse.jsonError(Http404,
             UnableToGetAggregatedAttestationError)
@@ -650,8 +791,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          UnsupportedForkError,
                                          $UnsupportedForkError)
-      of ConsensusFork.Electra .. ConsensusFork.Heze:
+      of ConsensusFork.Electra .. ConsensusFork.Fulu:
         addDecodedProofs(electra.SignedAggregateAndProof)
+      of ConsensusFork.Gloas .. ConsensusFork.Heze:
+        addDecodedProofs(gloas.SignedAggregateAndProof)
 
     await allFutures(proofs)
     for future in proofs:
@@ -949,6 +1092,31 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.response(Http200)
 
+  # https://github.com/ethereum/beacon-APIs/blob/31140d7d11fa0bf9aa0017c67c54ab5b1809bede/apis/validator/proposer_preferences.yaml
+  router.api2(MethodPost,
+              "/eth/v1/validator/submit_proposer_preferences") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+    let
+      preferences = decodeBodyJsonOrSsz(seq[SignedProposerPreferences],
+                                        contentBody.get()).valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidProposerPreferencesError)
+      pending = preferences.mapIt(node.router.routeProposerPreferences(it))
+
+    var failures: seq[RestIndexedErrorMessageItem]
+    for index, future in pending:
+      let res = await future
+      if res.isErr():
+        failures.add(RestIndexedErrorMessageItem(
+          index: index, message: $res.error()))
+
+    if len(failures) > 0:
+      RestApiResponse.jsonErrorList(
+        Http400, ProposerPreferencesValidationError, failures)
+    else:
+      RestApiResponse.jsonMsgResponse(ProposerPreferencesValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/getLiveness
   router.api2(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -1039,3 +1207,42 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # middleware can handle and swallow the request. I suggest a CL either
     # returns 501 Not Implemented [or] 400 Bad Request."
     RestApiResponse.jsonError(Http501, AggregationSelectionNotImplemented)
+
+  # https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/validator/payload_attestation_data.yaml
+  router.api2(MethodGet, "/eth/v1/validator/payload_attestation_data/{slot}") do (
+    slot: Slot) -> RestApiResponse:
+    let
+      contentType = preferredContentType(jsonMediaType, sszMediaType).valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      qslot = block:
+        if slot.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           $slot.error())
+        slot.get()
+      consensusFork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
+    if consensusFork < ConsensusFork.Gloas:
+      return RestApiResponse.jsonError(Http400, UnsupportedForkError,
+                                       $UnsupportedForkError)
+
+    let
+      qhead = node.getSyncedHead(qslot).valueOr:
+        return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                         $error)
+      blck = qhead.atSlot(qslot).blck
+    if blck.slot != qslot:
+      return RestApiResponse.jsonError(Http400, BlockNotFoundError)
+
+    let pdata = PayloadAttestationData(
+      beacon_block_root: blck.root,
+      slot: qslot,
+      payload_present: node.checkPayloadPresent(blck),
+      blob_data_available: node.checkBlobDataAvailable(blck))
+
+    if contentType == sszMediaType:
+      RestApiResponse.sszResponse(
+        pdata, consensusFork, node.hasRestAllowedOrigin)
+    elif contentType == jsonMediaType:
+      RestApiResponse.jsonResponseWVersion(
+        pdata, consensusFork, node.hasRestAllowedOrigin)
+    else:
+      RestApiResponse.jsonError(Http500, InvalidAcceptError)

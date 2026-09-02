@@ -8,15 +8,9 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronos, presto/client, chronicles,
-  ".."/".."/validators/slashing_protection_common,
-  ".."/[helpers, forks, keystore, eth2_ssz_serialization],
-  "."/[rest_types, rest_common, eth2_rest_serialization]
-
-from ../mev/bellatrix_mev import SignedBlindedBeaconBlock
-from ../mev/capella_mev import SignedBlindedBeaconBlock
-from ../mev/deneb_mev import SignedBlindedBeaconBlock
-from ../datatypes/gloas import SignedExecutionPayloadEnvelope
+  chronos, presto/client,
+  ../[forks, eth2_ssz_serialization],
+  ./[rest_types, rest_common, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -65,6 +59,14 @@ proc getStateValidatorsPlain*(
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
+
+proc postStateValidatorsPlain*(
+    state_id: StateIdent,
+    body: RestValidatorRequest
+): RestPlainResponse {.
+    rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
+    meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidators
 
 proc getStateValidatorPlain*(state_id: StateIdent,
                         validator_id: ValidatorIdent
@@ -247,58 +249,6 @@ proc publishSszBlockV2*(
     restContentType = $OctetStreamMediaType,
     extraHeaders = @[("eth-consensus-version", consensus)])
 
-proc publishBlindedBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: bellatrix_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: deneb_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: electra_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishBlindedBlock*(body: fulu_mev.SignedBlindedBeaconBlock):
-       RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-
-proc publishSszBlindedBlock*(
-    client: RestClientRef,
-    blck: ForkySignedBeaconBlock
-): Future[RestPlainResponse] {.
-   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
-                    RestCommunicationError], raw: true).} =
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
-  let consensus = typeof(blck).kind.toString()
-  client.publishBlindedBlock(
-    blck, restContentType = $OctetStreamMediaType,
-    extraHeaders = @[("eth-consensus-version", consensus)])
-
 proc publishBlindedBlockV2*(
     broadcast_validation: Option[BroadcastValidationType],
     body: electra_mev.SignedBlindedBeaconBlock
@@ -440,6 +390,35 @@ proc submitPoolAttestations2Ssz*[T: ForkyAttestation](
     restContentType = $OctetStreamMediaType,
     extraHeaders = @[("eth-consensus-version", fork.toString())])
 
+proc submitPoolPayloadAttestationsPlain*(
+    body: seq[PayloadAttestationMessage]
+): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/pool/payload_attestations",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPayloadAttestationMessages
+
+proc submitPoolPayloadAttestations*(
+    client: RestClientRef,
+    fork: ConsensusFork,
+    body: seq[PayloadAttestationMessage]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  client.submitPoolPayloadAttestationsPlain(
+    body, extraHeaders = @[("eth-consensus-version", fork.toString())])
+
+proc submitPoolPayloadAttestationsSsz*(
+    client: RestClientRef,
+    fork: ConsensusFork,
+    body: seq[PayloadAttestationMessage]
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  client.submitPoolPayloadAttestationsPlain(
+    body,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[("eth-consensus-version", fork.toString())])
+
 proc getPoolAttesterSlashingsV2Plain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/pool/attester_slashings",
      meth: MethodGet.}
@@ -473,10 +452,10 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
 
 proc getExecutionPayloadEnvelopePlain*(block_id: BlockIdent): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/execution_payload_envelope/{block_id}",
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes/{block_id}",
      accept: preferSSZ,
      meth: MethodGet.}
-  ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.0/apis/beacon/execution_payload/envelope_get.yaml
+  ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
 
 proc getExecutionPayloadEnvelope*(
     client: RestClientRef, block_id: BlockIdent):

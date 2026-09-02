@@ -11,12 +11,15 @@ import
   std/sequtils,
   chronicles,
   metrics,
-  ../spec/[network, peerdas_helpers],
+  ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
   ../spec/datatypes/deneb
+
+from ../spec/column_map import contains
+
 export eth2_processor, eth2_network
 
 logScope:
@@ -63,10 +66,10 @@ type
 
   SomeSidecarsToRoute =
     seq[BlobSidecar] |
-    seq[fulu.DataColumnSidecar]
+    fulu.DataColumnSidecars
 
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars]
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecarsForImport]
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # When routing messages from REST, it's possible that these have already
@@ -144,13 +147,13 @@ proc publishRouteBlock(
 proc publishSidecars(
     router: ref MessageRouter,
     _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]]
+    sidecarsOpt: Opt[gloas.DataColumnSidecars]
 ): Future[Opt[gloas.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
   let cols = sidecarsOpt.get()
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
-    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    let subnet = compute_subnet_for_data_column_sidecar(dc[].index)
     workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
 
   let resAll = await allFinished(workers)
@@ -160,33 +163,24 @@ proc publishSidecars(
     doAssert r.finished()
     if r.failed():
       notice "Data column not sent",
-        data_column = shortLog(cols[i]), error = r.error[]
+        data_column = shortLog(cols[i][]), error = r.error[]
     else:
       notice "Data column sent",
-        data_column = shortLog(cols[i])
+        data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: gloas.DataColumnSidecars
-  for dc in cols:
-    if dc.index in allowed:
-      finalCols.add newClone(dc)
-
-  Opt.some(finalCols)
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.gloasColumnQuarantine[].custodyMap))
 
 proc publishSidecars(
     router: ref MessageRouter,
     _: fulu.SignedBeaconBlock,
-    cols: seq[fulu.DataColumnSidecar]
-): Future[Opt[fulu.DataColumnSidecars]] {.async: (raises: [CancelledError]).} =
+    cols: fulu.DataColumnSidecars
+): Future[Opt[fulu.DataColumnSidecarsForImport]] {.
+    async: (raises: [CancelledError]).} =
   var workers = newSeq[Future[SendResult]](len(cols))
 
   for i, dc in cols:
-    let subnet = compute_subnet_for_data_column_sidecar(dc.index)
+    let subnet = compute_subnet_for_data_column_sidecar(dc[].index)
     workers[i] = router[].network.broadcastDataColumnSidecar(subnet, dc)
 
   let resAll = await allFinished(workers)
@@ -196,23 +190,15 @@ proc publishSidecars(
     doAssert r.finished()
     if r.failed():
       notice "Data column not sent",
-        data_column = shortLog(cols[i]), error = r.error[]
+        data_column = shortLog(cols[i][]), error = r.error[]
     else:
       notice "Data column sent",
-        data_column = shortLog(cols[i])
+        data_column = shortLog(cols[i][])
 
-  # Custody filtering
-  let metadata = router[].network.metadata.custody_group_count
-  let allowed =
-    router[].network.cfg.resolve_columns_from_custody_groups(
-      router[].network.nodeId, metadata)
-
-  var finalCols: fulu.DataColumnSidecars
-  for dc in cols:
-    if dc.index in allowed:
-      finalCols.add newClone(dc)
-
-  Opt.some(finalCols)
+  # Assembled locally, so they need no KZG check on the way back in.
+  Opt.some(cols.filterIt(
+    it[].index in router[].processor.fuluColumnQuarantine[].custodyMap
+  ).toTrustedImport())
 
 proc publishSidecars(
     router: ref MessageRouter,
@@ -383,7 +369,7 @@ proc routeAttestation*(
 
 proc routeSignedAggregateAndProof*(
     router: ref MessageRouter,
-    proof: electra.SignedAggregateAndProof,
+    proof: electra.SignedAggregateAndProof | gloas.SignedAggregateAndProof,
     checkSignature = true):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   ## Validate and broadcast aggregate
@@ -608,7 +594,8 @@ proc routeSignedVoluntaryExit*(
   return ok()
 
 proc routeAttesterSlashing*(
-    router: ref MessageRouter, slashing: electra.AttesterSlashing):
+    router: ref MessageRouter,
+    slashing: electra.AttesterSlashing | gloas.AttesterSlashing):
     Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res =
@@ -685,7 +672,7 @@ proc routePayloadAttestationMessage*(
     router: ref MessageRouter,
     message: PayloadAttestationMessage,
     checkSignature = true, checkValidator = true
-) {.async: (raises: [CancelledError]).} =
+): Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = await router.processor.processPayloadAttestationMessage(
       message, checkSignature = checkSignature,
@@ -694,7 +681,7 @@ proc routePayloadAttestationMessage*(
     if not res.isGoodForSending:
       warn "Payload attestation failed validation",
         message = shortLog(message), error = res.error()
-      return
+      return err(res.error()[1])
 
   let
     sendTime = router[].processor.getCurrentBeaconTime()
@@ -710,16 +697,16 @@ proc routePayloadAttestationMessage*(
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
 
-proc routeExecutionPayloadEnvelope*(
+proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
-    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
-    sidecarsOpt: Opt[seq[gloas.DataColumnSidecar]],
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope
 ): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
   # Validate with gossip
-  let vRes = validateExecutionPayload(
-    router[].dag, router[].quarantine,
-    router.processor.envelopeQuarantine, signedEnvelope)
+  let
+    wallTime = router[].getCurrentBeaconTime()
+    vRes = validateExecutionPayload(
+      router[].dag, router[].quarantine,
+      router.processor.envelopeQuarantine, signedEnvelope, wallTime)
   if not isGoodForSending(vRes):
     warn "Envelope failed validation",
       envelope = shortLog(signedEnvelope.message),
@@ -737,6 +724,17 @@ proc routeExecutionPayloadEnvelope*(
     notice "Envelope sent",
       envelope = shortLog(signedEnvelope.message)
 
+  ok()
+
+proc routeExecutionPayloadEnvelope*(
+    router: ref MessageRouter,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecarsOpt: Opt[gloas.DataColumnSidecars],
+): Future[Result[void, cstring]] {.async: (raises: [CancelledError]).} =
+  (await router.validateAndPublishEnvelope(signedEnvelope)).isOkOr:
+    return err(error())
+
   # Publish sidecars
   let finalSidecars = await publishSidecars(router, signedBlock, sidecarsOpt)
 
@@ -749,8 +747,8 @@ proc routeExecutionPayloadEnvelope*(
 
 proc routeProposerPreferences*(
     router: ref MessageRouter,
-    signed_preferences: SignedProposerPreferences
-) {.async: (raises: [CancelledError]).} =
+    signed_preferences: SignedProposerPreferences):
+    Future[SendResult] {.async: (raises: [CancelledError]).} =
   block:
     let res = router.processor.processProposerPreferences(
       MsgSource.api, signed_preferences)
@@ -758,7 +756,7 @@ proc routeProposerPreferences*(
     if not res.isGoodForSending:
       warn "Proposer preferences failed validation",
         message = shortLog(signed_preferences), error = res.error()
-      return
+      return err(res.error()[1])
 
   let res =
     await router[].network.broadcastProposerPreferences(signed_preferences)
@@ -771,6 +769,8 @@ proc routeProposerPreferences*(
     notice "Proposer preferences not sent",
       proposal_slot = signed_preferences.message.proposal_slot,
       error = res.error()
+
+  ok()
 
 proc routeExecutionPayloadBid*(
     router: ref MessageRouter,

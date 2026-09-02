@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 # Mainnet preset - Bellatrix
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.1/presets/mainnet/bellatrix.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/bellatrix.yaml
 const
   # Rewards and penalties
   # ---------------------------------------------------------------

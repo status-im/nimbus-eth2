@@ -702,38 +702,6 @@ proc initCompatV1*(
 # Resource Management
 # -------------------------------------------------------------
 
-proc init*(T: type SlashingProtectionDB_v2,
-           genesis_validators_root: Eth2Digest,
-           databasePath: string,
-           databaseName: string): T =
-  ## Initialize a new slashing protection database
-  ## or load an existing one with matching genesis root
-  ## `dbname` MUST not be ending with .sqlite3
-  logScope:
-    databasePath
-    databaseName
-
-  let
-    alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
-    backendRes = SqStoreRef.init(databasePath, databaseName,
-                                 keyspaces = [])
-    backend = backendRes.valueOr: # TODO https://github.com/nim-lang/Nim/issues/22605
-      fatal "Failed to open slashing protection database", err = backendRes.error
-      quit 1
-
-  result = T(backend: backend)
-  if alreadyExists:
-    let status = result.checkDB(genesis_validators_root)
-    if status.isErr:
-      fatal "Slashing protection database check error",
-             reason = status.error
-      quit 1
-  else:
-    result.setupDB(genesis_validators_root)
-
-  # Cached queries
-  result.setupCachedQueries()
-
 proc loadUnchecked*(
        T: type SlashingProtectionDB_v2,
        basePath, dbname: string, readOnly: bool
@@ -1179,14 +1147,6 @@ proc registerAttestation*(
 
   ok()
 
-proc registerAttestation*(
-       db: SlashingProtectionDB_v2,
-       validator: ValidatorPubKey,
-       source, target: Epoch,
-       attestation_root: Eth2Digest): Result[void, BadVote] =
-  registerAttestation(
-    db, Opt.none(ValidatorIndex), validator, source, target, attestation_root)
-
 template withContext*(dbParam: SlashingProtectionDB_v2, body: untyped): untyped =
   let
     db = dbParam
@@ -1201,7 +1161,7 @@ template withContext*(dbParam: SlashingProtectionDB_v2, body: untyped): untyped 
   var
     commit = false
     res: Result[typeof(body), string]
-    beginRes = db.backend.exec("BEGIN TRANSACTION;")
+  let beginRes = db.backend.exec("BEGIN TRANSACTION;")
   if beginRes.isErr(): # always lovely handling errors in templates
     res.err(beginRes.error())
   else:

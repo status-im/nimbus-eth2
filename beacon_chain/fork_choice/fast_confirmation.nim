@@ -5,12 +5,12 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   std/[sets, tables], stew/bitops2, chronicles,
   ../consensus_object_pools/spec_cache,
-  "."/[fork_choice_types, proto_array]
+  ./[fork_choice_types, proto_array]
 
 from ../consensus_object_pools/blockchain_dag import
   ForkChoiceInfoOffset, fork_choice_balances,
@@ -539,7 +539,7 @@ func `$`*(diag: FcrDiagnostics): string =
 
 chronicles.formatIt FcrDiagnostics: $it
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.5/specs/phase0/fast-confirmation.md#is_confirmed_chain_safe
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.8/specs/phase0/fast-confirmation.md#is_confirmed_chain_safe
 func is_confirmed_chain_safe(
     self: ForkChoiceBackend, dag: ChainDAGRef, confirmed: BlockId,
     current_slot: Slot, diag: var FcrDiagnostics): FcResult[bool] =
@@ -571,8 +571,8 @@ func is_confirmed_chain_safe(
     chain = self.get_ancestor_support_by_slot(
       balance_source, dag.heads, confirmed, current_justified, current_slot)
 
-  # Check if the confirmed.root is descendant of
-  # current_epoch_observed_justified.checkpoint.
+  # Check if the confirmed.root has current_epoch_observed_justified.checkpoint
+  # in its chain.
   if chain.len == 0:
     return ok false
 

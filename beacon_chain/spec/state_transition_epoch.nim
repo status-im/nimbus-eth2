@@ -23,6 +23,7 @@
 #   motivated by security or performance considerations
 
 import
+  std/sets,
   stew/assign2, chronicles,
   ../extras,
   ./[beaconstate, eth2_merkleization, validator]
@@ -58,7 +59,7 @@ func init*(info: var phase0.EpochInfo, state: phase0.BeaconState) =
   info.validators.setLen(state.validators.len)
 
   for i in 0..<state.validators.len:
-    let v = unsafeAddr state.validators[i]
+    let v = addr state.validators[i]
     var flags: set[RewardFlags]
 
     if v[].slashed:
@@ -115,12 +116,11 @@ func process_attestation(
 
     v.flags = v.flags + flags
 
-    if is_previous_epoch_attester.isSome:
-      if v.is_previous_epoch_attester.isSome:
-        if is_previous_epoch_attester.get().delay <
-            v.is_previous_epoch_attester.get().delay:
-          v.is_previous_epoch_attester = is_previous_epoch_attester
-      else:
+    is_previous_epoch_attester.isErrOr:
+      let curAtt = v.is_previous_epoch_attester.valueOr:
+        v.is_previous_epoch_attester = is_previous_epoch_attester
+        continue
+      if value.delay < curAtt.delay:
         v.is_previous_epoch_attester = is_previous_epoch_attester
 
 func process_attestations*(
@@ -234,9 +234,9 @@ func is_unslashed_participating_index(
   # TODO hoist this conditional
   let epoch_participation =
     if epoch == get_current_epoch(state):
-      unsafeAddr state.current_epoch_participation
+      addr state.current_epoch_participation
     else:
-      unsafeAddr state.previous_epoch_participation
+      addr state.previous_epoch_participation
 
   is_active_validator(state.validators[validator_index], epoch) and
     has_flag(epoch_participation[][validator_index], flag_index) and
@@ -409,9 +409,8 @@ proc compute_unrealized_finality*(
   info.process_attestations(state, cache)
   template balances(): auto = info.balances
 
-  var finalityState = state.toFinalityState()
   let jfRes = weigh_justification_and_finalization(
-    finalityState, balances.current_epoch,
+    state.toFinalityState(), balances.current_epoch,
     balances.previous_epoch_target_attesters,
     balances.current_epoch_target_attesters)
   FinalityCheckpoints(
@@ -454,9 +453,8 @@ proc compute_unrealized_finality*(
       justified: state.current_justified_checkpoint,
       finalized: state.finalized_checkpoint), balances)
 
-  var finalityState = state.toFinalityState()
   let jfRes = weigh_justification_and_finalization(
-    finalityState, balances.current_epoch,
+    state.toFinalityState(), balances.current_epoch,
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     balances.current_epoch_TIMELY_TARGET)
   (FinalityCheckpoints(
@@ -690,7 +688,8 @@ template get_flag_and_inactivity_delta(
     base_reward_per_increment: Gwei, finality_delay: uint64,
     previous_epoch: Epoch, active_increments: uint64,
     penalty_denominator: uint64,
-    epoch_participation: ptr EpochParticipationFlags,
+    epoch_participation:
+      ptr altair.EpochParticipationFlags | ptr gloas.EpochParticipationFlags,
     participating_increments: array[3, uint64], info: var altair.EpochInfo,
     vidx: ValidatorIndex, inactivity_score: uint64
 ): (ValidatorIndex, Gwei, Gwei, Gwei, Gwei, Gwei, Gwei) =
@@ -767,9 +766,9 @@ iterator get_flag_and_inactivity_deltas*(
       cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT
     epoch_participation =
       if previous_epoch == get_current_epoch(state):
-        unsafeAddr state.current_epoch_participation
+        addr state.current_epoch_participation
       else:
-        unsafeAddr state.previous_epoch_participation
+        addr state.previous_epoch_participation
     participating_increments = [
       get_unslashed_participating_increment(info, TIMELY_SOURCE_FLAG_INDEX),
       get_unslashed_participating_increment(info, TIMELY_TARGET_FLAG_INDEX),
@@ -894,7 +893,7 @@ func process_registry_updates*(
       maybe_exit_queue_info = Opt.some (? initiate_validator_exit(
         cfg, state, vidx, exit_queue_info, cache))
 
-    let validator = unsafeAddr state.validators.item(vidx)
+    let validator = addr state.validators.item(vidx)
     if is_eligible_for_activation(state, validator[]):
       let val_key =
         (FAR_FUTURE_EPOCH - validator[].activation_eligibility_epoch,
@@ -1006,7 +1005,7 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
       state, total_balance)
 
   for vidx in state.validators.vindices:
-    let validator = unsafeAddr state.validators.item(vidx)
+    let validator = addr state.validators.item(vidx)
     if slashing_penalty_applies(validator[], epoch):
       let penalty = get_slashing_penalty(
         typeof(state).kind, validator[], adjusted_total_slashing_balance,
@@ -1092,11 +1091,15 @@ func process_participation_flag_updates*(
 
   const zero = 0.ParticipationFlags
   for i in 0 ..< state.current_epoch_participation.len:
-    asList(state.current_epoch_participation)[i] = zero
+    state.current_epoch_participation[i] = zero
 
-  # Shouldn't be wasted zeroing, because state.current_epoch_participation only
-  # grows. New elements are automatically initialized to 0, as required.
-  doAssert state.current_epoch_participation.asList.setLen(state.validators.len)
+  # Shouldn't be wasted zeroing, because state.current_epoch_participation
+  # only grows. New elements are automatically initialized to 0, as required.
+  when typeof(state).kind >= ConsensusFork.Gloas:
+    state.current_epoch_participation.setLen(state.validators.len)
+  else:
+    doAssert state.current_epoch_participation.asList.setLen(
+      state.validators.len)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(
@@ -1181,8 +1184,8 @@ func process_historical_summaries_update*(
 
   ok()
 
-from "."/signatures import verify_deposit_signature
-from ".."/validator_bucket_sort import
+from ./signatures import verify_deposit_signature
+from ../validator_bucket_sort import
   BucketSortedValidators, add, findValidatorIndex, sortValidatorBuckets
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-apply_pending_deposit
@@ -1208,8 +1211,9 @@ func apply_pending_deposit(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.7/specs/electra/beacon-chain.md#new-process_pending_deposits
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.7/specs/gloas/beacon-chain.md#modified-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/electra/beacon-chain.md#new-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.10/specs/fulu/beacon-chain.md#modified-process_pending_deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-process_pending_deposits
 func process_pending_deposits*(
     cfg: RuntimeConfig,
     state: var (electra.BeaconState | fulu.BeaconState | gloas.BeaconState |
@@ -1231,11 +1235,12 @@ func process_pending_deposits*(
   let finalized_slot = start_slot(state.finalized_checkpoint.epoch)
 
   for deposit in state.pending_deposits:
-    # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
-    if  deposit.slot > GENESIS_SLOT and  # Is deposit request
-        # There are pending Eth1 bridge deposits
-        state.eth1_deposit_index < state.deposit_requests_start_index:
-      break
+    when state is electra.BeaconState:
+      # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+      if  deposit.slot > GENESIS_SLOT and  # Is deposit request
+          # There are pending Eth1 bridge deposits
+          state.eth1_deposit_index < state.deposit_requests_start_index:
+        break
 
     # Check if deposit has been finalized, otherwise, stop processing.
     if deposit.slot > finalized_slot:
@@ -1294,7 +1299,7 @@ func process_pending_deposits*(
     next_deposit_index += 1
 
   state.pending_deposits =
-    HashList[PendingDeposit, Limit PENDING_DEPOSITS_LIMIT].init(
+    typeof(state.pending_deposits).init(
       state.pending_deposits.asSeq[next_deposit_index..^1] &
       deposits_to_postpone)
 
@@ -1343,7 +1348,7 @@ func process_pending_consolidations*(
     next_pending_consolidation += 1
 
   state.pending_consolidations =
-    HashList[PendingConsolidation, Limit PENDING_CONSOLIDATIONS_LIMIT].init(
+    typeof(state.pending_consolidations).init(
       state.pending_consolidations.asSeq[next_pending_consolidation..^1])
 
   ok()
@@ -1380,7 +1385,7 @@ func get_builder_payment_quorum_threshold(
     get_total_active_balance(state, cache) div SLOTS_PER_EPOCH * BUILDER_PAYMENT_THRESHOLD_NUMERATOR)
   uint64(quorum div BUILDER_PAYMENT_THRESHOLD_DENOMINATOR)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.1/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_builder_pending_payments
 func process_builder_pending_payments*(
     cfg: RuntimeConfig,
     state: var (gloas.BeaconState | heze.BeaconState),
@@ -1390,7 +1395,7 @@ func process_builder_pending_payments*(
 
   for index in 0 ..< min(
       state.builder_pending_payments.len, SLOTS_PER_EPOCH.int):
-    var payment = state.builder_pending_payments.mitem(index)
+    let payment = state.builder_pending_payments.mitem(index)
     if payment.weight.distinctBase >= quorum:
       if not state.builder_pending_withdrawals.add(payment.withdrawal):
         return err("process_builder_pending_payments: couldn't add to builder_pending_withdrawals")
@@ -1403,7 +1408,7 @@ func process_builder_pending_payments*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#new-process_ptc_window
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-process_ptc_window
 proc process_ptc_window*(
     state: var (gloas.BeaconState | heze.BeaconState),
     cache: var StateCache) =
@@ -1465,22 +1470,16 @@ proc init*(
            gloas.BeaconState | heze.BeaconState,
     cache = default(StateCache)) =
   # init participation, overwriting the full structure
-  info.balances =
-    if cache.participating.isSome:
-      let participating = cache.participating.unsafeGet
-      if participating.slot == state.latest_block_header.slot and
-          participating.slot.epoch == get_current_epoch(state):
-        debugGloasComment "remove + proc -> func once this got enough maturity"
-        let expected_balances = get_unslashed_participating_balances(state)
-        if participating.balances != expected_balances:
-          warn "Participating balances cache mismatch - report bug",
-            slot = state.slot, participating, expected_balances
-          incInternalErrors()
-        expected_balances  # participating.balances
-      else:
-        get_unslashed_participating_balances(state)
-    else:
-      get_unslashed_participating_balances(state)
+  info.balances = get_unslashed_participating_balances(state)
+  cache.participating.isErrOr:
+    if value.slot == state.latest_block_header.slot and
+        value.slot.epoch == get_current_epoch(state):
+      debugGloasComment "remove + proc -> func once this got enough maturity"
+      if value.balances != info.balances:
+        warn "Participating balances cache mismatch - report bug",
+          slot = state.slot, participating = value,
+          expected_balances = info.balances
+        incInternalErrors()
   info.validators.setLen(state.validators.len())
 
   let previous_epoch = get_previous_epoch(state)
@@ -1644,7 +1643,7 @@ proc process_epoch*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/beacon-chain.md#modified-process_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#modified-process_epoch
 proc process_epoch*(
     cfg: RuntimeConfig, state: var (gloas.BeaconState | heze.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
@@ -1682,3 +1681,105 @@ proc process_epoch*(
   ? process_proposer_lookahead(state, cache)
   process_ptc_window(state, cache) # [New in Gloas:EIP7732]
   ok()
+
+type
+  # https://ethereum.github.io/beacon-APIs/#/Rewards/getAttestationsRewards
+  IdealAttestationReward* = object
+    effective_balance*: Gwei
+    head*: Gwei
+    target*: Gwei
+    source*: Gwei
+
+  TotalAttestationReward* = object
+    validator_index*: ValidatorIndex
+    # Rewards and penalties for a flag are reported as a single signed value,
+    # penalties being negative
+    head*: int64
+    target*: int64
+    source*: int64
+    inactivity*: int64
+
+  AttestationRewards* = object
+    ideal_rewards*: seq[IdealAttestationReward]
+    total_rewards*: seq[TotalAttestationReward]
+
+proc get_attestation_rewards*(
+    cfg: RuntimeConfig,
+    state: var (altair.BeaconState | bellatrix.BeaconState |
+                capella.BeaconState | deneb.BeaconState | electra.BeaconState |
+                fulu.BeaconState | gloas.BeaconState | heze.BeaconState),
+    cache: var StateCache, flags: UpdateFlags,
+    filter: HashSet[ValidatorIndex]): AttestationRewards =
+  ## Compute the attestation rewards of the epoch which `state` is about to
+  ## leave: `state` must be at the last slot of that epoch with the epoch
+  ## transition not yet applied, and gets advanced through the parts of that
+  ## transition which the rewards depend on.
+  ##
+  ## `filter` restricts `total_rewards` to the given validators, an empty set
+  ## reports all of the eligible ones. `ideal_rewards` covers the effective
+  ## balances present in `total_rewards`.
+  var info: altair.EpochInfo
+  info.init(state, cache)
+  process_justification_and_finalization(state, info.balances, flags)
+  process_inactivity_updates(cfg, state, info)
+
+  let
+    base_reward_per_increment =
+      get_base_reward_per_increment(info.balances.current_epoch)
+    finality_delay = get_finality_delay(state)
+    active_increments = get_active_increments(info)
+    participating_increments = [
+      get_unslashed_participating_increment(info, TIMELY_SOURCE_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_TARGET_FLAG_INDEX),
+      get_unslashed_participating_increment(info, TIMELY_HEAD_FLAG_INDEX)]
+
+  var
+    total_rewards: seq[TotalAttestationReward]
+    ideal_rewards: seq[IdealAttestationReward]
+    reported: HashSet[ValidatorIndex]
+    effective_balances: HashSet[uint64]
+
+  template effective_balance(vidx: ValidatorIndex): uint64 =
+    uint64(state.validators.item(vidx).effective_balance)
+
+  for vidx, source_reward, target_reward, head_reward, source_penalty,
+      target_penalty, inactivity_penalty in get_flag_and_inactivity_deltas(
+        cfg, state, base_reward_per_increment, info, finality_delay):
+    if len(filter) > 0 and vidx notin filter:
+      continue
+    total_rewards.add TotalAttestationReward(
+      validator_index: vidx,
+      head: int64(head_reward),
+      target: int64(target_reward) - int64(target_penalty),
+      source: int64(source_reward) - int64(source_penalty),
+      inactivity: -int64(inactivity_penalty))
+    effective_balances.incl effective_balance(vidx)
+    if len(filter) > 0:
+      reported.incl vidx
+
+  # Validators which are not eligible for rewards this epoch are not covered by
+  # the deltas above, but are still reported when explicitly requested
+  if len(filter) > 0:
+    for vidx in filter:
+      if vidx notin reported:
+        total_rewards.add TotalAttestationReward(validator_index: vidx)
+        effective_balances.incl effective_balance(vidx)
+
+  for balance in effective_balances:
+    let base_reward =
+      (balance div EFFECTIVE_BALANCE_INCREMENT) * base_reward_per_increment
+
+    template ideal_reward(flag: untyped): Gwei =
+      get_flag_index_reward(
+        state, base_reward, active_increments,
+        participating_increments[ord(flag)],
+        PARTICIPATION_FLAG_WEIGHTS[flag], finality_delay)
+
+    ideal_rewards.add IdealAttestationReward(
+      effective_balance: Gwei(balance),
+      head: ideal_reward(TIMELY_HEAD_FLAG_INDEX),
+      target: ideal_reward(TIMELY_TARGET_FLAG_INDEX),
+      source: ideal_reward(TIMELY_SOURCE_FLAG_INDEX))
+
+  AttestationRewards(
+    ideal_rewards: ideal_rewards, total_rewards: total_rewards)

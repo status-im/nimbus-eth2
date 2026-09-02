@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -33,10 +33,10 @@ suite "Spec helpers":
       integer_squareroot(18446744073709551615'u64) == 4294967295'u64
 
   test "build_proof - BeaconState":
+    let forked = newClone(initGenesisState(defaultRuntimeConfig))
     var
-      forked = newClone(initGenesisState(defaultRuntimeConfig))
-      cache = StateCache()
-      info = ForkedEpochInfo()
+      cache: StateCache
+      info: ForkedEpochInfo
     process_slots(
       defaultRuntimeConfig, forked[], Slot(100), cache, info,
       flags = {}).expect("no failure")

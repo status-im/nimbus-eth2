@@ -5,11 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import std/[algorithm, sequtils]
 import chronicles, chronos, metrics
-import "."/[common, api]
+import ./[common, api]
 
 declareGauge client_slot_signatures_time,
   "Time used to obtain slot signatures"
@@ -141,12 +141,13 @@ proc fillAttestationSelectionProofs*(
                   Opt.none(ValidatorSig)
 
               mreq.future = nil
-              mreq.proof = signature
 
               if signature.isSome():
                 vc.attesters.withValue(mreq.validator.pubkey, map):
                   map[].duties.withValue(mreq.slot.epoch(), dap):
-                    dap[].slotSig = signature
+                    if dap[].data.slot == mreq.slot:
+                      dap[].slotSig = signature
+                      mreq.proof = signature
           res
 
   if vc.config.distributedEnabled:
@@ -222,8 +223,9 @@ proc fillAttestationSelectionProofs*(
 
         vc.attesters.withValue(validator.pubkey, map):
           map[].duties.withValue(selection.slot.epoch(), dap):
-            dap[].slotSig = Opt.some(selectionProof.toValidatorSig())
-            inc(sigres.selectionsProcessed)
+            if dap[].data.slot == selection.slot:
+              dap[].slotSig = Opt.some(selectionProof.toValidatorSig())
+              inc(sigres.selectionsProcessed)
 
   sigres
 

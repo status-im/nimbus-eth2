@@ -10,7 +10,7 @@
 # Everything needed to run a full Beacon Node
 
 import
-  std/osproc,
+  std/[osproc, sets],
 
   # Nimble packages
   chronos, presto,
@@ -23,7 +23,8 @@ import
   ./networking/eth2_network,
   ./el/[el_manager, el_getblobs_service],
   ./consensus_object_pools/[
-    blockchain_dag, block_quarantine, column_quarantine, consensus_manager,
+    blockchain_dag, block_quarantine, column_quarantine,
+    column_reconstruction_backfiller, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
     sync_committee_msg_pool, validator_change_pool,
     blockchain_list],
@@ -48,6 +49,7 @@ export
 type
   EventBus* = object
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
+    headV2Queue*: AsyncEventQueue[HeadV2ChangeInfoObject]
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     blockGossipQueue*: AsyncEventQueue[EventBeaconBlockGossipObject]
     blockGossipPeerQueue*: AsyncEventQueue[EventBeaconBlockGossipPeerObject]
@@ -55,11 +57,14 @@ type
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
     blsToExecQueue*: AsyncEventQueue[SignedBLSToExecutionChange]
     propSlashQueue*: AsyncEventQueue[ProposerSlashing]
-    attSlashQueue*: AsyncEventQueue[electra.AttesterSlashing]
-    blobSidecarQueue*: AsyncEventQueue[BlobSidecarInfoObject]
+    attSlashQueue*: AsyncEventQueue[gloas.AttesterSlashing]
     columnSidecarQueue*: AsyncEventQueue[DataColumnSidecarInfoObject]
     columnSidecarFullQueue*: AsyncEventQueue[ref fulu.DataColumnSidecar]
     finalQueue*: AsyncEventQueue[FinalizationInfoObject]
+    fastConfirmationQueue*: AsyncEventQueue[FastConfirmationInfoObject]
+    payloadAttributesQueue*: AsyncEventQueue[EventPayloadAttributesObject]
+    proposerPreferencesQueue*: AsyncEventQueue[
+      RestVersioned[SignedProposerPreferences]]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     finUpdateQueue*: AsyncEventQueue[
@@ -70,26 +75,28 @@ type
     execPayloadAddedQueue*: AsyncEventQueue[EventExecutionPayloadObject]
     execPayloadGossipAddedQueue*: AsyncEventQueue[EventExecutionPayloadGossipObject]
     execPayloadAvlQueue*: AsyncEventQueue[EventExecutionPayloadAvailableObject]
-    execPayloadBidQueue*: AsyncEventQueue[gloas.SignedExecutionPayloadBid]
-    payloadAttMsgQueue*: AsyncEventQueue[PayloadAttestationMessage]
+    execPayloadBidQueue*: AsyncEventQueue[
+      RestVersioned[gloas.SignedExecutionPayloadBid]]
+    payloadAttMsgQueue*: AsyncEventQueue[
+      RestVersioned[PayloadAttestationMessage]]
 
   BeaconNode* = ref object
     nickname*: string
-    graffitiBytes*: GraffitiBytes
     network*: Eth2Node
     netKeys*: NetKeyPair
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     lightBlockProcessor*: LightBlockProcessor
-    lightClientFcuFut*: Future[(PayloadExecutionStatus, Opt[Hash32])]
-      .Raising([CancelledError])
+    lightClientFcuFut*: Future[void].Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
     list*: ChainListRef
     quarantine*: ref Quarantine
-    dataColumnQuarantine*: ref ColumnQuarantine
+    fuluColumnQuarantine*: ref FuluColumnQuarantine
+    gloasColumnQuarantine*: ref GloasColumnQuarantine
     getBlobsService*: GetBlobsServiceRef
+    columnReconstructionBackfiller*: ColumnReconstructionBackfillerRef
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
@@ -130,16 +137,8 @@ type
     processingDelay*: Opt[Duration]
     lastValidAttestedBlock*: Opt[BlockSlot]
     lastColumnCustodyIndices*: seq[CustodyIndex]
+    sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
     shutdownEvent*: AsyncEvent
-
-# TODO https://github.com/status-im/nim-stew/pull/258
-template findIt*(s: openArray, predicate: untyped): int =
-  var res = -1
-  for i, it {.inject.} in s:
-    if predicate:
-      res = i
-      break
-  res
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.currentSlot
@@ -190,6 +189,8 @@ func init*(T: type EventBus): T =
   T(
     headQueue:
       newAsyncEventQueue[HeadChangeInfoObject](),
+    headV2Queue:
+      newAsyncEventQueue[HeadV2ChangeInfoObject](),
     blocksQueue:
       newAsyncEventQueue[EventBeaconBlockObject](),
     blockGossipQueue:
@@ -205,15 +206,19 @@ func init*(T: type EventBus): T =
     propSlashQueue:
       newAsyncEventQueue[ProposerSlashing](),
     attSlashQueue:
-      newAsyncEventQueue[electra.AttesterSlashing](),
-    blobSidecarQueue:
-      newAsyncEventQueue[BlobSidecarInfoObject](),
+      newAsyncEventQueue[gloas.AttesterSlashing](),
     columnSidecarQueue:
       newAsyncEventQueue[DataColumnSidecarInfoObject](),
     columnSidecarFullQueue:
       newAsyncEventQueue[ref fulu.DataColumnSidecar](),
     finalQueue:
       newAsyncEventQueue[FinalizationInfoObject](),
+    fastConfirmationQueue:
+      newAsyncEventQueue[FastConfirmationInfoObject](),
+    payloadAttributesQueue:
+      newAsyncEventQueue[EventPayloadAttributesObject](),
+    proposerPreferencesQueue:
+      newAsyncEventQueue[RestVersioned[SignedProposerPreferences]](),
     reorgQueue:
       newAsyncEventQueue[ReorgInfoObject](),
     contribQueue:
@@ -231,7 +236,7 @@ func init*(T: type EventBus): T =
     execPayloadAvlQueue:
       newAsyncEventQueue[EventExecutionPayloadAvailableObject](),
     execPayloadBidQueue:
-      newAsyncEventQueue[gloas.SignedExecutionPayloadBid](),
+      newAsyncEventQueue[RestVersioned[gloas.SignedExecutionPayloadBid]](),
     payloadAttMsgQueue:
-      newAsyncEventQueue[PayloadAttestationMessage](),
+      newAsyncEventQueue[RestVersioned[PayloadAttestationMessage]](),
   )

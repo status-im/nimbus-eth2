@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronicles, chronos, metrics,
+  chronicles, chronos, metrics, minilru,
   ../spec/[forks, helpers_el, signatures, signatures_batch, column_map,
            peerdas_helpers],
   ../sszdump
@@ -16,7 +16,7 @@ import
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
 from std/sequtils import anyIt
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, to, updateHead, updateExecutionHead
+  ConsensusManager, to, updateHead, updateExecutionHead, checkExpectedEnvelope
 from ../consensus_object_pools/blockchain_dag import
   getBlockRef, getForkedBlock, getProposer, forkAtEpoch, loadExecutionBlockHash,
   markExecutionValid, validatorKey, is_optimistic
@@ -24,12 +24,14 @@ from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import
   BlockRef, OptimisticStatus, executionValid, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
-  ChainDAGRef, EpochRef, OnBlockAdded, VerifierError, timeParams
+  ChainDAGRef, EpochRef, OnBlockAdded, PayloadVerifierError,
+  VerifierError, timeParams
 from ../consensus_object_pools/block_quarantine import
   addMissing, addSidecarless, addOrphan, addUnviable, clearProcessing, contains,
   get, pop, remove, startProcessing, clearProcessing, UnviableKind
 from ../consensus_object_pools/column_quarantine import
-  ColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot
+  FuluColumnQuarantine, GloasColumnQuarantine, popSidecars, put, slot,
+  popPendingVerify
 from ../consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addMissing, addOrphan, addUnviable,
   delOrphan, popOrphan, remove
@@ -37,8 +39,7 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import
-  containsExecutionPayloadEnvelope, getDataColumnSidecar, putBlobSidecar,
-  putDataColumnSidecars
+  containsExecutionPayloadEnvelope, getDataColumnSidecar, putDataColumnSidecars
 
 export sszdump, signatures_batch
 
@@ -50,6 +51,10 @@ logScope: topics = "gossip_blocks"
 
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
+
+declareHistogram beacon_block_data_availability_delay_seconds,
+  "Time(s) between slot start and the block becoming data-available (resolved)",
+  buckets = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 16.0, Inf]
 
 const
   SLOTS_PER_PAYLOAD = SLOTS_PER_HISTORICAL_ROOT
@@ -98,9 +103,15 @@ type
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    onDataColumnsStored*: proc(slot: Slot) {.gcsafe, raises: [].}
+      ## Optional hook fired with the slot whose data columns were just
+      ## persisted (from gossip for the current slot, or sync for history).
+      ## The column reconstruction backfiller registers this to re-evaluate a
+      ## slot precisely when new columns arrive, rather than polling on a timer.
+
     # Quarantines
     # ----------------------------------------------------------------
-    dataColumnQuarantine*: ref ColumnQuarantine
+    fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
@@ -110,12 +121,47 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
+    earlyExecValidity: ExecValidityLru
+      ## newPayload started upon gossip validation, while waiting for Fulu
+      ## column data availability
+
+  ExecValidityLru =
+    LruCache[Eth2Digest, Future[Opt[OptimisticStatus]].Raising([CancelledError])]
+
   NoSidecars* = typeof(())
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecars] |
+    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecarsForImport] |
     Opt[gloas.DataColumnSidecars]
 
 const noSidecars* = default(NoSidecars)
+
+proc popSidecarsForImport*(
+    quarantine: var FuluColumnQuarantine,
+    blockRoot: Eth2Digest
+): Opt[fulu.DataColumnSidecarsForImport] =
+  ## Pop the columns of ``blockRoot``, split by whether their KZG proofs have
+  ## already been checked. The drain has to stay adjacent to the pop: read any
+  ## later, it could answer for another set of columns popped for the same root.
+  let sidecars = quarantine.popSidecars(blockRoot).valueOr:
+    return Opt.none(fulu.DataColumnSidecarsForImport)
+  let unverified = quarantine.popPendingVerify(blockRoot)
+
+  var res: fulu.DataColumnSidecarsForImport
+  for sidecar in sidecars:
+    if sidecar[].index in unverified:
+      res.untrusted.add(sidecar)
+    else:
+      res.trusted.add(sidecar)
+  Opt.some(res)
+
+proc popSidecarsForImport*(
+    quarantine: var GloasColumnQuarantine,
+    blockRoot: Eth2Digest
+): Opt[gloas.DataColumnSidecars] =
+  ## Gloas checks every column in `addPayload`; only the drain matters here.
+  let sidecars = quarantine.popSidecars(blockRoot)
+  discard quarantine.popPendingVerify(blockRoot)
+  sidecars
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -126,7 +172,7 @@ proc new*(T: type BlockProcessor,
           batchVerifier: ref BatchVerifier,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
-          dataColumnQuarantine: ref ColumnQuarantine,
+          fuluColumnQuarantine: ref FuluColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           getBeaconTime: GetBeaconTimeFn,
@@ -143,11 +189,12 @@ proc new*(T: type BlockProcessor,
     storeLock: newAsyncLock(),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
-    dataColumnQuarantine: dataColumnQuarantine,
+    fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: batchVerifier[]
+    verifier: batchVerifier[],
+    earlyExecValidity: ExecValidityLru.init(8)
   )
 
 # Sync callbacks
@@ -188,60 +235,58 @@ from ../consensus_object_pools/block_clearance import
 
 proc verifySidecars(
     signedBlock: gloas.SignedBeaconBlock,
-    envelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Result[void, VerifierError] =
-  if sidecarsOpt.isSome:
-    let columns = sidecarsOpt.get()
+): Result[void, PayloadVerifierError] =
+  sidecarsOpt.isErrOr:
     template bid(): auto =
       signedBlock.message.body.signed_execution_payload_bid
-    template kzgCommits(): auto =
-      bid.message.blob_kzg_commitments.asSeq
-    if columns.len > 0 and kzgCommits.len > 0:
-      let r = verify_data_column_sidecar_kzg_proofs(
-        columns, bid.message.blob_kzg_commitments)
-      if r.isErr():
+    template kzgCommits: auto = bid.message.blob_kzg_commitments
+    if value.len > 0 and kzgCommits.len > 0:
+      verify_data_column_sidecar_kzg_proofs(value, kzgCommits).isOkOr:
         debug "data column validation failed",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature),
-          msg = r.error()
-        return err(VerifierError.Invalid)
+          msg = error
+        return err(PayloadVerifierError.InvalidSidecars)
   ok()
 
 proc verifySidecars(
     signedBlock: fulu.SignedBeaconBlock,
-    envelope: NoEnvelope,
-    sidecarsOpt: Opt[fulu.DataColumnSidecars],
+    sidecarsOpt: Opt[fulu.DataColumnSidecarsForImport],
 ): Result[void, VerifierError] =
-  if sidecarsOpt.isSome:
-    let columns = sidecarsOpt.get()
-    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
-    if columns.len > 0 and kzgCommits.len > 0:
-      let r = verify_data_column_sidecar_kzg_proofs(columns)
-      if r.isErr():
+  sidecarsOpt.isErrOr:
+    if value.untrusted.len > 0 and
+        signedBlock.message.body.blob_kzg_commitments.len > 0:
+      verify_data_column_sidecar_kzg_proofs(value.untrusted).isOkOr:
         debug "data column validation failed",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature),
-          msg = r.error()
+          msg = error
         return err(VerifierError.Invalid)
   ok()
 
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: Opt[BlobSidecars]) =
-  if sidecarsOpt.isSome():
-    for b in sidecarsOpt[]:
-      self.consensusManager.dag.db.putBlobSidecar(b[])
-
 proc storeSidecars(
     self: BlockProcessor,
-    sidecarsOpt: Opt[fulu.DataColumnSidecars] | Opt[gloas.DataColumnSidecars]
+    sidecarsOpt: Opt[fulu.DataColumnSidecarsForImport] |
+                 Opt[gloas.DataColumnSidecars]
 ) =
-  if sidecarsOpt.isSome():
-    self.consensusManager.dag.db.putDataColumnSidecars(sidecarsOpt[])
-
-proc storeSidecars(self: BlockProcessor, sidecarsOpt: NoSidecars) =
-  discard
+  sidecarsOpt.isErrOr:
+    let sidecars =
+      when value is gloas.DataColumnSidecars:
+        value
+      else:
+        value.items()
+    self.consensusManager.dag.db.putDataColumnSidecars(sidecars)
+    if self.onDataColumnsStored != nil and sidecars.len > 0:
+      let slot =
+        when value is gloas.DataColumnSidecars:
+          # [Modified in Gloas:EIP7732] carries `slot` directly.
+          sidecars[0][].slot
+        else:
+          sidecars[0][].signed_block_header.message.slot
+      self.onDataColumnsStored(slot)
 
 proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock)
 proc enqueuePayload*(self: ref BlockProcessor, blck: heze.SignedBeaconBlock)
@@ -258,7 +303,7 @@ proc storeBackfillBlock(
   const consensusFork = typeof(signedBlock).kind
 
   when consensusFork == ConsensusFork.Fulu:
-    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
+    ?verifySidecars(signedBlock, sidecarsOpt)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -288,7 +333,7 @@ proc storeBackfillBlock(
     of VerifierError.Duplicate:
       res
   else:
-    when consensusFork <= ConsensusFork.Fulu:
+    when consensusFork == ConsensusFork.Fulu:
       # Only store side cars after successfully establishing block viability.
       self[].storeSidecars(sidecarsOpt)
 
@@ -296,7 +341,8 @@ proc storeBackfillBlock(
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../el/el_manager import ELManager, DeadlineFuture, newPayload
-from ../consensus_object_pools/attestation_pool import AttestationPool, addForkChoice
+from ../consensus_object_pools/attestation_pool import
+  AttestationPool, addForkChoice, on_execution_payload
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 
 proc newExecutionPayload*(
@@ -375,6 +421,30 @@ proc getExecutionValidity(
 
   Opt.some(optimisticStatus)
 
+func nextSlotDeadline(wallTime: BeaconTime, dag: ChainDAGRef): Duration =
+  ## Time from `wallTime` until ~1s before the next slot, for newPayload deadline
+  let slotTime =
+    (wallTime.slotOrZero(dag.timeParams) + 1).start_beacon_time(dag.timeParams) -
+      chronos.seconds(1)
+  if slotTime <= wallTime:
+    chronos.seconds(0)
+  else:
+    chronos.nanoseconds((slotTime - wallTime).nanoseconds)
+
+proc startExecutionValidity*(
+    self: var BlockProcessor,
+    signedBlock: fulu.SignedBeaconBlock, wallTime: BeaconTime) =
+  if signedBlock.root in self.earlyExecValidity:
+    return
+
+  let dag = self.consensusManager.dag
+  self.earlyExecValidity.put(
+    signedBlock.root,
+    self.consensusManager.elManager.getExecutionValidity(
+      signedBlock, noEnvelope,
+      deadline = sleepAsync(nextSlotDeadline(wallTime, dag)),
+      retry = not dag.is_optimistic(dag.head.bid)))
+
 proc addBlock*(
   self: ref BlockProcessor,
   src: MsgSource,
@@ -382,6 +452,7 @@ proc addBlock*(
   sidecarsOpt: SomeOptSidecars,
   maybeFinalized = false,
   validationDur = Duration(),
+  fromGossip = false,
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).}
 
 proc enqueueBlock*(
@@ -405,7 +476,12 @@ proc enqueueBlock*(
   # don't care. However, because this acts as an unbounded queue, they have to
   # be careful not to enqueue too many blocks or we'll run out of memory -
   # `addBlock` should be used where managing backpressure is appropriate.
-  discard self.addBlock(src, blck, sidecarsOpt, maybeFinalized, validationDur)
+  #
+  # As such, `enqueueBlock` is the entry point for gossip processing; blocks
+  # from sync/request managers reach `addBlock` directly.
+  discard self.addBlock(
+    src, blck, sidecarsOpt, maybeFinalized, validationDur,
+    fromGossip = src == MsgSource.gossip)
 
 proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
   ## Enqueue the blocks that are no longer orphans as a result of `parent` being
@@ -424,9 +500,9 @@ proc enqueueQuarantine(self: ref BlockProcessor, parent: BlockRef) =
       elif consensusFork == ConsensusFork.Fulu:
         let sidecarsOpt =
           if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-            Opt.some(default(fulu.DataColumnSidecars))
+            Opt.some(default(fulu.DataColumnSidecarsForImport))
           else:
-            self.dataColumnQuarantine[].popSidecars(forkyBlck.root)
+            self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
       elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
         const sidecarsOpt = noSidecars
       else:
@@ -484,64 +560,85 @@ proc onBlockAdded*(
           blck.message.slot, blck.root, state.current_sync_committee.pubkeys.data[i]
         )
 
-proc verifyPayload(
-    self: ref BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock,
-    signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope,
-): Result[OptimisticStatus, VerifierError] =
+proc verifyPayloadOnCL(
+    signedBlock: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                 deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+                 fulu.SignedBeaconBlock | gloas.SignedBeaconBlock |
+                 heze.SignedBeaconBlock,
+    signedEnvelope: NoEnvelope | gloas.SignedExecutionPayloadEnvelope):
+    Result[void, string] =
   const consensusFork = typeof(signedBlock).kind
   # When the execution layer is not available to verify the payload, we do the
   # required checks on the CL instead and proceed as if the EL was syncing
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/bellatrix/beacon-chain.md#verify_and_notify_new_payload
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/deneb/beacon-chain.md#modified-verify_and_notify_new_payload
-  when consensusFork >= ConsensusFork.Bellatrix:
-    # Since Gloas, is_execution_block should always be true.
-    if signedBlock.message.is_execution_block:
-      template payload(): auto =
-        when consensusFork >= ConsensusFork.Gloas:
-          signedEnvelope.message.payload
-        else:
-          signedBlock.message.body.execution_payload
 
-      template returnWithError(msg: string, extraMsg = ""): untyped =
-        if extraMsg != "":
-          debug msg, reason = extraMsg, executionPayload = shortLog(payload)
-        else:
-          debug msg, executionPayload = shortLog(payload)
-        return err(VerifierError.Invalid)
+  template payload(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      signedEnvelope.message.payload
+    else:
+      signedBlock.message.body.execution_payload
 
-      if payload.transactions.anyIt(it.len == 0):
-        returnWithError "Execution block contains zero length transactions"
+  if payload.transactions.anyIt(it.len == 0):
+    return err("Execution block contains zero length transactions")
 
-      template computedBlockHash(): auto =
-        when consensusFork >= ConsensusFork.Gloas:
-          signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
-        else:
-          signedBlock.message.compute_execution_block_hash()
-      if payload.block_hash != computedBlockHash:
-        returnWithError "Execution block hash validation failed"
+  template computedBlockHash(): auto =
+    when consensusFork >= ConsensusFork.Gloas:
+      signedBlock.message.compute_execution_block_hash(signedEnvelope.message)
+    else:
+      signedBlock.message.compute_execution_block_hash()
+  if payload.block_hash != computedBlockHash:
+    return err("Execution block hash validation failed")
 
-      # [New in Deneb:EIP4844]
-      when consensusFork >= ConsensusFork.Deneb:
-        let blobsRes =
-          when consensusFork >= ConsensusFork.Gloas:
-            signedBlock.message.is_valid_versioned_hashes(signedEnvelope.message)
-          else:
-            signedBlock.message.is_valid_versioned_hashes()
-        if blobsRes.isErr:
-          returnWithError "Blob versioned hashes invalid", blobsRes.error
+  # [New in Deneb:EIP4844]
+  when consensusFork >= ConsensusFork.Deneb:
+    let blobsRes =
+      when consensusFork >= ConsensusFork.Gloas:
+        signedBlock.message.is_valid_versioned_hashes(signedEnvelope.message)
       else:
-        # If there are EIP-4844 (type 3) transactions in the payload with
-        # versioned hashes, the transactions would be rejected by the EL
-        # based on payload timestamp (only allowed post Deneb);
-        # There are no `blob_kzg_commitments` before Deneb to compare against
-        discard
+        signedBlock.message.is_valid_versioned_hashes()
+    if blobsRes.isErr:
+      return err("Blob versioned hashes invalid, reason:" & $blobsRes.error)
+  else:
+    # If there are EIP-4844 (type 3) transactions in the payload with
+    # versioned hashes, the transactions would be rejected by the EL
+    # based on payload timestamp (only allowed post Deneb);
+    # There are no `blob_kzg_commitments` before Deneb to compare against
+    discard
 
+  ok()
+
+proc verifyPayload(
+    self: ref BlockProcessor,
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                 deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
+                 fulu.SignedBeaconBlock,
+): Result[OptimisticStatus, VerifierError] =
+  when typeof(signedBlock).kind >= ConsensusFork.Bellatrix:
+    if signedBlock.message.is_execution_block:
+      verifyPayloadOnCL(signedBlock, noEnvelope).isOkOr:
+        debug "Execution payload validation failed",
+          msg = $error,
+          executionPayload = shortLog(signedBlock.message.body.execution_payload)
+        return err(VerifierError.Invalid)
       ok OptimisticStatus.notValidated
     else:
       ok OptimisticStatus.valid
   else:
     ok OptimisticStatus.valid
+
+proc verifyPayload(
+    self: ref BlockProcessor,
+    signedBlock: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+): Result[OptimisticStatus, PayloadVerifierError] =
+  verifyPayloadOnCL(signedBlock, signedEnvelope).isOkOr:
+    debug "Execution payload validation failed",
+      msg = $error,
+      executionPayload = shortLog(signedEnvelope.message.payload)
+    return err(PayloadVerifierError.Invalid)
+  ok(OptimisticStatus.notValidated)
 
 proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
   # TODO This logic can be removed if the database schema is extended
@@ -562,13 +659,14 @@ proc enqueueFromDb(self: ref BlockProcessor, root: Eth2Digest) =
         noSidecars
       elif consensusFork == ConsensusFork.Fulu:
         var data_column_sidecars: fulu.DataColumnSidecars
-        for i in self.dataColumnQuarantine[].custodyColumns:
+        for i in self.fuluColumnQuarantine[].custodyColumns:
           let data_column = fulu.DataColumnSidecar.new()
           if not dag.db.getDataColumnSidecar(root, i, data_column[]):
             sidecarsOk = false # Pruned, or inconsistent DB
             break
           data_column_sidecars.add data_column
-        Opt.some data_column_sidecars
+        # Columns reach the database only after their proofs were checked.
+        Opt.some data_column_sidecars.toTrustedImport()
       else:
         noSidecars
 
@@ -585,6 +683,7 @@ proc storeBlock(
     maybeFinalized: bool,
     queueTick: Moment,
     validationDur: Duration,
+    fromGossip: bool,
 ): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
@@ -597,15 +696,7 @@ proc storeBlock(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadlineTime =
-      block:
-        let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
-        if slotTime <= wallTime:
-          chronos.seconds(0)
-        else:
-          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
-    deadline = sleepAsync(deadlineTime)
+    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   if signedBlock.root in self.invalidBlockRoots:
     warn "Block root treated as invalid via config",
@@ -642,8 +733,16 @@ proc storeBlock(
         elif consensusFork >= ConsensusFork.Bellatrix:
           func shouldRetry(): bool =
             not dag.is_optimistic(dag.head.bid)
-          await self.consensusManager.elManager.getExecutionValidity(
-            signedBlock, noEnvelope, deadline, shouldRetry())
+          when consensusFork == ConsensusFork.Fulu:
+            let cached = self.earlyExecValidity.pop(signedBlock.root)
+            if cached.isSome:
+              await cached.get()
+            else:
+              await self.consensusManager.elManager.getExecutionValidity(
+                signedBlock, noEnvelope, deadline, shouldRetry())
+          else:
+            await self.consensusManager.elManager.getExecutionValidity(
+              signedBlock, noEnvelope, deadline, shouldRetry())
         else:
           Opt.some(OptimisticStatus.valid) # vacuously
 
@@ -654,7 +753,7 @@ proc storeBlock(
       # `notValidated` and skip verifying payload.
       OptimisticStatus.notValidated
     else:
-      ?(optimisticStatusRes or verifyPayload(self, signedBlock, noEnvelope))
+      ?(optimisticStatusRes or verifyPayload(self, signedBlock))
 
   if OptimisticStatus.invalidated == optimisticStatus:
     return err(VerifierError.Invalid)
@@ -662,7 +761,13 @@ proc storeBlock(
   let newPayloadTick = Moment.now()
 
   when consensusFork == ConsensusFork.Fulu:
-    ?verifySidecars(signedBlock, noEnvelope, sidecarsOpt)
+    # Only request manager-sourced columns arrive unverified; getBlobsV2/V3/V4
+    # and CL gossip are both either trusted or verified.
+    ?verifySidecars(signedBlock, sidecarsOpt)
+    debug "block_processor verifySidecars completed",
+      verifySidecarsDur = Moment.now() - newPayloadTick,
+      blck = shortLog(signedBlock.message),
+      blockRoot = shortLog(signedBlock.root)
 
   let blck =
     ?dag.addHeadBlockWithParent(
@@ -671,7 +776,17 @@ proc storeBlock(
       parent,
       optimisticStatus,
       onBlockAdded(dag, consensusFork, src, wallTime, ap, vm),
+      fromGossip,
     )
+
+  # The block has just been resolved (see the "Block resolved" log): all of its
+  # data (incl. blobs / data columns) is available and it has been imported into
+  # the dag. Measure how long after the slot start that happened - for live
+  # gossip blocks this is the data-availability latency for the slot.
+  if fromGossip:
+    let daDelay = wallTime - signedBlock.message.slot.start_beacon_time(
+      dag.timeParams)
+    beacon_block_data_availability_delay_seconds.observe(daDelay.toFloatSeconds())
 
   # Even if the EL is not responding, we'll only try once every now and then
   # to give it a block - this avoids a pathological slowdown where a busy EL
@@ -680,7 +795,7 @@ proc storeBlock(
   self[].lastPayload = signedBlock.message.slot
 
   # write blobs now that block has been written.
-  when consensusFork in ConsensusFork.Deneb .. ConsensusFork.Fulu:
+  when consensusFork == ConsensusFork.Fulu:
     self[].storeSidecars(sidecarsOpt)
 
   let addHeadBlockTick = Moment.now()
@@ -694,7 +809,7 @@ proc storeBlock(
   # In the unhappy case, the head update kickstarts any pruning and cleanup work
   # which helps conserve resources, ie also a good thing to be doing just after
   # having added a block.
-  let previousExecutionValid = dag.head.executionValid
+  let previousExecutionValid = dag.head.optimisticStatus == OptimisticStatus.valid
   self.consensusManager[].updateHead(wallSlot)
 
   # After producing attestations, we might be asked to produce a block for the
@@ -731,11 +846,6 @@ proc storeBlock(
     blck = shortLog(blck),
     validationDur, queueDur, newPayloadDur, addHeadBlockDur, updateHeadDur
 
-  when consensusFork >= ConsensusFork.Gloas:
-    # Enqueue payload here instead of `addBlock` for the consistency of payload
-    # processing with backfilling.
-    self.enqueuePayload(signedBlock)
-
   ok(blck)
 
 proc addBlock*(
@@ -745,6 +855,7 @@ proc addBlock*(
     sidecarsOpt: SomeOptSidecars,
     maybeFinalized = false,
     validationDur = Duration(),
+    fromGossip = false
 ): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
   ## Enqueue a Gossip-validated block for consensus verification - only one
   ## block at a time gets processed
@@ -770,61 +881,67 @@ proc addBlock*(
     # because there are no state rewinds to deal with
     return self.storeBackfillBlock(blck, sidecarsOpt)
 
-  let queueTick = Moment.now()
-
-  # If the lock is acquired already, the current block will be put on hold
-  # meaning that we'll form an unbounded queue of blocks to be processed
-  # waiting for the lock - this is similar to using an `AsyncQueue` but
-  # without the copying and transition to/from `Forked`.
-  # The lock is important to ensure that we don't process blocks out-of-order
-  # which both would upset the `storeBlock` logic and cause unnecessary
-  # quarantine traffic.
-  self.pendingStores += 1
-  await self.storeLock.acquire()
-
-  let res =
-    try:
-      # Since block processing is async, we want to make sure it doesn't get
-      # (re)added there while we're busy - the start of processing also removes
-      # the block from the various quarantines.
-      # The processing status is cleared in the finally block below.
-      quarantine[].startProcessing(blck)
-
-      # Cooperative concurrency: one block per loop iteration - because
-      # we run both networking and CPU-heavy things like block processing
-      # on the same thread, we need to make sure that there is steady progress
-      # on the networking side or we get long lockups that lead to timeouts.
-      const
-        # We cap waiting for an idle slot in case there's a lot of network traffic
-        # taking up all CPU - we don't want to _completely_ stop processing blocks
-        # in this case - doing so also allows us to benefit from more batching /
-        # larger network reads when under load.
-        idleTimeout = chronos.milliseconds(10)
-
-      discard await idleAsync().withTimeout(idleTimeout)
-
-      let wallTime = self.getBeaconTime()
-      if not wallTime.afterGenesis:
-        fatal "Processing block before genesis, clock turned back?"
-        quit 1
-
-      await self.storeBlock(
-        src, wallTime, blck, sidecarsOpt, maybeFinalized, queueTick, validationDur
-      )
-    finally:
-      quarantine[].clearProcessing()
-
+  let
+    queueTick = Moment.now()
+    res =
       try:
-        self.storeLock.release()
+        # If the lock is acquired already, the current block will be put on hold
+        # meaning that we'll form an unbounded queue of blocks to be processed
+        # waiting for the lock - this is similar to using an `AsyncQueue` but
+        # without the copying and transition to/from `Forked`.
+        # The lock is important to ensure that we don't process blocks
+        # out-of-order which both would upset the `storeBlock` logic and cause
+        # unnecessary quarantine traffic.
+        self.pendingStores += 1
+        await self.storeLock.acquire()
+
+        try:
+          # Since block processing is async, we want to make sure it doesn't get
+          # (re)added there while we're busy - the start of processing also
+          # removes the block from the various quarantines.
+          # The processing status is cleared in the finally block below.
+          quarantine[].startProcessing(blck)
+
+          # Cooperative concurrency: one block per loop iteration - because
+          # we run both networking and CPU-heavy things like block processing
+          # on the same thread, we need to ensure that there is steady progress
+          # on the networking side or we get long lockups that lead to timeouts.
+          const
+            # We cap waiting for an idle slot in case there's a lot of network
+            # traffic taking up all CPU - we don't want to _completely_ stop
+            # processing blocks in this case - doing so also allows us to
+            # benefit from more batching / larger network reads when under load.
+            idleTimeout = chronos.milliseconds(10)
+
+          discard await idleAsync().withTimeout(idleTimeout)
+
+          let wallTime = self.getBeaconTime()
+          if not wallTime.afterGenesis:
+            fatal "Processing block before genesis, clock turned back?"
+            quit 1
+
+          await self.storeBlock(
+            src, wallTime, blck, sidecarsOpt, maybeFinalized,
+            queueTick, validationDur, fromGossip)
+        finally:
+          quarantine[].clearProcessing()
+
+          try:
+            self.storeLock.release()
+          except AsyncLockError:
+            raiseAssert "release matched with acquire, shouldn't happen"
+      finally:
         self.pendingStores -= 1
-      except AsyncLockError:
-        raiseAssert "release matched with acquire, shouldn't happen"
 
   self[].dumpBlock(blck, res)
 
   if res.isOk():
     # Once a block is successfully stored, enqueue the direct descendants
     self.enqueueQuarantine(res[])
+
+    when typeof(blck).kind >= ConsensusFork.Gloas:
+      self.enqueuePayload(blck)
+
     res.mapConvert(void)
   else:
     case res.error()
@@ -846,9 +963,14 @@ proc addBlock*(
       # becomes canonical, it is vital to import it as quickly as possible.
       self.enqueueFromDb(blck.message.parent_root)
 
-      when sidecarsOpt is Opt[fulu.DataColumnSidecars]:
+      when sidecarsOpt is Opt[fulu.DataColumnSidecarsForImport]:
         if sidecarsOpt.isSome:
-          self.dataColumnQuarantine[].put(blockRoot, sidecarsOpt.get)
+          # Put them back as they came out, so trusted ones stay trusted.
+          let sidecars = sidecarsOpt.get
+          self.fuluColumnQuarantine[].put(
+            blockRoot, sidecars.untrusted, verified = false)
+          self.fuluColumnQuarantine[].put(
+            blockRoot, sidecars.trusted.asSeq, verified = true)
       elif sidecarsOpt is Opt[gloas.DataColumnSidecars]:
         # In Gloas, block is enqueued with NoSidecar so we need not to care
         # about quarantine.
@@ -889,10 +1011,10 @@ proc storeBackfillPayload(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Result[void, VerifierError] =
+): Result[void, PayloadVerifierError] =
   self.envelopeQuarantine[].remove(signedEnvelope.message.beacon_block_root)
 
-  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
   ?self.consensusManager.dag.addBackfillExecutionPayload(signedEnvelope)
 
   self.storeSidecars(sidecarsOpt)
@@ -903,20 +1025,11 @@ proc storePayload(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[BlockRef, VerifierError]] {.async: (raises: [CancelledError]).} =
+): Future[Result[BlockRef, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   let
     dag = self.consensusManager.dag
     wallTime = self.getBeaconTime()
-    wallSlot = wallTime.slotOrZero(dag.timeParams)
-    deadlineTime =
-      block:
-        let slotTime =
-          (wallSlot + 1).start_beacon_time(dag.timeParams) - chronos.seconds(1)
-        if slotTime <= wallTime:
-          chronos.seconds(0)
-        else:
-          chronos.nanoseconds((slotTime - wallTime).nanoseconds)
-    deadline = sleepAsync(deadlineTime)
+    deadline = sleepAsync(nextSlotDeadline(wallTime, dag))
 
   let
     optimisticStatusRes =
@@ -932,9 +1045,9 @@ proc storePayload(
   # optimisticStatus could be valid or notValidated at this point. We will
   # validate it by the clearance state transition.
   if OptimisticStatus.invalidated == optimisticStatus:
-    return err(VerifierError.Invalid)
+    return err(PayloadVerifierError.Invalid)
 
-  ?verifySidecars(signedBlock, signedEnvelope, sidecarsOpt)
+  ?verifySidecars(signedBlock, sidecarsOpt)
 
   # Try adding the envelope to clearance state.
   debugGloasComment("deadline")
@@ -947,17 +1060,18 @@ proc storePayload(
   if not isNil(dag.onEnvelopeAvailable):
     dag.onEnvelopeAvailable(signedEnvelope)
 
-  # The execution payload has added to the clearance state successfully, so try
-  # adding to the current state.
-  let previousExecutionValid = dag.head.executionValid
+  # Notify fork choice so it materializes the block's FULL node.
+  self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
+      dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
+    warn "on_execution_payload failed", error,
+      blck = shortLog(signedBlock.root), slot = signedBlock.message.slot
 
-  debugGloasComment("deadline")
-  debugGloasComment("should be decided by Fork Choice")
-  # TODO To be removed - Temporary call without import.
-  if blck.slot() >= dag.head.slot():
-    blockchain_dag.updateHeadExecutionPayload(dag, blck, signedEnvelope)
-
+  # Trigger fork choice to select the head and head payload status, then update
+  # the execution head.
   if optimisticStatusRes.isSome():
+    let previousExecutionValid = (not isNil(dag.head.parent)) and
+      dag.head.parent.optimisticStatus == OptimisticStatus.valid
+    self.consensusManager[].updateHead(dag.head.slot)
     await self.consensusManager.updateExecutionHead(
       deadline, retry = previousExecutionValid, self.getBeaconTime)
 
@@ -970,6 +1084,10 @@ proc storePayload(
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
 
+  # Both the envelope and its data columns are now persisted, wake
+  # up any PTC member waiting to send its payload attestation
+  self.consensusManager[].checkExpectedEnvelope(blck.root)
+
   ok(blck)
 
 proc addPayload*(
@@ -977,7 +1095,7 @@ proc addPayload*(
     signedBlock: gloas.SignedBeaconBlock,
     signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
     sidecarsOpt: Opt[gloas.DataColumnSidecars],
-): Future[Result[void, VerifierError]] {.async: (raises: [CancelledError]).} =
+): Future[Result[void, PayloadVerifierError]] {.async: (raises: [CancelledError]).} =
   if signedBlock.message.slot <= self.consensusManager.dag.finalizedHead.slot:
     return self[].storeBackfillPayload(signedBlock, signedEnvelope, sidecarsOpt)
 
@@ -987,21 +1105,24 @@ proc addPayload*(
     self.enqueueQuarantine(res.get())
   else:
     case res.error()
-    of VerifierError.MissingParent:
+    of PayloadVerifierError.MissingParent:
       # MissingParent is returned when block or parents cannot be found in the
       # DAG. This could happen if we process envelope before block, or there is
       # any missing parents. In either case, they should be caught when
       # processing block. So we only put the envelope into the quarantine for
       # the next try.
-      self.envelopeQuarantine[].addOrphan(signedEnvelope)
+      self.envelopeQuarantine[].addOrphan(
+        self.consensusManager.dag.finalizedHead.slot, signedEnvelope)
       if sidecarsOpt.isSome():
-        self.gloasColumnQuarantine[].put(signedBlock.root, sidecarsOpt.get())
-    of VerifierError.Invalid, VerifierError.UnviableFork:
+        self.gloasColumnQuarantine[].put(
+          signedBlock.root, sidecarsOpt.get(), verified = false)
+    of PayloadVerifierError.Invalid, PayloadVerifierError.InvalidSidecars,
+        PayloadVerifierError.UnviableFork:
       # The block is verified and has added to the DAG, but the envelope isn't
       # valid. It should be marked as invalid so that we can ignore it from
       # gossip or skip processing the same one.
       self.envelopeQuarantine[].addUnviable(signedBlock.root)
-    of VerifierError.Duplicate:
+    of PayloadVerifierError.Duplicate:
       self.envelopeQuarantine[].remove(signedBlock.root)
 
   res.mapConvert(void)
@@ -1031,11 +1152,13 @@ proc enqueuePayload*(self: ref BlockProcessor, blck: gloas.SignedBeaconBlock) =
           if bid.message.blob_kzg_commitments.len() == 0:
             Opt.some(default(gloas.DataColumnSidecars))
           else:
-            self.gloasColumnQuarantine[].popSidecars(blck.root)
+            self.gloasColumnQuarantine[].popSidecarsForImport(blck.root)
         if sidecarsOpt.isNone():
+          let dag = self.consensusManager.dag
           # As sidecars are missing, put envelope back to quarantine.
-          self.consensusManager.quarantine[].addSidecarless(blck)
-          self.envelopeQuarantine[].addOrphan(envelope)
+          discard self.consensusManager.quarantine[].addSidecarless(
+            dag.finalizedHead.slot, blck)
+          self.envelopeQuarantine[].addOrphan(dag.finalizedHead.slot, envelope)
           return
         sidecarsOpt
 

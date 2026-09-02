@@ -4,6 +4,8 @@
   self ? {},
   # Nimbus-build-system package.
   nim ? null,
+  # GCC version to compile the target with.
+  gcc ? null,
   # Options: nimbus_light_client, nimbus_validator_client, nimbus_signing_node, all
   targets ? ["nimbus_beacon_node"],
   # Options: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL, NONE
@@ -23,7 +25,12 @@ assert pkgs.lib.assertMsg ((self.submodules or true) == true)
   "Unable to build without submodules. Append '?submodules=1#' to the URI.";
 
 let
-  inherit (pkgs) stdenv lib writeScriptBin callPackage;
+  inherit (pkgs) lib writeScriptBin callPackage;
+
+  stdenv =
+    if gcc != null && !pkgs.stdenv.isDarwin
+    then pkgs.overrideCC pkgs.stdenv gcc
+    else pkgs.stdenv;
 
   revision = lib.substring 0 8 (self.rev or self.dirtyRev or "00000000");
 in stdenv.mkDerivation rec {
@@ -34,10 +41,9 @@ in stdenv.mkDerivation rec {
     root = ./..;
     fileset = lib.fileset.unions [
       ./../Makefile ./../beacon_chain.nimble ./../config.nims
-      ./../beacon_chain ./../ncli ./../scripts ./../vendor ./../tools
+      ./../beacon_chain ./../ncli ./../research ./../tests ./../scripts ./../vendor ./../tools
     ];
   };
-
 
   nativeBuildInputs = let
     fakeGit = writeScriptBin "git" "echo ${version}";
@@ -47,14 +53,8 @@ in stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  env = {
-    # Disable CPU optimizations that make binary not portable.
-    NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
-    # Avoid errors about missing user home.
-    NIMBLE_DIR = "/tmp";
-    # Avoid Nim cache permission errors.
-    XDG_CACHE_HOME = "/tmp";
-  };
+  # Disable CPU optimizations that make binary not portable.
+  env.NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
@@ -64,6 +64,13 @@ in stdenv.mkDerivation rec {
     "LOG_LEVEL=${highestLogLevel}"
   ];
 
+  # Avoid Nim cache permission errors.
+  configurePhase = ''
+    export XDG_CACHE_HOME="$TMPDIR/.cache"
+    export NIMBLE_DIR="$TMPDIR/.nimble"
+    export NIMCACHE="$TMPDIR/nimcache"
+  '';
+
   patchPhase = ''
     patchShebangs scripts vendor/nimbus-build-system/scripts
   '';
@@ -72,13 +79,18 @@ in stdenv.mkDerivation rec {
     mkdir -p $out/bin
     rm -f build/generate_makefile
     cp build/* $out/bin
+    for tool in ncli ncli_db; do
+      if [ -e "$out/bin/$tool" ]; then
+        mv "$out/bin/$tool" "$out/bin/nimbus_$tool"
+      fi
+    done
   '';
 
   doInstallCheck = true;
   installCheckPhase = ''
     for BINARY in $out/bin/*; do
       case "$(basename "$BINARY")" in
-        ncli|ncli_db)
+        nimbus_ncli|nimbus_ncli_db)
           # These don't support --version, just verify they execute.
           $BINARY --help > /dev/null 2>&1
           ;;

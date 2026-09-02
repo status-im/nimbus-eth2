@@ -7,10 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-import
-  "."/[helpers, forks],
-  "."/datatypes/base
-
+import ./[helpers, forks]
 from std/algorithm import sort, upperBound
 
 export base
@@ -18,7 +15,7 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
@@ -29,6 +26,7 @@ const
   topicExecutionPayloadSuffix = "execution_payload/ssz_snappy"
   topicPayloadAttestationMessageSuffix = "payload_attestation_message/ssz_snappy"
   topicProposerPreferencesSuffix = "proposer_preferences/ssz_snappy"
+  topicInclusionListSuffix = "inclusion_list/ssz_snappy"
 
 const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
@@ -50,6 +48,8 @@ const
   # This is not part of the spec! But it's port which Lighthouse uses
   defaultEth2RestPort* = 5052
   defaultEth2RestPortDesc* = $defaultEth2RestPort
+  defaultVcKeymanagerPort* = 5062
+  defaultVcKeymanagerPortDesc* = $defaultVcKeymanagerPort
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
@@ -92,9 +92,13 @@ func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =
 func getPayloadAttestationMessageTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicPayloadAttestationMessageSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
 func getProposerPreferencesTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicProposerPreferencesSuffix
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#new-inclusion_list
+func getInclusionListTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicInclusionListSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
@@ -280,11 +284,6 @@ func getSyncSubnets*(
     # 3.
     res.setBit(i div (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT))
   res
-
-iterator blobSidecarTopics*(
-    forkDigest: ForkDigest, subnetCount: uint64): string =
-  for subnet_id in 0.BlobId ..< subnetCount.BlobId:
-    yield getBlobSidecarTopic(forkDigest, subnet_id)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,

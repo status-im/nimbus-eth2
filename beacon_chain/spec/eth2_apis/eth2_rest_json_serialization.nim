@@ -60,8 +60,9 @@ RestJson.useDefaultSerializationFor(
   BLSToExecutionChange,
   BeaconBlockHeader,
   BlobSidecar,
-  BlobSidecarInfoObject,
   Builder,
+  BuilderDepositRequest,
+  BuilderExitRequest,
   BuilderPendingPayment,
   BuilderPendingWithdrawal,
   Checkpoint,
@@ -92,11 +93,11 @@ RestJson.useDefaultSerializationFor(
   EventExecutionPayloadObject,
   EventExecutionPayloadGossipObject,
   EventExecutionPayloadAvailableObject,
-  ExecutionRequests,
+  EventPayloadAttributesObject,
+  FastConfirmationInfoObject,
   FinalizationInfoObject,
   Fork,
   FuluSignedBlockContents,
-  GetBlockAttestationsResponse,
   GetBlockHeaderResponse,
   GetBlockHeadersResponse,
   GetDistributedKeystoresResponse,
@@ -107,6 +108,7 @@ RestJson.useDefaultSerializationFor(
   GetGenesisResponse,
   GetHistoricalSummariesV1Response,
   GetHistoricalSummariesV1ResponseElectra,
+  GetHistoricalSummariesV1ResponseGloas,
   GetKeystoresResponse,
   GetNextWithdrawalsResponse,
   GetPoolAttesterSlashingsResponse,
@@ -125,6 +127,8 @@ RestJson.useDefaultSerializationFor(
   GloasSignedBlockContents,
   HezeSignedBlockContents,
   HeadChangeInfoObject,
+  HeadV2ChangeInfoObject,
+  HeadV2ChangeInfoObjectData,
   HistoricalSummary,
   ImportDistributedKeystoresBody,
   ImportRemoteKeystoresBody,
@@ -138,17 +142,20 @@ RestJson.useDefaultSerializationFor(
   PayloadAttestation,
   PayloadAttestationData,
   PayloadAttestationMessage,
+  PayloadAttributesEventData,
   PendingAttestation,
   PendingConsolidation,
   PendingDeposit,
   PendingPartialWithdrawal,
   PostKeystoresResponse,
   PrepareBeaconProposer,
+  ProposerPreferences,
   ProposerSlashing,
   RemoteKeystoreInfo,
   RemoteSignerInfo,
   RequestItemStatus,
   RestActivityItem,
+  RestAttestationsRewards,
   RestAttesterDuty,
   RestBeaconCommitteeSelection,
   RestBeaconStatesCommittees,
@@ -160,6 +167,8 @@ RestJson.useDefaultSerializationFor(
   RestContributionAndProof,
   RestEpochRandao,
   RestEpochSyncCommittee,
+  RestIdealAttestationReward,
+  RestTotalAttestationReward,
   RestExtraData,
   RestGenesis,
   RestIndexedErrorMessage,
@@ -174,8 +183,10 @@ RestJson.useDefaultSerializationFor(
   RestNodePeer,
   RestSyncPeer,
   RestNodeVersion,
+  RestPayloadAttributes,
   RestPeerCount,
   RestProposerDuty,
+  RestPtcDuty,
   RestRoot,
   RestSignedBlockHeader,
   RestSignedContributionAndProof,
@@ -202,6 +213,8 @@ RestJson.useDefaultSerializationFor(
   SignedBeaconBlockHeader,
   SignedContributionAndProof,
   SignedExecutionPayloadEnvelope,
+  SignedExecutionPayloadEnvelopeContents,
+  SignedProposerPreferences,
   SignedValidatorRegistrationV1,
   SignedVoluntaryExit,
   SyncAggregate,
@@ -275,6 +288,7 @@ RestJson.useDefaultSerializationFor(
   electra.BeaconState,
   electra.BeaconBlockBody,
   electra.BlockContents,
+  electra.ExecutionRequests,
   electra.IndexedAttestation,
   electra.LightClientBootstrap,
   electra.LightClientFinalityUpdate,
@@ -298,6 +312,9 @@ RestJson.useDefaultSerializationFor(
   fulu_mev.BuilderBid,
   fulu_mev.SignedBlindedBeaconBlock,
   fulu_mev.SignedBuilderBid,
+  gloas.AggregateAndProof,
+  gloas.Attestation,
+  gloas.AttesterSlashing,
   gloas.BeaconBlock,
   gloas.BeaconBlockBody,
   gloas.BeaconState,
@@ -305,12 +322,20 @@ RestJson.useDefaultSerializationFor(
   gloas.DataColumnSidecar,
   gloas.ExecutionPayload,
   gloas.ExecutionPayloadBid,
+  gloas.ExecutionRequests,
+  gloas.IndexedAttestation,
   gloas.LightClientBootstrap,
   gloas.LightClientFinalityUpdate,
   gloas.LightClientHeader,
   gloas.LightClientOptimisticUpdate,
   gloas.LightClientUpdate,
+  gloas.SignedAggregateAndProof,
   gloas.SignedExecutionPayloadBid,
+  gloas.TrustedAttestation,
+  gloas_mev.BuilderRequestAuth,
+  gloas_mev.SignedBuilderRequestAuth,
+  gloas_mev.BuilderPreferences,
+  gloas_mev.BuilderPreferencesRequest,
   heze.BeaconBlock,
   heze.BeaconBlockBody,
   heze.BeaconState,
@@ -438,12 +463,13 @@ proc writeValue*(w: var RestJsonWriter, value: Gwei | Epoch | Slot) {.writer.} =
 proc readValue*(r: var RestJsonReader, value: var (Gwei | Epoch | Slot)) {.reader.} =
   r.readValue(distinctBase(value))
 
-proc writeValue*(w: var RestJsonWriter, value: EpochParticipationFlags) {.writer.} =
+proc writeValue*(
+    w: var RestJsonWriter, value: altair.EpochParticipationFlags) {.writer.} =
   for e in w.stepwiseArrayCreation(value.asList):
     w.writeValue e
 
 proc readValue*(
-    r: var RestJsonReader, value: var EpochParticipationFlags
+    r: var RestJsonReader, value: var altair.EpochParticipationFlags
 ) {.raises: [SerializationError, IOError].} =
   for e in r.readArray(uint8):
     if not value.asList.add(e):
@@ -715,27 +741,6 @@ proc readValue*[T: SomeForkedLightClientObject](
     else:
       r.raiseUnexpectedValue("Unsupported fork " & $v.version)
 
-type VersionedAggregateAndProof = VersionedData
-proc readValue*(r: var RestJsonReader, value: var ForkedAggregateAndProof) {.reader.} =
-  let v = r.readValue(VersionedAggregateAndProof)
-
-  if value.kind != v.version:
-    value = ForkedAggregateAndProof(kind: v.version)
-
-  try:
-    withAggregateAndProof(value):
-      forkyProof = RestJson.decode(string(v.data), typeof(forkyProof))
-  except SerializationError as exc:
-    r.raiseUnexpectedValue(
-      &"""Incorrect {v.version} aggregated attestation format, [{exc.formatMsg("ForkedAggregateAndProof")}]"""
-    )
-
-proc writeValue*(w: var RestJsonWriter, proof: ForkedAggregateAndProof) {.writer.} =
-  w.writeObject:
-    w.writeField("version", proof.kind.toString())
-    withAggregateAndProof(proof):
-      w.writeField("data", forkyProof)
-
 proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
   w.writeObject:
     w.writeField("type", value.kind)
@@ -751,7 +756,13 @@ proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
       w.writeField("aggregate_and_proof", value.aggregateAndProof)
     of Web3SignerRequestKind.AggregateAndProofV2:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
-      w.writeField("aggregate_and_proof", value.forkedAggregateAndProof)
+      w.writeField("aggregate_and_proof", VersionedData(
+        version: value.aggregateAndProofV2.kind,
+        data:
+          if value.aggregateAndProofV2.kind >= ConsensusFork.Gloas:
+            JsonString(RestJson.encode(value.aggregateAndProofV2.gloasData))
+          else:
+            JsonString(RestJson.encode(value.aggregateAndProofV2.electraData))))
     of Web3SignerRequestKind.Attestation:
       doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
       w.writeField("attestation", value.attestation)
@@ -837,14 +848,30 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
         aggregateAndProof: aggregate_and_proof,
       )
     of Web3SignerRequestKind.AggregateAndProofV2:
-      let aggregate_and_proof = RestJson.decode(
-        string expectedField(aggregate_and_proof), ForkedAggregateAndProof
+      let versioned = RestJson.decode(
+        string expectedField(aggregate_and_proof), VersionedData
       )
+      if versioned.version < ConsensusFork.Electra:
+        r.raiseUnexpectedValue(
+          "Unsupported AGGREGATE_AND_PROOF_V2 version: " &
+          versioned.version.toString())
       Web3SignerRequest(
         kind: Web3SignerRequestKind.AggregateAndProofV2,
         forkInfo: expectedForkInfo,
         signingRoot: v.signingRoot,
-        forkedAggregateAndProof: aggregate_and_proof,
+        aggregateAndProofV2: (block: withConsensusFork(versioned.version):
+          when consensusFork >= ConsensusFork.Gloas:
+            Web3SignerForkedAggregateAndProof(
+              kind: consensusFork,
+              gloasData: RestJson.decode(
+                string(versioned.data), gloas.AggregateAndProof))
+          elif consensusFork >= ConsensusFork.Electra:
+            Web3SignerForkedAggregateAndProof(
+              kind: consensusFork,
+              electraData: RestJson.decode(
+                string(versioned.data), electra.AggregateAndProof))
+          else:
+            raiseAssert "Just checked above"),
       )
     of Web3SignerRequestKind.Attestation:
       Web3SignerRequest(
@@ -956,132 +983,6 @@ proc readValue*(r: var RestJsonReader, value: var RemoteKeystoreStatus) {.reader
     r.raiseUnexpectedValue("Field `status` is missing")
 
   value = RemoteKeystoreStatus(status: status.get(), message: message)
-
-proc readValue*(
-    r: var RestJsonReader, value: var ScryptSalt
-) {.raises: [SerializationError, IOError].} =
-  let res =
-    try:
-      hexToSeqByte(r.readValue(string))
-    except ValueError:
-      r.raiseUnexpectedValue("Invalid scrypt salt value")
-
-  if len(res) == 0:
-    r.raiseUnexpectedValue("Invalid scrypt salt value")
-  value = ScryptSalt(res)
-
-proc writeValue*(w: var RestJsonWriter, value: Pbkdf2Params) {.writer.} =
-  w.writeObject:
-    w.writeField("dklen", JsonString(Base10.toString(value.dklen)))
-    w.writeField("c", JsonString(Base10.toString(value.c)))
-    w.writeField("prf", value.prf)
-    w.writeField("salt", value.salt)
-
-proc readValue*(
-    r: var RestJsonReader, value: var Pbkdf2Params
-) {.raises: [SerializationError, IOError].} =
-  var
-    dklen: Opt[uint64]
-    c: Opt[uint64]
-    prf: Opt[PrfKind]
-    salt: Opt[Pbkdf2Salt]
-
-  for fieldName in readObjectFields(r):
-    case fieldName
-    of "dklen":
-      if dklen.isSome():
-        r.raiseUnexpectedField("Multiple `dklen` fields found", "Pbkdf2Params")
-      dklen = Opt.some(r.readValue(uint64))
-    of "c":
-      if c.isSome():
-        r.raiseUnexpectedField("Multiple `c` fields found", "Pbkdf2Params")
-      c = Opt.some(r.readValue(uint64))
-    of "prf":
-      if prf.isSome():
-        r.raiseUnexpectedField("Multiple `prf` fields found", "Pbkdf2Params")
-      prf = Opt.some(r.readValue(PrfKind))
-    of "salt":
-      if salt.isSome():
-        r.raiseUnexpectedField("Multiple `salt` fields found", "Pbkdf2Params")
-      salt = Opt.some(r.readValue(Pbkdf2Salt))
-    else:
-      unrecognizedFieldWarning(fieldName, typeof(value).name)
-
-  if dklen.isNone():
-    r.raiseUnexpectedValue("Field `dklen` is missing")
-  if c.isNone():
-    r.raiseUnexpectedValue("Field `c` is missing")
-  if prf.isNone():
-    r.raiseUnexpectedValue("Field `prf` is missing")
-  if salt.isNone():
-    r.raiseUnexpectedValue("Field `salt` is missing")
-
-  value = Pbkdf2Params(dklen: dklen.get(), c: c.get(), prf: prf.get(), salt: salt.get())
-
-proc writeValue*(w: var RestJsonWriter, value: ScryptParams) {.writer.} =
-  w.writeObject:
-    w.writeField("dklen", JsonString(Base10.toString(value.dklen)))
-    w.writeField("n", JsonString(Base10.toString(uint64(value.n))))
-    w.writeField("p", JsonString(Base10.toString(uint64(value.p))))
-    w.writeField("r", JsonString(Base10.toString(uint64(value.r))))
-    w.writeField("salt", value.salt)
-
-proc readValue*(
-    r: var RestJsonReader, value: var ScryptParams
-) {.raises: [SerializationError, IOError].} =
-  var
-    dklen: Opt[uint64]
-    n, p, rv: Opt[int]
-    salt: Opt[ScryptSalt]
-
-  for fieldName in readObjectFields(r):
-    case fieldName
-    of "dklen":
-      if dklen.isSome():
-        r.raiseUnexpectedField("Multiple `dklen` fields found", "ScryptParams")
-      dklen = Opt.some(r.readValue(uint64))
-    of "n":
-      if n.isSome():
-        r.raiseUnexpectedField("Multiple `n` fields found", "ScryptParams")
-      let res = r.readValue(int)
-      if res < 0:
-        r.raiseUnexpectedValue("Unexpected negative `n` value")
-      n = Opt.some(res)
-    of "p":
-      if p.isSome():
-        r.raiseUnexpectedField("Multiple `p` fields found", "ScryptParams")
-      let res = r.readValue(int)
-      if res < 0:
-        r.raiseUnexpectedValue("Unexpected negative `p` value")
-      p = Opt.some(res)
-    of "r":
-      if rv.isSome():
-        r.raiseUnexpectedField("Multiple `r` fields found", "ScryptParams")
-      let res = r.readValue(int)
-      if res < 0:
-        r.raiseUnexpectedValue("Unexpected negative `r` value")
-      rv = Opt.some(res)
-    of "salt":
-      if salt.isSome():
-        r.raiseUnexpectedField("Multiple `salt` fields found", "ScryptParams")
-      salt = Opt.some(r.readValue(ScryptSalt))
-    else:
-      unrecognizedFieldWarning(fieldName, typeof(value).name)
-
-  if dklen.isNone():
-    r.raiseUnexpectedValue("Field `dklen` is missing")
-  if n.isNone():
-    r.raiseUnexpectedValue("Field `n` is missing")
-  if p.isNone():
-    r.raiseUnexpectedValue("Field `p` is missing")
-  if rv.isNone():
-    r.raiseUnexpectedValue("Field `r` is missing")
-  if salt.isNone():
-    r.raiseUnexpectedValue("Field `salt` is missing")
-
-  value = ScryptParams(
-    dklen: dklen.get(), n: n.get(), p: p.get(), r: rv.get(), salt: salt.get()
-  )
 
 proc writeValue*(
   w: var RestJsonWriter, value: Keystore
@@ -1268,7 +1169,6 @@ proc readValue*(
   # `consensus_block_value`
 
   withConsensusFork(v.version):
-    debugGloasComment "re-add gloas mev"
     value =
       when consensusFork >= ConsensusFork.Gloas:
         if v.execution_payload_blinded:

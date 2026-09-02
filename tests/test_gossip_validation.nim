@@ -14,28 +14,28 @@ import
   chronos,
   taskpools,
   # Internal
-  ../beacon_chain/[beacon_clock],
+  ../beacon_chain/beacon_clock,
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     envelope_quarantine, sync_committee_msg_pool],
-  ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[
-    beaconstate, state_transition, helpers, network, validator],
+  ../beacon_chain/spec/[state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import count, toSeq
 from ./testbcutil import addHeadBlock
+from ../beacon_chain/spec/beaconstate import
+  get_proposer_dependent_root, latest_block_root
 
 proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
     # pool[].prune(dag) # We test without att_1_0 pool / fork choice pruning
 
-proc signProposerPreferences(
+func signProposerPreferences(
     dag: ChainDAGRef, prefs: ProposerPreferences,
     privkey: ValidatorPrivKey): SignedProposerPreferences =
   let
@@ -51,22 +51,23 @@ suite "Gossip validation " & preset():
     let
       rng = HmacDrbgContext.new()
       cfg = genesisTestRuntimeConfig(ConsensusFork.Electra)
-    var
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3), validatorMonitor, {})
       taskpool = Taskpool.new()
-      verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    let
       quarantine = newClone(Quarantine.init(dag.cfg))
       envQuarantine = newClone(EnvelopeQuarantine.init())
       pool {.used.} = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
-      cache = StateCache()
+    var
+      cache: StateCache
       info = ForkedEpochInfo()
-      batchCrypto {.used.} = BatchCrypto.new(
-        rng, cfg.timeParams, eager = proc(): bool = false,
-        genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-          "working batcher")
+    let batchCrypto {.used.} = BatchCrypto.new(
+      rng, cfg.timeParams, eager = proc(): bool = false,
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check cfg.process_slots(
       state[], state[].slot + 1, cache, info, {}).isOk()
@@ -105,7 +106,7 @@ suite "Gossip validation " & preset():
       dag.updateHead(added[], quarantine[], [])
       pruneAtFinalization(dag, pool[])
 
-    var
+    let
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
         dag.headState, dag.head.slot, 0.CommitteeIndex, cache)
@@ -494,48 +495,35 @@ suite "Gossip validation - Altair":
 
 suite "Proposer preferences validation " & preset():
   setup:
-    var
+    let
       cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
       validatorMonitor = newClone(ValidatorMonitor.init(cfg))
       dag = ChainDAGRef.init(
         cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
         validatorMonitor, {})
-      seen: array[2, array[SLOTS_PER_EPOCH, Opt[ProposerPreferences]]]
-
-    # Pick an upcoming slot and its scheduled proposer from the head state's
-    # proposer_lookahead.
-    var
-      proposerSlot: Slot
-      proposerIndex: uint64
-      proposerFound = false
-      wrongValidator: uint64
-    withState(dag.headState):
-      when consensusFork >= ConsensusFork.Gloas:
-        let startSlot = forkyState.data.get_current_epoch().start_slot()
-        for offset in 1'u64 ..< forkyState.data.proposer_lookahead.lenu64:
-          let slot = startSlot + offset
-          if slot > forkyState.data.slot:
-            proposerSlot = slot
-            proposerIndex = forkyState.data.proposer_lookahead.item(offset)
-            proposerFound = true
-            break
-        # wrongValidator just needs to differ from the scheduled proposer at
-        # proposerSlot; other slots don't matter for is_valid_proposal_slot.
-        wrongValidator = proposerIndex + 1
-        if forkyState.data.proposer_lookahead.item(
-            proposerSlot - startSlot) == wrongValidator:
-          wrongValidator += 1
-    check proposerFound
+    var seen: SeenProposerPreferences
 
     let
+      proposer_slot =
+        (GENESIS_EPOCH + MIN_SEED_LOOKAHEAD + 1).start_slot() + 1
+      proposer_index =
+        uint64 dag.getProposer(dag.head, proposer_slot).expect("proposer")
+      dependent_root = dag.head.root
+      # wrongValidator just needs to differ from the scheduled proposer at
+      # proposer_slot; that is the only slot the proposer check looks at.
+      wrongValidator =
+        if proposer_index == 0: 1'u64 else: proposer_index - 1
+
       prefs = ProposerPreferences(
-        proposal_slot: proposerSlot,
-        validator_index: proposerIndex,
+        dependent_root: dependent_root,
+        proposal_slot: proposer_slot,
+        validator_index: proposer_index,
         fee_recipient: default(ExecutionAddress),
-        gas_limit: 30_000_000)
+        target_gas_limit: 30_000_000)
       signed = signProposerPreferences(
-        dag, prefs, MockPrivKeys[proposerIndex.ValidatorIndex])
-      wallTime = dag.head.slot.start_beacon_time(dag.cfg.timeParams)
+        dag, prefs, MockPrivKeys[proposer_index.ValidatorIndex])
+      wallTime = proposer_slot.epoch.start_slot().start_beacon_time(
+        dag.cfg.timeParams)
 
   test "validateProposerPreferences - happy case":
     check:
@@ -547,16 +535,16 @@ suite "Proposer preferences validation " & preset():
       validateProposerPreferences(dag, seen, signed, wallTime).isErr
 
   test "validateProposerPreferences - proposal_slot already passed":
-    let past = (proposerSlot + 1).start_beacon_time(dag.cfg.timeParams)
+    let past = (proposer_slot + 1).start_beacon_time(dag.cfg.timeParams)
     # Still within current/next epoch window, but wallTime >= proposal_slot.
     check:
       validateProposerPreferences(dag, seen, signed, past).isErr
 
   test "validateProposerPreferences - proposal_slot outside current/next epoch":
     var msg = prefs
-    msg.proposal_slot = proposerSlot + SLOTS_PER_EPOCH * 3
+    msg.proposal_slot = proposer_slot + SLOTS_PER_EPOCH * 3
     let farAhead = signProposerPreferences(
-      dag, msg, MockPrivKeys[proposerIndex.ValidatorIndex])
+      dag, msg, MockPrivKeys[proposer_index.ValidatorIndex])
     check:
       validateProposerPreferences(dag, seen, farAhead, wallTime).isErr
 
@@ -573,3 +561,34 @@ suite "Proposer preferences validation " & preset():
     tampered.signature = default(ValidatorSig)
     check:
       validateProposerPreferences(dag, seen, tampered, wallTime).isErr
+
+suite "Gossip validation - Gloas":
+  setup:
+    let
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = ChainDAGRef.init(
+        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
+        validatorMonitor, {})
+      quarantine = newClone(Quarantine.init(dag.cfg))
+      envelopeQuarantine = newClone(EnvelopeQuarantine.init())
+      wallTime = (GENESIS_SLOT + 1).start_beacon_time(cfg.timeParams)
+    var cache = StateCache()
+
+  test "validateBeaconBlock - finalized head execution parent":
+    let
+      blck = makeTestBlock(dag.headState, cache, cfg = cfg).gloasData
+      res = dag.validateBeaconBlock(
+        quarantine, envelopeQuarantine, blck, wallTime, {})
+    check:
+      res.isOk
+
+  test "validateBeaconBlock - mismatched execution parent":
+    var blck = makeTestBlock(dag.headState, cache, cfg = cfg).gloasData
+    template bid: untyped =
+      blck.message.body.signed_execution_payload_bid.message
+    bid.parent_block_hash.data[0] = not bid.parent_block_hash.data[0]
+    let res = dag.validateBeaconBlock(
+      quarantine, envelopeQuarantine, blck, wallTime, {})
+    check:
+      res.isErr
