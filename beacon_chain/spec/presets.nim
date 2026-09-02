@@ -36,11 +36,6 @@ const
   MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#configs
-  # `MAX_REQUEST_INCLUSION_LIST` is a runtime config value, but the SSZ `Limit`
-  # of the `InclusionListsByIndices` response must be known at compile time. A
-  # config raising it above this is clamped back down, which stays within spec:
-  # Clients MAY limit the number of inclusion lists in the response.
   MAX_SUPPORTED_REQUEST_INCLUSION_LIST*: uint64 = 16
 
 type TimeParams* = object
@@ -1165,6 +1160,9 @@ proc readRuntimeConfig*(
                        "MAX_BLOBS_PER_BLOCK" & suffix, `<=`
     checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,
                        "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
+
+  checkCompatibility MAX_SUPPORTED_REQUEST_INCLUSION_LIST,
+                     "MAX_REQUEST_INCLUSION_LIST", `<=`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value

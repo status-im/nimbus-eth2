@@ -10,7 +10,7 @@
 import
   std/[sets, tables],
   chronicles,
-  ../spec/[eth2_ssz_serialization, inclusion_list],
+  ../spec/inclusion_list,
   ../beacon_clock
 
 logScope: topics = "ilpool"
@@ -37,11 +37,9 @@ const
 
 type
   SeenInclusionList = object
-    digest: Eth2Digest
-      ## `eth2digest` of the SSZ-encoded `InclusionList`, to spot resubmissions.
     signed: SignedInclusionList
-      ## The spec `InclusionListStore` keeps only the unsigned message, but
-      ## `InclusionListsByIndices` has to serve the signature back with it.
+      ## `InclusionListsByIndices` serves the signature back along with the
+      ## message, so the signed form is what gets retained here.
 
   IlBucket = object
     slot: Slot
@@ -83,8 +81,8 @@ func addInclusionList*(
     is_timely: bool, wallTime: BeaconTime): bool =
   ## Record an (already validated) inclusion list into its slot's bucket.
   ##
-  ## Returns true if it was newly processed, false if it was a byte-identical
-  ## resubmission, exceeded the per-validator bound of two distinct messages, or
+  ## Returns true if it was newly processed, false if it repeats a message
+  ## already held, exceeded the per-validator bound of two distinct messages, or
   ## fell outside the live window.
   template inclusion_list: untyped = signed_inclusion_list.message
 
@@ -112,20 +110,16 @@ func addInclusionList*(
     newSeqOfCap[SeenInclusionList](MAX_INCLUSION_LISTS_PER_VALIDATOR))
 
   # The first two distinct lists from a validator already cover any equivocation;
-  # drop any further ones before spending a hash on them.
+  # drop any further ones before comparing against what is held.
   if seen[].len >= MAX_INCLUSION_LISTS_PER_VALIDATOR:
     return false
 
-  # A byte-identical resubmission is a no-op. A plain digest of the SSZ bytes
-  # suffices to detect duplicates; the canonical `hash_tree_root` is needlessly
-  # slower here.
-  let il_digest = eth2digest(SSZ.encode(inclusion_list))
+  # Resubmitting a message already held is a no-op.
   for entry in seen[]:
-    if entry.digest == il_digest:
+    if entry.signed.message == inclusion_list:
       return false
 
-  seen[].add SeenInclusionList(
-    digest: il_digest, signed: signed_inclusion_list)
+  seen[].add SeenInclusionList(signed: signed_inclusion_list)
   bucket.store.process_inclusion_list(inclusion_list, is_timely)
 
   true

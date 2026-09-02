@@ -27,7 +27,7 @@ const
   dataColumnResponseCost = allowedOpsPerSecondCost(8000)
     ## 8 data columns take the same memory as 1 blob approximately
   inclusionListResponseCost = allowedOpsPerSecondCost(1000)
-    ## ~8 KiB each, so cheaper than blobs; keep them on the same budget anyway
+    ## ~8 KiB each
 
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
@@ -759,15 +759,11 @@ p2pProtocol BeaconSync(version = 1,
     if requested == 0:
       raise newException(InvalidInputsError, "No inclusion lists requested")
 
-    # No more than `MAX_REQUEST_INCLUSION_LIST` may be requested at a time - the
-    # request's `BitVector[INCLUSION_LIST_COMMITTEE_SIZE]` bounds this already on
-    # the mainnet config, but the two constants are independent.
     if requested.uint64 > dag.cfg.MAX_REQUEST_INCLUSION_LIST:
       raise newException(
         InvalidInputsError, "Exceeding inclusion list request limit")
 
     if dag.cfg.HEZE_FORK_EPOCH == FAR_FUTURE_EPOCH:
-      # Heze is not scheduled, so there is no slot we could serve.
       raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
     let
@@ -779,18 +775,11 @@ p2pProtocol BeaconSync(version = 1,
           GENESIS_SLOT
       minimumRequestSlot = max(lookbackFloor, dag.cfg.HEZE_FORK_EPOCH.start_slot)
 
-    # For a slot earlier than `minimum_request_slot`, peers MAY respond with
-    # `3: ResourceUnavailable` or just omit the lists - the error is more
-    # informative than an empty response the requester cannot tell apart from
-    # us simply having none.
-    if slot < minimumRequestSlot:
+    if slot < minimumRequestSlot or slot > wallSlot:
       raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
-    # The request addresses committee positions while the pool is keyed by
-    # validator index, so resolve them through this node's view of
-    # `get_inclusion_list_committee(state, slot)`. A requester asking about a
-    # different committee is not an error - the pool's root filter below then
-    # simply yields nothing.
+    # The request addresses committee positions, the pool is keyed by validator
+    # index; resolve them through this node's committee view.
     let shufflingRef = dag.getShufflingRef(dag.head, slot.epoch, false).valueOr:
       raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
 
@@ -799,9 +788,9 @@ p2pProtocol BeaconSync(version = 1,
       if indices[i]:
         requestedValidators.add validator_index
 
-    # Clients MAY limit the number of inclusion lists in the response.
-    let maxLists = int min(
-      dag.cfg.MAX_REQUEST_INCLUSION_LIST, MAX_SUPPORTED_REQUEST_INCLUSION_LIST)
+    let
+      maxLists = int dag.cfg.MAX_REQUEST_INCLUSION_LIST
+      forkDigest = peer.network.forkDigestAtEpoch(slot.epoch).data
 
     var found = 0
     for signedInclusionList in peer.networkState.inclusionListPool[]
@@ -813,11 +802,7 @@ p2pProtocol BeaconSync(version = 1,
       peer.network.awaitQuota(
         inclusionListResponseCost, "inclusion_lists_by_indices/1")
 
-      # The `ForkDigest` context epoch of each chunk is determined by
-      # `compute_epoch_at_slot(signed_inclusion_list.message.slot)`.
-      await response.writeSSZ(
-        signedInclusionList,
-        peer.network.forkDigestAtEpoch(slot.epoch).data)
+      await response.writeSSZ(signedInclusionList, forkDigest)
 
       inc found
 
