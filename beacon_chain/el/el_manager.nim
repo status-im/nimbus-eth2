@@ -838,18 +838,16 @@ proc getBlobsV3*(
 
 proc getBlobsV4*(
     m: ELManager,
-    blck: fulu.SignedBeaconBlock | gloas.SignedBeaconBlock,
+    blck: gloas.SignedBeaconBlock,
     indices_bitarray: FixedBytes[16]
 ): Future[Opt[seq[Opt[BlobCellsAndProofsV1]]]] {.
     async: (raises: [CancelledError], raw: true)
 .} =
+
   mixin getBlobsV4
 
   template kzg_commitments(): auto =
-    when typeof(blck).kind >= ConsensusFork.Gloas:
-      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
-    else:
-      blck.message.body.blob_kzg_commitments
+    blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
 
   let deadline = sleepAsync(GETBLOBS_TIMEOUT)
   m.elConnections
