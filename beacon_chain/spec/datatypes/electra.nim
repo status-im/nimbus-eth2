@@ -29,7 +29,7 @@ from stew/bitops2 import log2trunc
 from stew/byteutils import to0xHex
 from ./altair import
   EpochParticipationFlags, InactivityScores, SyncAggregate, SyncCommittee,
-  TrustedSyncAggregate, isZero, num_active_participants
+  TrustedSyncAggregate, LightClientBlockData, isZero, num_active_participants
 from ./capella import
   ExecutionBranch, HistoricalSummary, SignedBLSToExecutionChange,
   SignedBLSToExecutionChangeList, Withdrawal, EXECUTION_PAYLOAD_GINDEX
@@ -578,6 +578,8 @@ func init*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/sync-protocol.md#new-constants
 const
+  FINALIZED_CHECKPOINT_GINDEX_ELECTRA* = get_generalized_index(
+    BeaconState, "finalized_checkpoint")
   FINALIZED_ROOT_GINDEX_ELECTRA* = get_generalized_index(
     BeaconState, "finalized_checkpoint", "root")
   CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA* = get_generalized_index(
@@ -585,17 +587,18 @@ const
   NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = get_generalized_index(
     BeaconState, "next_sync_committee")
 static:
+  doAssert FINALIZED_CHECKPOINT_GINDEX_ELECTRA == 84.GeneralizedIndex
   doAssert FINALIZED_ROOT_GINDEX_ELECTRA == 169.GeneralizedIndex
   doAssert CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA == 86.GeneralizedIndex
   doAssert NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA == 87.GeneralizedIndex
 
 type
+  FinalizedCheckpointBranch* =
+    array[log2trunc(FINALIZED_CHECKPOINT_GINDEX_ELECTRA), Eth2Digest]
   FinalityBranch* =
     array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
-
   CurrentSyncCommitteeBranch* =
     array[log2trunc(CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
-
   NextSyncCommitteeBranch* =
     array[log2trunc(NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA), Eth2Digest]
 
@@ -695,6 +698,25 @@ type
       ## Max number of active participants in a sync committee
       ## (used to calculate safety threshold)
     current_max_active_participants*: uint64
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientBootstrapData* = object
+    current_sync_committee*: List[SyncCommittee, 1]
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
+
+    execution*: deneb.ExecutionPayloadHeader
+    execution_branch*: capella.ExecutionBranch
+
+  # https://hackmd.io/@etan-status/decentralized-cl-sync
+  LightClientEpochData* = object
+    epoch*: Epoch
+    parent_block_header*: BeaconBlockHeader
+    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+
+    bootstrap_data*: LightClientBootstrapData
+
+    finalized_checkpoint*: Checkpoint
+    finalized_checkpoint_branch*: FinalizedCheckpointBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
@@ -864,10 +886,19 @@ func shortLog*(v: LightClientOptimisticUpdate): auto =
     signature_slot: v.signature_slot
   )
 
+func shortLog*(v: LightClientEpochData): auto =
+  (
+    epoch: v.epoch,
+    parent: shortLog(v.parent_block_header),
+    finalized: shortLog(v.finalized_checkpoint),
+    has_current_sync_committee: v.bootstrap_data.current_sync_committee.len > 0
+  )
+
 chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+chronicles.formatIt LightClientEpochData: shortLog(it)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_electra*(
