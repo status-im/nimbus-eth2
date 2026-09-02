@@ -1064,11 +1064,6 @@ proc sendPayloadAttestations(
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
-  let payloadDue =
-    node.beaconClock.fromNow(slot.payload_deadline(node.dag.timeParams))
-  if payloadDue.inFuture:
-    await sleepAsync(payloadDue.offset)
-
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/validator.md#constructing-the-payloadattestationmessage
   # - If the validator has not seen any beacon block for the assigned slot, do
   #   not submit a payload attestation; it will be ignored anyway.
@@ -1079,6 +1074,14 @@ proc sendPayloadAttestations(
     notice "Payload attestation to a state in the past",
       attestationTarget = shortLog(target),
       head = shortLog(head)
+
+  # Decide as soon as the execution payload envelope for this slot's
+  # block arrives, or at the deadline whichever comes first.
+  let payloadDue =
+    node.beaconClock.fromNow(slot.payload_deadline(node.dag.timeParams))
+  if payloadDue.inFuture:
+    discard await node.consensusManager[].expectEnvelope(target.blck.root)
+      .withTimeout(payloadDue.offset)
 
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
@@ -1613,7 +1616,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
-  await node.sendPayloadAttestations(head, slot)
+  asyncSpawn node.sendPayloadAttestations(head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
