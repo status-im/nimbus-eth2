@@ -259,6 +259,7 @@ type
     attesterDutiesInvalidationEvent*: AsyncEvent
     proposerDutiesInvalidationEvent*: AsyncEvent
     syncDutiesInvalidationEvent*: AsyncEvent
+    ptcDutiesInvalidationEvent*: AsyncEvent
     attesterDependentRoots*: Table[Epoch, Eth2Digest]
     proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
@@ -1569,7 +1570,8 @@ proc registerHead*(
       epoch: Epoch, dependentRoot: Eth2Digest): bool =
     dependentRoots.getOrDefault(epoch, dependentRoot) != dependentRoot
 
-  if not(vc.attesterDutiesInvalidationEvent.isSet()):
+  if not(vc.attesterDutiesInvalidationEvent.isSet()) or
+     not(vc.ptcDutiesInvalidationEvent.isSet()):
     let didInvalidate =
       if nextEpoch == headEpoch:
         vc.attesterDependentRoots.didInvalidate(
@@ -1592,9 +1594,10 @@ proc registerHead*(
       else:
         false
     if didInvalidate:
-      debug "Attester duties invalidated by head event",
+      debug "Attester and PTC duties invalidated by head event",
             head_slot = head.slot, block_root = shortLog(head.block_root)
       vc.attesterDutiesInvalidationEvent.fire()
+      vc.ptcDutiesInvalidationEvent.fire()
 
   if not(vc.proposerDutiesInvalidationEvent.isSet()):
     let didInvalidate =

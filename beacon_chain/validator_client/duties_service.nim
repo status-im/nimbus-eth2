@@ -133,6 +133,7 @@ proc pollForValidatorIndices*(
     vc.attesterDutiesInvalidationEvent.fire()
     vc.proposerDutiesInvalidationEvent.fire()
     vc.syncDutiesInvalidationEvent.fire()
+    vc.ptcDutiesInvalidationEvent.fire()
 
 proc pollForAttesterDuties*(
     service: DutiesServiceRef,
@@ -234,6 +235,7 @@ proc pollForPtcDuties*(
     except ValidatorApiError as exc:
       warn "Unable to get PTC duties", epoch = epoch,
            reason = exc.getFailureReason()
+      vc.ptcDutiesInvalidationEvent.fire()
       return 0
     except CancelledError as exc:
       debug "PTC duties processing was interrupted"
@@ -789,13 +791,17 @@ proc ptcDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await service.waitForNextSlot()
+    let lastPolledSlot = vc.currentSlot()
     # Cleaning up previous PTC duties task.
     if not(isNil(service.pollingPtcDutiesTask)) and
        not(service.pollingPtcDutiesTask.finished()):
       await cancelAndWait(service.pollingPtcDutiesTask)
     # Spawning new PTC duties task.
+    vc.ptcDutiesInvalidationEvent.clear()
     service.pollingPtcDutiesTask = service.pollForPtcDuties()
+    await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.ptcDutiesInvalidationEvent, lastPolledSlot)
 
 proc proposerDutiesLoop(
     service: DutiesServiceRef
