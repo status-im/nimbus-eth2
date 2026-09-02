@@ -476,6 +476,12 @@ AllTests-mainnet
 + Execution valid                                                                            OK
 + Execution valid after checkpoint sync                                                      OK
 ```
+## Gloas builder onboarding from pending deposits
+```diff
++ invalid, then valid validator deposit blocks builder onboarding                            OK
++ multiple mixed-validity validator deposits surrounding builder deposits                    OK
++ valid, then invalid validator deposit still blocks builder onboarding                      OK
+```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
 + Empty in-memory scenario test [node]                                                       OK
@@ -793,6 +799,7 @@ AllTests-mainnet
 + Get all payload attestations in the pool [Preset: mainnet]                                 OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
++ Same validator, conflicting votes are ignored [Preset: mainnet]                            OK
 + get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
 ```
 ## PeerPool testing suite
