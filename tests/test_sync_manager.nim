@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 {.used.}
 
-import unittest2
+import unittest2, std/strutils
 import chronos, stew/base10, chronos/unittest2/asynctests, libp2p/peerid,
        libp2p/crypto/rng
 import kzg4844/[kzg, kzg_abi]
@@ -85,6 +85,41 @@ func createChain(slots: Slice[Slot]): seq[SyncResponseItem] =
     let item = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Deneb)
     item[].denebData.message.slot = slot
     res.add(SyncResponseItem.init(item, nil))
+  res
+
+func createGloasChain(slots: Slice[Slot]): seq[SyncResponseItem] =
+  var res = newSeqOfCap[SyncResponseItem](len(slots))
+  for slot in slots:
+    let blck = newClone ForkedSignedBeaconBlock(kind: ConsensusFork.Gloas)
+    blck[].gloasData.message.slot = slot
+    let envelope = newClone gloas.SignedExecutionPayloadEnvelope(
+      message: ExecutionPayloadEnvelope(payload: gloas.ExecutionPayload(
+        slot_number: slot)))
+    res.add(SyncResponseItem.init(blck, envelope))
+  res
+
+func createFuluSidecarsChain(
+    slots: Slice[Slot],
+    map: ColumnMap
+): seq[ref fulu.DataColumnSidecar] =
+  var res = newSeqOfCap[ref fulu.DataColumnSidecar](len(slots) * len(map))
+  for slot in slots:
+    for index in map:
+      let sidecar = newClone fulu.DataColumnSidecar(
+        index: index, signed_block_header: SignedBeaconBlockHeader(
+          message: BeaconBlockHeader(slot: slot)))
+      res.add(sidecar)
+  res
+
+func createGloasSidecarsChain(
+    slots: Slice[Slot],
+    map: ColumnMap
+): seq[ref gloas.DataColumnSidecar] =
+  var res = newSeqOfCap[ref gloas.DataColumnSidecar](len(slots) * len(map))
+  for slot in slots:
+    for index in map:
+      let sidecar = newClone gloas.DataColumnSidecar(index: index, slot: slot)
+      res.add(sidecar)
   res
 
 func createDigest(data: int): Eth2Digest =
@@ -2633,3 +2668,179 @@ suite "SyncManager test suite":
     check:
       req.hasEndGap(chain1) == false
       req.hasEndGap(chain2) == true
+
+  test "[SyncQueue] getShortMap(blocks/envelopes) test":
+    let
+      chain = createGloasChain(Slot(100) .. Slot(131))
+      blocks = chain.mapIt(it.signedBlock)
+      envelopes = chain.mapIt(it.signedEnvelope)
+      srange = SyncRange.init(Slot(100), 32)
+      request = SyncRequest[SomeTPeer](data: srange)
+
+    proc filter[T](src: openArray[T], x: int): seq[T] =
+      var
+        res: seq[T]
+        counter = 0
+      for item in src:
+        if counter mod (x * 2) < x:
+          res.add(item)
+        inc(counter)
+      res
+
+    proc filter2(
+        src: openArray[SyncResponseItem],
+        x: int
+    ): seq[SyncResponseItem] =
+      var
+        res: seq[SyncResponseItem]
+        counter = 0
+      for item in src:
+        res.add(item)
+        if counter mod (x * 2) < x:
+          res[^1].signedEnvelope = nil
+        inc(counter)
+      res
+
+    check:
+      getShortMap(request, default(seq[ref ForkedSignedBeaconBlock])) ==
+        "................................"
+      getShortMap(request, default(seq[ref SignedExecutionPayloadEnvelope])) ==
+        "................................"
+      getShortMap(request, blocks) ==
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      getShortMap(request, envelopes) ==
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+
+    for i in 0 ..< 32:
+      check:
+        getShortMap(request, blocks.toOpenArray(0, i)) ==
+          repeat('x', i + 1) & repeat('.', 31 - i)
+        getShortMap(request, blocks.toOpenArray(31 - i, 31)) ==
+          repeat('.', 31 - i) & repeat('x', i + 1)
+        getShortMap(request, envelopes.toOpenArray(0, i)) ==
+          repeat('e', i + 1) & repeat('.', 31 - i)
+        getShortMap(request, envelopes.toOpenArray(31 - i, 31)) ==
+          repeat('.', 31 - i) & repeat('e', i + 1)
+
+    const TestVectors = [
+      "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.",
+      "xx..xx..xx..xx..xx..xx..xx..xx..",
+      "xxx...xxx...xxx...xxx...xxx...xx",
+      "xxxx....xxxx....xxxx....xxxx....",
+      "xxxxx.....xxxxx.....xxxxx.....xx",
+      "xxxxxx......xxxxxx......xxxxxx..",
+      "xxxxxxx.......xxxxxxx.......xxxx",
+      "xxxxxxxx........xxxxxxxx........",
+      "xxxxxxxxx.........xxxxxxxxx.....",
+      "xxxxxxxxxx..........xxxxxxxxxx..",
+      "xxxxxxxxxxx...........xxxxxxxxxx",
+      "xxxxxxxxxxxx............xxxxxxxx",
+      "xxxxxxxxxxxxx.............xxxxxx",
+      "xxxxxxxxxxxxxx..............xxxx",
+      "xxxxxxxxxxxxxxx...............xx",
+      "xxxxxxxxxxxxxxxx................"
+    ]
+
+    for index, vector in TestVectors.pairs():
+      check:
+        getShortMap(request, blocks.filter(index + 1)) == vector
+        getShortMap(request, envelopes.filter(index + 1)) ==
+          vector.replace('x', 'e')
+        getShortMap(request, chain.filter2(index + 1)) ==
+          vector.replace('.', 'X')
+
+  test "[SyncQueue] getShortMap(sidecars) test":
+    let
+      map = ColumnMap.init([ColumnIndex(10), 15, 17, 36])
+      chain1 = createFuluSidecarsChain(Slot(100) .. Slot(131), map)
+      chain2 = createGloasSidecarsChain(Slot(100) .. Slot(131), map)
+      srange = SyncRange.init(Slot(100), 32)
+      request = SyncRequest[SomeTPeer](data: srange)
+
+    proc filter[T](src: openArray[T], map: ColumnMap, x: int): seq[T] =
+      var
+        res: seq[T]
+        counter = 0
+      let maplen = len(map)
+      for item in src:
+        if counter mod (x * maplen * 2) < x * maplen:
+          res.add(item)
+        inc(counter)
+      res
+
+    proc filter2[T](
+        src: openArray[T],
+        origMap, filterMap: ColumnMap,
+        x: int
+    ): seq[T] =
+      var
+        res: seq[T]
+        counter = 0
+      let maplen = len(origMap)
+      for item in src:
+        if counter mod (x * maplen * 2) < x * maplen:
+          res.add(item)
+        else:
+          if item[].index in filterMap:
+            res.add(item)
+        inc(counter)
+      res
+
+    check:
+      getShortMap(request, map, default(seq[ref fulu.DataColumnSidecar])) ==
+        "................................"
+      getShortMap(request, map, default(seq[ref gloas.DataColumnSidecar])) ==
+        "................................"
+      getShortMap(request, map, chain1) ==
+        "++++++++++++++++++++++++++++++++"
+      getShortMap(request, map, chain2) ==
+        "++++++++++++++++++++++++++++++++"
+
+    for i in 0 ..< 32:
+      let
+        spos = (i + 1) * len(map) - 1
+        epos1 = (31 - i) * len(map)
+        epos2 = 32 * len(map) - 1
+      check:
+        getShortMap(request, map, chain1.toOpenArray(0, spos)) ==
+          repeat('+', i + 1) & repeat('.', 31 - i)
+        getShortMap(request, map, chain2.toOpenArray(0, spos)) ==
+          repeat('+', i + 1) & repeat('.', 31 - i)
+        getShortMap(request, map, chain1.toOpenArray(epos1, epos2)) ==
+          repeat('.', 31 - i) & repeat('+', i + 1)
+        getShortMap(request, map, chain2.toOpenArray(epos1, epos2)) ==
+          repeat('.', 31 - i) & repeat('+', i + 1)
+
+    const TestVectors = [
+      "+.+.+.+.+.+.+.+.+.+.+.+.+.+.+.+.",
+      "++..++..++..++..++..++..++..++..",
+      "+++...+++...+++...+++...+++...++",
+      "++++....++++....++++....++++....",
+      "+++++.....+++++.....+++++.....++",
+      "++++++......++++++......++++++..",
+      "+++++++.......+++++++.......++++",
+      "++++++++........++++++++........",
+      "+++++++++.........+++++++++.....",
+      "++++++++++..........++++++++++..",
+      "+++++++++++...........++++++++++",
+      "++++++++++++............++++++++",
+      "+++++++++++++.............++++++",
+      "++++++++++++++..............++++",
+      "+++++++++++++++...............++",
+      "++++++++++++++++................"
+    ]
+
+    for index, vector in TestVectors.pairs():
+      check:
+        getShortMap(request, map, chain1.filter(map, index + 1)) == vector
+        getShortMap(request, map, chain2.filter(map, index + 1)) == vector
+
+    var filterMap = map
+    filterMap.excl(ColumnIndex(36))
+
+    for index, vector in TestVectors.pairs():
+      check:
+        getShortMap(request, map, chain1.filter2(map, filterMap, index + 1)) ==
+          vector.replace('.', '-')
+        getShortMap(request, map, chain2.filter2(map, filterMap, index + 1)) ==
+          vector.replace('.', '-')

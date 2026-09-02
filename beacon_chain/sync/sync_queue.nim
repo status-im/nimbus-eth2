@@ -196,29 +196,81 @@ proc shortLog*[M, N](sq: SyncQueue[M, N]): string =
         "[B:"
     start & $sq.startSlot & ":" & $sq.finalSlot & "@" & $sq.inpSlot & "]"
 
+iterator shortMapValues[T](
+    srange: SyncRange,
+    data: openArray[T]
+): int =
+  var index = 0
+  for slot in srange:
+    if index < len(data):
+      let dataSlot =
+        when T is (ref SignedExecutionPayloadEnvelope):
+          data[index][].slot()
+        elif T is (ref ForkedSignedBeaconBlock):
+          data[index][].slot()
+        elif T is SyncResponseItem:
+          data[index].signedBlock[].slot()
+        else:
+          raiseAssert "Unsupported iteration type"
+      if slot < dataSlot:
+        yield (-1)
+      elif slot == dataSlot:
+        yield index
+        inc(index)
+      else:
+        raiseAssert "The sequence of elements must be correctly ordered"
+    else:
+      yield (-1)
+
+iterator shortMapValues[T](
+    srange: SyncRange,
+    origMap: ColumnMap,
+    data: openArray[T]
+): int =
+  var index = 0
+  for slot in srange:
+    if index < len(data):
+      var
+        counter = 0
+        map = origMap
+      for k in index ..< len(data):
+        let sliderSlot =
+          when T is (ref fulu.DataColumnSidecar):
+            data[k][].signed_block_header.message.slot
+          elif T is (ref gloas.DataColumnSidecar):
+            data[k][].slot
+          else:
+            raiseAssert "Unsupported iteration type"
+        if sliderSlot != slot:
+          break
+        elif sliderSlot == slot:
+          let dataIndex =
+            when T is (ref fulu.DataColumnSidecar):
+              data[k][].index
+            elif T is (ref gloas.DataColumnSidecar):
+              data[k][].index
+          # We should not count duplicate indices.
+          if data[k][].index in map:
+            map.excl(dataIndex)
+            inc(counter)
+      if counter == 0:
+        yield (-1)
+      else:
+        yield counter
+      index += counter
+    else:
+      yield (-1)
+
 func getShortMap*[T](
     req: SyncRequest[T],
     data: openArray[ref SignedExecutionPayloadEnvelope]
 ): string =
-  ## Returns all slot numbers in ``data`` as placement map.
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    last = 0
-
-  for i in 0 ..< req.data.count:
-    if last < len(data):
-      for k in last ..< len(data):
-        if slider == data[k][].slot:
-          res.add('x')
-          last = k + 1
-          break
-        elif slider < data[k][].slot:
-          res.add('.')
-          break
+  var res = newStringOfCap(req.data.count)
+  for item in req.data.shortMapValues(data):
+    if item >= 0:
+      res.add('e')
     else:
       res.add('.')
-    slider = slider + 1
   res
 
 func getShortMap*[T](
@@ -226,24 +278,12 @@ func getShortMap*[T](
     data: openArray[ref ForkedSignedBeaconBlock]
 ): string =
   ## Returns all slot numbers in ``data`` as placement map.
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    last = 0
-
-  for i in 0 ..< req.data.count:
-    if last < len(data):
-      for k in last ..< len(data):
-        let blockSlot = data[k][].slot
-        if slider == blockSlot:
-          res.add('x')
-          last = k + 1
-        elif slider < blockSlot:
-          res.add('.')
-        break
+  var res = newStringOfCap(req.data.count)
+  for item in req.data.shortMapValues(data):
+    if item >= 0:
+      res.add('x')
     else:
       res.add('.')
-    slider = slider + 1
   res
 
 func getShortMap*[T](
@@ -251,119 +291,40 @@ func getShortMap*[T](
     data: openArray[SyncResponseItem]
 ): string =
   ## Returns all slot numbers in ``data`` as placement map.
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    last = 0
-
-  for i in 0 ..< req.data.count:
-    if last < len(data):
-      for k in last ..< len(data):
-        if slider == data[k].slot:
-          let ch = if isNil(data[k].signedEnvelope): 'x' else: 'X'
-          res.add(ch)
-          last = k + 1
-          break
-        elif slider < data[k].slot:
-          res.add('.')
-          break
+  ## `x` means block without envelope was received for the slot.
+  ## `X` means block with envelope was received for the slot.
+  ## `.` means no block and envelope was received for the slot.
+  var res = newStringOfCap(req.data.count)
+  for item in req.data.shortMapValues(data):
+    if item >= 0:
+      let ch = if isNil(data[item].signedEnvelope): 'x' else: 'X'
+      res.add(ch)
     else:
       res.add('.')
-    slider = slider + 1
   res
 
 func getShortMap*[T](
     req: SyncRequest[T],
     map: ColumnMap,
-    data: openArray[ref fulu.DataColumnSidecar]
+    data: openArray[ref fulu.DataColumnSidecar|ref gloas.DataColumnSidecar]
 ): string =
-  # Provides short map of columns where
-  # `+` means that all requested columns for the block was received
-  # `O` means that excessive amount of columns for the block was received
-  # `1-f` means (number of requested columns) - ord(`1-f`) being received
-  # `-` some amount of requested columns being received but it was
-  # less than (number of requested columns) - 15.
-  let
-    alphabet =
-      "0123456789abcdef"
-    maplen = len(map)
+  ## Provides short map of columns where
+  ## `+` means that all requested columns for the slot was received
+  ## `-` some amount of requested columns being received but it was less than
+  ## expected.
+  ## `.` no sidecars being received for the slot
+  let maplen = len(map)
 
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    last = 0
+  var res = newStringOfCap(req.data.count)
 
-  for i in 0 ..< req.data.count:
-    if last < len(data):
-      var counter = 0
-      for k in last ..< len(data):
-        if slider < data[k][].signed_block_header.message.slot:
-          break
-        elif slider == data[k][].signed_block_header.message.slot:
-          if data[k][].index in map:
-            inc(counter)
-      last = last + counter
-      if counter == 0:
-        res.add('.')
+  for value in req.data.shortMapValues(map, data):
+    if value >= 0:
+      if value >= maplen:
+        res.add('+')
       else:
-        if counter == maplen:
-          res.add('+')
-        elif counter > maplen:
-          res.add('O')
-        elif (maplen - counter) < 16:
-          res.add(alphabet[maplen - counter])
-        else:
-          res.add('-')
+        res.add('-')
     else:
       res.add('.')
-    slider = slider + 1
-  res
-
-func getShortMap*[T](
-    req: SyncRequest[T],
-    map: ColumnMap,
-    data: openArray[ref gloas.DataColumnSidecar]
-): string =
-  # Provides short map of columns where
-  # `+` means that all requested columns for the block was received
-  # `O` means that excessive amount of columns for the block was received
-  # `1-f` means (number of requested columns) - ord(`1-f`) being received
-  # `-` some amount of requested columns being received but it was
-  # less than (number of requested columns) - 15.
-  let
-    alphabet =
-      "0123456789abcdef"
-    maplen = len(map)
-
-  var
-    res = newStringOfCap(req.data.count)
-    slider = req.data.slot
-    last = 0
-
-  for i in 0 ..< req.data.count:
-    if last < len(data):
-      var counter = 0
-      for k in last ..< len(data):
-        if slider < data[k][].slot:
-          break
-        elif slider == data[k][].slot:
-          if data[k][].index in map:
-            inc(counter)
-      last = last + counter
-      if counter == 0:
-        res.add('.')
-      else:
-        if counter == maplen:
-          res.add('+')
-        elif counter > maplen:
-          res.add('O')
-        elif (maplen - counter) < 16:
-          res.add(alphabet[maplen - counter])
-        else:
-          res.add('-')
-    else:
-      res.add('.')
-    slider = slider + 1
   res
 
 func init(
