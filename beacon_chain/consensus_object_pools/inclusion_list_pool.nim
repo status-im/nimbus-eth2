@@ -36,17 +36,14 @@ const
   MAX_INCLUSION_LISTS_PER_VALIDATOR* = 2
 
 type
-  SeenInclusionList = object
-    signed: SignedInclusionList
-      ## `InclusionListsByIndices` serves the signature back along with the
-      ## message, so the signed form is what gets retained here.
-
   IlBucket = object
     slot: Slot
     store: InclusionListStore
     # Distinct inclusion lists already seen per validator, enforcing the gossip
-    # "first or second valid message" bound.
-    seen: Table[uint64, seq[SeenInclusionList]]
+    # "first or second valid message" bound. The spec `InclusionListStore` keeps
+    # only the unsigned message, but `InclusionListsByIndices` has to serve the
+    # signature back along with it, so the signed form is retained here.
+    seen: Table[uint64, seq[SignedInclusionList]]
 
   InclusionListPool* = object
     ## Node-level wrapper around the spec `InclusionListStore` (EIP-7805 /
@@ -58,7 +55,7 @@ type
     timeParams: TimeParams
     buckets: array[IL_WINDOW, IlBucket]
 
-const emptySeen = default(seq[SeenInclusionList])
+const emptySeen = default(seq[SignedInclusionList])
 
 func init*(T: type InclusionListPool, timeParams: TimeParams): T =
   T(timeParams: timeParams)
@@ -107,7 +104,7 @@ func addInclusionList*(
 
   let seen = addr bucket.seen.mgetOrPut(
     validator_index,
-    newSeqOfCap[SeenInclusionList](MAX_INCLUSION_LISTS_PER_VALIDATOR))
+    newSeqOfCap[SignedInclusionList](MAX_INCLUSION_LISTS_PER_VALIDATOR))
 
   # The first two distinct lists from a validator already cover any equivocation;
   # drop any further ones before comparing against what is held.
@@ -116,10 +113,10 @@ func addInclusionList*(
 
   # Resubmitting a message already held is a no-op.
   for entry in seen[]:
-    if entry.signed.message == inclusion_list:
+    if entry.message == inclusion_list:
       return false
 
-  seen[].add SeenInclusionList(signed: signed_inclusion_list)
+  seen[].add signed_inclusion_list
   bucket.store.process_inclusion_list(inclusion_list, is_timely)
 
   true
@@ -173,9 +170,9 @@ func getInclusionLists*(
     for entry in bucket.seen.getOrDefault(validator_index, emptySeen):
       # A non-equivocator has at most one list here, collected under this node's
       # committee view - skip it if that isn't the committee being asked about.
-      if entry.signed.message.inclusion_list_committee_root ==
+      if entry.message.inclusion_list_committee_root ==
           inclusion_list_committee_root:
-        res.add entry.signed
+        res.add entry
         break
 
   res
