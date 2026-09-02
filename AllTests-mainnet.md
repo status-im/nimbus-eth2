@@ -799,6 +799,7 @@ AllTests-mainnet
 + Get all payload attestations in the pool [Preset: mainnet]                                 OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
++ Same validator, conflicting votes are ignored [Preset: mainnet]                            OK
 + get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
 ```
 ## PeerPool testing suite
