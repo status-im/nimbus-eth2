@@ -26,10 +26,10 @@ declareCounter payload_attestation_pool_block_packing_secs,
   "Total amount of time pent packing payload attestations"
 
 type
-  PayloadAttestationEntry* = object
-    data*: PayloadAttestationData
-    messages*: Table[uint64, PayloadAttestationMessage]
-    aggregated*: Opt[PayloadAttestation]
+  PayloadAttestationEntry = object
+    data: PayloadAttestationData
+    messages: Table[uint64, PayloadAttestationMessage]
+    aggregated: Opt[PayloadAttestation]
 
   PayloadAttestationSlot = object
     entries: Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]
@@ -56,10 +56,10 @@ func pruneOldEntries(pool: var PayloadAttestationPool, wallTime: BeaconTime) =
     pool.attestations.del(slot)
 
 func isSeen*(
-    pool: var PayloadAttestationPool, message: PayloadAttestationMessage
+    pool: PayloadAttestationPool, message: PayloadAttestationMessage
 ): bool =
   pool.attestations.withValue(message.data.slot, slotState):
-    return message.validator_index in slotState[].seen
+    return message.validator_index in slotState.seen
   false
 
 func addPayloadAttestation*(
@@ -72,7 +72,7 @@ func addPayloadAttestation*(
   pool.pruneOldEntries(wallTime)
 
   let slotState = addr pool.attestations.mgetOrPut(
-    slot, default(PayloadAttestationSlot))
+    slot, static(default(PayloadAttestationSlot)))
 
   if slotState[].seen.containsOrIncl(validator_index):
     return false
