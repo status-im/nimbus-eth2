@@ -194,7 +194,7 @@ func collectSlashings(
       state, total_balance)
 
   for index in 0 ..< state.validators.len:
-    let validator = unsafeAddr state.validators[index]
+    let validator = addr state.validators[index]
     if slashing_penalty_applies(validator[], epoch):
       rewardsAndPenalties[index].slashing_outcome +=
         get_slashing_penalty(

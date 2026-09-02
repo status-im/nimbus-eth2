@@ -1369,7 +1369,6 @@ chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
 template withForkyMaybeBlindedBlck*(
     b: ForkedMaybeBlindedBeaconBlock,
     body: untyped): untyped =
-  debugGloasComment "re-add mev to gloas"
   case b.kind
   of ConsensusFork.Heze:
     const

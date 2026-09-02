@@ -66,7 +66,8 @@ suite "Gossip validation " & preset():
       info = ForkedEpochInfo()
     let batchCrypto {.used.} = BatchCrypto.new(
       rng, cfg.timeParams, eager = proc(): bool = false,
-      genesis_validators_root = dag.genesis_validators_root, taskpool)
+      genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+        "working batcher")
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check cfg.process_slots(
       state[], state[].slot + 1, cache, info, {}).isOk()
@@ -320,7 +321,8 @@ suite "Gossip validation - Altair":
         cfg, cfg.makeTestDB(numValidators), validatorMonitor, {})
       batchCrypto = BatchCrypto.new(
         rng, cfg.timeParams, eager = proc(): bool = false,
-        genesis_validators_root = dag.genesis_validators_root, taskpool)
+        genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
+          "working batcher")
     var
       cache: StateCache
       info: ForkedEpochInfo

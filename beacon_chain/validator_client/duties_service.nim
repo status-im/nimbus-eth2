@@ -25,8 +25,8 @@ logScope: service = ServiceName
 type
   DutiesServiceLoop* = enum
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
-    ProposerPreparationLoop, ValidatorRegisterLoop, DynamicValidatorsLoop,
-    SlashPruningLoop, PtcLoop
+    SelectionProofsLoop, ProposerPreparationLoop, ValidatorRegisterLoop,
+    DynamicValidatorsLoop, SlashPruningLoop, PtcLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -34,6 +34,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerLoop: "proposer_loop"
   of IndicesLoop: "index_loop"
   of SyncCommitteeLoop: "sync_committee_loop"
+  of SelectionProofsLoop: "selection_proofs_loop"
   of ProposerPreparationLoop: "proposer_prepare_loop"
   of ValidatorRegisterLoop: "validator_register_loop"
   of DynamicValidatorsLoop: "dynamic_validators_loop"
@@ -48,6 +49,28 @@ proc checkDuty(duty: RestAttesterDuty): bool =
 
 proc checkSyncDuty(duty: RestSyncCommitteeDuty): bool =
   uint64(duty.validator_index) <= VALIDATOR_REGISTRY_LIMIT
+
+func pruneDependentRoots(
+    dependentRoots: var Table[Epoch, Eth2Digest], currentEpoch: Epoch) =
+  var epochsToPrune: seq[Epoch]
+  for epoch in dependentRoots.keys():
+    if epoch < currentEpoch:
+      epochsToPrune.add(epoch)
+  for epoch in epochsToPrune:
+    dependentRoots.del(epoch)
+
+proc updateDependentRoot(
+    dependentRoots: var Table[Epoch, Eth2Digest],
+    epoch: Epoch, dependentRoot: Eth2Digest, changeMessage: static[string]) =
+  dependentRoots.withValue(epoch, priorDependentRoot):
+    if dependentRoot != priorDependentRoot[]:
+      info changeMessage,
+           epoch = epoch,
+           prior_dependent_root = priorDependentRoot[],
+           dependent_root = dependentRoot
+      priorDependentRoot[] = dependentRoot
+  do:
+    dependentRoots[epoch] = dependentRoot
 
 proc pollForValidatorIndices*(
     service: DutiesServiceRef
@@ -107,6 +130,9 @@ proc pollForValidatorIndices*(
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
     vc.indicesAvailable.fire()
+    vc.attesterDutiesInvalidationEvent.fire()
+    vc.proposerDutiesInvalidationEvent.fire()
+    vc.syncDutiesInvalidationEvent.fire()
 
 proc pollForAttesterDuties*(
     service: DutiesServiceRef,
@@ -131,6 +157,7 @@ proc pollForAttesterDuties*(
                   except ValidatorApiError as exc:
                     warn "Unable to get attester duties", epoch = epoch,
                          reason = exc.getFailureReason()
+                    vc.attesterDutiesInvalidationEvent.fire()
                     return 0
                   except CancelledError as exc:
                     debug "Attester duties processing was interrupted"
@@ -157,12 +184,15 @@ proc pollForAttesterDuties*(
       else:
         default(seq[RestAttesterDuty])
 
+  if currentRoot.isSome():
+    vc.attesterDependentRoots.updateDependentRoot(
+      epoch, currentRoot.get(), "Attester duties re-organization")
+
   template checkReorg(a, b: untyped): bool =
     not(a.dependentRoot == b.get())
 
   let addOrReplaceItems =
     block:
-      var alreadyWarned = false
       var res: seq[tuple[epoch: Epoch, duty: RestAttesterDuty]]
       for duty in relevantDuties:
         var dutyFound = false
@@ -170,11 +200,6 @@ proc pollForAttesterDuties*(
           map[].duties.withValue(epoch, epochDuty):
             dutyFound = true
             if checkReorg(epochDuty[], currentRoot):
-              if not(alreadyWarned):
-                info "Attester duties re-organization",
-                     prior_dependent_root = epochDuty[].dependentRoot,
-                     dependent_root = currentRoot.get()
-                alreadyWarned = true
               res.add((epoch, duty))
         if not(dutyFound):
           info "Received new attester duty", duty, epoch = epoch,
@@ -292,6 +317,7 @@ proc pollForSyncCommitteeDuties*(
               warn "Unable to get sync committee duties",
                    period = period, epoch = epoch,
                    reason = exc.getFailureReason()
+              vc.syncDutiesInvalidationEvent.fire()
               return 0
             except CancelledError as exc:
               debug "Sync committee duties processing was interrupted",
@@ -337,6 +363,8 @@ proc pollForSyncCommitteeDuties*(
 
 proc pruneAttesterDuties(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
+  vc.attesterDependentRoots.pruneDependentRoots(epoch)
+
   var attesters: AttesterMap
   for key, item in vc.attesters:
     var v = EpochDuties()
@@ -375,27 +403,6 @@ proc pollForAttesterDuties*(
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new attester's duties received", slot = currentSlot
 
-    block:
-      let
-        moment = Moment.now()
-        sigres =
-          await vc.fillAttestationSelectionProofs(currentSlot,
-            currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
-
-      if vc.config.distributedEnabled:
-        debug "Attestation selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selectionsRequested,
-              selections_received = sigres.selectionsReceived,
-              selections_processed = sigres.selectionsProcessed,
-              total_elapsed_time = (Moment.now() - moment)
-      else:
-        debug "Attestation selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              total_elapsed_time = (Moment.now() - moment)
-
     let subscriptions =
       block:
         var res: seq[RestCommitteeSubscription]
@@ -433,6 +440,7 @@ proc pollForAttesterDuties*(
         warn "Failed to subscribe validators to beacon committee subnets",
              slot = currentSlot, epoch = currentEpoch,
              subscriptions_count = len(subscriptions)
+        vc.attesterDutiesInvalidationEvent.fire()
 
   service.pruneAttesterDuties(currentEpoch)
 
@@ -495,27 +503,6 @@ proc pollForSyncCommitteeDuties*(
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new sync committee duties received", slot = currentSlot
 
-    block:
-      let
-        moment = Moment.now()
-        sigres =
-          await vc.fillSyncCommitteeSelectionProofs(currentSlot,
-            currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
-
-      if vc.config.distributedEnabled:
-        debug "Sync committee selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              selections_requested = sigres.selectionsRequested,
-              selections_received = sigres.selectionsReceived,
-              selections_processed = sigres.selectionsProcessed,
-              total_elapsed_time = (Moment.now() - moment)
-      else:
-        debug "Sync committee selection proofs have been received",
-              signatures_requested = sigres.signaturesRequested,
-              signatures_received = sigres.signaturesReceived,
-              total_elapsed_time = (Moment.now() - moment)
-
     let
       periods =
         block:
@@ -559,14 +546,88 @@ proc pollForSyncCommitteeDuties*(
              slot = currentSlot, epoch = currentPeriod, period = currentPeriod,
              periods = periods, subscriptions_count = len(subscriptions),
              reason = reason
+        vc.syncDutiesInvalidationEvent.fire()
       else:
         service.syncSubscriptionEpoch = Opt.some(currentEpoch)
 
   service.pruneSyncCommitteeDuties(currentSlot)
   service.pruneSyncCommitteeSelectionProofs(currentSlot)
 
+proc fillAttestationSelections(
+    vc: ValidatorClientRef,
+    currentSlot: Slot
+) {.async: (raises: [CancelledError]).} =
+  let
+    moment = Moment.now()
+    sigres =
+      await vc.fillAttestationSelectionProofs(currentSlot,
+        currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+
+  if vc.config.distributedEnabled:
+    debug "Attestation selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          selections_requested = sigres.selectionsRequested,
+          selections_received = sigres.selectionsReceived,
+          selections_processed = sigres.selectionsProcessed,
+          total_elapsed_time = (Moment.now() - moment)
+  else:
+    debug "Attestation selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          total_elapsed_time = (Moment.now() - moment)
+
+proc fillSyncCommitteeSelections(
+    vc: ValidatorClientRef,
+    currentSlot: Slot
+) {.async: (raises: [CancelledError]).} =
+  let
+    moment = Moment.now()
+    sigres =
+      await vc.fillSyncCommitteeSelectionProofs(currentSlot,
+        currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+
+  if vc.config.distributedEnabled:
+    debug "Sync committee selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          selections_requested = sigres.selectionsRequested,
+          selections_received = sigres.selectionsReceived,
+          selections_processed = sigres.selectionsProcessed,
+          total_elapsed_time = (Moment.now() - moment)
+  else:
+    debug "Sync committee selection proofs have been received",
+          signatures_requested = sigres.signaturesRequested,
+          signatures_received = sigres.signaturesReceived,
+          total_elapsed_time = (Moment.now() - moment)
+
+proc fillSelectionProofs(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let
+    vc = service.client
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+
+  if vc.isPastAltairFork(currentSlot.epoch()):
+    let
+      attestFut = vc.fillAttestationSelections(currentSlot)
+      syncFut = vc.fillSyncCommitteeSelections(currentSlot)
+    try:
+      await allFutures(attestFut, syncFut)
+    except CancelledError as exc:
+      var pending: seq[Future[void]]
+      if not(attestFut.finished()):
+        pending.add(attestFut.cancelAndWait())
+      if not(syncFut.finished()):
+        pending.add(syncFut.cancelAndWait())
+      await noCancel allFutures(pending)
+      raise exc
+  else:
+    await vc.fillAttestationSelections(currentSlot)
+
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
+  vc.proposerDependentRoots.pruneDependentRoots(epoch)
 
   var proposers: ProposerMap
   for epochKey, data in vc.proposers:
@@ -594,6 +655,9 @@ proc pollForBeaconProposers*(
         duties = res.data
         relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
 
+      vc.proposerDependentRoots.updateDependentRoot(
+        currentEpoch, dependentRoot, "Proposer duties re-organization")
+
       if len(relevantDuties) > 0:
         vc.addOrReplaceProposers(currentEpoch, dependentRoot, relevantDuties)
       else:
@@ -602,6 +666,7 @@ proc pollForBeaconProposers*(
     except ValidatorApiError as exc:
       notice "Unable to get proposer duties", slot = currentSlot,
              epoch = currentEpoch, reason = exc.getFailureReason()
+      vc.proposerDutiesInvalidationEvent.fire()
     except CancelledError as exc:
       debug "Proposer duties processing was interrupted"
       raise exc
@@ -672,6 +737,22 @@ proc registerValidators*(
           beacon_nodes_count = count, registrations = len(registrations),
           validators_count = vc.attachedValidators[].count()
 
+proc waitForNewDuties(
+    service: DutiesServiceRef,
+    event: AsyncEvent,
+    lastPolledSlot: Slot
+) {.async: (raises: [CancelledError]).} =
+  let vc = service.client
+  if vc.config.monitoringType == BlockMonitoringType.Event and
+      not(event.isSet()) and vc.currentSlot().epoch() == lastPolledSlot.epoch():
+    let
+      epochFut = service.waitForNextEpoch()
+      eventFut = event.wait()
+    try:
+      discard await race(epochFut, eventFut)
+    finally:
+      await noCancel cancelAndWait(epochFut, eventFut)
+
 proc attesterDutiesLoop(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -684,13 +765,17 @@ proc attesterDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await service.waitForNextSlot()
+    let lastPolledSlot = vc.currentSlot()
     # Cleaning up previous attestation duties task.
     if not(isNil(service.pollingAttesterDutiesTask)) and
        not(service.pollingAttesterDutiesTask.finished()):
       await cancelAndWait(service.pollingAttesterDutiesTask)
     # Spawning new attestation duties task.
+    vc.attesterDutiesInvalidationEvent.clear()
     service.pollingAttesterDutiesTask = service.pollForAttesterDuties()
+    await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.attesterDutiesInvalidationEvent, lastPolledSlot)
 
 proc ptcDutiesLoop(
     service: DutiesServiceRef
@@ -724,8 +809,12 @@ proc proposerDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
+    let lastPolledSlot = vc.currentSlot()
+    vc.proposerDutiesInvalidationEvent.clear()
     await service.pollForBeaconProposers()
     await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.proposerDutiesInvalidationEvent, lastPolledSlot)
 
 proc validatorIndexLoop(
     service: DutiesServiceRef
@@ -815,12 +904,37 @@ proc syncCommitteeDutiesLoop(
   )
   doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    await service.waitForNextSlot()
+    let lastPolledSlot = vc.currentSlot()
+    # Cleaning up previous sync committee duties task.
     if not(isNil(service.pollingSyncDutiesTask)) and
        not(service.pollingSyncDutiesTask.finished()):
       await cancelAndWait(service.pollingSyncDutiesTask)
-    # Spawning new attestation duties task.
+    # Spawning new sync committee duties task.
+    vc.syncDutiesInvalidationEvent.clear()
     service.pollingSyncDutiesTask = service.pollForSyncCommitteeDuties()
+    await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.syncDutiesInvalidationEvent, lastPolledSlot)
+
+proc selectionProofsLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let vc = service.client
+  debug "Selection proofs loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+  while true:
+    # Cleaning up previous selection proofs task.
+    if not(isNil(service.fillingSelectionProofsTask)) and
+       not(service.fillingSelectionProofsTask.finished()):
+      await cancelAndWait(service.fillingSelectionProofsTask)
+    # Spawning new selection proofs task.
+    service.fillingSelectionProofsTask = service.fillSelectionProofs()
+    await service.waitForNextSlot()
 
 proc getNextEpochMiddleSlot(vc: ValidatorClientRef): Slot =
   let
@@ -912,6 +1026,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
     proposeFut = service.proposerDutiesLoop()
     indicesFut = service.validatorIndexLoop()
     syncFut = service.syncCommitteeDutiesLoop()
+    selectionsFut = service.selectionProofsLoop()
     prepareFut = service.proposerPreparationsLoop()
     registerFut =
       if vc.config.payloadBuilderEnable:
@@ -940,6 +1055,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
           FutureBase(proposeFut),
           FutureBase(indicesFut),
           FutureBase(syncFut),
+          FutureBase(selectionsFut),
           FutureBase(prepareFut),
           FutureBase(slashPruningFut)
         ]
@@ -956,6 +1072,8 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
         checkAndRestart(SyncCommitteeLoop, syncFut,
                         service.syncCommitteeDutiesLoop())
+        checkAndRestart(SelectionProofsLoop, selectionsFut,
+                        service.selectionProofsLoop())
         checkAndRestart(ProposerPreparationLoop, prepareFut,
                         service.proposerPreparationsLoop())
         if not(isNil(registerFut)):
@@ -982,6 +1100,8 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
           pending.add(indicesFut.cancelAndWait())
         if not(syncFut.finished()):
           pending.add(syncFut.cancelAndWait())
+        if not(selectionsFut.finished()):
+          pending.add(selectionsFut.cancelAndWait())
         if not(prepareFut.finished()):
           pending.add(prepareFut.cancelAndWait())
         if not(isNil(registerFut)) and not(registerFut.finished()):
@@ -998,6 +1118,9 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         if not(isNil(service.pollingSyncDutiesTask)) and
            not(service.pollingSyncDutiesTask.finished()):
           pending.add(service.pollingSyncDutiesTask.cancelAndWait())
+        if not(isNil(service.fillingSelectionProofsTask)) and
+           not(service.fillingSelectionProofsTask.finished()):
+          pending.add(service.fillingSelectionProofsTask.cancelAndWait())
         if not(isNil(service.pruneSlashingDatabaseTask)) and
            not(service.pruneSlashingDatabaseTask.finished()):
           pending.add(service.pruneSlashingDatabaseTask.cancelAndWait())

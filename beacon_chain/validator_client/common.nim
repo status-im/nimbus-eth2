@@ -78,6 +78,7 @@ type
     pollingAttesterDutiesTask*: Future[void]
     pollingPtcDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
+    fillingSelectionProofsTask*: Future[void]
     pruneSlashingDatabaseTask*: Future[void]
     syncSubscriptionEpoch*: Opt[Epoch]
     lastSlashingEpoch*: Opt[Epoch]
@@ -255,6 +256,11 @@ type
     nodesAvailable*: AsyncEvent
     indicesAvailable*: AsyncEvent
     doppelExit*: AsyncEvent
+    attesterDutiesInvalidationEvent*: AsyncEvent
+    proposerDutiesInvalidationEvent*: AsyncEvent
+    syncDutiesInvalidationEvent*: AsyncEvent
+    attesterDependentRoots*: Table[Epoch, Eth2Digest]
+    proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
     proposers*: ProposerMap
     ptcDuties*: PtcDutiesMap
@@ -1095,58 +1101,36 @@ proc getValidatorForDuties*(vc: ValidatorClientRef,
                             slashingSafe = false): Opt[AttachedValidator] =
   vc.attachedValidators[].getValidatorForDuties(key, slot, slashingSafe)
 
-proc isPastGloasFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+proc isPastConsensusFork(
+    vc: ValidatorClientRef,
+    consensusFork: static ConsensusFork,
+    epoch: Epoch): bool =
   doAssert(len(vc.forks) > 0)
   doAssert(vc.forkConfig.isSome())
-  let gloasVersion =
+
+  let forkVersion =
     try:
-      vc.forkConfig.get()[ConsensusFork.Gloas].version
+      vc.forkConfig.get()[consensusFork].version
     except KeyError:
-      raiseAssert "Gloas fork should be in forks configuration"
+      raiseAssert $consensusFork & " fork should be in forks configuration"
+
   var res = false
   for item in vc.forks:
     if item.epoch <= epoch:
-      if item.current_version == gloasVersion:
+      if item.current_version == forkVersion:
         res = true
     else:
       break
   res
+
+proc isPastGloasFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
+  vc.isPastConsensusFork(ConsensusFork.Gloas, epoch)
 
 proc isPastElectraFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
-  doAssert(len(vc.forks) > 0)
-  doAssert(vc.forkConfig.isSome())
-  let electraVersion =
-    try:
-      vc.forkConfig.get()[ConsensusFork.Electra].version
-    except KeyError:
-      raiseAssert "Electra fork should be in forks configuration"
-  var res = false
-  for item in vc.forks:
-    if item.epoch <= epoch:
-      if item.current_version == electraVersion:
-        res = true
-    else:
-      break
-  res
+  vc.isPastConsensusFork(ConsensusFork.Electra, epoch)
 
 proc isPastAltairFork*(vc: ValidatorClientRef, epoch: Epoch): bool =
-  doAssert(len(vc.forks) > 0)
-  doAssert(vc.forkConfig.isSome())
-
-  let altairVersion =
-    try:
-      vc.forkConfig.get()[ConsensusFork.Altair].version
-    except KeyError:
-      raiseAssert "Altair fork should be in forks configuration"
-
-  var res = false
-  for item in vc.forks:
-    if item.epoch <= epoch:
-      if item.current_version == altairVersion:
-        res = true
-    else:
-      break
-  res
+  vc.isPastConsensusFork(ConsensusFork.Altair, epoch)
 
 proc getForkEpoch*(vc: ValidatorClientRef, fork: ConsensusFork): Opt[Epoch] =
   doAssert(len(vc.forks) > 0)
@@ -1560,6 +1544,75 @@ proc registerBlock*(vc: ValidatorClientRef, eblck: EventBeaconBlockObject,
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
 
   vc.blocksSeen.mgetOrPut(eblck.slot, BlockDataItem()).scheduleCallbacks(eblck)
+
+proc registerHead*(
+    vc: ValidatorClientRef,
+    head: HeadChangeInfoObject | HeadV2ChangeInfoObjectData) =
+  when head is HeadChangeInfoObject:
+    template current_epoch_dependent_root(head: HeadChangeInfoObject): auto =
+      head.previous_duty_dependent_root
+    template next_epoch_dependent_root(head: HeadChangeInfoObject): auto =
+      head.current_duty_dependent_root
+
+  if vc.attachedValidators[].count() == 0:
+    return
+
+  let
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+    nextEpoch = currentEpoch + 1'u64
+
+    headEpoch = head.slot.epoch()
+
+  template didInvalidate(
+      dependentRoots: Table[Epoch, Eth2Digest],
+      epoch: Epoch, dependentRoot: Eth2Digest): bool =
+    dependentRoots.getOrDefault(epoch, dependentRoot) != dependentRoot
+
+  if not(vc.attesterDutiesInvalidationEvent.isSet()):
+    let didInvalidate =
+      if nextEpoch == headEpoch:
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.current_epoch_dependent_root)
+      elif currentEpoch == headEpoch:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.current_epoch_dependent_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.next_epoch_dependent_root)
+      elif currentEpoch == headEpoch + 1:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.next_epoch_dependent_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.block_root)
+      elif currentEpoch > headEpoch + 1:
+        vc.attesterDependentRoots.didInvalidate(
+          currentEpoch, head.block_root) or
+        vc.attesterDependentRoots.didInvalidate(
+          nextEpoch, head.block_root)
+      else:
+        false
+    if didInvalidate:
+      debug "Attester duties invalidated by head event",
+            head_slot = head.slot, block_root = shortLog(head.block_root)
+      vc.attesterDutiesInvalidationEvent.fire()
+
+  if not(vc.proposerDutiesInvalidationEvent.isSet()):
+    let didInvalidate =
+      if nextEpoch == headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.current_epoch_dependent_root)
+      elif currentEpoch == headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.next_epoch_dependent_root)
+      elif currentEpoch > headEpoch:
+        vc.proposerDependentRoots.didInvalidate(
+          currentEpoch, head.block_root)
+      else:
+        false
+    if didInvalidate:
+      debug "Proposer duties invalidated by head event",
+            head_slot = head.slot, block_root = shortLog(head.block_root)
+      vc.proposerDutiesInvalidationEvent.fire()
 
 proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
   var blocksSeen: Table[Slot, BlockDataItem]

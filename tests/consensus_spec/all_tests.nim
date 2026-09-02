@@ -15,8 +15,5 @@
 
 import
   ./test_fixture_fork_digest,
+  ./test_fixture_gloas_builder_onboarding,
   ./test_fixture_networking
-
-  # https://github.com/ethereum/consensus-specs/pull/5520
-  # https://github.com/ethereum/consensus-specs/pull/5523
-  #./test_fixture_ssz_generic_types

@@ -852,7 +852,7 @@ proc getProposerPreferencesSignature*(v: AttachedValidator, fork: Fork,
 
 proc getBuilderRequestAuthSignature*(
     v: AttachedValidator, genesis_fork_version: Version,
-    request_auth: RequestAuthV1):
+    request_auth: BuilderRequestAuth):
     Future[SignatureResult] {.async: (raises: [CancelledError]).} =
   case v.kind
   of ValidatorKind.Local:
