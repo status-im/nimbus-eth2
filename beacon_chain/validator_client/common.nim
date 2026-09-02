@@ -711,6 +711,10 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
                    failure: ApiNodeFailure) =
+  if node.index < 0:
+    node.status = status
+    return
+
   logScope:
     node = node
 
