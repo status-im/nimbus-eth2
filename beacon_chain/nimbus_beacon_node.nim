@@ -663,7 +663,7 @@ proc initFullNode(
             # Disable sidecars processing at block time.
             const sidecarsOpt = noSidecars
           else:
-            let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+            let sidecarsOpt = Opt.none(fulu.DataColumnSidecarsForImport)
         elif consensusFork in ConsensusFork.Phase0 .. ConsensusFork.Electra:
           const sidecarsOpt = noSidecars
         else:
@@ -687,9 +687,9 @@ proc initFullNode(
         elif consensusFork == ConsensusFork.Fulu:
           let sidecarsOpt =
             if len(forkyBlck.message.body.blob_kzg_commitments) == 0:
-              Opt.some(default(fulu.DataColumnSidecars))
+              Opt.some(default(fulu.DataColumnSidecarsForImport))
             else:
-              fuluColumnQuarantine[].popSidecars(forkyBlck.root)
+              fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
           if sidecarsOpt.isNone():
             # We don't have all the columns for this block, so we have
             # to put it in columnless quarantine.
@@ -755,7 +755,7 @@ proc initFullNode(
               if bid.message.blob_kzg_commitments.len() == 0:
                 Opt.some(default(gloas.DataColumnSidecars))
               else:
-                gloasColumnQuarantine[].popSidecars(blockRoot)
+                gloasColumnQuarantine[].popSidecarsForImport(blockRoot)
             if sidecarsOpt.isNone():
               # As sidecars are missing, put envelope back to quarantine.
               discard quarantine[].addSidecarless(dag.finalizedHead.slot, blck)
@@ -2742,14 +2742,9 @@ proc doRunBeaconNode(
   # Trusted setup is needed for Cancun+ blocks and is shared between threads,
   # so it needs to be initalized from the main thread before anything else tries
   # to use it
-  if config.trustedSetupFile.isSome:
-    kzg.loadTrustedSetup(config.trustedSetupFile.get(), 7).isOkOr:
-      fatal "Cannot load KZG trusted setup from file", msg = error
-      quit(QuitFailure)
-  else:
-    kzg.loadTrustedSetupFromString(kzg.trustedSetup, 7).isOkOr:
-      fatal "Cannot load KZG trusted setup using default data", msg = error
-      quit(QuitFailure)
+  kzg.loadTrustedSetupFromString(kzg.trustedSetup, 7).isOkOr:
+    fatal "Cannot load KZG trusted setup using default data", msg = error
+    quit(QuitFailure)
 
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return

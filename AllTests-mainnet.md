@@ -213,6 +213,7 @@ AllTests-mainnet
 ```
 ## ColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
++ ColumnQuarantine: update() database reload test [node]                                     OK
 + ColumnQuarantine: update(empty:grow) [node->node] test                                     OK
 + ColumnQuarantine: update(empty:grow) [node->supernode] test                                OK
 + ColumnQuarantine: update(empty:shrink) [node->node] test                                   OK
@@ -485,10 +486,17 @@ AllTests-mainnet
 + Execution valid                                                                            OK
 + Execution valid after checkpoint sync                                                      OK
 ```
+## Gloas builder onboarding from pending deposits
+```diff
++ invalid, then valid validator deposit blocks builder onboarding                            OK
++ multiple mixed-validity validator deposits surrounding builder deposits                    OK
++ valid, then invalid validator deposit still blocks builder onboarding                      OK
+```
 ## GloasColumnQuarantine data structure test suite  [Preset: mainnet]
 ```diff
 + Empty in-memory scenario test [node]                                                       OK
 + Empty in-memory scenario test [supernode]                                                  OK
++ GloasColumnQuarantine: update() database reload test [node]                                OK
 + GloasColumnQuarantine: update(empty:grow) [node->node] test                                OK
 + GloasColumnQuarantine: update(empty:grow) [node->supernode] test                           OK
 + GloasColumnQuarantine: update(empty:shrink) [node->node] test                              OK
@@ -795,6 +803,7 @@ AllTests-mainnet
 + Get all payload attestations in the pool [Preset: mainnet]                                 OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
++ Same validator, conflicting votes are ignored [Preset: mainnet]                            OK
 + get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
 ```
 ## PeerPool testing suite

@@ -54,7 +54,7 @@ The default is `all`:
 Examples:
 
 - `http://127.0.0.1:5052/#roles=attestation-data,attestation-publish`
-- `http://127.0.0.1:5053/#roles=block-proposal-data,block-proposal-publish`
+- `http://127.0.0.1:5053/#roles=block-data,block-publish`
 - `http://127.0.0.1:5054/#roles=all`
 - `http://127.0.0.1:5055/` also means `all` roles.
 

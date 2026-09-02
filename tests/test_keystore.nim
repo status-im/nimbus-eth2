@@ -20,8 +20,8 @@ from std/strutils import replace
 
 func isEqual(a, b: ValidatorPrivKey): bool =
   # `==` on secret keys is not allowed
-  let pa = cast[ptr UncheckedArray[byte]](a.unsafeAddr)
-  let pb = cast[ptr UncheckedArray[byte]](b.unsafeAddr)
+  let pa = cast[ptr UncheckedArray[byte]](a.addr)
+  let pb = cast[ptr UncheckedArray[byte]](b.addr)
   result = true
   for i in 0 ..< sizeof(a):
     result = result and pa[i] == pb[i]

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 {.used.}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md
@@ -21,11 +21,11 @@ import
 
 func genDigest(index: int): Eth2Digest =
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr result.data[0], unsafeAddr tmp[0], sizeof(uint64))
+  copyMem(addr result.data[0], addr tmp[0], sizeof(uint64))
 
 func gen[T](index: int): T =
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr result.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
+  copyMem(addr result.bytes[0], addr tmp[0], sizeof(uint64))
 
 func gid(slot: int, rootSeed: int): gloas.PartialDataColumnGroupID =
   gloas.PartialDataColumnGroupID(

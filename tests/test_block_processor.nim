@@ -339,7 +339,7 @@ suite "Block processor" & preset():
       withState(state[]):
         let b0 = addTestEngineBlock(cfg, consensusFork, forkyState, cache)
         when consensusFork == ConsensusFork.Fulu:
-          let sidecarsOpt = Opt.none(fulu.DataColumnSidecars)
+          let sidecarsOpt = Opt.none(fulu.DataColumnSidecarsForImport)
         else:
           let sidecarsOpt = noSidecars
         check (await processor.addBlock(
@@ -427,7 +427,9 @@ suite "Block processor" & preset():
         let res = await processor.addBlock(
           MsgSource.gossip,
           engineBlock.blck,
-          Opt.some(dataColumnSidecars)
+          # Untrusted, so this also exercises the KZG check in `storeBlock`
+          Opt.some(fulu.DataColumnSidecarsForImport(
+            untrusted: dataColumnSidecars))
         )
 
         check:
@@ -460,7 +462,7 @@ suite "Block processor" & preset():
         let res = await processor.addBlock(
           MsgSource.gossip,
           engineBlock.blck,
-          Opt.none(fulu.DataColumnSidecars)
+          Opt.none(fulu.DataColumnSidecarsForImport)
         )
 
         check:
