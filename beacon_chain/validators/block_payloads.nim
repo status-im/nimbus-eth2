@@ -533,14 +533,13 @@ proc getBuilderExecutionPayloadBid*(
         proposer, builderUrl, slot,
         node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
       return Opt.none(gloas.SignedExecutionPayloadBid)
-    timeoutMs = node.config.payloadBuilderGetBidTimeout.milliseconds
     reqStartedAt = Moment.now()
     bidRes = awaitWithTimeout(
         getExecutionPayloadBidFromBuilder(
           payloadBuilderClient, slot, parent_block_hash, parent_block_root,
           proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
-          reqStartedAt, timeoutMs, requestAuth),
-        timeoutMs):
+          reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, requestAuth),
+        BUILDER_PROPOSAL_DELAY_TOLERANCE):
       debug "Builder-API execution payload bid request timeout", builderUrl, slot
       return Opt.none(gloas.SignedExecutionPayloadBid)
 

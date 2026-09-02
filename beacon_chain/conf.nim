@@ -661,11 +661,6 @@ type
         defaultValue: ""
         name: "payload-builder-url" .}: string
 
-      payloadBuilderGetBidTimeout* {.
-        desc: "Payload builder get bid request timeout in milliseconds"
-        defaultValue: 1000
-        name: "payload-builder-get-bid-timeout" .}: uint32
-
       # Flag name and semantics borrowed from Prysm
       # https://github.com/prysmaticlabs/prysm/pull/12227/files
       localBlockValueBoost* {.
