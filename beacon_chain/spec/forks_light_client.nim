@@ -771,23 +771,23 @@ template withForkyEpochData*(
   case x.kind
   of LightClientDataFork.Gloas:
     const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
-    template forkyStore: untyped {.inject, used.} = x.gloasData
+    template forkyEpochData: untyped {.inject, used.} = x.gloasData
     body
   of LightClientDataFork.Electra:
     const lcDataFork {.inject, used.} = LightClientDataFork.Electra
-    template forkyStore: untyped {.inject, used.} = x.electraData
+    template forkyEpochData: untyped {.inject, used.} = x.electraData
     body
   of LightClientDataFork.Deneb:
     const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
-    template forkyStore: untyped {.inject, used.} = x.denebData
+    template forkyEpochData: untyped {.inject, used.} = x.denebData
     body
   of LightClientDataFork.Capella:
     const lcDataFork {.inject, used.} = LightClientDataFork.Capella
-    template forkyStore: untyped {.inject, used.} = x.capellaData
+    template forkyEpochData: untyped {.inject, used.} = x.capellaData
     body
   of LightClientDataFork.Altair:
     const lcDataFork {.inject, used.} = LightClientDataFork.Altair
-    template forkyStore: untyped {.inject, used.} = x.altairData
+    template forkyEpochData: untyped {.inject, used.} = x.altairData
     body
   of LightClientDataFork.None:
     const lcDataFork {.inject, used.} = LightClientDataFork.None
@@ -803,7 +803,7 @@ func init*(
       ForkyLightClientHeader |
       SomeForkyLightClientObject |
       ForkyLightClientStore |
-      ForkedLightClientEpochData): auto =
+      ForkyLightClientEpochData): auto =
   type ResultType = typeof(forkyData).Forked
   static: doAssert ResultType is x
   const kind = typeof(forkyData).kind
