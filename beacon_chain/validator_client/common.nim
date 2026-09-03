@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm],
+  std/[macros, tables, os, sets, sequtils, strutils, uri, algorithm, locks],
   results,
   stew/[base10, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
@@ -45,6 +45,10 @@ const
   EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
   ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
+
+declareGauge validator_client_node_status_counts,
+  "Counts of connected beacon nodes and their statuses",
+  labels = ["url", "status"]
 
 static: doAssert(high(ConsensusFork) == ConsensusFork.Heze,
           "Update OptionalForks constant!")
@@ -709,6 +713,15 @@ proc updateStatus*(node: BeaconNodeServerRef,
                    failure: ApiNodeFailure) =
   logScope:
     node = node
+  notice "updateStatus():START",
+    node_status = $node.status,
+    status = $status,
+    node = $node,
+    failure = $failure,
+    chroniclesThreadIds = true
+
+  # Reset other to indicate only current state, lock to avoid race conditions.
+  validator_client_node_status_counts.set(0, [$node.uri, $node.status], doUpdateSystemMetrics = false)
 
   case status
   of RestBeaconNodeStatus.Invalid:
@@ -743,8 +756,7 @@ proc updateStatus*(node: BeaconNodeServerRef,
       notice "Beacon node is compatible"
       node.status = status
   of RestBeaconNodeStatus.NotSynced:
-    if node.status notin {RestBeaconNodeStatus.NotSynced,
-                          RestBeaconNodeStatus.OptSynced}:
+    if node.status != status:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
       warn "Beacon node not in sync", reason = failure.getFailureReason(),
@@ -790,6 +802,15 @@ proc updateStatus*(node: BeaconNodeServerRef,
     if node.status != status:
       warn "Beacon node's clock is out of order, (beacon node is unusable)"
       node.status = status
+
+  validator_client_node_status_counts.set(1, [$node.uri, $status])
+
+  notice "updateStatus():END",
+    status = $status,
+    node_status = $node.status,
+    node = $node,
+    failure = $failure,
+    chroniclesThreadIds = true
 
 proc stop*(csr: ClientServiceRef) {.async: (raises: []).} =
   debug "Stopping service", service = csr.name
@@ -928,6 +949,7 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
             client: nil, endpoint: $remoteUri, index: index,
             roles: roles, logIdent: $remoteUri, uri: remoteUri,
             status: RestBeaconNodeStatus.Noname)
+
   ok(server)
 
 proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
