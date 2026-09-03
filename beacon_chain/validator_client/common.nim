@@ -663,6 +663,63 @@ func checkConfig*(c: VCRuntimeConfig, timeParams: TimeParams): bool =
     timeParams.SLOT_DURATION == defaultRuntimeConfig.timeParams.SLOT_DURATION
   )
 
+func isForkScheduled*(
+    info: VCRuntimeConfig, consensusFork: ConsensusFork): bool =
+  ## Returns false when the fork epoch key is missing or FAR_FUTURE_EPOCH.
+  doAssert consensusFork > ConsensusFork.Phase0
+  let key = consensusFork.forkEpochConfigKey()
+  info.hasKey(key) and not info.equals(key, FAR_FUTURE_EPOCH)
+
+func canonicalizeTimeParams*(
+    timeParams: TimeParams, info: VCRuntimeConfig): TimeParams =
+  ## Replace timing fields that only apply to unscheduled forks with local
+  ## defaults. This keeps VC startup tolerant of draft-constant churn on
+  ## `/eth/v1/config/spec` while Gloas/Heze remain FAR_FUTURE.
+  ## Once a fork is scheduled, those fields remain as reported by the BN and
+  ## must agree across beacon nodes.
+  var res = timeParams
+  if not info.isForkScheduled(ConsensusFork.Gloas):
+    res.ATTESTATION_DUE_BPS_GLOAS =
+      defaultRuntimeConfig.timeParams.ATTESTATION_DUE_BPS_GLOAS
+    res.AGGREGATE_DUE_BPS_GLOAS =
+      defaultRuntimeConfig.timeParams.AGGREGATE_DUE_BPS_GLOAS
+    res.SYNC_MESSAGE_DUE_BPS_GLOAS =
+      defaultRuntimeConfig.timeParams.SYNC_MESSAGE_DUE_BPS_GLOAS
+    res.CONTRIBUTION_DUE_BPS_GLOAS =
+      defaultRuntimeConfig.timeParams.CONTRIBUTION_DUE_BPS_GLOAS
+    res.PAYLOAD_DUE_BPS =
+      defaultRuntimeConfig.timeParams.PAYLOAD_DUE_BPS
+    res.PAYLOAD_ATTESTATION_DUE_BPS =
+      defaultRuntimeConfig.timeParams.PAYLOAD_ATTESTATION_DUE_BPS
+  if not info.isForkScheduled(ConsensusFork.Heze):
+    res.INCLUSION_LIST_DUE_BPS =
+      defaultRuntimeConfig.timeParams.INCLUSION_LIST_DUE_BPS
+  res
+
+func describeTimeParamsDifferences*(a, b: TimeParams): string =
+  ## Human-readable list of TimeParams fields that differ, for diagnostics.
+  var diffs: seq[string]
+  if a.SLOT_DURATION != b.SLOT_DURATION:
+    diffs.add(
+      "SLOT_DURATION_MS=" & $a.SLOT_DURATION.milliseconds &
+      "!=" & $b.SLOT_DURATION.milliseconds)
+  template check(fieldName: static string, field: untyped) =
+    if a.field != b.field:
+      diffs.add(fieldName & "=" & $a.field & "!=" & $b.field)
+  check("PROPOSER_REORG_CUTOFF_BPS", PROPOSER_REORG_CUTOFF_BPS)
+  check("ATTESTATION_DUE_BPS", ATTESTATION_DUE_BPS)
+  check("AGGREGATE_DUE_BPS", AGGREGATE_DUE_BPS)
+  check("SYNC_MESSAGE_DUE_BPS", SYNC_MESSAGE_DUE_BPS)
+  check("CONTRIBUTION_DUE_BPS", CONTRIBUTION_DUE_BPS)
+  check("ATTESTATION_DUE_BPS_GLOAS", ATTESTATION_DUE_BPS_GLOAS)
+  check("AGGREGATE_DUE_BPS_GLOAS", AGGREGATE_DUE_BPS_GLOAS)
+  check("SYNC_MESSAGE_DUE_BPS_GLOAS", SYNC_MESSAGE_DUE_BPS_GLOAS)
+  check("CONTRIBUTION_DUE_BPS_GLOAS", CONTRIBUTION_DUE_BPS_GLOAS)
+  check("PAYLOAD_DUE_BPS", PAYLOAD_DUE_BPS)
+  check("PAYLOAD_ATTESTATION_DUE_BPS", PAYLOAD_ATTESTATION_DUE_BPS)
+  check("INCLUSION_LIST_DUE_BPS", INCLUSION_LIST_DUE_BPS)
+  diffs.join(", ")
+
 func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
   let SLOT_DURATION =
     if c.hasKey("SLOT_DURATION_MS"):
@@ -699,10 +756,11 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
     SYNC_MESSAGE_DUE_BPS_GLOAS: parseBps "SYNC_MESSAGE_DUE_BPS_GLOAS",
     CONTRIBUTION_DUE_BPS_GLOAS: parseBps "CONTRIBUTION_DUE_BPS_GLOAS",
     PAYLOAD_DUE_BPS: parseBps "PAYLOAD_DUE_BPS",
-    PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS")
+    PAYLOAD_ATTESTATION_DUE_BPS: parseBps "PAYLOAD_ATTESTATION_DUE_BPS",
+    INCLUSION_LIST_DUE_BPS: parseBps "INCLUSION_LIST_DUE_BPS")
   if not res.get.isValid:
     return Opt.none TimeParams
-  res
+  Opt.some res.get.canonicalizeTimeParams(c)
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
