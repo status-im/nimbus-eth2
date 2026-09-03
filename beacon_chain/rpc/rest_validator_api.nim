@@ -517,7 +517,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           res.get()
       qgraffiti =
         if graffiti.isNone():
-          defaultGraffitiBytes()
+          node.config.defaultGraffitiBytes()
         else:
           let res = graffiti.get()
           if res.isErr():
