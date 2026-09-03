@@ -1533,15 +1533,20 @@ template withAttestation*(a: ForkedAttestation, body: untyped): untyped =
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock):
-    BeaconBlockHeader =
+    blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock,
+    body_root = Opt.none(Eth2Digest)): BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,
     proposer_index: blck.proposer_index,
     parent_root: blck.parent_root,
     state_root: blck.state_root,
-    body_root: blck.body.hash_tree_root())
+    body_root: body_root.valueOr(blck.body.hash_tree_root()))
+
+template toBeaconBlockHeader*(
+    blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock,
+    body_root: Eth2Digest): BeaconBlockHeader =
+  blck.toBeaconBlockHeader(Opt.some(body_root))
 
 template toBeaconBlockHeader*(
     blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
