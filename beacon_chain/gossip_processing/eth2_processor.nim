@@ -311,9 +311,9 @@ proc processSignedBeaconBlock*(
   elif consensusFork == ConsensusFork.Fulu:
     let sidecarsOpt =
       if len(signedBlock.message.body.blob_kzg_commitments) == 0:
-        Opt.some(default(fulu.DataColumnSidecars))
+        Opt.some(default(fulu.DataColumnSidecarsForImport))
       else:
-        self.fuluColumnQuarantine[].popSidecars(signedBlock.root)
+        self.fuluColumnQuarantine[].popSidecarsForImport(signedBlock.root)
     if sidecarsOpt.isNone():
       self.blockProcessor[].startExecutionValidity(signedBlock, wallTime)
       discard self.quarantine[].addSidecarless(self.dag.finalizedHead.slot, signedBlock)
@@ -426,7 +426,7 @@ proc processDataColumnSidecar*(
     block_root, dataColumnSidecar, verified = true)
 
   if block_root in self.quarantine[].sidecarless:
-    let cres = self.fuluColumnQuarantine[].popSidecars(block_root)
+    let cres = self.fuluColumnQuarantine[].popSidecarsForImport(block_root)
     if cres.isSome():
       let blck = self.quarantine[].popSidecarless(block_root).expect("checked above")
       withBlck(blck):
@@ -964,8 +964,11 @@ proc processPayloadAttestationMessage*(
     beacon_payload_attestations_dropped.inc(1, [$v.error[0]])
     return err(v.error())
 
-  discard self.payloadAttestationPool[].addPayloadAttestation(
-    payload_attestation_message, wallTime)
+  if not self.payloadAttestationPool[].addPayloadAttestation(
+      payload_attestation_message, wallTime):
+    let res = errIgnore("Duplicate payload attestation")
+    beacon_payload_attestations_dropped.inc(1, [$res.error[0]])
+    return res
 
   if not isNil(self.dag.onPayloadAttestationMessageAdded):
     self.dag.onPayloadAttestationMessageAdded(payload_attestation_message)

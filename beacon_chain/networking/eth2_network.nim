@@ -2436,6 +2436,16 @@ func gossipId(
 
   messageDigest.data[0..19]
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/phase0/p2p-interface.md#max_compressed_len
+func max_compressed_len(n: uint64): uint64 {.compileTime.} =
+  # Worst-case compressed length for a given payload of size n when using snappy:
+  # https://github.com/google/snappy/blob/32ded457c0b1fe78ceb8397632c416568d6714a0/snappy.cc#L218C1-L218C47
+  32 + n + n div 6
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/phase0/p2p-interface.md#max_message_size
+func max_message_size(): uint64 {.compileTime.} =
+  max(max_compressed_len(MAX_PAYLOAD_SIZE) + 1024, 1024 * 1024)
+
 proc newBeaconSwitch(
     config: BeaconNodeConf | LightClientConf,
     seckey: PrivateKey,
@@ -2609,7 +2619,7 @@ proc createEth2Node*(
           sign = false,
           verifySignature = false,
           anonymize = true,
-          maxMessageSize = static(MAX_PAYLOAD_SIZE.int),
+          maxMessageSize = static(max_message_size().int),
           rng = switch.rng,
           parameters = params,
         )

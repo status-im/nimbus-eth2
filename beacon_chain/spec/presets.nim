@@ -33,7 +33,6 @@ const
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
   MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 9
-  MAX_SUPPORTED_BLOBS_PER_BLOCK*: uint64 = 9  # revisit getShortMap(Blobs) if >9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
   MAX_SUPPORTED_REQUEST_INCLUSION_LIST*: uint64 = 16
@@ -332,8 +331,8 @@ when const_preset == "mainnet":
       SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
-      # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_DUE_BPS: 7500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
@@ -551,8 +550,8 @@ elif const_preset == "gnosis":
       SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
-      # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_DUE_BPS: 7500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
@@ -766,8 +765,8 @@ elif const_preset == "minimal":
       SYNC_MESSAGE_DUE_BPS_GLOAS: 2500,
       # 5000 basis points, ~50% of SLOT_DURATION_MS
       CONTRIBUTION_DUE_BPS_GLOAS: 5000,
-      # 7500 basis points, ~75% of SLOT_DURATION_MS
-      PAYLOAD_DUE_BPS: 7500,
+      # 5000 basis points, ~50% of SLOT_DURATION_MS
+      PAYLOAD_DUE_BPS: 5000,
       # 7500 basis points, ~75% of SLOT_DURATION_MS
       PAYLOAD_ATTESTATION_DUE_BPS: 7500,
       # 6667 basis points, ~67% of SLOT_DURATION_MS
@@ -1156,8 +1155,6 @@ proc readRuntimeConfig*(
   for suffix in ["", "_ELECTRA"]:
     checkCompatibility MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT,
                        "BLOB_SIDECAR_SUBNET_COUNT" & suffix, `<=`
-    checkCompatibility MAX_SUPPORTED_BLOBS_PER_BLOCK,
-                       "MAX_BLOBS_PER_BLOCK" & suffix, `<=`
     checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,
                        "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
 

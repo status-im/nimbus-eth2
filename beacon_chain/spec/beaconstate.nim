@@ -2274,12 +2274,10 @@ func add_builder_to_registry*(
       deposit_epoch: slot.epoch,
       withdrawable_epoch: FAR_FUTURE_EPOCH)
   if state.builders.lenu64 == index:
-    # TODO handle this potential failure (?) differently
-    discard state.builders.add builder
-    debugGloasComment "this isn't really safe"
-    bucket_sorted_builders.add index.ValidatorIndex
+    state.builders.add builder
   else:
     state.builders.mitem(index) = builder
+  bucket_sorted_builders.add index.ValidatorIndex
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/fork.md#new-onboard_builders_from_pending_deposits
 func onboard_builders_from_pending_deposits*(
@@ -2294,18 +2292,50 @@ func onboard_builders_from_pending_deposits*(
     bucket_sorted_builders = sortValidatorBuckets(state.builders.asSeq)
   var
     pending_deposits: seq[PendingDeposit]
-    pending_deposits_idx: Table[ValidatorPubKey, int]
+    pending_validator_pubkeys: HashSet[ValidatorPubKey]
+    unchecked_deposits_idx: Table[ValidatorPubKey, seq[int]]
+    builder_deposit_pubkeys: HashSet[ValidatorPubKey]
 
-  template add_to_pending_deposits(pending_deposit: PendingDeposit) =
-    pending_deposits_idx[pending_deposit.pubkey] = pending_deposits.len
+  for deposit in state.pending_deposits:
+    if is_builder_withdrawal_credential(deposit.withdrawal_credentials):
+      builder_deposit_pubkeys.incl(deposit.pubkey)
+
+  template add_candidate_validator_deposit(pending_deposit: PendingDeposit) =
+    if  pending_deposit.pubkey in builder_deposit_pubkeys and
+        pending_deposit.pubkey notin pending_validator_pubkeys:
+      unchecked_deposits_idx.mgetOrPut(pending_deposit.pubkey, static @[]).add(
+        pending_deposits.len)
     pending_deposits.add(pending_deposit)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/beacon-chain.md#new-is_pending_validator
+  template is_pending_validator(candidate: ValidatorPubKey): bool =
+    ## Check if a pending deposit with a valid signature is in the queue for the
+    ## given pubkey.
+    var res = candidate in pending_validator_pubkeys
+    if not res:
+      unchecked_deposits_idx.withValue(candidate, indices):
+        for idx in indices[]:
+          let pending_deposit = pending_deposits[idx]
+          if verify_deposit_signature_cached(
+              cfg.GENESIS_FORK_VERSION,
+              DepositData(
+                pubkey: pending_deposit.pubkey,
+                withdrawal_credentials: pending_deposit.withdrawal_credentials,
+                amount: pending_deposit.amount,
+                signature: pending_deposit.signature)):
+            res = true
+            break
+        indices[].setLen(0)
+      if res:
+        pending_validator_pubkeys.incl(candidate)
+    res
 
   for deposit in state.pending_deposits:
     # Deposits for existing validators stay in the pending queue
     if findValidatorIndex(
         state.validators.asSeq, bucket_sorted_validators[],
         deposit.pubkey).isSome:
-      add_to_pending_deposits(deposit)
+      pending_deposits.add(deposit)
       continue
 
     # Note that applying a deposit below can mutate the state and may add a
@@ -2319,24 +2349,12 @@ func onboard_builders_from_pending_deposits*(
       # pending deposit for a new validator with this pubkey, keep this deposit
       # in the pending queue to be applied to that validator later.
       if not is_builder_withdrawal_credential(deposit.withdrawal_credentials):
-        add_to_pending_deposits(deposit)
+        add_candidate_validator_deposit(deposit)
         continue
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-is_pending_validator
-      try:
-        let pending_deposit =
-          pending_deposits[pending_deposits_idx[deposit.pubkey]]
-        if verify_deposit_signature_cached(
-            cfg.GENESIS_FORK_VERSION,
-            DepositData(
-              pubkey: pending_deposit.pubkey,
-              withdrawal_credentials: pending_deposit.withdrawal_credentials,
-              amount: pending_deposit.amount,
-              signature: pending_deposit.signature)):
-          add_to_pending_deposits(deposit)
-          continue
-      except KeyError:
-        discard
+      if is_pending_validator(deposit.pubkey):
+        pending_deposits.add(deposit)
+        continue
 
       if not verify_deposit_signature_cached(
           cfg.GENESIS_FORK_VERSION,

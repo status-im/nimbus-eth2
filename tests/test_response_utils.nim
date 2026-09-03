@@ -35,7 +35,7 @@ func createDigest(data: int): Eth2Digest =
 func genKzgCommitment(index: int): KzgCommitment =
   var res: KzgCommitment
   let tmp = uint64(index).toBytesLE()
-  copyMem(addr res.bytes[0], unsafeAddr tmp[0], sizeof(uint64))
+  copyMem(addr res.bytes[0], addr tmp[0], sizeof(uint64))
   res
 
 func genGloasKzgCommitments(count: int): gloas.KzgCommitments =

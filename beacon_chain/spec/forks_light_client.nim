@@ -1127,7 +1127,9 @@ proc toExecutionPayloadHeader*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_execution_payload
 proc toExecutionPayloadHeader*(
-    payload: capella.ExecutionPayload
+    payload: capella.ExecutionPayload,
+    transactions_root = Opt.none(Eth2Digest),
+    withdrawals_root = Opt.none(Eth2Digest)
 ): capella.ExecutionPayloadHeader =
   capella.ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
@@ -1143,13 +1145,25 @@ proc toExecutionPayloadHeader*(
     base_fee_per_gas: payload.base_fee_per_gas,
     block_hash: payload.block_hash,
     extra_data: payload.extra_data,
-    transactions_root: hash_tree_root(payload.transactions),
-    withdrawals_root: hash_tree_root(payload.withdrawals), # [New in Capella]
+    transactions_root: transactions_root.valueOr(
+      hash_tree_root(payload.transactions)),
+    withdrawals_root: withdrawals_root.valueOr(
+      hash_tree_root(payload.withdrawals)), # [New in Capella]
   )
+
+template toExecutionPayloadHeader*(
+    payload: capella.ExecutionPayload,
+    transactions_root: Eth2Digest,
+    withdrawals_root: Eth2Digest
+): capella.ExecutionPayloadHeader =
+  payload.toExecutionPayloadHeader(
+    Opt.some(transactions_root), Opt.some(withdrawals_root))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#process_execution_payload
 proc toExecutionPayloadHeader*(
-    payload: deneb.ExecutionPayload
+    payload: deneb.ExecutionPayload,
+    transactions_root = Opt.none(Eth2Digest),
+    withdrawals_root = Opt.none(Eth2Digest)
 ): deneb.ExecutionPayloadHeader =
   deneb.ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
@@ -1165,11 +1179,21 @@ proc toExecutionPayloadHeader*(
     base_fee_per_gas: payload.base_fee_per_gas,
     block_hash: payload.block_hash,
     extra_data: payload.extra_data,
-    transactions_root: hash_tree_root(payload.transactions),
-    withdrawals_root: hash_tree_root(payload.withdrawals),
+    transactions_root: transactions_root.valueOr(
+      hash_tree_root(payload.transactions)),
+    withdrawals_root: withdrawals_root.valueOr(
+      hash_tree_root(payload.withdrawals)),
     blob_gas_used: payload.blob_gas_used, # [New in Deneb]
     excess_blob_gas: payload.excess_blob_gas, # [New in Deneb]
   )
+
+template toExecutionPayloadHeader*(
+    payload: deneb.ExecutionPayload,
+    transactions_root: Eth2Digest,
+    withdrawals_root: Eth2Digest
+): deneb.ExecutionPayloadHeader =
+  payload.toExecutionPayloadHeader(
+    Opt.some(transactions_root), Opt.some(withdrawals_root))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
@@ -1204,11 +1228,28 @@ func toCapellaLightClientHeader(
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): capella.LightClientHeader =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [capella.EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
   capella.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution: payload.toExecutionPayloadHeader(
+      transactions_root = union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root = union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/full-node.md#modified-block_to_light_client_header
 func toDenebLightClientHeader(
@@ -1232,9 +1273,21 @@ func toDenebLightClientHeader(
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [capella.EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
   deneb.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
+    beacon: blck.message.toBeaconBlockHeader(body_root),
     execution: deneb.ExecutionPayloadHeader(
       parent_hash: payload.parent_hash,
       fee_recipient: payload.fee_recipient,
@@ -1249,21 +1302,40 @@ func toDenebLightClientHeader(
       extra_data: payload.extra_data,
       base_fee_per_gas: payload.base_fee_per_gas,
       block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+      transactions_root: union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root: union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toDenebLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
 ): deneb.LightClientHeader =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [capella.EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
   deneb.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution: payload.toExecutionPayloadHeader(
+      transactions_root = union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root = union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/full-node.md#modified-block_to_light_client_header
 func toElectraLightClientHeader(
@@ -1287,9 +1359,21 @@ func toElectraLightClientHeader(
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
-  template payload: untyped = blck.message.body.execution_payload
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [capella.EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
   electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
+    beacon: blck.message.toBeaconBlockHeader(body_root),
     execution: deneb.ExecutionPayloadHeader(
       parent_hash: payload.parent_hash,
       fee_recipient: payload.fee_recipient,
@@ -1304,10 +1388,12 @@ func toElectraLightClientHeader(
       extra_data: payload.extra_data,
       base_fee_per_gas: payload.base_fee_per_gas,
       block_hash: payload.block_hash,
-      transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals)),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+      transactions_root: union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root: union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1316,11 +1402,28 @@ func toElectraLightClientHeader(
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
       fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
 ): electra.LightClientHeader =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [capella.EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
   electra.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution: blck.message.body.execution_payload.toExecutionPayloadHeader(),
-    execution_branch: blck.message.body.build_proof(
-      capella.EXECUTION_PAYLOAD_GINDEX).get)
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution: payload.toExecutionPayloadHeader(
+      transactions_root = union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root = union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
 
 func toGloasLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1337,12 +1440,17 @@ func toGloasLightClientHeader(
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
 ): gloas.LightClientHeader =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const helper_indices = get_helper_indices(EXECUTION_BLOCK_HASH_GINDEX)
+  var body_root {.noinit.}: Eth2Digest
+  let execution_branch = body.hash_tree_root(helper_indices, body_root).get
+
   gloas.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution_block_hash: blck.message.body.execution_payload.block_hash,
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution_block_hash: payload.block_hash,
     execution_branch: normalize_merkle_branch(
-      blck.message.body.build_proof(EXECUTION_BLOCK_HASH_GINDEX).get,
-      EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
+      execution_branch, EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
 
 func toGloasLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1351,12 +1459,17 @@ func toGloasLightClientHeader(
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
       fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock
 ): gloas.LightClientHeader =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const helper_indices = get_helper_indices(EXECUTION_BLOCK_HASH_GINDEX_DENEB)
+  var body_root {.noinit.}: Eth2Digest
+  let execution_branch = body.hash_tree_root(helper_indices, body_root).get
+
   gloas.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution_block_hash: blck.message.body.execution_payload.block_hash,
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution_block_hash: payload.block_hash,
     execution_branch: normalize_merkle_branch(
-      blck.message.body.build_proof(EXECUTION_BLOCK_HASH_GINDEX_DENEB).get,
-      EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
+      execution_branch, EXECUTION_BLOCK_HASH_GINDEX_GLOAS))
 
 func toGloasLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1364,12 +1477,16 @@ func toGloasLightClientHeader(
       gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
       heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock
 ): gloas.LightClientHeader =
+  template body: auto = blck.message.body
+  template bid: auto = body.signed_execution_payload_bid
+  const helper_indices = get_helper_indices(EXECUTION_BLOCK_HASH_GINDEX_GLOAS)
+  var body_root {.noinit.}: Eth2Digest
+  let execution_branch = body.hash_tree_root(helper_indices, body_root).get
+
   gloas.LightClientHeader(
-    beacon: blck.message.toBeaconBlockHeader(),
-    execution_block_hash:
-      blck.message.body.signed_execution_payload_bid.message.parent_block_hash,
-    execution_branch:
-      blck.message.body.build_proof(EXECUTION_BLOCK_HASH_GINDEX_GLOAS).get)
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution_block_hash: bid.message.parent_block_hash,
+    execution_branch: execution_branch)
 
 func toLightClientHeader*(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
