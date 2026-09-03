@@ -964,8 +964,11 @@ proc processPayloadAttestationMessage*(
     beacon_payload_attestations_dropped.inc(1, [$v.error[0]])
     return err(v.error())
 
-  discard self.payloadAttestationPool[].addPayloadAttestation(
-    payload_attestation_message, wallTime)
+  if not self.payloadAttestationPool[].addPayloadAttestation(
+      payload_attestation_message, wallTime):
+    let res = errIgnore("Duplicate payload attestation")
+    beacon_payload_attestations_dropped.inc(1, [$res.error[0]])
+    return res
 
   if not isNil(self.dag.onPayloadAttestationMessageAdded):
     self.dag.onPayloadAttestationMessageAdded(payload_attestation_message)

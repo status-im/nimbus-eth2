@@ -318,14 +318,18 @@ proc assemble_data_column_sidecars*(
     return sidecars
   if cell_proofs.len != blobs.len * CELLS_PER_EXT_BLOB:
     return sidecars
+  const helper_indices = get_helper_indices(KZG_COMMITMENTS_GINDEX)
+  var body_root {.noinit.}: Eth2Digest
   let
+    inclusion_proof =
+      blck.body.hash_tree_root(helper_indices, body_root).expect("Valid gindex")
     beacon_block_header =
       BeaconBlockHeader(
         slot: blck.slot,
         proposer_index: blck.proposer_index,
         parent_root: blck.parent_root,
         state_root: blck.state_root,
-        body_root: hash_tree_root(blck.body))
+        body_root: body_root)
 
     signed_beacon_block_header =
       SignedBeaconBlockHeader(
@@ -343,8 +347,6 @@ proc assemble_data_column_sidecars*(
       staticFor j, 0 ..< CELLS_PER_EXT_BLOB:
         assign(proofElem[][j], cell_proofs[i * CELLS_PER_EXT_BLOB + j])
 
-  let inclusion_proof =
-    blck.body.build_proof(KZG_COMMITMENTS_GINDEX).expect("Valid gindex")
   for columnIndex in columns:
     var
       column = newSeqOfCap[KzgCell](blobs.len)
@@ -433,20 +435,22 @@ proc assemble_partial_data_column_sidecars*(
   template blck(): auto = signed_beacon_block.message
   template kzg_commitments: untyped = blck.body.blob_kzg_commitments
 
+  const helper_indices = get_helper_indices(KZG_COMMITMENTS_GINDEX)
+  var body_root {.noinit.}: Eth2Digest
   let
+    inclusion_proof =
+      blck.body.hash_tree_root(helper_indices, body_root).expect("Valid gindex")
     beacon_block_header =
       BeaconBlockHeader(
         slot: blck.slot,
         proposer_index: blck.proposer_index,
         parent_root: blck.parent_root,
         state_root: blck.state_root,
-        body_root: hash_tree_root(blck.body))
+        body_root: body_root)
     signed_beacon_block_header =
       SignedBeaconBlockHeader(
         message: beacon_block_header,
         signature: signed_beacon_block.signature)
-    inclusion_proof =
-      blck.body.build_proof(KZG_COMMITMENTS_GINDEX).expect("Valid gindex")
     header = fulu.PartialDataColumnHeader(
       kzg_commitments: kzg_commitments,
       signed_block_header: signed_beacon_block_header,

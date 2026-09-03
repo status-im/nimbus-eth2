@@ -37,11 +37,11 @@ proc setupEngineAPI*(server: RpcServer) =
       )
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/paris.md#engine_getpayloadv1
-    proc engine_getPayloadV1(payloadId: Bytes8): ExecutionPayloadV1 {.raises: [ApplicationError].} =
+    proc engine_getPayloadV1(payloadId: Bytes8): ExecutionPayloadV1 {.raises: [RpcResponseError].} =
       info "engine_getPayloadV1",
         id = payloadId.toHex
 
-      raise (ref ApplicationError)(
+      raise (ref RpcResponseError)(
         code: engineApiUnknownPayload,
         msg: "Unknown payload"
       )

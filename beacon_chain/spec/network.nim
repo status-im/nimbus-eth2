@@ -7,10 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-import
-  ./[helpers, forks],
-  ./datatypes/base
-
+import ./[helpers, forks]
 from std/algorithm import sort, upperBound
 
 export base

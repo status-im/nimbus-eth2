@@ -141,12 +141,13 @@ proc fillAttestationSelectionProofs*(
                   Opt.none(ValidatorSig)
 
               mreq.future = nil
-              mreq.proof = signature
 
               if signature.isSome():
                 vc.attesters.withValue(mreq.validator.pubkey, map):
                   map[].duties.withValue(mreq.slot.epoch(), dap):
-                    dap[].slotSig = signature
+                    if dap[].data.slot == mreq.slot:
+                      dap[].slotSig = signature
+                      mreq.proof = signature
           res
 
   if vc.config.distributedEnabled:
@@ -222,8 +223,9 @@ proc fillAttestationSelectionProofs*(
 
         vc.attesters.withValue(validator.pubkey, map):
           map[].duties.withValue(selection.slot.epoch(), dap):
-            dap[].slotSig = Opt.some(selectionProof.toValidatorSig())
-            inc(sigres.selectionsProcessed)
+            if dap[].data.slot == selection.slot:
+              dap[].slotSig = Opt.some(selectionProof.toValidatorSig())
+              inc(sigres.selectionsProcessed)
 
   sigres
 
