@@ -26,11 +26,13 @@ type
   EngineApiUrl* = object
     url: string
     jwtSecret: Opt[JwtSharedKey]
+    restEnabled: bool
 
   EngineApiUrlConfigValue* = object
     url*: string # TODO: Use the URI type here
     jwtSecret* {.serializedFieldName: "jwt-secret".}: Option[string]
     jwtSecretFile* {.serializedFieldName: "jwt-secret-file".}: Option[InputFile]
+    restEnabled* {.serializedFieldName: "rest".}: bool
 
 const
   # https://github.com/ethereum/execution-apis/pull/302
@@ -41,8 +43,9 @@ chronicles.formatIt EngineApiUrl:
 
 proc init*(T: type EngineApiUrl,
            url: string,
-           jwtSecret = Opt.none JwtSharedKey): T =
-  T(url: url, jwtSecret: jwtSecret)
+           jwtSecret = Opt.none JwtSharedKey,
+           restEnabled = false): T =
+  T(url: url, jwtSecret: jwtSecret, restEnabled: restEnabled)
 
 func url*(engineUrl: EngineApiUrl): string =
   engineUrl.url
@@ -50,12 +53,16 @@ func url*(engineUrl: EngineApiUrl): string =
 func jwtSecret*(engineUrl: EngineApiUrl): Opt[JwtSharedKey] =
   engineUrl.jwtSecret
 
+func restEnabled*(engineUrl: EngineApiUrl): bool =
+  engineUrl.restEnabled
+
 proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
                  {.raises: [ValueError].} =
   var
     uri = parseUri(input)
     jwtSecret: Option[string]
     jwtSecretFile: Option[InputFile]
+    restEnabled = false
 
   if uri.anchor != "":
     for key, value in decodeQuery(uri.anchor):
@@ -64,6 +71,8 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
         jwtSecret = some value
       of "jwtSecretFile", "jwt-secret-file":
         jwtSecretFile = some InputFile.parseCmdArg(value)
+      of "rest":
+        restEnabled = value == "" or value == "true"
       else:
         raise newException(ValueError, "'" & key & "' is not a recognized Engine URL property")
     uri.anchor = ""
@@ -71,7 +80,8 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
   EngineApiUrlConfigValue(
     url: $uri,
     jwtSecret: jwtSecret,
-    jwtSecretFile: jwtSecretFile)
+    jwtSecretFile: jwtSecretFile,
+    restEnabled: restEnabled)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
                {.raises: [SerializationError, IOError].} =
@@ -123,7 +133,8 @@ proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
 
   ok EngineApiUrl.init(
     url = url,
-    jwtSecret = jwtSecret)
+    jwtSecret = jwtSecret,
+    restEnabled = confValue.restEnabled)
 
 proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[JwtSharedKey] =
   if jwtSecret.isSome:

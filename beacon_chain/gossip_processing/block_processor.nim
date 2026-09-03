@@ -339,7 +339,6 @@ proc storeBackfillBlock(
 
     res
 
-from web3/engine_api_types import PayloadExecutionStatus
 from ../el/el_manager import ELManager, DeadlineFuture, newPayload
 from ../consensus_object_pools/attestation_pool import
   AttestationPool, addForkChoice, on_execution_payload
@@ -351,7 +350,7 @@ proc newExecutionPayload*(
     envelope: NoEnvelope | gloas.ExecutionPayloadEnvelope,
     deadline: DeadlineFuture,
     retry: bool,
-): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
+): Future[Opt[PayloadStatusCode]] {.async: (raises: [CancelledError]).} =
   template executionPayload: untyped =
     when typeof(blck).kind >= ConsensusFork.Gloas:
       envelope.payload
@@ -374,7 +373,7 @@ proc newExecutionPayload*(
 proc newExecutionPayload*(
     elManager: ELManager,
     blck: SomeForkyBeaconBlock
-): Future[Opt[PayloadExecutionStatus]] {.
+): Future[Opt[PayloadStatusCode]] {.
   async: (raises: [CancelledError], raw: true).} =
   newExecutionPayload(
     elManager, blck, noEnvelope, sleepAsync(NEWPAYLOAD_TIMEOUT), true)
