@@ -68,11 +68,29 @@ type
     columnBlocks: seq[ForkedSignedBeaconBlock]
     idents: seq[DataColumnsByRootIdentifier]
     columnsCount: int
-    consensusFork: ConsensusFork
+
+  ForkedBlocksAndColumnRequest = object
+    fork1: BlocksAndColumnRequest
+    fork2: BlocksAndColumnRequest
 
   BlocksAndEnvelopeRequest = object
     blocks: seq[ForkedSignedBeaconBlock]
     roots: seq[Eth2Digest]
+
+template columnsCount(
+    r: ForkedBlocksAndColumnRequest
+): int =
+  r.fork1.columnsCount + r.fork2.columnsCount
+
+template idents(
+    r: ForkedBlocksAndColumnRequest
+): seq[DataColumnsByRootIdentifier] =
+  r.fork1.idents & r.fork2.idents
+
+template columnBlocks(
+  r: ForkedBlocksAndColumnRequest
+): seq[ForkedSignedBeaconBlock] =
+  r.fork1.columnBlocks & r.fork2.columnBlocks
 
 template slot(sidecar: ref fulu.DataColumnSidecar): Slot =
   sidecar[].signed_block_header.message.slot
@@ -409,7 +427,7 @@ proc getForwardSidecarStartSlot(overseer: SyncOverseerRef2): Slot =
 
   let horizon = overseer.getSidecarsHorizon(consensusFork)
   if currentSlot < horizon:
-    max(dag.finalizedHead.slot, GENESIS_SLOT)
+    dag.finalizedHead.slot
   else:
     max(dag.finalizedHead.slot, currentSlot - horizon)
 
@@ -427,7 +445,7 @@ proc getBackfillSidecarFinalSlot(overseer: SyncOverseerRef2): Slot =
     horizon = overseer.getSidecarsHorizon(consensusFork)
     slot =
       if dag.finalizedHead.slot < horizon:
-        min(backfillSlot, GENESIS_SLOT)
+        GENESIS_SLOT
       else:
         min(backfillSlot, dag.finalizedHead.slot - horizon)
   # Because we do not have any markers for backfilled sidecars, there is no way
@@ -1067,33 +1085,34 @@ proc syncDistance*(
   else:
     0'u64
 
-proc verifyEnvelope(
-    overseer: SyncOverseerRef2,
-    gloasBlock: gloas.SignedBeaconBlock,
-    signedEnvelope: SignedExecutionPayloadEnvelope
-): Future[Result[void, SyncVerifierError]] {.async: (raises: [CancelledError]).} =
-  let
-    bid = gloasBlock.toBlockId()
-    commitmentsLen =
-      len(gloasBlock.message.body.signed_execution_payload_bid.
-          message.blob_kzg_commitments)
+# proc verifyEnvelope(
+#     overseer: SyncOverseerRef2,
+#     gloasBlock: gloas.SignedBeaconBlock,
+#     signedEnvelope: SignedExecutionPayloadEnvelope,
+#     sidecars: Opt[gloas.DataColumnSidecars]
+# ): Future[Result[void, SyncVerifierError]] {.async: (raises: [CancelledError]).} =
+#   let
+#     bid = gloasBlock.toBlockId()
+#     commitmentsLen =
+#       len(gloasBlock.message.body.signed_execution_payload_bid.
+#           message.blob_kzg_commitments)
 
-  if overseer.shouldGetColumns(bid.slot):
-    let
-      sidecars =
-        if commitmentsLen == 0:
-          Opt.some(default(gloas.DataColumnSidecars))
-        else:
-          overseer.gloasColumnQuarantine[].popSidecars(bid.root)
-    if sidecars.isNone():
-      overseer.blockQuarantine[].addSidecarless(gloasBlock)
-      return err(SyncVerifierError.MissingSidecars)
-    (await overseer.blockProcessor.addPayload(
-      gloasBlock, signedEnvelope, sidecars)).mapErr(toSyncVerifierError)
-  else:
-    (await overseer.blockProcessor.addPayload(
-      gloasBlock, signedEnvelope, Opt.none(gloas.DataColumnSidecars))).
-      mapErr(toSyncVerifierError)
+#   if overseer.shouldGetColumns(bid.slot):
+#     let
+#       sidecars =
+#         if commitmentsLen == 0:
+#           Opt.some(default(gloas.DataColumnSidecars))
+#         else:
+#           overseer.gloasColumnQuarantine[].popSidecars(bid.root)
+#     if sidecars.isNone():
+#       overseer.blockQuarantine[].addSidecarless(gloasBlock)
+#       return err(SyncVerifierError.MissingSidecars)
+#     (await overseer.blockProcessor.addPayload(
+#       gloasBlock, signedEnvelope, sidecars)).mapErr(toSyncVerifierError)
+#   else:
+#     (await overseer.blockProcessor.addPayload(
+#       gloasBlock, signedEnvelope, Opt.none(gloas.DataColumnSidecars))).
+#       mapErr(toSyncVerifierError)
 
 proc verifyBlock(
     overseer: SyncOverseerRef2,
@@ -1297,7 +1316,7 @@ proc getMissingBlocksRequest(
 
   while len(res) < peerEntry.maxBlocksPerRequest:
     if len(peerEntry.pendingRoots) == 0:
-      return res
+      break
     let blockRoot = peerEntry.pendingRoots.pop()
     if blockRoot notin duplicates:
       duplicates.incl(blockRoot)
@@ -1325,10 +1344,11 @@ proc getMissingColumnsBlocksAndRequest(
     peer: Peer,
     peerEntry: PeerEntryRef,
     bids: openArray[BlockId]
-): BlocksAndColumnRequest =
+): ForkedBlocksAndColumnRequest =
   var
-    bres: BlocksAndColumnRequest
+    bres: ForkedBlocksAndColumnRequest
     duplicates: HashSet[Eth2Digest]
+    columnBlocks: seq[ForkedSignedBeaconBlock]
 
   let
     dag = overseer.consensusManager.dag
@@ -1346,9 +1366,9 @@ proc getMissingColumnsBlocksAndRequest(
 
     if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
       duplicates.incl(bid.root)
-      bres.columnBlocks.add(signedBlock)
+      columnBlocks.add(signedBlock)
 
-  let delim = len(bres.columnBlocks)
+  let delim = len(columnBlocks)
 
   # Global missing sidecars
   for root in overseer.missingSidecars:
@@ -1362,12 +1382,7 @@ proc getMissingColumnsBlocksAndRequest(
 
     if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
       duplicates.incl(bid.root)
-      bres.columnBlocks.add(signedBlock)
-
-  if len(bres.columnBlocks) > 0:
-    # This function is only used for byRoot calls, so we assume that all the
-    # blocks has equal fork.
-    bres.consensusFork = bres.columnBlocks[0].kind
+      columnBlocks.add(signedBlock)
 
   debug "Missing sidecars roots request prepared",
     missing_peer_roots = slimLog(bres.columnBlocks.toOpenArray(0, delim - 1)),
@@ -1376,7 +1391,7 @@ proc getMissingColumnsBlocksAndRequest(
       slimLog(bres.columnBlocks.toOpenArray(delim, len(bres.columnBlocks) - 1)),
     missing_global_roots_len = len(bres.columnBlocks) - delim
 
-  for signedBlock in bres.columnBlocks:
+  for signedBlock in columnBlocks:
     withBlck(signedBlock):
       when consensusFork == ConsensusFork.Fulu:
         let
@@ -1388,9 +1403,9 @@ proc getMissingColumnsBlocksAndRequest(
               overseer.fuluColumnQuarantine[].fetchMissingSidecars(
                 blockRoot, peerMap)
         if len(request.indices) > 0:
-          bres.idents.add(request)
-          bres.columnsCount.inc(len(request.indices))
-          if bres.columnsCount >= peerEntry.maxSidecarsPerRequest:
+          bres.fork1.idents.add(request)
+          bres.fork1.columnsCount.inc(len(request.indices))
+          if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
             break
       elif consensusFork == ConsensusFork.Gloas:
         let
@@ -1403,9 +1418,9 @@ proc getMissingColumnsBlocksAndRequest(
               overseer.gloasColumnQuarantine[].fetchMissingSidecars(
                 blockRoot, peerMap)
         if len(request.indices) > 0:
-          bres.idents.add(request)
-          bres.columnsCount.inc(len(request.indices))
-          if bres.columnsCount >= peerEntry.maxSidecarsPerRequest:
+          bres.fork2.idents.add(request)
+          bres.fork2.columnsCount.inc(len(request.indices))
+          if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
             break
       elif consensusFork < ConsensusFork.Fulu:
         raiseAssert "Should not be happen!"
@@ -1494,25 +1509,12 @@ proc doPeerPause(
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
 
-  var doSleep = false
-
-  if overseer.finalizedDistance().get() > 1'u64:
-    ## We are in forward syncing.
-    if dag.finalizedHead.slot.epoch >= peer.getFinalizedCheckpoint().epoch:
-      doSleep = true
-  else:
-    ## We are in sync or almost in sync.
-    if len(peerEntry.pendingRoots) == 0 and
-       len(overseer.missingRoots) == 0 and
-       len(getMissingSidecarsRoots(hentry)) == 0:
-      doSleep = true
-
-    if not(dag.needsBackfill()):
-      doSleep = true
-
-  if not(doSleep) and (Moment.now() - loopTime) < 50.milliseconds:
-    debug "Endless loop detected for peer"
-    doSleep = true
+  let doSleep =
+    if (Moment.now() - loopTime) < 50.milliseconds:
+      debug "Endless idle loop detected for peer"
+      true
+    else:
+      false
 
   if doSleep:
     let
@@ -1736,18 +1738,9 @@ proc doRootSyncStep(
       fork = signedBlock[].kind
       bid = shortLog(bid)
 
-    if res.isErr() and (res.error == SyncVerifierError.Invalid):
-      debug "Block verification NOT passed", reason = $res.error
-      restoreRoots()
-      peer.updateScore(PeerScoreBadResponse)
-      return false
-
     let
       missingSidecars =
-        if res.isErr() and (res.error == SyncVerifierError.MissingSidecars):
-          true
-        else:
-          false
+        res.isErr() and (res.error == SyncVerifierError.MissingSidecars)
       missingEnvelope =
         # There is no way to check that block has envelope or not, so in this
         # case we assume that all blocks of Gloas+ fork has envelopes.
@@ -1937,6 +1930,70 @@ proc doGloasRootSidecarsRequest(
   peer.updateScore(PeerScoreGoodValues)
   ok()
 
+proc handleEnvelopeVerificationErrors(
+    overseer: SyncOverseerRef2,
+    peer: Opt[Peer],
+    entry: SyncDagEntryRef,
+    reason: SyncVerifierError,
+    signedBlock: gloas.SignedBeaconBlock,
+    signedEnvelope: gloas.SignedExecutionPayloadEnvelope,
+    sidecars: Opt[gloas.DataColumnSidecars]
+) =
+  let
+    dag = overseer.consensusManager.dag
+    bid = signedBlock.toBlockId()
+
+  case reason
+  of SyncVerifierError.Invalid, SyncVerifierError.MissingEnvelope:
+    if peer.isSome():
+      if reason == SyncVerifierError.Invalid:
+        peer.get().updateScore(PeerScoreBadValues)
+      else:
+        peer.get().updateScore(PeerScoreNoValues)
+
+    entry.flags.incl(DagEntryFlag.MissingEnvelope)
+    overseer.gloasEnvelopeQuarantine[].remove(signedBlock.root)
+    overseer.missingEnvelopes.incl(signedBlock.root)
+
+  of SyncVerifierError.InvalidSidecars, SyncVerifierError.MissingSidecars:
+    if peer.isSome() and (reason == SyncVerifierError.InvalidSidecars):
+        peer.get().updateScore(PeerScoreBadValues)
+
+    # Preserve envelope only.
+    overseer.gloasEnvelopeQuarantine[].addOrphan(
+      dag.finalizedHead.slot, signedEnvelope)
+    entry.flags.incl(DagEntryFlag.MissingSidecars)
+    entry.flags.excl(DagEntryFlag.MissingEnvelope)
+    overseer.missingEnvelopes.excl(signedBlock.root)
+    overseer.missingSidecars.incl(signedBlock.root)
+
+  of SyncVerifierError.MissingParent:
+    if peer.isSome():
+      peer.get().updateScore(PeerScoreGoodValues)
+
+    # Preserve envelope and sidecars.
+    overseer.gloasEnvelopeQuarantine[].addOrphan(
+      dag.finalizedHead.slot, signedEnvelope)
+    if sidecars.isSome() and (len(sidecars.get()) > 0):
+      overseer.gloasColumnQuarantine[].put(bid.root, sidecars.get(), false)
+    entry.flags.excl(DagEntryFlag.MissingSidecars)
+    entry.flags.excl(DagEntryFlag.MissingEnvelope)
+    overseer.missingEnvelopes.excl(signedBlock.root)
+    overseer.missingSidecars.excl(signedBlock.root)
+
+  of SyncVerifierError.UnviableFork:
+    if peer.isSome():
+      peer.get().updateScore(PeerScoreGoodValues)
+
+    entry.flags.excl(DagEntryFlag.MissingSidecars)
+    entry.flags.excl(DagEntryFlag.MissingEnvelope)
+    entry.flags.incl(DagEntryFlag.Unviable)
+    overseer.missingEnvelopes.excl(signedBlock.root)
+    overseer.missingSidecars.excl(signedBlock.root)
+
+  of SyncVerifierError.Duplicate:
+    raiseAssert("Duplicate error should be handled earlier")
+
 proc doGloasEnvelopeVerification(
     overseer: SyncOverseerRef2,
     peer: Peer,
@@ -1946,12 +2003,35 @@ proc doGloasEnvelopeVerification(
 ): Future[void] {.async: (raises: [CancelledError]).} =
   let
     dag = overseer.consensusManager.dag
-    res = await overseer.verifyEnvelope(signedBlock, signedEnvelope)
+    bid = signedBlock.toBlockId()
+    commitmentsLen =
+      len(signedBlock.message.body.signed_execution_payload_bid.
+        message.blob_kzg_commitments)
+    sidecars =
+      if overseer.shouldGetColumns(bid.slot):
+        if commitmentsLen == 0:
+          Opt.some(default(gloas.DataColumnSidecars))
+        else:
+          let sres = overseer.gloasColumnQuarantine[].popSidecars(bid.root)
+          if sres.isNone():
+            debug "Envelope and sidecars by root processor response",
+              reason = SyncVerifierError.MissingSidecars, bid = shortLog(bid)
+            overseer.blockQuarantine[].addSidecarless(signedBlock)
+            overseer.gloasEnvelopeQuarantine[].addOrphan(
+              dag.finalizedHead.slot, signedEnvelope)
+            entry.flags.incl(DagEntryFlag.MissingSidecars)
+            return
+          sres
+      else:
+        Opt.none(gloas.DataColumnSidecars)
+    res =
+      (await overseer.blockProcessor.addPayload(
+        signedBlock, signedEnvelope, sidecars)).mapErr(toSyncVerifierError)
 
   if res.isOk() or (res.error == SyncVerifierError.Duplicate):
     peer.updateScore(PeerScoreGoodValues)
     debug "Envelope and sidecars by root processor response",
-      reason = "ok", bid = shortLog(signedBlock.toBlockId())
+      reason = "ok", bid = shortLog(bid)
     overseer.blockQuarantine[].remove(signedBlock)
     entry.flags.excl(DagEntryFlag.MissingSidecars)
     entry.flags.excl(DagEntryFlag.MissingEnvelope)
@@ -1959,40 +2039,9 @@ proc doGloasEnvelopeVerification(
     overseer.missingEnvelopes.excl(signedBlock.root)
   else:
     debug "Envelope and sidecars by root processor response",
-      reason = res.error, bid = shortLog(signedBlock.toBlockId())
-    case res.error
-    of SyncVerifierError.Invalid, SyncVerifierError.MissingEnvelope:
-      if res.error == SyncVerifierError.Invalid:
-        peer.updateScore(PeerScoreBadValues)
-      else:
-        peer.updateScore(PeerScoreNoValues)
-      entry.flags.incl(DagEntryFlag.MissingEnvelope)
-      overseer.gloasEnvelopeQuarantine[].remove(signedBlock.root)
-      overseer.missingEnvelopes.incl(signedBlock.root)
-    of SyncVerifierError.InvalidSidecars, SyncVerifierError.MissingSidecars:
-      if res.error == SyncVerifierError.InvalidSidecars:
-        peer.updateScore(PeerScoreBadValues)
-      overseer.gloasEnvelopeQuarantine[].addOrphan(
-        dag.finalizedHead.slot, signedEnvelope)
-      entry.flags.incl(DagEntryFlag.MissingSidecars)
-      entry.flags.excl(DagEntryFlag.MissingEnvelope)
-      overseer.missingEnvelopes.excl(signedBlock.root)
-      overseer.missingSidecars.incl(signedBlock.root)
-    of SyncVerifierError.MissingParent:
-      peer.updateScore(PeerScoreGoodValues)
-      entry.flags.excl(DagEntryFlag.MissingSidecars)
-      entry.flags.excl(DagEntryFlag.MissingEnvelope)
-      overseer.missingEnvelopes.excl(signedBlock.root)
-      overseer.missingSidecars.excl(signedBlock.root)
-    of SyncVerifierError.UnviableFork:
-      peer.updateScore(PeerScoreGoodValues)
-      entry.flags.excl(DagEntryFlag.MissingSidecars)
-      entry.flags.excl(DagEntryFlag.MissingEnvelope)
-      entry.flags.incl(DagEntryFlag.Unviable)
-      overseer.missingEnvelopes.excl(signedBlock.root)
-      overseer.missingSidecars.excl(signedBlock.root)
-    of SyncVerifierError.Duplicate:
-      raiseAssert("Should be handled earlier")
+      reason = res.error, bid = shortLog(bid)
+    overseer.handleEnvelopeVerificationErrors(
+      Opt.some(peer), entry, res.error, signedBlock, signedEnvelope, sidecars)
 
 proc doRootSidecarsSyncStep(
     overseer: SyncOverseerRef2,
@@ -2030,34 +2079,38 @@ proc doRootSidecarsSyncStep(
   let request =
     overseer.getMissingColumnsBlocksAndRequest(peer, peerEntry, bids)
 
-  if len(request.idents) == 0:
-    debug "No pending data column sidecars available for peer"
-    return true
+  block:
+    if len(request.fork1.idents) == 0:
+      debug "No pending data column sidecars available for peer",
+        fork = ConsensusFork.Fulu
+      return true
 
-  withConsensusFork(request.consensusFork):
-    when consensusFork < ConsensusFork.Fulu:
-      raiseAssert "Incorrect fork!"
-    elif consensusFork == ConsensusFork.Fulu:
-      (await overseer.doFuluRootSidecarsRequest(
-        peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
+    (await overseer.doFuluRootSidecarsRequest(
+      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
         return error
-    elif consensusFork == ConsensusFork.Gloas:
-      (await overseer.doGloasRootSidecarsRequest(
-        peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
+
+  block:
+    if len(request.fork2.idents) == 0:
+      debug "No pending data column sidecars available for peer",
+        fork = ConsensusFork.Gloas
+      return true
+
+    (await overseer.doGloasRootSidecarsRequest(
+      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
         return error
-    else:
-      raiseAssert("Unsupported fork!")
+
+  let columnBlocks = request.columnBlocks()
 
   logScope:
     head = shortLog(dag.head)
     roots = shortLog(request.idents)
-    roots_count = request.columnsCount
+    roots_count = request.columnsCount()
     data_type = "columns"
 
   debug "Processing blocks and sidecars by root",
-    blocks = slimLog(request.columnBlocks)
+    blocks = slimLog(columnBlocks)
 
-  for signedBlock in request.columnBlocks:
+  for signedBlock in columnBlocks:
     withBlck(signedBlock):
       when consensusFork == ConsensusFork.Fulu:
         debug "Processing single block and sidecars by root",
@@ -2372,7 +2425,7 @@ proc doRangeSyncStep(
       blocks_map = getShortMap(request, items),
       block_buffer = shortLog(overseer.tsbuffer(direction)),
       blocks_queue = shortLog(overseer.tbsqueue(direction)),
-      sidecars_queue = shortLog(overseer.tbsqueue(direction))
+      sidecars_queue = shortLog(overseer.tssqueue(direction))
 
     if resp.count > 0:
       peer.updateScore(PeerScoreGoodValues)
@@ -3167,32 +3220,6 @@ proc speed(
   else:
     float(lastslot - startslot) / toFloatSeconds(lasttime - starttime)
 
-proc toTimeLeftString(d: Duration): string =
-  if d == InfiniteDuration:
-    return "--h--m"
-
-  var v = d
-  var res = ""
-  let ndays = chronos.days(v)
-  if ndays > 0:
-    res = res & (if ndays < 10: "0" & $ndays else: $ndays) & "d"
-    v = v - chronos.days(ndays)
-
-  let nhours = chronos.hours(v)
-  if nhours > 0:
-    res = res & (if nhours < 10: "0" & $nhours else: $nhours) & "h"
-    v = v - chronos.hours(nhours)
-  else:
-    res =  res & "00h"
-
-  let nmins = chronos.minutes(v)
-  if nmins > 0:
-    res = res & (if nmins < 10: "0" & $nmins else: $nmins) & "m"
-    v = v - chronos.minutes(nmins)
-  else:
-    res = res & "00m"
-  res
-
 type
   SyncPerformance = object
     average: float
@@ -3805,31 +3832,30 @@ proc doLateBlockProcessing(
       if envelope.isSome():
         if sidecars.isSome():
           let eres =
-            await overseer.verifyEnvelope(gloasBlock, envelope.get())
-          if eres.isOk():
+            (await overseer.blockProcessor.addPayload(
+              gloasBlock, envelope.get(),
+              sidecars)).mapErr(toSyncVerifierError)
+          if eres.isOk() or (eres.error == SyncVerifierError.Duplicate):
             debug "Late envelope and sidecars processor response",
               reason = "ok"
             true
           else:
             debug "Late envelope and sidecars processor response",
               reason = eres.error
-            entry.flags.incl(DagEntryFlag.MissingSidecars)
-            entry.flags.incl(DagEntryFlag.MissingEnvelope)
-            # Sidecars and envelope was removed from quarantine.
-            overseer.missingSidecars.incl(gloasBlock.root)
-            overseer.missingEnvelopes.incl(gloasBlock.root)
+            overseer.handleEnvelopeVerificationErrors(
+              Opt.none(Peer), entry, eres.error, gloasBlock, envelope.get(),
+              sidecars)
             false
         else:
           overseer.missingSidecars.incl(gloasBlock.root)
-          if not(isNil(entry)):
-            entry.flags.incl(DagEntryFlag.MissingSidecars)
+          entry.flags.incl(DagEntryFlag.MissingSidecars)
           # Preserve envelope
           overseer.gloasEnvelopeQuarantine[].addOrphan(
             dag.finalizedHead.slot, envelope.get())
           false
       else:
         if commitmentsLen > 0:
-          # We missing envelope.
+          # We're missing the envelope.
           overseer.missingEnvelopes.incl(gloasBlock.root)
           entry.flags.incl(DagEntryFlag.MissingEnvelope)
           if sidecars.isSome():
@@ -3840,8 +3866,13 @@ proc doLateBlockProcessing(
         else:
           true
     else:
+      if envelope.isSome():
+        overseer.gloasEnvelopeQuarantine[].addOrphan(
+          dag.finalizedHead.slot, envelope.get())
+      if sidecars.isSome():
+        overseer.gloasColumnQuarantine[].put(
+          gloasBlock.root, sidecars.get(), false)
       false
-
   let
     dagSrc =
       case src

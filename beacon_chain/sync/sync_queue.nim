@@ -1124,26 +1124,20 @@ proc process[M, N](
       slot = Opt.some(ritem.toBlockId())
     else:
       case res.error()
-      of SyncVerifierError.MissingParent:
+      of SyncVerifierError.MissingParent, SyncVerifierError.MissingSidecars,
+         SyncVerifierError.MissingEnvelope, SyncVerifierError.InvalidSidecars,
+         SyncVerifierError.Invalid:
         return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
       of SyncVerifierError.Duplicate:
         # Keep going, happens naturally
         if dupBlock.isNone():
           dupBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
-      of SyncVerifierError.MissingSidecars:
-        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
-      of SyncVerifierError.MissingEnvelope:
-        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
-      of SyncVerifierError.InvalidSidecars:
-        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
       of SyncVerifierError.UnviableFork:
         # Keep going so as to register other unviable blocks with the
         # quarantine
         if unviableBlock.isNone():
           # Remember the first unviable block, so we can log it
           unviableBlock = Opt.some(BlockId(slot: ritem.slot, root: ritem.root))
-      of SyncVerifierError.Invalid:
-        return SyncProcessingResult.init(res.error(), ritem.slot, ritem.root)
 
   if unviableBlock.isSome():
     return SyncProcessingResult.init(SyncVerifierError.UnviableFork,
@@ -1172,11 +1166,8 @@ proc getAccumulatedMissingMap*[M](
 ): ColumnMap =
   var
     res: ColumnMap
-    started =
-      if startBid.isSome():
-        false
-      else:
-        true
+    started = startBid.isNone()
+
   for item in data:
     if started or (startBid.isSome() and (item.root == startBid.get().root)):
       started = true

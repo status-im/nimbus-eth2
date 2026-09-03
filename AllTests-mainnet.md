@@ -1034,6 +1034,8 @@ AllTests-mainnet
 + [SyncQueue#Forward] finish test                                                            OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
 + [SyncQueue#Forward] partial ranges test                                                    OK
++ [SyncQueue] getShortMap(blocks/envelopes) test                                             OK
++ [SyncQueue] getShortMap(sidecars) test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
 ## SyncRange test suite
