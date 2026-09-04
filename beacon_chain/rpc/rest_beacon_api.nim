@@ -1030,10 +1030,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               forkyBlck,
               data_columns,
               checkValidator = true)
-          elif consensusFork == ConsensusFork.Electra:
-            await node.router.routeSignedBeaconBlock(
-              forkyBlck, forkyBlck.create_blob_sidecars(kzg_proofs, blobs),
-              checkValidator = true)
           else:
             return RestApiResponse.jsonError(
               Http400, $consensusFork & " block proposals not supported")

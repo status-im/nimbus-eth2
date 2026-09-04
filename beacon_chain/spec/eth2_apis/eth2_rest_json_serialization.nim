@@ -272,7 +272,6 @@ RestJson.useDefaultSerializationFor(
   deneb.BeaconBlock,
   deneb.BeaconBlockBody,
   deneb.BeaconState,
-  deneb.BlobsBundle,
   deneb.BlockContents,
   deneb.ExecutionPayload,
   deneb.ExecutionPayloadHeader,
