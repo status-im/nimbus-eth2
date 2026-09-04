@@ -436,26 +436,6 @@ proc assemble_partial_data_column_sidecars*(
   let group_id = gloas.PartialDataColumnGroupID(
     beacon_block_root: signed_beacon_block.root,
     slot: blck.slot)
-  const helper_indices = get_helper_indices(KZG_COMMITMENTS_GINDEX)
-  var body_root {.noinit.}: Eth2Digest
-  let
-    inclusion_proof =
-      blck.body.hash_tree_root(helper_indices, body_root).expect("Valid gindex")
-    beacon_block_header =
-      BeaconBlockHeader(
-        slot: blck.slot,
-        proposer_index: blck.proposer_index,
-        parent_root: blck.parent_root,
-        state_root: blck.state_root,
-        body_root: body_root)
-    signed_beacon_block_header =
-      SignedBeaconBlockHeader(
-        message: beacon_block_header,
-        signature: signed_beacon_block.signature)
-    header = fulu.PartialDataColumnHeader(
-      kzg_commitments: kzg_commitments,
-      signed_block_header: signed_beacon_block_header,
-      kzg_commitments_inclusion_proof: inclusion_proof)
 
   if kzg_commitments.len == 0 or blobs.len != kzg_commitments.len or
       blobs.len > int(MAX_BLOB_COMMITMENTS_PER_BLOCK) or
