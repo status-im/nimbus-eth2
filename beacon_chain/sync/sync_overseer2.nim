@@ -1495,10 +1495,6 @@ proc doPeerPause(
     dag = overseer.consensusManager.dag
     timeParams = dag.cfg.timeParams
     peerHead = peer.getHeadBlockId()
-    peerEntry = overseer.sdag.getPeerEntry(peer.getKey()).valueOr:
-      return
-    hentry = overseer.sdag.getRootEntry(peerHead.root).valueOr:
-      return
 
   logScope:
     peer = peer
