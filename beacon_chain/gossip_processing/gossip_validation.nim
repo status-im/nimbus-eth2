@@ -1979,6 +1979,11 @@ proc validateExecutionPayloadBid*(
       if not (bid.slot > parentBlck.slot):
         return errReject("ExecutionPayloadBid: slot not greater than parent's")
 
+      # [REJECT] The bid's block hash is not equal to its parent block hash
+      if bid.block_hash == bid.parent_block_hash:
+        return dag.checkedReject(
+          "ExecutionPayloadBid: block hash equals parent block hash")
+
       # [IGNORE] this bid is the highest value bid seen for the tuple
       # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`.
       let
