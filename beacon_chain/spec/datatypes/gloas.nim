@@ -703,10 +703,10 @@ type
   BuilderEntry* = object
     url*: string
     auth_data*: Opt[string]
-    builder_pubkeys*: seq[ValidatorPubKey]
-    max_execution_payment*: Gwei
-    min_bid*: Gwei
-    builder_boost_factor*: uint64
+    builder_pubkeys*: Opt[seq[ValidatorPubKey]]
+    max_execution_payment*: Opt[Gwei]
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
 
   # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L1-L52
   BuilderConfig* = object

@@ -1629,15 +1629,26 @@ proc getValidatorBuilderConfig*(
       return err("validator not found")
 
   if validator.builderConfig.isSome():
-    ok(validator.builderConfig.get())
+    var res = validator.builderConfig.get()
+    for i in 0 ..< len(res.builders):
+      if res.builders[i].auth_data.isNone():
+        res.builders[i].auth_data = Opt.some(res.builders[i].url)
+      if res.builders[i].min_bid.isNone():
+        res.builders[i].min_bid = Opt.some(res.min_bid)
+      if res.builders[i].builder_boost_factor.isNone():
+        res.builders[i].builder_boost_factor =
+          Opt.some(res.builder_boost_factor)
+      debugGloasComment("cannot resolve other values yet")
+    ok(res)
   else:
-    debugGloasComment("tmp impl - should need a new config structure for gloas")
+    debugGloasComment("should need a new config structure for gloas")
     let
       res = host.getBuilderConfig(pubkey).valueOr:
         return err("bad values in builder config file")
       url = res.valueOr:
         return ok(default(gloas.BuilderConfig))
-    ok(gloas.BuilderConfig(builders: @[BuilderEntry(url: url)]))
+    ok(gloas.BuilderConfig(builders: @[BuilderEntry(
+      url: url, auth_data: Opt.some(url))]))
 
 proc addValidator*(
     host: KeymanagerHost, keystore: KeystoreData,
