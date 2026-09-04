@@ -470,7 +470,7 @@ proc makeSignedRequestAuth*(
     message: msg,
     signature: sig))
 
-# https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/execution_payload_bid.yaml
+# https://github.com/ethereum/builder-specs/blob/38f11441c194d150386f567b4d7087ec86d4118c/apis/builder/execution_payload_bid.yaml
 proc getExecutionPayloadBidFromBuilder*(
     payloadBuilderClient: RestClientRef,
     slot: Slot,
@@ -478,6 +478,8 @@ proc getExecutionPayloadBidFromBuilder*(
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
     consensus_version: ConsensusFork,
+    req_started_at: Moment,
+    timeout_ms: Duration,
     request_auth: SignedBuilderRequestAuth,
 ): Future[Result[gloas.SignedExecutionPayloadBid, string]] {.
     async: (raises: [CancelledError]).} =
@@ -488,7 +490,7 @@ proc getExecutionPayloadBidFromBuilder*(
     try:
       await payloadBuilderClient.getExecutionPayloadBid(
         slot, parent_hash, parent_root, proposer_pubkey,
-        consensus_version, request_auth)
+        consensus_version, req_started_at, timeout_ms, request_auth)
     except RestDecodingError as exc:
       return err("getExecutionPayloadBid REST decoding error: " & exc.msg)
     except RestError as exc:
@@ -499,12 +501,19 @@ proc getExecutionPayloadBidFromBuilder*(
   if response.status != 200:
     return err("getExecutionPayloadBid: HTTP error " & $response.status)
 
-  let bid =
-    try:
-      SSZ.decode(response.data, gloas.SignedExecutionPayloadBid)
-    except SerializationError as exc:
-      return err("getExecutionPayloadBid SSZ decode error: " & exc.msg)
-  ok(bid)
+  debugHezeComment("")
+  let res = decodeBytesJsonOrSsz(
+    GetExecutionPayloadBidResponseGloas,
+    response.data,
+    response.contentType,
+    response.headers.getString("eth-consensus-version"),
+  ).valueOr:
+    return err(
+      "Unable to decode bid response from builder: " & $error & " with HTTP status " &
+        $response.status & ", Content-Type " & $response.contentType & " and content " &
+        $response.data
+    )
+  ok(res.data)
 
 proc getBuilderExecutionPayloadBid*(
     node: BeaconNode,
@@ -518,20 +527,21 @@ proc getBuilderExecutionPayloadBid*(
 ): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
     async: (raises: [CancelledError]).} =
   let
-    requestAuth = block:
-      let builderUrl = node.getPayloadBuilderAddress(proposer.pubkey).valueOr:
-        return Opt.none(gloas.SignedExecutionPayloadBid)
-      (await makeSignedRequestAuth(
-          proposer, builderUrl, slot,
-          node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
-        return Opt.none(gloas.SignedExecutionPayloadBid)
+    builderUrl = node.getPayloadBuilderAddress(proposer.pubkey).valueOr:
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    requestAuth = (await makeSignedRequestAuth(
+        proposer, builderUrl, slot,
+        node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    reqStartedAt = Moment.now()
     bidRes = awaitWithTimeout(
-      getExecutionPayloadBidFromBuilder(
-        payloadBuilderClient, slot, parent_block_hash, parent_block_root,
-        proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
-        requestAuth),
-      BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return Opt.none(gloas.SignedExecutionPayloadBid)
+        getExecutionPayloadBidFromBuilder(
+          payloadBuilderClient, slot, parent_block_hash, parent_block_root,
+          proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
+          reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, requestAuth),
+        BUILDER_PROPOSAL_DELAY_TOLERANCE):
+      debug "Builder-API execution payload bid request timeout", builderUrl, slot
+      return Opt.none(gloas.SignedExecutionPayloadBid)
 
     signedBid = bidRes.valueOr:
       debug "No builder-API execution payload bid", slot, err = error
