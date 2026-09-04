@@ -224,6 +224,7 @@ type
 
   ValidatorClient* = object
     config*: ValidatorClientConf
+    configReloadFut*: Future[void].Raising([CancelledError])
     metricsServer*: Opt[MetricsHttpServerRef]
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
@@ -566,6 +567,9 @@ proc `$`*(bn: BeaconNodeServerRef): string =
   else:
     bn.logIdent
 
+func hash*(bn: BeaconNodeServerRef): Hash =
+  hash(bn.endpoint)
+
 proc validatorLog*(key: ValidatorPubKey,
                    index: ValidatorIndex): string =
   var res = shortLog(key)
@@ -707,6 +711,10 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
                    failure: ApiNodeFailure) =
+  if node.index < 0:
+    node.status = status
+    return
+
   logScope:
     node = node
 
@@ -905,14 +913,21 @@ proc initClient*(uri: Uri): Result[RestClientRef, HttpAddressErrorType] =
                                userAgent = nimbusAgentStr)
   ok(client)
 
-proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
+func beaconNodeUriComponents*(
+    remote: Uri
+): Result[tuple[remoteUri: Uri, roles: set[BeaconNodeRole]], string] =
+  var remoteUri = normalizeUri(remote).valueOr:
+    return err($error)
+  let roles = parseRoles(remoteUri.anchor).valueOr:
+    return err($error)
+  remoteUri.anchor = ""
+  ok((remoteUri: remoteUri, roles: roles))
+
+proc init*(t: typedesc[BeaconNodeServerRef],
+           remoteUri: Uri, roles: set[BeaconNodeRole],
            index: int): Result[BeaconNodeServerRef, string] =
   doAssert(index >= 0)
   let
-    remoteUri = normalizeUri(remote).valueOr:
-      return err($error)
-    roles = parseRoles(remoteUri.anchor).valueOr:
-      return err($error)
     server =
       block:
         let res = initClient(remoteUri)
@@ -930,11 +945,10 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
             status: RestBeaconNodeStatus.Noname)
   ok(server)
 
-proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
-  var res: set[BeaconNodeRole] = AllBeaconNodeRoles
-  for node in n.items():
-    res.excl(node.roles)
-  res
+proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
+           index: int): Result[BeaconNodeServerRef, string] =
+  let (remoteUri, roles) = ? beaconNodeUriComponents(remote)
+  BeaconNodeServerRef.init(remoteUri, roles, index)
 
 proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
            duty: RestAttesterDuty,
