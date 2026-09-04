@@ -1097,6 +1097,8 @@ proc sendPayloadAttestations(
       if payloadDue.inFuture and
           (await node.consensusManager[].expectEnvelope(blck.root)
             .withTimeout(payloadDue.offset)):
+        # `expectEnvelope` completes only after the block processor
+        # persists both the envelope and its data columns
         (true, true)
       else:
         (false, node.checkBlobDataAvailable(blck))
