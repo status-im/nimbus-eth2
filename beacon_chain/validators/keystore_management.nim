@@ -1619,6 +1619,26 @@ proc getBuilderConfig*(
     Result[Opt[string], ValidatorConfigFileStatus] =
   host.validatorsDir.getBuilderConfig(pubkey, host.defaultBuilderAddress)
 
+proc getValidatorBuilderConfig*(
+    host: KeymanagerHost, pubkey: ValidatorPubKey):
+    Result[gloas.BuilderConfig, cstring] =
+  let validator =
+    try:
+      host.validatorPool.validators[pubkey]
+    except KeyError:
+      return err("validator not found")
+
+  if validator.builderConfig.isSome():
+    ok(validator.builderConfig.get())
+  else:
+    debugGloasComment("tmp impl - should need a new config structure for gloas")
+    let
+      res = host.getBuilderConfig(pubkey).valueOr:
+        return err("bad values in builder config file")
+      url = res.valueOr:
+        return ok(default(gloas.BuilderConfig))
+    ok(gloas.BuilderConfig(builders: @[BuilderEntry(url: url)]))
+
 proc addValidator*(
     host: KeymanagerHost, keystore: KeystoreData,
     withdrawalAddress: Opt[Eth1Address]) =
