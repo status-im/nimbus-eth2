@@ -595,9 +595,13 @@ AllTests-mainnet
 + A list past the lookback window is rejected [Preset: mainnet]                              OK
 + Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
 + Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
++ Equivocators are not served [Preset: mainnet]                                              OK
++ Response is deduplicated and capped [Preset: mainnet]                                      OK
++ Serves stored lists, signature included [Preset: mainnet]                                  OK
 + Stale slots are pruned [Preset: mainnet]                                                   OK
 + Stores transactions for the slot [Preset: mainnet]                                         OK
 + Untimely lists are excluded unless requested [Preset: mainnet]                             OK
++ Untimely lists are still served over req/resp [Preset: mainnet]                            OK
 ```
 ## Key splitting
 ```diff
@@ -705,7 +709,6 @@ AllTests-mainnet
 ```
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
-+ Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
@@ -714,7 +717,7 @@ AllTests-mainnet
 + Connection timeout test                                                                    OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
-+ Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
