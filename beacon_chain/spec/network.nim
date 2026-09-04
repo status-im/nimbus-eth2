@@ -289,3 +289,35 @@ func getSyncSubnets*(
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
                                 subnet_id: uint64): string =
   eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#partial-message-group-id
+# When sending a partial message, the gossipsub group ID MUST be the SSZ encoded
+# `PartialDataColumnGroupID` prefixed with a single version byte. The version
+# byte MUST be `0x00`. Implementations MUST ignore unknown versions. Other
+# versions may be defined later.
+#
+# Gloas modifies the container -- it gains `slot` -- but not the version byte.
+const
+  PARTIAL_DATA_COLUMN_GROUP_ID_VERSION* = 0x00'u8
+
+  # version byte ++ SSZ(beacon_block_root ++ slot)
+  PARTIAL_DATA_COLUMN_GROUP_ID_LEN* = 1 + sizeof(Eth2Digest) + sizeof(Slot)
+
+func encodePartialDataColumnGroupId*(
+    group_id: gloas.PartialDataColumnGroupID): seq[byte] =
+  var id = newSeqOfCap[byte](PARTIAL_DATA_COLUMN_GROUP_ID_LEN)
+  id.add(PARTIAL_DATA_COLUMN_GROUP_ID_VERSION)
+  id.add(SSZ.encode(group_id))
+  id
+
+func decodePartialDataColumnGroupId*(
+    id: openArray[byte]): Result[gloas.PartialDataColumnGroupID, cstring] =
+  if id.len != PARTIAL_DATA_COLUMN_GROUP_ID_LEN:
+    return err("PartialDataColumnGroupID: unexpected length")
+  # Implementations MUST ignore unknown versions.
+  if id[0] != PARTIAL_DATA_COLUMN_GROUP_ID_VERSION:
+    return err("PartialDataColumnGroupID: unsupported version")
+  try:
+    ok(SSZ.decode(id.toOpenArray(1, id.high), gloas.PartialDataColumnGroupID))
+  except SerializationError:
+    err("PartialDataColumnGroupID: malformed")
