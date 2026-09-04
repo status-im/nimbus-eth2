@@ -1168,7 +1168,7 @@ proc getAccumulatedMissingMap*[M](
     res: ColumnMap
     started = startBid.isNone()
 
-  for item in data:
+  for item in items(sq.kind, data):
     if started or (startBid.isSome() and (item.root == startBid.get().root)):
       started = true
       let map = sq.cbGetMissingMap(item.toBlockId())
