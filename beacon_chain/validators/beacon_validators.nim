@@ -1067,31 +1067,15 @@ proc sendPayloadAttestations(
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/validator.md#constructing-the-payloadattestationmessage
   # - If the validator has not seen any beacon block for the assigned slot, do
   #   not submit a payload attestation; it will be ignored anyway.
-  let target = head.atSlot(slot)
-  if target.blck.slot != slot:
+  let blck = head.atSlot(slot).blck
+  if blck.slot != slot:
     return
-  if head != target.blck:
+  if head != blck:
     notice "Payload attestation to a state in the past",
-      attestationTarget = shortLog(target),
+      payloadAttestationTarget = shortLog(blck),
       head = shortLog(head)
 
-  # Decide as soon as the execution payload envelope for this slot's
-  # block arrives, or at the deadline whichever comes first.
-  let payloadDue =
-    node.beaconClock.fromNow(slot.payload_deadline(node.dag.timeParams))
-  if payloadDue.inFuture:
-    discard await node.consensusManager[].expectEnvelope(target.blck.root)
-      .withTimeout(payloadDue.offset)
-
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-    data = PayloadAttestationData(
-      beacon_block_root: target.blck.root,
-      slot: slot,
-      payload_present: node.checkPayloadPresent(target.blck),
-      blob_data_available: node.checkBlobDataAvailable(target.blck))
-
+  var duties: seq[(ValidatorIndex, AttachedValidator)]
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       var seen: HashSet[ValidatorIndex]
@@ -1100,9 +1084,35 @@ proc sendPayloadAttestations(
           continue
         let validator = node.getValidatorForDuties(vidx, slot).valueOr:
           continue
+        duties.add((vidx, validator))
+  if duties.len == 0:
+    return
 
-        asyncSpawn createAndSendPayloadAttestation(
-          node, fork, genesis_validators_root, validator, vidx, data)
+  # Decide as soon as the execution payload envelope for this slot's
+  # block arrives, or at the deadline whichever comes first.
+  let
+    payloadDue =
+      node.beaconClock.fromNow(slot.payload_deadline(node.dag.timeParams))
+    (payload_present, blob_data_available) =
+      if payloadDue.inFuture and
+          (await node.consensusManager[].expectEnvelope(blck.root)
+            .withTimeout(payloadDue.offset)):
+        (true, true)
+      else:
+        (false, node.checkBlobDataAvailable(blck))
+
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+    data = PayloadAttestationData(
+      beacon_block_root: blck.root,
+      slot: slot,
+      payload_present: payload_present,
+      blob_data_available: blob_data_available)
+
+  for (vidx, validator) in duties:
+    asyncSpawn createAndSendPayloadAttestation(
+      node, fork, genesis_validators_root, validator, vidx, data)
 
 proc signAndSendProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
