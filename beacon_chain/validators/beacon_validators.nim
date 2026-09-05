@@ -1012,10 +1012,9 @@ proc sendSyncCommitteeContributions(
         node, validator, subcommitteeIdx, head, slot)
 
 proc checkPayloadPresent*(node: BeaconNode, blck: BlockRef): bool =
-  if blck.slot.epoch >= node.dag.cfg.GLOAS_FORK_EPOCH:
-    node.dag.db.containsExecutionPayloadEnvelope(blck.root)
-  else:
-    true
+  if blck.slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
+    return true
+  node.dag.db.containsExecutionPayloadEnvelope(blck.root)
 
 proc checkBlobDataAvailable*(node: BeaconNode, blck: BlockRef): bool =
   withConsensusFork(node.dag.cfg.consensusForkAtEpoch(blck.slot.epoch)):
@@ -1040,24 +1039,13 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
                                      genesis_validators_root: Eth2Digest,
                                      validator: AttachedValidator,
                                      validator_index: ValidatorIndex,
-                                     slot: Slot,
-                                     blck: BlockRef)
+                                     data: PayloadAttestationData)
                                      {.async: (raises: [CancelledError]).} =
   let
-    payload_present = node.checkPayloadPresent(blck)
-    blob_data_available = node.checkBlobDataAvailable(blck)
-
-    data = PayloadAttestationData(
-      beacon_block_root: blck.root,
-      slot: slot,
-      payload_present: payload_present,
-      blob_data_available: blob_data_available,
-    )
-
     signature = await(
       validator.getPayloadAttestationSignature(fork, genesis_validators_root, data)
     ).valueOr:
-      warn "Unble to sign payload attestation",
+      warn "Unable to sign payload attestation",
         validator = shortLog(validator), data = shortLog(data), error_msg = error
       return
 
@@ -1069,27 +1057,25 @@ proc createAndSendPayloadAttestation(node: BeaconNode,
     message, checkSignature = false, checkValidator = false)
 
 proc sendPayloadAttestations(
-    node: BeaconNode, head: BlockRef, slot: Slot) =
+    node: BeaconNode, head: BlockRef, slot: Slot
+) {.async: (raises: [CancelledError]).} =
   ## Perform payload attestation duties for PTC members
 
   if slot.epoch < node.dag.cfg.GLOAS_FORK_EPOCH:
     return
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/validator.md#constructing-the-payloadattestationmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/validator.md#constructing-the-payloadattestationmessage
   # - If the validator has not seen any beacon block for the assigned slot, do
   #   not submit a payload attestation; it will be ignored anyway.
-  let target = head.atSlot(slot)
-  if target.blck.slot != slot:
+  let blck = head.atSlot(slot).blck
+  if blck.slot != slot:
     return
-  if head != target.blck:
+  if head != blck:
     notice "Payload attestation to a state in the past",
-      attestationTarget = shortLog(target),
+      payloadAttestationTarget = shortLog(blck),
       head = shortLog(head)
 
-  let
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
-
+  var duties: seq[(ValidatorIndex, AttachedValidator)]
   withState(node.dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       var seen: HashSet[ValidatorIndex]
@@ -1098,9 +1084,37 @@ proc sendPayloadAttestations(
           continue
         let validator = node.getValidatorForDuties(vidx, slot).valueOr:
           continue
+        duties.add((vidx, validator))
+  if duties.len == 0:
+    return
 
-        asyncSpawn createAndSendPayloadAttestation(
-          node, fork, genesis_validators_root, validator, vidx, slot, head)
+  # Decide as soon as the execution payload envelope for this slot's
+  # block arrives, or at the deadline whichever comes first.
+  let
+    payloadDue =
+      node.beaconClock.fromNow(slot.payload_deadline(node.dag.timeParams))
+    (payload_present, blob_data_available) =
+      if payloadDue.inFuture and
+          (await node.consensusManager[].expectEnvelope(blck.root)
+            .withTimeout(payloadDue.offset)):
+        # `expectEnvelope` completes only after the block processor
+        # persists both the envelope and its data columns
+        (true, true)
+      else:
+        (false, node.checkBlobDataAvailable(blck))
+
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesis_validators_root = node.dag.genesis_validators_root
+    data = PayloadAttestationData(
+      beacon_block_root: blck.root,
+      slot: slot,
+      payload_present: payload_present,
+      blob_data_available: blob_data_available)
+
+  for (vidx, validator) in duties:
+    asyncSpawn createAndSendPayloadAttestation(
+      node, fork, genesis_validators_root, validator, vidx, data)
 
 proc signAndSendProposerPreference(
     node: BeaconNode, validator: AttachedValidator,
@@ -1614,6 +1628,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAttestations(node, head, slot)
   sendSyncCommitteeMessages(node, head, slot)
+  asyncSpawn node.sendPayloadAttestations(head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
@@ -1633,21 +1648,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async: (ra
 
   sendAggregatedAttestations(node, head, slot)
   sendSyncCommitteeContributions(node, head, slot)
-
-  let payloadAttestationCutOff = node.beaconClock.fromNow(
-    slot.payload_attestation_deadline(node.dag.timeParams))
-  if payloadAttestationCutOff.inFuture:
-    debug "Waiting to send payload attestations",
-      payloadAttestationCutOff = shortLog(payloadAttestationCutOff.offset)
-    if head.slot == slot:
-      # Send as soon as the execution payload envelope for this slot's
-      # block arrives, or at the deadline whichever comes first.
-      discard await node.consensusManager[].expectEnvelope(head.root)
-        .withTimeout(payloadAttestationCutOff.offset)
-    else:
-      await sleepAsync(payloadAttestationCutOff.offset)
-
-  sendPayloadAttestations(node, head, slot)
 
   await node.sendProposerPreferences(head, slot)
 
