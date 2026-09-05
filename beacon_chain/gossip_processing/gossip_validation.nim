@@ -2033,9 +2033,20 @@ proc validateExecutionPayloadBid*(
       # ... `is_gas_limit_target_compatible(parent_gas_limit, bid.gas_limit,
       # proposer_preferences.target_gas_limit)` is True, where
       # `parent_gas_limit` is the `gas_limit` of that execution payload.
+      #
+      # The execution payload identified by `bid.parent_block_hash` is either
+      # the parent block's own payload or one the parent block builds on
+      # (withheld), whose `gas_limit` can differ from the parent block's bid.
+      let parentPayloadBlck =
+        dag.executionParent(parentBlck, bid.parent_block_hash).valueOr:
+          return errIgnore(
+            "ExecutionPayloadBid: parent execution payload block unknown")
+      let parentGasLimit =
+        dag.loadExecutionGasLimit(parentPayloadBlck.bid).valueOr:
+          return errIgnore(
+            "ExecutionPayloadBid: parent execution payload gas limit unknown")
       if not is_gas_limit_target_compatible(
-          forkyState.data.latest_execution_payload_bid.gas_limit,
-          bid.gas_limit, seenPref.target_gas_limit):
+          parentGasLimit, bid.gas_limit, seenPref.target_gas_limit):
         return errIgnore("ExecutionPayloadBid: gas limit not target-compatible")
 
       # [IGNORE] bid.slot is the current slot or the next slot
