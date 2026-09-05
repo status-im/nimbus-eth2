@@ -9,11 +9,11 @@
 
 import chronos, chronicles
 import
-  ../spec/network,
+  ../spec/[forks, network],
   ../networking/eth2_network,
+  ../consensus_object_pools/block_pools_types_light_client,
   ../beacon_clock,
-  ./[light_client_sync_helpers, light_client_protocol, sync_manager]
-export sync_manager
+  ./[light_client_sync_helpers, light_client_protocol]
 
 logScope:
   topics = "lcman"

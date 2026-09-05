@@ -10,7 +10,7 @@
 import
   stew/base10,
   chronicles, chronos, eth/async_utils,
-  ./sync/[light_client_sync_helpers, sync_manager],
+  ./sync/[light_client_sync_helpers, sync_types],
   ./consensus_object_pools/[block_clearance, blockchain_dag],
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
