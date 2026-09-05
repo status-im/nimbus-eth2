@@ -131,6 +131,14 @@ proc setupVerifier(
   (collector(aq), verifier(aq))
 
 suite "SyncManager test suite":
+
+  test "status update throttle preserves final available peer":
+    check:
+      shouldDelayPeerStatusUpdate(true, 0) == false
+      shouldDelayPeerStatusUpdate(true, 1) == true
+      shouldDelayPeerStatusUpdate(false, 0) == false
+      shouldDelayPeerStatusUpdate(false, 1) == false
+
   for kind in [SyncQueueKind.Forward, SyncQueueKind.Backward]:
     asyncTest "[SyncQueue# & " & $kind & "] Smoke [single peer] test":
       # Four ranges was distributed to single peer only.
