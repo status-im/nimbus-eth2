@@ -54,8 +54,7 @@ func genGloasPartialDataColumnSidecar(
     bitmap[Natural(blobIdx)] = true
     cells.add(gen[KzgCell](startCellId + i))
     proofs.add(gen[KzgProof](startCellId + i))
-  result = new gloas.PartialDataColumnSidecar
-  result[] = gloas.PartialDataColumnSidecar(
+  (ref gloas.PartialDataColumnSidecar)(
     cells_present_bitmap: bitmap,
     partial_column: cells,
     kzg_proofs: proofs)
@@ -66,46 +65,41 @@ suite "Partial Column Quarantine":
       slot: Slot(slot), beacon_block_root: genDigest(rootSeed))
 
   test "Init creates empty quarantine":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let id = gid(1, 1)
     check:
-      not quarantine.hasPartialHeader(id)
-      quarantine.getPartialHeader(id).isNone()
+      not quarantine.hasPartialGroupID(id)
       not quarantine.hasEntry(id, ColumnIndex(0))
 
   test "putPartialGroupID stores group id under itself":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = genPartialDataColumnGroupID(slot = 11, beaconBlockRootSeed = 7)
     quarantine.putPartialGroupID(groupId)
     check:
-      quarantine.hasPartialHeader(groupId[])
-      quarantine.getPartialHeader(groupId[]).isSome()
-      quarantine.getPartialHeader(groupId[]).get().slot == Slot(11)
-      quarantine.getPartialHeader(groupId[]).get().beacon_block_root ==
-        genDigest(7)
+      quarantine.hasPartialGroupID(groupId[])
 
   test "Group IDs with same root but different slots are distinct keys":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       a = genPartialDataColumnGroupID(slot = 10, beaconBlockRootSeed = 1)
       b = genPartialDataColumnGroupID(slot = 11, beaconBlockRootSeed = 1)
     quarantine.putPartialGroupID(a)
     check:
-      quarantine.hasPartialHeader(a[])
-      not quarantine.hasPartialHeader(b[])
+      quarantine.hasPartialGroupID(a[])
+      not quarantine.hasPartialGroupID(b[])
 
   test "Header LRU eviction (gloas, keyed by GroupID)":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     for i in 0 ..< MaxPartialHeaders + 3:
       quarantine.putPartialGroupID(
         genPartialDataColumnGroupID(slot = i, beaconBlockRootSeed = i))
     check:
-      quarantine.hasPartialHeader(gid(MaxPartialHeaders + 2,
+      quarantine.hasPartialGroupID(gid(MaxPartialHeaders + 2,
                                       MaxPartialHeaders + 2))
-      not quarantine.hasPartialHeader(gid(0, 0))
+      not quarantine.hasPartialGroupID(gid(0, 0))
 
   test "getOrCreateEntry reflects gloas group-id validation":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = genPartialDataColumnGroupID(slot = 3, beaconBlockRootSeed = 1)
 
     let entry1 = quarantine.getOrCreateEntry(groupId[], ColumnIndex(0),
@@ -118,7 +112,7 @@ suite "Partial Column Quarantine":
     check entry2.headerValidated == true
 
   test "addCells ingests cells from a gloas PartialDataColumnSidecar":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(2, 1)
       colIdx = ColumnIndex(2)
@@ -144,7 +138,7 @@ suite "Partial Column Quarantine":
       updated.proofs[3].get() == gen[KzgProof](201)
 
   test "isComplete and assembleDataColumnSidecar (gloas)":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       colIdx = ColumnIndex(4)
       numBlobs = 2
@@ -182,7 +176,7 @@ suite "Partial Column Quarantine":
       dcs.kzg_proofs[1] == gen[KzgProof](71)
 
   test "assembleDataColumnSidecar returns none when group-id missing (gloas)":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -198,7 +192,7 @@ suite "Partial Column Quarantine":
     check quarantine.assembleDataColumnSidecar(groupId, colIdx).isNone()
 
   test "Remove header (group id) does not remove entries (gloas)":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = genPartialDataColumnGroupID(slot = 1, beaconBlockRootSeed = 1)
 
     quarantine.putPartialGroupID(groupId)
@@ -207,7 +201,7 @@ suite "Partial Column Quarantine":
 
     quarantine.removeHeader(groupId[])
     check:
-      not quarantine.hasPartialHeader(groupId[])
+      not quarantine.hasPartialGroupID(groupId[])
       quarantine.hasEntry(groupId[], ColumnIndex(0))
 
   test "GroupID hash and equality":
@@ -226,43 +220,26 @@ suite "Partial Column Quarantine":
 
   # --- Header management ---
 
-  test "Multiple headers for different roots":
-    var quarantine = GloasPartialColumnQuarantine.init()
-    let
-      h1 = genPartialDataColumnGroupID(slot = 1, beaconBlockRootSeed = 1)
-      h2 = genPartialDataColumnGroupID(slot = 2, beaconBlockRootSeed = 2)
-      h3 = genPartialDataColumnGroupID(slot = 3, beaconBlockRootSeed = 3)
-
-    quarantine.putPartialGroupID(h1)
-    quarantine.putPartialGroupID(h2)
-    quarantine.putPartialGroupID(h3)
-
-    check:
-      quarantine.getPartialHeader(h1[]).get().slot == Slot(1)
-      quarantine.getPartialHeader(h2[]).get().slot == Slot(2)
-      quarantine.getPartialHeader(h3[]).get().slot == Slot(3)
-
   test "Remove header":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = genPartialDataColumnGroupID(slot = 10, beaconBlockRootSeed = 1)
 
     quarantine.putPartialGroupID(groupId)
-    check quarantine.hasPartialHeader(groupId[])
+    check quarantine.hasPartialGroupID(groupId[])
 
     quarantine.removeHeader(groupId[])
     check:
-      not quarantine.hasPartialHeader(groupId[])
-      quarantine.getPartialHeader(groupId[]).isNone()
+      not quarantine.hasPartialGroupID(groupId[])
 
   test "Remove non-existent header is no-op":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(99, 99)
     quarantine.removeHeader(groupId) # should not crash
 
   # --- Entry (cell tracking) management ---
 
   test "Put and get entry":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(5)
@@ -278,14 +255,14 @@ suite "Partial Column Quarantine":
       quarantine.getEntry(groupId, colIdx).get().cellsReceived.len == 4
 
   test "Get entry for unknown key returns none":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(1, 1)
     check:
       not quarantine.hasEntry(groupId, ColumnIndex(0))
       quarantine.getEntry(groupId, ColumnIndex(0)).isNone()
 
   test "Different column indices are independent":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(1, 1)
 
     quarantine.putEntry(groupId, ColumnIndex(0), PartialColumnEntry(
@@ -301,7 +278,7 @@ suite "Partial Column Quarantine":
       quarantine.getEntry(groupId, ColumnIndex(1)).get().cellsReceived.len == 5
 
   test "Different block roots with same column index are independent":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId1 = gid(1, 1)
       groupId2 = gid(2, 2)
@@ -317,7 +294,7 @@ suite "Partial Column Quarantine":
       quarantine.getEntry(groupId2, colIdx).get().headerValidated == false
 
   test "Remove entry":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(3)
@@ -332,7 +309,7 @@ suite "Partial Column Quarantine":
       quarantine.getEntry(groupId, colIdx).isNone()
 
   test "Remove entry does not affect other entries":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(1, 1)
 
     quarantine.putEntry(groupId, ColumnIndex(0), PartialColumnEntry(
@@ -346,13 +323,13 @@ suite "Partial Column Quarantine":
       quarantine.hasEntry(groupId, ColumnIndex(1))
 
   test "Remove non-existent entry is no-op":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     quarantine.removeEntry(gid(99, 99), ColumnIndex(0))
 
   # --- getOrCreateEntry ---
 
   test "getOrCreateEntry creates new entry":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(2)
@@ -364,7 +341,7 @@ suite "Partial Column Quarantine":
       quarantine.hasEntry(groupId, colIdx)
 
   test "getOrCreateEntry returns existing entry":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(2)
@@ -388,7 +365,7 @@ suite "Partial Column Quarantine":
   # --- Cell tracking ---
 
   test "Mark and check cell received":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -413,13 +390,13 @@ suite "Partial Column Quarantine":
       quarantine.hasCellReceived(groupId, colIdx, 3)
 
   test "Mark cell received for non-existent entry is no-op":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(99, 99)
     quarantine.markCellReceived(groupId, ColumnIndex(0), 0)
     check not quarantine.hasCellReceived(groupId, ColumnIndex(0), 0)
 
   test "Mark cell received with out-of-bounds blob index is no-op":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -432,11 +409,11 @@ suite "Partial Column Quarantine":
     check not quarantine.hasCellReceived(groupId, colIdx, 10)
 
   test "hasCellReceived for non-existent entry returns false":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     check not quarantine.hasCellReceived(gid(1, 1), ColumnIndex(0), 0)
 
   test "hasCellReceived for out-of-bounds index returns false":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -448,7 +425,7 @@ suite "Partial Column Quarantine":
     check not quarantine.hasCellReceived(groupId, colIdx, 5)
 
   test "Mark all cells received":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -465,7 +442,7 @@ suite "Partial Column Quarantine":
       check quarantine.hasCellReceived(groupId, colIdx, i)
 
   test "Cell tracking is per-column":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(1, 1)
 
     quarantine.putEntry(groupId, ColumnIndex(0), PartialColumnEntry(
@@ -486,32 +463,22 @@ suite "Partial Column Quarantine":
       groupId1 = gid(1, 1)
       groupId2 = gid(2, 2)
     check:
-      PartialColumnKey[gloas.PartialDataColumnGroupID](
-        blockId: groupId1, columnIndex: ColumnIndex(0)) ==
-        PartialColumnKey[gloas.PartialDataColumnGroupID](
-          blockId: groupId1, columnIndex: ColumnIndex(0))
-      PartialColumnKey[gloas.PartialDataColumnGroupID](
-        blockId: groupId1, columnIndex: ColumnIndex(0)) !=
-        PartialColumnKey[gloas.PartialDataColumnGroupID](
-          blockId: groupId1, columnIndex: ColumnIndex(1))
-      PartialColumnKey[gloas.PartialDataColumnGroupID](
-        blockId: groupId1, columnIndex: ColumnIndex(0)) !=
-        PartialColumnKey[gloas.PartialDataColumnGroupID](
-          blockId: groupId2, columnIndex: ColumnIndex(0))
+      PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(0)) ==
+        PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(0))
+      PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(0)) !=
+        PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(1))
+      PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(0)) !=
+        PartialColumnKey(blockId: groupId2, columnIndex: ColumnIndex(0))
 
   test "PartialColumnKey hash differs for different keys":
     let
       groupId1 = gid(1, 1)
       groupId2 = gid(2, 2)
-      k1 = PartialColumnKey[gloas.PartialDataColumnGroupID](
-        blockId: groupId1, columnIndex: ColumnIndex(0))
-      k2 = PartialColumnKey[gloas.PartialDataColumnGroupID](
-        blockId: groupId1, columnIndex: ColumnIndex(1))
-      k3 = PartialColumnKey[gloas.PartialDataColumnGroupID](
-        blockId: groupId2, columnIndex: ColumnIndex(0))
+      k1 = PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(0))
+      k2 = PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(1))
+      k3 = PartialColumnKey(blockId: groupId2, columnIndex: ColumnIndex(0))
     check hash(k1) == hash(
-      PartialColumnKey[gloas.PartialDataColumnGroupID](
-        blockId: groupId1, columnIndex: ColumnIndex(0)))
+      PartialColumnKey(blockId: groupId1, columnIndex: ColumnIndex(0)))
     check hash(k1) != hash(k2)
     check hash(k1) != hash(k3)
     check hash(k2) != hash(k3)
@@ -519,7 +486,7 @@ suite "Partial Column Quarantine":
   # --- Header and entry independence ---
 
   test "Removing entry does not remove header":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = genPartialDataColumnGroupID(slot = 1, beaconBlockRootSeed = 1)
 
     quarantine.putPartialGroupID(groupId)
@@ -528,13 +495,13 @@ suite "Partial Column Quarantine":
 
     quarantine.removeEntry(groupId[], ColumnIndex(0))
     check:
-      quarantine.hasPartialHeader(groupId[])
+      quarantine.hasPartialGroupID(groupId[])
       not quarantine.hasEntry(groupId[], ColumnIndex(0))
 
   # --- markCellReceived with cell data and proof ---
 
   test "markCellReceived with data stores cell and proof":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -562,13 +529,13 @@ suite "Partial Column Quarantine":
       updated.proofs[2].isNone()
 
   test "markCellReceived with data on non-existent entry is no-op":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     quarantine.markCellReceived(
       gid(99, 99), ColumnIndex(0), 0, gen[KzgCell](1), gen[KzgProof](1))
     check not quarantine.hasCellReceived(gid(99, 99), ColumnIndex(0), 0)
 
   test "markCellReceived with data out-of-bounds is no-op":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(1, 1)
     let entry = quarantine.getOrCreateEntry(groupId, ColumnIndex(0), numBlobs = 2)
     check entry == quarantine.getEntry(groupId, ColumnIndex(0)).get()
@@ -579,7 +546,7 @@ suite "Partial Column Quarantine":
   # --- getOrCreateEntry initializes cells/proofs seqs ---
 
   test "getOrCreateEntry new entry has properly sized cells and proofs":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -599,7 +566,7 @@ suite "Partial Column Quarantine":
   # --- addCells ---
 
   test "addCells accumulates across multiple sidecars":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -624,13 +591,13 @@ suite "Partial Column Quarantine":
       updated.cells[2].get() == gen[KzgCell](20)
 
   test "addCells on non-existent entry is no-op":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let sidecar = genGloasPartialDataColumnSidecar([0], startCellId = 1)
     quarantine.addCells(gid(99, 99), ColumnIndex(0), sidecar)
     check not quarantine.hasEntry(gid(99, 99), ColumnIndex(0))
 
   test "addCells with overlapping bitmap overwrites existing cells":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -649,7 +616,7 @@ suite "Partial Column Quarantine":
     check entry2.cells[1].get() == gen[KzgCell](99)
 
   test "addCells is independent across columns":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let groupId = gid(1, 1)
 
     let entry0 = quarantine.getOrCreateEntry(groupId, ColumnIndex(0), numBlobs = 3)
@@ -671,11 +638,11 @@ suite "Partial Column Quarantine":
   # --- isComplete ---
 
   test "isComplete returns false for non-existent entry":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     check not quarantine.isComplete(gid(99, 99), ColumnIndex(0))
 
   test "isComplete returns false when header not validated":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -688,7 +655,7 @@ suite "Partial Column Quarantine":
     check not quarantine.isComplete(groupId, colIdx)
 
   test "isComplete with single blob":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = genPartialDataColumnGroupID(slot = 1, beaconBlockRootSeed = 1)
       colIdx = ColumnIndex(0)
@@ -704,12 +671,12 @@ suite "Partial Column Quarantine":
   # --- assembleDataColumnSidecar ---
 
   test "assembleDataColumnSidecar returns none for non-existent entry":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     check quarantine.assembleDataColumnSidecar(
       gid(99, 99), ColumnIndex(0)).isNone()
 
   test "assembleDataColumnSidecar returns none when header not validated":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = gid(1, 1)
       colIdx = ColumnIndex(0)
@@ -722,7 +689,7 @@ suite "Partial Column Quarantine":
     check quarantine.assembleDataColumnSidecar(groupId, colIdx).isNone()
 
   test "assembleDataColumnSidecar with markCellReceived (data overload)":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = genPartialDataColumnGroupID(slot = 1, beaconBlockRootSeed = 1)
       colIdx = ColumnIndex(0)
@@ -747,7 +714,7 @@ suite "Partial Column Quarantine":
   # --- End-to-end: multiple columns for same block ---
 
   test "Assemble multiple columns for the same block independently":
-    var quarantine = GloasPartialColumnQuarantine.init()
+    var quarantine = PartialColumnQuarantine.init()
     let
       groupId = genPartialDataColumnGroupID(slot = 1, beaconBlockRootSeed = 1)
       numBlobs = 2

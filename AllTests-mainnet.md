@@ -739,7 +739,6 @@ AllTests-mainnet
 + Mark and check cell received                                                               OK
 + Mark cell received for non-existent entry is no-op                                         OK
 + Mark cell received with out-of-bounds blob index is no-op                                  OK
-+ Multiple headers for different roots                                                       OK
 + PartialColumnKey equality                                                                  OK
 + PartialColumnKey hash differs for different keys                                           OK
 + Put and get entry                                                                          OK
