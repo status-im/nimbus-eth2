@@ -26,7 +26,7 @@ type
   DutiesServiceLoop* = enum
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
     SelectionProofsLoop, ProposerPreparationLoop, ValidatorRegisterLoop,
-    DynamicValidatorsLoop, SlashPruningLoop
+    DynamicValidatorsLoop, SlashPruningLoop, PtcLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -39,6 +39,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ValidatorRegisterLoop: "validator_register_loop"
   of DynamicValidatorsLoop: "dynamic_validators_loop"
   of SlashPruningLoop: "slashing_pruning_loop"
+  of PtcLoop: "ptc_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -132,6 +133,7 @@ proc pollForValidatorIndices*(
     vc.attesterDutiesInvalidationEvent.fire()
     vc.proposerDutiesInvalidationEvent.fire()
     vc.syncDutiesInvalidationEvent.fire()
+    vc.ptcDutiesInvalidationEvent.fire()
 
 proc pollForAttesterDuties*(
     service: DutiesServiceRef,
@@ -212,6 +214,64 @@ proc pollForAttesterDuties*(
     vc.attesters.mgetOrPut(dap.data.pubkey,
                            default(EpochDuties)).duties[dap.epoch] = dap
   return len(addOrReplaceItems)
+
+proc pollForPtcDuties*(
+    service: DutiesServiceRef,
+    epoch: Epoch
+): Future[int] {.async: (raises: [CancelledError]).} =
+  let vc = service.client
+
+  if not(vc.isPastGloasFork(epoch)):
+    return 0
+
+  let indices = toSeq(vc.attachedValidators[].indices())
+  if len(indices) == 0:
+    return 0
+
+  let res =
+    try:
+      await vc.getPtcDuties(
+        epoch, indices, vc.getMode()[FnKind.getAttesterDuties])
+    except ValidatorApiError as exc:
+      warn "Unable to get PTC duties", epoch = epoch,
+           reason = exc.getFailureReason()
+      vc.ptcDutiesInvalidationEvent.fire()
+      return 0
+    except CancelledError as exc:
+      debug "PTC duties processing was interrupted"
+      raise exc
+
+  let
+    dependentRoot = res.dependent_root
+    relevantDuties =
+      block:
+        var duties: seq[RestPtcDuty]
+        for duty in res.data:
+          if duty.pubkey in vc.attachedValidators[]:
+            duties.add(duty)
+        duties
+
+  vc.ptcDuties.withValue(epoch, entry):
+    if entry[].dependentRoot == dependentRoot:
+      return 0
+    info "PTC duties re-organization",
+         prior_dependent_root = entry[].dependentRoot,
+         dependent_root = dependentRoot, epoch = epoch
+
+  debug "Received PTC duties", duties_count = len(relevantDuties),
+        epoch = epoch, dependent_root = dependentRoot
+  vc.ptcDuties[epoch] = PtcDuties(dependentRoot: dependentRoot,
+                                  duties: relevantDuties)
+  return len(relevantDuties)
+
+proc prunePtcDuties(service: DutiesServiceRef, epoch: Epoch) =
+  let vc = service.client
+  var res: seq[Epoch]
+  for epochKey in vc.ptcDuties.keys():
+    if epochKey < epoch:
+      res.add(epochKey)
+  for item in res:
+    vc.ptcDuties.del(item)
 
 proc pruneSyncCommitteeDuties*(service: DutiesServiceRef, slot: Slot) =
   let vc = service.client
@@ -385,6 +445,26 @@ proc pollForAttesterDuties*(
         vc.attesterDutiesInvalidationEvent.fire()
 
   service.pruneAttesterDuties(currentEpoch)
+
+proc pollForPtcDuties*(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  ## Query the beacon node for PTC duties for the current and next epoch
+  let
+    vc = service.client
+    currentSlot = vc.getCurrentSlot().get(Slot(0))
+    currentEpoch = currentSlot.epoch()
+    nextEpoch = currentEpoch + 1'u64
+
+  if vc.attachedValidators[].count() != 0:
+    let counts = [
+      await service.pollForPtcDuties(currentEpoch),
+      await service.pollForPtcDuties(nextEpoch)]
+
+    if (counts[0] == 0) and (counts[1] == 0):
+      debug "No new PTC duties received", slot = currentSlot
+
+  service.prunePtcDuties(currentEpoch)
 
 proc pollForSyncCommitteeDuties*(
     service: DutiesServiceRef
@@ -699,6 +779,30 @@ proc attesterDutiesLoop(
     await service.waitForNewDuties(
       vc.attesterDutiesInvalidationEvent, lastPolledSlot)
 
+proc ptcDutiesLoop(
+    service: DutiesServiceRef
+) {.async: (raises: [CancelledError]).} =
+  let vc = service.client
+  debug "PTC duties loop is waiting for initialization"
+  await allFutures(
+    vc.preGenesisEvent.wait(),
+    vc.indicesAvailable.wait(),
+    vc.forksAvailable.wait()
+  )
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+  while true:
+    let lastPolledSlot = vc.currentSlot()
+    # Cleaning up previous PTC duties task.
+    if not(isNil(service.pollingPtcDutiesTask)) and
+       not(service.pollingPtcDutiesTask.finished()):
+      await cancelAndWait(service.pollingPtcDutiesTask)
+    # Spawning new PTC duties task.
+    vc.ptcDutiesInvalidationEvent.clear()
+    service.pollingPtcDutiesTask = service.pollForPtcDuties()
+    await service.waitForNextSlot()
+    await service.waitForNewDuties(
+      vc.ptcDutiesInvalidationEvent, lastPolledSlot)
+
 proc proposerDutiesLoop(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -924,6 +1028,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
 
   var
     attestFut = service.attesterDutiesLoop()
+    ptcFut = service.ptcDutiesLoop()
     proposeFut = service.proposerDutiesLoop()
     indicesFut = service.validatorIndexLoop()
     syncFut = service.syncCommitteeDutiesLoop()
@@ -952,6 +1057,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
       try:
         var futures = @[
           FutureBase(attestFut),
+          FutureBase(ptcFut),
           FutureBase(proposeFut),
           FutureBase(indicesFut),
           FutureBase(syncFut),
@@ -967,6 +1073,7 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         except ValueError:
           raiseAssert "Futures sequence will never be empty"
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
+        checkAndRestart(PtcLoop, ptcFut, service.ptcDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
         checkAndRestart(SyncCommitteeLoop, syncFut,
@@ -991,6 +1098,8 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         var pending: seq[Future[void]]
         if not(attestFut.finished()):
           pending.add(attestFut.cancelAndWait())
+        if not(ptcFut.finished()):
+          pending.add(ptcFut.cancelAndWait())
         if not(proposeFut.finished()):
           pending.add(proposeFut.cancelAndWait())
         if not(indicesFut.finished()):
@@ -1009,6 +1118,9 @@ proc mainLoop(service: DutiesServiceRef) {.async: (raises: []).} =
         if not(isNil(service.pollingAttesterDutiesTask)) and
            not(service.pollingAttesterDutiesTask.finished()):
           pending.add(service.pollingAttesterDutiesTask.cancelAndWait())
+        if not(isNil(service.pollingPtcDutiesTask)) and
+           not(service.pollingPtcDutiesTask.finished()):
+          pending.add(service.pollingPtcDutiesTask.cancelAndWait())
         if not(isNil(service.pollingSyncDutiesTask)) and
            not(service.pollingSyncDutiesTask.finished()):
           pending.add(service.pollingSyncDutiesTask.cancelAndWait())
