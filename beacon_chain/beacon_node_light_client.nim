@@ -56,7 +56,8 @@ proc initLightClient*(
         discard await node.elManager.newExecutionPayload(signedEnvelope.message)
 
     lightBlockProcessor = initLightBlockProcessor(
-      cfg.timeParams, getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
+      cfg.timeParams, cfg.gossipClockDisparityDuration,
+      getBeaconTime, lightBlockHandler, lightEnvelopeHandler)
 
     shouldInhibitSync = func(): bool =
       if isNil(node.syncOverseer):

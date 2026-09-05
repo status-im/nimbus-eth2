@@ -287,21 +287,21 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_PAYLOAD_SIZE:
             Base10.toString(MAX_PAYLOAD_SIZE),
           MAX_REQUEST_BLOCKS:
-            Base10.toString(MAX_REQUEST_BLOCKS),
+            Base10.toString(cfg.MAX_REQUEST_BLOCKS),
           EPOCHS_PER_SUBNET_SUBSCRIPTION:
-            Base10.toString(EPOCHS_PER_SUBNET_SUBSCRIPTION),
+            Base10.toString(cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION),
           MIN_EPOCHS_FOR_BLOCK_REQUESTS:
             Base10.toString(cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS),
           ATTESTATION_PROPAGATION_SLOT_RANGE:
             Base10.toString(ATTESTATION_PROPAGATION_SLOT_RANGE),
           MAXIMUM_GOSSIP_CLOCK_DISPARITY:
-            Base10.toString(MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64),
+            Base10.toString(cfg.MAXIMUM_GOSSIP_CLOCK_DISPARITY),
           MESSAGE_DOMAIN_INVALID_SNAPPY:
             to0xHex(MESSAGE_DOMAIN_INVALID_SNAPPY),
           MESSAGE_DOMAIN_VALID_SNAPPY:
             to0xHex(MESSAGE_DOMAIN_VALID_SNAPPY),
           SUBNETS_PER_NODE:
-            Base10.toString(SUBNETS_PER_NODE),
+            Base10.toString(cfg.SUBNETS_PER_NODE),
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(ATTESTATION_SUBNET_COUNT),
           ATTESTATION_SUBNET_EXTRA_BITS:

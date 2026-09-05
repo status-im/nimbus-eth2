@@ -509,7 +509,7 @@ func toValidationError(
             forkyObject.signature_slot
           else:
             GENESIS_SLOT
-        currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+        currentTime = wallTime + self.cfg.gossipClockDisparityDuration
         forwardTime = signature_slot
           .light_client_finality_update_time(self.cfg.timeParams)
       if currentTime < forwardTime:

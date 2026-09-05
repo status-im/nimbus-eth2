@@ -872,6 +872,12 @@ AllTests-mainnet
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [node] test  OK
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [supernode]  OK
 ```
+## Runtime network configuration
+```diff
++ custom networking values                                                                   OK
++ defaults preserve compiled networking values                                               OK
++ networking guardrails reject invalid values                                                OK
+```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
 + Deserialization test vectors                                                               OK
@@ -1221,6 +1227,7 @@ AllTests-mainnet
 + should register sync committee duties                                                      OK
 + should subscribe to all subnets when flag is enabled                                       OK
 + should track PTC duties in slot bitmaps                                                    OK
++ should use runtime stability subnet parameters                                             OK
 ```
 ## toPeerAddr port handling
 ```diff
