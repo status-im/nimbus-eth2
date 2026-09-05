@@ -724,73 +724,54 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
-## Partial Column Quarantine (Fulu)
+## Partial Column Quarantine
 ```diff
 + Assemble multiple columns for the same block independently                                 OK
 + Cell tracking is per-column                                                                OK
 + Different block roots with same column index are independent                               OK
 + Different column indices are independent                                                   OK
 + Get entry for unknown key returns none                                                     OK
-+ Get header for unknown root returns none                                                   OK
-+ Header LRU evicts oldest entry when full                                                   OK
++ Group IDs with same root but different slots are distinct keys                             OK
++ GroupID hash and equality                                                                  OK
++ Header LRU eviction (gloas, keyed by GroupID)                                              OK
 + Init creates empty quarantine                                                              OK
 + Mark all cells received                                                                    OK
 + Mark and check cell received                                                               OK
 + Mark cell received for non-existent entry is no-op                                         OK
 + Mark cell received with out-of-bounds blob index is no-op                                  OK
 + Multiple headers for different roots                                                       OK
-+ Overwrite header with same root                                                            OK
 + PartialColumnKey equality                                                                  OK
 + PartialColumnKey hash differs for different keys                                           OK
 + Put and get entry                                                                          OK
-+ Put and get partial header                                                                 OK
 + Remove entry                                                                               OK
 + Remove entry does not affect other entries                                                 OK
 + Remove header                                                                              OK
++ Remove header (group id) does not remove entries (gloas)                                   OK
 + Remove non-existent entry is no-op                                                         OK
 + Remove non-existent header is no-op                                                        OK
 + Removing entry does not remove header                                                      OK
-+ Removing header does not remove entries                                                    OK
 + addCells accumulates across multiple sidecars                                              OK
-+ addCells ingests cells from a PartialDataColumnSidecar                                     OK
++ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
-+ assembleDataColumnSidecar preserves inclusion proof from header                            OK
-+ assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
 + assembleDataColumnSidecar returns none for non-existent entry                              OK
-+ assembleDataColumnSidecar returns none when cells incomplete                               OK
-+ assembleDataColumnSidecar returns none when header missing from cache                      OK
++ assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
 + assembleDataColumnSidecar returns none when header not validated                           OK
-+ assembleDataColumnSidecar with cells added incrementally                                   OK
 + assembleDataColumnSidecar with markCellReceived (data overload)                            OK
 + getOrCreateEntry creates new entry                                                         OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
-+ getOrCreateEntry reflects header validation status                                         OK
++ getOrCreateEntry reflects gloas group-id validation                                        OK
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
 + hasCellReceived for out-of-bounds index returns false                                      OK
-+ isComplete becomes true after incremental addCells                                         OK
++ isComplete and assembleDataColumnSidecar (gloas)                                           OK
 + isComplete returns false for non-existent entry                                            OK
-+ isComplete returns false when cells are missing                                            OK
 + isComplete returns false when header not validated                                         OK
-+ isComplete returns true when header validated and all cells received                       OK
 + isComplete with single blob                                                                OK
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
-```
-## Partial Column Quarantine (Gloas)
-```diff
-+ Group IDs with same root but different slots are distinct keys                             OK
-+ GroupID hash and equality                                                                  OK
-+ Header LRU eviction (gloas, keyed by GroupID)                                              OK
-+ Init creates empty quarantine                                                              OK
-+ Remove header (group id) does not remove entries (gloas)                                   OK
-+ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
-+ assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
-+ getOrCreateEntry reflects gloas group-id validation                                        OK
-+ isComplete and assembleDataColumnSidecar (gloas)                                           OK
 + putPartialGroupID stores group id under itself                                             OK
 ```
 ## Payload attestation pool [Preset: mainnet]
