@@ -84,6 +84,9 @@ type
       ## Copy of validator's entry from head state. Used by validator client,
       ## to calculate feeRecipient address.
 
+    builderConfig*: Opt[gloas.BuilderConfig]
+      ## builder configuration for an individual validator (public key).
+
     lastWarning*: Opt[Slot]
 
   SignResponse* = Web3SignerDataResponse

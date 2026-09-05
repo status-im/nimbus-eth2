@@ -11,6 +11,7 @@ import
   std/typetraits,
   stew/byteutils,
   ".."/[crypto, keystore],
+  ../datatypes/gloas,
   ../../validators/slashing_protection_common
 
 type
@@ -52,6 +53,9 @@ type
   GetValidatorGasLimitResponse* = object
     pubkey*: ValidatorPubKey
     gas_limit*: uint64
+
+  GetBuilderConfigResponse* = object
+    data*: BuilderConfig
 
   ImportRemoteKeystoresBody* = object
     remote_keys*: seq[RemoteKeystoreInfo]

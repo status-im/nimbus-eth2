@@ -501,6 +501,28 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       keymanagerApiError(
         Http403, "Failed to remove gas limit file: " & res.error)
 
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L1-L62
+  router.api2(MethodGet, "/eth/v1/validator/{pubkey}/builder_config") do (
+              pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return keymanagerApiError(Http401, InvalidAuthorizationError)
+
+    let pubkey = pubkey.valueOr:
+      return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+
+    if not(host.checkValidatorKeystoreDir(pubkey)):
+      return keymanagerApiError(Http404, ValidatorNotFoundError)
+    if not(host.checkConfigFile(ConfigFileKind.GasLimitFile, pubkey)):
+      return keymanagerApiError(Http404, PathNotFoundError)
+
+    let res = host.getValidatorBuilderConfig(pubkey)
+    if res.isOk:
+      RestApiResponse.jsonResponse(GetBuilderConfigResponse(
+        data: res.get()))
+    else:
+      keymanagerApiError(Http500, $res.error())
+
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.
   router.api2(MethodGet, "/eth/v1/remotekeys/distributed") do (
