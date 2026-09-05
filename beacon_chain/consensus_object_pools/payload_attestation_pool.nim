@@ -35,10 +35,6 @@ type
     entries: Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]
     seen: HashSet[uint64]
 
-  PayloadAttestationSlot* = object
-    entries*: Table[(Eth2Digest, bool, bool), PayloadAttestationEntry]
-    seen*: HashSet[uint64]
-
   PayloadAttestationPool* = object
     dag*: ChainDAGRef
     attestations*: Table[Slot, PayloadAttestationSlot]

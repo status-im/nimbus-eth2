@@ -234,7 +234,7 @@ type
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
-    payloadAttestationServiceRef*: PayloadAttestationServiceRef
+    payloadAttestationService*: PayloadAttestationServiceRef
     doppelgangerService*: DoppelgangerServiceRef
     runSlotLoopFut*: Future[void].Raising([CancelledError])
     runKeystoreCachePruningLoopFut*: Future[void]

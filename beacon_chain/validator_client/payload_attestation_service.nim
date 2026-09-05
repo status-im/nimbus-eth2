@@ -36,8 +36,10 @@ proc servePayloadAttestations(
 
   let data =
     try:
-      await vc.producePayloadAttestationData(
-        slot, vc.getMode()[FnKind.produceAttestationData])
+      (await vc.producePayloadAttestationData(
+        slot, vc.getMode()[FnKind.produceAttestationData])).valueOr:
+        debug "No block seen for slot; not casting payload attestation"
+        return
     except ValidatorApiError as exc:
       warn "Unable to produce payload attestation data",
            duties_count = len(duties), reason = exc.getFailureReason()
