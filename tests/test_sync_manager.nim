@@ -2749,6 +2749,16 @@ suite "SyncManager test suite":
         getShortMap(request, chain.filter2(index + 1)) ==
           vector.replace('.', 'X')
 
+    block:
+      var invalidBlocks = blocks
+      swap(invalidBlocks[0], invalidBlocks[1])
+      check getShortMap(request, invalidBlocks) == "<invalid sequence>"
+
+    block:
+      var invalidEnvelopes = envelopes
+      swap(invalidEnvelopes[0], invalidEnvelopes[1])
+      check getShortMap(request, invalidEnvelopes) == "<invalid sequence>"
+
   test "[SyncQueue] getShortMap(sidecars) test":
     let
       map = ColumnMap.init([ColumnIndex(10), 15, 17, 36])
@@ -2844,3 +2854,13 @@ suite "SyncManager test suite":
           vector.replace('.', '-')
         getShortMap(request, map, chain2.filter2(map, filterMap, index + 1)) ==
           vector.replace('.', '-')
+
+    block:
+      var invalidSidecars = chain1
+      swap(invalidSidecars[0], invalidSidecars[len(map)])
+      check getShortMap(request, map, invalidSidecars) == "<invalid sequence>"
+
+    block:
+      var invalidSidecars = chain2
+      swap(invalidSidecars[0], invalidSidecars[len(map)])
+      check getShortMap(request, map, invalidSidecars) == "<invalid sequence>"

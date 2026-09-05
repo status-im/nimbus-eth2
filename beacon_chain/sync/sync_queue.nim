@@ -211,14 +211,14 @@ iterator shortMapValues[T](
         elif T is SyncResponseItem:
           data[index].signedBlock[].slot()
         else:
-          raiseAssert "Unsupported iteration type"
+          static: raiseAssert "Unsupported iteration type"
       if slot < dataSlot:
         yield (-1)
       elif slot == dataSlot:
         yield index
         inc(index)
       else:
-        raiseAssert "The sequence of elements must be correctly ordered"
+        yield (-2)
     else:
       yield (-1)
 
@@ -240,19 +240,23 @@ iterator shortMapValues[T](
           elif T is (ref gloas.DataColumnSidecar):
             data[k][].slot
           else:
-            raiseAssert "Unsupported iteration type"
-        if sliderSlot != slot:
+            static: raiseAssert "Unsupported iteration type"
+        if slot < sliderSlot:
           break
-        elif sliderSlot == slot:
+        elif slot == sliderSlot:
           let dataIndex =
             when T is (ref fulu.DataColumnSidecar):
               data[k][].index
             elif T is (ref gloas.DataColumnSidecar):
               data[k][].index
+            else:
+              static: raiseAssert "Unsupported iteration type"
           # We should not count duplicate indices.
           if data[k][].index in map:
             map.excl(dataIndex)
             inc(counter)
+        else:
+          yield (-2)
       if counter == 0:
         yield (-1)
       else:
@@ -269,8 +273,10 @@ func getShortMap*[T](
   for item in req.data.shortMapValues(data):
     if item >= 0:
       res.add('e')
-    else:
+    elif item == -1:
       res.add('.')
+    else:
+      return "<invalid sequence>"
   res
 
 func getShortMap*[T](
@@ -282,8 +288,10 @@ func getShortMap*[T](
   for item in req.data.shortMapValues(data):
     if item >= 0:
       res.add('x')
-    else:
+    elif item == -1:
       res.add('.')
+    else:
+      return "<invalid sequence>"
   res
 
 func getShortMap*[T](
@@ -299,8 +307,10 @@ func getShortMap*[T](
     if item >= 0:
       let ch = if isNil(data[item].signedEnvelope): 'x' else: 'X'
       res.add(ch)
-    else:
+    elif item == -1:
       res.add('.')
+    else:
+      return "<invalid sequence>"
   res
 
 func getShortMap*[T](
@@ -323,8 +333,10 @@ func getShortMap*[T](
         res.add('+')
       else:
         res.add('-')
-    else:
+    elif value == -1:
       res.add('.')
+    else:
+      return "<invalid sequence>"
   res
 
 func init(

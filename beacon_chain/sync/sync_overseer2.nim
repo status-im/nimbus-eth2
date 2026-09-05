@@ -1085,35 +1085,6 @@ proc syncDistance*(
   else:
     0'u64
 
-# proc verifyEnvelope(
-#     overseer: SyncOverseerRef2,
-#     gloasBlock: gloas.SignedBeaconBlock,
-#     signedEnvelope: SignedExecutionPayloadEnvelope,
-#     sidecars: Opt[gloas.DataColumnSidecars]
-# ): Future[Result[void, SyncVerifierError]] {.async: (raises: [CancelledError]).} =
-#   let
-#     bid = gloasBlock.toBlockId()
-#     commitmentsLen =
-#       len(gloasBlock.message.body.signed_execution_payload_bid.
-#           message.blob_kzg_commitments)
-
-#   if overseer.shouldGetColumns(bid.slot):
-#     let
-#       sidecars =
-#         if commitmentsLen == 0:
-#           Opt.some(default(gloas.DataColumnSidecars))
-#         else:
-#           overseer.gloasColumnQuarantine[].popSidecars(bid.root)
-#     if sidecars.isNone():
-#       overseer.blockQuarantine[].addSidecarless(gloasBlock)
-#       return err(SyncVerifierError.MissingSidecars)
-#     (await overseer.blockProcessor.addPayload(
-#       gloasBlock, signedEnvelope, sidecars)).mapErr(toSyncVerifierError)
-#   else:
-#     (await overseer.blockProcessor.addPayload(
-#       gloasBlock, signedEnvelope, Opt.none(gloas.DataColumnSidecars))).
-#       mapErr(toSyncVerifierError)
-
 proc verifyBlock(
     overseer: SyncOverseerRef2,
     fuluBlock: fulu.SignedBeaconBlock,
@@ -1403,6 +1374,7 @@ proc getMissingColumnsBlocksAndRequest(
               overseer.fuluColumnQuarantine[].fetchMissingSidecars(
                 blockRoot, peerMap)
         if len(request.indices) > 0:
+          bres.fork1.columnBlocks.add(signedBlock)
           bres.fork1.idents.add(request)
           bres.fork1.columnsCount.inc(len(request.indices))
           if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
@@ -1418,6 +1390,7 @@ proc getMissingColumnsBlocksAndRequest(
               overseer.gloasColumnQuarantine[].fetchMissingSidecars(
                 blockRoot, peerMap)
         if len(request.indices) > 0:
+          bres.fork2.columnBlocks.add(signedBlock)
           bres.fork2.idents.add(request)
           bres.fork2.columnsCount.inc(len(request.indices))
           if bres.columnsCount() >= peerEntry.maxSidecarsPerRequest:
@@ -2079,21 +2052,24 @@ proc doRootSidecarsSyncStep(
     if len(request.fork1.idents) == 0:
       debug "No pending data column sidecars available for peer",
         fork = ConsensusFork.Fulu
-      return true
-
-    (await overseer.doFuluRootSidecarsRequest(
-      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
-        return error
+    else:
+      (await overseer.doFuluRootSidecarsRequest(
+        peer, peerEntry, request.fork1.idents,
+        request.fork1.columnsCount)).isOkOr:
+          return error
 
   block:
     if len(request.fork2.idents) == 0:
       debug "No pending data column sidecars available for peer",
         fork = ConsensusFork.Gloas
-      return true
+    else:
+      (await overseer.doGloasRootSidecarsRequest(
+        peer, peerEntry, request.fork2.idents,
+        request.fork2.columnsCount)).isOkOr:
+          return error
 
-    (await overseer.doGloasRootSidecarsRequest(
-      peer, peerEntry, request.idents, request.columnsCount)).isOkOr:
-        return error
+  if len(request.idents) == 0:
+    return true
 
   let columnBlocks = request.columnBlocks()
 
