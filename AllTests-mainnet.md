@@ -828,6 +828,7 @@ AllTests-mainnet
 + KzgProof                                                                                   OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
++ VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
