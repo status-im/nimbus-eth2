@@ -45,6 +45,7 @@ AllTests-mainnet
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + head blocks roundtrip [Preset: mainnet]                                                    OK
++ pre-Capella withdrawal credentials [Preset: mainnet]                                       OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check altair blocks [Preset: mainnet]                                               OK
 + sanity check altair states [Preset: mainnet]                                               OK
