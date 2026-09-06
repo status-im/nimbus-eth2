@@ -1476,26 +1476,24 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/capella/p2p-interface.md#new-bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,
     wallEpoch: Epoch): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
-  # [IGNORE] `current_epoch >= CAPELLA_FORK_EPOCH`, where `current_epoch` is
-  # defined by the current wall-clock time.
+  # [IGNORE] The current epoch is at or after the Capella fork epoch
   if not (wallEpoch >= pool.dag.cfg.CAPELLA_FORK_EPOCH):
-    return errIgnore(
-      "SignedBLSToExecutionChange: not accepting gossip until Capella")
+    return errIgnore("SignedBLSToExecutionChange: current epoch is pre-capella")
 
-  # [IGNORE] The `signed_bls_to_execution_change` is the first valid signed bls
-  # to execution change received for the validator with index
-  # `signed_bls_to_execution_change.message.validator_index`.
+  # [IGNORE] This is the first valid bls_to_execution_change received for the validator
   if pool.isSeen(signed_address_change):
     return errIgnore(
-      "SignedBLSToExecutionChange: not first valid change for validator index")
+      "SignedBLSToExecutionChange: already seen BLS to execution change for this validator")
 
-  # [REJECT] All of the conditions within `process_bls_to_execution_change`
-  # pass validation.
+  # [REJECT] The validator index is valid
+  # [REJECT] The validator has BLS withdrawal credentials
+  # [REJECT] The bls_to_execution_change is for the validator's withdrawal pubkey
+  # [REJECT] The signature is valid
   withState(pool.dag.headState):
     when consensusFork < ConsensusFork.Capella:
       return errIgnore(
@@ -1517,7 +1515,7 @@ proc validateBlsToExecutionChange*(
       case await cryptoFut
       of BatchResult.Invalid:
         return pool.checkedReject(
-          "SignedBLSToExecutionChange: invalid signature")
+          "SignedBLSToExecutionChange: invalid BLS to execution change signature")
       of BatchResult.Timeout:
         return errIgnore(
           "SignedBLSToExecutionChange: timeout checking signature")
@@ -1530,21 +1528,22 @@ proc validateBlsToExecutionChange*(
 
   return ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ValidatorChangePool,
     attester_slashing: electra.AttesterSlashing | gloas.AttesterSlashing
 ): Result[void, ValidationError] =
-  # [IGNORE] At least one index in the intersection of the attesting indices of
-  # each attestation has not yet been seen in any prior attester_slashing (i.e.
-  # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
-  # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
+  # [IGNORE] At least one index in the intersection has not yet been seen
   if pool.isSeen(attester_slashing):
     return errIgnore(
-      "AttesterSlashing: attester-slashed index already attester-slashed")
+      "AttesterSlashing: all attester slashing indices already seen")
 
-  # [REJECT] All of the conditions within process_attester_slashing pass
-  # validation.
+  # [REJECT] The attestation data is slashable (double vote or surround vote)
+  # [REJECT] All validator indices in the first indexed attestation are valid
+  # [REJECT] The first indexed attestation has valid properties
+  # [REJECT] All validator indices in the second indexed attestation are valid
+  # [REJECT] The second indexed attestation has valid properties
+  # [REJECT] At least one validator in the intersection is slashable
   let attester_slashing_validity =
     check_attester_slashing(pool.dag.headState, attester_slashing, {})
   if attester_slashing_validity.isErr:
@@ -1560,7 +1559,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ValidatorChangePool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -1568,15 +1567,17 @@ proc validateProposerSlashing*(
   if proposer_slashing.signed_header_1.message.proposer_index > int.high.uint64:
     return errIgnore("ProposerSlashing: proposer-slashed index too high")
 
-  # [IGNORE] The proposer slashing is the first valid proposer slashing
-  # received for the proposer with index
-  # proposer_slashing.signed_header_1.message.proposer_index.
+  # [IGNORE] The proposer slashing is the first valid proposer slashing received for this proposer
   if pool.isSeen(proposer_slashing):
     return errIgnore(
-      "ProposerSlashing: proposer-slashed index already proposer-slashed")
+      "ProposerSlashing: already seen proposer slashing for this proposer")
 
-  # [REJECT] All of the conditions within process_proposer_slashing
-  # pass validation.
+  # [REJECT] The header slots match
+  # [REJECT] The header proposer indices match
+  # [REJECT] The headers are different
+  # [REJECT] The proposer index is a valid validator index
+  # [REJECT] The proposer is slashable
+  # [REJECT] The signatures are valid
   let proposer_slashing_validity =
     check_proposer_slashing(pool.dag.headState, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
@@ -1588,30 +1589,57 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
-    pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit):
-    Result[void, ValidationError] =
-  # [IGNORE] The voluntary exit is the first valid voluntary exit received for
-  # the validator with index signed_voluntary_exit.message.validator_index.
-  if signed_voluntary_exit.message.validator_index >=
-      pool.dag.headState.validators.lenu64:
-    return errIgnore("VoluntaryExit: validator index too high")
+    pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template voluntary_exit: untyped = signed_voluntary_exit.message
 
-  # Given that pool.dag.headState.validators is a seq,
-  # signed_voluntary_exit.message.validator_index.int is already valid, but
-  # check explicitly if one changes that data structure.
+  # [IGNORE] The voluntary exit is the first valid voluntary exit received for the validator
   if pool.isSeen(signed_voluntary_exit):
     return errIgnore(
-      "VoluntaryExit: validator index already voluntarily exited")
+      "VoluntaryExit: already seen voluntary exit for this validator")
 
-  # [REJECT] All of the conditions within process_voluntary_exit pass
-  # validation.
-  let voluntary_exit_validity =
-    check_voluntary_exit(
-      pool.dag.cfg, pool.dag.headState, signed_voluntary_exit, {})
-  if voluntary_exit_validity.isErr:
-    return pool.checkedReject(voluntary_exit_validity.error)
+  # [IGNORE] The voluntary exit epoch is not in the future
+  block:
+    let futureSlot =
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(pool.dag.timeParams)
+    if not futureSlot.afterGenesis or
+        voluntary_exit.epoch > futureSlot.slot.epoch:
+      return errIgnore("VoluntaryExit: voluntary exit epoch is in the future")
+
+  # [REJECT] The validator index is valid
+  if voluntary_exit.validator_index >= pool.dag.headState.validators.lenu64:
+    return pool.checkedReject("VoluntaryExit: validator index out of range")
+
+  withState(pool.dag.headState):
+    let
+      validator = addr forkyState.data.validators.item(
+        voluntary_exit.validator_index)
+      current_epoch = get_current_epoch(forkyState.data)
+
+    # [IGNORE] The validator has not already initiated exit
+    if validator[].exit_epoch != FAR_FUTURE_EPOCH:
+      return errIgnore("VoluntaryExit: validator has already initiated exit")
+
+    # [REJECT] The validator is active
+    if not is_active_validator(validator[], current_epoch):
+      return pool.checkedReject("VoluntaryExit: validator is not active")
+
+    # [REJECT] The validator has been active long enough
+    if current_epoch <
+        validator[].activation_epoch + pool.dag.cfg.SHARD_COMMITTEE_PERIOD:
+      return pool.checkedReject(
+        "VoluntaryExit: validator has not been active long enough")
+
+    # [REJECT] The signature is valid
+    let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
+      forkyState.data.fork, pool.dag.cfg.CAPELLA_FORK_VERSION)
+    if not verify_voluntary_exit_signature(
+        voluntary_exit_fork, forkyState.data.genesis_validators_root,
+        voluntary_exit, validator[].pubkey, signed_voluntary_exit.signature):
+      return pool.checkedReject(
+        "VoluntaryExit: invalid voluntary exit signature")
 
   # Send notification about new voluntary exit via callback
   if not(isNil(pool.onVoluntaryExitReceived)):
