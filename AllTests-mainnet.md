@@ -742,7 +742,6 @@ AllTests-mainnet
 + Different column indices are independent                                                   OK
 + Different group ids with same column index are independent                                 OK
 + Get entry for unknown key returns none                                                     OK
-+ Get group id for unknown key returns none                                                  OK
 + Group ID LRU evicts oldest entry when full                                                 OK
 + Group IDs with same root but different slots are distinct keys                             OK
 + Group id arriving after the cells still completes the entry                                OK
@@ -755,8 +754,8 @@ AllTests-mainnet
 + Multiple group ids coexist                                                                 OK
 + PartialColumnKey equality                                                                  OK
 + PartialColumnKey hash differs for different keys                                           OK
++ Put and check group id                                                                     OK
 + Put and get entry                                                                          OK
-+ Put and get group id                                                                       OK
 + Remove entry                                                                               OK
 + Remove entry does not affect other entries                                                 OK
 + Remove group id                                                                            OK
@@ -764,8 +763,9 @@ AllTests-mainnet
 + Remove non-existent group id is no-op                                                      OK
 + Removing entry does not remove group id                                                    OK
 + Removing group id does not remove entries                                                  OK
++ Unknown group id is not present                                                            OK
 + addCells accumulates across multiple sidecars                                              OK
-+ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
++ addCells ingests cells from a PartialDataColumnSidecar                                     OK
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
@@ -786,7 +786,7 @@ AllTests-mainnet
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
 + hasCellReceived for out-of-bounds index returns false                                      OK
-+ isComplete and assembleDataColumnSidecar (gloas)                                           OK
++ isComplete becomes true after incremental addCells                                         OK
 + isComplete returns false for non-existent entry                                            OK
 + isComplete returns false when cells are missing                                            OK
 + isComplete returns false when group id not validated                                       OK
