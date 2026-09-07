@@ -128,7 +128,8 @@ template gossipTest(
       meta = loadMeta(path)
       dag {.inject, used.} = initDag(path, meta, consensusFork)
       rng = HmacDrbgContext.new()
-      taskpool = Taskpool.new()
+    var taskpool = Taskpool.new()
+    let
       batchCrypto {.inject, used.} = BatchCrypto.new(
         rng, dag.cfg.timeParams, eager = proc(): bool = false,
         genesis_validators_root = dag.genesis_validators_root,
@@ -140,7 +141,10 @@ template gossipTest(
         newClone(SyncCommitteeMsgPool.init(rng, dag.cfg))
       ptcPool {.inject, used.} =
         newClone(PayloadAttestationPool.init(dag))
-    defer: dag.db.close()
+    defer:
+      dag.db.close()
+      batchCrypto.close()
+      taskpool.shutdown()
 
     var verifier = BatchVerifier.init(rng, taskpool)
     for blck in meta.blocks.toOpenArray(1, meta.blocks.high):
