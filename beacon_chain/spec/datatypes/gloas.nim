@@ -1059,6 +1059,7 @@ type
   LightClientBlockData* = object
     proposer_index*: uint64
     state_root*: Eth2Digest
+
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature_root*: Eth2Digest
     sync_aggregate_branch*: SyncAggregateBranch

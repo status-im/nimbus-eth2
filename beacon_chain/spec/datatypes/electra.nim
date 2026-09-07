@@ -710,6 +710,7 @@ type
   # https://hackmd.io/@etan-status/decentralized-cl-sync
   LightClientEpochData* = object
     epoch*: Epoch
+
     parent_block_header*: BeaconBlockHeader
     block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
 
