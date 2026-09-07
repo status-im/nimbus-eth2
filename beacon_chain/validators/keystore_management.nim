@@ -1635,7 +1635,7 @@ proc getValidatorBuilderConfig*(
       debugGloasComment("should need a new config structure for gloas")
       let
         res = host.getBuilderConfig(pubkey).valueOr:
-          return err("bad values in builder config file")
+          return err("invalid values in builder config file")
         url = res.valueOr:
           return ok(default(gloas.BuilderConfig))
       gloas.BuilderConfig(builders: @[BuilderEntry(url: url)])

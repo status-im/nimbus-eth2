@@ -506,15 +506,12 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
               pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
-      return keymanagerApiError(Http401, InvalidAuthorizationError)
+      return keymanagerApiError(Http403, InvalidAuthorizationError)
 
     let pubkey = pubkey.valueOr:
       return keymanagerApiError(Http400, InvalidValidatorPublicKey)
 
-    if not(host.checkValidatorKeystoreDir(pubkey)):
-      return keymanagerApiError(Http404, ValidatorNotFoundError)
-    if not(host.checkConfigFile(ConfigFileKind.GasLimitFile, pubkey)):
-      return keymanagerApiError(Http404, PathNotFoundError)
+    debugGloasComment("implement new config structure and check")
 
     let res = host.getValidatorBuilderConfig(pubkey)
     if res.isOk:
