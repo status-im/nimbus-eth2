@@ -10,7 +10,7 @@
 import
   std/typetraits,
   stew/byteutils,
-  ".."/[crypto, keystore],
+  ../[crypto, keystore],
   ../datatypes/gloas,
   ../../validators/slashing_protection_common
 
