@@ -291,6 +291,18 @@ proc getSyncBlockData[A, B](
 
   ok(SyncBlockData(blocks: blocks.asSeq()))
 
+func shouldDelayPeerStatusUpdate*(
+    statusIsFresh: bool,
+    availablePeers: int
+): bool =
+  ## The worker already owns one peer at this point.
+  ##
+  ## Preserve the existing anti-stampede delay only while another
+  ## sync peer remains available. When this worker owns the final
+  ## available peer, refresh its status immediately instead of
+  ## parking the whole sync peer pool in the throttle delay.
+  statusIsFresh and availablePeers > 0
+
 proc getOrUpdatePeerStatus[A, B](
     man: SyncManager[A, B], index: int, peer: A
 ): Future[Result[Slot, string]] {.async: (raises: [CancelledError]).} =
@@ -326,7 +338,10 @@ proc getOrUpdatePeerStatus[A, B](
 
   # Avoid a stampede of requests, but make them more frequent in case the
   # peer is "close" to the slot range of interest
-  if peerStatusAge < (StatusExpirationTime div 2):
+  if shouldDelayPeerStatusUpdate(
+      peerStatusAge < (StatusExpirationTime div 2),
+      man.pool.lenAvailable
+  ):
     await sleepAsync((StatusExpirationTime div 2) - peerStatusAge)
 
   trace "Updating peer's status information",
