@@ -24,10 +24,13 @@ from std/json import
   JsonNode, getBiggestInt, getBool, getStr, hasKey, items, len, `[]`
 from chronos/unittest2/asynctests import asyncTest
 from libp2p/protocols/pubsub/errors import ValidationResult
+from snappy import decode
 from ../../beacon_chain/consensus_object_pools/block_clearance import
   checkHeadBlock
 from ../../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, UnviableKind, addUnviable, init
+from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
+  EnvelopeQuarantine, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
   PayloadAttestationPool, addPayloadAttestation, init
 from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
@@ -50,6 +53,7 @@ type
 
   GossipTestMeta = object
     blocks: seq[GossipBlock]
+    finalizedEpoch: Opt[Epoch]
     messages: seq[GossipMessage]
 
 func toValidationResult(expected: string): ValidationResult =
@@ -71,6 +75,9 @@ proc loadMeta(path: string): GossipTestMeta {.raises: [KeyError, ValueError].} =
       res.blocks.add GossipBlock(
         name: blck["block"].getStr(),
         failed: blck.hasKey"failed" and blck["failed"].getBool())
+  if meta.hasKey"finalized_checkpoint":
+    res.finalizedEpoch =
+      Opt.some(Epoch(meta["finalized_checkpoint"]["epoch"].getBiggestInt()))
   for msg in meta["messages"]:
     res.messages.add GossipMessage(
       name: msg["message"].getStr(),
@@ -113,8 +120,9 @@ func addBlockRef(dag: ChainDAGRef, root: Eth2Digest, slot: Slot) =
     dag.forkBlocks.incl(KeyedBlockRef.init(BlockRef.init(dag.cfg, root, slot)))
 
 template gossipTest(
-    suiteName, path: string, consensusFork: static ConsensusFork,
-    MsgType: typedesc, validate, accept: untyped) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork, MsgType: typedesc,
+    validate, accept: untyped) =
   asyncTest $consensusFork & " - " & os_ops.splitPath(path).tail:
     let
       meta = loadMeta(path)
@@ -126,6 +134,7 @@ template gossipTest(
         genesis_validators_root = dag.genesis_validators_root,
         taskpool).expect("working batcher")
       quarantine {.inject, used.} = newClone(Quarantine.init(dag.cfg))
+      envQuarantine {.inject, used.} = newClone(EnvelopeQuarantine.init())
       pool {.inject, used.} = newClone(ValidatorChangePool.init(dag))
       syncCommitteePool {.inject, used.} =
         newClone(SyncCommitteeMsgPool.init(rng, dag.cfg))
@@ -143,11 +152,19 @@ template gossipTest(
         check dag.addHeadBlock(
           verifier, signedBlock, OnBlockAdded[consensusFork](nil)).expect(
             "block imports").root == signedBlock.root
+    if meta.finalizedEpoch.isSome:
+      dag.finalizedHead.slot = meta.finalizedEpoch.get.start_slot
 
     for msg in meta.messages:
       let
-        message {.inject.} = parseTest(
-          path/msg.name & ".ssz_snappy", SSZ, MsgType)
+        message {.inject.} =
+          try:
+            sszDecodeEntireInput(snappy.decode(
+              readFileBytes(path/msg.name & ".ssz_snappy"), MaxObjectSize),
+              MsgType)
+          except SerializationError, UnconsumedInput:
+            check msg.expected == ValidationResult.Reject
+            continue
         wallTime {.inject, used.} = msg.time
         subcommitteeIdx {.inject, used.} =
           SyncSubcommitteeIndex.init(msg.subnetId).expect("valid subnet id")
@@ -165,21 +182,24 @@ template gossipTest(
         msg.expected
 
 proc runGossipVoluntaryExit(
-    suiteName, path: string, consensusFork: static ConsensusFork) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SignedVoluntaryExit,
       pool[].validateVoluntaryExit(message, wallTime)):
     pool[].addMessage(message)
 
 proc runGossipProposerSlashing(
-    suiteName, path: string, consensusFork: static ConsensusFork) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, ProposerSlashing,
       pool[].validateProposerSlashing(message)):
     pool[].addMessage(message)
 
 proc runGossipBlsToExecutionChange(
-    suiteName, path: string, consensusFork: static ConsensusFork) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SignedBLSToExecutionChange,
       await pool[].validateBlsToExecutionChange(
@@ -187,7 +207,8 @@ proc runGossipBlsToExecutionChange(
     pool[].addMessage(message, localPriorityMessage = false)
 
 proc runGossipAttesterSlashing(
-    suiteName, path: string, consensusFork: static ConsensusFork) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
   when consensusFork >= ConsensusFork.Gloas:
     type AttesterSlashing = gloas.AttesterSlashing
   else:
@@ -198,7 +219,8 @@ proc runGossipAttesterSlashing(
     pool[].addMessage(message)
 
 proc runGossipSyncCommitteeMessage(
-    suiteName, path: string, consensusFork: static ConsensusFork) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SyncCommitteeMessage,
       await dag.validateSyncCommitteeMessage(
@@ -210,7 +232,8 @@ proc runGossipSyncCommitteeMessage(
       positions)
 
 proc runGossipSyncCommitteeContribution(
-    suiteName, path: string, consensusFork: static ConsensusFork) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SignedContributionAndProof,
       await dag.validateContribution(
@@ -220,16 +243,27 @@ proc runGossipSyncCommitteeContribution(
     syncCommitteePool[].addContribution(message, bid, sig)
 
 proc runGossipPayloadAttestationMessage(
-    suiteName, path: string, consensusFork: static ConsensusFork) =
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, PayloadAttestationMessage,
       await dag.validatePayloadAttestationMessage(
         quarantine, ptcPool, batchCrypto, message, wallTime)):
     check ptcPool[].addPayloadAttestation(message, wallTime)
 
+proc runGossipExecutionPayloadEnvelope(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, SignedExecutionPayloadEnvelope,
+      dag.validateExecutionPayload(
+        quarantine, envQuarantine, message, wallTime)):
+    dag.db.putExecutionPayloadEnvelope(message)
+
 template gossipSuite(
     topic: static[string], handler: static[string], runner: untyped) =
-  suite "EF - Networking - Gossip - " & topic & preset():
+  const name = "EF - Networking - Gossip - " & topic & preset()
+  suite name:
     const presetPath = SszTestsDir/const_preset
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/"networking"/handler/"pyspec_tests"
@@ -243,9 +277,7 @@ template gossipSuite(
               testsPath, relative = true, checkDir = true):
             if kind != pcDir:
               continue
-            runner(suiteName, testsPath/path, consensusFork)
-        else:
-          discard
+            runner(name, testsPath/path, consensusFork)
 
 gossipSuite(
   "Voluntary Exit", "gossip_voluntary_exit", runGossipVoluntaryExit)
@@ -266,3 +298,6 @@ gossipSuite(
 gossipSuite(
   "Payload Attestation Message", "gossip_payload_attestation_message",
   runGossipPayloadAttestationMessage)
+gossipSuite(
+  "Execution Payload Envelope", "gossip_execution_payload_envelope",
+  runGossipExecutionPayloadEnvelope)

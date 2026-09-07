@@ -927,7 +927,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload
 proc validateExecutionPayload*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -935,113 +935,108 @@ proc validateExecutionPayload*(
     wallTime: BeaconTime): Result[void, ValidationError] =
   template envelope: untyped = signed_execution_payload_envelope.message
 
-  # No matching block can exist: blocks [IGNORE] future slots.
-  if not (envelope.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
-    return errIgnore("ExecutionPayload: slot too high")
-
-  # [IGNORE] The envelope's block root `envelope.beacon_block_root` has been
-  # seen (via gossip or non-gossip sources) (a client MAY queue payload for
-  # processing once the block is retrieved).
-  let blockSeen =
-    block:
-      var seen =
-        envelope.beacon_block_root in quarantine.unviable or
-        dag.getBlockRef(envelope.beacon_block_root).isSome()
-      if not seen:
-        for k, _ in quarantine.orphans:
-          if k[0] == envelope.beacon_block_root:
-            seen = true
-            break
-      seen
-  if not blockSeen:
-    # TODO: when the envelope arrives before its block, we return IGNORE which
-    # prevents it from being forwarded to peers. The envelope is quarantined and
-    # processed locally once the block arrives, but never re-gossiped to peers
-    # who may also be missing it.
-    discard quarantine[].addMissing(envelope.beacon_block_root)
-    envelopeQuarantine[].addOrphan(
-      dag.finalizedHead.slot, signed_execution_payload_envelope)
-    return errIgnore("ExecutionPayload: block not found")
-
-  # [IGNORE] The node has not seen another valid SignedExecutionPayloadEnvelope
-  # for this block root from this builder.
+  # [IGNORE] The node has not seen another valid envelope for this block root
+  # from this builder
   #
   # Validation of an envelope requires a valid block. There is a check to ensure
   # that the builder index are the same from the envelope and the bid from the
   # block. Meaning that checking builder index here would not be helpful due to
   # the check later.
   if dag.db.containsExecutionPayloadEnvelope(envelope.beacon_block_root):
-    return errIgnore("ExecutionPayload: already seen")
+    return errIgnore(
+      "ExecutionPayload: already seen envelope for this block root from this builder")
+
+  # [IGNORE] The envelope's block root has been seen (via gossip or non-gossip
+  # sources) (MAY be queued until block is retrieved)
+  # [REJECT] The envelope's block passes validation
+  let blckRef = dag.getBlockRef(envelope.beacon_block_root).valueOr:
+    if envelope.beacon_block_root in quarantine.unviable or
+        quarantine[].checkOrphan(envelope.beacon_block_root):
+      return dag.checkedReject(
+        "ExecutionPayload: envelope's block failed validation")
+    # No matching block can exist: blocks [IGNORE] future slots.
+    if envelope.slot <=
+        (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams):
+      # TODO: when the envelope arrives before its block, we return IGNORE
+      # which prevents it from being forwarded to peers. The envelope is
+      # quarantined and processed locally once the block arrives, but never
+      # re-gossiped to peers who may also be missing it.
+      discard quarantine[].addMissing(envelope.beacon_block_root)
+      envelopeQuarantine[].addOrphan(
+        dag.finalizedHead.slot, signed_execution_payload_envelope)
+    return errIgnore("ExecutionPayload: envelope's block has not been seen")
 
   # [IGNORE] The envelope is from a slot greater than or equal to the latest
-  # finalized slot -- i.e. validate that `envelope.slot >=
-  # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)`
+  # finalized slot
   if not (envelope.slot >= dag.finalizedHead.slot):
-    return errIgnore("ExecutionPayload: slot already finalized")
+    return errIgnore(
+      "ExecutionPayload: envelope is from a slot before the latest finalized slot")
 
-  # [REJECT] block passes validation.
-  let blck =
+  let (blockSlot, proposerIndex, bid) =
     block:
-      let forkedBlock = dag.getForkedBlock(BlockId(
-          root: envelope.beacon_block_root, slot: envelope.slot)).valueOr:
-        return dag.checkedReject("ExecutionPayload: invalid block")
+      let forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
+        return dag.checkedReject(
+          "ExecutionPayload: envelope's block failed validation")
       withBlck(forkedBlock):
-        when consensusFork == ConsensusFork.Heze:
-          debugHezeComment "..."
-          return dag.checkedReject("ExecutionPayload: invalid fork")
-        elif consensusFork == ConsensusFork.Gloas:
-          forkyBlck.asSigned().message
+        when consensusFork >= ConsensusFork.Gloas:
+          template forkyBid: untyped =
+            forkyBlck.message.body.signed_execution_payload_bid.message
+          (forkyBlck.message.slot, forkyBlck.message.proposer_index,
+           (builder_index: forkyBid.builder_index,
+            block_hash: forkyBid.block_hash,
+            execution_requests_root: forkyBid.execution_requests_root))
         else:
           return dag.checkedReject("ExecutionPayload: invalid fork")
 
-  # [REJECT] `block.slot` equals `envelope.payload.slot_number`.
-  if not (blck.slot == envelope.payload.slot_number):
-    return dag.checkedReject("ExecutionPayload: slot mismatch")
+  # [REJECT] The block's slot matches the payload's slot number
+  if not (blockSlot == envelope.payload.slot_number):
+    return dag.checkedReject(
+      "ExecutionPayload: block's slot does not match payload's slot number")
 
-  template bid: untyped = blck.body.signed_execution_payload_bid.message
-
-  # [REJECT] envelope.builder_index == bid.builder_index
+  # [REJECT] The envelope is from the builder committed to by the bid
   if not (envelope.builder_index == bid.builder_index):
-    return dag.checkedReject("ExecutionPayload: builder index mismatch")
+    return dag.checkedReject(
+      "ExecutionPayload: envelope's builder index does not match the bid's builder index")
 
-  # [REJECT] payload.block_hash == bid.block_hash
+  # [REJECT] The payload's block hash matches the bid's block hash
   if not (envelope.payload.block_hash == bid.block_hash):
-    return dag.checkedReject("ExecutionPayload: block hash mismatch")
+    return dag.checkedReject(
+      "ExecutionPayload: payload's block hash does not match the bid's block hash")
 
-  # [REJECT] `hash_tree_root(envelope.execution_requests) ==
-  # bid.execution_requests_root`
+  # [REJECT] The envelope's execution requests root matches the bid's execution
+  # requests root
   if not (hash_tree_root(envelope.execution_requests) ==
       bid.execution_requests_root):
-    return dag.checkedReject("ExecutionPayload: requests mismatch")
+    return dag.checkedReject(
+      "ExecutionPayload: envelope's execution requests root does not match the bid's")
 
-  # [REJECT] The counts of `execution_requests` are within their respective
-  # limits.
+  # [REJECT] The execution request counts are within their limits
   template reqs: untyped = envelope.execution_requests
   if reqs.deposits.lenu64 > MAX_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("ExecutionPayload: too many deposit reqs")
+    return dag.checkedReject("ExecutionPayload: too many deposit requests")
   if reqs.withdrawals.lenu64 > MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("ExecutionPayload: too many withdrawal reqs")
+    return dag.checkedReject("ExecutionPayload: too many withdrawal requests")
   if reqs.consolidations.lenu64 > MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("ExecutionPayload: too many consolidation reqs")
+    return dag.checkedReject(
+      "ExecutionPayload: too many consolidation requests")
   if reqs.builder_deposits.lenu64 > MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("ExecutionPayload: too many builder deposit reqs")
+    return dag.checkedReject(
+      "ExecutionPayload: too many builder deposit requests")
   if reqs.builder_exits.lenu64 > MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD:
-    return dag.checkedReject("ExecutionPayload: too many builder exit reqs")
+    return dag.checkedReject("ExecutionPayload: too many builder exit requests")
 
-  # [REJECT] The number of withdrawals is within the limit.
+  # [REJECT] The number of withdrawals is within the limit
   if envelope.payload.withdrawals.lenu64 > MAX_WITHDRAWALS_PER_PAYLOAD:
     return dag.checkedReject("ExecutionPayload: too many withdrawals")
 
-  # [REJECT] `signed_execution_payload_envelope.signature` is valid as verified
-  # by `verify_execution_payload_envelope_signature`.
+  # [REJECT] The envelope signature is valid
   # TODO: headState may not match the envelope's fork during extended
   # non-finality.
   let builderKey =
     withState(dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
         if bid.builder_index == BUILDER_INDEX_SELF_BUILD:
-          forkyState.data.validators.item(blck.proposer_index).pubkey
+          forkyState.data.validators.item(proposerIndex).pubkey
         else:
           if bid.builder_index >= forkyState.data.builders.lenu64:
             return dag.checkedReject("ExecutionPayload: unknown builder")
@@ -1055,7 +1050,7 @@ proc validateExecutionPayload*(
       signed_execution_payload_envelope.message,
       builderKey,
       signed_execution_payload_envelope.signature):
-    return dag.checkedReject("ExecutionPayload: invalid builder signature")
+    return dag.checkedReject("ExecutionPayload: invalid envelope signature")
 
   ok()
 
