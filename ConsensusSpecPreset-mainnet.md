@@ -3782,6 +3782,49 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_bls_to_execution_change__reject_validator_index_out_of_range                 OK
 + heze - gossip_bls_to_execution_change__valid                                               OK
 ```
+## EF - Networking - Gossip - Execution Payload Envelope [Preset: mainnet]
+```diff
++ gloas - gossip_execution_payload_envelope__ignore_block_unseen                             OK
++ gloas - gossip_execution_payload_envelope__ignore_duplicate                                OK
++ gloas - gossip_execution_payload_envelope__ignore_pre_finalized                            OK
++ gloas - gossip_execution_payload_envelope__reject_block_failed_validation                  OK
++ gloas - gossip_execution_payload_envelope__reject_block_hash_mismatch                      OK
++ gloas - gossip_execution_payload_envelope__reject_builder_index_mismatch                   OK
++ gloas - gossip_execution_payload_envelope__reject_execution_requests_root_mismatch         OK
++ gloas - gossip_execution_payload_envelope__reject_invalid_signature                        OK
++ gloas - gossip_execution_payload_envelope__reject_slot_mismatch                            OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_builder_deposit_requests        OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_builder_exit_requests           OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_consolidation_requests          OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_withdrawal_requests             OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_withdrawals                     OK
++ gloas - gossip_execution_payload_envelope__valid                                           OK
++ gloas - gossip_execution_payload_envelope__valid_max_builder_deposit_requests              OK
++ gloas - gossip_execution_payload_envelope__valid_max_builder_exit_requests                 OK
++ gloas - gossip_execution_payload_envelope__valid_max_consolidation_requests                OK
++ gloas - gossip_execution_payload_envelope__valid_max_withdrawal_requests                   OK
++ gloas - gossip_execution_payload_envelope__valid_max_withdrawals                           OK
++ heze - gossip_execution_payload_envelope__ignore_block_unseen                              OK
++ heze - gossip_execution_payload_envelope__ignore_duplicate                                 OK
++ heze - gossip_execution_payload_envelope__ignore_pre_finalized                             OK
++ heze - gossip_execution_payload_envelope__reject_block_failed_validation                   OK
++ heze - gossip_execution_payload_envelope__reject_block_hash_mismatch                       OK
++ heze - gossip_execution_payload_envelope__reject_builder_index_mismatch                    OK
++ heze - gossip_execution_payload_envelope__reject_execution_requests_root_mismatch          OK
++ heze - gossip_execution_payload_envelope__reject_invalid_signature                         OK
++ heze - gossip_execution_payload_envelope__reject_slot_mismatch                             OK
++ heze - gossip_execution_payload_envelope__reject_too_many_builder_deposit_requests         OK
++ heze - gossip_execution_payload_envelope__reject_too_many_builder_exit_requests            OK
++ heze - gossip_execution_payload_envelope__reject_too_many_consolidation_requests           OK
++ heze - gossip_execution_payload_envelope__reject_too_many_withdrawal_requests              OK
++ heze - gossip_execution_payload_envelope__reject_too_many_withdrawals                      OK
++ heze - gossip_execution_payload_envelope__valid                                            OK
++ heze - gossip_execution_payload_envelope__valid_max_builder_deposit_requests               OK
++ heze - gossip_execution_payload_envelope__valid_max_builder_exit_requests                  OK
++ heze - gossip_execution_payload_envelope__valid_max_consolidation_requests                 OK
++ heze - gossip_execution_payload_envelope__valid_max_withdrawal_requests                    OK
++ heze - gossip_execution_payload_envelope__valid_max_withdrawals                            OK
+```
 ## EF - Networking - Gossip - Payload Attestation Message [Preset: mainnet]
 ```diff
 + gloas - gossip_payload_attestation_message__ignore_block_not_at_assigned_slot              OK
