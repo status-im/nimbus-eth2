@@ -3782,6 +3782,35 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_bls_to_execution_change__reject_validator_index_out_of_range                 OK
 + heze - gossip_bls_to_execution_change__valid                                               OK
 ```
+## EF - Networking - Gossip - Payload Attestation Message [Preset: mainnet]
+```diff
++ gloas - gossip_payload_attestation_message__ignore_block_not_at_assigned_slot              OK
++ gloas - gossip_payload_attestation_message__ignore_block_unseen                            OK
++ gloas - gossip_payload_attestation_message__ignore_duplicate                               OK
++ gloas - gossip_payload_attestation_message__ignore_not_current_slot                        OK
++ gloas - gossip_payload_attestation_message__ignore_slot_outside_lower_disparity            OK
++ gloas - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity            OK
++ gloas - gossip_payload_attestation_message__reject_block_failed_validation                 OK
++ gloas - gossip_payload_attestation_message__reject_invalid_signature                       OK
++ gloas - gossip_payload_attestation_message__reject_validator_index_out_of_range            OK
++ gloas - gossip_payload_attestation_message__reject_validator_not_in_ptc                    OK
++ gloas - gossip_payload_attestation_message__valid                                          OK
++ gloas - gossip_payload_attestation_message__valid_slot_at_lower_disparity                  OK
++ gloas - gossip_payload_attestation_message__valid_slot_at_upper_disparity                  OK
++ heze - gossip_payload_attestation_message__ignore_block_not_at_assigned_slot               OK
++ heze - gossip_payload_attestation_message__ignore_block_unseen                             OK
++ heze - gossip_payload_attestation_message__ignore_duplicate                                OK
++ heze - gossip_payload_attestation_message__ignore_not_current_slot                         OK
++ heze - gossip_payload_attestation_message__ignore_slot_outside_lower_disparity             OK
++ heze - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity             OK
++ heze - gossip_payload_attestation_message__reject_block_failed_validation                  OK
++ heze - gossip_payload_attestation_message__reject_invalid_signature                        OK
++ heze - gossip_payload_attestation_message__reject_validator_index_out_of_range             OK
++ heze - gossip_payload_attestation_message__reject_validator_not_in_ptc                     OK
++ heze - gossip_payload_attestation_message__valid                                           OK
++ heze - gossip_payload_attestation_message__valid_slot_at_lower_disparity                   OK
++ heze - gossip_payload_attestation_message__valid_slot_at_upper_disparity                   OK
+```
 ## EF - Networking - Gossip - Proposer Slashing [Preset: mainnet]
 ```diff
 + fulu - gossip_proposer_slashing__ignore_already_seen                                       OK
@@ -3811,6 +3840,78 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_proposer_slashing__reject_proposer_not_slashable                             OK
 + heze - gossip_proposer_slashing__reject_slots_not_matching                                 OK
 + heze - gossip_proposer_slashing__valid                                                     OK
+```
+## EF - Networking - Gossip - Sync Committee Contribution And Proof [Preset: mainnet]
+```diff
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_duplicate_aggregator           OK
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_future_slot                    OK
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_past_slot                      OK
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_superset_contribution          OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_aggregator_index_out_of_range  OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_aggregator_not_in_subcommittee OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregate_signature    OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregator_signature   OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_selection_proof        OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_subcommittee_index     OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_no_participants                OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_not_aggregator                 OK
++ fulu - gossip_sync_committee_contribution_and_proof__valid                                 OK
++ fulu - gossip_sync_committee_contribution_and_proof__valid_at_period_boundary              OK
++ fulu - gossip_sync_committee_contribution_and_proof__valid_non_superset_contribution       OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_duplicate_aggregator          OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_future_slot                   OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_past_slot                     OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_superset_contribution         OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_aggregator_index_out_of_range OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_aggregator_not_in_subcommitte OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregate_signature   OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregator_signature  OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_selection_proof       OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_subcommittee_index    OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_no_participants               OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_not_aggregator                OK
++ gloas - gossip_sync_committee_contribution_and_proof__valid                                OK
++ gloas - gossip_sync_committee_contribution_and_proof__valid_at_period_boundary             OK
++ gloas - gossip_sync_committee_contribution_and_proof__valid_non_superset_contribution      OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_duplicate_aggregator           OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_future_slot                    OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_past_slot                      OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_superset_contribution          OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_aggregator_index_out_of_range  OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_aggregator_not_in_subcommittee OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregate_signature    OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregator_signature   OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_selection_proof        OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_subcommittee_index     OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_no_participants                OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_not_aggregator                 OK
++ heze - gossip_sync_committee_contribution_and_proof__valid                                 OK
++ heze - gossip_sync_committee_contribution_and_proof__valid_at_period_boundary              OK
++ heze - gossip_sync_committee_contribution_and_proof__valid_non_superset_contribution       OK
+```
+## EF - Networking - Gossip - Sync Committee Message [Preset: mainnet]
+```diff
++ fulu - gossip_sync_committee_message__ignore_duplicate                                     OK
++ fulu - gossip_sync_committee_message__ignore_future_slot                                   OK
++ fulu - gossip_sync_committee_message__ignore_past_slot                                     OK
++ fulu - gossip_sync_committee_message__reject_invalid_signature                             OK
++ fulu - gossip_sync_committee_message__reject_validator_index_out_of_range                  OK
++ fulu - gossip_sync_committee_message__reject_wrong_subnet                                  OK
++ fulu - gossip_sync_committee_message__valid                                                OK
++ gloas - gossip_sync_committee_message__ignore_duplicate                                    OK
++ gloas - gossip_sync_committee_message__ignore_future_slot                                  OK
++ gloas - gossip_sync_committee_message__ignore_past_slot                                    OK
++ gloas - gossip_sync_committee_message__reject_invalid_signature                            OK
++ gloas - gossip_sync_committee_message__reject_validator_index_out_of_range                 OK
++ gloas - gossip_sync_committee_message__reject_wrong_subnet                                 OK
++ gloas - gossip_sync_committee_message__valid                                               OK
++ heze - gossip_sync_committee_message__ignore_duplicate                                     OK
++ heze - gossip_sync_committee_message__ignore_future_slot                                   OK
++ heze - gossip_sync_committee_message__ignore_past_slot                                     OK
++ heze - gossip_sync_committee_message__reject_invalid_signature                             OK
++ heze - gossip_sync_committee_message__reject_validator_index_out_of_range                  OK
++ heze - gossip_sync_committee_message__reject_wrong_subnet                                  OK
++ heze - gossip_sync_committee_message__valid                                                OK
 ```
 ## EF - Networking - Gossip - Voluntary Exit [Preset: mainnet]
 ```diff

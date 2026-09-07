@@ -2291,7 +2291,7 @@ proc installMessageValidators(node: BeaconNode) =
                     MsgSource.gossip, signedEnvelope)))
 
         # payload_attestation_message
-        # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#payload_attestation_message
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-payload_attestation_message
         when consensusFork >= ConsensusFork.Gloas:
           node.network.addAsyncValidator(
             getPayloadAttestationMessageTopic(digest), proc (
@@ -2414,7 +2414,7 @@ proc installMessageValidators(node: BeaconNode) =
 
         when consensusFork >= ConsensusFork.Altair:
           # sync_committee_{subnet_id}
-          # https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/p2p-interface.md#new-sync_committee_subnet_id
           for subcommitteeIdx in SyncSubcommitteeIndex:
             closureScope:  # Needed for inner `proc`; don't lift it out of loop.
               let idx = subcommitteeIdx
@@ -2429,7 +2429,7 @@ proc installMessageValidators(node: BeaconNode) =
                       MsgSource.gossip, msg, idx)))
 
           # sync_committee_contribution_and_proof
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/p2p-interface.md#new-sync_committee_contribution_and_proof
           node.network.addAsyncValidator(
             getSyncCommitteeContributionAndProofTopic(digest), proc (
               msg: SignedContributionAndProof,

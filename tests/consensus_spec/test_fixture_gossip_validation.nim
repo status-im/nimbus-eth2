@@ -21,20 +21,35 @@ import
   ./fixtures_utils, ./os_ops
 
 from std/json import
-  JsonNode, getBiggestInt, getStr, hasKey, items, len, `[]`
+  JsonNode, getBiggestInt, getBool, getStr, hasKey, items, len, `[]`
 from chronos/unittest2/asynctests import asyncTest
 from libp2p/protocols/pubsub/errors import ValidationResult
+from ../../beacon_chain/consensus_object_pools/block_clearance import
+  checkHeadBlock
+from ../../beacon_chain/consensus_object_pools/block_quarantine import
+  Quarantine, UnviableKind, addUnviable, init
+from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
+  PayloadAttestationPool, addPayloadAttestation, init
+from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
+  SyncCommitteeMsgPool, init, addSyncCommitteeMessage, addContribution
 from ../../beacon_chain/consensus_object_pools/validator_change_pool import
   ValidatorChangePool, init, addMessage
+from ../../beacon_chain/spec/signatures_batch import BatchVerifier, init
+from ../testbcutil import addHeadBlock
 
 type
+  GossipBlock = object
+    name: string
+    failed: bool
+
   GossipMessage = object
     name: string
     time: BeaconTime
+    subnetId: uint64
     expected: ValidationResult
 
   GossipTestMeta = object
-    blocks: seq[string]
+    blocks: seq[GossipBlock]
     messages: seq[GossipMessage]
 
 func toValidationResult(expected: string): ValidationResult =
@@ -53,14 +68,20 @@ proc loadMeta(path: string): GossipTestMeta {.raises: [KeyError, ValueError].} =
   var res: GossipTestMeta
   if meta.hasKey"blocks":
     for blck in meta["blocks"]:
-      res.blocks.add blck["block"].getStr()
+      res.blocks.add GossipBlock(
+        name: blck["block"].getStr(),
+        failed: blck.hasKey"failed" and blck["failed"].getBool())
   for msg in meta["messages"]:
     res.messages.add GossipMessage(
       name: msg["message"].getStr(),
-      time: BeaconTime(ns_since_genesis:
-        (currentTimeMs + (
-          if msg.hasKey"offset_ms": msg["offset_ms"].getBiggestInt()
-          else: 0)).milliseconds.nanoseconds),
+      time: BeaconTime(ns_since_genesis: (
+        if msg.hasKey"current_time_ms": msg["current_time_ms"].getBiggestInt()
+        elif msg.hasKey"offset_ms":
+          currentTimeMs + msg["offset_ms"].getBiggestInt()
+        else: currentTimeMs).milliseconds.nanoseconds),
+      subnetId:
+        if msg.hasKey"subnet_id": msg["subnet_id"].getBiggestInt().uint64
+        else: 0,
       expected: msg["expected"].getStr().toValidationResult())
   res
 
@@ -72,8 +93,7 @@ proc initDag(
     db = BeaconChainDB.new("", cfg, inMemory = true)
     state = loadForkedState(path/"state.ssz_snappy", consensusFork)
 
-  doAssert meta.blocks.len == 1, "Only a single anchor block is supported"
-  let blck = loadBlock(path/meta.blocks[0] & ".ssz_snappy", consensusFork)
+  let blck = loadBlock(path/meta.blocks[0].name & ".ssz_snappy", consensusFork)
   doAssert blck.message.state_root == state[].root,
     "Anchor block state root must match anchor state"
 
@@ -88,55 +108,83 @@ proc initDag(
   let validatorMonitor = newClone(ValidatorMonitor.init(cfg))
   ChainDAGRef.init(cfg, db, validatorMonitor, {})
 
-template validatorChangeTest(
+func addBlockRef(dag: ChainDAGRef, root: Eth2Digest, slot: Slot) =
+  if dag.getBlockRef(root).isErr():
+    dag.forkBlocks.incl(KeyedBlockRef.init(BlockRef.init(dag.cfg, root, slot)))
+
+template gossipTest(
     suiteName, path: string, consensusFork: static ConsensusFork,
-    MsgType: typedesc, validate: untyped) =
+    MsgType: typedesc, validate, accept: untyped) =
   asyncTest $consensusFork & " - " & os_ops.splitPath(path).tail:
     let
       meta = loadMeta(path)
       dag {.inject, used.} = initDag(path, meta, consensusFork)
-      pool {.inject.} = newClone(ValidatorChangePool.init(dag))
       rng = HmacDrbgContext.new()
       taskpool = Taskpool.new()
       batchCrypto {.inject, used.} = BatchCrypto.new(
         rng, dag.cfg.timeParams, eager = proc(): bool = false,
-        genesis_validators_root = dag.genesis_validators_root, taskpool).expect(
-          "working batcher")
+        genesis_validators_root = dag.genesis_validators_root,
+        taskpool).expect("working batcher")
+      quarantine {.inject, used.} = newClone(Quarantine.init(dag.cfg))
+      pool {.inject, used.} = newClone(ValidatorChangePool.init(dag))
+      syncCommitteePool {.inject, used.} =
+        newClone(SyncCommitteeMsgPool.init(rng, dag.cfg))
+      ptcPool {.inject, used.} =
+        newClone(PayloadAttestationPool.init(dag))
     defer: dag.db.close()
+
+    var verifier = BatchVerifier.init(rng, taskpool)
+    for blck in meta.blocks.toOpenArray(1, meta.blocks.high):
+      let signedBlock = loadBlock(path/blck.name & ".ssz_snappy", consensusFork)
+      if blck.failed:
+        check quarantine[].addUnviable(
+          signedBlock.root, UnviableKind.Invalid) == UnviableKind.Invalid
+      else:
+        check dag.addHeadBlock(
+          verifier, signedBlock, OnBlockAdded[consensusFork](nil)).expect(
+            "block imports").root == signedBlock.root
 
     for msg in meta.messages:
       let
         message {.inject.} = parseTest(
           path/msg.name & ".ssz_snappy", SSZ, MsgType)
         wallTime {.inject, used.} = msg.time
-        res = validate
+        subcommitteeIdx {.inject, used.} =
+          SyncSubcommitteeIndex.init(msg.subnetId).expect("valid subnet id")
+      when MsgType is SyncCommitteeMessage:
+        dag.addBlockRef(message.beacon_block_root, message.slot)
+      elif MsgType is SignedContributionAndProof:
+        dag.addBlockRef(
+          message.message.contribution.beacon_block_root,
+          message.message.contribution.slot)
+      let res {.inject.} = validate
       if res.isOk:
-        when MsgType is SignedBLSToExecutionChange:
-          pool[].addMessage(message, localPriorityMessage = false)
-        else:
-          pool[].addMessage(message)
+        accept
 
       check (if res.isOk: ValidationResult.Accept else: res.error[0]) ==
         msg.expected
 
 proc runGossipVoluntaryExit(
     suiteName, path: string, consensusFork: static ConsensusFork) =
-  validatorChangeTest(
-    suiteName, path, consensusFork, SignedVoluntaryExit,
-    pool[].validateVoluntaryExit(message, wallTime))
+  gossipTest(
+      suiteName, path, consensusFork, SignedVoluntaryExit,
+      pool[].validateVoluntaryExit(message, wallTime)):
+    pool[].addMessage(message)
 
 proc runGossipProposerSlashing(
     suiteName, path: string, consensusFork: static ConsensusFork) =
-  validatorChangeTest(
-    suiteName, path, consensusFork, ProposerSlashing,
-    pool[].validateProposerSlashing(message))
+  gossipTest(
+      suiteName, path, consensusFork, ProposerSlashing,
+      pool[].validateProposerSlashing(message)):
+    pool[].addMessage(message)
 
 proc runGossipBlsToExecutionChange(
     suiteName, path: string, consensusFork: static ConsensusFork) =
-  validatorChangeTest(
-    suiteName, path, consensusFork, SignedBLSToExecutionChange,
-    await pool[].validateBlsToExecutionChange(
-      batchCrypto, message, wallTime.slotOrZero(dag.timeParams).epoch))
+  gossipTest(
+      suiteName, path, consensusFork, SignedBLSToExecutionChange,
+      await pool[].validateBlsToExecutionChange(
+        batchCrypto, message, wallTime.slotOrZero(dag.timeParams).epoch)):
+    pool[].addMessage(message, localPriorityMessage = false)
 
 proc runGossipAttesterSlashing(
     suiteName, path: string, consensusFork: static ConsensusFork) =
@@ -144,13 +192,44 @@ proc runGossipAttesterSlashing(
     type AttesterSlashing = gloas.AttesterSlashing
   else:
     type AttesterSlashing = electra.AttesterSlashing
-  validatorChangeTest(
-    suiteName, path, consensusFork, AttesterSlashing,
-    pool[].validateAttesterSlashing(message))
+  gossipTest(
+      suiteName, path, consensusFork, AttesterSlashing,
+      pool[].validateAttesterSlashing(message)):
+    pool[].addMessage(message)
+
+proc runGossipSyncCommitteeMessage(
+    suiteName, path: string, consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, SyncCommitteeMessage,
+      await dag.validateSyncCommitteeMessage(
+        quarantine, batchCrypto, syncCommitteePool, message,
+        subcommitteeIdx, wallTime, checkSignature = true)):
+    let (bid, sig, positions) = res.get()
+    syncCommitteePool[].addSyncCommitteeMessage(
+      message.slot, bid, message.validator_index, sig, subcommitteeIdx,
+      positions)
+
+proc runGossipSyncCommitteeContribution(
+    suiteName, path: string, consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, SignedContributionAndProof,
+      await dag.validateContribution(
+        quarantine, batchCrypto, syncCommitteePool, message, wallTime,
+        checkSignature = true)):
+    let (bid, sig, _) = res.get()
+    syncCommitteePool[].addContribution(message, bid, sig)
+
+proc runGossipPayloadAttestationMessage(
+    suiteName, path: string, consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, PayloadAttestationMessage,
+      await dag.validatePayloadAttestationMessage(
+        quarantine, ptcPool, batchCrypto, message, wallTime)):
+    check ptcPool[].addPayloadAttestation(message, wallTime)
 
 template gossipSuite(
-    suiteName: static[string], handler: static[string], runner: untyped) =
-  suite suiteName:
+    topic: static[string], handler: static[string], runner: untyped) =
+  suite "EF - Networking - Gossip - " & topic & preset():
     const presetPath = SszTestsDir/const_preset
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/"networking"/handler/"pyspec_tests"
@@ -169,14 +248,21 @@ template gossipSuite(
           discard
 
 gossipSuite(
-  "EF - Networking - Gossip - Voluntary Exit" & preset(),
-  "gossip_voluntary_exit", runGossipVoluntaryExit)
+  "Voluntary Exit", "gossip_voluntary_exit", runGossipVoluntaryExit)
 gossipSuite(
-  "EF - Networking - Gossip - Proposer Slashing" & preset(),
-  "gossip_proposer_slashing", runGossipProposerSlashing)
+  "Proposer Slashing", "gossip_proposer_slashing", runGossipProposerSlashing)
 gossipSuite(
-  "EF - Networking - Gossip - Attester Slashing" & preset(),
-  "gossip_attester_slashing", runGossipAttesterSlashing)
+  "Attester Slashing", "gossip_attester_slashing", runGossipAttesterSlashing)
 gossipSuite(
-  "EF - Networking - Gossip - BLS To Execution Change" & preset(),
-  "gossip_bls_to_execution_change", runGossipBlsToExecutionChange)
+  "BLS To Execution Change", "gossip_bls_to_execution_change",
+  runGossipBlsToExecutionChange)
+gossipSuite(
+  "Sync Committee Message", "gossip_sync_committee_message",
+  runGossipSyncCommitteeMessage)
+gossipSuite(
+  "Sync Committee Contribution And Proof",
+  "gossip_sync_committee_contribution_and_proof",
+  runGossipSyncCommitteeContribution)
+gossipSuite(
+  "Payload Attestation Message", "gossip_payload_attestation_message",
+  runGossipPayloadAttestationMessage)
