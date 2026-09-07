@@ -160,14 +160,14 @@ type
 
     # Networking
     # TODO MAX_PAYLOAD_SIZE*: uint64
-    # TODO MAX_REQUEST_BLOCKS*: uint64
-    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
+    MAX_REQUEST_BLOCKS*: uint64
+    EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
     MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
-    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY*: uint64
+    MAXIMUM_GOSSIP_CLOCK_DISPARITY*: uint64
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte]
     # TODO MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte]
-    # TODO SUBNETS_PER_NODE*: uint64
+    SUBNETS_PER_NODE*: uint64
     # TODO ATTESTATION_SUBNET_COUNT*: uint64
     # TODO ATTESTATION_SUBNET_EXTRA_BITS*: uint64
     # TODO ATTESTATION_SUBNET_PREFIX_BITS*: uint64
@@ -216,11 +216,15 @@ type
   PresetFileError* = object of CatchableError
   PresetIncompatibleError* = object of CatchableError
 
+func gossipClockDisparityDuration*(cfg: RuntimeConfig): Duration {.inline.} =
+  milliseconds(cfg.MAXIMUM_GOSSIP_CLOCK_DISPARITY.int64)
+
 const
   const_preset* {.strdefine.} = "mainnet"
 
   # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
+    "TERMINAL_BLOCK_HASH",  # legacy transition value; no longer consumed
     "TTFB_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "RESP_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "    MAX_BLOBS_PER_BLOCK",         # parsed separately
@@ -381,18 +385,18 @@ when const_preset == "mainnet":
     # `10 * 2**20` (= 10485760, 10 MiB)
     # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
-    # TODO MAX_REQUEST_BLOCKS: 1024,
+    MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
-    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
+    EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
-    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
+    MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
     # TODO MESSAGE_DOMAIN_VALID_SNAPPY: [byte 0x01, 0x00, 0x00, 0x00],
     # 2 subnets per node
-    # TODO SUBNETS_PER_NODE: 2,
+    SUBNETS_PER_NODE: 2,
     # 2**8 (= 64)
     # TODO ATTESTATION_SUBNET_COUNT: 64,
     # TODO ATTESTATION_SUBNET_EXTRA_BITS: 0,
@@ -601,18 +605,18 @@ elif const_preset == "gnosis":
     # `10 * 2**20` (= 10485760, 10 MiB)
     # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
-    # TODO MAX_REQUEST_BLOCKS: 1024,
+    MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
-    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
+    EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
-    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
+    MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
     # TODO MESSAGE_DOMAIN_VALID_SNAPPY: [byte 0x01, 0x00, 0x00, 0x00],
     # 2 subnets per node
-    # TODO SUBNETS_PER_NODE: 2,
+    SUBNETS_PER_NODE: 2,
     # 2**8 (= 64)
     # TODO ATTESTATION_SUBNET_COUNT: 64,
     # TODO ATTESTATION_SUBNET_EXTRA_BITS: 0,
@@ -816,18 +820,18 @@ elif const_preset == "minimal":
     # `10 * 2**20` (= 10485760, 10 MiB)
     # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
-    # TODO MAX_REQUEST_BLOCKS: 1024,
+    MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
-    # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
+    EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
     # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
-    # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
+    MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
     # TODO MESSAGE_DOMAIN_VALID_SNAPPY: [byte 0x01, 0x00, 0x00, 0x00],
     # 2 subnets per node
-    # TODO SUBNETS_PER_NODE: 2,
+    SUBNETS_PER_NODE: 2,
     # 2**8 (= 64)
     # TODO ATTESTATION_SUBNET_COUNT: 64,
     # TODO ATTESTATION_SUBNET_EXTRA_BITS: 0,
@@ -1138,14 +1142,9 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_PAYLOAD_SIZE
   checkCompatibility MAX_PAYLOAD_SIZE, "GOSSIP_MAX_SIZE"
   checkCompatibility MAX_PAYLOAD_SIZE, "MAX_CHUNK_SIZE"
-  checkCompatibility MAX_REQUEST_BLOCKS
-  checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
   checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
-  checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
-                     "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
   checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
   checkCompatibility MESSAGE_DOMAIN_VALID_SNAPPY
-  checkCompatibility SUBNETS_PER_NODE
   checkCompatibility ATTESTATION_SUBNET_COUNT
   checkCompatibility ATTESTATION_SUBNET_EXTRA_BITS
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
@@ -1295,6 +1294,19 @@ proc readRuntimeConfig*(
   checkParsedValue(
     "CONFIRMATION_BYZANTINE_THRESHOLD", cfg.CONFIRMATION_BYZANTINE_THRESHOLD,
     CONFIRMATION_BYZANTINE_THRESHOLD_RANGE, `in`)
+
+  # Networking
+  checkParsedValue(
+    "EPOCHS_PER_SUBNET_SUBSCRIPTION",
+    cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION,
+    1'u64 .. uint64.high, `in`)
+  checkParsedValue(
+    "MAXIMUM_GOSSIP_CLOCK_DISPARITY",
+    cfg.MAXIMUM_GOSSIP_CLOCK_DISPARITY,
+    0'u64 .. Duration.high.milliseconds.uint64, `in`)
+  checkParsedValue(
+    "SUBNETS_PER_NODE", cfg.SUBNETS_PER_NODE,
+    1'u64 .. ATTESTATION_SUBNET_COUNT, `in`)
 
   var unknowns: seq[string]
   for name in values.keys:

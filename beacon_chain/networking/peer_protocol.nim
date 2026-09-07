@@ -144,7 +144,7 @@ proc checkStatusMsg(state: PeerSyncNetworkState, status: StatusMsg | StatusMsgV2
   let
     dag = state.dag
     wallSlot = (
-      state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+      state.getBeaconTime() + state.cfg.gossipClockDisparityDuration
     ).slotOrZero(state.cfg.timeParams)
 
   if status.finalizedEpoch > status.headSlot.epoch:

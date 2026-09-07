@@ -645,7 +645,10 @@ proc initFullNode(
   let
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
-      ActionTracker.init(node.network.nodeId, config.subscribeAllSubnets),
+      ActionTracker.init(
+        node.network.nodeId, config.subscribeAllSubnets,
+        dag.cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        dag.cfg.SUBNETS_PER_NODE),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
     batchVerifier = BatchVerifier.new(rng, taskpool)
