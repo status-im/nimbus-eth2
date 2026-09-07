@@ -957,7 +957,7 @@ proc processPayloadAttestationMessage*(
   let
     wallTime = self.getCurrentBeaconTime()
     v = await validatePayloadAttestationMessage(
-      self.dag, self.payloadAttestationPool, self.batchCrypto,
+      self.dag, self.quarantine, self.payloadAttestationPool, self.batchCrypto,
       payload_attestation_message, wallTime, checkSignature)
 
   if v.isErr():
