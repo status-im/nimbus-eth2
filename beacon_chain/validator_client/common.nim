@@ -76,6 +76,7 @@ type
 
   DutiesServiceRef* = ref object of ClientServiceRef
     pollingAttesterDutiesTask*: Future[void]
+    pollingPtcDutiesTask*: Future[void]
     pollingSyncDutiesTask*: Future[void]
     fillingSelectionProofsTask*: Future[void]
     pruneSlashingDatabaseTask*: Future[void]
@@ -117,6 +118,10 @@ type
     epoch*: Epoch
     dependentRoot*: Eth2Digest
     duties*: seq[ProposerTask]
+
+  PtcDuties* = object
+    dependentRoot*: Eth2Digest
+    duties*: seq[RestPtcDuty]
 
   BeaconNodeRole* {.pure.} = enum
     Duties,
@@ -207,6 +212,7 @@ type
   SyncCommitteeDutiesMap* = Table[ValidatorPubKey, SyncPeriodDuties]
   ProposerMap* = Table[Epoch, ProposedData]
   SyncCommitteeProofsMap* = Table[Epoch, SyncCommitteeProofs]
+  PtcDutiesMap* = Table[Epoch, PtcDuties]
 
   DoppelgangerStatus* {.pure.} = enum
     None, Checking, Passed
@@ -253,10 +259,12 @@ type
     attesterDutiesInvalidationEvent*: AsyncEvent
     proposerDutiesInvalidationEvent*: AsyncEvent
     syncDutiesInvalidationEvent*: AsyncEvent
+    ptcDutiesInvalidationEvent*: AsyncEvent
     attesterDependentRoots*: Table[Epoch, Eth2Digest]
     proposerDependentRoots*: Table[Epoch, Eth2Digest]
     attesters*: AttesterMap
     proposers*: ProposerMap
+    ptcDuties*: PtcDutiesMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     syncCommitteeProofs*: SyncCommitteeProofsMap
     timeParams*: TimeParams
@@ -992,6 +1000,16 @@ proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
         res.add(duty[])
   res
 
+proc getPtcDutiesForSlot*(vc: ValidatorClientRef,
+                          slot: Slot): seq[RestPtcDuty] =
+  ## Returns all PTC duties for the given `slot`.
+  var res: seq[RestPtcDuty]
+  vc.ptcDuties.withValue(slot.epoch(), entry):
+    for duty in entry[].duties:
+      if duty.slot == slot:
+        res.add(duty)
+  res
+
 proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
                                     slot: Slot): seq[SyncCommitteeDuty] =
   ## Returns all `SyncCommitteeDuty` for the given `slot`.
@@ -1552,7 +1570,8 @@ proc registerHead*(
       epoch: Epoch, dependentRoot: Eth2Digest): bool =
     dependentRoots.getOrDefault(epoch, dependentRoot) != dependentRoot
 
-  if not(vc.attesterDutiesInvalidationEvent.isSet()):
+  if not(vc.attesterDutiesInvalidationEvent.isSet()) or
+     not(vc.ptcDutiesInvalidationEvent.isSet()):
     let didInvalidate =
       if nextEpoch == headEpoch:
         vc.attesterDependentRoots.didInvalidate(
@@ -1575,9 +1594,10 @@ proc registerHead*(
       else:
         false
     if didInvalidate:
-      debug "Attester duties invalidated by head event",
+      debug "Attester and PTC duties invalidated by head event",
             head_slot = head.slot, block_root = shortLog(head.block_root)
       vc.attesterDutiesInvalidationEvent.fire()
+      vc.ptcDutiesInvalidationEvent.fire()
 
   if not(vc.proposerDutiesInvalidationEvent.isSet()):
     let didInvalidate =
