@@ -19,6 +19,8 @@ import
   ../beacon_chain/spec/presets,
   ../beacon_chain/consensus_object_pools/partial_column_quarantine
 
+from ../beacon_chain/spec/datatypes/fulu import ColumnIndex
+
 func genDigest(index: int): Eth2Digest =
   let tmp = uint64(index).toBytesLE()
   copyMem(addr result.data[0], addr tmp[0], sizeof(uint64))

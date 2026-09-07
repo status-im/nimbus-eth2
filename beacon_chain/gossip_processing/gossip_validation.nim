@@ -162,9 +162,8 @@ func check_slot_exact(
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Sync committee slot in the future")
 
-  let pastSlot =
-    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
-  if pastSlot.afterGenesis and msgSlot < pastSlot.slot:
+  if (msgSlot + 1).start_beacon_time(timeParams) +
+      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
     return errIgnore("Sync committee slot in the past")
 
   ok(msgSlot)
@@ -1575,26 +1574,24 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/capella/p2p-interface.md#new-bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,
     wallEpoch: Epoch): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
-  # [IGNORE] `current_epoch >= CAPELLA_FORK_EPOCH`, where `current_epoch` is
-  # defined by the current wall-clock time.
+  # [IGNORE] The current epoch is at or after the Capella fork epoch
   if not (wallEpoch >= pool.dag.cfg.CAPELLA_FORK_EPOCH):
-    return errIgnore(
-      "SignedBLSToExecutionChange: not accepting gossip until Capella")
+    return errIgnore("SignedBLSToExecutionChange: current epoch is pre-capella")
 
-  # [IGNORE] The `signed_bls_to_execution_change` is the first valid signed bls
-  # to execution change received for the validator with index
-  # `signed_bls_to_execution_change.message.validator_index`.
+  # [IGNORE] This is the first valid bls_to_execution_change received for the validator
   if pool.isSeen(signed_address_change):
     return errIgnore(
-      "SignedBLSToExecutionChange: not first valid change for validator index")
+      "SignedBLSToExecutionChange: already seen BLS to execution change for this validator")
 
-  # [REJECT] All of the conditions within `process_bls_to_execution_change`
-  # pass validation.
+  # [REJECT] The validator index is valid
+  # [REJECT] The validator has BLS withdrawal credentials
+  # [REJECT] The bls_to_execution_change is for the validator's withdrawal pubkey
+  # [REJECT] The signature is valid
   withState(pool.dag.headState):
     when consensusFork < ConsensusFork.Capella:
       return errIgnore(
@@ -1616,7 +1613,7 @@ proc validateBlsToExecutionChange*(
       case await cryptoFut
       of BatchResult.Invalid:
         return pool.checkedReject(
-          "SignedBLSToExecutionChange: invalid signature")
+          "SignedBLSToExecutionChange: invalid BLS to execution change signature")
       of BatchResult.Timeout:
         return errIgnore(
           "SignedBLSToExecutionChange: timeout checking signature")
@@ -1629,21 +1626,22 @@ proc validateBlsToExecutionChange*(
 
   return ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ValidatorChangePool,
     attester_slashing: electra.AttesterSlashing | gloas.AttesterSlashing
 ): Result[void, ValidationError] =
-  # [IGNORE] At least one index in the intersection of the attesting indices of
-  # each attestation has not yet been seen in any prior attester_slashing (i.e.
-  # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
-  # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
+  # [IGNORE] At least one index in the intersection has not yet been seen
   if pool.isSeen(attester_slashing):
     return errIgnore(
-      "AttesterSlashing: attester-slashed index already attester-slashed")
+      "AttesterSlashing: all attester slashing indices already seen")
 
-  # [REJECT] All of the conditions within process_attester_slashing pass
-  # validation.
+  # [REJECT] The attestation data is slashable (double vote or surround vote)
+  # [REJECT] All validator indices in the first indexed attestation are valid
+  # [REJECT] The first indexed attestation has valid properties
+  # [REJECT] All validator indices in the second indexed attestation are valid
+  # [REJECT] The second indexed attestation has valid properties
+  # [REJECT] At least one validator in the intersection is slashable
   let attester_slashing_validity =
     check_attester_slashing(pool.dag.headState, attester_slashing, {})
   if attester_slashing_validity.isErr:
@@ -1659,7 +1657,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ValidatorChangePool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -1667,15 +1665,17 @@ proc validateProposerSlashing*(
   if proposer_slashing.signed_header_1.message.proposer_index > int.high.uint64:
     return errIgnore("ProposerSlashing: proposer-slashed index too high")
 
-  # [IGNORE] The proposer slashing is the first valid proposer slashing
-  # received for the proposer with index
-  # proposer_slashing.signed_header_1.message.proposer_index.
+  # [IGNORE] The proposer slashing is the first valid proposer slashing received for this proposer
   if pool.isSeen(proposer_slashing):
     return errIgnore(
-      "ProposerSlashing: proposer-slashed index already proposer-slashed")
+      "ProposerSlashing: already seen proposer slashing for this proposer")
 
-  # [REJECT] All of the conditions within process_proposer_slashing
-  # pass validation.
+  # [REJECT] The header slots match
+  # [REJECT] The header proposer indices match
+  # [REJECT] The headers are different
+  # [REJECT] The proposer index is a valid validator index
+  # [REJECT] The proposer is slashable
+  # [REJECT] The signatures are valid
   let proposer_slashing_validity =
     check_proposer_slashing(pool.dag.headState, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
@@ -1687,30 +1687,57 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
-    pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit):
-    Result[void, ValidationError] =
-  # [IGNORE] The voluntary exit is the first valid voluntary exit received for
-  # the validator with index signed_voluntary_exit.message.validator_index.
-  if signed_voluntary_exit.message.validator_index >=
-      pool.dag.headState.validators.lenu64:
-    return errIgnore("VoluntaryExit: validator index too high")
+    pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  template voluntary_exit: untyped = signed_voluntary_exit.message
 
-  # Given that pool.dag.headState.validators is a seq,
-  # signed_voluntary_exit.message.validator_index.int is already valid, but
-  # check explicitly if one changes that data structure.
+  # [IGNORE] The voluntary exit is the first valid voluntary exit received for the validator
   if pool.isSeen(signed_voluntary_exit):
     return errIgnore(
-      "VoluntaryExit: validator index already voluntarily exited")
+      "VoluntaryExit: already seen voluntary exit for this validator")
 
-  # [REJECT] All of the conditions within process_voluntary_exit pass
-  # validation.
-  let voluntary_exit_validity =
-    check_voluntary_exit(
-      pool.dag.cfg, pool.dag.headState, signed_voluntary_exit, {})
-  if voluntary_exit_validity.isErr:
-    return pool.checkedReject(voluntary_exit_validity.error)
+  # [IGNORE] The voluntary exit epoch is not in the future
+  block:
+    let futureSlot =
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(pool.dag.timeParams)
+    if not futureSlot.afterGenesis or
+        voluntary_exit.epoch > futureSlot.slot.epoch:
+      return errIgnore("VoluntaryExit: voluntary exit epoch is in the future")
+
+  # [REJECT] The validator index is valid
+  if voluntary_exit.validator_index >= pool.dag.headState.validators.lenu64:
+    return pool.checkedReject("VoluntaryExit: validator index out of range")
+
+  withState(pool.dag.headState):
+    let
+      validator = addr forkyState.data.validators.item(
+        voluntary_exit.validator_index)
+      current_epoch = get_current_epoch(forkyState.data)
+
+    # [IGNORE] The validator has not already initiated exit
+    if validator[].exit_epoch != FAR_FUTURE_EPOCH:
+      return errIgnore("VoluntaryExit: validator has already initiated exit")
+
+    # [REJECT] The validator is active
+    if not is_active_validator(validator[], current_epoch):
+      return pool.checkedReject("VoluntaryExit: validator is not active")
+
+    # [REJECT] The validator has been active long enough
+    if current_epoch <
+        validator[].activation_epoch + pool.dag.cfg.SHARD_COMMITTEE_PERIOD:
+      return pool.checkedReject(
+        "VoluntaryExit: validator has not been active long enough")
+
+    # [REJECT] The signature is valid
+    let voluntary_exit_fork = consensusFork.voluntary_exit_signature_fork(
+      forkyState.data.fork, pool.dag.cfg.CAPELLA_FORK_VERSION)
+    if not verify_voluntary_exit_signature(
+        voluntary_exit_fork, forkyState.data.genesis_validators_root,
+        voluntary_exit, validator[].pubkey, signed_voluntary_exit.signature):
+      return pool.checkedReject(
+        "VoluntaryExit: invalid voluntary exit signature")
 
   # Send notification about new voluntary exit via callback
   if not(isNil(pool.onVoluntaryExitReceived)):
@@ -1718,7 +1745,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/p2p-interface.md#new-sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
@@ -1730,25 +1757,20 @@ proc validateSyncCommitteeMessage*(
     checkSignature: bool):
     Future[Result[
       (BlockId, CookedSig, seq[uint64]), ValidationError]] {.async: (raises: [CancelledError]).} =
-  block:
-    # [IGNORE] The message's slot is for the current slot (with a
-    # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
-    # `sync_committee_message.slot == current_slot`.
-    let v = dag.timeParams.check_slot_exact(msg.slot, wallTime)
-    if v.isErr():
-      return err(v.error())
+  # [IGNORE] The message's slot is for the current slot
+  dag.timeParams.check_slot_exact(msg.slot, wallTime).isOkOr:
+    return err(error)
 
+  # [REJECT] The validator index is valid
   # [REJECT] The subnet_id is valid for the given validator
-  # i.e. subnet_id in compute_subnets_for_sync_committee(state, sync_committee_message.validator_index).
-  # Note this validation implies the validator is part of the broader
-  # current sync committee along with the correct subcommittee.
-  # This check also ensures that the validator index is in range
+  # (this implies the validator is part of the broader current sync committee
+  # along with the correct subcommittee)
   let positionsInSubcommittee = dag.getSubcommitteePositions(
     msg.slot + 1, subcommitteeIdx, msg.validator_index)
 
   if positionsInSubcommittee.len == 0:
     return dag.checkedReject(
-      "SyncCommitteeMessage: originator not part of sync committee")
+      "SyncCommitteeMessage: subnet_id is not valid for the validator")
 
   # [IGNORE] The block being signed (`sync_committee_message.beacon_block_root`)
   # has been seen (via both gossip and non-gossip sources) (a client MAY queue
@@ -1760,22 +1782,20 @@ proc validateSyncCommitteeMessage*(
     blck = dag.getBlockRef(blockRoot).valueOr:
       return quarantine[].addMissingValid(blockRoot, "SyncCommitteeMessage: target")
 
-  block:
-    # [IGNORE] There has been no other valid sync committee message for the
-    # declared `slot` for the validator referenced by
-    # `sync_committee_message.validator_index`
-    #
-    # Note this validation is per topic so that for a given slot, multiple
-    # messages could be forwarded with the same validator_index as long as
-    # the subnet_ids are distinct.
-    if syncCommitteeMsgPool[].isSeen(msg, subcommitteeIdx, dag.head.bid):
-      return errIgnore("SyncCommitteeMessage: duplicate message")
+  # [IGNORE] There has been no other valid sync committee message for the
+  # declared slot for the validator referenced by
+  # sync_committee_message.validator_index (this validation is per topic so
+  # that for a given slot, multiple messages could be forwarded with the same
+  # validator_index as long as the subnet_ids are distinct)
+  if syncCommitteeMsgPool[].isSeen(msg, subcommitteeIdx, dag.head.bid):
+    return errIgnore(
+      "SyncCommitteeMessage: already seen message from this validator for this slot and subnet")
 
-  # [REJECT] The signature is valid for the message beacon_block_root for the
-  # validator referenced by validator_index.
+  # [REJECT] The signature is valid
   let
     senderPubKey = dag.validatorKey(msg.validator_index).valueOr:
-      return dag.checkedReject("SyncCommitteeMessage: invalid validator index")
+      return dag.checkedReject(
+        "SyncCommitteeMessage: validator index out of range")
 
   let sig =
     if checkSignature:
@@ -1795,7 +1815,8 @@ proc validateSyncCommitteeMessage*(
       let x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
-        return dag.checkedReject("SyncCommitteeMessage: invalid signature")
+        return dag.checkedReject(
+          "SyncCommitteeMessage: invalid sync committee message signature")
       of BatchResult.Timeout:
         beacon_sync_messages_dropped_queue_full.inc()
         return errIgnore("SyncCommitteeMessage: timeout checking signature")
@@ -1806,9 +1827,9 @@ proc validateSyncCommitteeMessage*(
         return dag.checkedReject(
           "SyncCommitteeMessage: unable to load signature")
 
-  return ok((blck.bid, sig, positionsInSubcommittee))
+  ok((blck.bid, sig, positionsInSubcommittee))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/p2p-interface.md#new-sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
@@ -1819,50 +1840,41 @@ proc validateContribution*(
     checkSignature: bool
 ): Future[Result[
     (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async: (raises: [CancelledError]).} =
-  block:
-    # [IGNORE] The contribution's slot is for the current slot
-    # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
-    # i.e. contribution.slot == current_slot.
-    let v = dag.timeParams.check_slot_exact(
-      msg.message.contribution.slot, wallTime)
-    if v.isErr():  # [IGNORE]
-      return err(v.error())
+  # [IGNORE] The contribution's slot is for the current slot
+  dag.timeParams.check_slot_exact(
+      msg.message.contribution.slot, wallTime).isOkOr:
+    return err(error)
 
   # [REJECT] The subcommittee index is in the allowed range
-  # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
   let subcommitteeIdx = SyncSubcommitteeIndex.init(
       msg.message.contribution.subcommittee_index).valueOr:
-    return dag.checkedReject("Contribution: subcommittee index too high")
+    return dag.checkedReject("Contribution: subcommittee index out of range")
 
   # [REJECT] The contribution has participants
-  # that is, any(contribution.aggregation_bits).
   if msg.message.contribution.aggregation_bits.isZeros:
-    return dag.checkedReject("Contribution: aggregation bits empty")
+    return dag.checkedReject("Contribution: contribution has no participants")
 
-  # [REJECT] contribution_and_proof.selection_proof selects the validator
-  # as an aggregator for the slot
-  # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof)
-  # returns True.
+  # [REJECT] The selection_proof selects the validator as an aggregator for
+  # the slot
   if not is_sync_committee_aggregator(msg.message.selection_proof):
-    return dag.checkedReject("Contribution: invalid selection_proof")
+    return dag.checkedReject(
+      "Contribution: validator is not selected as aggregator")
 
-  # [IGNORE] The sync committee contribution is the first valid
-  # contribution received for the aggregator with index
-  # contribution_and_proof.aggregator_index for the slot contribution.slot
-  # and subcommittee index contribution.subcommittee_index
-  # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
-  #  topic that can be flushed after each slot).
+  # [IGNORE] The sync committee contribution is the first valid contribution
+  # received for the slot contribution.slot, aggregator with index
+  # contribution_and_proof.aggregator_index, and subcommittee index
+  # contribution.subcommittee_index
   if syncCommitteeMsgPool[].isSeen(msg.message):
-    return errIgnore("Contribution: validator has already aggregated in slot")
+    return errIgnore(
+      "Contribution: already seen contribution from this aggregator")
 
+  # [REJECT] The aggregator index is valid
   # [REJECT] The aggregator's validator index is in the declared subcommittee
-  # of the current sync committee.
-  # i.e. state.validators[contribution_and_proof.aggregator_index].pubkey in
-  #      get_sync_subcommittee_pubkeys(state, contribution.subcommittee_index).
+  # of the current sync committee
   let
     aggregator_index =
       ValidatorIndex.init(msg.message.aggregator_index).valueOr:
-        return dag.checkedReject("Contribution: invalid aggregator index")
+        return dag.checkedReject("Contribution: aggregator index out of range")
     # TODO we take a copy of the participants to avoid the data going stale
     #      between validation and use - nonetheless, a design that avoids it and
     #      stays safe would be nice
@@ -1882,11 +1894,11 @@ proc validateContribution*(
     blck = dag.getBlockRef(blockRoot).valueOr:
       return quarantine[].addMissingValid(blockRoot, "Contribution: target")
 
-  # [IGNORE] A valid sync committee contribution with equal `slot`,
-  # `beacon_block_root` and `subcommittee_index` whose `aggregation_bits`
-  # is non-strict superset has _not_ already been seen.
+  # [IGNORE] A valid sync committee contribution with equal slot,
+  # beacon_block_root and subcommittee_index whose aggregation_bits is
+  # non-strict superset has not already been seen
   if syncCommitteeMsgPool[].covers(msg.message.contribution, blck.bid):
-    return errIgnore("Contribution: already covered")
+    return errIgnore("Contribution: already seen contribution for this data")
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
@@ -1900,7 +1912,7 @@ proc validateContribution*(
 
     block:
       # [REJECT] The aggregator signature,
-      # `signed_contribution_and_proof.signature`, is valid.
+      # signed_contribution_and_proof.signature, is valid
       let x = await aggregatorFut
       case x
       of BatchResult.Invalid:
@@ -1914,14 +1926,15 @@ proc validateContribution*(
         discard
 
     block:
-      # [REJECT] The `contribution_and_proof.selection_proof`
-      # is a valid signature of the `SyncAggregatorSelectionData`
-      # derived from the `contribution` by the validator with index
-      # `contribution_and_proof.aggregator_index`.
+      # [REJECT] The contribution_and_proof.selection_proof is a valid
+      # signature of the SyncAggregatorSelectionData derived from the
+      # contribution by the validator with index
+      # contribution_and_proof.aggregator_index
       let x = await proofFut
       case x
       of BatchResult.Invalid:
-        return dag.checkedReject("Contribution: invalid proof")
+        return dag.checkedReject(
+          "Contribution: invalid selection proof signature")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
         return errIgnore("Contribution: timeout checking proof")
@@ -1930,14 +1943,13 @@ proc validateContribution*(
 
     block:
       # [REJECT] The aggregate signature is valid for the message
-      # `beacon_block_root` and aggregate pubkey derived from the
-      # participation info in `aggregation_bits` for the subcommittee
-      # specified by the `contribution.subcommittee_index`.
+      # beacon_block_root and aggregate pubkey derived from the participation
+      # info in aggregation_bits for the subcommittee specified by the
+      # contribution.subcommittee_index
       let x = await contributionFut
       case x
       of BatchResult.Invalid:
-        return dag.checkedReject(
-          "Contribution: invalid contribution signature")
+        return dag.checkedReject("Contribution: invalid aggregate signature")
       of BatchResult.Timeout:
         beacon_contributions_dropped_queue_full.inc()
         return errIgnore(
@@ -1947,9 +1959,9 @@ proc validateContribution*(
     sig
   else:
     msg.message.contribution.signature.load().valueOr:
-      return dag.checkedReject("SyncCommitteeMessage: unable to load signature")
+      return dag.checkedReject("Contribution: unable to load signature")
 
-  return ok((blck.bid, sig, participants))
+  ok((blck.bid, sig, participants))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
@@ -2078,6 +2090,11 @@ proc validateExecutionPayloadBid*(
       if not (bid.slot > parentBlck.slot):
         return errReject("ExecutionPayloadBid: slot not greater than parent's")
 
+      # [REJECT] The bid's block hash is not equal to its parent block hash
+      if bid.block_hash == bid.parent_block_hash:
+        return dag.checkedReject(
+          "ExecutionPayloadBid: block hash equals parent block hash")
+
       # [IGNORE] this bid is the highest value bid seen for the tuple
       # `(bid.slot, bid.parent_block_hash, bid.parent_block_root)`.
       let
@@ -2193,9 +2210,10 @@ the block up to the current slot as determined by the fork choice.
       dag.checkedReject(
         "ExecutionPayloadBid: only valid for Gloas fork or later")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-payload_attestation_message
 proc validatePayloadAttestationMessage*(
     dag: ChainDAGRef,
+    quarantine: ref Quarantine,
     payloadAttestationPool: ref PayloadAttestationPool,
     batchCrypto: ref BatchCrypto,
     payload_attestation_message: PayloadAttestationMessage,
@@ -2205,38 +2223,32 @@ proc validatePayloadAttestationMessage*(
      void, ValidationError]] {.async: (raises: [CancelledError]).} =
   template data: untyped = payload_attestation_message.data
 
-  # [IGNORE] The message's slot is for the current slot (with a
-  # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e `data.slot == current_slot`.
-  block:
-    let v = dag.timeParams.check_slot_exact(data.slot, wallTime)
-    if v.isErr():
-      return err(v.error())
+  # [IGNORE] The payload attestation's slot is for the current slot
+  dag.timeParams.check_slot_exact(data.slot, wallTime).isOkOr:
+    return err(error)
 
-  # [IGNORE] The `payload_attestaion_message`is the first valid message
-  # received from the validator with index `paylod_attestation_message.validator_index`.
+  # [IGNORE] This is the first valid payload attestation from this validator
+  # index
   if payloadAttestationPool[].isSeen(payload_attestation_message):
     return errIgnore("PayloadAttestationMessage: duplicate message from validator")
 
-  # [IGNORE] The message's block `data.beacon_block_root` has been seen (via
-  # gossip or non-gossip sources)
+  # [IGNORE] The payload attestation's block has been seen (via gossip or
+  # non-gossip sources) (MAY be queued until block is retrieved)
+  # [REJECT] The payload attestation's block passes validation
   let attestedBlck = dag.getBlockRef(data.beacon_block_root).valueOr:
-    return errIgnore("PayloadAttestationMessage: block not found")
+    return quarantine[].addMissingValid(
+      data.beacon_block_root, "PayloadAttestationMessage: block")
 
-  # [IGNORE] The block referenced by `data.beacon_block_root` is at slot
-  # `data.slot` -- i.e. `block.slot == data.slot`.
+  # [IGNORE] The payload attestation's block is at the assigned slot
   if attestedBlck.bid.slot != data.slot:
     return errIgnore("PayloadAttestationMessage: block slot mismatch")
 
-  # [REJECT] The message's block `data.beacon_block_root` passes validation.
-  # Should have been validatied by getNBlockRef above
-
+  # [REJECT] The validator index is valid
   let vidx = ValidatorIndex.init(payload_attestation_message.validator_index).valueOr:
     return dag.checkedReject(
       "PayloadAttestationMessage: invalid validator index")
 
-  # [REJECT] The message's validator index is within the payload committee in
-  # `get_ptc(state, data.slot)`. The `state` is the head state corresponding to
-  # processing the block up to the current slot as determined by fork choice
+  # [REJECT] The validator is a member of the payload timeliness committee
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       var present = false
@@ -2252,27 +2264,24 @@ proc validatePayloadAttestationMessage*(
       return dag.checkedReject(
         "PayloadAttestationMessage: only valid for Gloas fork")
 
-  # [REJECT] `payload_attestation_message.signature` is valid with respect
-  # to the validator's public key.
+  # [REJECT] The signature is valid
   if checkSignature:
-    let
-      senderPubKey = dag.validatorKey(vidx).valueOr:
-        return dag.checkedReject(
-          "PayloadAttestationMessage: invalid validator index")
-      fork = dag.forkAtEpoch(data.slot.epoch)
+    let senderPubKey = dag.validatorKey(vidx).valueOr:
+      return dag.checkedReject(
+        "PayloadAttestationMessage: invalid validator index")
 
     let deferredCrypto = batchCrypto.schedulePayloadAttestationCheck(
-      fork, dag.genesis_validators_root, payload_attestation_message,
-      senderPubKey, payload_attestation_message.signature)
+      dag.forkAtEpoch(data.slot.epoch), dag.genesis_validators_root,
+      payload_attestation_message, senderPubKey,
+      payload_attestation_message.signature)
     if deferredCrypto.isErr():
       return dag.checkedReject(deferredCrypto.error)
 
     let (cryptoFut, _) = deferredCrypto.get()
-    let x = await cryptoFut
-    case x
+    case await cryptoFut
     of BatchResult.Invalid:
       return dag.checkedReject(
-        "PayloadAttestatoinMessage: invalid signature")
+        "PayloadAttestationMessage: invalid signature")
     of BatchResult.Timeout:
       return errIgnore(
         "PayloadAttestationMessage: timeout checking signature")

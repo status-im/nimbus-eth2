@@ -291,7 +291,8 @@ proc addTestEngineBlock*(
 
     eps =
       when consensusFork >= ConsensusFork.Bellatrix:
-        if state.data.slot > cfg.lastPremergeSlotInTestCfg:
+        if consensusFork >= ConsensusFork.Gloas or
+            state.data.slot > cfg.lastPremergeSlotInTestCfg:
           makeExecutionPayloadForSigning(
             cfg, consensusFork, state.data, blobs_bundle,
             should_extend_payload)

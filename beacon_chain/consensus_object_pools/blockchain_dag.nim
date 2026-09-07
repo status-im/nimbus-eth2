@@ -136,13 +136,15 @@ func get_fork_choice_balances*(
         else:
           distinctBase(validator[].effective_balance))
 
-proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
+proc updateValidatorKeys*(
+    dag: ChainDAGRef, validators: openArray[Validator],
+    afterCapella: static bool) =
   # Update validator key cache - must be called every time a valid block is
   # applied to the state - this is important to ensure that when we sync blocks
   # without storing a state (non-epoch blocks essentially), the deposits from
   # those blocks are persisted to the in-database cache of immutable validator
   # data (but no earlier than that the whole block as been validated)
-  dag.db.updateImmutableValidators(validators)
+  dag.db.updateImmutableValidators(validators, afterCapella)
 
 proc updateFinalizedBlocks*(db: BeaconChainDB, newFinalized: openArray[BlockId]) =
   if db.db.readOnly: return # TODO abstraction leak - where to put this?
@@ -1634,7 +1636,9 @@ proc init*(
 
   # Fill validator key cache in case we're loading an old database that doesn't
   # have a cache
-  dag.updateValidatorKeys(dag.headState.validators)
+  withState(dag.headState):
+    dag.updateValidatorKeys(
+      forkyState.data.validators.asSeq, consensusFork >= ConsensusFork.Capella)
 
   # Initialize pruning such that when starting with a database that hasn't been
   # pruned, we work our way from the tail to the horizon in incremental steps

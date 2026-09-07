@@ -45,6 +45,7 @@ AllTests-mainnet
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + head blocks roundtrip [Preset: mainnet]                                                    OK
++ pre-Capella withdrawal credentials [Preset: mainnet]                                       OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check altair blocks [Preset: mainnet]                                               OK
 + sanity check altair states [Preset: mainnet]                                               OK
@@ -764,7 +765,7 @@ AllTests-mainnet
 + Removing entry does not remove group id                                                    OK
 + Removing group id does not remove entries                                                  OK
 + addCells accumulates across multiple sidecars                                              OK
-+ addCells ingests cells from a PartialDataColumnSidecar                                     OK
++ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
@@ -785,7 +786,7 @@ AllTests-mainnet
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
 + hasCellReceived for out-of-bounds index returns false                                      OK
-+ isComplete becomes true after incremental addCells                                         OK
++ isComplete and assembleDataColumnSidecar (gloas)                                           OK
 + isComplete returns false for non-existent entry                                            OK
 + isComplete returns false when cells are missing                                            OK
 + isComplete returns false when group id not validated                                       OK
@@ -851,6 +852,7 @@ AllTests-mainnet
 + KzgProof                                                                                   OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
++ VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
