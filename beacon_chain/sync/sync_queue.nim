@@ -758,6 +758,15 @@ proc push*[T](sq: SyncQueue[T], requests: openArray[SyncRequest[T]]) =
       continue
     sq.del(pos)
 
+    if pos.qindex == 0 and len(sq.requests[0].requests) == 0:
+      debug "Failed head request left no active requests, resetting queue",
+            request = request,
+            sync_ident = sq.ident,
+            direction = sq.kind,
+            topics = "syncman"
+      sq.clearAndWakeup()
+      return
+
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   ## Push single failed request back to queue.
   sq.push([sr])

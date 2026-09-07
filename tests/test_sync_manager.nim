@@ -130,6 +130,26 @@ proc setupVerifier(
 
   (collector(aq), verifier(aq))
 
+func acceptingLivenessVerifier(): BlockVerifier =
+  proc verify(
+      signedBlock: ForkedSignedBeaconBlock,
+      blobs: Opt[BlobSidecars],
+      maybeFinalized: bool
+  ): Future[Result[void, VerifierError]] {.
+    async: (raises: [CancelledError], raw: true).} =
+    discard signedBlock
+    discard blobs
+    discard maybeFinalized
+
+    let fut =
+      Future[Result[void, VerifierError]].Raising([CancelledError]).init()
+
+    fut.complete(Result[void, VerifierError].ok())
+    fut
+
+  verify
+
+
 suite "SyncManager test suite":
   for kind in [SyncQueueKind.Forward, SyncQueueKind.Backward]:
     asyncTest "[SyncQueue# & " & $kind & "] Smoke [single peer] test":
@@ -409,6 +429,110 @@ suite "SyncManager test suite":
         sq.push(r13)
 
       await noCancel wait(verifier.verifier, 2.seconds)
+
+    asyncTest "[SyncQueue# & " & $kind &
+              "] Failed sole head request wakes blocked later pushes":
+      # A failed sole request for the head range must not leave successful
+      # later-range pushes blocked indefinitely. Those pushes need to return
+      # so their workers can release their peers and retry the missing head.
+      let
+        sq =
+          case kind
+          of SyncQueueKind.Forward:
+            SyncQueue.init(
+              SomeTPeer,
+              kind,
+              Slot(0),
+              Slot(127),
+              32'u64,
+              1, # one request per range
+              2,
+              getStaticSlotCb(Slot(0)),
+              acceptingLivenessVerifier(),
+              testforkAtEpoch
+            )
+          of SyncQueueKind.Backward:
+            SyncQueue.init(
+              SomeTPeer,
+              kind,
+              Slot(127),
+              Slot(0),
+              32'u64,
+              1, # one request per range
+              2,
+              getStaticSlotCb(Slot(127)),
+              acceptingLivenessVerifier(),
+              testforkAtEpoch
+            )
+
+        peer0 = SomeTPeer.init("head")
+        peer1 = SomeTPeer.init("later-1")
+        peer2 = SomeTPeer.init("later-2")
+        peer3 = SomeTPeer.init("later-3")
+
+        r0 = sq.pop(Slot(127), peer0)
+        r1 = sq.pop(Slot(127), peer1)
+        r2 = sq.pop(Slot(127), peer2)
+        r3 = sq.pop(Slot(127), peer3)
+
+        d1 = createChain(r1.data)
+        d2 = createChain(r2.data)
+        d3 = createChain(r3.data)
+
+        startSlot =
+          case kind
+          of SyncQueueKind.Forward:
+            Slot(0)
+          of SyncQueueKind.Backward:
+            Slot(127)
+
+      check:
+        not r0.isEmpty()
+        not r1.isEmpty()
+        not r2.isEmpty()
+        not r3.isEmpty()
+
+      let
+        f1 = sq.push(r1, d1, Opt.none(seq[BlobSidecars]))
+        f2 = sq.push(r2, d2, Opt.none(seq[BlobSidecars]))
+        f3 = sq.push(r3, d3, Opt.none(seq[BlobSidecars]))
+
+      # Give all speculative pushes time to reach queue backpressure.
+      await sleepAsync(20.milliseconds)
+
+      check:
+        f1.finished == false
+        f2.finished == false
+        f3.finished == false
+
+      # The sole request serving the queue head fails.
+      sq.push(r0)
+
+      # Correct behavior: queue reset/wakeup lets speculative pushes return.
+      await sleepAsync(20.milliseconds)
+
+      let speculativePushesReleased =
+        f1.finished and f2.finished and f3.finished
+
+      check speculativePushesReleased
+
+      # Keep RED execution bounded on the currently vulnerable implementation.
+      if not speculativePushesReleased:
+        sq.clearAndWakeup()
+
+      await noCancel f1
+      await noCancel f2
+      await noCancel f3
+
+      # Recovery must retry the same head range rather than skipping it.
+      let refill = sq.pop(Slot(127), peer0)
+
+      check:
+        refill.data == r0.data
+        sq.outSlot == startSlot
+
+      sq.clearAndWakeup()
+
 
     asyncTest "[SyncQueue# & " & $kind & "] Invalid block [3 peers] test":
       # This scenario performs test for 2 cases.
