@@ -1642,7 +1642,8 @@ proc getValidatorBuilderConfig*(
 
   for i in 0 ..< len(res.builders):
     if res.builders[i].auth_data.isNone():
-      res.builders[i].auth_data = Opt.some(res.builders[i].url)
+      res.builders[i].auth_data =
+        Opt.some(BuilderRequestAuthData.init(toBytes(res.builders[i].url)))
     if res.builders[i].min_bid.isNone():
       res.builders[i].min_bid = Opt.some(res.min_bid)
     if res.builders[i].builder_boost_factor.isNone():

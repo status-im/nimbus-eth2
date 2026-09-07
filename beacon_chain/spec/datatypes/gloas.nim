@@ -33,6 +33,7 @@ from ./capella import
   ExecutionBranch, HistoricalSummary,
   SignedBLSToExecutionChange, Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs
+from ../mev/gloas_mev import BuilderRequestAuthData
 
 export json_serialization, base
 
@@ -702,7 +703,7 @@ type
   # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L54-L137
   BuilderEntry* = object
     url*: string
-    auth_data*: Opt[string]
+    auth_data*: Opt[BuilderRequestAuthData]
     builder_pubkeys*: Opt[seq[ValidatorPubKey]]
     max_execution_payment*: Opt[Gwei]
     min_bid*: Opt[Gwei]
