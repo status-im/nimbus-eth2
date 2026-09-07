@@ -770,7 +770,8 @@ proc processSignedVoluntaryExit*(
 
   debug "Voluntary exit received"
 
-  let v = self.validatorChangePool[].validateVoluntaryExit(signedVoluntaryExit)
+  let v = self.validatorChangePool[].validateVoluntaryExit(
+    signedVoluntaryExit, self.getCurrentBeaconTime())
   if v.isOk():
     trace "Voluntary exit validated"
 

@@ -3722,6 +3722,141 @@ ConsensusSpecPreset-mainnet
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - mainnet/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 ```
+## EF - Networking - Gossip - Attester Slashing [Preset: mainnet]
+```diff
++ fulu - gossip_attester_slashing__ignore_already_seen                                       OK
++ fulu - gossip_attester_slashing__ignore_empty_attesting_indices_1                          OK
++ fulu - gossip_attester_slashing__ignore_empty_attesting_indices_2                          OK
++ fulu - gossip_attester_slashing__reject_attesting_index_out_of_range_1                     OK
++ fulu - gossip_attester_slashing__reject_attesting_index_out_of_range_2                     OK
++ fulu - gossip_attester_slashing__reject_invalid_attestation_1                              OK
++ fulu - gossip_attester_slashing__reject_invalid_attestation_2                              OK
++ fulu - gossip_attester_slashing__reject_no_slashable_validators                            OK
++ fulu - gossip_attester_slashing__reject_not_slashable_data                                 OK
++ fulu - gossip_attester_slashing__reject_unsorted_indices_1                                 OK
++ fulu - gossip_attester_slashing__reject_unsorted_indices_2                                 OK
++ fulu - gossip_attester_slashing__valid                                                     OK
++ gloas - gossip_attester_slashing__ignore_already_seen                                      OK
++ gloas - gossip_attester_slashing__ignore_empty_attesting_indices_1                         OK
++ gloas - gossip_attester_slashing__ignore_empty_attesting_indices_2                         OK
++ gloas - gossip_attester_slashing__reject_attesting_index_out_of_range_1                    OK
++ gloas - gossip_attester_slashing__reject_attesting_index_out_of_range_2                    OK
++ gloas - gossip_attester_slashing__reject_invalid_attestation_1                             OK
++ gloas - gossip_attester_slashing__reject_invalid_attestation_2                             OK
++ gloas - gossip_attester_slashing__reject_no_slashable_validators                           OK
++ gloas - gossip_attester_slashing__reject_not_slashable_data                                OK
++ gloas - gossip_attester_slashing__reject_unsorted_indices_1                                OK
++ gloas - gossip_attester_slashing__reject_unsorted_indices_2                                OK
++ gloas - gossip_attester_slashing__valid                                                    OK
++ heze - gossip_attester_slashing__ignore_already_seen                                       OK
++ heze - gossip_attester_slashing__ignore_empty_attesting_indices_1                          OK
++ heze - gossip_attester_slashing__ignore_empty_attesting_indices_2                          OK
++ heze - gossip_attester_slashing__reject_attesting_index_out_of_range_1                     OK
++ heze - gossip_attester_slashing__reject_attesting_index_out_of_range_2                     OK
++ heze - gossip_attester_slashing__reject_invalid_attestation_1                              OK
++ heze - gossip_attester_slashing__reject_invalid_attestation_2                              OK
++ heze - gossip_attester_slashing__reject_no_slashable_validators                            OK
++ heze - gossip_attester_slashing__reject_not_slashable_data                                 OK
++ heze - gossip_attester_slashing__reject_unsorted_indices_1                                 OK
++ heze - gossip_attester_slashing__reject_unsorted_indices_2                                 OK
++ heze - gossip_attester_slashing__valid                                                     OK
+```
+## EF - Networking - Gossip - BLS To Execution Change [Preset: mainnet]
+```diff
++ fulu - gossip_bls_to_execution_change__ignore_already_seen                                 OK
++ fulu - gossip_bls_to_execution_change__reject_bad_signature                                OK
++ fulu - gossip_bls_to_execution_change__reject_not_bls_credentials                          OK
++ fulu - gossip_bls_to_execution_change__reject_pubkey_mismatch                              OK
++ fulu - gossip_bls_to_execution_change__reject_validator_index_out_of_range                 OK
++ fulu - gossip_bls_to_execution_change__valid                                               OK
++ gloas - gossip_bls_to_execution_change__ignore_already_seen                                OK
++ gloas - gossip_bls_to_execution_change__reject_bad_signature                               OK
++ gloas - gossip_bls_to_execution_change__reject_not_bls_credentials                         OK
++ gloas - gossip_bls_to_execution_change__reject_pubkey_mismatch                             OK
++ gloas - gossip_bls_to_execution_change__reject_validator_index_out_of_range                OK
++ gloas - gossip_bls_to_execution_change__valid                                              OK
++ heze - gossip_bls_to_execution_change__ignore_already_seen                                 OK
++ heze - gossip_bls_to_execution_change__reject_bad_signature                                OK
++ heze - gossip_bls_to_execution_change__reject_not_bls_credentials                          OK
++ heze - gossip_bls_to_execution_change__reject_pubkey_mismatch                              OK
++ heze - gossip_bls_to_execution_change__reject_validator_index_out_of_range                 OK
++ heze - gossip_bls_to_execution_change__valid                                               OK
+```
+## EF - Networking - Gossip - Proposer Slashing [Preset: mainnet]
+```diff
++ fulu - gossip_proposer_slashing__ignore_already_seen                                       OK
++ fulu - gossip_proposer_slashing__reject_headers_identical                                  OK
++ fulu - gossip_proposer_slashing__reject_invalid_signature_1                                OK
++ fulu - gossip_proposer_slashing__reject_invalid_signature_2                                OK
++ fulu - gossip_proposer_slashing__reject_proposer_index_out_of_range                        OK
++ fulu - gossip_proposer_slashing__reject_proposer_indices_not_matching                      OK
++ fulu - gossip_proposer_slashing__reject_proposer_not_slashable                             OK
++ fulu - gossip_proposer_slashing__reject_slots_not_matching                                 OK
++ fulu - gossip_proposer_slashing__valid                                                     OK
++ gloas - gossip_proposer_slashing__ignore_already_seen                                      OK
++ gloas - gossip_proposer_slashing__reject_headers_identical                                 OK
++ gloas - gossip_proposer_slashing__reject_invalid_signature_1                               OK
++ gloas - gossip_proposer_slashing__reject_invalid_signature_2                               OK
++ gloas - gossip_proposer_slashing__reject_proposer_index_out_of_range                       OK
++ gloas - gossip_proposer_slashing__reject_proposer_indices_not_matching                     OK
++ gloas - gossip_proposer_slashing__reject_proposer_not_slashable                            OK
++ gloas - gossip_proposer_slashing__reject_slots_not_matching                                OK
++ gloas - gossip_proposer_slashing__valid                                                    OK
++ heze - gossip_proposer_slashing__ignore_already_seen                                       OK
++ heze - gossip_proposer_slashing__reject_headers_identical                                  OK
++ heze - gossip_proposer_slashing__reject_invalid_signature_1                                OK
++ heze - gossip_proposer_slashing__reject_invalid_signature_2                                OK
++ heze - gossip_proposer_slashing__reject_proposer_index_out_of_range                        OK
++ heze - gossip_proposer_slashing__reject_proposer_indices_not_matching                      OK
++ heze - gossip_proposer_slashing__reject_proposer_not_slashable                             OK
++ heze - gossip_proposer_slashing__reject_slots_not_matching                                 OK
++ heze - gossip_proposer_slashing__valid                                                     OK
+```
+## EF - Networking - Gossip - Voluntary Exit [Preset: mainnet]
+```diff
++ fulu - gossip_voluntary_exit__ignore_already_initiated_exit                                OK
++ fulu - gossip_voluntary_exit__ignore_already_seen                                          OK
++ fulu - gossip_voluntary_exit__ignore_before_clock_disparity                                OK
++ fulu - gossip_voluntary_exit__ignore_epoch_in_future                                       OK
++ fulu - gossip_voluntary_exit__ignore_far_future_epoch                                      OK
++ fulu - gossip_voluntary_exit__reject_deneb_signature                                       OK
++ fulu - gossip_voluntary_exit__reject_invalid_signature                                     OK
++ fulu - gossip_voluntary_exit__reject_not_active_long_enough                                OK
++ fulu - gossip_voluntary_exit__reject_validator_index_out_of_range                          OK
++ fulu - gossip_voluntary_exit__reject_validator_not_active                                  OK
++ fulu - gossip_voluntary_exit__valid                                                        OK
++ fulu - gossip_voluntary_exit__valid_at_clock_disparity                                     OK
++ fulu - gossip_voluntary_exit__valid_capella_signature                                      OK
++ fulu - gossip_voluntary_exit__valid_previous_epoch                                         OK
++ gloas - gossip_voluntary_exit__ignore_already_initiated_exit                               OK
++ gloas - gossip_voluntary_exit__ignore_already_seen                                         OK
++ gloas - gossip_voluntary_exit__ignore_before_clock_disparity                               OK
++ gloas - gossip_voluntary_exit__ignore_epoch_in_future                                      OK
++ gloas - gossip_voluntary_exit__ignore_far_future_epoch                                     OK
++ gloas - gossip_voluntary_exit__reject_deneb_signature                                      OK
++ gloas - gossip_voluntary_exit__reject_invalid_signature                                    OK
++ gloas - gossip_voluntary_exit__reject_not_active_long_enough                               OK
++ gloas - gossip_voluntary_exit__reject_validator_index_out_of_range                         OK
++ gloas - gossip_voluntary_exit__reject_validator_not_active                                 OK
++ gloas - gossip_voluntary_exit__valid                                                       OK
++ gloas - gossip_voluntary_exit__valid_at_clock_disparity                                    OK
++ gloas - gossip_voluntary_exit__valid_capella_signature                                     OK
++ gloas - gossip_voluntary_exit__valid_previous_epoch                                        OK
++ heze - gossip_voluntary_exit__ignore_already_initiated_exit                                OK
++ heze - gossip_voluntary_exit__ignore_already_seen                                          OK
++ heze - gossip_voluntary_exit__ignore_before_clock_disparity                                OK
++ heze - gossip_voluntary_exit__ignore_epoch_in_future                                       OK
++ heze - gossip_voluntary_exit__ignore_far_future_epoch                                      OK
++ heze - gossip_voluntary_exit__reject_deneb_signature                                       OK
++ heze - gossip_voluntary_exit__reject_invalid_signature                                     OK
++ heze - gossip_voluntary_exit__reject_not_active_long_enough                                OK
++ heze - gossip_voluntary_exit__reject_validator_index_out_of_range                          OK
++ heze - gossip_voluntary_exit__reject_validator_not_active                                  OK
++ heze - gossip_voluntary_exit__valid                                                        OK
++ heze - gossip_voluntary_exit__valid_at_clock_disparity                                     OK
++ heze - gossip_voluntary_exit__valid_capella_signature                                      OK
++ heze - gossip_voluntary_exit__valid_previous_epoch                                         OK
+```
 ## EF - Phase 0 - Operations - Attestation  [Preset: mainnet]
 ```diff
 + [Invalid] EF - Phase 0 - Operations - EF - Phase 0 - Operations - Attestation  [Preset: ma OK
