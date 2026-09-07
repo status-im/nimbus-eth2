@@ -7,15 +7,15 @@
 
 {.push raises: [], gcsafe.}
 
-import ".."/datatypes/[altair, bellatrix, fulu]
+import ../datatypes/[altair, bellatrix, fulu]
 
 from stew/byteutils import to0xHex
-from ".."/datatypes/phase0 import AttesterSlashing
-from ".."/datatypes/capella import SignedBLSToExecutionChange
-from ".."/datatypes/deneb import BlobsBundle, ExecutionPayloadHeader, KzgCommitments
-from ".."/datatypes/electra import
+from ../datatypes/phase0 import AttesterSlashing
+from ../datatypes/capella import SignedBLSToExecutionChange
+from ../datatypes/deneb import ExecutionPayloadHeader, KzgCommitments
+from ../datatypes/electra import
   Attestation, AttesterSlashing, ExecutionRequests
-from ".."/eth2_merkleization import hash_tree_root
+from ../eth2_merkleization import hash_tree_root
 
 type
   # https://github.com/ethereum/builder-specs/blob/v0.5.0/specs/bellatrix/builder.md#validatorregistrationv1

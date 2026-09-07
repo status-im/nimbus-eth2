@@ -12,7 +12,8 @@ import
   ../spec/[eth2_ssz_serialization, helpers, forks, network],
   ../beacon_clock,
   ../networking/eth2_network,
-  ../consensus_object_pools/blockchain_dag,
+  ../consensus_object_pools/[
+    blockchain_dag, inclusion_list_pool, spec_cache],
   ../rpc/rest_constants
 
 logScope:
@@ -25,12 +26,20 @@ const
     ## Part of beacon block so keep it aligned with block's
   dataColumnResponseCost = allowedOpsPerSecondCost(8000)
     ## 8 data columns take the same memory as 1 blob approximately
+  inclusionListResponseCost = allowedOpsPerSecondCost(1000)
+    ## ~8 KiB each
 
 type
   BeaconSyncNetworkState* {.final.} = ref object of RootObj
     dag: ChainDAGRef
     cfg: RuntimeConfig
     genesisBlockRoot: Eth2Digest
+    inclusionListPool: ref InclusionListPool
+      ## Inclusion lists are only live for a couple of slots, so they are served
+      ## from the in-memory pool rather than the database.
+    getBeaconTime: GetBeaconTimeFn
+      ## `minimum_request_slot` is relative to the wall slot, which may run
+      ## ahead of `dag.head.slot`.
 
   BlockRootSlot* = object
     blockRoot: Eth2Digest
@@ -160,6 +169,33 @@ proc readChunkPayload*(
       let res = await readChunkPayload(conn, peer, gloas.DataColumnSidecar)
       if res.isOk:
         let contextEpoch = res.get.slot.epoch
+        if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
+          return neterr InvalidContextBytes
+        return ok newClone(res.get)
+      else:
+        return err(res.error)
+    else:
+      return neterr InvalidContextBytes
+
+proc readChunkPayload*(
+    conn: Connection, peer: Peer,
+    MsgType: type (ref heze.SignedInclusionList)):
+    Future[NetRes[MsgType]] {.async: (raises: [CancelledError]).} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+  let contextFork =
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
+
+  withConsensusFork(contextFork):
+    # `HEZE_FORK_VERSION` is the only entry in the chunk type table.
+    when consensusFork >= ConsensusFork.Heze:
+      let res = await readChunkPayload(conn, peer, heze.SignedInclusionList)
+      if res.isOk:
+        let contextEpoch = res.get.message.slot.epoch
         if peer.network.cfg.consensusForkAtEpoch(contextEpoch) != consensusFork:
           return neterr InvalidContextBytes
         return ok newClone(res.get)
@@ -665,6 +701,77 @@ p2pProtocol BeaconSync(version = 1,
     debug "Data column range request done",
       peer, startSlot, count = reqCount, columns = reqColumns, found
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+  # The request MUST be encoded as an SSZ-container - the DSL encodes the three
+  # request fields as exactly that.
+  proc inclusionListsByIndices(
+      peer: Peer,
+      slot: Slot,
+      inclusionListCommitteeRoot: Eth2Digest,
+      indices: InclusionListBits,
+      response: MultipleChunksResponse[
+        ref heze.SignedInclusionList,
+        Limit MAX_SUPPORTED_REQUEST_INCLUSION_LIST])
+      {.async, libp2pProtocol("inclusion_lists_by_indices", 1).} =
+    let
+      dag = peer.networkState.dag
+      requested = indices.countOnes()
+
+    trace "got inclusion lists by indices request", peer, slot, requested
+
+    if requested == 0:
+      raise newException(InvalidInputsError, "No inclusion lists requested")
+
+    if requested.uint64 > dag.cfg.MAX_REQUEST_INCLUSION_LIST:
+      raise newException(
+        InvalidInputsError, "Exceeding inclusion list request limit")
+
+    if dag.cfg.HEZE_FORK_EPOCH == FAR_FUTURE_EPOCH:
+      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+
+    let
+      wallSlot = peer.networkState.getBeaconTime().slotOrZero(dag.timeParams)
+      lookbackFloor =
+        if wallSlot >= MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS:
+          wallSlot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS
+        else:
+          GENESIS_SLOT
+      minimumRequestSlot = max(lookbackFloor, dag.cfg.HEZE_FORK_EPOCH.start_slot)
+
+    if slot < minimumRequestSlot or slot > wallSlot:
+      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+
+    # The request addresses committee positions, the pool is keyed by validator
+    # index; resolve them through this node's committee view.
+    let shufflingRef = dag.getShufflingRef(dag.head, slot.epoch, false).valueOr:
+      raise newException(ResourceUnavailableError, InclusionListsOutOfRange)
+
+    var requestedValidators: seq[uint64]
+    for i, validator_index in get_inclusion_list_committee(shufflingRef, slot):
+      if indices[i]:
+        requestedValidators.add validator_index
+
+    let
+      maxLists = int dag.cfg.MAX_REQUEST_INCLUSION_LIST
+      forkDigest = peer.network.forkDigestAtEpoch(slot.epoch).data
+
+    var found = 0
+    for signedInclusionList in peer.networkState.inclusionListPool[]
+        .getInclusionLists(
+          slot, inclusionListCommitteeRoot, requestedValidators, maxLists):
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        inclusionListResponseCost, "inclusion_lists_by_indices/1")
+      peer.network.awaitQuota(
+        inclusionListResponseCost, "inclusion_lists_by_indices/1")
+
+      await response.writeSSZ(signedInclusionList, forkDigest)
+
+      inc found
+
+    debug "Inclusion list indices request done",
+      peer, slot, requested, found
+
 # Gloas client stubs for `data_column_sidecars_by_root/1` and
 # `data_column_sidecars_by_range/1`.
 const
@@ -693,7 +800,12 @@ proc dataColumnSidecarsByRangeGloas*(
     List[ref gloas.DataColumnSidecar, Limit MAX_REQUEST_DATA_COLUMN_SIDECARS],
     Limit maxResponseItems, RESP_TIMEOUT_DUR)
 
-func init*(T: type BeaconSync.NetworkState, dag: ChainDAGRef): T =
+func init*(
+    T: type BeaconSync.NetworkState, dag: ChainDAGRef,
+    inclusionListPool: ref InclusionListPool,
+    getBeaconTime: GetBeaconTimeFn): T =
   T(
     dag: dag,
+    inclusionListPool: inclusionListPool,
+    getBeaconTime: getBeaconTime,
   )

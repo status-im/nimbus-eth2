@@ -1302,6 +1302,10 @@ proc can_process_execution_payload_bid_impl[S, B](
   # Verify that the bid is for the right parent block
   if bid.parent_block_hash != state.latest_block_hash:
     return err("process_execution_payload_bid: parent block hash mismatch")
+  # Verify that the bid's block hash differs from its parent block hash
+  if bid.block_hash == bid.parent_block_hash:
+    return err(
+      "process_execution_payload_bid: block hash equals parent block hash")
   if bid.parent_block_root != state.get_block_root_at_slot(proposal_slot - 1):
     return err("process_execution_payload_bid: parent block root mismatch")
   if not (bid.prev_randao == get_randao_mix(state, epoch)):

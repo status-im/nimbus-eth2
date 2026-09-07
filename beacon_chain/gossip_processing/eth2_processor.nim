@@ -1015,7 +1015,7 @@ proc processSignedInclusionList*(
         timeParams.inclusionListSlotOffset
 
   discard self.inclusionListPool[].addInclusionList(
-    message, is_timely, wallTime)
+    signed_inclusion_list, is_timely, wallTime)
 
   beacon_inclusion_lists_received.inc()
 

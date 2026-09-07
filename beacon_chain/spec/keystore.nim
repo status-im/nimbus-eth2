@@ -24,7 +24,6 @@ import
   ./datatypes/base, ./[ssz_codec, signatures]
 
 from ssz_serialization/proofs import get_generalized_index
-from ./datatypes/electra import BeaconBlockBody
 from ./datatypes/fulu import BeaconBlockBody
 from ./datatypes/gloas import BeaconBlockBody
 
@@ -158,7 +157,6 @@ type
   ProvenProperty* = object
     path*: string
     description*: Option[string]
-    electraIndex*: GeneralizedIndex
     fuluIndex*: GeneralizedIndex
     gloasIndex*: GeneralizedIndex
 
@@ -737,7 +735,6 @@ func parseProvenBlockProperty*(
       pathArgs: varargs[untyped]): ProvenProperty =
     ProvenProperty(
       path: propertyPath,
-      electraIndex: electra.BeaconBlockBody.gindexOrZero(pathArgs),
       fuluIndex: fulu.BeaconBlockBody.gindexOrZero(pathArgs),
       gloasIndex: gloas.BeaconBlockBody.gindexOrZero(pathArgs))
 
@@ -758,13 +755,11 @@ static:
   doAssert parseProvenBlockProperty(".execution_payload.fee_recipient").get ==
     ProvenProperty(
       path: ".execution_payload.fee_recipient",
-      electraIndex: 801.GeneralizedIndex,
       fuluIndex: 801.GeneralizedIndex,
       gloasIndex: 0.GeneralizedIndex)
   doAssert parseProvenBlockProperty(".graffiti").get ==
     ProvenProperty(
       path: ".graffiti",
-      electraIndex: 18.GeneralizedIndex,
       fuluIndex: 18.GeneralizedIndex,
       gloasIndex: 41.GeneralizedIndex)
 

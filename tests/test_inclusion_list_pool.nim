@@ -26,14 +26,17 @@ func makeTx(bytes: openArray[byte]): gloas.Transaction =
 
 func makeInclusionList(
     slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
-    txs: openArray[gloas.Transaction]): InclusionList =
+    txs: openArray[gloas.Transaction],
+    signature = default(ValidatorSig)): SignedInclusionList =
+  ## The pool never inspects the signature - gossip validation has already done
+  ## that - but retains it for `InclusionListsByIndices` to serve back.
   var il = InclusionList(
     slot: slot,
     validator_index: validator_index,
     inclusion_list_committee_root: committee_root)
   for tx in txs:
     il.transactions.add(tx)
-  il
+  SignedInclusionList(message: il, signature: signature)
 
 suite "Inclusion list pool" & preset():
   setup:
@@ -171,3 +174,81 @@ suite "Inclusion list pool" & preset():
     check:
       not pool[].addInclusionList(il, is_timely = true, wallTime)
       pool[].numSeen(slot + 1, committee[0]) == 0
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+  test "Serves stored lists, signature included" & preset():
+    var signature: ValidatorSig
+    signature.blob[0] = 0xAB
+
+    let il = makeInclusionList(
+      slot, committee[0], committeeRoot, [makeTx([byte 0x01])], signature)
+    check pool[].addInclusionList(il, is_timely = true, wallTime)
+
+    let served = pool[].getInclusionLists(
+      slot, committeeRoot, [committee[0]], maxLists = 16)
+    check:
+      served.len == 1
+      served[0] == il
+
+    # A list is only served for the committee it was collected under ...
+    check pool[].getInclusionLists(
+      slot, ZERO_HASH, [committee[0]], maxLists = 16).len == 0
+
+    # ... for the slot it belongs to ...
+    check pool[].getInclusionLists(
+      slot + 1, committeeRoot, [committee[0]], maxLists = 16).len == 0
+
+    # ... and for validators the requester actually asked about.
+    check pool[].getInclusionLists(
+      slot, committeeRoot, [committee[0] + 1000], maxLists = 16).len == 0
+
+  test "Untimely lists are still served over req/resp" & preset():
+    # Timeliness is a fork choice notion, not a gossip validation rule, so it
+    # must not gate what we respond with.
+    let il = makeInclusionList(
+      slot, committee[0], committeeRoot, [makeTx([byte 0x01])])
+
+    check:
+      pool[].addInclusionList(il, is_timely = false, wallTime)
+      pool[].getInclusionLists(
+        slot, committeeRoot, [committee[0]], maxLists = 16).len == 1
+
+  test "Equivocators are not served" & preset():
+    let
+      vi = committee[0]
+      il1 = makeInclusionList(slot, vi, committeeRoot, [makeTx([byte 0x01])])
+      il2 = makeInclusionList(slot, vi, committeeRoot, [makeTx([byte 0x02])])
+
+    check:
+      pool[].addInclusionList(il1, is_timely = true, wallTime)
+      pool[].getInclusionLists(
+        slot, committeeRoot, [vi], maxLists = 16).len == 1
+
+    # The second, distinct list marks the validator as an equivocator, and
+    # Clients SHOULD NOT respond with inclusion lists from equivocators.
+    check:
+      pool[].addInclusionList(il2, is_timely = true, wallTime)
+      pool[].getInclusionLists(
+        slot, committeeRoot, [vi], maxLists = 16).len == 0
+
+  test "Response is deduplicated and capped" & preset():
+    let
+      il0 = makeInclusionList(
+        slot, committee[0], committeeRoot, [makeTx([byte 0x01])])
+      il1 = makeInclusionList(
+        slot, committee[1], committeeRoot, [makeTx([byte 0x02])])
+
+    check:
+      pool[].addInclusionList(il0, is_timely = true, wallTime)
+      pool[].addInclusionList(il1, is_timely = true, wallTime)
+
+    # A committee smaller than `INCLUSION_LIST_COMMITTEE_SIZE` cycles its
+    # members, so the same validator can occupy several requested positions -
+    # it must still be served only once.
+    check pool[].getInclusionLists(
+      slot, committeeRoot, [committee[0], committee[0], committee[1]],
+      maxLists = 16).len == 2
+
+    # Clients MAY limit the number of inclusion lists in the response.
+    check pool[].getInclusionLists(
+      slot, committeeRoot, [committee[0], committee[1]], maxLists = 1).len == 1

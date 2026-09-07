@@ -978,7 +978,11 @@ proc initFullNode(
   ))
 
   node.network.registerProtocol(
-    BeaconSync, BeaconSync.NetworkState.init(node.dag))
+    BeaconSync, BeaconSync.NetworkState.init(
+      node.dag,
+      inclusionListPool,
+      node.beaconClock.getBeaconTimeFn(),
+  ))
 
   if node.dag.lcDataStore.serve:
     node.network.registerProtocol(

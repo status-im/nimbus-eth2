@@ -2573,10 +2573,12 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - fork_builder_deposit_version [Preset: minimal]                         OK
 + EF - Gloas - Fork - fork_builder_deposit_with_existing_validator_pubkey_builder_creds [Pre OK
 + EF - Gloas - Fork - fork_invalid_builder_deposit_followed_by_valid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_invalid_then_valid_validator_then_builder_deposit [Preset: minima OK
 + EF - Gloas - Fork - fork_invalid_validator_deposit_followed_by_builder_credentials [Preset OK
 + EF - Gloas - Fork - fork_many_next_epoch [Preset: minimal]                                 OK
 + EF - Gloas - Fork - fork_missed_slots_before_fork [Preset: minimal]                        OK
 + EF - Gloas - Fork - fork_mixed_pending_deposits [Preset: minimal]                          OK
++ EF - Gloas - Fork - fork_mixed_validity_validator_deposits_surrounding_builder_deposits [P OK
 + EF - Gloas - Fork - fork_multiple_builder_deposits [Preset: minimal]                       OK
 + EF - Gloas - Fork - fork_multiple_deposits_same_builder [Preset: minimal]                  OK
 + EF - Gloas - Fork - fork_next_epoch [Preset: minimal]                                      OK
@@ -2590,6 +2592,7 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - fork_random_misc_balances [Preset: minimal]                            OK
 + EF - Gloas - Fork - fork_single_builder_deposit [Preset: minimal]                          OK
 + EF - Gloas - Fork - fork_valid_builder_deposit_followed_by_invalid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_valid_then_invalid_validator_then_builder_deposit [Preset: minima OK
 + EF - Gloas - Fork - fork_validator_deposit_followed_by_builder_credentials [Preset: minima OK
 + EF - Gloas - Fork - gloas_fork_random_0 [Preset: minimal]                                  OK
 + EF - Gloas - Fork - gloas_fork_random_1 [Preset: minimal]                                  OK
@@ -2844,6 +2847,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -2862,6 +2866,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_exit_requests   OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_consolidation_requests  OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_withdrawal_requests     OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -3478,6 +3483,7 @@ ConsensusSpecPreset-minimal
 ## EF - Heze - Operations - Execution Payload Bid  [Preset: minimal]
 ```diff
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_b OK
++ [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_b OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
@@ -3510,6 +3516,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_exit_requests    OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_consolidation_requests   OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_withdrawal_requests      OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK

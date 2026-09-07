@@ -538,10 +538,8 @@ proc init(T: type Web3SignerForkedBeaconBlock, blck: ForkyBeaconBlock | ForkyBli
 
 proc forkIndex(
     prop: ProvenProperty, fork: static ConsensusFork): GeneralizedIndex =
-  when fork < ConsensusFork.Electra:
+  when fork < ConsensusFork.Fulu:
     static: raiseAssert "Unsupported fork " & $fork
-  elif fork == ConsensusFork.Electra:
-    prop.electraIndex
   elif fork == ConsensusFork.Fulu:
     prop.fuluIndex
   elif fork == ConsensusFork.Gloas:
@@ -575,7 +573,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           of RemoteSignerType.Web3Signer:
             Web3SignerRequest.init(fork, genesis_validators_root, fbb)
           of RemoteSignerType.VerifyingWeb3Signer:
-            when consensusFork >= ConsensusFork.Electra:
+            when consensusFork >= ConsensusFork.Fulu:
               template blockPropertiesProofs(): seq[Web3SignerMerkleProof] =
                 var proofs: seq[Web3SignerMerkleProof]
 

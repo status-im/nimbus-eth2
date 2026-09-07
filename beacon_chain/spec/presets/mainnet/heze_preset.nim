@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 # Mainnet preset - Heze
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.11/presets/mainnet/heze.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/presets/mainnet/heze.yaml
 const
   # Inclusion list committee
   # ---------------------------------------------------------------
@@ -19,5 +19,5 @@ const
   # ---------------------------------------------------------------
   # 196,934 bytes, ~192 KiB
   MAX_SIGNED_EXECUTION_PAYLOAD_BID_SIZE_HEZE*: uint64 = 196934
-  # 8,348 bytes, ~8 KiB
-  MAX_SIGNED_INCLUSION_LIST_SIZE*: uint64 = 8348
+  # 41,112 bytes, ~40 KiB
+  MAX_SIGNED_INCLUSION_LIST_SIZE*: uint64 = 41112
