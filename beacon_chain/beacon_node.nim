@@ -31,7 +31,7 @@ import
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
-  ./sync/[sync_manager, request_manager, sync_types, validator_custody],
+  ./sync/[sync_overseer2, sync_types, validator_custody],
   ./validators/[
     action_tracker, message_router, validator_monitor, validator_pool,
     keystore_management],
@@ -41,10 +41,10 @@ export
   osproc, chronos, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_change_pool,
-  eth2_network, el_manager, request_manager, sync_manager, eth2_processor,
+  eth2_network, el_manager, eth2_processor,
   block_processor_light_client, blockchain_dag, block_quarantine,
   base, message_router, validator_monitor, validator_pool,
-  consensus_manager, dynamic_fee_recipients, sync_types
+  consensus_manager, dynamic_fee_recipients, sync_types, sync_overseer2
 
 type
   EventBus* = object
@@ -110,12 +110,8 @@ type
     keymanagerServer*: RestServerRef
     keystoreCache*: KeystoreCacheRef
     eventBus*: EventBus
-    requestManager*: RequestManager
     validatorCustody*: ValidatorCustodyRef
-    syncManager*: SyncManager[Peer, PeerId]
-    backfiller*: SyncManager[Peer, PeerId]
-    untrustedManager*: SyncManager[Peer, PeerId]
-    syncOverseer*: SyncOverseerRef
+    syncOverseer*: SyncOverseerRef2
     processor*: ref Eth2Processor
     batchVerifier*: ref BatchVerifier
     blockProcessor*: ref BlockProcessor
