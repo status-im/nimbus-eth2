@@ -15,7 +15,7 @@ import
   unittest2,
   kzg4844/kzg_abi,
   ssz_serialization/[types as sszTypes, bitseqs],
-  ../beacon_chain/spec/datatypes/[fulu, gloas],
+  ../beacon_chain/spec/datatypes/gloas,
   ../beacon_chain/spec/presets,
   ../beacon_chain/consensus_object_pools/partial_column_quarantine
 
