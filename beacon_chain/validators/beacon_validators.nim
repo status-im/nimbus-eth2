@@ -1090,18 +1090,21 @@ proc sendPayloadAttestations(
 
   # Decide as soon as the execution payload envelope for this slot's
   # block arrives, or at the deadline whichever comes first.
+  let envelopeFut = node.consensusManager[].expectEnvelope(blck.root)
+  template waitForPayloadUntil(deadline: BeaconTime): bool =
+    block:
+      let due = node.beaconClock.fromNow(deadline)
+      due.inFuture and (await envelopeFut.withTimeout(due.offset)) and
+        envelopeFut.completed() and envelopeFut.value()
+
   let
-    payloadDue =
-      node.beaconClock.fromNow(slot.payload_deadline(node.dag.timeParams))
-    (payload_present, blob_data_available) =
-      if payloadDue.inFuture and
-          (await node.consensusManager[].expectEnvelope(blck.root)
-            .withTimeout(payloadDue.offset)):
-        # `expectEnvelope` completes only after the block processor
-        # persists both the envelope and its data columns
-        (true, true)
-      else:
-        (false, node.checkBlobDataAvailable(blck))
+    payload_present =
+      waitForPayloadUntil(slot.payload_deadline(node.dag.timeParams))
+    blob_data_available =
+      payload_present or node.checkBlobDataAvailable(blck) or
+      waitForPayloadUntil(
+        slot.payload_attestation_deadline(node.dag.timeParams)) or
+      node.checkBlobDataAvailable(blck)
 
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
