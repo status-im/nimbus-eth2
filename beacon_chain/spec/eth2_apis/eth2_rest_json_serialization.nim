@@ -1139,9 +1139,11 @@ proc readValue*(
     r: var RestJsonReader, value: var VCRuntimeConfig
 ) {.raises: [SerializationError, IOError].} =
   for fieldName in readObjectFields(r):
+    # Beacon API getSpec returns array-valued config keys as JSON arrays.
+    # https://ethereum.github.io/beacon-APIs/#/Config/getSpec
     let fieldValue =
       case toLowerAscii(fieldName)
-      of "blob_schedule":
+      of "blob_schedule", "gas_limit_schedule":
         string(r.readValue(JsonString))
       else:
         r.readValue(string)
