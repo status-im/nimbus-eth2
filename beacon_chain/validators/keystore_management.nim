@@ -1630,12 +1630,16 @@ proc getValidatorBuilderConfig*(
 
   var res = block:
     debugGloasComment("should need a new config structure for gloas")
-    let
-      res = host.getBuilderConfig(pubkey).valueOr:
-        return err("invalid values in builder config file")
-      url = res.valueOr:
-        return ok(default(gloas.BuilderConfig))
-    gloas.BuilderConfig(builders: @[BuilderEntry(url: url)])
+    let res = host.getBuilderConfig(pubkey)
+    gloas.BuilderConfig(builders: @[BuilderEntry(
+      url:
+        if res.isOk() and res.unsafeGet().isSome():
+          res.unsafeGet().get()
+        elif host.defaultBuilderAddress.isSome():
+          host.defaultBuilderAddress.get()
+        else:
+          return err("builder address is missing")
+    )])
 
   for i in 0 ..< len(res.builders):
     if res.builders[i].auth_data.isNone():

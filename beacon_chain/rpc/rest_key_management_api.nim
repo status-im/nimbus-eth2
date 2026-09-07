@@ -518,7 +518,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       RestApiResponse.jsonResponse(GetBuilderConfigResponse(
         data: res.get()))
     else:
-      keymanagerApiError(Http500, $res.error())
+      keymanagerApiError(Http500, "Failed to get builder config: " & $res.error())
 
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.
