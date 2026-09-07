@@ -1628,17 +1628,14 @@ proc getValidatorBuilderConfig*(
     except KeyError:
       return err("validator not found")
 
-  var res =
-    if validator.builderConfig.isSome():
-      validator.builderConfig.get()
-    else:
-      debugGloasComment("should need a new config structure for gloas")
-      let
-        res = host.getBuilderConfig(pubkey).valueOr:
-          return err("invalid values in builder config file")
-        url = res.valueOr:
-          return ok(default(gloas.BuilderConfig))
-      gloas.BuilderConfig(builders: @[BuilderEntry(url: url)])
+  var res = block:
+    debugGloasComment("should need a new config structure for gloas")
+    let
+      res = host.getBuilderConfig(pubkey).valueOr:
+        return err("invalid values in builder config file")
+      url = res.valueOr:
+        return ok(default(gloas.BuilderConfig))
+    gloas.BuilderConfig(builders: @[BuilderEntry(url: url)])
 
   for i in 0 ..< len(res.builders):
     if res.builders[i].auth_data.isNone():
