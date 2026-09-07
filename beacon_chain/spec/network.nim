@@ -84,7 +84,7 @@ func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
 func getExecutionPayloadBidTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicExecutionPayloadBidSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload
 func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicExecutionPayloadSuffix
 
