@@ -1727,9 +1727,9 @@ func toAltairLightClientBlockData(
     blck:
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock,
+    bootstrap_data: var altair.LightClientBootstrapData,
     current_sync_committee: List[SyncCommittee, 1],
-    current_sync_committee_branch: altair.CurrentSyncCommitteeBranch,
-    bootstrap_data: var altair.LightClientBootstrapData
+    current_sync_committee_branch: altair.CurrentSyncCommitteeBranch
 ): altair.LightClientBlockData =
   bootstrap_data = altair.LightClientBootstrapData(
     current_sync_committee: current_sync_committee,
@@ -1740,9 +1740,9 @@ func toCapellaLightClientBlockData(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock,
+    bootstrap_data: var capella.LightClientBootstrapData,
     current_sync_committee: List[SyncCommittee, 1],
-    current_sync_committee_branch: altair.CurrentSyncCommitteeBranch,
-    bootstrap_data: var capella.LightClientBootstrapData
+    current_sync_committee_branch: altair.CurrentSyncCommitteeBranch
 ): altair.LightClientBlockData =
   template body: auto = blck.message.body
   template payload: auto = body.execution_payload
@@ -1775,9 +1775,9 @@ func toDenebLightClientBlockData(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
     blck:
       deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock,
+    bootstrap_data: var deneb.LightClientBootstrapData,
     current_sync_committee: List[SyncCommittee, 1],
-    current_sync_committee_branch: altair.CurrentSyncCommitteeBranch,
-    bootstrap_data: var deneb.LightClientBootstrapData
+    current_sync_committee_branch: altair.CurrentSyncCommitteeBranch
 ): altair.LightClientBlockData =
   template body: auto = blck.message.body
   template payload: auto = body.execution_payload
@@ -1811,9 +1811,9 @@ func toElectraLightClientBlockData(
     blck:
       electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
       fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock,
+    bootstrap_data: var electra.LightClientBootstrapData,
     current_sync_committee: List[SyncCommittee, 1],
-    current_sync_committee_branch: electra.CurrentSyncCommitteeBranch,
-    bootstrap_data: var electra.LightClientBootstrapData
+    current_sync_committee_branch: electra.CurrentSyncCommitteeBranch
 ): altair.LightClientBlockData =
   template body: auto = blck.message.body
   template payload: auto = body.execution_payload
@@ -1847,9 +1847,9 @@ func toGloasLightClientBlockData(
     blck:
       gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
       heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
+    bootstrap_data: var gloas.LightClientBootstrapData,
     current_sync_committee: List[SyncCommittee, 1],
-    current_sync_committee_branch: gloas.CurrentSyncCommitteeBranch,
-    bootstrap_data: var gloas.LightClientBootstrapData
+    current_sync_committee_branch: gloas.CurrentSyncCommitteeBranch
 ): gloas.LightClientBlockData =
   template body: auto = blck.message.body
   template bid: auto = body.signed_execution_payload_bid
@@ -1880,24 +1880,24 @@ func toLightClientBlockDataImpl(
       gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
       heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork,
+    bootstrap_data: var kind.LightClientBootstrapData,
     current_sync_committee: List[SyncCommittee, 1],
-    current_sync_committee_branch: kind.CurrentSyncCommitteeBranch,
-    bootstrap_data: var kind.LightClientBootstrapData): auto =
+    current_sync_committee_branch: kind.CurrentSyncCommitteeBranch): auto =
   when kind == LightClientDataFork.Gloas:
     blck.toGloasLightClientBlockData(
-      current_sync_committee, current_sync_committee_branch, bootstrap_data)
+      bootstrap_data, current_sync_committee, current_sync_committee_branch)
   elif kind == LightClientDataFork.Electra:
     blck.toElectraLightClientBlockData(
-      current_sync_committee, current_sync_committee_branch, bootstrap_data)
+      bootstrap_data, current_sync_committee, current_sync_committee_branch)
   elif kind == LightClientDataFork.Deneb:
     blck.toDenebLightClientBlockData(
-      current_sync_committee, current_sync_committee_branch, bootstrap_data)
+      bootstrap_data, current_sync_committee, current_sync_committee_branch)
   elif kind == LightClientDataFork.Capella:
     blck.toCapellaLightClientBlockData(
-      current_sync_committee, current_sync_committee_branch, bootstrap_data)
+      bootstrap_data, current_sync_committee, current_sync_committee_branch)
   elif kind == LightClientDataFork.Altair:
     blck.toAltairLightClientBlockData(
-      current_sync_committee, current_sync_committee_branch, bootstrap_data)
+      bootstrap_data, current_sync_committee, current_sync_committee_branch)
   else:
     {.error: "toLightClientBlockData unsupported in " & $kind.}
 
@@ -1913,12 +1913,13 @@ template toLightClientBlockData*(
       gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
       heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork,
+    bootstrap_data: var kind.LightClientBootstrapData,
     current_sync_committee: SyncCommittee,
-    current_sync_committee_branch: kind.CurrentSyncCommitteeBranch,
-    bootstrap_data: var kind.LightClientBootstrapData): auto =
+    current_sync_committee_branch: kind.CurrentSyncCommitteeBranch): auto =
   blck.toLightClientBlockDataImpl(
-    kind, List[SyncCommittee, 1].init(@[current_sync_committee]),
-    current_sync_committee_branch, bootstrap_data)
+    kind, bootstrap_data,
+    List[SyncCommittee, 1].init(@[current_sync_committee]),
+    current_sync_committee_branch)
 
 template toLightClientBlockData*(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1932,11 +1933,11 @@ template toLightClientBlockData*(
       gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
       heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork,
-    current_sync_committee_branch: kind.CurrentSyncCommitteeBranch,
-    bootstrap_data: var kind.LightClientBootstrapData): auto =
+    bootstrap_data: var kind.LightClientBootstrapData,
+    current_sync_committee_branch: kind.CurrentSyncCommitteeBranch): auto =
   blck.toLightClientBlockDataImpl(
-    kind, static(List[SyncCommittee, 1].init(@[])),
-    current_sync_committee_branch, bootstrap_data)
+    kind, bootstrap_data,
+    static(List[SyncCommittee, 1].init(@[])), current_sync_committee_branch)
 
 import chronicles
 

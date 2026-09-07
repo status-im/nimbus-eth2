@@ -350,11 +350,11 @@ suite "Light client block data" & preset():
 
               var bootstrapData2: lcDataFork.LightClientBootstrapData
               let blockData2 = blck.toLightClientBlockData(
-                lcDataFork, currentSyncCommittee, currentBranch, bootstrapData2)
+                lcDataFork, bootstrapData2, currentSyncCommittee, currentBranch)
 
               var bootstrapData3: lcDataFork.LightClientBootstrapData
               let blockData3 = blck.toLightClientBlockData(
-                lcDataFork, currentBranch, bootstrapData3)
+                lcDataFork, bootstrapData3, currentBranch)
 
               check:
                 blockData2 == blockData1
@@ -392,9 +392,10 @@ suite "Light client block data" & preset():
 
             else:
               var bootstrapData: lcDataFork.LightClientBootstrapData
-              when compiles(blck.toLightClientBlockData(lcDataFork,
-                  currentSyncCommittee, currentBranch, bootstrapData)):
+              when compiles(blck.toLightClientBlockData(
+                  lcDataFork, bootstrapData,
+                  currentSyncCommittee, currentBranch)):
                 check false
               when compiles(blck.toLightClientBlockData(
-                  lcDataFork, currentBranch, bootstrapData)):
+                  lcDataFork, bootstrapData, currentBranch)):
                 check false
