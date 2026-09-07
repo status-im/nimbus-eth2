@@ -10,7 +10,7 @@
 
 import
   # Status libraries
-  taskpools,
+  stew/bitops2, taskpools,
   # Beacon chain internals
   ../beacon_chain/consensus_object_pools/
     [block_clearance, block_quarantine, blockchain_dag],
@@ -273,3 +273,128 @@ suite "Light client" & preset():
               get_lc_execution_root(forkyFinalityUpdate.finalized_header, cfg)
           else:
             check get_lc_execution_root(header, cfg) == ZERO_HASH
+
+suite "Light client block data" & preset():
+  func createDigest(seed: byte): Eth2Digest =
+    var res: Eth2Digest
+    for i in 0 ..< res.data.len:
+      res.data[i] = seed + i.byte
+    res
+
+  proc createBlock(
+      consensusFork: static ConsensusFork): consensusFork.SignedBeaconBlock =
+    var blck: consensusFork.SignedBeaconBlock
+    template body: untyped = blck.message.body
+    template sync_aggregate: untyped = body.sync_aggregate
+    blck.message.proposer_index = 1337
+    blck.message.parent_root = createDigest(1)
+    blck.message.state_root = createDigest(2)
+    body.eth1_data.deposit_root = createDigest(3)
+    for i in countup(0, sync_aggregate.sync_committee_bits.len - 1, step = 3):
+      sync_aggregate.sync_committee_bits.setBit(i)
+    for i in 0 .. sync_aggregate.sync_committee_signature.blob.high:
+      sync_aggregate.sync_committee_signature.blob[i] = 4 + i.byte
+    const consensusFork = typeof(blck).kind
+    when consensusFork >= ConsensusFork.Gloas:
+      body.signed_execution_payload_bid.message.parent_block_hash =
+        createDigest(5)
+    elif consensusFork >= ConsensusFork.Bellatrix:
+      body.execution_payload.block_hash = createDigest(5)
+      doAssert body.execution_payload.transactions.add(
+        bellatrix.Transaction(@[6.byte]))
+      when consensusFork >= ConsensusFork.Capella:
+        doAssert body.execution_payload.withdrawals.add(
+          Withdrawal(validator_index: 7))
+    blck
+
+  withAll(ConsensusFork):
+    when consensusFork >= ConsensusFork.Altair:
+      let blck = consensusFork.createBlock()
+      template body: untyped = blck.message.body
+      let bodyRoot = body.hash_tree_root()
+      const blckLcDataFork = lcDataForkAtConsensusFork(consensusFork)
+      withAll(LightClientDataFork):
+        test $consensusFork & " -> " & $lcDataFork:
+          when lcDataFork >= blckLcDataFork:
+            let blockData = blck.toLightClientBlockData(lcDataFork)
+            check:
+              blockData.proposer_index == blck.message.proposer_index
+              blockData.state_root == blck.message.state_root
+              blockData.sync_committee_bits ==
+                body.sync_aggregate.sync_committee_bits
+              blockData.sync_committee_signature_root ==
+                body.sync_aggregate.sync_committee_signature.hash_tree_root()
+              is_valid_normalized_merkle_branch(
+                hash_tree_root([
+                  blockData.sync_committee_bits.hash_tree_root(),
+                  blockData.sync_committee_signature_root]),
+                blockData.sync_aggregate_branch,
+                blckLcDataFork.sync_aggregate_gindex,
+                bodyRoot)
+              blck.asTrusted().toLightClientBlockData(lcDataFork) == blockData
+          else:
+            when compiles(blck.toLightClientBlockData(lcDataFork)):
+              check lcDataFork.LightClientBlockData is
+                blckLcDataFork.LightClientBlockData
+
+        when lcDataFork > LightClientDataFork.None:
+          test $consensusFork & " -> " & $lcDataFork & " (with bootstrap)":
+            var
+              currentSyncCommittee: SyncCommittee
+              currentBranch: lcDataFork.CurrentSyncCommitteeBranch
+            for i, x in currentBranch.mpairs():
+              x = createDigest(i.byte + 67)
+
+            when lcDataFork == blckLcDataFork:
+              let blockData1 = blck.toLightClientBlockData(lcDataFork)
+
+              var bootstrapData2: lcDataFork.LightClientBootstrapData
+              let blockData2 = blck.toLightClientBlockData(
+                lcDataFork, currentSyncCommittee, currentBranch, bootstrapData2)
+
+              var bootstrapData3: lcDataFork.LightClientBootstrapData
+              let blockData3 = blck.toLightClientBlockData(
+                lcDataFork, currentBranch, bootstrapData3)
+
+              check:
+                blockData2 == blockData1
+                blockData3 == blockData1
+                bootstrapData2.current_sync_committee ==
+                  List[SyncCommittee, 1].init(@[currentSyncCommittee])
+                bootstrapData3.current_sync_committee.len == 0
+                bootstrapData2.current_sync_committee_branch == currentBranch
+                bootstrapData3.current_sync_committee_branch == currentBranch
+
+              for bootstrapData in [bootstrapData2, bootstrapData3]:
+                when lcDataFork >= LightClientDataFork.Gloas:
+                  template bid: auto = body.signed_execution_payload_bid
+                  check:
+                    bootstrapData.execution_block_hash ==
+                      bid.message.parent_block_hash
+                    is_valid_merkle_branch(
+                      bootstrapData.execution_block_hash,
+                      bootstrapData.execution_branch,
+                      log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS),
+                      get_subtree_index(EXECUTION_BLOCK_HASH_GINDEX_GLOAS),
+                      bodyRoot)
+                elif lcDataFork >= LightClientDataFork.Capella:
+                  template payload: auto = body.execution_payload
+                  check:
+                    bootstrapData.execution == payload.toExecutionPayloadHeader
+                    is_valid_merkle_branch(
+                      hash_tree_root(bootstrapData.execution),
+                      bootstrapData.execution_branch,
+                      log2trunc(EXECUTION_PAYLOAD_GINDEX),
+                      get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
+                      bodyRoot)
+                else:
+                  discard  # No execution data present
+
+            else:
+              var bootstrapData: lcDataFork.LightClientBootstrapData
+              when compiles(blck.toLightClientBlockData(lcDataFork,
+                  currentSyncCommittee, currentBranch, bootstrapData)):
+                check false
+              when compiles(blck.toLightClientBlockData(
+                  lcDataFork, currentBranch, bootstrapData)):
+                check false

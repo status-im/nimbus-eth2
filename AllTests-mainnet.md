@@ -621,6 +621,97 @@ AllTests-mainnet
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
 ```
+## Light client block data [Preset: mainnet]
+```diff
++ altair -> Altair                                                                           OK
++ altair -> Altair (with bootstrap)                                                          OK
++ altair -> Capella                                                                          OK
++ altair -> Capella (with bootstrap)                                                         OK
++ altair -> Deneb                                                                            OK
++ altair -> Deneb (with bootstrap)                                                           OK
++ altair -> Electra                                                                          OK
++ altair -> Electra (with bootstrap)                                                         OK
++ altair -> Gloas                                                                            OK
++ altair -> Gloas (with bootstrap)                                                           OK
++ altair -> None                                                                             OK
++ bellatrix -> Altair                                                                        OK
++ bellatrix -> Altair (with bootstrap)                                                       OK
++ bellatrix -> Capella                                                                       OK
++ bellatrix -> Capella (with bootstrap)                                                      OK
++ bellatrix -> Deneb                                                                         OK
++ bellatrix -> Deneb (with bootstrap)                                                        OK
++ bellatrix -> Electra                                                                       OK
++ bellatrix -> Electra (with bootstrap)                                                      OK
++ bellatrix -> Gloas                                                                         OK
++ bellatrix -> Gloas (with bootstrap)                                                        OK
++ bellatrix -> None                                                                          OK
++ capella -> Altair                                                                          OK
++ capella -> Altair (with bootstrap)                                                         OK
++ capella -> Capella                                                                         OK
++ capella -> Capella (with bootstrap)                                                        OK
++ capella -> Deneb                                                                           OK
++ capella -> Deneb (with bootstrap)                                                          OK
++ capella -> Electra                                                                         OK
++ capella -> Electra (with bootstrap)                                                        OK
++ capella -> Gloas                                                                           OK
++ capella -> Gloas (with bootstrap)                                                          OK
++ capella -> None                                                                            OK
++ deneb -> Altair                                                                            OK
++ deneb -> Altair (with bootstrap)                                                           OK
++ deneb -> Capella                                                                           OK
++ deneb -> Capella (with bootstrap)                                                          OK
++ deneb -> Deneb                                                                             OK
++ deneb -> Deneb (with bootstrap)                                                            OK
++ deneb -> Electra                                                                           OK
++ deneb -> Electra (with bootstrap)                                                          OK
++ deneb -> Gloas                                                                             OK
++ deneb -> Gloas (with bootstrap)                                                            OK
++ deneb -> None                                                                              OK
++ electra -> Altair                                                                          OK
++ electra -> Altair (with bootstrap)                                                         OK
++ electra -> Capella                                                                         OK
++ electra -> Capella (with bootstrap)                                                        OK
++ electra -> Deneb                                                                           OK
++ electra -> Deneb (with bootstrap)                                                          OK
++ electra -> Electra                                                                         OK
++ electra -> Electra (with bootstrap)                                                        OK
++ electra -> Gloas                                                                           OK
++ electra -> Gloas (with bootstrap)                                                          OK
++ electra -> None                                                                            OK
++ fulu -> Altair                                                                             OK
++ fulu -> Altair (with bootstrap)                                                            OK
++ fulu -> Capella                                                                            OK
++ fulu -> Capella (with bootstrap)                                                           OK
++ fulu -> Deneb                                                                              OK
++ fulu -> Deneb (with bootstrap)                                                             OK
++ fulu -> Electra                                                                            OK
++ fulu -> Electra (with bootstrap)                                                           OK
++ fulu -> Gloas                                                                              OK
++ fulu -> Gloas (with bootstrap)                                                             OK
++ fulu -> None                                                                               OK
++ gloas -> Altair                                                                            OK
++ gloas -> Altair (with bootstrap)                                                           OK
++ gloas -> Capella                                                                           OK
++ gloas -> Capella (with bootstrap)                                                          OK
++ gloas -> Deneb                                                                             OK
++ gloas -> Deneb (with bootstrap)                                                            OK
++ gloas -> Electra                                                                           OK
++ gloas -> Electra (with bootstrap)                                                          OK
++ gloas -> Gloas                                                                             OK
++ gloas -> Gloas (with bootstrap)                                                            OK
++ gloas -> None                                                                              OK
++ heze -> Altair                                                                             OK
++ heze -> Altair (with bootstrap)                                                            OK
++ heze -> Capella                                                                            OK
++ heze -> Capella (with bootstrap)                                                           OK
++ heze -> Deneb                                                                              OK
++ heze -> Deneb (with bootstrap)                                                             OK
++ heze -> Electra                                                                            OK
++ heze -> Electra (with bootstrap)                                                           OK
++ heze -> Gloas                                                                              OK
++ heze -> Gloas (with bootstrap)                                                             OK
++ heze -> None                                                                               OK
+```
 ## Light client processor [Preset: mainnet]
 ```diff
 + Duplicate bootstrap (Optimistic) [Preset: mainnet]                                         OK
