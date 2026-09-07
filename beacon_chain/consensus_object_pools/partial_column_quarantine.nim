@@ -8,13 +8,13 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/hashes,
+  std/[hashes, sequtils],
   minilru, results,
   kzg4844/[kzg, kzg_abi],
   ssz_serialization/bitseqs,
   ../spec/[datatypes/base, digest, presets]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md
 
 from ../spec/datatypes/deneb import KzgProofs
 from ../spec/datatypes/fulu import ColumnIndex
@@ -82,11 +82,6 @@ func hasGroupId*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID): bool =
   groupId in quarantine.groupIds
-
-func getGroupId*(
-    quarantine: var PartialColumnQuarantine,
-    groupId: PartialDataColumnGroupID): Opt[PartialDataColumnGroupID] =
-  quarantine.groupIds.get(groupId)
 
 func putGroupId*(
     quarantine: var PartialColumnQuarantine,
@@ -247,35 +242,31 @@ func isComplete*(
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return false
-  for received in entry.cellsReceived:
-    if not received:
-      return false
-  true
+  entry.cellsReceived.allIt(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
 func assembleDataColumnSidecar*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex): Opt[DataColumnSidecar] =
   ## Assemble a full DataColumnSidecar from accumulated partial cells.
   ## None if the entry is incomplete or the group ID is not cached.
-  let stored = quarantine.groupIds.get(groupId).valueOr:
+  if not quarantine.hasGroupId(groupId):
     return Opt.none(DataColumnSidecar)
 
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return Opt.none(DataColumnSidecar)
 
-  for received in entry.cellsReceived:
-    if not received:
-      return Opt.none(DataColumnSidecar)
+  if not entry.cellsReceived.allIt(it):
+    return Opt.none(DataColumnSidecar)
 
   Opt.some(DataColumnSidecar(
     index: columnIndex,
     column: entry.cells,
     kzg_proofs: entry.proofs,
-    slot: stored.slot,
-    beacon_block_root: stored.beacon_block_root))
+    slot: groupId.slot,
+    beacon_block_root: groupId.beacon_block_root))
 
 # --- Cleanup ---
 

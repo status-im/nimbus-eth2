@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 {.used.}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md
 
 import
   stew/endians2,
@@ -33,7 +33,7 @@ func gid(slot: int, rootSeed: int): gloas.PartialDataColumnGroupID =
   gloas.PartialDataColumnGroupID(
     slot: Slot(slot), beacon_block_root: genDigest(rootSeed))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 func genSidecar(
     blobIndices: openArray[int], startCellId: int = 0
 ): ref gloas.PartialDataColumnSidecar =
@@ -60,29 +60,23 @@ suite "Partial Column Quarantine":
     let id = gid(1, 1)
     check:
       not quarantine.hasGroupId(id)
-      quarantine.getGroupId(id).isNone()
       not quarantine.hasEntry(id, ColumnIndex(0))
       quarantine.getEntry(id, ColumnIndex(0)).isNone()
 
   # --- Group ID management ---
 
-  test "Put and get group id":
+  test "Put and check group id":
     var quarantine = PartialColumnQuarantine.init()
     let id = gid(11, 7)
     quarantine.putGroupId(id)
-    check:
-      quarantine.hasGroupId(id)
-      quarantine.getGroupId(id).isSome()
-      quarantine.getGroupId(id).get().slot == Slot(11)
-      quarantine.getGroupId(id).get().beacon_block_root == genDigest(7)
+    check quarantine.hasGroupId(id)
 
-  test "Get group id for unknown key returns none":
+  test "Unknown group id is not present":
     var quarantine = PartialColumnQuarantine.init()
     quarantine.putGroupId(gid(1, 1))
     check:
       quarantine.hasGroupId(gid(1, 1))
       not quarantine.hasGroupId(gid(1, 2))
-      quarantine.getGroupId(gid(1, 2)).isNone()
 
   test "Group IDs with same root but different slots are distinct keys":
     var quarantine = PartialColumnQuarantine.init()
@@ -96,9 +90,9 @@ suite "Partial Column Quarantine":
     for i in 1 .. 3:
       quarantine.putGroupId(gid(i, i))
     check:
-      quarantine.getGroupId(gid(1, 1)).get().slot == Slot(1)
-      quarantine.getGroupId(gid(2, 2)).get().slot == Slot(2)
-      quarantine.getGroupId(gid(3, 3)).get().slot == Slot(3)
+      quarantine.hasGroupId(gid(1, 1))
+      quarantine.hasGroupId(gid(2, 2))
+      quarantine.hasGroupId(gid(3, 3))
 
   test "Remove group id":
     var quarantine = PartialColumnQuarantine.init()
@@ -107,9 +101,7 @@ suite "Partial Column Quarantine":
     check quarantine.hasGroupId(id)
 
     quarantine.removeGroupId(id)
-    check:
-      not quarantine.hasGroupId(id)
-      quarantine.getGroupId(id).isNone()
+    check not quarantine.hasGroupId(id)
 
   test "Remove non-existent group id is no-op":
     var quarantine = PartialColumnQuarantine.init()
@@ -737,7 +729,7 @@ suite "Partial Column Quarantine":
 
   # gloas.DataColumnSidecar carries slot + beacon_block_root instead of
   # signed_block_header / kzg_commitments / inclusion proof:
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
   test "assembleDataColumnSidecar produces correct DataColumnSidecar":
     var quarantine = PartialColumnQuarantine.init()
     let

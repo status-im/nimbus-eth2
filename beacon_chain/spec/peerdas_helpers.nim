@@ -415,7 +415,7 @@ proc assemble_data_column_sidecars*(
 
   sidecars
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-partialdatacolumnsidecar
 proc assemble_partial_data_column_sidecars*(
     signed_beacon_block: gloas.SignedBeaconBlock,
     blobs: seq[Opt[KzgBlob]],
@@ -470,7 +470,7 @@ proc assemble_partial_data_column_sidecars*(
 
   (group_id, sidecars)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
 # Gloas sources the commitments from the bid instead of the header.
 func partial_data_column_kzg_inputs*(
     sidecar: gloas.PartialDataColumnSidecar,
@@ -524,7 +524,7 @@ proc verify_partial_data_column_sidecar_kzg_proofs*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
 func verify_partial_data_column_sidecar*(
     sidecar: gloas.PartialDataColumnSidecar): Result[void, cstring] =
   ## Self-consistency [REJECT] rules, i.e. those needing neither chain state

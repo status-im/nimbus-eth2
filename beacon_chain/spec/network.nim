@@ -290,7 +290,7 @@ func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
                                 subnet_id: uint64): string =
   eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#partial-message-group-id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#partial-message-group-id
 # When sending a partial message, the gossipsub group ID MUST be the SSZ encoded
 # `PartialDataColumnGroupID` prefixed with a single version byte. The version
 # byte MUST be `0x00`. Implementations MUST ignore unknown versions. Other
