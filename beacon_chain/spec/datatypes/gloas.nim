@@ -715,9 +715,9 @@ type
 
   # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L1-L52
   BuilderConfig* = object
-    min_bid*: Gwei
-    builder_boost_factor*: uint64
-    builders*: seq[BuilderEntry]
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
+    builders*: Opt[seq[BuilderEntry]]
 
 func shortLog*(v: DataColumnSidecar): auto =
   (
