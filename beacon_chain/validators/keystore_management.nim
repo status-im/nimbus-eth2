@@ -1621,35 +1621,43 @@ proc getBuilderConfig*(
 
 proc getValidatorBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey):
-    Result[gloas.BuilderConfig, cstring] =
-  let validator =
-    try:
-      host.validatorPool.validators[pubkey]
-    except KeyError:
-      return err("validator not found")
+    Result[ResolvedBuilderConfig, cstring] =
+  let
+    validator =
+      try:
+        host.validatorPool.validators[pubkey]
+      except KeyError:
+        return err("validator not found")
+    (min_bid, builder_boost_factor, builders) = block:
+      debugGloasComment("should need a new config structure for gloas")
+      let res = host.getBuilderConfig(pubkey)
+      debugGloasComment("default values will be replaced by global config")
+      (
+        0.Gwei,
+        100.uint64,
+        @[BuilderEntry(
+          url:
+            if res.isOk() and res.unsafeGet().isSome():
+              res.unsafeGet().get()
+            elif host.defaultBuilderAddress.isSome():
+              host.defaultBuilderAddress.get()
+            else:
+              return err("builder address is missing")
+        )]
+      )
 
-  var res = block:
-    debugGloasComment("should need a new config structure for gloas")
-    let res = host.getBuilderConfig(pubkey)
-    gloas.BuilderConfig(builders: @[BuilderEntry(
-      url:
-        if res.isOk() and res.unsafeGet().isSome():
-          res.unsafeGet().get()
-        elif host.defaultBuilderAddress.isSome():
-          host.defaultBuilderAddress.get()
-        else:
-          return err("builder address is missing")
-    )])
-
-  for i in 0 ..< len(res.builders):
-    if res.builders[i].auth_data.isNone():
+  var res = gloas.ResolvedBuilderConfig(
+    min_bid: min_bid,
+    builder_boost_factor: builder_boost_factor,
+    builders: newSeq[ResolvedBuilderEntry](len(builders)))
+  for i in 0 ..< len(builders):
+    if builders[i].auth_data.isNone():
       res.builders[i].auth_data =
-        Opt.some(BuilderRequestAuthData.init(toBytes(res.builders[i].url)))
-    if res.builders[i].min_bid.isNone():
-      res.builders[i].min_bid = Opt.some(res.min_bid)
-    if res.builders[i].builder_boost_factor.isNone():
-      res.builders[i].builder_boost_factor =
-        Opt.some(res.builder_boost_factor)
+        BuilderRequestAuthData.init(toBytes(builders[i].url))
+    if builders[i].min_bid.isNone():
+      res.builders[i].min_bid = min_bid
+    if builders[i].builder_boost_factor.isNone():
+      res.builders[i].builder_boost_factor = builder_boost_factor
     debugGloasComment("cannot resolve other fields yet")
   ok(res)
 

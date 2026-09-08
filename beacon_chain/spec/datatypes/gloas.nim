@@ -719,6 +719,19 @@ type
     builder_boost_factor*: Opt[uint64]
     builders*: Opt[seq[BuilderEntry]]
 
+  ResolvedBuilderEntry* = object
+    url*: string
+    auth_data*: BuilderRequestAuthData
+    builder_pubkeys*: seq[ValidatorPubKey]
+    max_execution_payment*: Gwei
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+
+  ResolvedBuilderConfig* = object
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+    builders*: seq[ResolvedBuilderEntry]
+
 func shortLog*(v: DataColumnSidecar): auto =
   (
     index: v.index,

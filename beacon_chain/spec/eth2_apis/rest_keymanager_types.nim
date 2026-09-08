@@ -55,7 +55,7 @@ type
     gas_limit*: uint64
 
   GetBuilderConfigResponse* = object
-    data*: BuilderConfig
+    data*: ResolvedBuilderConfig
 
   ImportRemoteKeystoresBody* = object
     remote_keys*: seq[RemoteKeystoreInfo]
