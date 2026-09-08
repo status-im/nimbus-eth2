@@ -483,6 +483,21 @@ func partial_data_column_kzg_inputs*(
   ## Blob indices set in `already_verified` are skipped: those cells were
   ## checked against the same commitments when first received, and the
   ## caller has confirmed the incoming bytes match the stored copy.
+  # verify_cell_kzg_proof_batch requires commitments, cells and proofs of
+  # equal length, so require the spec's equalities up front rather than
+  # bounds-checking each index as it is reached.
+  let cellsPresent = (0 ..< sidecar.cells_present_bitmap.len).countIt(
+    sidecar.cells_present_bitmap[Natural(it)])
+
+  if sidecar.cells_present_bitmap.len != all_commitments.len:
+    return err("PartialDataColumnSidecar: bitmap length does not match commitments")
+
+  if sidecar.partial_column.len != cellsPresent:
+    return err("PartialDataColumnSidecar: cell count does not match bitmap")
+
+  if sidecar.kzg_proofs.len != cellsPresent:
+    return err("PartialDataColumnSidecar: proof count does not match bitmap")
+
   var
     commitments = newSeqOfCap[KzgCommitment](sidecar.partial_column.len)
     cells = newSeqOfCap[KzgCell](sidecar.partial_column.len)
@@ -492,11 +507,6 @@ func partial_data_column_kzg_inputs*(
   for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
     if not sidecar.cells_present_bitmap[Natural(blobIdx)]:
       continue
-    if blobIdx >= all_commitments.len:
-      return err("PartialDataColumnSidecar: bitmap exceeds commitments")
-    if cellIdx >= sidecar.partial_column.len or
-        cellIdx >= sidecar.kzg_proofs.len:
-      return err("PartialDataColumnSidecar: cell count does not match bitmap")
     if blobIdx >= already_verified.len or not already_verified[blobIdx]:
       commitments.add all_commitments[blobIdx]
       cells.add sidecar.partial_column[cellIdx]

@@ -300,8 +300,9 @@ func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
 const
   PARTIAL_DATA_COLUMN_GROUP_ID_VERSION* = 0x00'u8
 
-  # version byte ++ SSZ(beacon_block_root ++ slot)
-  PARTIAL_DATA_COLUMN_GROUP_ID_LEN* = 1 + sizeof(Eth2Digest) + sizeof(Slot)
+  # version byte ++ SSZ(PartialDataColumnGroupID), which is fixed-size
+  PARTIAL_DATA_COLUMN_GROUP_ID_LEN* =
+    1 + fixedPortionSize(gloas.PartialDataColumnGroupID)
 
 func encodePartialDataColumnGroupId*(
     group_id: gloas.PartialDataColumnGroupID): seq[byte] =
