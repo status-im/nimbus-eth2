@@ -42,7 +42,7 @@ declareGauge beacon_engine_getblobs_slot_hit_rate,
   "engine_getBlobs hit rate (0..1) for the most recently completed slot with at least one request"
 
 declareCounter beacon_engine_getblobs_skipped_total,
-  "engine_getBlobs invocations not issued because an in-flight fetch for the same block root already retrieved the blobs"
+  "engine_getBlobs invocations not issued because the other path already claimed the attempt for the same block root"
 
 type
   GetBlobsService* = object
@@ -66,14 +66,12 @@ type
     slotInFlight: Slot
     slotRequests: uint64
     slotHits: uint64
-    # Roots for which the column-first path has already invoked the EL.
-    # Bounds the per-block fan-out: each custody column arriving via gossip
-    # would otherwise trigger a redundant getBlobsV2 roundtrip.
-    columnFirstFetched: Table[Eth2Digest, Slot]
-    # Roots with an EL fetch in flight, keeping at most one engine_getBlobs
-    # request per root outstanding across both paths. `columnFirstFetched`
-    # cannot do this: it is only written once the roundtrip completes, so
-    # both paths read it as empty for the duration of the request.
+    # Roots for which one of the two paths has claimed the single EL attempt,
+    # claimed before yielding: whichever event arrives first owns it, and the
+    # other path issues no request of its own.
+    elAttempted: Table[Eth2Digest, Slot]
+    # Column-first fetches in flight, so a block arriving mid-flight can wait
+    # and enqueue with the columns it recovers.
     elFetchInFlight: Table[Eth2Digest, Future[void]]
 
   GetBlobsServiceRef* = ref GetBlobsService
@@ -134,6 +132,14 @@ proc clearFetchInFlight(
   self.elFetchInFlight.del(root)
   marker.complete()
 
+proc pruneElAttempted(self: GetBlobsServiceRef, finalized: Slot) =
+  var toDelete: seq[Eth2Digest]
+  for block_root, slot in self.elAttempted:
+    if slot <= finalized:
+      toDelete.add block_root
+  for block_root in toDelete:
+    self.elAttempted.del(block_root)
+
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
     columns: seq[ref T]
@@ -166,11 +172,11 @@ proc attemptGetBlobs*(
   let sidecarlessBlock = quarantine[].getSidecarless(root).valueOr:
     return
 
+  self.pruneElAttempted(
+    self.blockProcessor[].consensusManager.dag.finalizedHead.slot)
+
   withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
-      # A column sidecar arriving ahead of the block may have a fetch for this
-      # root in flight already; wait for it instead of asking the EL for the
-      # same blobs twice. `join`, so cancelling here leaves that fetch alone.
       let inFlight = self.elFetchInFlight.getOrDefault(forkyBlck.root)
       if inFlight != nil:
         await inFlight.join()
@@ -178,9 +184,8 @@ proc attemptGetBlobs*(
         if quarantine[].getSidecarless(forkyBlck.root).isNone():
           return
 
-      # If the column-first path already populated quarantine for this root,
-      # skip the EL fetch and enqueue with the existing columns.
-      if forkyBlck.root in self.columnFirstFetched:
+      if forkyBlck.root in self.elAttempted:
+        beacon_engine_getblobs_skipped_total.inc()
         let sidecarsOpt =
           self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
         if sidecarsOpt.isSome():
@@ -188,15 +193,10 @@ proc attemptGetBlobs*(
             return
           debug "Added data columns from EL blobpool to quarantine",
             root = forkyBlck.root, slot = forkyBlck.message.slot
-          self.columnFirstFetched.del(forkyBlck.root)
-          if inFlight != nil:
-            # Waiting on that fetch is what kept us from issuing our own.
-            beacon_engine_getblobs_skipped_total.inc()
           self.partialColumnQuarantine[].pruneForBlock(forkyBlck.root)
           self.blockProcessor.enqueueBlock(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
-          return
-        # Columns vanished (pruned?) — fall through to EL fetch as fallback.
+        return
 
       template kzg_commitments_count(): int =
         forkyBlck.message.body.blob_kzg_commitments.len
@@ -205,8 +205,7 @@ proc attemptGetBlobs*(
         blobs: seq[kzg.KzgBlob]
         flat_proof: seq[kzg.KzgProof]
 
-      let fetchMarker = self.markFetchInFlight(forkyBlck.root)
-      defer: self.clearFetchInFlight(forkyBlck.root, fetchMarker)
+      self.elAttempted[forkyBlck.root] = forkyBlck.message.slot
 
       if self.partialColumns:
         # Fulu partial-columns mode: prefer engine_getBlobsV3 so the EL can
@@ -396,33 +395,21 @@ proc attemptGetBlobsFromColumn(
     quarantine = self.blockProcessor[].consensusManager.quarantine
     dag = self.blockProcessor[].consensusManager.dag
 
-  # Prune roots whose block never showed up.
-  block:
-    var toDelete: seq[Eth2Digest]
-    for block_root, slot in self.columnFirstFetched:
-      if slot <= dag.finalizedHead.slot:
-        toDelete.add block_root
-    for block_root in toDelete:
-      self.columnFirstFetched.del(block_root)
+  self.pruneElAttempted(dag.finalizedHead.slot)
 
   let
     block_root = hash_tree_root(sidecar[].signed_block_header.message)
     slot = sidecar[].signed_block_header.message.slot
 
-  # Dedup: only fire EL fetch once per block_root. Subsequent column
-  # arrivals for the same block are no-ops on this path.
-  if block_root in self.columnFirstFetched:
+  # Only the first column seen for a block reaches the EL; if the block got
+  # here first, none of them do.
+  if block_root in self.elAttempted:
     return
-
-  # If the sidecarless block is already in the block quarantine, the
-  # block-first path (consumeBlockGossip - attemptGetBlobs) owns this
-  # block — leave it alone.
   if quarantine[].getSidecarless(block_root).isSome():
     return
 
-  # Claim the root before yielding, so a block arriving mid-flight waits for
-  # this fetch rather than issuing an identical one. Released either way, so
-  # a fetch that came up empty is still retried by later column arrivals.
+  self.elAttempted[block_root] = slot
+
   let fetchMarker = self.markFetchInFlight(block_root)
   defer: self.clearFetchInFlight(block_root, fetchMarker)
 
@@ -463,9 +450,6 @@ proc attemptGetBlobsFromColumn(
   # Any partial-cell state for this block is now superseded by the full
   # column sidecars we just installed.
   self.partialColumnQuarantine[].pruneForBlock(block_root)
-  # Mark only after a successful put so failed attempts can be retried by
-  # subsequent column arrivals for the same root.
-  self.columnFirstFetched[block_root] = slot
 
 proc consumeBlockGossip(
     self: GetBlobsServiceRef) {.async: (raises: []).} =
