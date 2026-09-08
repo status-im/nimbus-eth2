@@ -33,7 +33,6 @@ from ./capella import
   ExecutionBranch, HistoricalSummary,
   SignedBLSToExecutionChange, Withdrawal, EXECUTION_PAYLOAD_GINDEX
 from ./deneb import Blobs
-from ../mev/gloas_mev import BuilderRequestAuthData
 
 export json_serialization, base
 
@@ -65,6 +64,9 @@ const
   PAYLOAD_STATUS_PENDING* = PayloadStatus(0)
   PAYLOAD_STATUS_EMPTY* = PayloadStatus(1)
   PAYLOAD_STATUS_FULL* = PayloadStatus(2)
+
+  # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/builder.md#constants
+  MAX_BUILDER_AUTH_DATA_SIZE: int64 = 4096
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-datacolumnsidecar
@@ -699,6 +701,8 @@ type
     # [New in Gloas:EIP7732]
     processed_builders_sweep_count*: uint64
     processed_sweep_withdrawals_count*: uint64
+
+  BuilderRequestAuthData* = List[byte, Limit MAX_BUILDER_AUTH_DATA_SIZE]
 
   # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L54-L137
   BuilderEntry* = object
