@@ -1066,6 +1066,98 @@ proc getAttesterDuties*(
     raise (ref ValidatorApiError)(
       msg: "Failed to get attester duties", data: failures)
 
+proc getPtcDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    validators: seq[ValidatorIndex],
+    strategy: ApiStrategyKind
+): Future[GetPtcDutiesResponse] {.
+   async: (raises: [CancelledError, ValidatorApiError]).} =
+  const RequestName = "getPtcDuties"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestPlainResponse,
+                                      GetPtcDutiesResponse,
+                                      vc.SlotDuration,
+                                      ViableNodeStatus,
+                                      {BeaconNodeRole.Duties},
+                                      getPtcDutiesPlain(it, epoch,
+                                                        validators)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[GetPtcDutiesResponse].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetPtcDutiesResponse, response.data,
+                                response.contentType)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[GetPtcDutiesResponse].err($res.error)
+          else:
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              handleOptimistic()
+            ApiResponse[GetPtcDutiesResponse].ok(data)
+        of 400:
+          handle400()
+          ApiResponse[GetPtcDutiesResponse].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[GetPtcDutiesResponse].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[GetPtcDutiesResponse].err(ResponseNoSyncError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[GetPtcDutiesResponse].err(ResponseUnexpectedError)
+
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse,
+                              vc.SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
+                              getPtcDutiesPlain(it, epoch, validators)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetPtcDutiesResponse, response.data,
+                                response.contentType)
+          if res.isOk():
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              handleOptimistic()
+            return data
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          false
+        of 500:
+          handle500()
+          false
+        of 503:
+          handle503()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to get ptc duties", data: failures)
+
 proc getSyncCommitteeDuties*(
     vc: ValidatorClientRef,
     epoch: Epoch,

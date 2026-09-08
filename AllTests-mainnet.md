@@ -45,6 +45,7 @@ AllTests-mainnet
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + head blocks roundtrip [Preset: mainnet]                                                    OK
++ pre-Capella withdrawal credentials [Preset: mainnet]                                       OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check altair blocks [Preset: mainnet]                                               OK
 + sanity check altair states [Preset: mainnet]                                               OK
@@ -828,6 +829,7 @@ AllTests-mainnet
 + KzgProof                                                                                   OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
++ VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
@@ -992,30 +994,41 @@ AllTests-mainnet
 ```
 ## SyncManager test suite
 ```diff
-+ [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
-+ [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
-+ [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK
-+ [SyncQueue# & Backward] Failure request push test                                          OK
-+ [SyncQueue# & Backward] Invalid block [3 peers] test                                       OK
-+ [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
-+ [SyncQueue# & Backward] Smoke [single peer] test                                           OK
-+ [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
-+ [SyncQueue# & Backward] epochFilter() test                                                 OK
-+ [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
-+ [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
-+ [SyncQueue# & Forward] Empty responses should not be accounted [3 peers] test              OK
-+ [SyncQueue# & Forward] Failure request push test                                           OK
-+ [SyncQueue# & Forward] Invalid block [3 peers] test                                        OK
-+ [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
-+ [SyncQueue# & Forward] Smoke [single peer] test                                            OK
-+ [SyncQueue# & Forward] Unviable block [3 peers] test                                       OK
-+ [SyncQueue# & Forward] epochFilter() test                                                  OK
++ [SyncQueue#Backward] Combination of missing parent and good blocks [3 peers] test          OK
++ [SyncQueue#Backward] Empty responses should not advance queue until other peers will not c OK
++ [SyncQueue#Backward] Empty responses should not be accounted [3 peers] test                OK
++ [SyncQueue#Backward] Failure request push test                                             OK
++ [SyncQueue#Backward] Invalid block [3 peers] test                                          OK
 + [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
++ [SyncQueue#Backward] Smoke [3 peers] test                                                  OK
++ [SyncQueue#Backward] Smoke [single peer] test                                              OK
++ [SyncQueue#Backward] Unviable block [3 peers] test                                         OK
++ [SyncQueue#Backward] block completeness test                                               OK
++ [SyncQueue#Backward] data column completeness test                                         OK
++ [SyncQueue#Backward] data column max distance test                                         OK
++ [SyncQueue#Backward] epochFilter() test                                                    OK
++ [SyncQueue#Backward] finish test                                                           OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
++ [SyncQueue#Backward] partial range real-case test                                          OK
++ [SyncQueue#Backward] partial ranges test                                                   OK
++ [SyncQueue#Forward] Combination of missing parent and good blocks [3 peers] test           OK
++ [SyncQueue#Forward] Empty responses should not advance queue until other peers will not co OK
++ [SyncQueue#Forward] Empty responses should not be accounted [3 peers] test                 OK
++ [SyncQueue#Forward] Failure request push test                                              OK
++ [SyncQueue#Forward] Invalid block [3 peers] test                                           OK
 + [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK
++ [SyncQueue#Forward] Smoke [3 peers] test                                                   OK
++ [SyncQueue#Forward] Smoke [single peer] test                                               OK
++ [SyncQueue#Forward] Unviable block [3 peers] test                                          OK
++ [SyncQueue#Forward] block completeness test                                                OK
++ [SyncQueue#Forward] data column completeness test                                          OK
++ [SyncQueue#Forward] data column max distance test                                          OK
++ [SyncQueue#Forward] epochFilter() test                                                     OK
++ [SyncQueue#Forward] finish test                                                            OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
-+ [SyncQueue] checkBlobsResponse() test                                                      OK
-+ [SyncQueue] checkResponse() test                                                           OK
++ [SyncQueue#Forward] partial ranges test                                                    OK
++ [SyncQueue] getShortMap(blocks/envelopes) test                                             OK
++ [SyncQueue] getShortMap(sidecars) test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
 ## SyncRange test suite

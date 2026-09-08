@@ -770,7 +770,8 @@ proc processSignedVoluntaryExit*(
 
   debug "Voluntary exit received"
 
-  let v = self.validatorChangePool[].validateVoluntaryExit(signedVoluntaryExit)
+  let v = self.validatorChangePool[].validateVoluntaryExit(
+    signedVoluntaryExit, self.getCurrentBeaconTime())
   if v.isOk():
     trace "Voluntary exit validated"
 
@@ -956,7 +957,7 @@ proc processPayloadAttestationMessage*(
   let
     wallTime = self.getCurrentBeaconTime()
     v = await validatePayloadAttestationMessage(
-      self.dag, self.payloadAttestationPool, self.batchCrypto,
+      self.dag, self.quarantine, self.payloadAttestationPool, self.batchCrypto,
       payload_attestation_message, wallTime, checkSignature)
 
   if v.isErr():

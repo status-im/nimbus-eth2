@@ -280,6 +280,46 @@ suite "Beacon chain DB" & preset():
       else:
         consensusFork.doStateTestReusingBuffers()
 
+  test "pre-Capella withdrawal credentials" & preset():
+    let db = cfg.makeTestDB(SLOTS_PER_EPOCH)
+
+    # Post-Capella, withdrawal credentials can change.
+    # The first stored state sets the credentials in immutableValidators;
+    # pretend that an earlier version wrote the immutableValidators already
+    block:
+      let i = db.immutableValidators.len div 2
+      var credentials = db.immutableValidators[i].withdrawal_credentials
+      credentials.data[0] = ETH1_ADDRESS_WITHDRAWAL_PREFIX
+      db.immutableValidatorsDb.put(i, ImmutableValidatorDataDb2(
+        pubkey: db.immutableValidators[i].pubkey.toUncompressed(),
+        withdrawal_credentials: credentials))
+
+    let db2 = BeaconChainDB.new(db.db, cfg)
+
+    # New validators get appended to immutableValidators with latest credentials
+    block:
+      let state = assignClone(testStates[ConsensusFork.Capella][0][])
+      template forkyState: untyped = state[].capellaData
+      for i in 0 ..< forkyState.data.validators.len:
+        template val: auto = forkyState.data.validators.mitem(i)
+        val.withdrawal_credentials.data[0] = ETH1_ADDRESS_WITHDRAWAL_PREFIX
+      forkyState.root = hash_tree_root(forkyState.data)
+      db2.putState(forkyState.root, forkyState.data)
+
+    # Storing a pre-Capella state restores pre-Capella withdrawal credentials
+    # (e.g., importing from Era file)
+    let state = testStates[ConsensusFork.Bellatrix][0]
+    template forkyState: untyped = state[].bellatrixData
+    db2.putState(forkyState.root, forkyState.data)
+
+    # Check that restored pre-Capella withdrawal credentials are persisted
+    let
+      db3 = BeaconChainDB.new(db.db, cfg)
+      state2 = db3.getStateRef(ConsensusFork.Bellatrix, forkyState.root)
+    check hash_tree_root(state2[]) == forkyState.root
+
+    db3.close()
+
   template doRollbackTest(consensusFork: static ConsensusFork): untyped =
     block:
       let
