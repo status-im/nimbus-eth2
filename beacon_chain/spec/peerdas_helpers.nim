@@ -483,9 +483,6 @@ func partial_data_column_kzg_inputs*(
   ## Blob indices set in `already_verified` are skipped: those cells were
   ## checked against the same commitments when first received, and the
   ## caller has confirmed the incoming bytes match the stored copy.
-  # verify_cell_kzg_proof_batch requires commitments, cells and proofs of
-  # equal length, so require the spec's equalities up front rather than
-  # bounds-checking each index as it is reached.
   let cellsPresent = (0 ..< sidecar.cells_present_bitmap.len).countIt(
     sidecar.cells_present_bitmap[Natural(it)])
 

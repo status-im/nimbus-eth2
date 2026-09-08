@@ -524,9 +524,6 @@ suite "Gloas Partial Columns":
         doAssert inputs.commitments.len == 0
         doAssert inputs.proofs.len == 0
 
-      # The bitmap length must equal the commitment count exactly, so both a
-      # bitmap reaching past the commitments and one falling short of them are
-      # rejected.
       block:
         let shortened =
           gloas.KzgCommitments(commitments.asSeq[0 ..< commitments.len - 1])
@@ -539,7 +536,6 @@ suite "Gloas Partial Columns":
         doAssert partial_data_column_kzg_inputs(
           sidecar, extended, BitSeq.init(0)).isErr
 
-      # A cell or proof count disagreeing with the bitmap is rejected too.
       block:
         var extraCell = sidecar
         extraCell.partial_column.add(sidecar.partial_column[0])
