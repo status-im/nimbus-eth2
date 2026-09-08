@@ -1356,11 +1356,11 @@ proc getMissingColumnsBlocksAndRequest(
       columnBlocks.add(signedBlock)
 
   debug "Missing sidecars roots request prepared",
-    missing_peer_roots = slimLog(bres.columnBlocks.toOpenArray(0, delim - 1)),
+    missing_peer_roots = slimLog(columnBlocks.toOpenArray(0, delim - 1)),
     missing_peer_roots_len = delim,
     missing_global_roots =
-      slimLog(bres.columnBlocks.toOpenArray(delim, len(bres.columnBlocks) - 1)),
-    missing_global_roots_len = len(bres.columnBlocks) - delim
+      slimLog(columnBlocks.toOpenArray(delim, len(columnBlocks) - 1)),
+    missing_global_roots_len = len(columnBlocks) - delim
 
   for signedBlock in columnBlocks:
     withBlck(signedBlock):
