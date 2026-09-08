@@ -1651,14 +1651,34 @@ proc getValidatorBuilderConfig*(
     builder_boost_factor: builder_boost_factor,
     builders: newSeq[ResolvedBuilderEntry](len(builders)))
   for i in 0 ..< len(builders):
-    if builders[i].auth_data.isNone():
-      res.builders[i].auth_data =
+    res.builders[i].auth_data =
+      if builders[i].auth_data.isSome():
+        builders[i].auth_data.get()
+      else:
         BuilderRequestAuthData.init(toBytes(builders[i].url))
-    if builders[i].min_bid.isNone():
-      res.builders[i].min_bid = min_bid
-    if builders[i].builder_boost_factor.isNone():
-      res.builders[i].builder_boost_factor = builder_boost_factor
-    debugGloasComment("cannot resolve other fields yet")
+    res.builders[i].min_bid =
+      if builders[i].min_bid.isSome():
+        builders[i].min_bid.get()
+      else:
+        min_bid
+    res.builders[i].builder_boost_factor =
+      if builders[i].builder_boost_factor.isSome():
+        builders[i].builder_boost_factor.get()
+      else:
+        builder_boost_factor
+
+    debugGloasComment("cannot resolve the fields below yet")
+    res.builders[i].builder_pubkeys =
+      if builders[i].builder_pubkeys.isSome():
+        builders[i].builder_pubkeys.unsafeGet()
+      else:
+        default(seq[ValidatorPubKey])
+    res.builders[i].max_execution_payment =
+      if builders[i].max_execution_payment.isSome():
+        builders[i].max_execution_payment.unsafeGet()
+      else:
+        default(Gwei)
+
   ok(res)
 
 proc addValidator*(
