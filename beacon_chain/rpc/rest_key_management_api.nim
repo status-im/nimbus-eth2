@@ -511,8 +511,6 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     let pubkey = pubkey.valueOr:
       return keymanagerApiError(Http400, InvalidValidatorPublicKey)
 
-    debugGloasComment("implement new config structure and check")
-
     let res = host.getValidatorBuilderConfig(pubkey)
     if res.isOk:
       RestApiResponse.jsonResponse(GetBuilderConfigResponse(

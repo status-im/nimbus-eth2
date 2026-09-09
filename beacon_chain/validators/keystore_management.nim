@@ -1544,6 +1544,19 @@ proc setGraffiti*(host: KeymanagerHost,
       "Failed to write graffiti file," &
         " reason: (" & $int(e) & ") " & ioErrorMsg(e))
 
+proc setValidatorBuilderConfig*(
+    host: KeymanagerHost, pubkey: ValidatorPubKey,
+    builderConfig: Opt[gloas.BuilderConfig],
+): Result[void, string] =
+  let validator =
+    try:
+      host.validatorPool.validators[pubkey]
+    except KeyError:
+      return err("validator not found")
+
+  validator.builderConfig = builderConfig
+  ok()
+
 from ".."/spec/beaconstate import has_eth1_withdrawal_credential
 
 proc getValidatorWithdrawalAddress*(
@@ -1628,48 +1641,75 @@ proc getValidatorBuilderConfig*(
         host.validatorPool.validators[pubkey]
       except KeyError:
         return err("validator not found")
-    (min_bid, builder_boost_factor, builders) = block:
+    globalConfig = block:
       debugGloasComment("should need a new config structure for gloas")
-      let res = host.getBuilderConfig(pubkey)
+      let 
+        res = host.getBuilderConfig(pubkey)
+        builderUrl =
+          if res.isOk() and res.unsafeGet().isSome():
+            res.unsafeGet().get()
+          elif host.defaultBuilderAddress.isSome():
+            host.defaultBuilderAddress.get()
+          else:
+            return err("builder address is missing")
+
       debugGloasComment("default values will be replaced by global config")
-      (
-        0.Gwei,
-        100.uint64,
-        @[BuilderEntry(
-          url:
-            if res.isOk() and res.unsafeGet().isSome():
-              res.unsafeGet().get()
-            elif host.defaultBuilderAddress.isSome():
-              host.defaultBuilderAddress.get()
-            else:
-              return err("builder address is missing")
+      ResolvedBuilderConfig(
+        min_bid: 0.Gwei,
+        builder_boost_factor: 100.uint64,
+        builders: @[ResolvedBuilderEntry(
+          url: builderUrl,
+          auth_data: BuilderRequestAuthData.init(toBytes(builderUrl)),
+          min_bid: 0.Gwei,
+          builder_boost_factor: 100.uint64,
         )]
       )
 
-  var res = gloas.ResolvedBuilderConfig(
-    min_bid: min_bid,
-    builder_boost_factor: builder_boost_factor,
-    builders: newSeq[ResolvedBuilderEntry](len(builders)))
-  for i in 0 ..< len(builders):
-    res.builders[i].auth_data =
-      builders[i].auth_data.valueOr:
-        BuilderRequestAuthData.init(toBytes(builders[i].url))
-    res.builders[i].min_bid =
-      builders[i].min_bid.valueOr:
-        min_bid
-    res.builders[i].builder_boost_factor =
-      builders[i].builder_boost_factor.valueOr:
-        builder_boost_factor
+  template vBuilderConfig(): auto = validator.builderConfig.unsafeGet()
+  let
+    resolvedMinBid =
+      if validator.builderConfig.isSome():
+        vBuilderConfig.min_bid.valueOr:
+          globalConfig.min_bid
+      else:
+        globalConfig.min_bid
+    resolvedBuilderBoostFactor =
+      if validator.builderConfig.isSome():
+        vBuilderConfig.builder_boost_factor.valueOr:
+          globalConfig.builder_boost_factor
+      else:
+        globalConfig.builder_boost_factor
+    resolvedEntries =
+      if validator.builderConfig.isSome() and vBuilderConfig.builders.isSome():
+        template vBuilderEntries: auto = vBuilderConfig.builders.unsafeGet()
+        var res = newSeq[ResolvedBuilderEntry](len(vBuilderEntries))
+        for i in 0 ..< len(vBuilderEntries):
+          res[i].auth_data =
+            vBuilderEntries[i].auth_data.valueOr:
+              BuilderRequestAuthData.init(toBytes(vBuilderEntries[i].url))
+          res[i].min_bid =
+            vBuilderEntries[i].min_bid.valueOr:
+              resolvedMinBid
+          res[i].builder_boost_factor =
+            vBuilderEntries[i].builder_boost_factor.valueOr:
+              resolvedBuilderBoostFactor
 
-    debugGloasComment("cannot resolve the fields below yet")
-    res.builders[i].builder_pubkeys =
-      builders[i].builder_pubkeys.valueOr:
-        default(seq[ValidatorPubKey])
-    res.builders[i].max_execution_payment =
-      builders[i].max_execution_payment.valueOr:
-        default(Gwei)
+          debugGloasComment("pubkeys may allow to be empty; revisit")
+          if vBuilderEntries[i].builder_pubkeys.isSome():
+            res[i].builder_pubkeys =
+              vBuilderEntries[i].builder_pubkeys.get()
+          debugGloasComment("resolve max_execution_payment from global config")
+          if vBuilderEntries[i].max_execution_payment.isSome():
+            res[i].max_execution_payment =
+              vBuilderEntries[i].max_execution_payment.get()
+        res
+      else:
+        globalConfig.builders
 
-  ok(res)
+  ok(ResolvedBuilderConfig(
+    min_bid: resolvedMinBid,
+    builder_boost_factor: resolvedBuilderBoostFactor,
+    builders: resolvedEntries))
 
 proc addValidator*(
     host: KeymanagerHost, keystore: KeystoreData,
