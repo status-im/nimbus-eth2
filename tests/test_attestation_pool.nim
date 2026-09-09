@@ -14,24 +14,32 @@ import
   chronicles,
   # Internal
   ../beacon_chain/consensus_object_pools/[
-    blockchain_dag, block_clearance, attestation_pool],
-  ../beacon_chain/spec/state_transition,
+    blockchain_dag, block_clearance, attestation_pool, inclusion_list_pool],
+  ../beacon_chain/spec/[inclusion_list, state_transition],
   ../beacon_chain/beacon_clock,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil, ./consensus_spec/fixtures_utils
 
 from std/sequtils import mapIt, toSeq
-from std/tables import contains
+from std/tables import contains, len
 from stew/byteutils import `<`
 from ../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, init
 from ../beacon_chain/fork_choice/fork_choice import
   mark_root_invalid, mark_payload_invalid
-from ../beacon_chain/fork_choice/fork_choice_epbs import on_execution_payload
+from ../beacon_chain/fork_choice/fork_choice_epbs import
+  mgetPtcTally, on_execution_payload, payload_data_availability,
+  payload_timeliness, should_extend_payload
+from ../beacon_chain/fork_choice/fork_choice_focil import
+  get_payload_inclusion_list_transactions,
+  is_payload_inclusion_list_satisfied,
+  prune_payload_inclusion_list_satisfaction,
+  record_payload_inclusion_list_satisfaction
 from ../beacon_chain/fork_choice/proto_array import checkpoints
+from ../beacon_chain/spec/eth2_merkleization import hash_tree_root
 from ../beacon_chain/spec/beaconstate import
   attester_dependent_root, check_attestation, get_attesting_indices,
-  latest_block_root
+  get_inclusion_list_committee, latest_block_root
 from ../beacon_chain/spec/validator import
   get_beacon_committee, get_committee_count_per_slot, get_committee_indices,
   get_committee_index_one
@@ -1244,3 +1252,217 @@ suite "Attestation pool gloas processing" & preset():
       check:
         head != b3Add[]
         head == b1Add[]
+
+  test "Inclusion list satisfaction is not recorded before Heze":
+    var cache = StateCache()
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).gloasData
+      b1Add = addHeadBlockToForkChoice(b1)
+    check b1Add.isOk
+
+    check pool[].forkChoice.on_execution_payload(
+      dag.cfg, dag.cfg.timeParams,
+      gloas.SignedExecutionPayloadEnvelope(
+        message: gloas.ExecutionPayloadEnvelope(
+          beacon_block_root: b1.root))).isOk
+
+    let tally = pool[].forkChoice.backend.mgetPtcTally(b1.root, b1.message.slot)
+    for i in 0 ..< int PTC_SIZE:
+      tally.voted[i] = true
+      tally.present[i] = true
+      tally.available[i] = true
+
+    # Nothing is recorded pre-Heze and a missing entry reads as satisfied, so
+    # `should_extend_payload` behaves exactly as it did in Gloas.
+    check:
+      pool[].forkChoice.backend.payload_inclusion_list_satisfaction.len == 0
+      pool[].forkChoice.backend.is_payload_inclusion_list_satisfied(b1.root)
+      pool[].forkChoice.backend.should_extend_payload(b1.root)
+
+func makeTx(bytes: openArray[byte]): gloas.Transaction =
+  gloas.Transaction(@bytes)
+
+func makeInclusionList(
+    slot: Slot, validator_index: uint64, committee_root: Eth2Digest,
+    txs: openArray[gloas.Transaction]): SignedInclusionList =
+  var il = InclusionList(
+    slot: slot,
+    validator_index: validator_index,
+    inclusion_list_committee_root: committee_root)
+  for tx in txs:
+    il.transactions.add(tx)
+  SignedInclusionList(message: il)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md
+suite "Attestation pool heze processing" & preset():
+  setup:
+    const TOTAL_COMMITTEES = 2
+    let
+      rng = HmacDrbgContext.new()
+      cfg = genesisTestRuntimeConfig(ConsensusFork.Heze)
+      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
+      dag = init(
+        ChainDAGRef, cfg,
+        cfg.makeTestDB(
+          TOTAL_COMMITTEES * TARGET_COMMITTEE_SIZE * SLOTS_PER_EPOCH),
+        validatorMonitor, {})
+      taskpool = Taskpool.new()
+    var verifier {.used.} = BatchVerifier.init(rng, taskpool)
+    let
+      quarantine = newClone(Quarantine.init(dag.cfg))
+      pool = newClone(AttestationPool.init(dag, quarantine))
+      ilPool = newClone(InclusionListPool.init(dag.timeParams))
+      state = newClone(dag.headState)
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+    check:
+      process_slots(
+        dag.cfg,
+        state[],
+        state[].slot + MIN_ATTESTATION_INCLUSION_DELAY,
+        cache,
+        info,
+        {}).isOk()
+
+    template backend: untyped = pool[].forkChoice.backend
+
+    template addHeadBlockToForkChoice(
+        blck: heze.SignedBeaconBlock): Result[BlockRef, VerifierError] =
+      dag.addHeadBlock(verifier, blck) do (
+          blckRef: BlockRef, signedBlock: heze.TrustedSignedBeaconBlock,
+          state: heze.BeaconState,
+          epochRef: EpochRef, unrealized: FinalityCheckpoints):
+        pool[].addForkChoice(
+          epochRef, blckRef, unrealized, signedBlock.message,
+          blck.message.slot.start_beacon_time(cfg.timeParams))
+
+    template revealPayload(root: Eth2Digest, satisfied: bool): bool =
+      pool[].forkChoice.on_execution_payload(
+        dag.cfg, dag.cfg.timeParams,
+        gloas.SignedExecutionPayloadEnvelope(
+          message: gloas.ExecutionPayloadEnvelope(beacon_block_root: root)),
+        inclusion_list_satisfied = satisfied).isOk
+
+    # Vote the payload unanimously present and available, so that
+    # `should_extend_payload` turns purely on inclusion list satisfaction.
+    template votePayloadTimely(root: Eth2Digest, slot: Slot) =
+      let tally = backend.mgetPtcTally(root, slot)
+      for i in 0 ..< int PTC_SIZE:
+        tally.voted[i] = true
+        tally.present[i] = true
+        tally.available[i] = true
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-is_payload_inclusion_list_satisfied
+  test "An unrevealed payload does not satisfy the constraints":
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
+      b1Add = addHeadBlockToForkChoice(b1)
+    check b1Add.isOk
+
+    check:
+      b1.root notin backend.proto_array.fullBlockIndices
+      not backend.is_payload_inclusion_list_satisfied(b1.root)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/sync/optimistic.md#how-to-track-inclusion-list-satisfaction
+  test "An optimistically imported payload is recorded as satisfying":
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
+      b1Add = addHeadBlockToForkChoice(b1)
+    check b1Add.isOk
+
+    check revealPayload(b1.root, satisfied = true)
+    check:
+      b1.root in backend.proto_array.fullBlockIndices
+      b1.root in backend.payload_inclusion_list_satisfaction
+      backend.is_payload_inclusion_list_satisfied(b1.root)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#modified-should_extend_payload
+  test "A payload missing inclusion list transactions is not extended":
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
+      b1Add = addHeadBlockToForkChoice(b1)
+    check b1Add.isOk
+
+    check revealPayload(b1.root, satisfied = false)
+    votePayloadTimely(b1.root, b1.message.slot)
+
+    check:
+      backend.payload_timeliness(b1.root, timely = true)
+      backend.payload_data_availability(b1.root, available = true)
+      not backend.is_payload_inclusion_list_satisfied(b1.root)
+      not backend.should_extend_payload(b1.root)
+
+    # The payload stays valid and available; only extension is withheld.
+    check b1.root in backend.proto_array.fullBlockIndices
+
+    backend.record_payload_inclusion_list_satisfaction(b1.root, true)
+    check backend.should_extend_payload(b1.root)
+
+  test "Inclusion list satisfaction for pruned blocks is dropped":
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
+      b1Add = addHeadBlockToForkChoice(b1)
+    check b1Add.isOk
+    check revealPayload(b1.root, satisfied = true)
+
+    const staleRoot = Eth2Digest.fromHex(
+      "0x0000000000000000000000000000000000000000000000000000000000000001")
+    backend.record_payload_inclusion_list_satisfaction(staleRoot, false)
+    check backend.payload_inclusion_list_satisfaction.len == 2
+
+    backend.prune_payload_inclusion_list_satisfaction()
+    check:
+      backend.payload_inclusion_list_satisfaction.len == 1
+      b1.root in backend.payload_inclusion_list_satisfaction
+      staleRoot notin backend.payload_inclusion_list_satisfaction
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
+  test "Constraints come from the previous slot's committee":
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
+      b1Ref = addHeadBlockToForkChoice(b1).expect("block added")
+      prevSlot = b1.message.slot - 1
+      committee = get_inclusion_list_committee(
+        state[].hezeData.data, prevSlot, cache)
+      committeeRoot = hash_tree_root(committee)
+
+    check ilPool[].addInclusionList(
+      makeInclusionList(
+        prevSlot, committee[0], committeeRoot, [makeTx([byte 0x01, 0x02])]),
+      is_timely = true, prevSlot.start_beacon_time(cfg.timeParams))
+
+    # A list for `b1`'s own slot constrains the next block, not this one.
+    check ilPool[].addInclusionList(
+      makeInclusionList(
+        b1.message.slot, committee[1], committeeRoot, [makeTx([byte 0xFF])]),
+      is_timely = true, b1.message.slot.start_beacon_time(cfg.timeParams))
+
+    let txs = get_payload_inclusion_list_transactions(ilPool[], dag, b1Ref)
+    check:
+      txs.isSome
+      txs.get.len == 1
+      txs.get[0] == makeTx([byte 0x01, 0x02])
+
+  test "Untimely inclusion lists do not constrain the payload":
+    let
+      b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
+      b1Ref = addHeadBlockToForkChoice(b1).expect("block added")
+      prevSlot = b1.message.slot - 1
+      committee = get_inclusion_list_committee(
+        state[].hezeData.data, prevSlot, cache)
+      committeeRoot = hash_tree_root(committee)
+
+    check ilPool[].addInclusionList(
+      makeInclusionList(
+        prevSlot, committee[0], committeeRoot, [makeTx([byte 0xAA])]),
+      is_timely = false, prevSlot.start_beacon_time(cfg.timeParams))
+
+    let txs = get_payload_inclusion_list_transactions(ilPool[], dag, b1Ref)
+    check:
+      txs.isSome
+      txs.get.len == 0
+
+  test "The genesis block has no inclusion list constraints":
+    check get_payload_inclusion_list_transactions(
+      ilPool[], dag, dag.head).isNone

@@ -17,10 +17,11 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ../consensus_object_pools/[spec_cache, blockchain_dag],
-  ./[fork_choice_types, proto_array, fast_confirmation, fork_choice_epbs]
+  ./[fork_choice_types, proto_array, fast_confirmation, fork_choice_epbs,
+     fork_choice_focil]
 
 from std/sequtils import keepItIf
-export results, fork_choice_types, fork_choice_epbs
+export results, fork_choice_types, fork_choice_epbs, fork_choice_focil
 export proto_array.len
 
 # This is a port of https://github.com/sigp/lighthouse/pull/804
@@ -721,6 +722,9 @@ proc prune(
       staleRoots.add root
   for root in staleRoots:
     self.timely_proposer_blocks.excl root
+
+  # [New in Heze:EIP7805]
+  self.prune_payload_inclusion_list_satisfaction()
 
   ok()
 
