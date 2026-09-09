@@ -51,6 +51,7 @@ in stdenv.mkDerivation rec {
     with pkgs; [ nim which fakeGit ]
     ++ lib.optionals stdenv.isDarwin [ pkgs.darwin.cctools ];
 
+  dontStrip = true;
   enableParallelBuilding = true;
 
   # Disable CPU optimizations that make binary not portable.
