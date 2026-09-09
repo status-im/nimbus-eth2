@@ -1277,7 +1277,13 @@ suite "Attestation pool gloas processing" & preset():
     check:
       pool[].forkChoice.backend.payload_inclusion_list_satisfaction.len == 0
       pool[].forkChoice.backend.is_payload_inclusion_list_satisfied(b1.root)
-      pool[].forkChoice.backend.should_extend_payload(b1.root)
+      pool[].forkChoice.backend.should_extend_payload(cfg, b1.root)
+
+    pool[].forkChoice.backend.record_payload_inclusion_list_satisfaction(
+      b1.root, false)
+    check:
+      not pool[].forkChoice.backend.is_payload_inclusion_list_satisfied(b1.root)
+      pool[].forkChoice.backend.should_extend_payload(cfg, b1.root)
 
 func makeTx(bytes: openArray[byte]): gloas.Transaction =
   gloas.Transaction(@bytes)
@@ -1293,7 +1299,7 @@ func makeInclusionList(
     il.transactions.add(tx)
   SignedInclusionList(message: il)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md
 suite "Attestation pool heze processing" & preset():
   setup:
     const TOTAL_COMMITTEES = 2
@@ -1353,7 +1359,7 @@ suite "Attestation pool heze processing" & preset():
         tally.present[i] = true
         tally.available[i] = true
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-is_payload_inclusion_list_satisfied
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-is_payload_inclusion_list_satisfied
   test "An unrevealed payload does not satisfy the constraints":
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
@@ -1364,7 +1370,7 @@ suite "Attestation pool heze processing" & preset():
       b1.root notin backend.proto_array.fullBlockIndices
       not backend.is_payload_inclusion_list_satisfied(b1.root)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/sync/optimistic.md#how-to-track-inclusion-list-satisfaction
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/optimistic-sync.md#new-how-to-track-inclusion-list-satisfaction
   test "An optimistically imported payload is recorded as satisfying":
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
@@ -1377,7 +1383,7 @@ suite "Attestation pool heze processing" & preset():
       b1.root in backend.payload_inclusion_list_satisfaction
       backend.is_payload_inclusion_list_satisfied(b1.root)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#modified-should_extend_payload
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#modified-should_extend_payload
   test "A payload missing inclusion list transactions is not extended":
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
@@ -1391,13 +1397,13 @@ suite "Attestation pool heze processing" & preset():
       backend.payload_timeliness(b1.root, timely = true)
       backend.payload_data_availability(b1.root, available = true)
       not backend.is_payload_inclusion_list_satisfied(b1.root)
-      not backend.should_extend_payload(b1.root)
+      not backend.should_extend_payload(cfg, b1.root)
 
     # The payload stays valid and available; only extension is withheld.
     check b1.root in backend.proto_array.fullBlockIndices
 
     backend.record_payload_inclusion_list_satisfaction(b1.root, true)
-    check backend.should_extend_payload(b1.root)
+    check backend.should_extend_payload(cfg, b1.root)
 
   test "Inclusion list satisfaction for pruned blocks is dropped":
     let
@@ -1417,7 +1423,7 @@ suite "Attestation pool heze processing" & preset():
       b1.root in backend.payload_inclusion_list_satisfaction
       staleRoot notin backend.payload_inclusion_list_satisfaction
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
   test "Constraints come from the previous slot's committee":
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).hezeData

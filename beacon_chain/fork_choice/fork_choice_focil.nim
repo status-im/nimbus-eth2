@@ -13,7 +13,7 @@ import
   ../spec/inclusion_list,
   ./fork_choice_types
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
 func record_payload_inclusion_list_satisfaction*(
     self: var ForkChoiceBackend, root: Eth2Digest,
     is_inclusion_list_satisfied: bool) =
@@ -21,7 +21,7 @@ func record_payload_inclusion_list_satisfaction*(
   ## payload verification, so fork choice only records it.
   self.payload_inclusion_list_satisfaction[root] = is_inclusion_list_satisfied
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-is_payload_inclusion_list_satisfied
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-is_payload_inclusion_list_satisfied
 func is_payload_inclusion_list_satisfied*(
     self: ForkChoiceBackend, root: Eth2Digest): bool =
   if root notin self.proto_array.fullBlockIndices:
@@ -38,7 +38,7 @@ func prune_payload_inclusion_list_satisfaction*(self: var ForkChoiceBackend) =
   for root in staleRoots:
     self.payload_inclusion_list_satisfaction.del root
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
 proc get_payload_inclusion_list_transactions*(
     pool: InclusionListPool, dag: ChainDAGRef, blck: BlockRef):
     Opt[seq[gloas.Transaction]] =

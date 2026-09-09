@@ -48,6 +48,7 @@ func compute_deltas(
 
 func find_head(
     self: var ForkChoiceBackend,
+    cfg: RuntimeConfig,
     current_slot: Slot,
     checkpoints: Checkpoints,
     proposerBoostRoot: Eth2Digest): FcResult[tuple[root: Eth2Digest, full: bool]]
@@ -294,7 +295,7 @@ proc reconfirm_fcr(
   self.update_unrealized_justified(dag)
 
   # Restart confirmation chain if necessary
-  fcr.current_slot_head = (? fcr.find_head(current_slot, self.checkpoints,
+  fcr.current_slot_head = (? fcr.find_head(dag.cfg, current_slot, self.checkpoints,
                                            self.checkpoints.proposer_boost_root)).root
   if ? fcr.should_restart_confirmation_chain(confirmed, current_slot):
     reason = "restart/e"
@@ -568,6 +569,7 @@ proc process_block*(
 
 func find_head(
     self: var ForkChoiceBackend,
+    cfg: RuntimeConfig,
     current_slot: Slot,
     checkpoints: Checkpoints,
     proposerBoostRoot: Eth2Digest
@@ -601,7 +603,7 @@ func find_head(
       break maybeEmptyPreferred
     let parentRoot = parentNode.bid.root
     if not self.proto_array.isFullNode(parentRoot, parentIdx) and
-        not self.should_extend_payload(parentRoot):
+        not self.should_extend_payload(cfg, parentRoot):
       emptyPreferredRoot = parentRoot
 
   # `compute_deltas` accumulated the same-slot (PENDING-only) vote weight into
@@ -645,7 +647,7 @@ proc get_head*(
       ZERO_HASH
     else:
       self.checkpoints.proposer_boost_root
-  self.backend.find_head(current_slot, self.checkpoints, boostRoot)
+  self.backend.find_head(dag.cfg, current_slot, self.checkpoints, boostRoot)
 
 proc advance_fcr(
     self: var ForkChoice, dag: ChainDAGRef, blckRef: BlockRef,
