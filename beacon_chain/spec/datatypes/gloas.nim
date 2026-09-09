@@ -112,8 +112,8 @@ type
     # [Modified in Gloas:EIP7688]
     kzg_proofs*: KzgProofs
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumnpartsmetadata
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/gloas/partial-columns/p2p-interface.md#modified-cellsbitlist
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#new-partialdatacolumnpartsmetadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-cellsbitlist
   PartialDataColumnPartsMetadata* = object
     available*: BitSeq
     requests*: BitSeq
