@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import results, chronos,
        ../spec/[forks_light_client, signatures_batch, weak_subjectivity],
@@ -32,17 +32,6 @@ type
   SyncMoment* = object
     stamp*: chronos.Moment
     slots*: uint64
-
-  BlockDataChunk* = ref object
-    resfut*: Future[Result[void, string]].Raising([CancelledError])
-    onStateUpdatedCb*: OnStateUpdated
-    blocks*: seq[BlockData]
-
-  SyncKind* {.pure.} = enum
-    ForwardSync, TrustedNodeSync,
-    UntrustedSyncInit,
-    UntrustedSyncDownload,
-    UntrustedSyncRebuild
 
   SyncOverseer2* = object
     network*: Eth2Node
