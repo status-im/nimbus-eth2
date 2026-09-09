@@ -2186,7 +2186,7 @@ proc validatePayloadAttestationMessage*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-proposer_preferences
 proc validateProposerPreferences*(
     dag: ChainDAGRef,
     seen: var SeenProposerPreferences,
@@ -2194,79 +2194,67 @@ proc validateProposerPreferences*(
     wallTime: BeaconTime): Result[void, ValidationError] =
   template preferences: untyped = signed_preferences.message
 
+  let proposalEpoch = preferences.proposal_slot.epoch
+
+  # [IGNORE] The proposal epoch is after the Gloas upgrade
+  if proposalEpoch < dag.cfg.GLOAS_FORK_EPOCH:
+    return errIgnore("ProposerPreferences: proposal epoch is pre-gloas")
+
+  # [IGNORE] The proposal slot has not started yet
+  if preferences.proposal_slot.start_beacon_time(dag.timeParams) +
+      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
+    return errIgnore("ProposerPreferences: proposal slot has already started")
+
+  # [IGNORE] The proposer for the proposal slot is known
+  let lookaheadEpoch =
+    if proposalEpoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
+    else: proposalEpoch - MIN_SEED_LOOKAHEAD
+  if wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY <
+      lookaheadEpoch.start_slot.start_beacon_time(dag.timeParams):
+    return errIgnore(
+      "ProposerPreferences: proposer for the proposal slot is not yet known")
+
+  # [IGNORE] These are the first valid preferences seen for this dependent root and slot
   let
-    currentSlot = wallTime.slotOrZero(dag.timeParams)
-    currentEpoch = currentSlot.epoch
-    proposalEpoch = preferences.proposal_slot.epoch
+    bucket = proposalEpoch.uint64 mod (MIN_SEED_LOOKAHEAD + 2)
+    slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
+  if preferences.dependent_root in seen[bucket][slotInEpoch]:
+    return errIgnore(
+      "ProposerPreferences: already seen preferences for this dependent root and proposal slot")
 
-  # [IGNORE] preferences.proposal_slot is within the proposer lookahead
-  # -- i.e. compute_epoch_at_slot(preferences.proposal_slot) is in
-  # [get_current_epoch(state), get_current_epoch(state) + MIN_SEED_LOOKAHEAD].
-  if proposalEpoch < currentEpoch or
-      proposalEpoch > currentEpoch + MIN_SEED_LOOKAHEAD:
-    return errIgnore("ProposerPreferences: proposal_slot outside proposer lookahead")
-
-  # [IGNORE] preferences.proposal_slot has not already passed
-  # -- i.e. preferences.proposal_slot > current_slot
-  if preferences.proposal_slot <= currentSlot:
-    return errIgnore("ProposerPreferences: proposal_slot not in future")
-
-  # [IGNORE] The block with root preferences.dependent_root
-  # has been seen (via gossip or non-gossip sources)
+  # [IGNORE] The dependent block has been seen (via gossip or non-gossip sources)
+  # (MAY be queued until block is retrieved)
+  # [IGNORE] The dependent block passes validation
   let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
-    return errIgnore("ProposerPreferences: dependent_root not seen")
+    return errIgnore("ProposerPreferences: dependent block has not been seen")
 
-  if proposalEpoch < MIN_SEED_LOOKAHEAD:
-    return errIgnore("ProposerPreferences: proposal_slot before lookahead")
-  let lookaheadEpoch = proposalEpoch - MIN_SEED_LOOKAHEAD
-
-  # [REJECT] The slot of the block with root `preferences.dependent_root` is
-  # strictly less than `compute_start_slot_at_epoch(
-  # compute_epoch_at_slot(preferences.proposal_slot) - MIN_SEED_LOOKAHEAD)`
-  if not (dependentRef.slot < lookaheadEpoch.start_slot()):
+  # [REJECT] The dependent block's slot is not after the shuffling dependent slot
+  if dependentRef.slot > proposalEpoch.attester_dependent_slot:
     return dag.checkedReject(
-      "ProposerPreferences: dependent_root not before lookahead epoch start")
+      "ProposerPreferences: dependent block is after the shuffling dependent slot")
 
-  # [IGNORE] `is_valid_dependent_root(store, preferences.dependent_root, epoch)`
-  # returns True, where `epoch` is
-  # `compute_epoch_at_slot(preferences.proposal_slot) - MIN_SEED_LOOKAHEAD`
+  # [IGNORE] The dependent block is a possible dependent block for the lookahead epoch
   if not dag.is_valid_dependent_root(
       preferences.dependent_root, lookaheadEpoch):
-    return errIgnore("ProposerPreferences: invalid dependent_root")
+    return errIgnore(
+      "ProposerPreferences: dependent block is not a possible dependent block")
 
-  # [REJECT] is_valid_proposal_slot(state, preferences) returns True,
-  # where state is the checkpoint state at the epoch
-  # compute_epoch_at_slot(preferences.proposal_slot) - 1
-  # and the root preferences.dependent_root.
-  #
-  # Rather than replay that checkpoint state, compute the proposer from the
-  # shuffling anchored at the referenced dependent_root block.
+  # [REJECT] The validator is the proposer for the given slot in the proposer lookahead
   let proposer = dag.getProposer(
       dependentRef, preferences.proposal_slot).valueOr:
     return errIgnore("ProposerPreferences: unable to compute proposer")
   if proposer.uint64 != preferences.validator_index:
     return dag.checkedReject(
-      "ProposerPreferences: not the proposer for proposal_slot")
+      "ProposerPreferences: validator is not the proposer for the given slot")
 
-  # [IGNORE] The signed_proposer_preferences is the first valid message seen
-  # for the tuple (preferences.dependent_root, preferences.proposal_slot,
-  # preferences.validator_index).
-  let
-    bucket = proposalEpoch.uint64 mod (MIN_SEED_LOOKAHEAD + 2)
-    slotInEpoch = preferences.proposal_slot.uint64 mod SLOTS_PER_EPOCH
-  if preferences.dependent_root in seen[bucket][slotInEpoch]:
-    return errIgnore("ProposerPreferences: already seen")
-
-  # [REJECT] signed_proposer_preferences.signature is valid with
-  # respect to the validator's public key.
-  let
-    pubkey = dag.validatorKey(preferences.validator_index).valueOr:
-      return dag.checkedReject("ProposerPreferences: invalid validator index")
-    fork = dag.forkAtEpoch(preferences.proposal_slot.epoch)
+  # [REJECT] The signature is valid
+  let pubkey = dag.validatorKey(preferences.validator_index).valueOr:
+    return dag.checkedReject("ProposerPreferences: invalid validator index")
   if not verify_proposer_preferences_signature(
-      fork, dag.genesis_validators_root, preferences,
+      dag.forkAtEpoch(proposalEpoch), dag.genesis_validators_root, preferences,
       pubkey, signed_preferences.signature):
-    return dag.checkedReject("ProposerPreferences: invalid signature")
+    return dag.checkedReject(
+      "ProposerPreferences: invalid proposer preferences signature")
 
   seen[bucket][slotInEpoch][preferences.dependent_root] = preferences
   ok()

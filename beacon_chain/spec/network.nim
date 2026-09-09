@@ -92,7 +92,7 @@ func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =
 func getPayloadAttestationMessageTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicPayloadAttestationMessageSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-proposer_preferences
 func getProposerPreferencesTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicProposerPreferencesSuffix
 

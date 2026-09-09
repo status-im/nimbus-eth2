@@ -726,7 +726,7 @@ func payloadFailSafeInEffect*(
     execution_payload_availability: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)],
     block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
     slot: Slot): bool =
-  ## Gloas counterpart to `livenessFailSafeInEffect`. A withheld
+  ## Gloas counterpart to `livenessFailsafeInEffect`. A withheld
   ## payload costs a payload rather than a block
   const
     MAX_MISSING_CONTIGUOUS = 3

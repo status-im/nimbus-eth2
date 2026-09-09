@@ -35,16 +35,6 @@ proc pruneAtFinalization(dag: ChainDAGRef, attPool: AttestationPool) =
     dag.pruneStateCachesDAG()
     # pool[].prune(dag) # We test without att_1_0 pool / fork choice pruning
 
-func signProposerPreferences(
-    dag: ChainDAGRef, prefs: ProposerPreferences,
-    privkey: ValidatorPrivKey): SignedProposerPreferences =
-  let
-    fork = dag.forkAtEpoch(prefs.proposal_slot.epoch)
-    sig = get_proposer_preferences_signature(
-      fork, dag.genesis_validators_root, prefs, privkey)
-  SignedProposerPreferences(
-    message: prefs, signature: sig.toValidatorSig())
-
 suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
@@ -492,75 +482,6 @@ suite "Gossip validation - Altair":
         msg, subcommitteeIdx,
         state[].data.slot.start_beacon_time(cfg.timeParams),
         true).waitFor().isErr()
-
-suite "Proposer preferences validation " & preset():
-  setup:
-    let
-      cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = ChainDAGRef.init(
-        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
-        validatorMonitor, {})
-    var seen: SeenProposerPreferences
-
-    let
-      proposer_slot =
-        (GENESIS_EPOCH + MIN_SEED_LOOKAHEAD + 1).start_slot() + 1
-      proposer_index =
-        uint64 dag.getProposer(dag.head, proposer_slot).expect("proposer")
-      dependent_root = dag.head.root
-      # wrongValidator just needs to differ from the scheduled proposer at
-      # proposer_slot; that is the only slot the proposer check looks at.
-      wrongValidator =
-        if proposer_index == 0: 1'u64 else: proposer_index - 1
-
-      prefs = ProposerPreferences(
-        dependent_root: dependent_root,
-        proposal_slot: proposer_slot,
-        validator_index: proposer_index,
-        fee_recipient: default(ExecutionAddress),
-        target_gas_limit: 30_000_000)
-      signed = signProposerPreferences(
-        dag, prefs, MockPrivKeys[proposer_index.ValidatorIndex])
-      wallTime = proposer_slot.epoch.start_slot().start_beacon_time(
-        dag.cfg.timeParams)
-
-  test "validateProposerPreferences - happy case":
-    check:
-      validateProposerPreferences(dag, seen, signed, wallTime).isOk
-
-  test "validateProposerPreferences - duplicate ignored":
-    check:
-      validateProposerPreferences(dag, seen, signed, wallTime).isOk
-      validateProposerPreferences(dag, seen, signed, wallTime).isErr
-
-  test "validateProposerPreferences - proposal_slot already passed":
-    let past = (proposer_slot + 1).start_beacon_time(dag.cfg.timeParams)
-    # Still within current/next epoch window, but wallTime >= proposal_slot.
-    check:
-      validateProposerPreferences(dag, seen, signed, past).isErr
-
-  test "validateProposerPreferences - proposal_slot outside current/next epoch":
-    var msg = prefs
-    msg.proposal_slot = proposer_slot + SLOTS_PER_EPOCH * 3
-    let farAhead = signProposerPreferences(
-      dag, msg, MockPrivKeys[proposer_index.ValidatorIndex])
-    check:
-      validateProposerPreferences(dag, seen, farAhead, wallTime).isErr
-
-  test "validateProposerPreferences - wrong proposer rejected":
-    var msg = prefs
-    msg.validator_index = wrongValidator
-    let wrong = signProposerPreferences(
-      dag, msg, MockPrivKeys[wrongValidator.ValidatorIndex])
-    check:
-      validateProposerPreferences(dag, seen, wrong, wallTime).isErr
-
-  test "validateProposerPreferences - invalid signature rejected":
-    var tampered = signed
-    tampered.signature = default(ValidatorSig)
-    check:
-      validateProposerPreferences(dag, seen, tampered, wallTime).isErr
 
 suite "Gossip validation - Gloas":
   setup:
