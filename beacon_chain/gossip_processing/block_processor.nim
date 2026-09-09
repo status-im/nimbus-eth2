@@ -1061,13 +1061,6 @@ proc storePayload(
   debugGloasComment("deadline")
   let blck = ?addHeadExecutionPayload(dag, signedBlock, signedEnvelope)
 
-  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
-  # execution_payload_available: The node has verified that the execution
-  # payload and blobs for a block are available and ready for payload
-  # attestation
-  if not isNil(dag.onEnvelopeAvailable):
-    dag.onEnvelopeAvailable(signedEnvelope)
-
   # Notify fork choice so it materializes the block's FULL node.
   self.consensusManager.attestationPool[].forkChoice.on_execution_payload(
       dag.cfg, dag.timeParams, signedEnvelope).isOkOr:
@@ -1091,6 +1084,13 @@ proc storePayload(
   # Store sidecars into db.
   self[].storeSidecars(sidecarsOpt)
   self.envelopeQuarantine[].remove(signedBlock.root)
+
+  # https://github.com/ethereum/beacon-APIs/blob/31f7d04f869d40a643b68ac22e10fb27644d20e7/apis/eventstream/index.yaml
+  # execution_payload_available: The node has verified that the execution
+  # payload and blobs for a block are available and ready for payload
+  # attestation
+  if not isNil(dag.onEnvelopeAvailable):
+    dag.onEnvelopeAvailable(signedEnvelope)
 
   # Both the envelope and its data columns are now persisted, wake
   # up any PTC member waiting to send its payload attestation
