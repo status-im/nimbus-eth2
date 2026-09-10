@@ -591,8 +591,8 @@ proc shortLog*(roles: set[BeaconNodeRole]): string =
   else:
     if BeaconNodeRole.PayloadAttestationPublish in roles:
       r[4] = '+' else: r[4] = '-'
-  if BeaconNodeRole.Duties in roles: r[4] = 'D' else: r[4] = '-'
-  if BeaconNodeRole.NoTimeCheck notin roles: r[5] = 'T' else: r[5] = '-'
+  if BeaconNodeRole.Duties in roles: r[5] = 'D' else: r[5] = '-'
+  if BeaconNodeRole.NoTimeCheck notin roles: r[6] = 'T' else: r[6] = '-'
   r
 
 proc `$`*(bn: BeaconNodeServerRef): string =

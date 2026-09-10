@@ -1868,7 +1868,7 @@ proc producePayloadAttestationData*(
       RestPlainResponse,
       vc.SlotDuration,
       ViableNodeStatus,
-      {BeaconNodeRole.AttestationData},
+      {BeaconNodeRole.PayloadAttestationData},
       producePayloadAttestationDataPlain(it, slot)):
 
       if apiResponse.isErr():
