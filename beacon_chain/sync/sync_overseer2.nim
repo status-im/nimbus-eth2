@@ -1321,9 +1321,7 @@ proc getMissingColumnsBlocksAndRequest(
     duplicates: HashSet[Eth2Digest]
     columnBlocks: seq[ForkedSignedBeaconBlock]
 
-  let
-    dag = overseer.consensusManager.dag
-    peerMap = peer.getColumnMapOrDefault()
+  let peerMap = peer.getColumnMapOrDefault()
 
   # Peer's missing sidecars
   for bid in bids:
@@ -1335,7 +1333,7 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
@@ -1351,7 +1349,7 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
