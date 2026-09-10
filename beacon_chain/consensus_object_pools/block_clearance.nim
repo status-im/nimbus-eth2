@@ -102,7 +102,8 @@ proc addResolvedHeadBlock(
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
-  dag.updateValidatorKeys(state.validators)
+  dag.updateValidatorKeys(
+    state.validators, consensusFork >= ConsensusFork.Capella)
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
@@ -532,6 +533,18 @@ proc addHeadExecutionPayload*(
     let blckId = dag.getBlockId(envelopeBlockRoot)
     if blckId.isSome() and blckId.get().slot < dag.finalizedHead.slot:
       return err(PayloadVerifierError.UnviableFork)
+    return err(PayloadVerifierError.MissingParent)
+
+  # Check execution parent's envelope
+  let epRes = dag.executionParent(
+    blck.parent, signedEnvelope.message.payload.parent_hash)
+  if epRes.isSome():
+    if epRes.get().slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH and
+        epRes.get().slot > GENESIS_SLOT and
+        not dag.db.containsExecutionPayloadEnvelope(epRes.get().root):
+      return err(PayloadVerifierError.MissingParent)
+  elif not dag.hasExecutionCheckpoint(
+      blck.parent, signedEnvelope.message.payload.parent_hash):
     return err(PayloadVerifierError.MissingParent)
 
   # Load state cache for updateState() and state transition.

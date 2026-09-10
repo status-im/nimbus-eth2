@@ -195,6 +195,12 @@ proc new*(
 
   ok res
 
+proc close*(batchCrypto: ref BatchCrypto) =
+  for i in 0..<batchCrypto.verifiers.len:
+    discard batchCrypto.verifiers[i].signal.close()
+  for i in 0..<batchCrypto.kzgSignals.len:
+    discard batchCrypto.kzgSignals[i].close()
+
 func full(batch: Batch): bool =
   batch.items.len() >= BatchedCryptoSize
 
