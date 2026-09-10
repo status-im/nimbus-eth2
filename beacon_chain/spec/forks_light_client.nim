@@ -1243,8 +1243,7 @@ func migratingToDataFork*[
 # module
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc toExecutionPayloadHeader*(
-    payload: bellatrix.ExecutionPayload,
-    transactions_root = Opt.none(Eth2Digest)
+    payload: bellatrix.ExecutionPayload
 ): bellatrix.ExecutionPayloadHeader =
   bellatrix.ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
@@ -1260,8 +1259,7 @@ proc toExecutionPayloadHeader*(
     base_fee_per_gas: payload.base_fee_per_gas,
     block_hash: payload.block_hash,
     extra_data: payload.extra_data,
-    transactions_root: transactions_root.valueOr(
-      hash_tree_root(payload.transactions)),
+    transactions_root: hash_tree_root(payload.transactions),
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#modified-process_execution_payload
