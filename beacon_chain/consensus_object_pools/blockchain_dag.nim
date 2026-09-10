@@ -1128,6 +1128,20 @@ proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, bid: BlockId):
     else:
       (Opt.some ZERO_HASH, Opt.some ZERO_HASH)
 
+proc loadExecutionGasLimit*(dag: ChainDAGRef, bid: BlockId): Opt[uint64] =
+  ## The `gas_limit` of the execution payload committed to by the block, i.e.
+  ## the bid's `gas_limit` post-Gloas (the envelope must match the bid).
+  let blockData = dag.getForkedBlock(bid).valueOr:
+    return Opt.none(uint64)
+
+  withBlck(blockData):
+    when consensusFork >= ConsensusFork.Gloas:
+      Opt.some forkyBlck.message.body.signed_execution_payload_bid.message.gas_limit
+    elif consensusFork in ConsensusFork.Bellatrix .. ConsensusFork.Fulu:
+      Opt.some forkyBlck.message.body.execution_payload.gas_limit
+    else:
+      Opt.none(uint64)
+
 proc loadExecutionAndParentBlockHash*(dag: ChainDAGRef, blck: BlockRef):
     tuple[blockHash: Opt[Eth2Digest], parentHash: Opt[Eth2Digest]] =
   if blck.executionBlockHash.isNone() or blck.executionParentHash.isNone():
