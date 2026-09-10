@@ -187,7 +187,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
 
   router.api(MethodPost, "/api/v1/eth2/sign/{validator_key}") do (
     validator_key: ValidatorPubKey,
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    contentBody: Opt[ContentBody]) -> RestApiResponse:
     let request =
       block:
         if contentBody.isNone():

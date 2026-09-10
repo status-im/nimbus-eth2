@@ -119,7 +119,7 @@ proc installRewardsApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api2(
     MethodPost, "/eth/v1/beacon/rewards/sync_committee/{block_id}") do (
       block_id: BlockIdent,
-      contentBody: Option[ContentBody]) -> RestApiResponse:
+      contentBody: Opt[ContentBody]) -> RestApiResponse:
     let
       idents =
         block:
