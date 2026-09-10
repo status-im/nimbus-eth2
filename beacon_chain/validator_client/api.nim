@@ -1818,7 +1818,7 @@ proc producePayloadAttestationData*(
       Opt[PayloadAttestationData],
       vc.SlotDuration,
       ViableNodeStatus,
-      {BeaconNodeRole.AttestationData},
+      {BeaconNodeRole.PayloadAttestationData},
       producePayloadAttestationDataPlain(it, slot)):
       if apiResponse.isErr():
         handleCommunicationError()
@@ -2058,7 +2058,7 @@ proc submitPoolPayloadAttestations*(
         bool,
         vc.SlotDuration,
         ViableNodeStatus,
-        {BeaconNodeRole.AttestationPublish},
+        {BeaconNodeRole.PayloadAttestationPublish},
         submitPoolPayloadAttestations(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()

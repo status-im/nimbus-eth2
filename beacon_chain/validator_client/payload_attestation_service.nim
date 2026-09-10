@@ -37,7 +37,7 @@ proc servePayloadAttestations(
   let data =
     try:
       (await vc.producePayloadAttestationData(
-        slot, vc.getMode()[FnKind.produceAttestationData])).valueOr:
+        slot, vc.getMode()[FnKind.producePayloadAttestationData])).valueOr:
         debug "No block seen for slot; not casting payload attestation"
         return
     except ValidatorApiError as exc:
@@ -115,7 +115,7 @@ proc servePayloadAttestations(
     try:
       await vc.submitPoolPayloadAttestations(
         messages, consensusFork,
-        vc.getMode()[FnKind.submitPoolAttestations])
+        vc.getMode()[FnKind.submitPoolPayloadAttestations])
     except ValidatorApiError as exc:
       warn "Unable to publish payload attestations",
             count = len(messages), reason = exc.getFailureReason()
