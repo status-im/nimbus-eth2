@@ -338,64 +338,41 @@ suite "Light client block data" & preset():
                 blckLcDataFork.LightClientBlockData
 
         when lcDataFork > LightClientDataFork.None:
-          test $consensusFork & " -> " & $lcDataFork & " (with bootstrap)":
-            var
-              currentSyncCommittee: SyncCommittee
-              currentBranch: lcDataFork.CurrentSyncCommitteeBranch
-            for i, x in currentBranch.mpairs():
-              x = createDigest(i.byte + 67)
-
+          test $consensusFork & " -> " & $lcDataFork & " (with header)":
             when lcDataFork == blckLcDataFork:
-              let blockData1 = blck.toLightClientBlockData(lcDataFork)
-
-              var bootstrapData2: lcDataFork.LightClientBootstrapData
-              let blockData2 = blck.toLightClientBlockData(
-                lcDataFork, bootstrapData2, currentSyncCommittee, currentBranch)
-
-              var bootstrapData3: lcDataFork.LightClientBootstrapData
-              let blockData3 = blck.toLightClientBlockData(
-                lcDataFork, bootstrapData3, currentBranch)
-
+              var header, header2: lcDataFork.LightClientHeader
+              let blockData = blck.toLightClientBlockData(lcDataFork, header)
               check:
-                blockData2 == blockData1
-                blockData3 == blockData1
-                bootstrapData2.current_sync_committee ==
-                  List[SyncCommittee, 1].init(@[currentSyncCommittee])
-                bootstrapData3.current_sync_committee.len == 0
-                bootstrapData2.current_sync_committee_branch == currentBranch
-                bootstrapData3.current_sync_committee_branch == currentBranch
-
-              for bootstrapData in [bootstrapData2, bootstrapData3]:
-                when lcDataFork >= LightClientDataFork.Gloas:
-                  template bid: auto = body.signed_execution_payload_bid
-                  check:
-                    bootstrapData.execution_block_hash ==
-                      bid.message.parent_block_hash
-                    is_valid_merkle_branch(
-                      bootstrapData.execution_block_hash,
-                      bootstrapData.execution_branch,
-                      log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS),
-                      get_subtree_index(EXECUTION_BLOCK_HASH_GINDEX_GLOAS),
-                      bodyRoot)
-                elif lcDataFork >= LightClientDataFork.Capella:
-                  template payload: auto = body.execution_payload
-                  check:
-                    bootstrapData.execution == payload.toExecutionPayloadHeader
-                    is_valid_merkle_branch(
-                      hash_tree_root(bootstrapData.execution),
-                      bootstrapData.execution_branch,
-                      log2trunc(EXECUTION_PAYLOAD_GINDEX),
-                      get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
-                      bodyRoot)
-                else:
-                  discard  # No execution data present
+                blockData == blck.toLightClientBlockData(lcDataFork)
+                header == blck.toLightClientHeader(lcDataFork)
+                header.beacon == blck.toBeaconBlockHeader()
+                blockData == blck.asTrusted()
+                  .toLightClientBlockData(lcDataFork, header2)
+                header == header2
+              when lcDataFork >= LightClientDataFork.Gloas:
+                template bid: auto = body.signed_execution_payload_bid
+                check:
+                  header.execution_block_hash == bid.message.parent_block_hash
+                  is_valid_merkle_branch(
+                    header.execution_block_hash,
+                    header.execution_branch,
+                    log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS),
+                    get_subtree_index(EXECUTION_BLOCK_HASH_GINDEX_GLOAS),
+                    bodyRoot)
+              elif lcDataFork >= LightClientDataFork.Capella:
+                template payload: auto = body.execution_payload
+                check:
+                  header.execution == payload.toExecutionPayloadHeader
+                  is_valid_merkle_branch(
+                    hash_tree_root(header.execution),
+                    header.execution_branch,
+                    log2trunc(EXECUTION_PAYLOAD_GINDEX),
+                    get_subtree_index(EXECUTION_PAYLOAD_GINDEX),
+                    bodyRoot)
+              else:
+                discard  # No execution data present
 
             else:
-              var bootstrapData: lcDataFork.LightClientBootstrapData
-              when compiles(blck.toLightClientBlockData(
-                  lcDataFork, bootstrapData,
-                  currentSyncCommittee, currentBranch)):
-                check false
-              when compiles(blck.toLightClientBlockData(
-                  lcDataFork, bootstrapData, currentBranch)):
+              var header: lcDataFork.LightClientHeader
+              when compiles(blck.toLightClientBlockData(lcDataFork, header)):
                 check false
