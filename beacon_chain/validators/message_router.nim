@@ -693,9 +693,11 @@ proc routePayloadAttestationMessage*(
   if res.isOk():
     info "Payload attestation sent",
       message = shortLog(message), delay
-  else:
+  else: # "no broadcast" is not a fatal error
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
+
+  return ok()
 
 proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
