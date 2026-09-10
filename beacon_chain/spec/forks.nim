@@ -1698,8 +1698,6 @@ static:
 
         check lcDataFork.sync_aggregate_gindex,
           BeaconBlockBody, "sync_aggregate"
-        check lcDataFork.finalized_checkpoint_gindex,
-          BeaconState, "finalized_checkpoint"
         check lcDataFork.finalized_root_gindex,
           BeaconState, "finalized_checkpoint", "root"
         check lcDataFork.current_sync_committee_gindex,

@@ -578,8 +578,6 @@ func init*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/electra/light-client/sync-protocol.md#new-constants
 const
-  FINALIZED_CHECKPOINT_GINDEX_ELECTRA* = get_generalized_index(
-    BeaconState, "finalized_checkpoint")
   FINALIZED_ROOT_GINDEX_ELECTRA* = get_generalized_index(
     BeaconState, "finalized_checkpoint", "root")
   CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA* = get_generalized_index(
@@ -587,14 +585,11 @@ const
   NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA* = get_generalized_index(
     BeaconState, "next_sync_committee")
 static:
-  doAssert FINALIZED_CHECKPOINT_GINDEX_ELECTRA == 84.GeneralizedIndex
   doAssert FINALIZED_ROOT_GINDEX_ELECTRA == 169.GeneralizedIndex
   doAssert CURRENT_SYNC_COMMITTEE_GINDEX_ELECTRA == 86.GeneralizedIndex
   doAssert NEXT_SYNC_COMMITTEE_GINDEX_ELECTRA == 87.GeneralizedIndex
 
 type
-  FinalizedCheckpointBranch* =
-    array[log2trunc(FINALIZED_CHECKPOINT_GINDEX_ELECTRA), Eth2Digest]
   FinalityBranch* =
     array[log2trunc(FINALIZED_ROOT_GINDEX_ELECTRA), Eth2Digest]
   CurrentSyncCommitteeBranch* =
@@ -716,8 +711,8 @@ type
 
     bootstrap_data*: LightClientBootstrapData
 
-    finalized_checkpoint*: Checkpoint
-    finalized_checkpoint_branch*: FinalizedCheckpointBranch
+    finalized_root*: Eth2Digest
+    finality_branch*: FinalityBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
@@ -891,7 +886,7 @@ func shortLog*(v: LightClientEpochData): auto =
   (
     epoch: v.epoch,
     parent: shortLog(v.parent_block_header),
-    finalized: shortLog(v.finalized_checkpoint),
+    finalized_root: shortLog(v.finalized_root),
     has_current_sync_committee: v.bootstrap_data.current_sync_committee.len > 0
   )
 

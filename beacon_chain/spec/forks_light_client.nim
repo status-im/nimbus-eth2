@@ -286,17 +286,6 @@ template sync_aggregate_gindex*(
   else:
     {.error: "sync_aggregate_gindex unsupported in " & $kind.}
 
-template finalized_checkpoint_gindex*(
-    kind: static LightClientDataFork): GeneralizedIndex =
-  when kind >= LightClientDataFork.Gloas:
-    FINALIZED_CHECKPOINT_GINDEX_GLOAS
-  elif kind >= LightClientDataFork.Electra:
-    FINALIZED_CHECKPOINT_GINDEX_ELECTRA
-  elif kind >= LightClientDataFork.Altair:
-    FINALIZED_CHECKPOINT_GINDEX
-  else:
-    {.error: "finalized_checkpoint_gindex unsupported in " & $kind.}
-
 template finalized_root_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
   when kind >= LightClientDataFork.Gloas:

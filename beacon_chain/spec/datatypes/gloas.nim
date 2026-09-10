@@ -924,8 +924,6 @@ const
     deneb.BeaconBlockBody, "execution_payload", "block_hash")
   EXECUTION_BLOCK_HASH_GINDEX_GLOAS* = get_generalized_index(BeaconBlockBody,
     "signed_execution_payload_bid", "message", "parent_block_hash")
-  FINALIZED_CHECKPOINT_GINDEX_GLOAS* = get_generalized_index(
-    BeaconState, "finalized_checkpoint")
   FINALIZED_ROOT_GINDEX_GLOAS* = get_generalized_index(
     BeaconState, "finalized_checkpoint", "root")
   CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS* = get_generalized_index(
@@ -937,7 +935,6 @@ static:
   doAssert EXECUTION_BLOCK_HASH_GINDEX == 412.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_DENEB == 812.GeneralizedIndex
   doAssert EXECUTION_BLOCK_HASH_GINDEX_GLOAS == 2856.GeneralizedIndex
-  doAssert FINALIZED_CHECKPOINT_GINDEX_GLOAS == 367.GeneralizedIndex
   doAssert FINALIZED_ROOT_GINDEX_GLOAS == 735.GeneralizedIndex
   doAssert CURRENT_SYNC_COMMITTEE_GINDEX_GLOAS == 2945.GeneralizedIndex
   doAssert NEXT_SYNC_COMMITTEE_GINDEX_GLOAS == 2946.GeneralizedIndex
@@ -947,8 +944,6 @@ type
     array[log2trunc(SYNC_AGGREGATE_GINDEX_GLOAS), Eth2Digest]
   ExecutionBranch* =
     array[log2trunc(EXECUTION_BLOCK_HASH_GINDEX_GLOAS), Eth2Digest]
-  FinalizedCheckpointBranch* =
-    array[log2trunc(FINALIZED_CHECKPOINT_GINDEX_GLOAS), Eth2Digest]
   FinalityBranch* =
     array[log2trunc(FINALIZED_ROOT_GINDEX_GLOAS), Eth2Digest]
   CurrentSyncCommitteeBranch* =
@@ -1081,8 +1076,8 @@ type
 
     bootstrap_data*: LightClientBootstrapData
 
-    finalized_checkpoint*: Checkpoint
-    finalized_checkpoint_branch*: FinalizedCheckpointBranch
+    finalized_root*: Eth2Digest
+    finality_branch*: FinalityBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
@@ -1284,7 +1279,7 @@ func shortLog*(v: LightClientEpochData): auto =
   (
     epoch: v.epoch,
     parent: shortLog(v.parent_block_header),
-    finalized: shortLog(v.finalized_checkpoint),
+    finalized_root: shortLog(v.finalized_root),
     has_current_sync_committee: v.bootstrap_data.current_sync_committee.len > 0
   )
 

@@ -690,8 +690,8 @@ type
 
     bootstrap_data*: LightClientBootstrapData
 
-    finalized_checkpoint*: Checkpoint
-    finalized_checkpoint_branch*: altair.FinalizedCheckpointBranch
+    finalized_root*: Eth2Digest
+    finality_branch*: altair.FinalityBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/capella/light-client/sync-protocol.md#get_lc_execution_root
 func get_lc_execution_root*(
@@ -804,7 +804,7 @@ func shortLog*(v: LightClientEpochData): auto =
   (
     epoch: v.epoch,
     parent: shortLog(v.parent_block_header),
-    finalized: shortLog(v.finalized_checkpoint),
+    finalized_root: shortLog(v.finalized_root),
     has_current_sync_committee: v.bootstrap_data.current_sync_committee.len > 0
   )
 

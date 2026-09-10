@@ -560,8 +560,6 @@ template asTrusted*(
 const
   SYNC_AGGREGATE_GINDEX* = get_generalized_index(
     BeaconBlockBody, "sync_aggregate")
-  FINALIZED_CHECKPOINT_GINDEX* = get_generalized_index(
-    BeaconState, "finalized_checkpoint")
   FINALIZED_ROOT_GINDEX* = get_generalized_index(
     BeaconState, "finalized_checkpoint", "root")
   CURRENT_SYNC_COMMITTEE_GINDEX* = get_generalized_index(
@@ -570,7 +568,6 @@ const
     BeaconState, "next_sync_committee")
 static:
   doAssert SYNC_AGGREGATE_GINDEX == 24.GeneralizedIndex
-  doAssert FINALIZED_CHECKPOINT_GINDEX == 52.GeneralizedIndex
   doAssert FINALIZED_ROOT_GINDEX == 105.GeneralizedIndex
   doAssert CURRENT_SYNC_COMMITTEE_GINDEX == 54.GeneralizedIndex
   doAssert NEXT_SYNC_COMMITTEE_GINDEX == 55.GeneralizedIndex
@@ -578,8 +575,6 @@ static:
 type
   SyncAggregateBranch* =
     array[log2trunc(SYNC_AGGREGATE_GINDEX), Eth2Digest]
-  FinalizedCheckpointBranch* =
-    array[log2trunc(FINALIZED_CHECKPOINT_GINDEX), Eth2Digest]
   FinalityBranch* =
     array[log2trunc(FINALIZED_ROOT_GINDEX), Eth2Digest]
   CurrentSyncCommitteeBranch* =
@@ -703,8 +698,8 @@ type
 
     bootstrap_data*: LightClientBootstrapData
 
-    finalized_checkpoint*: Checkpoint
-    finalized_checkpoint_branch*: FinalizedCheckpointBranch
+    finalized_root*: Eth2Digest
+    finality_branch*: FinalityBranch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.4/specs/altair/light-client/sync-protocol.md#is_valid_light_client_header
 func is_valid_light_client_header*(
@@ -750,7 +745,7 @@ func shortLog*(v: LightClientEpochData): auto =
   (
     epoch: v.epoch,
     parent: shortLog(v.parent_block_header),
-    finalized: shortLog(v.finalized_checkpoint),
+    finalized_root: shortLog(v.finalized_root),
     has_current_sync_committee: v.bootstrap_data.current_sync_committee.len > 0
   )
 
