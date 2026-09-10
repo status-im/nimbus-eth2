@@ -1425,7 +1425,7 @@ proc getMissingEnvelopeBlocksAndRequest(
         overseer.missingRoots.incl(bid.root)
         continue
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       bres.blocks.add(signedBlock)
       bres.roots.add(bid.root)
@@ -1445,7 +1445,7 @@ proc getMissingEnvelopeBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       bres.blocks.add(signedBlock)
       bres.roots.add(bid.root)
