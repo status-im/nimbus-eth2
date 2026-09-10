@@ -2083,13 +2083,14 @@ proc submitPoolPayloadAttestations*(
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestPlainResponse,
       vc.SlotDuration,
       ViableNodeStatus,
-      {BeaconNodeRole.AttestationPublish},
+      {BeaconNodeRole.PayloadAttestationPublish},
       submitPoolPayloadAttestations(it, fork, data)):
       if apiResponse.isErr():
         handleCommunicationError()

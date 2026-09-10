@@ -454,11 +454,10 @@ proc pollForPtcDuties*(
     vc = service.client
     currentSlot = vc.getCurrentSlot().get(Slot(0))
     currentEpoch = currentSlot.epoch()
+    nextEpoch = currentEpoch + 1'u64
 
   if not vc.isPastGloasFork(currentEpoch):
     return
-
-  let nextEpoch = currentEpoch + 1'u64
 
   if vc.attachedValidators[].count() != 0:
     let counts = [
