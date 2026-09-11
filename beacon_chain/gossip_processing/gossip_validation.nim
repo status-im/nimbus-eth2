@@ -2228,16 +2228,33 @@ proc validateProposerPreferences*(
   let dependentRef = dag.getBlockRef(preferences.dependent_root).valueOr:
     return errIgnore("ProposerPreferences: dependent block has not been seen")
 
+<<<<<<< HEAD
   # [REJECT] The dependent block's slot is not after the shuffling dependent slot
   if dependentRef.slot > proposalEpoch.attester_dependent_slot:
     return dag.checkedReject(
       "ProposerPreferences: dependent block is after the shuffling dependent slot")
+=======
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-compute_shuffling_dependent_epoch
+  let shufflingDependentEpoch =
+    if proposalEpoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
+    else: proposalEpoch - MIN_SEED_LOOKAHEAD
+
+  # [REJECT] The dependent block's slot is not after the shuffling dependent slot.
+  if dependentRef.slot > proposer_dependent_slot(shufflingDependentEpoch):
+    return dag.checkedReject(
+      "ProposerPreferences: dependent_root after shuffling dependent slot")
+>>>>>>> f5751db03 (ProposerPreferences: allow genesis dependent root)
 
   # [IGNORE] The dependent block is a possible dependent block for the lookahead epoch
   if not dag.is_valid_dependent_root(
+<<<<<<< HEAD
       preferences.dependent_root, lookaheadEpoch):
     return errIgnore(
       "ProposerPreferences: dependent block is not a possible dependent block")
+=======
+      preferences.dependent_root, shufflingDependentEpoch):
+    return errIgnore("ProposerPreferences: invalid dependent_root")
+>>>>>>> f5751db03 (ProposerPreferences: allow genesis dependent root)
 
   # [REJECT] The validator is the proposer for the given slot in the proposer lookahead
   let proposer = dag.getProposer(
