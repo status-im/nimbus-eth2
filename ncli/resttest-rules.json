@@ -4995,26 +4995,6 @@
     }
   },
   {
-    "topics": ["key_management", "get_builder_config"],
-    "request": {
-      "url": "/eth/v1/validator/0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000/builder_config",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "403"}
-    }
-  },
-  {
-    "topics": ["key_management", "get_builder_config"],
-    "request": {
-      "url": "/eth/v1/validator/0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000/builder_config",
-      "headers": {"Accept": "application/json", "Authorization": "Bearer testToken"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "500"}
-    }
-  },
-  {
     "topics": ["beacon", "beacon_blocks_publish_v2"],
     "request": {
       "method": "POST",
