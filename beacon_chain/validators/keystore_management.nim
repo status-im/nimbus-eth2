@@ -40,6 +40,7 @@ const
   RemoteKeystoreFileName* = "remote_keystore.json"
   FeeRecipientFilename = "suggested_fee_recipient.hex"
   GasLimitFilename = "suggested_gas_limit.json"
+  GloasBuilderConfigFilename = "builder_config.json"
   GraffitiBytesFilename = "graffiti.hex"
   BuilderConfigPath = "payload_builder.json"
   KeyNameSize = 98 # 0x + hexadecimal key representation 96 characters.
@@ -109,7 +110,7 @@ type
 
   ConfigFileKind* {.pure.} = enum
     KeystoreFile, RemoteKeystoreFile, FeeRecipientFile, GasLimitFile,
-    BuilderConfigFile, GraffitiFile
+    BuilderConfigFile, GraffitiFile, GloasBuilderConfigFile
 
 const
   minPasswordLen = 12
@@ -843,6 +844,8 @@ func configFilePath*(validatorsDir: string, kind: ConfigFileKind,
     validatorsDir.validatorKeystoreDir(pubkey) / BuilderConfigPath
   of ConfigFileKind.GraffitiFile:
     validatorsDir.validatorKeystoreDir(pubkey) / GraffitiBytesFilename
+  of ConfigFileKind.GloasBuilderConfigFile:
+    validatorsDir.validatorKeystoreDir(pubkey) / GloasBuilderConfigFilename
 
 proc getSuggestedFeeRecipient*(
     validatorsDir: string, pubkey: ValidatorPubKey,
@@ -968,6 +971,67 @@ proc getBuilderConfig*(
       Opt.some builderConfig.payloadBuilderUrl
     else:
       Opt.none string)
+
+proc getGloasBuilderConfig(
+    validatorsDir: string, pubkey: ValidatorPubKey,
+    defaultBuilderConfig: ResolvedBuilderConfig):
+    Result[ResolvedBuilderConfig, ValidatorConfigFileStatus] =
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that is more urgent. People might prefer not to
+  # override default builder configs per validator, so don't warn.
+  if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
+    return err(noSuchValidator)
+
+  let builderConfigPath =
+    validatorsDir.configFilePath(ConfigFileKind.GloasBuilderConfigFile, pubkey)
+  if not fileExists(builderConfigPath):
+    return ok(defaultBuilderConfig)
+
+  let
+    builderConfig =
+      try:
+        Json.loadFile(builderConfigPath, gloas.BuilderConfig)
+      except IOError as err:
+        return err(malformedConfigFile)
+      except SerializationError as err:
+        return err(malformedConfigFile)
+    resolvedMinBid =
+      builderConfig.min_bid.valueOr:
+        defaultBuilderConfig.min_bid
+    resolvedBuilderBoostFactor =
+      builderConfig.builder_boost_factor.valueOr:
+        defaultBuilderConfig.builder_boost_factor
+    resolvedBuilderEntries =
+      if builderConfig.builders.isSome():
+        builderConfig.builders.get().mapIt:
+          var res: ResolvedBuilderEntry
+          res.url = it.url
+          res.auth_data =
+            it.auth_data.valueOr:
+              BuilderRequestAuthData.init(toBytes(it.url))
+          res.min_bid =
+            it.min_bid.valueOr:
+              resolvedMinBid
+          res.builder_boost_factor =
+            it.builder_boost_factor.valueOr:
+              resolvedBuilderBoostFactor
+
+          debugGloasComment("pubkeys may allow to be empty; revisit")
+          if it.builder_pubkeys.isSome():
+            res.builder_pubkeys =
+              it.builder_pubkeys.get()
+          debugGloasComment("resolve max_execution_payment from global config")
+          if it.max_execution_payment.isSome():
+            res.max_execution_payment =
+              it.max_execution_payment.get()
+          res
+      else:
+        defaultBuilderConfig.builders
+
+  ok(ResolvedBuilderConfig(
+    min_bid: resolvedMinBid,
+    builder_boost_factor: resolvedBuilderBoostFactor,
+    builders: resolvedBuilderEntries))
 
 type
   KeystoreGenerationErrorKind* = enum
@@ -1469,6 +1533,11 @@ func graffitiPath(host: KeymanagerHost,
                   pubkey: ValidatorPubKey): string =
   host.validatorsDir.configFilePath(ConfigFileKind.GraffitiFile, pubkey)
 
+func gloasBuilderConfigPath(
+    host: KeymanagerHost, pubkey: ValidatorPubKey): string =
+  host.validatorsDir.configFilePath(
+    ConfigFileKind.GloasBuilderConfigFile, pubkey)
+
 proc removeFeeRecipientFile*(host: KeymanagerHost,
                              pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.feeRecipientPath(pubkey)
@@ -1490,6 +1559,14 @@ proc removeGasLimitFile*(host: KeymanagerHost,
 proc removeGraffitiFile*(host: KeymanagerHost,
                          pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.graffitiPath(pubkey)
+  if fileExists(path):
+    io2.removeFile(path).isOkOr:
+      return err($uint(error) & " " & ioErrorMsg(error))
+  ok()
+
+proc removeGloasBuilderConfigFile*(
+    host: KeymanagerHost, pubkey: ValidatorPubKey): Result[void, string] =
+  let path = host.gloasBuilderConfigPath(pubkey)
   if fileExists(path):
     io2.removeFile(path).isOkOr:
       return err($uint(error) & " " & ioErrorMsg(error))
@@ -1544,18 +1621,20 @@ proc setGraffiti*(host: KeymanagerHost,
       "Failed to write graffiti file," &
         " reason: (" & $int(e) & ") " & ioErrorMsg(e))
 
-proc setValidatorBuilderConfig*(
+proc setGloasBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey,
-    builderConfig: Opt[gloas.BuilderConfig],
-): Result[void, string] =
-  let validator =
-    try:
-      host.validatorPool.validators[pubkey]
-    except KeyError:
-      return err("validator not found")
+    builderConfig: gloas.BuilderConfig):
+    Result[void, string] =
+  let
+    validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
+    path = host.gloasBuilderConfigPath(pubkey)
 
-  validator.builderConfig = builderConfig
-  ok()
+  ? secureCreatePath(validatorKeystoreDir).mapErr(proc(e: auto): string =
+    "Could not create wallet directory [" & validatorKeystoreDir & "]: " & $e)
+
+  io2.writeFile(path, RestJson.encode(builderConfig))
+    .mapErr(proc(e: auto): string =
+      "Failed to write gloas builder config file: " & $e)
 
 from ".."/spec/beaconstate import has_eth1_withdrawal_credential
 
@@ -1632,84 +1711,40 @@ proc getBuilderConfig*(
     Result[Opt[string], ValidatorConfigFileStatus] =
   host.validatorsDir.getBuilderConfig(pubkey, host.defaultBuilderAddress)
 
-proc getValidatorBuilderConfig*(
+proc getGloasDefaultBuilderConfig(
     host: KeymanagerHost, pubkey: ValidatorPubKey):
-    Result[ResolvedBuilderConfig, cstring] =
+    ResolvedBuilderConfig =
+  debugGloasComment("should need a new config structure for gloas")
+  let builderUrl =
+    host.getBuilderConfig(pubkey).valueOr:
+      host.defaultBuilderAddress
+
+  debugGloasComment("default values; will be supplied by the new config")
+  var res = ResolvedBuilderConfig(
+    min_bid: 0.Gwei,
+    builder_boost_factor: 100.uint64,
+  )
+  if builderUrl.isSome():
+    res.builders.add(ResolvedBuilderEntry(
+      url: builderUrl.get(),
+      auth_data: BuilderRequestAuthData.init(toBytes(builderUrl.get())),
+      min_bid: 0.Gwei,
+      builder_boost_factor: 100.uint64,
+    ))
+  res
+
+proc getGloasBuilderConfig*(
+    host: KeymanagerHost, pubkey: ValidatorPubKey):
+    Result[ResolvedBuilderConfig, ValidatorConfigFileStatus] =
   let
-    validator =
-      try:
-        host.validatorPool.validators[pubkey]
-      except KeyError:
-        return err("validator not found")
-    globalConfig = block:
-      debugGloasComment("should need a new config structure for gloas")
-      let 
-        res = host.getBuilderConfig(pubkey)
-        builderUrl =
-          if res.isOk() and res.unsafeGet().isSome():
-            res.unsafeGet().get()
-          elif host.defaultBuilderAddress.isSome():
-            host.defaultBuilderAddress.get()
-          else:
-            return err("builder address is missing")
-
-      debugGloasComment("default values will be replaced by global config")
-      ResolvedBuilderConfig(
-        min_bid: 0.Gwei,
-        builder_boost_factor: 100.uint64,
-        builders: @[ResolvedBuilderEntry(
-          url: builderUrl,
-          auth_data: BuilderRequestAuthData.init(toBytes(builderUrl)),
-          min_bid: 0.Gwei,
-          builder_boost_factor: 100.uint64,
-        )]
-      )
-
-  template vBuilderConfig(): auto = validator.builderConfig.unsafeGet()
-  let
-    resolvedMinBid =
-      if validator.builderConfig.isSome():
-        vBuilderConfig.min_bid.valueOr:
-          globalConfig.min_bid
-      else:
-        globalConfig.min_bid
-    resolvedBuilderBoostFactor =
-      if validator.builderConfig.isSome():
-        vBuilderConfig.builder_boost_factor.valueOr:
-          globalConfig.builder_boost_factor
-      else:
-        globalConfig.builder_boost_factor
-    resolvedEntries =
-      if validator.builderConfig.isSome() and vBuilderConfig.builders.isSome():
-        template vBuilderEntries: auto = vBuilderConfig.builders.unsafeGet()
-        var res = newSeq[ResolvedBuilderEntry](len(vBuilderEntries))
-        for i in 0 ..< len(vBuilderEntries):
-          res[i].auth_data =
-            vBuilderEntries[i].auth_data.valueOr:
-              BuilderRequestAuthData.init(toBytes(vBuilderEntries[i].url))
-          res[i].min_bid =
-            vBuilderEntries[i].min_bid.valueOr:
-              resolvedMinBid
-          res[i].builder_boost_factor =
-            vBuilderEntries[i].builder_boost_factor.valueOr:
-              resolvedBuilderBoostFactor
-
-          debugGloasComment("pubkeys may allow to be empty; revisit")
-          if vBuilderEntries[i].builder_pubkeys.isSome():
-            res[i].builder_pubkeys =
-              vBuilderEntries[i].builder_pubkeys.get()
-          debugGloasComment("resolve max_execution_payment from global config")
-          if vBuilderEntries[i].max_execution_payment.isSome():
-            res[i].max_execution_payment =
-              vBuilderEntries[i].max_execution_payment.get()
-        res
-      else:
-        globalConfig.builders
-
-  ok(ResolvedBuilderConfig(
-    min_bid: resolvedMinBid,
-    builder_boost_factor: resolvedBuilderBoostFactor,
-    builders: resolvedEntries))
+    defaultBuilderConfig = host.getGloasDefaultBuilderConfig(pubkey)
+    res = getGloasBuilderConfig(
+        host.validatorsDir, pubkey, defaultBuilderConfig).valueOr:
+      if error == ValidatorConfigFileStatus.noSuchValidator:
+        if host.validatorPool[].isDynamic(pubkey):
+          return ok(defaultBuilderConfig)
+      return err(error)
+  ok(res)
 
 proc addValidator*(
     host: KeymanagerHost, keystore: KeystoreData,
