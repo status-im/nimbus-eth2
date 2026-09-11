@@ -46,6 +46,7 @@ import # Unit test
   ./test_light_client,
   ./test_network_metadata,
   ./test_partial_column_quarantine,
+  ./test_partial_columns,
   ./test_payload_attestation_pool,
   ./test_peer_pool,
   ./test_peerdas_helpers,

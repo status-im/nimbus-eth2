@@ -21,7 +21,8 @@ import
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
     crypto/secp, builders],
   libp2p/protocols/pubsub/[
-      pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
+      pubsub, gossipsub, gossipsub/extensions, rpc/message, rpc/messages,
+      peertable, pubsubpeer],
   libp2p/stream/connection,
   eth/[common/keys, async_utils],
   eth/net/nat, eth/p2p/discoveryv5/[node, random2],
@@ -29,7 +30,7 @@ import
   ../spec/[eth2_ssz_serialization, network, helpers, forks, peerdas_helpers, column_map],
   ../validators/keystore_management,
   ./[eth2_discovery, eth2_protocol_dsl, eth2_agents,
-     libp2p_json_serialization, peer_pool, peer_scores]
+     libp2p_json_serialization, partial_columns, peer_pool, peer_scores]
 
 from std/math import round
 from std/os import isAbsolute, `/`
@@ -58,6 +59,9 @@ type
   PeerCgcResult* = Result[uint64, PeerCgcStatus]
 
   DirectPeers = Table[PeerId, seq[MultiAddress]]
+
+  PartialMessageHandler* =
+    proc(peer: PeerId, rpc: PartialMessageExtensionRPC) {.gcsafe, raises: [].}
 
   # TODO: This is here only to eradicate a compiler
   # warning about unused import (rpc/messages).
@@ -101,6 +105,7 @@ type
     directPeers*: DirectPeers
     announcedAddresses*: seq[MultiAddress]
     validTopics: HashSet[string]
+    partialMessageHandler*: PartialMessageHandler
     peerPingerHeartbeatFut: Future[void].Raising([CancelledError])
     peerTrimmerHeartbeatFut: Future[void].Raising([CancelledError])
     cfg*: RuntimeConfig
@@ -2575,7 +2580,7 @@ proc createEth2Node*(
     except CatchableError:
       err(ValidationResult.Reject)
 
-  let
+  var
     params = GossipSubParams.init(
       pruneBackoff = chronos.minutes(1),
       unsubscribeBackoff = chronos.seconds(10),
@@ -2609,6 +2614,25 @@ proc createEth2Node*(
       directPeers = directPeers,
       bandwidthEstimatebps = config.bandwidthEstimate.get(100_000_000)
     )
+    nodeRef: Eth2Node
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+  when config is BeaconNodeConf:
+    if config.partialColumns:
+      params.partialMessageExtensionConfig = Opt.some(
+        PartialMessageExtensionConfig(
+          unionPartsMetadata: unionPartsMetadata,
+          validateRPC: validatePartialRPC,
+          onIncomingRPC: proc(
+              peer: PeerId, rpc: PartialMessageExtensionRPC
+          ) {.gcsafe, raises: [].} =
+            if not isNil(nodeRef) and not isNil(nodeRef.partialMessageHandler):
+              nodeRef.partialMessageHandler(peer, rpc),
+          heartbeatsTillEviction: int(
+            (cfg.timeParams.SLOT_DURATION * 2).nanoseconds div
+              params.heartbeatInterval.nanoseconds)))
+
+  let
     pubsub =
       try:
         GossipSub.init(
@@ -2636,6 +2660,7 @@ proc createEth2Node*(
     extTcpPort, extQuicPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, directPeers, announcedAddresses,
     rng = rng)
+  nodeRef = node
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [].} =
@@ -2718,14 +2743,21 @@ func shortForm*(id: NetKeyPair): string =
 
 proc subscribe*(
     node: Eth2Node, topic: string, topicParams: TopicParams,
-    enableTopicMetrics: bool = false) =
+    enableTopicMetrics: bool = false, requestsPartial: bool = false) =
   if enableTopicMetrics:
     node.pubsub.knownTopics.incl(topic)
 
   node.pubsub.topicParams[topic] = topicParams
 
   # Passing in `nil` because we do all message processing in the validator
-  node.pubsub.subscribe(topic, nil)
+  node.pubsub.subscribe(
+    topic, nil, requestsPartial = requestsPartial,
+    supportsSendingPartial = requestsPartial)
+
+proc publishPartial*(
+    node: Eth2Node, topic: string, pm: PartialMessage
+) {.async: (raises: []).} =
+  await node.pubsub.publishPartial(topic, pm)
 
 proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult]
     {.async: (raises: [CancelledError], raw: true).} =
