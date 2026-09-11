@@ -132,6 +132,22 @@ proc deleteGraffitiPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
      meth: MethodDelete.}
   ## https://ethereum.github.io/keymanager-APIs/?urls.primaryName=dev#/Graffiti/deleteGraffiti
 
+proc getBuilderConfigPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/builder_config",
+     meth: MethodGet.}
+  ## https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L1-L62
+
+proc setBuilderConfigPlain*(pubkey: ValidatorPubKey,
+                            body: BuilderConfig): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/builder_config",
+     meth: MethodPost.}
+  ## https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L64-L119
+
+proc deleteBuilderConfigPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/builder_config",
+     meth: MethodDelete.}
+  ## https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L121-L158
+
 proc listRemoteDistributedKeysPlain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/remotekeys/distributed",
      meth: MethodGet.}
