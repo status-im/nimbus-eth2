@@ -19,9 +19,9 @@ import
   ./consensus_object_pools/[
     blockchain_list, column_quarantine, column_reconstruction_backfiller,
     envelope_quarantine, execution_payload_pool, inclusion_list_pool,
-    payload_attestation_pool],
+    partial_column_quarantine, payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
-  ./networking/[topic_params, network_metadata_downloads],
+  ./networking/[partial_columns, topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
   ./el/el_getblobs_service,
   ./spec/[
@@ -599,6 +599,7 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
+    partialColumnQuarantine = newClone(PartialColumnQuarantine.init())
 
   validatorCustody.setQuarantine(fuluColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
@@ -621,7 +622,8 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, executionPayloadBidPool, payloadAttestationPool,
       inclusionListPool, quarantine, fuluColumnQuarantine,
-      gloasColumnQuarantine, envelopeQuarantine, rng, getBeaconTime, taskpool)
+      gloasColumnQuarantine, partialColumnQuarantine, envelopeQuarantine, rng,
+      getBeaconTime, taskpool)
     eaSlot = dag.head.slot
     router = (ref MessageRouter)(
       processor: processor,
@@ -1193,6 +1195,12 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md
+func requestsPartialColumns(node: BeaconNode, forkDigest: ForkDigest): bool =
+  node.config.partialColumns and
+    node.dag.forkDigests[].consensusForkForDigest(forkDigest).get(
+      ConsensusFork.Phase0) >= ConsensusFork.Gloas
+
 proc updateDataColumnSidecarHandlers(node: BeaconNode) =
   let prevSubnets = move(node.lastColumnCustodyIndices)
   template subscribeSubnets: var seq[CustodyIndex] =
@@ -1207,7 +1215,9 @@ proc updateDataColumnSidecarHandlers(node: BeaconNode) =
             forkDigest = node.dag.forkDigests[].atEpoch(
               gossipEpoch, node.dag.cfg)
             topic = getDataColumnSidecarTopic(forkDigest, i)
-          node.network.subscribe(topic, basicParams())
+          node.network.subscribe(
+            topic, basicParams(),
+            requestsPartial = node.requestsPartialColumns(forkDigest))
 
   for i in prevSubnets:
     if i notin subscribeSubnets:
@@ -1254,7 +1264,9 @@ proc addFuluMessageHandlers(
 
   for i in node.lastColumnCustodyIndices:
     let topic = getDataColumnSidecarTopic(forkDigest, i)
-    node.network.subscribe(topic, basicParams())
+    node.network.subscribe(
+      topic, basicParams(),
+      requestsPartial = node.requestsPartialColumns(forkDigest))
 
 proc addGloasMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
@@ -2003,11 +2015,84 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
     restServer.router.installLightClientApiHandlers(node)
 
 from ./spec/datatypes/capella import SignedBeaconBlock
+from libp2p/protocols/pubsub/rpc/messages import PartialMessageExtensionRPC
+
+proc partialColumnBlobCount(
+    node: BeaconNode, groupId: gloas.PartialDataColumnGroupID): Opt[int] =
+  let
+    blckRef = node.dag.getBlockRef(groupId.beacon_block_root).valueOr:
+      return Opt.none(int)
+    forkedBlock = node.dag.getForkedBlock(blckRef.bid).valueOr:
+      return Opt.none(int)
+  if blckRef.bid.slot != groupId.slot:
+    return Opt.none(int)
+  withBlck(forkedBlock):
+    when consensusFork == ConsensusFork.Gloas:
+      Opt.some(forkyBlck.message.body.signed_execution_payload_bid.message
+        .blob_kzg_commitments.len)
+    else:
+      Opt.none(int)
+
+proc publishPartialColumn(
+    node: BeaconNode, topic: string,
+    groupId: gloas.PartialDataColumnGroupID, columnIndex: ColumnIndex
+) {.async: (raises: []).} =
+  template partials: untyped = node.processor.partialColumnQuarantine[]
+  let entry = partials.getEntry(groupId, columnIndex).valueOr:
+    if node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
+        groupId.beacon_block_root, columnIndex):
+      return
+    let numBlobs = node.partialColumnBlobCount(groupId).valueOr:
+      return
+    partials.getOrCreateEntry(groupId, columnIndex, numBlobs)
+  await node.network.publishPartial(topic, PartialColumnMessage.init(
+    groupId, entry.cellsReceived, entry.cells, entry.proofs))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+proc processPartialColumnRPC(
+    node: BeaconNode, topic: string, subnet_id: uint64, peer: PeerId,
+    rpc: PartialMessageExtensionRPC
+) {.async: (raises: [CancelledError]).} =
+  template penalize() =
+    node.network.peers.withValue(peer, p):
+      p[].updateScore(PeerScoreBadValues)
+
+  let
+    groupId = decodePartialDataColumnGroupId(rpc.groupID.get(@[])).valueOr:
+      return
+    columnIndex = ColumnIndex(subnet_id)
+
+  if rpc.partialMessage.isSome():
+    let
+      sidecar = decodePartialDataColumnSidecar(
+          rpc.partialMessage.get()).valueOr:
+        penalize()
+        return
+      hadColumn = node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
+        groupId.beacon_block_root, columnIndex)
+      res = await node.processor.processPartialDataColumnSidecar(
+        MsgSource.gossip, newClone(sidecar), groupId, columnIndex, subnet_id)
+    if res.isErr():
+      if res.error[0] == ValidationResult.Reject:
+        penalize()
+      return
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#forwarding
+    if not hadColumn and node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
+        groupId.beacon_block_root, columnIndex):
+      let dataColumnSidecar = node.processor.partialColumnQuarantine[]
+          .assembleDataColumnSidecar(groupId, columnIndex)
+      if dataColumnSidecar.isSome():
+        discard await node.network.broadcastDataColumnSidecar(
+          subnet_id, newClone(dataColumnSidecar.get()))
+
+  await node.publishPartialColumn(topic, groupId, columnIndex)
 
 proc installMessageValidators(node: BeaconNode) =
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   let forkDigests = node.dag.forkDigests
+  var partialColumnTopics: Table[string, uint64]
 
   for fork in ConsensusFork:
     withConsensusFork(fork):
@@ -2237,6 +2322,8 @@ proc installMessageValidators(node: BeaconNode) =
           for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
             closureScope:
               let subnet_id = it
+              partialColumnTopics[
+                getDataColumnSidecarTopic(digest, subnet_id)] = subnet_id
               node.network.addAsyncValidator(
                 getDataColumnSidecarTopic(digest, subnet_id), proc (
                   dataColumnSidecar: gloas.DataColumnSidecar,
@@ -2261,6 +2348,13 @@ proc installMessageValidators(node: BeaconNode) =
                     await node.processor.processDataColumnSidecar(
                       MsgSource.gossip, newClone(dataColumnSidecar),
                       subnet_id)))
+
+  if node.config.partialColumns:
+    node.network.partialMessageHandler = proc(
+        peer: PeerId, rpc: PartialMessageExtensionRPC) {.gcsafe, raises: [].} =
+      let topic = rpc.topicID.get("")
+      partialColumnTopics.withValue(topic, subnet_id):
+        asyncSpawn node.processPartialColumnRPC(topic, subnet_id[], peer, rpc)
 
   node.installLightClientMessageValidators()
 

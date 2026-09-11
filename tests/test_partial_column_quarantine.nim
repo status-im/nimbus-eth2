@@ -45,7 +45,7 @@ func genSidecar(
     cells = newSeqOfCap[KzgCell](blobIndices.len)
     proofs = newSeqOfCap[KzgProof](blobIndices.len)
   for i, blobIdx in blobIndices:
-    bitmap[Natural(blobIdx)] = true
+    bitmap[blobIdx] = true
     cells.add(gen[KzgCell](startCellId + i))
     proofs.add(gen[KzgProof](startCellId + i))
   result = new gloas.PartialDataColumnSidecar
