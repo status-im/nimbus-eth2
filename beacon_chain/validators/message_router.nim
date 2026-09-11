@@ -335,7 +335,7 @@ proc routeAttestation*(
     notice "Attestation not sent",
       attestation = shortLog(attestation), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeAttestation*(
     router: ref MessageRouter,
@@ -409,7 +409,7 @@ proc routeSignedAggregateAndProof*(
       aggregator_index = proof.message.aggregator_index,
       signature = shortLog(proof.signature), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeSyncCommitteeMessage*(
     router: ref MessageRouter, msg: SyncCommitteeMessage,
@@ -447,7 +447,7 @@ proc routeSyncCommitteeMessage*(
   if router[].onSyncCommitteeMessage != nil:
     router[].onSyncCommitteeMessage(msg.slot)
 
-  return ok()
+  ok()
 
 proc routeSyncCommitteeMessages*(
     router: ref MessageRouter, msgs: seq[SyncCommitteeMessage]):
@@ -571,7 +571,7 @@ proc routeSignedContributionAndProof*(
       selection_proof = shortLog(msg.message.selection_proof),
       signature = shortLog(msg.signature), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeSignedVoluntaryExit*(
     router: ref MessageRouter, exit: SignedVoluntaryExit):
@@ -591,7 +591,7 @@ proc routeSignedVoluntaryExit*(
   else: # "no broadcast" is not a fatal error
     notice "Voluntary exit not sent", exit = shortLog(exit), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeAttesterSlashing*(
     router: ref MessageRouter,
@@ -613,7 +613,7 @@ proc routeAttesterSlashing*(
     notice "Attester slashing not sent",
       slashing = shortLog(slashing), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeProposerSlashing*(
     router: ref MessageRouter, slashing: ProposerSlashing):
@@ -634,7 +634,7 @@ proc routeProposerSlashing*(
     notice "Proposer slashing not sent",
       slashing = shortLog(slashing), error = res.error()
 
-  return ok()
+  ok()
 
 proc routeBlsToExecutionChange*(
     router: ref MessageRouter,
@@ -666,7 +666,7 @@ proc routeBlsToExecutionChange*(
       bls_to_execution_change = shortLog(bls_to_execution_change),
       error = res.error()
 
-  return ok()
+  ok()
 
 proc routePayloadAttestationMessage*(
     router: ref MessageRouter,
@@ -693,9 +693,11 @@ proc routePayloadAttestationMessage*(
   if res.isOk():
     info "Payload attestation sent",
       message = shortLog(message), delay
-  else:
+  else: # "no broadcast" is not a fatal error
     notice "Payload attestation not sent",
       message = shortLog(message), error = res.error()
+
+  ok()
 
 proc validateAndPublishEnvelope*(
     router: ref MessageRouter,
