@@ -636,6 +636,97 @@ AllTests-mainnet
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
 ```
+## Light client block data [Preset: mainnet]
+```diff
++ altair -> Altair                                                                           OK
++ altair -> Altair (with header)                                                             OK
++ altair -> Capella                                                                          OK
++ altair -> Capella (with header)                                                            OK
++ altair -> Deneb                                                                            OK
++ altair -> Deneb (with header)                                                              OK
++ altair -> Electra                                                                          OK
++ altair -> Electra (with header)                                                            OK
++ altair -> Gloas                                                                            OK
++ altair -> Gloas (with header)                                                              OK
++ altair -> None                                                                             OK
++ bellatrix -> Altair                                                                        OK
++ bellatrix -> Altair (with header)                                                          OK
++ bellatrix -> Capella                                                                       OK
++ bellatrix -> Capella (with header)                                                         OK
++ bellatrix -> Deneb                                                                         OK
++ bellatrix -> Deneb (with header)                                                           OK
++ bellatrix -> Electra                                                                       OK
++ bellatrix -> Electra (with header)                                                         OK
++ bellatrix -> Gloas                                                                         OK
++ bellatrix -> Gloas (with header)                                                           OK
++ bellatrix -> None                                                                          OK
++ capella -> Altair                                                                          OK
++ capella -> Altair (with header)                                                            OK
++ capella -> Capella                                                                         OK
++ capella -> Capella (with header)                                                           OK
++ capella -> Deneb                                                                           OK
++ capella -> Deneb (with header)                                                             OK
++ capella -> Electra                                                                         OK
++ capella -> Electra (with header)                                                           OK
++ capella -> Gloas                                                                           OK
++ capella -> Gloas (with header)                                                             OK
++ capella -> None                                                                            OK
++ deneb -> Altair                                                                            OK
++ deneb -> Altair (with header)                                                              OK
++ deneb -> Capella                                                                           OK
++ deneb -> Capella (with header)                                                             OK
++ deneb -> Deneb                                                                             OK
++ deneb -> Deneb (with header)                                                               OK
++ deneb -> Electra                                                                           OK
++ deneb -> Electra (with header)                                                             OK
++ deneb -> Gloas                                                                             OK
++ deneb -> Gloas (with header)                                                               OK
++ deneb -> None                                                                              OK
++ electra -> Altair                                                                          OK
++ electra -> Altair (with header)                                                            OK
++ electra -> Capella                                                                         OK
++ electra -> Capella (with header)                                                           OK
++ electra -> Deneb                                                                           OK
++ electra -> Deneb (with header)                                                             OK
++ electra -> Electra                                                                         OK
++ electra -> Electra (with header)                                                           OK
++ electra -> Gloas                                                                           OK
++ electra -> Gloas (with header)                                                             OK
++ electra -> None                                                                            OK
++ fulu -> Altair                                                                             OK
++ fulu -> Altair (with header)                                                               OK
++ fulu -> Capella                                                                            OK
++ fulu -> Capella (with header)                                                              OK
++ fulu -> Deneb                                                                              OK
++ fulu -> Deneb (with header)                                                                OK
++ fulu -> Electra                                                                            OK
++ fulu -> Electra (with header)                                                              OK
++ fulu -> Gloas                                                                              OK
++ fulu -> Gloas (with header)                                                                OK
++ fulu -> None                                                                               OK
++ gloas -> Altair                                                                            OK
++ gloas -> Altair (with header)                                                              OK
++ gloas -> Capella                                                                           OK
++ gloas -> Capella (with header)                                                             OK
++ gloas -> Deneb                                                                             OK
++ gloas -> Deneb (with header)                                                               OK
++ gloas -> Electra                                                                           OK
++ gloas -> Electra (with header)                                                             OK
++ gloas -> Gloas                                                                             OK
++ gloas -> Gloas (with header)                                                               OK
++ gloas -> None                                                                              OK
++ heze -> Altair                                                                             OK
++ heze -> Altair (with header)                                                               OK
++ heze -> Capella                                                                            OK
++ heze -> Capella (with header)                                                              OK
++ heze -> Deneb                                                                              OK
++ heze -> Deneb (with header)                                                                OK
++ heze -> Electra                                                                            OK
++ heze -> Electra (with header)                                                              OK
++ heze -> Gloas                                                                              OK
++ heze -> Gloas (with header)                                                                OK
++ heze -> None                                                                               OK
+```
 ## Light client processor [Preset: mainnet]
 ```diff
 + Duplicate bootstrap (Optimistic) [Preset: mainnet]                                         OK

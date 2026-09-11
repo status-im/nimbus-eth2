@@ -143,9 +143,16 @@ func getLightClientData(
 func union_indices(
     lcDataFork: static LightClientDataFork): auto {.compileTime.} =
   get_union_indices(
+    lcDataFork.finalized_root_gindex,
     lcDataFork.current_sync_committee_gindex,
-    lcDataFork.next_sync_committee_gindex,
-    lcDataFork.finalized_root_gindex)
+    lcDataFork.next_sync_committee_gindex)
+
+template finality_branch(
+    cachedData: CachedLightClientData): auto =
+  const
+    union_indices = lcDataFork.union_indices
+    index = lcDataFork.finalized_root_gindex
+  cachedData.union_roots.extract_branch(union_indices, index).get
 
 template current_sync_committee_branch(
     cachedData: CachedLightClientData): auto =
@@ -159,13 +166,6 @@ template next_sync_committee_branch(
   const
     union_indices = lcDataFork.union_indices
     index = lcDataFork.next_sync_committee_gindex
-  cachedData.union_roots.extract_branch(union_indices, index).get
-
-template finality_branch(
-    cachedData: CachedLightClientData): auto =
-  const
-    union_indices = lcDataFork.union_indices
-    index = lcDataFork.finalized_root_gindex
   cachedData.union_roots.extract_branch(union_indices, index).get
 
 func cacheLightClientData(
@@ -684,8 +684,8 @@ proc initLightClientUpdateForPeriod(
           next_sync_committee: forkyState.data.next_sync_committee)
         if finalizedBid.slot != FAR_FUTURE_SLOT:
           const union_indices = get_union_indices(
-            lcDataFork.next_sync_committee_gindex,
-            lcDataFork.finalized_root_gindex)
+            lcDataFork.finalized_root_gindex,
+            lcDataFork.next_sync_committee_gindex)
           let union_roots = forkyState.data.hash_tree_root(union_indices).get
           update.forky(lcDataFork).next_sync_committee_branch =
             union_roots.extract_branch(
