@@ -19,7 +19,7 @@ import
   ./consensus_object_pools/[
     blockchain_list, column_quarantine, column_reconstruction_backfiller,
     envelope_quarantine, execution_payload_pool, inclusion_list_pool,
-    partial_column_quarantine, payload_attestation_pool],
+    payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/[topic_params, network_metadata_downloads],
   ./rpc/[rest_api, state_ttl_cache],
@@ -599,7 +599,6 @@ proc initFullNode(
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
       dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
       onColumnSidecarAdded))
-    partialColumnQuarantine = newClone(FuluPartialColumnQuarantine.init())
 
   validatorCustody.setQuarantine(fuluColumnQuarantine)
   validatorCustody.setQuarantine(gloasColumnQuarantine)
@@ -708,8 +707,6 @@ proc initFullNode(
                                                 node.blockProcessor,
                                                 node.fuluColumnQuarantine,
                                                 gloasColumnQuarantine,
-                                                partialColumnQuarantine,
-                                                config.partialColumns,
                                                 node.validatorCustody,
                                                 node.network)
   node.columnReconstructionBackfiller =
@@ -2088,7 +2085,7 @@ proc installMessageValidators(node: BeaconNode) =
                   checkValidator = false)))
 
         # proposer_preferences
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
+        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-proposer_preferences
         when consensusFork >= ConsensusFork.Gloas:
           node.network.addValidator(
             getProposerPreferencesTopic(digest), proc(

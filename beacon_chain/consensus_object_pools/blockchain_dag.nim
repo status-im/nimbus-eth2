@@ -518,7 +518,7 @@ func get_dependent_root*(
     return ZERO_HASH
   dependent.bid.root
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#is_valid_dependent_root
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-is_valid_dependent_root
 func is_valid_dependent_root*(
     dag: ChainDAGRef, root: Eth2Digest, epoch: Epoch): bool =
   ## Check if the block with the given ``root`` is a possible dependent block
@@ -528,8 +528,6 @@ func is_valid_dependent_root*(
     blck = dag.getBlockRef(root).valueOr:
       return false
     start_slot = epoch.start_slot()
-  if blck.slot >= start_slot:
-    return false
   for key in dag.forkBlocks:
     let candidate = key.blockRef()
     if candidate.parent == blck and candidate.slot >= start_slot:

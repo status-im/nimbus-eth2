@@ -28,7 +28,7 @@ from snappy import decode
 from ../../beacon_chain/consensus_object_pools/block_clearance import
   checkHeadBlock
 from ../../beacon_chain/consensus_object_pools/block_quarantine import
-  Quarantine, UnviableKind, addUnviable, init
+  Quarantine, UnviableKind, addOrphan, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
@@ -44,6 +44,7 @@ type
   GossipBlock = object
     name: string
     failed: bool
+    pending: bool
 
   GossipMessage = object
     name: string
@@ -55,6 +56,11 @@ type
     blocks: seq[GossipBlock]
     finalizedEpoch: Opt[Epoch]
     messages: seq[GossipMessage]
+
+const SKIP = [
+  # Gloas state before Gloas fork epoch
+  "gossip_proposer_preferences__ignore_pre_gloas_epoch",
+  "gossip_proposer_preferences__valid_at_gloas_fork_epoch"]
 
 func toValidationResult(expected: string): ValidationResult =
   case expected
@@ -74,7 +80,8 @@ proc loadMeta(path: string): GossipTestMeta {.raises: [KeyError, ValueError].} =
     for blck in meta["blocks"]:
       res.blocks.add GossipBlock(
         name: blck["block"].getStr(),
-        failed: blck.hasKey"failed" and blck["failed"].getBool())
+        failed: blck.hasKey"failed" and blck["failed"].getBool(),
+        pending: blck.hasKey"pending" and blck["pending"].getBool())
   if meta.hasKey"finalized_checkpoint":
     res.finalizedEpoch =
       Opt.some(Epoch(meta["finalized_checkpoint"]["epoch"].getBiggestInt()))
@@ -94,9 +101,14 @@ proc loadMeta(path: string): GossipTestMeta {.raises: [KeyError, ValueError].} =
 
 proc initDag(
     path: string, meta: GossipTestMeta,
-    consensusFork: static ConsensusFork): ChainDAGRef =
+    consensusFork: static ConsensusFork): ChainDAGRef {.raises: [
+      IOError, PresetFileError, PresetIncompatibleError].} =
   let
-    cfg = consensusFork.genesisTestRuntimeConfig
+    cfg =
+      if os_ops.fileExists(path/"config.yaml"):
+        readRuntimeConfig(path/"config.yaml")[0]
+      else:
+        consensusFork.genesisTestRuntimeConfig
     db = BeaconChainDB.new("", cfg, inMemory = true)
     state = loadForkedState(path/"state.ssz_snappy", consensusFork)
 
@@ -124,6 +136,9 @@ template gossipTest(
     consensusFork: static ConsensusFork, MsgType: typedesc,
     validate, accept: untyped) =
   asyncTest $consensusFork & " - " & os_ops.splitPath(path).tail:
+    if os_ops.splitPath(path).tail in SKIP:
+      skip()
+      return
     let
       meta = loadMeta(path)
       dag {.inject, used.} = initDag(path, meta, consensusFork)
@@ -141,6 +156,7 @@ template gossipTest(
         newClone(SyncCommitteeMsgPool.init(rng, dag.cfg))
       ptcPool {.inject, used.} =
         newClone(PayloadAttestationPool.init(dag))
+    var seenPrefs {.inject, used.}: SeenProposerPreferences
     defer:
       dag.db.close()
       batchCrypto.close()
@@ -152,6 +168,8 @@ template gossipTest(
       if blck.failed:
         check quarantine[].addUnviable(
           signedBlock.root, UnviableKind.Invalid) == UnviableKind.Invalid
+      elif blck.pending:
+        check quarantine[].addOrphan(dag.finalizedHead.slot, signedBlock).isOk
       else:
         check dag.addHeadBlock(
           verifier, signedBlock, OnBlockAdded[consensusFork](nil)).expect(
@@ -264,6 +282,15 @@ proc runGossipExecutionPayloadEnvelope(
         quarantine, envQuarantine, message, wallTime)):
     dag.db.putExecutionPayloadEnvelope(message)
 
+proc runGossipProposerPreferences(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, SignedProposerPreferences,
+      dag.validateProposerPreferences(seenPrefs, message, wallTime)):
+    check dag.validateProposerPreferences(
+      seenPrefs, message, wallTime).error[0] == ValidationResult.Ignore
+
 template gossipSuite(
     topic: static[string], handler: static[string], runner: untyped) =
   const name = "EF - Networking - Gossip - " & topic & preset()
@@ -305,3 +332,6 @@ gossipSuite(
 gossipSuite(
   "Execution Payload Envelope", "gossip_execution_payload_envelope",
   runGossipExecutionPayloadEnvelope)
+gossipSuite(
+  "Proposer Preferences", "gossip_proposer_preferences",
+  runGossipProposerPreferences)

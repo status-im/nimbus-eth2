@@ -3854,6 +3854,57 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_payload_attestation_message__valid_slot_at_lower_disparity                   OK
 + heze - gossip_payload_attestation_message__valid_slot_at_upper_disparity                   OK
 ```
+## EF - Networking - Gossip - Proposer Preferences [Preset: mainnet]
+```diff
++ gloas - gossip_proposer_preferences__ignore_dependent_root_not_possible                    OK
++ gloas - gossip_proposer_preferences__ignore_dependent_root_state_unavailable               OK
++ gloas - gossip_proposer_preferences__ignore_dependent_root_unseen                          OK
++ gloas - gossip_proposer_preferences__ignore_duplicate                                      OK
++ gloas - gossip_proposer_preferences__ignore_outside_lookahead_disparity                    OK
++ gloas - gossip_proposer_preferences__ignore_outside_slot_start_disparity                   OK
+  gloas - gossip_proposer_preferences__ignore_pre_gloas_epoch                                Skip
++ gloas - gossip_proposer_preferences__ignore_slot_after_lookahead                           OK
++ gloas - gossip_proposer_preferences__ignore_slot_before_lookahead                          OK
++ gloas - gossip_proposer_preferences__ignore_slot_from_past_epoch                           OK
++ gloas - gossip_proposer_preferences__reject_dependent_root_at_lookahead_epoch_start        OK
++ gloas - gossip_proposer_preferences__reject_invalid_signature                              OK
++ gloas - gossip_proposer_preferences__reject_non_genesis_dependent_root_at_lookahead_epoch  OK
++ gloas - gossip_proposer_preferences__reject_non_genesis_dependent_root_in_genesis_epoch    OK
++ gloas - gossip_proposer_preferences__reject_wrong_proposer                                 OK
++ gloas - gossip_proposer_preferences__valid                                                 OK
++ gloas - gossip_proposer_preferences__valid_at_first_lookahead_slot                         OK
+  gloas - gossip_proposer_preferences__valid_at_gloas_fork_epoch                             Skip
++ gloas - gossip_proposer_preferences__valid_at_last_lookahead_slot                          OK
++ gloas - gossip_proposer_preferences__valid_at_lookahead_disparity_edge                     OK
++ gloas - gossip_proposer_preferences__valid_at_slot_start_disparity_edge                    OK
++ gloas - gossip_proposer_preferences__valid_dependent_root_across_empty_epochs              OK
++ gloas - gossip_proposer_preferences__valid_dependent_root_on_fork                          OK
++ gloas - gossip_proposer_preferences__valid_genesis_dependent_root_at_lookahead_epoch       OK
++ gloas - gossip_proposer_preferences__valid_genesis_dependent_root_in_genesis_epoch         OK
++ heze - gossip_proposer_preferences__ignore_dependent_root_not_possible                     OK
++ heze - gossip_proposer_preferences__ignore_dependent_root_state_unavailable                OK
++ heze - gossip_proposer_preferences__ignore_dependent_root_unseen                           OK
++ heze - gossip_proposer_preferences__ignore_duplicate                                       OK
++ heze - gossip_proposer_preferences__ignore_outside_lookahead_disparity                     OK
++ heze - gossip_proposer_preferences__ignore_outside_slot_start_disparity                    OK
++ heze - gossip_proposer_preferences__ignore_slot_after_lookahead                            OK
++ heze - gossip_proposer_preferences__ignore_slot_before_lookahead                           OK
++ heze - gossip_proposer_preferences__ignore_slot_from_past_epoch                            OK
++ heze - gossip_proposer_preferences__reject_dependent_root_at_lookahead_epoch_start         OK
++ heze - gossip_proposer_preferences__reject_invalid_signature                               OK
++ heze - gossip_proposer_preferences__reject_non_genesis_dependent_root_at_lookahead_epoch   OK
++ heze - gossip_proposer_preferences__reject_non_genesis_dependent_root_in_genesis_epoch     OK
++ heze - gossip_proposer_preferences__reject_wrong_proposer                                  OK
++ heze - gossip_proposer_preferences__valid                                                  OK
++ heze - gossip_proposer_preferences__valid_at_first_lookahead_slot                          OK
++ heze - gossip_proposer_preferences__valid_at_last_lookahead_slot                           OK
++ heze - gossip_proposer_preferences__valid_at_lookahead_disparity_edge                      OK
++ heze - gossip_proposer_preferences__valid_at_slot_start_disparity_edge                     OK
++ heze - gossip_proposer_preferences__valid_dependent_root_across_empty_epochs               OK
++ heze - gossip_proposer_preferences__valid_dependent_root_on_fork                           OK
++ heze - gossip_proposer_preferences__valid_genesis_dependent_root_at_lookahead_epoch        OK
++ heze - gossip_proposer_preferences__valid_genesis_dependent_root_in_genesis_epoch          OK
+```
 ## EF - Networking - Gossip - Proposer Slashing [Preset: mainnet]
 ```diff
 + fulu - gossip_proposer_slashing__ignore_already_seen                                       OK

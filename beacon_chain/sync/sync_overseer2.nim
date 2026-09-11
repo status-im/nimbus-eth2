@@ -1321,9 +1321,7 @@ proc getMissingColumnsBlocksAndRequest(
     duplicates: HashSet[Eth2Digest]
     columnBlocks: seq[ForkedSignedBeaconBlock]
 
-  let
-    dag = overseer.consensusManager.dag
-    peerMap = peer.getColumnMapOrDefault()
+  let peerMap = peer.getColumnMapOrDefault()
 
   # Peer's missing sidecars
   for bid in bids:
@@ -1335,7 +1333,7 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
@@ -1351,16 +1349,16 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
   debug "Missing sidecars roots request prepared",
-    missing_peer_roots = slimLog(bres.columnBlocks.toOpenArray(0, delim - 1)),
+    missing_peer_roots = slimLog(columnBlocks.toOpenArray(0, delim - 1)),
     missing_peer_roots_len = delim,
     missing_global_roots =
-      slimLog(bres.columnBlocks.toOpenArray(delim, len(bres.columnBlocks) - 1)),
-    missing_global_roots_len = len(bres.columnBlocks) - delim
+      slimLog(columnBlocks.toOpenArray(delim, len(columnBlocks) - 1)),
+    missing_global_roots_len = len(columnBlocks) - delim
 
   for signedBlock in columnBlocks:
     withBlck(signedBlock):
@@ -1425,7 +1423,7 @@ proc getMissingEnvelopeBlocksAndRequest(
         overseer.missingRoots.incl(bid.root)
         continue
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       bres.blocks.add(signedBlock)
       bres.roots.add(bid.root)
@@ -1445,7 +1443,7 @@ proc getMissingEnvelopeBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       bres.blocks.add(signedBlock)
       bres.roots.add(bid.root)
