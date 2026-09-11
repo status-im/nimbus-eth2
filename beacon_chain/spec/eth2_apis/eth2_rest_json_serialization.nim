@@ -100,7 +100,6 @@ RestJson.useDefaultSerializationFor(
   FuluSignedBlockContents,
   GetBlockHeaderResponse,
   GetBlockHeadersResponse,
-  GetBuilderConfigResponse,
   GetDistributedKeystoresResponse,
   GetEpochCommitteesResponse,
   GetEpochSyncCommitteesResponse,

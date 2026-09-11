@@ -513,8 +513,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
     let res = host.getValidatorBuilderConfig(pubkey)
     if res.isOk:
-      RestApiResponse.jsonResponse(GetBuilderConfigResponse(
-        data: res.get()))
+      RestApiResponse.jsonResponse(res.get())
     else:
       keymanagerApiError(Http500, "Failed to get builder config: " & $res.error())
 
