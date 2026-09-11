@@ -515,7 +515,13 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     if res.isOk:
       RestApiResponse.jsonResponse(res.get())
     else:
-      keymanagerApiError(Http500, "Failed to get builder config: " & res.error())
+      case res.error
+      of noConfigFile:
+        keymanagerApiError(Http404, PathNotFoundError)
+      of noSuchValidator:
+        keymanagerApiError(Http404, ValidatorNotFoundError)
+      of malformedConfigFile:
+        keymanagerApiError(Http500, FileReadError)
 
   # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L64-L119
   router.api2(MethodPost, "/eth/v1/validator/{pubkey}/builder_config") do (
