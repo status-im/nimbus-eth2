@@ -457,7 +457,7 @@ proc assemble_partial_data_column_sidecars*(
       for columnIndex in 0 ..< CELLS_PER_EXT_BLOB:
         let proof = (cell_proofs[rowIndex * CELLS_PER_EXT_BLOB + columnIndex]).valueOr:
           continue
-        bitmaps[columnIndex][Natural(rowIndex)] = true
+        bitmaps[columnIndex][rowIndex] = true
         columns[columnIndex].add(value[columnIndex])
         columnProofs[columnIndex].add(proof)
 
@@ -484,7 +484,7 @@ func partial_data_column_kzg_inputs*(
   ## checked against the same commitments when first received, and the
   ## caller has confirmed the incoming bytes match the stored copy.
   let cellsPresent = (0 ..< sidecar.cells_present_bitmap.len).countIt(
-    sidecar.cells_present_bitmap[Natural(it)])
+    sidecar.cells_present_bitmap[it])
 
   if sidecar.cells_present_bitmap.len != all_commitments.len:
     return err("PartialDataColumnSidecar: bitmap length does not match commitments")
@@ -502,7 +502,7 @@ func partial_data_column_kzg_inputs*(
     cellIdx = 0
 
   for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
-    if not sidecar.cells_present_bitmap[Natural(blobIdx)]:
+    if not sidecar.cells_present_bitmap[blobIdx]:
       continue
     if blobIdx >= already_verified.len or not already_verified[blobIdx]:
       commitments.add all_commitments[blobIdx]
@@ -537,7 +537,7 @@ func verify_partial_data_column_sidecar*(
   ## Self-consistency [REJECT] rules, i.e. those needing neither chain state
   ## nor KZG.
   let cellsPresent = (0 ..< sidecar.cells_present_bitmap.len).countIt(
-    sidecar.cells_present_bitmap[Natural(it)])
+    sidecar.cells_present_bitmap[it])
 
   if cellsPresent == 0:
     return err("PartialDataColumnSidecar: partial message is semantically empty")

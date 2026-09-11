@@ -119,7 +119,7 @@ method materializeParts*(
     proofs: seq[KzgProof]
   for i in 0 ..< m.available.len:
     if wanted[i]:
-      bitmap[Natural(i)] = true
+      bitmap.setBit(i)
       cells.add m.cells[i]
       proofs.add m.proofs[i]
 

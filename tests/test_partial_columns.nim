@@ -54,9 +54,9 @@ suite "Partial column messages":
         metadata(bits(3, 0), bits(3, 0, 1, 2))).expect("valid metadata")
       sidecar = decodePartialDataColumnSidecar(data).expect("valid sidecar")
     check:
-      sidecar.cells_present_bitmap[Natural(2)]
-      not sidecar.cells_present_bitmap[Natural(0)]
-      not sidecar.cells_present_bitmap[Natural(1)]
+      sidecar.cells_present_bitmap[2]
+      not sidecar.cells_present_bitmap[0]
+      not sidecar.cells_present_bitmap[1]
       sidecar.partial_column == @[cell(2)]
       sidecar.kzg_proofs.len == 1
       sidecar.kzg_proofs[0] == proof(2)
