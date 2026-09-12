@@ -99,7 +99,8 @@ type
     seq[RestSyncCommitteeSelection]
 
   MevDecodeTypes* =
-    GetHeaderResponseFulu
+    GetHeaderResponseFulu |
+    GetExecutionPayloadBidResponseGloas
 
   DecodeTypes* =
     DataEnclosedObject |

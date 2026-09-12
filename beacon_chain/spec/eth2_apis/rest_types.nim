@@ -608,6 +608,7 @@ type
   SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
   SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
   GetHeaderResponseFulu* = DataVersionEnclosedObject[fulu_mev.SignedBuilderBid]
+  GetExecutionPayloadBidResponseGloas* = DataVersionEnclosedObject[gloas.SignedExecutionPayloadBid]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",
