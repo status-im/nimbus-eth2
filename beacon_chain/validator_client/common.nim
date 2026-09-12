@@ -40,6 +40,9 @@ const
   HISTORICAL_DUTIES_EPOCHS* = 2'u64
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
+    # `SUBSCRIPTION_BUFFER_SLOTS` depends on `AGGREGATION_PRE_COMPUTE_SLOTS` and
+    # should not be bigger than this value. Otherwise beacon committee
+    # subscription will not be able to properly calculate `is_aggregator` field.
 
   # https://github.com/ethereum/builder-specs/blob/v0.4.0/specs/bellatrix/validator.md#constants
   EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
