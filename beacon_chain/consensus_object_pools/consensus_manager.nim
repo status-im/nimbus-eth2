@@ -26,8 +26,8 @@ logScope: topics = "cman"
 type
   ForkchoiceUpdate = object
     wallSlot: Slot
-    state: ForkchoiceStateV1
-    status: PayloadExecutionStatus
+    state: ForkchoiceState
+    status: PayloadStatusCode
 
   ConsensusManager* = object
     expectedSlot: Slot
@@ -99,13 +99,13 @@ func new*(T: type ConsensusManager,
 # Consensus Management
 # ------------------------------------------------------------------------------
 
-func to*(v: PayloadExecutionStatus, T: type OptimisticStatus): T =
+func to*(v: PayloadStatusCode, T: type OptimisticStatus): T =
   case v
-  of PayloadExecutionStatus.valid:
+  of PayloadStatusCode.VALID:
     OptimisticStatus.valid
-  of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
+  of PayloadStatusCode.SYNCING, PayloadStatusCode.ACCEPTED:
     OptimisticStatus.notValidated
-  of invalid, invalid_block_hash:
+  of PayloadStatusCode.INVALID, PayloadStatusCode.INVALID_BLOCK_HASH:
     OptimisticStatus.invalidated
 
 proc checkExpectedBlock(self: var ConsensusManager) =
@@ -431,18 +431,18 @@ proc prepareNextSlot*(
               forkyState.data.payload_expected_withdrawals.asSeq
           else:
             get_expected_withdrawals(forkyState.data)
-        state = ForkchoiceStateV1.init(
+        state = ForkchoiceState.init(
           executionHead, beaconHead.safeExecutionBlockHash,
           beaconHead.finalizedExecutionBlockHash,
         )
         attributes =
           when consensusFork >= ConsensusFork.Gloas:
-            PayloadAttributesV4.init(timestamp, prevRandao, feeRecipient,
+            PayloadAttributesAmsterdam.init(timestamp, prevRandao, feeRecipient,
               withdrawals, beaconHead.blck.bid.root, proposalSlot,
               self[].getGasLimit(nextProposer))
           else:
             # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.4/src/engine/cancun.md#payloadattributesv3
-            PayloadAttributesV3.init(timestamp, prevRandao, feeRecipient,
+            PayloadAttributesCancun.init(timestamp, prevRandao, feeRecipient,
               withdrawals, beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
@@ -480,7 +480,7 @@ proc forkchoiceUpdated*(
     wallSlot: Slot,
     deadline: DeadlineFuture,
     retry: bool,
-): Future[PayloadExecutionStatus] {.async: (raises: [CancelledError]).} =
+): Future[PayloadStatusCode] {.async: (raises: [CancelledError]).} =
   ## Call non-proposer version of forkchoiceUpdated using the given head slot
   ## to select the correct PayloadAttributes version.
   ##
@@ -490,9 +490,9 @@ proc forkchoiceUpdated*(
     when consensusFork >= ConsensusFork.Bellatrix:
       if headBlockHash.isZero:
         # Merge not yet activated
-        PayloadExecutionStatus.valid
+        PayloadStatusCode.VALID
       else:
-        let state = ForkchoiceStateV1.init(
+        let state = ForkchoiceState.init(
           headBlockHash, safeBlockHash, finalizedBlockHash)
         if wallSlot == self.latestFcu.wallSlot and
             state == self.latestFcu.state:
@@ -506,7 +506,7 @@ proc forkchoiceUpdated*(
           wallSlot: wallSlot, state: state, status: status)
         status
     else:
-      PayloadExecutionStatus.valid
+      PayloadStatusCode.VALID
 
 proc lightClientForkchoiceUpdated(
     self: ref ConsensusManager,

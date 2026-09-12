@@ -210,9 +210,9 @@ proc attemptGetBlobs*(
       # TODO https://github.com/nim-lang/Nim/issues/25848 means that
       # enumerate(...) is required for lent to trigger
       for i, item in enumerate(blobsEl):
-        assign(blobs[i].bytes, item.blob.data)
+        assign(blobs[i].bytes, item.blob)
         for proof in item.proofs:
-          flat_proof.add kzg.KzgProof(bytes: proof.data)
+          flat_proof.add kzg.KzgProof(bytes: proof.bytes)
 
       # Keep only the recovered columns we custody; leave the block in
       # sidecarless if none match so gossip or other mechanisms can still
@@ -277,9 +277,9 @@ proc attemptGetBlobs*(
     flat_proof = newSeqOfCap[kzg.KzgProof](
       blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
   for item in blobsEl:
-    blobs.add kzg.KzgBlob(bytes: item.blob.data)
+    blobs.add kzg.KzgBlob(bytes: item.blob)
     for proof in item.proofs:
-      flat_proof.add kzg.KzgProof(bytes: proof.data)
+      flat_proof.add kzg.KzgProof(bytes: proof.bytes)
   let batch = assemble_data_column_sidecars(
     blck, blobs, flat_proof, self.validatorCustody.getMap())
 
@@ -359,9 +359,9 @@ proc attemptGetBlobsFromColumn(
     flat_proof = newSeqOfCap[kzg.KzgProof](
       blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
   for item in blobsEl:
-    blobs.add kzg.KzgBlob(bytes: item.blob.data)
+    blobs.add kzg.KzgBlob(bytes: item.blob)
     for proof in item.proofs:
-      flat_proof.add kzg.KzgProof(bytes: proof.data)
+      flat_proof.add kzg.KzgProof(bytes: proof.bytes)
 
   let batch = assemble_data_column_sidecars(
     sidecar[].signed_block_header,
