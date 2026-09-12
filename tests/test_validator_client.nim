@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1183,3 +1183,65 @@ suite "Validator Client test suite":
       len(res.get().data) == 1
       res.get().data[0].index == 100000
       res.get().data[0].is_live == true
+
+  test "getTimeParams() ignores unscheduled Gloas PAYLOAD_DUE_BPS skew":
+    # Beacon nodes on different Gloas draft constants (alpha.11 vs alpha.12)
+    # should still produce identical TimeParams while Gloas remains FAR_FUTURE.
+    # https://github.com/status-im/nimbus-eth2/issues/8833
+    proc baseConfig(payloadDueBps: string): VCRuntimeConfig =
+      result["SLOT_DURATION_MS"] = "12000"
+      result["SECONDS_PER_SLOT"] = "12"
+      result["PROPOSER_REORG_CUTOFF_BPS"] = "1667"
+      result["ATTESTATION_DUE_BPS"] = "3333"
+      result["AGGREGATE_DUE_BPS"] = "6667"
+      result["SYNC_MESSAGE_DUE_BPS"] = "3333"
+      result["CONTRIBUTION_DUE_BPS"] = "6667"
+      result["ATTESTATION_DUE_BPS_GLOAS"] = "2500"
+      result["AGGREGATE_DUE_BPS_GLOAS"] = "5000"
+      result["SYNC_MESSAGE_DUE_BPS_GLOAS"] = "2500"
+      result["CONTRIBUTION_DUE_BPS_GLOAS"] = "5000"
+      result["PAYLOAD_DUE_BPS"] = payloadDueBps
+      result["PAYLOAD_ATTESTATION_DUE_BPS"] = "7500"
+      result["INCLUSION_LIST_DUE_BPS"] = "6667"
+      result["GLOAS_FORK_EPOCH"] = Base10.toString(uint64(FAR_FUTURE_EPOCH))
+      result["HEZE_FORK_EPOCH"] = Base10.toString(uint64(FAR_FUTURE_EPOCH))
+
+    let
+      alpha11 = baseConfig("7500").getTimeParams()
+      alpha12 = baseConfig("5000").getTimeParams()
+    check:
+      alpha11.isSome()
+      alpha12.isSome()
+      alpha11.get() == alpha12.get()
+      alpha11.get().PAYLOAD_DUE_BPS ==
+        defaultRuntimeConfig.timeParams.PAYLOAD_DUE_BPS
+      describeTimeParamsDifferences(alpha11.get(), alpha12.get()).len == 0
+
+  test "getTimeParams() requires Gloas PAYLOAD_DUE_BPS agreement when scheduled":
+    proc scheduledConfig(payloadDueBps: string): VCRuntimeConfig =
+      result["SLOT_DURATION_MS"] = "12000"
+      result["SECONDS_PER_SLOT"] = "12"
+      result["PROPOSER_REORG_CUTOFF_BPS"] = "1667"
+      result["ATTESTATION_DUE_BPS"] = "3333"
+      result["AGGREGATE_DUE_BPS"] = "6667"
+      result["SYNC_MESSAGE_DUE_BPS"] = "3333"
+      result["CONTRIBUTION_DUE_BPS"] = "6667"
+      result["ATTESTATION_DUE_BPS_GLOAS"] = "2500"
+      result["AGGREGATE_DUE_BPS_GLOAS"] = "5000"
+      result["SYNC_MESSAGE_DUE_BPS_GLOAS"] = "2500"
+      result["CONTRIBUTION_DUE_BPS_GLOAS"] = "5000"
+      result["PAYLOAD_DUE_BPS"] = payloadDueBps
+      result["PAYLOAD_ATTESTATION_DUE_BPS"] = "7500"
+      result["INCLUSION_LIST_DUE_BPS"] = "6667"
+      # Any concrete epoch marks Gloas as scheduled for comparison purposes.
+      result["GLOAS_FORK_EPOCH"] = "1000000"
+      result["HEZE_FORK_EPOCH"] = Base10.toString(uint64(FAR_FUTURE_EPOCH))
+
+    let
+      a = scheduledConfig("7500").getTimeParams()
+      b = scheduledConfig("5000").getTimeParams()
+    check:
+      a.isSome()
+      b.isSome()
+      a.get() != b.get()
+      "PAYLOAD_DUE_BPS" in describeTimeParamsDifferences(a.get(), b.get())
