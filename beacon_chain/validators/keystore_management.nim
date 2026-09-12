@@ -992,8 +992,12 @@ proc getGloasBuilderConfig(
       try:
         Json.loadFile(builderConfigPath, gloas.BuilderConfig)
       except IOError as err:
+        error "Failed to read gloas builder config",
+          err = err.msg, path = builderConfigPath
         return err(malformedConfigFile)
       except SerializationError as err:
+        error "Invalid gloas builder config",
+          err = err.formatMsg(builderConfigPath)
         return err(malformedConfigFile)
     resolvedMinBid =
       builderConfig.min_bid.valueOr:
