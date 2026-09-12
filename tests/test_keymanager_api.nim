@@ -2016,6 +2016,61 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         await client.listGasLimit(publicKey, correctTokenValue)
       check secondResultFromApi == localGasLimit
 
+  suite "Builder config management " & testFlavour:
+    const globalBuilderConfig = ResolvedBuilderConfig(
+      min_bid: 0.Gwei,
+      builder_boost_factor: 100.uint64)
+
+    asyncTest "Configuring builder config " & testFlavour:
+      let pubkey = ValidatorPubKey.fromHex(newPublicKeys[0]).expect("valid key")
+
+      block:
+        let res = await client.setBuilderConfigPlain(
+          pubkey,
+          BuilderConfig(
+            builders: Opt.some(@[BuilderEntry(url: "http://01.builder.com")]),
+          ),
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 202
+
+      block:
+        let
+          res = await client.getBuilderConfigPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          decoded = RestJson.decode(res.data, DataEnclosedObject[ResolvedBuilderConfig])
+        check:
+          res.status == 200
+          decoded.data == ResolvedBuilderConfig(
+            min_bid: globalBuilderConfig.min_bid,
+            builder_boost_factor: globalBuilderConfig.builder_boost_factor,
+            builders: @[ResolvedBuilderEntry(
+              url: "http://01.builder.com",
+              auth_data: BuilderRequestAuthData.init(toBytes("http://01.builder.com")),
+              min_bid: globalBuilderConfig.min_bid,
+              builder_boost_factor: globalBuilderConfig.builder_boost_factor,
+            )]
+          )
+
+      block:
+        let
+          res = await client.deleteBuilderConfigPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 204
+
+      block:
+        let
+          res = await client.getBuilderConfigPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+          decoded = RestJson.decode(res.data, DataEnclosedObject[ResolvedBuilderConfig])
+        check:
+          res.status == 200
+          decoded.data == globalBuilderConfig
+
 proc delayedTests(basePort: int, pool: ref ValidatorPool,
                   host: ref KeymanagerHost) {.async.} =
   let
