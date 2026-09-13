@@ -14,7 +14,7 @@ import ./[common, api, block_service, selection_proofs]
 const
   ServiceName = "duties_service"
   SUBSCRIPTION_LOOKAHEAD_EPOCHS* = 4'u64
-  AGGREGATION_PRE_COMPUTE_SLOTS* = 1'u64
+  AGGREGATION_PRE_COMPUTE_SLOTS* = 2'u64
     # We do pre-computation for current and next slot only. Pre-computation
     # is good for low number of validators, but with big count of validators
     # number of remote signature requests could overload remote signature
@@ -388,7 +388,6 @@ proc pollForAttesterDuties*(
   ##
   ## 1. Poll for current-epoch duties and update the local `attesters` map.
   ## 2. Poll for next-epoch duties and update the local `attesters` map.
-  ## 3. Push out any attestation subnet subscriptions to the BN.
   let vc = service.client
   let
     currentSlot = vc.getCurrentSlot().get(Slot(0))
@@ -404,45 +403,6 @@ proc pollForAttesterDuties*(
 
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new attester's duties received", slot = currentSlot
-
-    let subscriptions =
-      block:
-        var res: seq[RestCommitteeSubscription]
-        for item in counts:
-          if item.count > 0:
-            for duty in vc.attesterDutiesForEpoch(item.epoch):
-              if currentSlot + SUBSCRIPTION_BUFFER_SLOTS < duty.data.slot:
-                let isAggregator =
-                  if duty.slotSig.isSome():
-                    is_aggregator(duty.data.committee_length,
-                                  duty.slotSig.get())
-                  else:
-                    false
-                let sub = RestCommitteeSubscription(
-                  validator_index: duty.data.validator_index,
-                  committee_index: duty.data.committee_index,
-                  committees_at_slot: duty.data.committees_at_slot,
-                  slot: duty.data.slot,
-                  is_aggregator: isAggregator
-                )
-                res.add(sub)
-        res
-
-    if len(subscriptions) > 0:
-      let res =
-        try:
-          await vc.prepareBeaconCommitteeSubnet(subscriptions)
-        except ValidatorApiError as exc:
-          warn "Failed to subscribe validators to beacon committee subnets",
-               slot = currentSlot, epoch = currentEpoch,
-               subscriptions_count = len(subscriptions),
-               reason = exc.msg
-          0
-      if res == 0:
-        warn "Failed to subscribe validators to beacon committee subnets",
-             slot = currentSlot, epoch = currentEpoch,
-             subscriptions_count = len(subscriptions)
-        vc.attesterDutiesInvalidationEvent.fire()
 
   service.pruneAttesterDuties(currentEpoch)
 
@@ -505,65 +465,20 @@ proc pollForSyncCommitteeDuties*(
     if (counts[0].count == 0) and (counts[1].count == 0):
       debug "No new sync committee duties received", slot = currentSlot
 
-    let
-      periods =
-        block:
-          var res: seq[tuple[slot: Slot, period: SyncCommitteePeriod]]
-          if service.syncSubscriptionEpoch.get(FAR_FUTURE_EPOCH) !=
-             currentEpoch:
-            res.add((currentSlot, currentPeriod))
-          let
-            lookaheadSlot = currentSlot +
-                            SUBSCRIPTION_LOOKAHEAD_EPOCHS * SLOTS_PER_EPOCH
-            lookaheadPeriod = lookaheadSlot.sync_committee_period()
-          if lookaheadPeriod > currentPeriod:
-            res.add((lookaheadSlot, lookaheadPeriod))
-          res
-      subscriptions =
-        block:
-          var res: seq[RestSyncCommitteeSubscription]
-          for item in periods:
-            let
-              untilEpoch = start_epoch(item.period + 1)
-              subscriptionsInfo =
-                vc.syncMembersSubscriptionInfoForPeriod(item.period)
-            for info in subscriptionsInfo:
-              let sub = RestSyncCommitteeSubscription(
-                validator_index: info.validator_index,
-                sync_committee_indices:
-                  info.validator_sync_committee_indices,
-                until_epoch: untilEpoch
-              )
-              res.add(sub)
-          res
-    if len(subscriptions) > 0:
-      let (res, reason) =
-        try:
-          (await vc.prepareSyncCommitteeSubnets(subscriptions), "")
-        except ValidatorApiError as exc:
-          (0, $exc.msg)
-
-      if res == 0:
-        warn "Failed to subscribe validators to sync committee subnets",
-             slot = currentSlot, epoch = currentPeriod, period = currentPeriod,
-             periods = periods, subscriptions_count = len(subscriptions),
-             reason = reason
-        vc.syncDutiesInvalidationEvent.fire()
-      else:
-        service.syncSubscriptionEpoch = Opt.some(currentEpoch)
-
   service.pruneSyncCommitteeDuties(currentSlot)
   service.pruneSyncCommitteeSelectionProofs(currentSlot)
 
 proc fillAttestationSelections(
-    vc: ValidatorClientRef,
+    service: DutiesServiceRef,
     currentSlot: Slot
 ) {.async: (raises: [CancelledError]).} =
   let
+    vc = service.client
     moment = Moment.now()
     sigres =
       await vc.fillAttestationSelectionProofs(currentSlot,
         currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
+    currentEpoch = currentSlot.epoch()
 
   if vc.config.distributedEnabled:
     debug "Attestation selection proofs have been received",
@@ -579,12 +494,51 @@ proc fillAttestationSelections(
           signatures_received = sigres.signaturesReceived,
           total_elapsed_time = (Moment.now() - moment)
 
+  let subscriptions =
+    block:
+      var res: seq[RestCommitteeSubscription]
+      for duty in vc.attesterDutiesForEpoch(currentEpoch):
+        if currentSlot + SUBSCRIPTION_BUFFER_SLOTS < duty.data.slot:
+          let isAggregator =
+            if duty.slotSig.isSome():
+              is_aggregator(duty.data.committee_length,
+                            duty.slotSig.get())
+            else:
+              false
+          let sub = RestCommitteeSubscription(
+            validator_index: duty.data.validator_index,
+            committee_index: duty.data.committee_index,
+            committees_at_slot: duty.data.committees_at_slot,
+            slot: duty.data.slot,
+            is_aggregator: isAggregator
+          )
+          res.add(sub)
+      res
+
+  if len(subscriptions) > 0:
+    let res =
+      try:
+        await vc.prepareBeaconCommitteeSubnet(subscriptions)
+      except ValidatorApiError as exc:
+        warn "Failed to subscribe validators to beacon committee subnets",
+             slot = currentSlot, epoch = currentEpoch,
+             subscriptions_count = len(subscriptions),
+             reason = exc.msg
+        0
+    if res == 0:
+      warn "Failed to subscribe validators to beacon committee subnets",
+           slot = currentSlot, epoch = currentEpoch,
+           subscriptions_count = len(subscriptions)
+
 proc fillSyncCommitteeSelections(
-    vc: ValidatorClientRef,
+    service: DutiesServiceRef,
     currentSlot: Slot
 ) {.async: (raises: [CancelledError]).} =
   let
+    vc = service.client
     moment = Moment.now()
+    currentEpoch = currentSlot.epoch()
+    currentPeriod = currentEpoch.sync_committee_period()
     sigres =
       await vc.fillSyncCommitteeSelectionProofs(currentSlot,
         currentSlot + AGGREGATION_PRE_COMPUTE_SLOTS)
@@ -603,6 +557,53 @@ proc fillSyncCommitteeSelections(
           signatures_received = sigres.signaturesReceived,
           total_elapsed_time = (Moment.now() - moment)
 
+  let
+    periods =
+      block:
+        var res: seq[tuple[slot: Slot, period: SyncCommitteePeriod]]
+        if service.syncSubscriptionEpoch.get(FAR_FUTURE_EPOCH) !=
+           currentEpoch:
+          res.add((currentSlot, currentPeriod))
+        let
+          lookaheadSlot = currentSlot +
+                          SUBSCRIPTION_LOOKAHEAD_EPOCHS * SLOTS_PER_EPOCH
+          lookaheadPeriod = lookaheadSlot.sync_committee_period()
+        if lookaheadPeriod > currentPeriod:
+          res.add((lookaheadSlot, lookaheadPeriod))
+        res
+    subscriptions =
+      block:
+        var res: seq[RestSyncCommitteeSubscription]
+        for item in periods:
+          let
+            untilEpoch = start_epoch(item.period + 1)
+            subscriptionsInfo =
+              vc.syncMembersSubscriptionInfoForPeriod(item.period)
+          for info in subscriptionsInfo:
+            let sub = RestSyncCommitteeSubscription(
+              validator_index: info.validator_index,
+              sync_committee_indices:
+                info.validator_sync_committee_indices,
+              until_epoch: untilEpoch
+            )
+            res.add(sub)
+        res
+
+  if len(subscriptions) > 0:
+    let (res, reason) =
+      try:
+        (await vc.prepareSyncCommitteeSubnets(subscriptions), "")
+      except ValidatorApiError as exc:
+        (0, $exc.msg)
+
+    if res == 0:
+      warn "Failed to subscribe validators to sync committee subnets",
+           slot = currentSlot, epoch = currentPeriod, period = currentPeriod,
+           periods = periods, subscriptions_count = len(subscriptions),
+           reason = reason
+    else:
+      service.syncSubscriptionEpoch = Opt.some(currentEpoch)
+
 proc fillSelectionProofs(
     service: DutiesServiceRef
 ) {.async: (raises: [CancelledError]).} =
@@ -612,8 +613,8 @@ proc fillSelectionProofs(
 
   if vc.isPastAltairFork(currentSlot.epoch()):
     let
-      attestFut = vc.fillAttestationSelections(currentSlot)
-      syncFut = vc.fillSyncCommitteeSelections(currentSlot)
+      attestFut = service.fillAttestationSelections(currentSlot)
+      syncFut = service.fillSyncCommitteeSelections(currentSlot)
     try:
       await allFutures(attestFut, syncFut)
     except CancelledError as exc:
@@ -625,7 +626,7 @@ proc fillSelectionProofs(
       await noCancel allFutures(pending)
       raise exc
   else:
-    await vc.fillAttestationSelections(currentSlot)
+    await service.fillAttestationSelections(currentSlot)
 
 proc pruneBeaconProposers(service: DutiesServiceRef, epoch: Epoch) =
   let vc = service.client
