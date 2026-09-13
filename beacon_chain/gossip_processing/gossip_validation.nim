@@ -481,7 +481,7 @@ template validateBeaconBlockGloas(
     return dag.checkedReject(
       "validateBeaconBlockGloas: too many payload attestations")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -494,68 +494,60 @@ proc validateDataColumnSidecar*(
   # If the header is invalid, so is the block that shares its block_root ->
   # we can mark those blocks invalid without further processing
   template block_header: untyped = data_column_sidecar[].signed_block_header.message
-  # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar(sidecar)
+  # [REJECT] The sidecar is valid as verified by verify_data_column_sidecar
   block:
     let v = verify_data_column_sidecar(dag.cfg, data_column_sidecar[])
     if v.isErr:
       return dag.checkedReject(v.error)
 
   # [REJECT] The sidecar is for the correct subnet
-  # -- i.e. `compute_subnet_for_data_column_sidecar(blob_sidecar.index) == subnet_id`.
   if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) == subnet_id):
-    return dag.checkedReject("DataColumnSidecar: The sidecar is not for the correct subnet")
+    return dag.checkedReject("DataColumnSidecar: sidecar is for wrong subnet")
 
   # [IGNORE] The sidecar is not from a future slot
-  # (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) -- i.e. validate that
-  # `block_header.slot <= current_slot`(a client MAY queue future sidecars for
-  # processing at the appropriate slot).
+  # (MAY be queued for processing at the appropriate slot)
   if not (block_header.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
-    return errIgnore("DataColumnSidecar: slot too high")
+    return errIgnore("DataColumnSidecar: sidecar is from a future slot")
 
-  # [IGNORE] The sidecar is from a slot greater than the latest
-  # finalized slot -- i.e. validate that `block_header.slot >
-  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)`
+  # [IGNORE] The sidecar is from a slot greater than the latest finalized slot
   if not (block_header.slot > dag.finalizedHead.slot):
-    return errIgnore("DataColumnSidecar: slot already finalized")
+    return errIgnore(
+      "DataColumnSidecar: sidecar is not from a slot greater than the latest finalized slot")
 
   # [IGNORE] The sidecar is the first sidecar for the tuple
-  # (block_header.slot, block_header.proposer_index, data_column_sidecar.index)
-  # with valid header signature, sidecar inclusion proof, and kzg proof.
+  # (block_header.slot, block_header.proposer_index, sidecar.index)
   let block_root = hash_tree_root(block_header)
   if fuluColumnQuarantine[].hasSidecar(
       block_root, block_header.slot, block_header.proposer_index,
       data_column_sidecar[].index):
-    return errIgnore("DataColumnSidecar: already have valid data column from same proposer")
+    return errIgnore(
+      "DataColumnSidecar: already seen sidecar from this proposer for this slot and index")
 
-  # [REJECT] The sidecar's `kzg_commitments` inclusion proof is valid as verified by
-  # `verify_data_column_sidecar_inclusion_proof(sidecar)`.
+  # [REJECT] The sidecar is valid as verified by
+  # verify_data_column_sidecar_inclusion_proof
   block:
     let v = check_data_column_sidecar_inclusion_proof(data_column_sidecar)
     if v.isErr:
       return dag.checkedReject(v.error)
 
-  # [IGNORE] The sidecar's block's parent (defined by
-  # `block_header.parent_root`) has been seen (via both gossip and
-  # non-gossip sources) (a client MAY queue sidecars for processing
-  # once the parent block is retrieved).
+  # [IGNORE] The sidecar's block's parent has been seen
+  # (MAY be queued for processing once the parent block is retrieved)
   #
-  # [REJECT] The sidecar's block's parent (defined by
-  # `block_header.parent_root`) passes validation.
+  # [REJECT] The sidecar's block's parent passes validation
   let parent = dag.getBlockRef(block_header.parent_root).valueOr:
     return quarantine[].addMissingValid(
       block_header.parent_root, block_root, "DataColumnSidecar: parent"
     )
 
-  # [REJECT] The sidecar is from a higher slot than the sidecar's
-  # block's parent (defined by `block_header.parent_root`).
+  # [REJECT] The sidecar is from a higher slot than the sidecar's block's parent
   if not (block_header.slot > parent.bid.slot):
     discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
-    return dag.checkedReject("DataColumnSidecar: slot lower than parents'")
+    return dag.checkedReject(
+      "DataColumnSidecar: sidecar is not from a higher slot than its parent")
 
   # [REJECT] The current finalized_checkpoint is an ancestor of the sidecar's
-  # block -- i.e. `get_checkpoint_block(store, block_header.parent_root,
-  # store.finalized_checkpoint.epoch) == store.finalized_checkpoint.root`.
+  # block
   let
     finalized_checkpoint = dag.headState.finalized_checkpoint
     ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
@@ -570,17 +562,12 @@ proc validateDataColumnSidecar*(
       finalized_checkpoint.root.isZero):
     discard quarantine[].addUnviable(block_root, UnviableKind.Invalid)
     return dag.checkedReject(
-      "DataColumnSidecar: Finalized checkpoint not an ancestor")
+      "DataColumnSidecar: finalized checkpoint is not an ancestor of sidecar's block")
 
-  # [REJECT] The sidecar is proposed by the expected `proposer_index`
-  # for the block's slot in the context of the current shuffling
-  # (defined by `block_header.parent_root`/`block_header.slot`).
-  # If the proposer_index cannot immediately be verified against the expected
-  # shuffling, the sidecar MAY be queued for later processing while proposers
-  # for the block's branch are calculated -- in such a case do not
-  # REJECT, instead IGNORE this message.
-  # [REJECT] The proposer signature of `data_column_sidecar.signed_block_header`,
-  # is valid with respect to the `block_header.proposer_index` pubkey.
+  # [REJECT] The proposer index is a valid validator index
+  # [REJECT] The proposer signature of sidecar.signed_block_header is valid
+  # [REJECT] The sidecar is proposed by the expected proposer_index
+  # (if shuffling is not available, IGNORE instead and MAY be queued for later)
 
   dag.verifyBlockProposer(
     parent, block_header.slot, block_header.proposer_index, block_root,
@@ -595,11 +582,11 @@ proc validateDataColumnSidecar*(
   quarantine.latest_sidecar_signatures.put(
     (block_root, data_column_sidecar[].signed_block_header.signature), ())
 
-  # [REJECT] The sidecar's column data is valid as
-  # verified by `verify_data_column_kzg_proofs(sidecar)`
+  # [REJECT] The sidecar is valid as verified by
+  # verify_data_column_sidecar_kzg_proofs
   case await batchCrypto.scheduleDataColumnSidecarCheck(data_column_sidecar)
   of BatchResult.Invalid:
-    return dag.checkedReject("DataColumnSidecar: validation failed")
+    return dag.checkedReject("DataColumnSidecar: invalid sidecar kzg proofs")
   of BatchResult.Timeout:
     beacon_data_column_sidecars_dropped_queue_full.inc()
     return errIgnore("DataColumnSidecar: timeout checking KZG proofs")
@@ -633,7 +620,7 @@ proc validateDataColumnSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
 proc validateDataColumnSidecar*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -650,70 +637,72 @@ proc validateDataColumnSidecar*(
     return dag.checkedReject(
       "DataColumnSidecar: index exceeds the NUMBER_OF_COLUMNS")
 
-  # [REJECT] The sidecar is for the correct subnet -- i.e.
-  # `compute_subnet_for_data_column_sidecar(sidecar.index) == subnet_id`.
+  # [REJECT] The sidecar is for the correct subnet
   #
   # Keep before block-seen [IGNORE] so the [REJECT] occurs properly
   if not (compute_subnet_for_data_column_sidecar(data_column_sidecar[].index) ==
       subnet_id):
-    return dag.checkedReject("DataColumnSidecar: not for correct subnet")
+    return dag.checkedReject("DataColumnSidecar: sidecar is for wrong subnet")
 
-  # [IGNORE] A valid block for the sidecar's `slot` has been seen (via gossip or
-  # non-gossip sources). If not yet seen, a client SHOULD queue the sidecar for
-  # deferred validation and possible processing once the block is received or
-  # retrieved.
-  let blck =
+  # [IGNORE] The sidecar is not from a future slot
+  # (MAY be queued for processing at the appropriate slot)
+  if not (data_column_sidecar[].slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+    return errIgnore("DataColumnSidecar: sidecar is from a future slot")
+
+  # [IGNORE] A block for the sidecar has been seen (via gossip or non-gossip
+  # sources) (MAY be queued until block is retrieved)
+  # (SHOULD queue at least one sidecar per peer per subnet)
+  #
+  # [REJECT] The block for the sidecar passes validation
+  let (blockSlot, blob_kzg_commitments) =
     block:
       let
         blckRef = dag.getBlockRef(blockRoot).valueOr:
-          return errIgnore("DataColumnSidecar: block not yet seen")
+          return quarantine[].addMissingValid(
+            blockRoot, "DataColumnSidecar: block")
         forkedBlock = dag.getForkedBlock(blckRef.bid).valueOr:
           info "block is missing, database corrupt?",
             root = shortLog(blockRoot)
           return errIgnore("DataColumnSidecar: block not yet seen")
       withBlck(forkedBlock):
-        when consensusFork == ConsensusFork.Gloas:
-          forkyBlck
-        elif consensusFork == ConsensusFork.Heze:
-          debugHezeComment "..."
-          return errIgnore("DataColumnSidecar: block in incorrect fork")
+        when consensusFork >= ConsensusFork.Gloas:
+          template bid: untyped =
+            forkyBlck.message.body.signed_execution_payload_bid.message
+          (forkyBlck.message.slot, bid.blob_kzg_commitments)
         else:
           return errIgnore("DataColumnSidecar: block in incorrect fork")
 
-  # [REJECT] The sidecar's `slot` matches the slot of the block with root
-  # `beacon_block_root`.
-  if not (blck.message.slot == data_column_sidecar[].slot and
-      blck.root == data_column_sidecar[].beacon_block_root):
-    return dag.checkedReject("DataColumnSidecar: slot mismatched")
+  # [REJECT] The sidecar's slot matches the slot of the block
+  if not (blockSlot == data_column_sidecar[].slot):
+    return dag.checkedReject(
+      "DataColumnSidecar: sidecar's slot does not match block's slot")
 
-  # [REJECT] The sidecar is valid as verified by
-  # `verify_data_column_sidecar(sidecar, bid.blob_kzg_commitments)`.
-  template bid(): auto = blck.message.body.signed_execution_payload_bid.message
+  # [REJECT] The sidecar passes structural validation
   block:
     let v = verify_data_column_sidecar(
-      dag.cfg, data_column_sidecar[], bid.blob_kzg_commitments)
+      dag.cfg, data_column_sidecar[], blob_kzg_commitments)
     if v.isErr:
       return dag.checkedReject(v.error)
 
-  # [REJECT] The sidecar's column data is valid as verified by
-  # `verify_data_column_sidecar_kzg_proofs(sidecar, bid.blob_kzg_commitments)`.
+  # [REJECT] The sidecar's column data passes KZG verification
   case await batchCrypto.scheduleDataColumnSidecarCheck(
-      data_column_sidecar, bid.blob_kzg_commitments.asSeq)
+      data_column_sidecar, blob_kzg_commitments.asSeq)
   of BatchResult.Invalid:
-    return dag.checkedReject("DataColumnSidecar: validation failed")
+    return dag.checkedReject("DataColumnSidecar: invalid sidecar kzg proofs")
   of BatchResult.Timeout:
     beacon_data_column_sidecars_dropped_queue_full.inc()
     return errIgnore("DataColumnSidecar: timeout checking KZG proofs")
   of BatchResult.Valid:
     discard # keep going only in this case
 
-  # [IGNORE] The sidecar is the first sidecar for the tuple
-  # `(sidecar.beacon_block_root, sidecar.index)` with valid kzg proof.
+  # [IGNORE] This is the first sidecar seen for this block root and column index
   # An unverified sidecar at the same index (queued before its block was
   # seen) does not count: this one has a valid kzg proof and supersedes it.
   if gloasColumnQuarantine[].hasVerifiedSidecar(
       blockRoot, data_column_sidecar[].index):
-    return errIgnore("DataColumnSidecar: already have valid data column")
+    return errIgnore(
+      "DataColumnSidecar: already seen sidecar for this block root and index")
 
   # Send notification about new data column sidecar via callback
   let onDataColumnSidecarCallback =
@@ -724,7 +713,7 @@ proc validateDataColumnSidecar*(
       block_root: blockRoot,
       index: data_column_sidecar[].index,
       slot: data_column_sidecar[].slot,
-      kzg_commitments: bid.blob_kzg_commitments)
+      kzg_commitments: blob_kzg_commitments)
 
   ok()
 
