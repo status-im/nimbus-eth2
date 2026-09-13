@@ -15,13 +15,14 @@ import
   yaml/tojson,
   ../../beacon_chain/spec/forks,
   ../../beacon_chain/beacon_chain_db,
-  ../../beacon_chain/consensus_object_pools/blockchain_dag,
+  ../../beacon_chain/consensus_object_pools/[blockchain_dag, column_quarantine],
   ../../beacon_chain/gossip_processing/[batch_validation, gossip_validation],
   ../testutil,
   ./fixtures_utils, ./os_ops
 
 from std/json import
   JsonNode, getBiggestInt, getBool, getStr, hasKey, items, len, `[]`
+from std/sequtils import toSeq
 from std/strutils import parseEnum
 from chronos/unittest2/asynctests import asyncTest
 from libp2p/protocols/pubsub/errors import ValidationResult
@@ -34,6 +35,8 @@ from ../../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, UnviableKind, addOrphan, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addUnviable, init
+from ../../beacon_chain/consensus_object_pools/execution_payload_pool import
+  ExecutionPayloadBidPool, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
   PayloadAttestationPool, addPayloadAttestation, init
 from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
@@ -66,6 +69,7 @@ const SKIP = [
   # Finalized checkpoint root that is not a known block
   "gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor",
   "gossip_beacon_attestation__ignore_finalized_not_ancestor",
+  "gossip_data_column_sidecar__reject_non_ancestor_finalized_checkpoint",
   # Gloas state before Gloas fork epoch
   "gossip_proposer_preferences__ignore_pre_gloas_epoch",
   "gossip_proposer_preferences__valid_at_gloas_fork_epoch"]
@@ -147,7 +151,7 @@ func addBlockRef(dag: ChainDAGRef, root: Eth2Digest, slot: Slot) =
 template gossipTest(
     suiteName: static string, path: string,
     consensusFork: static ConsensusFork, MsgType: typedesc,
-    validate, accept: untyped) =
+    setup, validate, accept: untyped) =
   asyncTest $consensusFork & " - " & os_ops.splitPath(path).tail:
     if os_ops.splitPath(path).tail in SKIP:
       skip()
@@ -167,9 +171,6 @@ template gossipTest(
       pool {.inject, used.} = newClone(ValidatorChangePool.init(dag))
       syncCommitteePool {.inject, used.} =
         newClone(SyncCommitteeMsgPool.init(rng, dag.cfg))
-      ptcPool {.inject, used.} =
-        newClone(PayloadAttestationPool.init(dag))
-    var seenPrefs {.inject, used.}: SeenProposerPreferences
     defer:
       dag.db.close()
       batchCrypto.close()
@@ -196,6 +197,7 @@ template gossipTest(
     when MsgType is SingleAttestation | electra.SignedAggregateAndProof |
         gloas.SignedAggregateAndProof:
       let attPool {.inject.} = newClone(AttestationPool.init(dag, quarantine))
+    setup
     if meta.finalizedEpoch.isSome:
       dag.finalizedHead.slot = meta.finalizedEpoch.get.start_slot
 
@@ -216,6 +218,10 @@ template gossipTest(
         dag.addBlockRef(message.beacon_block_root, message.slot)
       elif MsgType is SingleAttestation:
         let subnetId {.inject.} = SubnetId(msg.subnetId)
+      elif MsgType is fulu.DataColumnSidecar | gloas.DataColumnSidecar:
+        let
+          subnetId {.inject.} = msg.subnetId
+          sidecar {.inject.} = newClone(message)
       elif MsgType is SignedContributionAndProof:
         dag.addBlockRef(
           message.message.contribution.beacon_block_root,
@@ -226,6 +232,13 @@ template gossipTest(
 
       check (if res.isOk: ValidationResult.Accept else: res.error[0]) ==
         msg.expected
+
+template gossipTest(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork, MsgType: typedesc,
+    validate, accept: untyped) =
+  gossipTest(
+    suiteName, path, consensusFork, MsgType, (discard), validate, accept)
 
 proc runGossipVoluntaryExit(
     suiteName: static string, path: string,
@@ -293,6 +306,7 @@ proc runGossipPayloadAttestationMessage(
     consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, PayloadAttestationMessage,
+      (let ptcPool = newClone(PayloadAttestationPool.init(dag))),
       await dag.validatePayloadAttestationMessage(
         quarantine, ptcPool, batchCrypto, message, wallTime)):
     check ptcPool[].addPayloadAttestation(message, wallTime)
@@ -335,11 +349,41 @@ proc runGossipBeaconAggregateAndProof(
       aggregate, attestingIndices, aggregate.aggregation_bits.len, -1, sig,
       wallTime)
 
+proc runGossipDataColumnSidecar(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  when consensusFork >= ConsensusFork.Gloas:
+    gossipTest(
+        suiteName, path, consensusFork, gloas.DataColumnSidecar, (
+          let
+            colQuarantine = newClone(GloasColumnQuarantine.init(
+              dag.cfg, toSeq(ColumnIndex(0) ..< ColumnIndex(NUMBER_OF_COLUMNS)),
+              dag.db.getQuarantineDB(), 10, nil))
+            bidPool = newClone(ExecutionPayloadBidPool.init(dag))),
+        await dag.validateDataColumnSidecar(
+          batchCrypto, quarantine, colQuarantine, bidPool, sidecar,
+          wallTime, subnetId)):
+      colQuarantine[].put(
+        sidecar[].beacon_block_root, sidecar, verified = true)
+  else:
+    gossipTest(
+        suiteName, path, consensusFork, fulu.DataColumnSidecar,
+        (let colQuarantine = newClone(FuluColumnQuarantine.init(
+          dag.cfg, toSeq(ColumnIndex(0) ..< ColumnIndex(NUMBER_OF_COLUMNS)),
+          dag.db.getQuarantineDB(), 10, nil))),
+        await dag.validateDataColumnSidecar(
+          batchCrypto, quarantine, colQuarantine, sidecar, wallTime,
+          subnetId)):
+      colQuarantine[].put(
+        hash_tree_root(sidecar[].signed_block_header.message), sidecar,
+        verified = true)
+
 proc runGossipProposerPreferences(
     suiteName: static string, path: string,
     consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SignedProposerPreferences,
+      (var seenPrefs: SeenProposerPreferences),
       dag.validateProposerPreferences(seenPrefs, message, wallTime)):
     check dag.validateProposerPreferences(
       seenPrefs, message, wallTime).error[0] == ValidationResult.Ignore
@@ -394,3 +438,6 @@ gossipSuite(
 gossipSuite(
   "Beacon Aggregate And Proof", "gossip_beacon_aggregate_and_proof",
   runGossipBeaconAggregateAndProof)
+gossipSuite(
+  "Data Column Sidecar", "gossip_data_column_sidecar",
+  runGossipDataColumnSidecar)

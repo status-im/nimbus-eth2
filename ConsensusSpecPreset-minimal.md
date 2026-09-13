@@ -4268,6 +4268,46 @@ ConsensusSpecPreset-minimal
 + heze - gossip_beacon_attestation__valid_same_slot_index_zero                               OK
 + heze - gossip_beacon_attestation__valid_within_clock_disparity                             OK
 ```
+## EF - Networking - Gossip - Data Column Sidecar [Preset: minimal]
+```diff
++ fulu - gossip_data_column_sidecar__ignore_already_seen                                     OK
++ fulu - gossip_data_column_sidecar__ignore_future_slot                                      OK
++ fulu - gossip_data_column_sidecar__ignore_not_later_than_finalized_slot                    OK
++ fulu - gossip_data_column_sidecar__ignore_parent_not_seen                                  OK
++ fulu - gossip_data_column_sidecar__reject_index_out_of_range                               OK
++ fulu - gossip_data_column_sidecar__reject_invalid_inclusion_proof                          OK
++ fulu - gossip_data_column_sidecar__reject_invalid_kzg_proofs                               OK
++ fulu - gossip_data_column_sidecar__reject_invalid_proposer_signature                       OK
+  fulu - gossip_data_column_sidecar__reject_non_ancestor_finalized_checkpoint                Skip
++ fulu - gossip_data_column_sidecar__reject_parent_failed_validation                         OK
++ fulu - gossip_data_column_sidecar__reject_proposer_index_out_of_range                      OK
++ fulu - gossip_data_column_sidecar__reject_slot_not_higher_than_parent                      OK
++ fulu - gossip_data_column_sidecar__reject_too_many_commitments                             OK
++ fulu - gossip_data_column_sidecar__reject_wrong_proposer_index                             OK
++ fulu - gossip_data_column_sidecar__reject_wrong_subnet                                     OK
++ fulu - gossip_data_column_sidecar__valid                                                   OK
++ fulu - gossip_data_column_sidecar__valid_slot_within_clock_disparity                       OK
++ gloas - gossip_data_column_sidecar__ignore_already_seen                                    OK
++ gloas - gossip_data_column_sidecar__ignore_block_unseen                                    OK
++ gloas - gossip_data_column_sidecar__ignore_future_slot                                     OK
++ gloas - gossip_data_column_sidecar__reject_block_failed_validation                         OK
++ gloas - gossip_data_column_sidecar__reject_invalid_kzg_proofs                              OK
++ gloas - gossip_data_column_sidecar__reject_invalid_sidecar                                 OK
++ gloas - gossip_data_column_sidecar__reject_slot_mismatch                                   OK
++ gloas - gossip_data_column_sidecar__reject_wrong_subnet                                    OK
++ gloas - gossip_data_column_sidecar__valid                                                  OK
++ gloas - gossip_data_column_sidecar__valid_slot_within_clock_disparity                      OK
++ heze - gossip_data_column_sidecar__ignore_already_seen                                     OK
++ heze - gossip_data_column_sidecar__ignore_block_unseen                                     OK
++ heze - gossip_data_column_sidecar__ignore_future_slot                                      OK
++ heze - gossip_data_column_sidecar__reject_block_failed_validation                          OK
++ heze - gossip_data_column_sidecar__reject_invalid_kzg_proofs                               OK
++ heze - gossip_data_column_sidecar__reject_invalid_sidecar                                  OK
++ heze - gossip_data_column_sidecar__reject_slot_mismatch                                    OK
++ heze - gossip_data_column_sidecar__reject_wrong_subnet                                     OK
++ heze - gossip_data_column_sidecar__valid                                                   OK
++ heze - gossip_data_column_sidecar__valid_slot_within_clock_disparity                       OK
+```
 ## EF - Networking - Gossip - Execution Payload Envelope [Preset: minimal]
 ```diff
 + gloas - gossip_execution_payload_envelope__ignore_block_unseen                             OK
