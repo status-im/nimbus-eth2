@@ -102,12 +102,11 @@ func check_attestation_block(
     pool: AttestationPool, attestationSlot: Slot, blck: BlockRef):
     Result[void, ValidationError] =
   # The voted-for block must be a descendant of the finalized block, thus it
-  # must at least  as new than the finalized checkpoint - in theory it could be
-  # equal, but then we're voting for an already-finalized block which is pretty
-  # useless - other blocks that are not rooted in the finalized chain will be
-  # pruned by the chain dag, and thus we can no longer get a BlockRef for them
-  if not (blck.slot > pool.dag.finalizedHead.slot):
-    return errIgnore("Voting for already-finalized block")
+  # must be at least as new as the finalized block - other blocks that are not
+  # rooted in the finalized chain will be pruned by the chain dag, and thus we
+  # can no longer get a BlockRef for them
+  if not (blck.slot >= pool.dag.finalizedHead.blck.slot):
+    return errIgnore("Voting for pre-finalized block")
 
   # The attestation shouldn't be voting for a block that didn't exist at the
   # time - not in spec, but hard to reason about
@@ -131,23 +130,9 @@ func check_propagation_slot_range(
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Attestation slot in the future")
 
-  let pastSlot =
-    (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
-  if not pastSlot.afterGenesis:
-    return ok()
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
-  # "[IGNORE] the epoch of attestation.data.slot is either the current or
-  # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
-  # compute_epoch_at_slot(attestation.data.slot) in
-  # (get_previous_epoch(state), get_current_epoch(state))"
-  #
-  # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
-  # "[IGNORE] the epoch of aggregate.data.slot is either the current or
-  # previous epoch (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
-  # compute_epoch_at_slot(aggregate.data.slot) in
-  # (get_previous_epoch(state), get_current_epoch(state))"
-  if msgSlot.epoch < pastSlot.slot.epoch.get_previous_epoch:
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/deneb/p2p-interface.md#new-is_current_or_previous_epoch
+  if (msgSlot.epoch + 2).start_slot.start_beacon_time(timeParams) +
+      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
     return errIgnore("Attestation slot in the past")
 
   ok()
@@ -169,10 +154,10 @@ func check_slot_exact(
 
 proc check_beacon_and_target_block(
     pool: var AttestationPool, data: AttestationData):
-    Result[BlockSlot, ValidationError] =
+    Result[tuple[blck: BlockRef, target: BlockSlot], ValidationError] =
   # The block being voted for (data.beacon_block_root) passes validation - by
   # extension, the target block must at that point also pass validation.
-  # The target block is returned.
+  # The voted-for block and the target block are returned.
   # We rely on the chain DAG to have been validated, so check for the existence
   # of the block in the pool.
   let blck = pool.dag.getBlockRef(data.beacon_block_root).valueOr:
@@ -191,7 +176,7 @@ proc check_beacon_and_target_block(
   let target = blck.atCheckpoint(data.target).valueOr:
     return errReject("Attestation target is not ancestor of LMD vote block")
 
-  ok(target)
+  ok((blck, target))
 
 func check_aggregation_count(
     attestation: electra.Attestation | gloas.Attestation,
@@ -1054,7 +1039,7 @@ proc validateExecutionPayload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/electra/p2p-interface.md#modified-beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -1075,8 +1060,7 @@ proc validateAttestation*(
 ] {.async: (raises: [CancelledError]).} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
-  # an `EpochRef` and checking signatures. This reordering might lead to
-  # different IGNORE/REJECT results in turn affecting gossip scores.
+  # an `EpochRef` and checking signatures.
 
   # [REJECT] The attestation's epoch matches its target -- i.e.
   # attestation.data.target.epoch ==
@@ -1102,31 +1086,37 @@ proc validateAttestation*(
   # [REJECT] The block being voted for (attestation.data.beacon_block_root)
   # passes validation.
   # [IGNORE] if block is unseen so far and enqueue it in missing blocks
-  let target = check_beacon_and_target_block(pool[], attestation.data).valueOr:
-    return pool.checkedResult(error) # [IGNORE/REJECT]
+  let (blck, target) = check_beacon_and_target_block(
+      pool[], attestation.data).valueOr:
+    return pool.checkedResult(error)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#beacon_attestation_subnet_id
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_attestation_subnet_id
   if consensusFork >= ConsensusFork.Gloas:
     # [REJECT] attestation.data.index < 2
     if not (attestation.data.index < 2):
       return pool.checkedReject("SingleAttestation: index must be < 2 in Gloas")
 
-    # [REJECT] attestation.data.index == 0 if block.slot == attestation.data.slot
-    if target.blck.bid.slot == attestation.data.slot:
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-verify_attestation_payload_status
+    # [REJECT] For same-slot attestations, the payload cannot yet be present
+    if blck.bid.slot == attestation.data.slot:
       if not (attestation.data.index == 0):
         return pool.checkedReject(
-          "SingleAttestation: same-slot attestation must have index 0"
-        )
-    # [REJECT] If attestation.data.index == 1 (payload present for a past block),
-    # the execution payload for block passes validation.
-    # [IGNORE] When attestation.data.index == 1 (payload present for a past block),
-    # the execution payload for block has been seen
+          "SingleAttestation: same-slot attestation must attest with index 0")
     if attestation.data.index == 1:
       template block_root: untyped = attestation.data.beacon_block_root
+      # [REJECT] The attested execution payload is processed and invalid
+      if block_root in envelopeQuarantine[].unviable or
+          blck.optimisticStatus == OptimisticStatus.invalidated:
+        return pool.checkedReject(
+          "SingleAttestation: attested payload is invalid")
+      # [IGNORE] The corresponding execution payload envelope has been seen and verified
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
           not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
-          "SingleAttestation: execution payload not yet seen")
+          "SingleAttestation: execution payload envelope has not been seen")
+      # [IGNORE] The attested execution payload is optimistic
+      if blck.optimisticStatus == OptimisticStatus.notValidated:
+        return errIgnore("SingleAttestation: attested payload is optimistic")
   else:
     # [REJECT] attestation.data.index == 0
     if not (attestation.data.index == 0):
@@ -1235,10 +1225,8 @@ proc validateAttestation*(
 
   ok((validator_index, beacon_committee.len, index_in_committee, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/deneb/p2p-interface.md#beacon_aggregate_and_proof
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/electra/p2p-interface.md#beacon_aggregate_and_proof
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/electra/p2p-interface.md#modified-beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -1255,8 +1243,7 @@ proc validateAggregate*(
 ] {.async: (raises: [CancelledError]).} =
   # Some of the checks below have been reordered compared to the spec, to
   # perform the cheap checks first - in particular, we want to avoid loading
-  # an `EpochRef` and checking signatures. This reordering might lead to
-  # different IGNORE/REJECT results in turn affecting gossip scores.
+  # an `EpochRef` and checking signatures.
 
   template aggregate_and_proof(): untyped =
     signedAggregateAndProof.message
@@ -1317,30 +1304,35 @@ proc validateAggregate*(
   # [REJECT] The block being voted for (aggregate.data.beacon_block_root)
   # passes validation.
   # [IGNORE] if block is unseen so far and enqueue it in missing blocks
-  let target = check_beacon_and_target_block(pool[], aggregate.data).valueOr:
-    return pool.checkedResult(error) # [IGNORE/REJECT]
+  let (blck, target) = check_beacon_and_target_block(
+      pool[], aggregate.data).valueOr:
+    return pool.checkedResult(error)
 
   if consensusFork >= ConsensusFork.Gloas:
     # [REJECT] aggregate.data.index < 2
     if not (aggregate.data.index < 2):
       return pool.checkedReject("Aggregate: index must be < 2 in Gloas")
 
-    # [REJECT] aggregate.data.index == 0 if block.slot == aggregate.data.slot
-    if target.blck.bid.slot == aggregate.data.slot:
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-verify_attestation_payload_status
+    # [REJECT] For same-slot attestations, the payload cannot yet be present
+    if blck.bid.slot == aggregate.data.slot:
       if not (aggregate.data.index == 0):
-        return pool.checkedReject("Aggregate: same-slot aggregate must have index 0")
-
-    # [REJECT] If attestation.data.index == 1 (payload present for a past block),
-    # the execution payload for block passes validation.
-    # [IGNORE] When attestation.data.index == 1 (payload present for a past block),
-    # the execution payload for block has been seen
+        return pool.checkedReject(
+          "Aggregate: same-slot attestation must attest with index 0")
     if aggregate.data.index == 1:
       template block_root: untyped = aggregate.data.beacon_block_root
-      debugGloasComment("unviable envelope")
+      # [REJECT] The attested execution payload is processed and invalid
+      if block_root in envelopeQuarantine[].unviable or
+          blck.optimisticStatus == OptimisticStatus.invalidated:
+        return pool.checkedReject("Aggregate: attested payload is invalid")
+      # [IGNORE] The corresponding execution payload envelope has been seen and verified
       if not pool.dag.db.containsExecutionPayloadEnvelope(block_root) and
           not envelopeQuarantine[].hasOrphan(block_root):
         return errIgnore(
-          "Aggregate: execution payload not yet seen")
+          "Aggregate: execution payload envelope has not been seen")
+      # [IGNORE] The attested execution payload is optimistic
+      if blck.optimisticStatus == OptimisticStatus.notValidated:
+        return errIgnore("Aggregate: attested payload is optimistic")
   else:
     # [REJECT] aggregate.data.index == 0
     if not (aggregate.data.index == 0):

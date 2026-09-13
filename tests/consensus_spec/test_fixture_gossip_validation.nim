@@ -22,15 +22,18 @@ import
 
 from std/json import
   JsonNode, getBiggestInt, getBool, getStr, hasKey, items, len, `[]`
+from std/strutils import parseEnum
 from chronos/unittest2/asynctests import asyncTest
 from libp2p/protocols/pubsub/errors import ValidationResult
 from snappy import decode
+from ../../beacon_chain/consensus_object_pools/attestation_pool import
+  AttestationPool, init, addAttestation
 from ../../beacon_chain/consensus_object_pools/block_clearance import
   checkHeadBlock
 from ../../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, UnviableKind, addOrphan, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, init
+  EnvelopeQuarantine, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
   PayloadAttestationPool, addPayloadAttestation, init
 from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
@@ -45,6 +48,8 @@ type
     name: string
     failed: bool
     pending: bool
+    payload: string
+    payloadStatus: OptimisticStatus
 
   GossipMessage = object
     name: string
@@ -58,6 +63,9 @@ type
     messages: seq[GossipMessage]
 
 const SKIP = [
+  # Finalized checkpoint root that is not a known block
+  "gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor",
+  "gossip_beacon_attestation__ignore_finalized_not_ancestor",
   # Gloas state before Gloas fork epoch
   "gossip_proposer_preferences__ignore_pre_gloas_epoch",
   "gossip_proposer_preferences__valid_at_gloas_fork_epoch"]
@@ -81,7 +89,12 @@ proc loadMeta(path: string): GossipTestMeta {.raises: [KeyError, ValueError].} =
       res.blocks.add GossipBlock(
         name: blck["block"].getStr(),
         failed: blck.hasKey"failed" and blck["failed"].getBool(),
-        pending: blck.hasKey"pending" and blck["pending"].getBool())
+        pending: blck.hasKey"pending" and blck["pending"].getBool(),
+        payload: if blck.hasKey"payload": blck["payload"].getStr() else: "",
+        payloadStatus:
+          if blck.hasKey"payload_status":
+            parseEnum[OptimisticStatus](blck["payload_status"].getStr())
+          else: OptimisticStatus.valid)
   if meta.hasKey"finalized_checkpoint":
     res.finalizedEpoch =
       Opt.some(Epoch(meta["finalized_checkpoint"]["epoch"].getBiggestInt()))
@@ -172,8 +185,17 @@ template gossipTest(
         check quarantine[].addOrphan(dag.finalizedHead.slot, signedBlock).isOk
       else:
         check dag.addHeadBlock(
-          verifier, signedBlock, OnBlockAdded[consensusFork](nil)).expect(
-            "block imports").root == signedBlock.root
+          verifier, signedBlock, OnBlockAdded[consensusFork](nil),
+          blck.payloadStatus).expect("block imports").root == signedBlock.root
+        if blck.payloadStatus == OptimisticStatus.invalidated:
+          envQuarantine[].addUnviable(signedBlock.root)
+      if blck.payload.len > 0:
+        dag.db.putExecutionPayloadEnvelope(parseTest(
+          path/blck.payload & ".ssz_snappy", SSZ,
+          SignedExecutionPayloadEnvelope))
+    when MsgType is SingleAttestation | electra.SignedAggregateAndProof |
+        gloas.SignedAggregateAndProof:
+      let attPool {.inject.} = newClone(AttestationPool.init(dag, quarantine))
     if meta.finalizedEpoch.isSome:
       dag.finalizedHead.slot = meta.finalizedEpoch.get.start_slot
 
@@ -188,10 +210,12 @@ template gossipTest(
             check msg.expected == ValidationResult.Reject
             continue
         wallTime {.inject, used.} = msg.time
-        subcommitteeIdx {.inject, used.} =
-          SyncSubcommitteeIndex.init(msg.subnetId).expect("valid subnet id")
       when MsgType is SyncCommitteeMessage:
+        let subcommitteeIdx {.inject.} =
+          SyncSubcommitteeIndex.init(msg.subnetId).expect("valid subnet id")
         dag.addBlockRef(message.beacon_block_root, message.slot)
+      elif MsgType is SingleAttestation:
+        let subnetId {.inject.} = SubnetId(msg.subnetId)
       elif MsgType is SignedContributionAndProof:
         dag.addBlockRef(
           message.message.contribution.beacon_block_root,
@@ -282,6 +306,35 @@ proc runGossipExecutionPayloadEnvelope(
         quarantine, envQuarantine, message, wallTime)):
     dag.db.putExecutionPayloadEnvelope(message)
 
+proc runGossipBeaconAttestation(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, SingleAttestation,
+      await attPool.validateAttestation(
+        batchCrypto, envQuarantine, message, wallTime, subnetId,
+        checkSignature = true)):
+    let (attesterIndex, committeeLen, indexInCommittee, sig) = res.get()
+    attPool[].addAttestation(
+      message, [attesterIndex], committeeLen, indexInCommittee, sig, wallTime)
+
+proc runGossipBeaconAggregateAndProof(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  when consensusFork >= ConsensusFork.Gloas:
+    type SignedAggregateAndProof = gloas.SignedAggregateAndProof
+  else:
+    type SignedAggregateAndProof = electra.SignedAggregateAndProof
+  gossipTest(
+      suiteName, path, consensusFork, SignedAggregateAndProof,
+      await attPool.validateAggregate(
+        batchCrypto, envQuarantine, message, wallTime)):
+    template aggregate: untyped = message.message.aggregate
+    let (attestingIndices, sig) = res.get()
+    attPool[].addAttestation(
+      aggregate, attestingIndices, aggregate.aggregation_bits.len, -1, sig,
+      wallTime)
+
 proc runGossipProposerPreferences(
     suiteName: static string, path: string,
     consensusFork: static ConsensusFork) =
@@ -335,3 +388,9 @@ gossipSuite(
 gossipSuite(
   "Proposer Preferences", "gossip_proposer_preferences",
   runGossipProposerPreferences)
+gossipSuite(
+  "Beacon Attestation", "gossip_beacon_attestation",
+  runGossipBeaconAttestation)
+gossipSuite(
+  "Beacon Aggregate And Proof", "gossip_beacon_aggregate_and_proof",
+  runGossipBeaconAggregateAndProof)
