@@ -3533,10 +3533,11 @@ proc finalMonitoringLoop(
         event = events[0]
         checkpoint = dag.headState.finalized_checkpoint
 
-      doAssert(dag.finalizedHead.slot > GENESIS_SLOT)
+      let fblck = dag.finalizedHead.blck
+      doAssert(fblck.slot > GENESIS_SLOT)
       let
-        slot = dag.finalizedHead.slot
-        blockRoot = dag.finalizedHead.blck.root
+        slot = fblck.slot
+        blockRoot = fblck.root
         parentRoot =
           block:
             let parentBid = dag.getBlockIdAtSlot(slot - 1)
