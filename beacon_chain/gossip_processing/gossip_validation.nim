@@ -283,45 +283,20 @@ template checkedReject(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
-    _: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-       gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    _: BlockRef): untyped =
+    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock): untyped =
   discard
 
 # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
     signed_beacon_block:
-      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-      deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-      fulu.SignedBeaconBlock,
-    parent: BlockRef): untyped =
+      electra.SignedBeaconBlock | fulu.SignedBeaconBlock): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
   #
   # `is_execution_enabled(state, block.body)` is
-  # `is_merge_transition_block(state, block.body) or is_merge_transition_complete(state)` is
-  # `(not is_merge_transition_complete(state) and block.body.execution_payload != ExecutionPayload()) or is_merge_transition_complete(state)` is
-  # `is_merge_transition_complete(state) or block.body.execution_payload != ExecutionPayload()` is
-  # `is_merge_transition_complete(state) or is_execution_block(block)`
-  #
-  # `is_merge_transition_complete(state)` tests for
-  # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/bellatrix/beacon-chain.md#block-processing
-  # shows that `state.latest_execution_payload_header` being default or not is
-  # exactly equivalent to whether that block's execution payload is default or
-  # not, so test cached block information rather than reconstructing a state.
-  let isExecutionEnabled =
-    if signed_beacon_block.message.is_execution_block:
-      true
-    else:
-      # If we don't know whether the parent block had execution enabled,
-      # assume it didn't. This way, we don't reject here if the timestamp
-      # is invalid, and let state transition check the timestamp.
-      # This is an edge case, and may be hit in a pathological scenario with
-      # checkpoint sync, because the checkpoint block may be unavailable
-      # and it could already be the parent of the new block before backfill.
-      not dag.loadExecutionBlockHash(parent).get(ZERO_HASH).isZero
-  if isExecutionEnabled:
+  # `is_merge_transition_complete(state) or is_execution_block(block)`. Nimbus
+  # doesn't support merging networks, so becomes `is_execution_block(block)`.
+  if signed_beacon_block.message.is_execution_block:
     # [REJECT] The block's execution payload timestamp is correct with respect
     # to the slot -- i.e. execution_payload.timestamp ==
     # compute_timestamp_at_slot(state, block.slot).
@@ -345,21 +320,15 @@ template validateBeaconBlockBellatrix(
 # https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
 template validateBeaconBlockDeneb(
     _: ChainDAGRef,
-    _:
-      phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-      gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
-    _: BeaconTime): untyped =
+    _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock): untyped =
   discard
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#beacon_block
 template validateBeaconBlockDeneb(
     dag: ChainDAGRef,
-    signed_beacon_block:
-      deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-      fulu.SignedBeaconBlock,
-    wallTime: BeaconTime): untyped =
+    signed_beacon_block: electra.SignedBeaconBlock | fulu.SignedBeaconBlock):
+    untyped =
   # [REJECT] The length of KZG commitments is less than or equal to the
   # limitation defined in Consensus Layer -- i.e. validate that
   # len(body.signed_beacon_block.message.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
@@ -374,10 +343,8 @@ template validateBeaconBlockGloas(
     _: ref Quarantine,
     _: ref EnvelopeQuarantine,
     _:
-      phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-      bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-      deneb.SignedBeaconBlock | electra.SignedBeaconBlock |
-      fulu.SignedBeaconBlock | heze.SignedBeaconBlock): untyped =
+      electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
+      heze.SignedBeaconBlock): untyped =
   debugHezeComment "this effectively disables gossip validation for Heze blocks currently"
   discard
 
@@ -418,11 +385,6 @@ template validateBeaconBlockGloas(
       envelopeQuarantine[].addMissing(executionParent.root)
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
       return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
-  else:
-    # The executionParent is found from DAG, which is a validated pre-Gloas
-    # block. It could also be pre-merge or optimistic block. In either case,
-    # they shouldn't be rejected.
-    discard
 
   # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
   # block's parent (defined by `block.parent_root`).
@@ -490,7 +452,6 @@ proc validateDataColumnSidecar*(
     data_column_sidecar: ref fulu.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
-
   # If the header is invalid, so is the block that shares its block_root ->
   # we can mark those blocks invalid without further processing
   template block_header: untyped = data_column_sidecar[].signed_block_header.message
@@ -842,13 +803,8 @@ proc validateBeaconBlock*(
 
     return errIgnore("BeaconBlock: parent not found")
 
-  # Continues block parent validity checking in optimistic case, where it does
-  # appear as a `BlockRef` (and not handled above) but isn't usable for gossip
-  # validation.
-  validateBeaconBlockBellatrix(signed_beacon_block, parent)
-
-  dag.validateBeaconBlockDeneb(signed_beacon_block, wallTime)
-
+  validateBeaconBlockBellatrix(signed_beacon_block)
+  dag.validateBeaconBlockDeneb(signed_beacon_block)
   dag.validateBeaconBlockGloas(
     quarantine, envelopeQuarantine, signed_beacon_block)
 
@@ -1059,11 +1015,6 @@ proc validateAttestation*(
       return pool.checkedReject(error)
     consensusFork = pool.dag.cfg.consensusForkAtEpoch(slot.epoch)
 
-  # Sanity check - this check is implied by the new attestation type that
-  # doesn't appear until Electra
-  if consensusFork < ConsensusFork.Electra:
-    return pool.checkedReject("SingleAttestation: pre-Electra fork")
-
   # [IGNORE]
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
   # modifies this for Deneb and newer forks.
@@ -1246,11 +1197,6 @@ proc validateAggregate*(
     slot = check_attestation_slot_target(aggregate.data).valueOr:
       return pool.checkedReject(error)
     consensusFork = pool.dag.cfg.consensusForkAtEpoch(slot.epoch)
-
-  # Sanity check - this check is implied by the new attestation type that
-  # doesn't appear until Electra
-  if consensusFork < ConsensusFork.Electra:
-    return pool.checkedReject("Aggregate: pre-Electra fork")
 
   # [IGNORE] aggregate.data.slot is within the last
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
