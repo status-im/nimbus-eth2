@@ -1696,6 +1696,8 @@ static:
         template check(gindex, T: untyped, path: varargs[untyped]): untyped =
           doAssert gindex == consensusFork.T.get_generalized_index(path)
 
+        check lcDataFork.sync_aggregate_gindex,
+          BeaconBlockBody, "sync_aggregate"
         check lcDataFork.finalized_root_gindex,
           BeaconState, "finalized_checkpoint", "root"
         check lcDataFork.current_sync_committee_gindex,

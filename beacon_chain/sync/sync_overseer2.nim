@@ -1321,9 +1321,7 @@ proc getMissingColumnsBlocksAndRequest(
     duplicates: HashSet[Eth2Digest]
     columnBlocks: seq[ForkedSignedBeaconBlock]
 
-  let
-    dag = overseer.consensusManager.dag
-    peerMap = peer.getColumnMapOrDefault()
+  let peerMap = peer.getColumnMapOrDefault()
 
   # Peer's missing sidecars
   for bid in bids:
@@ -1335,7 +1333,7 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
@@ -1351,7 +1349,7 @@ proc getMissingColumnsBlocksAndRequest(
         continue
       bid = signedBlock.toBlockId()
 
-    if (bid.slot >= dag.head.slot) and (bid.root notin duplicates):
+    if bid.root notin duplicates:
       duplicates.incl(bid.root)
       columnBlocks.add(signedBlock)
 
@@ -3535,10 +3533,11 @@ proc finalMonitoringLoop(
         event = events[0]
         checkpoint = dag.headState.finalized_checkpoint
 
-      doAssert(dag.finalizedHead.slot > GENESIS_SLOT)
+      let fblck = dag.finalizedHead.blck
+      doAssert(fblck.slot > GENESIS_SLOT)
       let
-        slot = dag.finalizedHead.slot
-        blockRoot = dag.finalizedHead.blck.root
+        slot = fblck.slot
+        blockRoot = fblck.root
         parentRoot =
           block:
             let parentBid = dag.getBlockIdAtSlot(slot - 1)
