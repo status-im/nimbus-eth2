@@ -281,12 +281,12 @@ template checkedReject(
     pool: ValidatorChangePool, msg: cstring): untyped =
   pool.dag.checkedReject(msg)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
 template validateBeaconBlockBellatrix(
     _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.2/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
 template validateBeaconBlockBellatrix(
     signed_beacon_block:
       electra.SignedBeaconBlock | fulu.SignedBeaconBlock): untyped =
@@ -308,7 +308,7 @@ template validateBeaconBlockBellatrix(
         timestampAtSlot):
       discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
       return dag.checkedReject(
-        "BeaconBlock: mismatched execution payload timestamp")
+        "BeaconBlock: incorrect execution payload timestamp")
 
   # The condition:
   # [REJECT] The block's parent (defined by `block.parent_root`) passes all
@@ -317,14 +317,14 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
 template validateBeaconBlockDeneb(
     _: ChainDAGRef,
     _: gloas.SignedBeaconBlock | heze.SignedBeaconBlock): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/deneb/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/electra/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/electra/p2p-interface.md#modified-beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#modified-beacon_block
 template validateBeaconBlockDeneb(
     dag: ChainDAGRef,
     signed_beacon_block: electra.SignedBeaconBlock | fulu.SignedBeaconBlock):
@@ -336,67 +336,60 @@ template validateBeaconBlockDeneb(
     dag.cfg.get_blob_parameters(signed_beacon_block.message.slot.epoch())
   if not (lenu64(signed_beacon_block.message.body.blob_kzg_commitments) <=
       blob_params.MAX_BLOBS_PER_BLOCK):
-    return dag.checkedReject("validateBeaconBlockDeneb: too many blob commitments")
+    return dag.checkedReject("validateBeaconBlockDeneb: too many blob kzg commitments")
 
 template validateBeaconBlockGloas(
     _: ChainDAGRef,
     _: ref Quarantine,
     _: ref EnvelopeQuarantine,
-    _:
-      electra.SignedBeaconBlock | fulu.SignedBeaconBlock |
-      heze.SignedBeaconBlock): untyped =
-  debugHezeComment "this effectively disables gossip validation for Heze blocks currently"
+    _: electra.SignedBeaconBlock | fulu.SignedBeaconBlock,
+    _: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
 template validateBeaconBlockGloas(
     dag: ChainDAGRef,
     quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
-    signed_beacon_block: gloas.SignedBeaconBlock): untyped =
+    signed_beacon_block: gloas.SignedBeaconBlock | heze.SignedBeaconBlock,
+    parent: BlockRef): untyped =
   template blck: untyped = signed_beacon_block.message
   template bid: untyped = blck.body.signed_execution_payload_bid.message
 
-  let executionParent = block:
-    let parentRef = dag.getBlockRef(bid.parent_block_root).valueOr:
-      return errIgnore("validateBeaconBlockGloas: parent not yet seen")
-    dag.executionParent(parentRef, bid.parent_block_hash).valueOr:
-      return errIgnore("validateBeaconBlockGloas: invalid execution parent")
+  # [REJECT] The bid's parent equals the block's parent
+  if not (bid.parent_block_root == blck.parent_root):
+    return dag.checkedReject("validateBeaconBlockGloas: bid's parent does not equal block's parent")
 
-  # - [IGNORE] The block's parent execution payload (defined by
-  #   bid.parent_block_hash) has been seen (via gossip or non-gossip sources)
-  #   (a client MAY queue blocks for processing once the parent payload is
-  #   retrieved).
-  #
-  # If execution_payload verification of block's execution payload parent by an
-  # execution node is complete:
-  #
-  # - [REJECT] The block's execution payload parent (defined by
-  #   bid.parent_block_hash) passes all validation.
-  if executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
+  let executionParent =
+    dag.executionParent(parent, bid.parent_block_hash).valueOr:
+      if dag.hasExecutionCheckpoint(parent, bid.parent_block_hash):
+        BlockRef(nil)
+      else:
+        # [REJECT] If the parent is not full, the bid builds on the parent's
+        # execution head
+        return dag.checkedReject(
+          "validateBeaconBlockGloas: bid does not build on the parent's execution head")
+
+  # [IGNORE] If the parent block is full, the parent payload is valid
+  # (MAY be queued until the parent payload is verified)
+  if not executionParent.isNil and
+      executionParent.slot.epoch() >= dag.cfg.GLOAS_FORK_EPOCH:
     # The executionParent exists in DAG, so we should check unviable envelope
     # and the database for the validation rules.
     if executionParent.root in envelopeQuarantine.unviable:
       return dag.checkedReject("validateBeaconBlockGloas: unviable execution parent")
-    # The genesis block would not have an envelope. Otherwise, we should have
-    # the envelope for the execution parent.
-    elif executionParent.slot != GENESIS_SLOT and
-        not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
-      envelopeQuarantine[].addMissing(executionParent.root)
+    elif not dag.db.containsExecutionPayloadEnvelope(executionParent.root):
+      if executionParent.slot != GENESIS_SLOT:
+        envelopeQuarantine[].addMissing(executionParent.root)
       discard quarantine[].addOrphan(dag.finalizedHead.slot, signed_beacon_block)
-      return errIgnore("validateBeaconBlockGloas: parent payload not yet seen")
-
-  # [REJECT] The bid's parent (defined by `bid.parent_block_root`) equals the
-  # block's parent (defined by `block.parent_root`).
-  if not (bid.parent_block_root == blck.parent_root):
-    return dag.checkedReject("validateBeaconBlockGloas: parent block mismatch")
+      return errIgnore("validateBeaconBlockGloas: parent payload is not verified")
 
   # [REJECT] The length of KZG commitments is less than or equal to the
   # limitation defined in the consensus layer -- i.e. validate that
   # `len(bid.blob_kzg_commitments) <= max_blobs_per_block`.
   if not (bid.blob_kzg_commitments.lenu64 <=
       dag.cfg.get_blob_parameters(blck.slot.epoch).MAX_BLOBS_PER_BLOCK):
-    return dag.checkedReject("validateBeaconBlockGloas: too many blob commitments")
+    return dag.checkedReject("validateBeaconBlockGloas: too many blob kzg commitments")
 
   # [REJECT] The counts of `block.body.parent_execution_requests` are within
   # their respective limits.
@@ -432,13 +425,13 @@ template validateBeaconBlockGloas(
       "validateBeaconBlockGloas: too many attestations")
   if blck.body.deposits.lenu64 != 0:
     return dag.checkedReject(
-      "validateBeaconBlockGloas: deposits must be empty")
+      "validateBeaconBlockGloas: block must not contain deposits")
   if blck.body.voluntary_exits.lenu64 > MAX_VOLUNTARY_EXITS:
     return dag.checkedReject(
       "validateBeaconBlockGloas: too many voluntary exits")
   if blck.body.bls_to_execution_changes.lenu64 > MAX_BLS_TO_EXECUTION_CHANGES:
     return dag.checkedReject(
-      "validateBeaconBlockGloas: too many BLS to execution changes")
+      "validateBeaconBlockGloas: too many bls to execution changes")
   if blck.body.payload_attestations.lenu64 > MAX_PAYLOAD_ATTESTATIONS:
     return dag.checkedReject(
       "validateBeaconBlockGloas: too many payload attestations")
@@ -678,9 +671,9 @@ proc validateDataColumnSidecar*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/bellatrix/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.6.1/specs/gloas/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     envelopeQuarantine: ref EnvelopeQuarantine,
@@ -696,13 +689,13 @@ proc validateBeaconBlock*(
   # blocks for processing at the appropriate slot).
   if not (signed_beacon_block.message.slot <=
       (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
-    return errIgnore("BeaconBlock: slot too high")
+    return errIgnore("BeaconBlock: block is from a future slot")
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
   # i.e. validate that signed_beacon_block.message.slot >
   # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
   if not (signed_beacon_block.message.slot > dag.finalizedHead.slot):
-    return errIgnore("BeaconBlock: slot already finalized")
+    return errIgnore("BeaconBlock: block is not from a slot greater than the latest finalized slot")
 
   # [IGNORE] The block is the first block with valid signature received for the
   # proposer for the slot, signed_beacon_block.message.slot.
@@ -746,7 +739,7 @@ proc validateBeaconBlock*(
     if curBlock.isOk():
       if curBlock[].proposer_index == signed_beacon_block.message.proposer_index and
           curBlock[].signature.toRaw() != signed_beacon_block.signature.toRaw():
-        return errIgnore("BeaconBlock: already proposed in the same slot")
+        return errIgnore("BeaconBlock: block is not the first valid block for this slot and proposer")
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue blocks for
@@ -765,7 +758,7 @@ proc validateBeaconBlock*(
         when typeof(signed_beacon_block).kind <= ConsensusFork.Fulu:
           # These checks are removed in Gloas.
           if signed_beacon_block.message.is_execution_block:
-            # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
+            # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/bellatrix/p2p-interface.md#modified-beacon_block
             #
             # Blocks with execution enabled will be permitted to propagate
             # regardless of the validity of the execution payload. This prevents
@@ -793,6 +786,9 @@ proc validateBeaconBlock*(
             return errIgnore("BeaconBlock: parent invalid")
           else:
             return errReject("BeaconBlock: parent invalid")
+        else:
+          # [REJECT] The block's parent passes validation
+          return errReject("BeaconBlock: block's parent is invalid")
       of UnviableKind.UnviableFork:
         return errIgnore("BeaconBlock: parent from unviable fork")
 
@@ -801,17 +797,23 @@ proc validateBeaconBlock*(
       blck = shortLog(signed_beacon_block.message),
       signature = shortLog(signed_beacon_block.signature)
 
-    return errIgnore("BeaconBlock: parent not found")
+    return errIgnore("BeaconBlock: block's parent has not been seen")
+
+  when typeof(signed_beacon_block).kind <= ConsensusFork.Fulu:
+    # [IGNORE] The block's parent passed validation but its execution payload
+    # is invalid
+    if parent.optimisticStatus == OptimisticStatus.invalidated:
+      return errIgnore("BeaconBlock: block's parent is valid and its payload is invalid")
 
   validateBeaconBlockBellatrix(signed_beacon_block)
   dag.validateBeaconBlockDeneb(signed_beacon_block)
   dag.validateBeaconBlockGloas(
-    quarantine, envelopeQuarantine, signed_beacon_block)
+    quarantine, envelopeQuarantine, signed_beacon_block, parent)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
     return dag.checkedReject(
-      "BeaconBlock: block not from higher slot than its parent")
+      "BeaconBlock: block is not from a higher slot than its parent")
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
   # get_ancestor(store, block.parent_root,
@@ -831,7 +833,7 @@ proc validateBeaconBlock*(
       finalized_checkpoint.root.isZero):
     discard quarantine[].addUnviable(signed_beacon_block.root, UnviableKind.Invalid)
     return dag.checkedReject(
-      "BeaconBlock: Finalized checkpoint not an ancestor")
+      "BeaconBlock: finalized checkpoint is not an ancestor of block")
 
   # [REJECT] The block is proposed by the expected proposer_index for the
   # block's slot in the context of the current shuffling (defined by

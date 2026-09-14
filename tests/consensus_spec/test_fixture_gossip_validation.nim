@@ -26,6 +26,7 @@ from std/sequtils import toSeq
 from std/strutils import parseEnum
 from chronos/unittest2/asynctests import asyncTest
 from libp2p/protocols/pubsub/errors import ValidationResult
+from minilru import contains
 from snappy import decode
 from ../../beacon_chain/consensus_object_pools/attestation_pool import
   AttestationPool, init, addAttestation
@@ -69,10 +70,13 @@ const SKIP = [
   # Finalized checkpoint root that is not a known block
   "gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor",
   "gossip_beacon_attestation__ignore_finalized_not_ancestor",
+  "gossip_beacon_block__reject_finalized_checkpoint_not_ancestor",
   "gossip_data_column_sidecar__reject_non_ancestor_finalized_checkpoint",
   # Gloas state before Gloas fork epoch
   "gossip_proposer_preferences__ignore_pre_gloas_epoch",
-  "gossip_proposer_preferences__valid_at_gloas_fork_epoch"]
+  "gossip_proposer_preferences__valid_at_gloas_fork_epoch",
+  # Invalid parent's execution payload status is not tracked
+  "gossip_beacon_block__reject_parent_consensus_failed_execution_not_verified"]
 
 func toValidationResult(expected: string): ValidationResult =
   case expected
@@ -190,6 +194,7 @@ template gossipTest(
           blck.payloadStatus).expect("block imports").root == signedBlock.root
         if blck.payloadStatus == OptimisticStatus.invalidated:
           envQuarantine[].addUnviable(signedBlock.root)
+    for blck in meta.blocks:
       if blck.payload.len > 0:
         dag.db.putExecutionPayloadEnvelope(parseTest(
           path/blck.payload & ".ssz_snappy", SSZ,
@@ -226,6 +231,10 @@ template gossipTest(
         dag.addBlockRef(
           message.message.contribution.beacon_block_root,
           message.message.contribution.slot)
+      elif MsgType is ForkySignedBeaconBlock:
+        let signedBlock {.inject.} = MsgType(
+          message: message.message, signature: message.signature,
+          root: hash_tree_root(message.message))
       let res {.inject.} = validate
       if res.isOk:
         accept
@@ -378,6 +387,15 @@ proc runGossipDataColumnSidecar(
         hash_tree_root(sidecar[].signed_block_header.message), sidecar,
         verified = true)
 
+proc runGossipBeaconBlock(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, consensusFork.SignedBeaconBlock,
+      dag.validateBeaconBlock(
+        quarantine, envQuarantine, signedBlock, wallTime, {})):
+    dag.addBlockRef(signedBlock.root, signedBlock.message.slot)
+
 proc runGossipProposerPreferences(
     suiteName: static string, path: string,
     consensusFork: static ConsensusFork) =
@@ -441,3 +459,5 @@ gossipSuite(
 gossipSuite(
   "Data Column Sidecar", "gossip_data_column_sidecar",
   runGossipDataColumnSidecar)
+gossipSuite(
+  "Beacon Block", "gossip_beacon_block", runGossipBeaconBlock)

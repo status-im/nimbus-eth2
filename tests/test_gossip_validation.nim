@@ -482,34 +482,3 @@ suite "Gossip validation - Altair":
         msg, subcommitteeIdx,
         state[].data.slot.start_beacon_time(cfg.timeParams),
         true).waitFor().isErr()
-
-suite "Gossip validation - Gloas":
-  setup:
-    let
-      cfg = genesisTestRuntimeConfig(ConsensusFork.Gloas)
-      validatorMonitor = newClone(ValidatorMonitor.init(cfg))
-      dag = ChainDAGRef.init(
-        cfg, cfg.makeTestDB(SLOTS_PER_EPOCH * 3),
-        validatorMonitor, {})
-      quarantine = newClone(Quarantine.init(dag.cfg))
-      envelopeQuarantine = newClone(EnvelopeQuarantine.init())
-      wallTime = (GENESIS_SLOT + 1).start_beacon_time(cfg.timeParams)
-    var cache = StateCache()
-
-  test "validateBeaconBlock - finalized head execution parent":
-    let
-      blck = makeTestBlock(dag.headState, cache, cfg = cfg).gloasData
-      res = dag.validateBeaconBlock(
-        quarantine, envelopeQuarantine, blck, wallTime, {})
-    check:
-      res.isOk
-
-  test "validateBeaconBlock - mismatched execution parent":
-    var blck = makeTestBlock(dag.headState, cache, cfg = cfg).gloasData
-    template bid: untyped =
-      blck.message.body.signed_execution_payload_bid.message
-    bid.parent_block_hash.data[0] = not bid.parent_block_hash.data[0]
-    let res = dag.validateBeaconBlock(
-      quarantine, envelopeQuarantine, blck, wallTime, {})
-    check:
-      res.isErr
