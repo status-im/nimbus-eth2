@@ -2312,39 +2312,39 @@ proc installMessageValidators(node: BeaconNode) =
                 await node.processor.processBlsToExecutionChange(
                   MsgSource.gossip, msg)))
 
-        # data_column_sidecar_{subnet_id}
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-data_column_sidecar_subnet_id
-        # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
-        when consensusFork >= ConsensusFork.Gloas:
-          for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            closureScope:
-              let subnet_id = it
-              partialColumnTopics[
-                getDataColumnSidecarTopic(digest, subnet_id)] = subnet_id
-              node.network.addAsyncValidator(
-                getDataColumnSidecarTopic(digest, subnet_id), proc (
-                  dataColumnSidecar: gloas.DataColumnSidecar,
-                  src: PeerId
-                ): Future[ValidationResult] {.
-                    async: (raises: [CancelledError]).} =
-                  return toValidationResult(
-                    await node.processor.processDataColumnSidecar(
-                      MsgSource.gossip, newClone(dataColumnSidecar),
-                      subnet_id)))
-        elif consensusFork == ConsensusFork.Fulu:
-          for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
-            closureScope:
-              let subnet_id = it
-              node.network.addAsyncValidator(
-                getDataColumnSidecarTopic(digest, subnet_id), proc (
-                  dataColumnSidecar: fulu.DataColumnSidecar,
-                  src: PeerId
-                ): Future[ValidationResult] {.
-                    async: (raises: [CancelledError]).} =
-                  return toValidationResult(
-                    await node.processor.processDataColumnSidecar(
-                      MsgSource.gossip, newClone(dataColumnSidecar),
-                      subnet_id)))
+          # data_column_sidecar_{subnet_id}
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-data_column_sidecar_subnet_id
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-data_column_sidecar_subnet_id
+          when consensusFork >= ConsensusFork.Gloas:
+            for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+              closureScope:
+                let subnet_id = it
+                partialColumnTopics[
+                  getDataColumnSidecarTopic(digest, subnet_id)] = subnet_id
+                node.network.addAsyncValidator(
+                  getDataColumnSidecarTopic(digest, subnet_id), proc (
+                    dataColumnSidecar: gloas.DataColumnSidecar,
+                    src: PeerId
+                  ): Future[ValidationResult] {.
+                      async: (raises: [CancelledError]).} =
+                    return toValidationResult(
+                      await node.processor.processDataColumnSidecar(
+                        MsgSource.gossip, newClone(dataColumnSidecar),
+                        subnet_id)))
+          elif consensusFork == ConsensusFork.Fulu:
+            for it in 0'u64..<node.dag.cfg.NUMBER_OF_CUSTODY_GROUPS:
+              closureScope:
+                let subnet_id = it
+                node.network.addAsyncValidator(
+                  getDataColumnSidecarTopic(digest, subnet_id), proc (
+                    dataColumnSidecar: fulu.DataColumnSidecar,
+                    src: PeerId
+                  ): Future[ValidationResult] {.
+                      async: (raises: [CancelledError]).} =
+                    return toValidationResult(
+                      await node.processor.processDataColumnSidecar(
+                        MsgSource.gossip, newClone(dataColumnSidecar),
+                        subnet_id)))
 
   if node.config.partialColumns:
     node.network.partialMessageHandler = proc(
