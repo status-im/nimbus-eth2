@@ -26,6 +26,7 @@ const
   ResponseECNotInSyncError* = "Execution client not in sync"
   ResponseNotImplementedError =
     "Received endpoint not implemented error response"
+  ResponseNotAcceptableError = "Accept type is not supported"
 
 type
   ApiResponse*[T] = Result[T, string]
@@ -862,6 +863,12 @@ template handle404(): untyped {.dirty.} =
 
 template handle415(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.UnsupportedContentType,
+    RequestName, strategy, node, response.status, response.getErrorMessage())
+  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
+  failures.add(failure)
+
+template handle406(): untyped {.dirty.} =
+  let failure = ApiNodeFailure.init(ApiFailure.NotAcceptable,
     RequestName, strategy, node, response.status, response.getErrorMessage())
   node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
   failures.add(failure)
@@ -1844,9 +1851,9 @@ proc producePayloadAttestationData*(
           ApiResponse[Opt[PayloadAttestationData]].err(
             ResponseInvalidError)
         of 406:
-          handle415()
+          handle406()
           ApiResponse[Opt[PayloadAttestationData]].err(
-            ResponseContentTypeError)
+            ResponseNotAcceptableError)
         of 500:
           handle500()
           ApiResponse[Opt[PayloadAttestationData]].err(
@@ -1890,7 +1897,7 @@ proc producePayloadAttestationData*(
           handle400()
           false
         of 406:
-          handle415()
+          handle406()
           false
         of 500:
           handle500()
