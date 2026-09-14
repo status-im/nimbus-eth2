@@ -23,7 +23,7 @@ import
 from std/json import
   JsonNode, getBiggestInt, getBool, getStr, hasKey, items, len, `[]`
 from std/sequtils import toSeq
-from std/strutils import parseEnum
+from std/strutils import parseEnum, startsWith
 from chronos/unittest2/asynctests import asyncTest
 from libp2p/protocols/pubsub/errors import ValidationResult
 from minilru import contains
@@ -37,13 +37,14 @@ from ../../beacon_chain/consensus_object_pools/block_quarantine import
 from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/execution_payload_pool import
-  ExecutionPayloadBidPool, init
+  ExecutionPayloadBidPool, addBid, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
   PayloadAttestationPool, addPayloadAttestation, init
 from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, init, addSyncCommitteeMessage, addContribution
 from ../../beacon_chain/consensus_object_pools/validator_change_pool import
   ValidatorChangePool, init, addMessage
+from ../../beacon_chain/fork_choice/fork_choice import on_execution_payload
 from ../../beacon_chain/spec/signatures_batch import BatchVerifier, init
 from ../testbcutil import addHeadBlock
 
@@ -76,7 +77,11 @@ const SKIP = [
   "gossip_proposer_preferences__ignore_pre_gloas_epoch",
   "gossip_proposer_preferences__valid_at_gloas_fork_epoch",
   # Invalid parent's execution payload status is not tracked
-  "gossip_beacon_block__reject_parent_consensus_failed_execution_not_verified"]
+  "gossip_beacon_block__reject_parent_consensus_failed_execution_not_verified",
+  # Block payload envelope is referenced by meta.yaml but not provided
+  "gossip_execution_payload_bid__ignore_parent_block_hash_unknown",
+  # Parent state is not advanced to the bid's slot
+  "gossip_execution_payload_bid__valid_requires_state_advanced_across_epoch"]
 
 func toValidationResult(expected: string): ValidationResult =
   case expected
@@ -161,7 +166,7 @@ template gossipTest(
       skip()
       return
     let
-      meta = loadMeta(path)
+      meta {.inject.} = loadMeta(path)
       dag {.inject, used.} = initDag(path, meta, consensusFork)
       rng = HmacDrbgContext.new()
     var taskpool = Taskpool.new()
@@ -180,7 +185,9 @@ template gossipTest(
       batchCrypto.close()
       taskpool.shutdown()
 
-    var verifier = BatchVerifier.init(rng, taskpool)
+    var
+      verifier = BatchVerifier.init(rng, taskpool)
+      headRef {.inject.} = dag.head
     for blck in meta.blocks.toOpenArray(1, meta.blocks.high):
       let signedBlock = loadBlock(path/blck.name & ".ssz_snappy", consensusFork)
       if blck.failed:
@@ -189,9 +196,10 @@ template gossipTest(
       elif blck.pending:
         check quarantine[].addOrphan(dag.finalizedHead.slot, signedBlock).isOk
       else:
-        check dag.addHeadBlock(
+        headRef = dag.addHeadBlock(
           verifier, signedBlock, OnBlockAdded[consensusFork](nil),
-          blck.payloadStatus).expect("block imports").root == signedBlock.root
+          blck.payloadStatus).expect("block imports")
+        check headRef.root == signedBlock.root
         if blck.payloadStatus == OptimisticStatus.invalidated:
           envQuarantine[].addUnviable(signedBlock.root)
     for blck in meta.blocks:
@@ -203,10 +211,25 @@ template gossipTest(
         gloas.SignedAggregateAndProof:
       let attPool {.inject.} = newClone(AttestationPool.init(dag, quarantine))
     setup
-    if meta.finalizedEpoch.isSome:
-      dag.finalizedHead.slot = meta.finalizedEpoch.get.start_slot
+    meta.finalizedEpoch.isErrOr:
+      when MsgType is gloas.SignedExecutionPayloadBid:
+        withState(dag.headState):
+          when consensusFork >= ConsensusFork.Gloas:
+            forkyState.data.finalized_checkpoint.epoch = value
+      else:
+        dag.finalizedHead.slot = value.start_slot
 
     for msg in meta.messages:
+      when MsgType is gloas.SignedExecutionPayloadBid:
+        if msg.name.startsWith("proposer_preferences_"):
+          check dag.validateProposerPreferences(seenPrefs, parseTest(
+            path/msg.name & ".ssz_snappy", SSZ, SignedProposerPreferences),
+            msg.time).isOk
+          continue
+        if msg.name.startsWith("execution_payload_envelope_"):
+          dag.db.putExecutionPayloadEnvelope(parseTest(
+            path/msg.name & ".ssz_snappy", SSZ, SignedExecutionPayloadEnvelope))
+          continue
       let
         message {.inject.} =
           try:
@@ -406,6 +429,37 @@ proc runGossipProposerPreferences(
     check dag.validateProposerPreferences(
       seenPrefs, message, wallTime).error[0] == ValidationResult.Ignore
 
+template bidAttestationPool(
+    dag: ChainDAGRef, meta: GossipTestMeta, path: string, headRef: BlockRef,
+    quarantine: ref Quarantine): ref AttestationPool =
+  dag.updateHead(headRef, quarantine[], [])
+  dag.updateHeadExecutionPayload(
+    dag.db.containsExecutionPayloadEnvelope(headRef.root), true)
+  let pool = newClone(
+    AttestationPool.init(dag, quarantine, meta.messages[0].time))
+  for blck in meta.blocks:
+    if blck.payload.len > 0:
+      check pool.forkChoice.on_execution_payload(
+        dag.cfg, dag.timeParams, parseTest(
+          path/blck.payload & ".ssz_snappy", SSZ,
+          SignedExecutionPayloadEnvelope)).isOk
+  pool
+
+proc runGossipExecutionPayloadBid(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  debugHezeComment "Heze `SignedExecutionPayloadBid` adds `inclusion_list_bits`"
+  when consensusFork == ConsensusFork.Gloas:
+    gossipTest(
+        suiteName, path, consensusFork, gloas.SignedExecutionPayloadBid, (
+          let
+            attPool = dag.bidAttestationPool(meta, path, headRef, quarantine)
+            bidPool = newClone(ExecutionPayloadBidPool.init(dag))
+          var seenPrefs: SeenProposerPreferences),
+        dag.validateExecutionPayloadBid(
+          attPool.forkChoice, bidPool, seenPrefs, message, wallTime)):
+      bidPool[].addBid(message, res.get(), wallTime)
+
 template gossipSuite(
     topic: static[string], handler: static[string], runner: untyped) =
   const name = "EF - Networking - Gossip - " & topic & preset()
@@ -461,3 +515,6 @@ gossipSuite(
   runGossipDataColumnSidecar)
 gossipSuite(
   "Beacon Block", "gossip_beacon_block", runGossipBeaconBlock)
+gossipSuite(
+  "Execution Payload Bid", "gossip_execution_payload_bid",
+  runGossipExecutionPayloadBid)

@@ -99,7 +99,7 @@ proc should_build_on_full*(
     return true
   self.backend.should_build_on_full(head.root, full, wallSlot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/gloas/p2p-interface.md#is_bid_compatible_with_head
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-is_bid_compatible_with_head
 proc is_bid_compatible_with_head*(
     self: var ForkChoice, dag: ChainDAGRef,
     bid: gloas.ExecutionPayloadBid): bool =

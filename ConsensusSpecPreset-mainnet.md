@@ -4134,6 +4134,52 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_data_column_sidecar__valid                                                   OK
 + heze - gossip_data_column_sidecar__valid_slot_within_clock_disparity                       OK
 ```
+## EF - Networking - Gossip - Execution Payload Bid [Preset: mainnet]
+```diff
++ gloas - gossip_execution_payload_bid__ignore_builder_cannot_cover                          OK
++ gloas - gossip_execution_payload_bid__ignore_builder_exit_in_parent_payload                OK
++ gloas - gossip_execution_payload_bid__ignore_builder_exit_with_pending_balance             OK
++ gloas - gossip_execution_payload_bid__ignore_duplicate_from_builder                        OK
++ gloas - gossip_execution_payload_bid__ignore_equal_value                                   OK
++ gloas - gossip_execution_payload_bid__ignore_fee_recipient_mismatch                        OK
++ gloas - gossip_execution_payload_bid__ignore_gas_limit_decrease_exceeding_limit_off_by_one OK
++ gloas - gossip_execution_payload_bid__ignore_gas_limit_incompatible                        OK
++ gloas - gossip_execution_payload_bid__ignore_gas_limit_increase_exceeding_limit_off_by_one OK
++ gloas - gossip_execution_payload_bid__ignore_not_highest_value                             OK
+  gloas - gossip_execution_payload_bid__ignore_parent_block_hash_unknown                     Skip
++ gloas - gossip_execution_payload_bid__ignore_parent_block_unknown                          OK
++ gloas - gossip_execution_payload_bid__ignore_parent_state_unavailable                      OK
++ gloas - gossip_execution_payload_bid__ignore_preferences_not_seen                          OK
++ gloas - gossip_execution_payload_bid__ignore_slot_outside_lower_disparity                  OK
++ gloas - gossip_execution_payload_bid__ignore_slot_outside_upper_disparity                  OK
++ gloas - gossip_execution_payload_bid__ignore_slot_past_parent_lookahead                    OK
++ gloas - gossip_execution_payload_bid__ignore_slot_too_far_future                           OK
++ gloas - gossip_execution_payload_bid__reject_block_hash_equals_parent_block_hash           OK
++ gloas - gossip_execution_payload_bid__reject_builder_index_out_of_range                    OK
++ gloas - gossip_execution_payload_bid__reject_builder_not_active                            OK
++ gloas - gossip_execution_payload_bid__reject_builder_not_payload_version                   OK
++ gloas - gossip_execution_payload_bid__reject_execution_payment_nonzero                     OK
++ gloas - gossip_execution_payload_bid__reject_incorrect_prev_randao                         OK
++ gloas - gossip_execution_payload_bid__reject_invalid_signature                             OK
++ gloas - gossip_execution_payload_bid__reject_slot_not_higher_than_parent                   OK
++ gloas - gossip_execution_payload_bid__reject_too_many_blobs                                OK
++ gloas - gossip_execution_payload_bid__valid                                                OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_after_empty_parent                   OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_decrease_exceeding_limit             OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_decrease_within_limit                OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_increase_exceeding_limit             OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_increase_within_limit                OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_parent_under_step                    OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_target_equals_parent                 OK
++ gloas - gossip_execution_payload_bid__valid_higher_value                                   OK
++ gloas - gossip_execution_payload_bid__valid_max_blobs                                      OK
++ gloas - gossip_execution_payload_bid__valid_parent_exit_unknown_pubkey                     OK
++ gloas - gossip_execution_payload_bid__valid_parent_exit_wrong_source_address               OK
+  gloas - gossip_execution_payload_bid__valid_requires_state_advanced_across_epoch           Skip
++ gloas - gossip_execution_payload_bid__valid_slot_at_lower_disparity                        OK
++ gloas - gossip_execution_payload_bid__valid_slot_at_upper_disparity                        OK
++ gloas - gossip_execution_payload_bid__valid_zero_value_first_bid                           OK
+```
 ## EF - Networking - Gossip - Execution Payload Envelope [Preset: mainnet]
 ```diff
 + gloas - gossip_execution_payload_envelope__ignore_block_unseen                             OK
