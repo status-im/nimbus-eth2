@@ -2015,8 +2015,8 @@ proc installMessageValidators(node: BeaconNode) =
         for digest in consensusFork.forkDigests(forkDigests[]):
           let digest = digest # lent
           # beacon_block
-          # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/phase0/p2p-interface.md#beacon_block
-          # https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#beacon_block
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#beacon_block
+          # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#modified-beacon_block
           node.network.addValidator(
             getBeaconBlocksTopic(digest), proc (
               signedBlock: consensusFork.SignedBeaconBlock,
