@@ -188,8 +188,8 @@ suite "EF - BPO forkdigests":
     let
       gvr = Eth2Digest.fromHex("0x8488a6ea91e921a17cc3af3a9d79682ef38eb7c39da786e849b31feedd2aba6f")
       forkDigests = ForkDigests.init(cfg, gvr)
-      fuluDigest = forkDigests.atConsensusFork(ConsensusFork.Fulu)
-      gloasDigest = forkDigests.atConsensusFork(ConsensusFork.Gloas)
+      fuluDigest = forkDigests.atEpoch(cfg.FULU_FORK_EPOCH, cfg)
+      gloasDigest = forkDigests.atEpoch(cfg.GLOAS_FORK_EPOCH, cfg)
 
     check:
       fuluDigest != gloasDigest
