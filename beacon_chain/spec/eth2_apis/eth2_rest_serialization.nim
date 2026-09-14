@@ -42,6 +42,7 @@ const
 
 type
   EncodeTypes* =
+    BuilderConfig |
     DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
