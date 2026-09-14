@@ -54,7 +54,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientUpdatesByRange
   router.api2(MethodGet,
               "/eth/v1/beacon/light_client/updates") do (
-    start_period: Option[SyncCommitteePeriod], count: Option[uint64]
+    start_period: Opt[SyncCommitteePeriod], count: Opt[uint64]
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
     let contentType =
