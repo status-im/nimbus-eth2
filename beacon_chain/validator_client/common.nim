@@ -439,6 +439,13 @@ func SyncContributionToSlotEndDuration*(vc: ValidatorClientRef): Duration =
 func SyncContributionToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
   vc.SyncContributionToSlotEndDuration div 2
 
+func PayloadAttestationToSlotEndDuration*(vc: ValidatorClientRef): Duration =
+  vc.timeParams.SLOT_DURATION -
+  nanoseconds(vc.timeParams.payloadAttestationSlotOffset.nanoseconds)
+
+func PayloadAttestationToSlotEndDurationSoft*(vc: ValidatorClientRef): Duration =
+  vc.PayloadAttestationToSlotEndDuration div 2
+
 proc `$`*(to: TimeOffset): string =
   if to.value < 0:
     "-" & $chronos.nanoseconds(-to.value)
