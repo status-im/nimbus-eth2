@@ -121,9 +121,8 @@ suite baseDescription & "Block Header " & preset():
   proc applyBlockHeader(
       preState: var fulu.BeaconState, blck: fulu.BeaconBlock):
       Result[void, cstring] =
-    if blck.is_execution_block:
-      check blck.body.execution_payload.block_hash ==
-        blck.compute_execution_block_hash()
+    check blck.body.execution_payload.block_hash ==
+      blck.compute_execution_block_hash()
     var cache: StateCache
     process_block_header(preState, blck, {}, cache)
 
@@ -187,7 +186,7 @@ suite baseDescription & "Execution Payload " & preset():
       let payloadValid = os_ops.readFile(
           OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml"
         ).contains("execution_valid: true")
-      if payloadValid and body.is_execution_block and
+      if payloadValid and
           not body.execution_payload.transactions.anyIt(it.len == 0):
         let expectedOk = (path != "incorrect_block_hash")
         check expectedOk == (body.execution_payload.block_hash ==
