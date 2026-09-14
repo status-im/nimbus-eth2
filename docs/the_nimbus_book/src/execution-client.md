@@ -38,31 +38,27 @@ This may take a few minutes.
 
 When the process finishes, the `nimbus` executable can be found in the `build` subdirectory.
 
-## Syncing using era files
+## Syncing using ere files
 
-Syncing Nimbus requires a set of `era1` and `era` files. These can be generated from a `geth` and `nimbus` consensus client respectively or downloaded from a third-party repository.
+Syncing Nimbus requires a set of `ere` files. The `ere` format is a unified archive covering both pre-merge and post-merge history. These can be downloaded from a third-party repository or generated using the `nimbus_history_exporter` tool.
 
-In addition to the era files themselves, you will need at least 200GB of free space on a fast SSD in your data directory, as set by the `--data-dir` command line option.
+In addition to the ere files themselves, you will need at least 200GB of free space on a fast SSD in your data directory, as set by the `--data-dir` command line option.
 
 When using Nimbus for both execution client and beacon node, the nodes can share the same data directory.
 
-!!! info "`era` file downloading"
-    `era` and `era1` files for testing purposes could at the time of writing be found here - these sources may or may not be available:
+!!! info "`ere` file downloading"
+    `ere` files for testing purposes could at the time of writing be found here - these sources may or may not be available:
 
     === "Mainnet"
-        * https://mainnet.era.nimbus.team/
-        * https://mainnet.era1.nimbus.team/
+        * https://mainnet.ere.nimbus.team/
 
     === "Hoodi"
-        * https://hoodi.era.nimbus.team/
-
-        The Hoodi network does not have `era1` files since it never operated as a proof-of-work chain
+        * https://hoodi.ere.nimbus.team/
 
     === "Sepolia"
-        * https://sepolia.era.nimbus.team/
-        * https://sepolia.era1.nimbus.team/
+        * https://sepolia.ere.nimbus.team/
 
-    A wider community maintained list of `era` and `era1` files can be found eth-clients github [history-endpoints](https://eth-clients.github.io/history-endpoints/)
+    A wider community maintained list of history archive files can be found on eth-clients github [history-endpoints](https://eth-clients.github.io/history-endpoints/)
 
     Downloading these files can take a long time, specially if you are downloading sequentially.
     For easier and fast download, please use the `era_downloader.sh` script provided in the `nimbus-eth1` repository.
@@ -76,35 +72,36 @@ When using Nimbus for both execution client and beacon node, the nodes can share
         ```sh
         cd nimbus-eth1
         chmod +x scripts/era_downloader.sh
-        ./scripts/era_downloader.sh https://mainnet.era1.nimbus.team/ ../build/era1
-        ./scripts/era_downloader.sh https://mainnet.era.nimbus.team/ ../build/era
+        ./scripts/era_downloader.sh https://mainnet.ere.nimbus.team/ ../build/ere
         ```
 
     === "Hoodi"
         ```sh
         cd nimbus-eth1
         chmod +x scripts/era_downloader.sh
-        ./scripts/era_downloader.sh https://hoodi.era.nimbus.team/ ../build/era
+        ./scripts/era_downloader.sh https://hoodi.ere.nimbus.team/ ../build/ere
         ```
 
     === "Sepolia"
         ```sh
         cd nimbus-eth1
         chmod +x scripts/era_downloader.sh
-        ./scripts/era_downloader.sh https://sepolia.era1.nimbus.team/ ../build/era1
-        ./scripts/era_downloader.sh https://sepolia.era.nimbus.team/ ../build/era
+        ./scripts/era_downloader.sh https://sepolia.ere.nimbus.team/ ../build/ere
         ```
 
-It is recommended that you place the era files in the data directory under `era1` and `era` respectively. Era files can be shared between multiple nodes and can reside on a slow drive - use the `--era1-dir` and `--era-dir` options if they are located outside of the data directory.
+It is recommended that you place the ere files in the data directory under `ere`. Ere files can be shared between multiple nodes and can reside on a slow drive - use the `--ere-dir` option if they are located outside of the data directory.
 
-See the [era file guide](./era-store.md) for more information.
+!!! tip "Legacy era1/era support"
+    The older `era1` (pre-merge only) and `era` (CL) archive formats are still supported as a fallback.
+    If you set `--era1-dir` or `--era-dir` without `ere` files in the `--ere-dir`, the client will use those files directly.
+    See the [era file guide](./era-store.md) for more information about the era format.
 
 !!! tip ""
     Future versions of Nimbus will support other methods of syncing, such as snap sync.
 
 === "Mainnet"
     !!! note ""
-        Performing a full sync of mainnet from era files takes several days - its speed varies greatly depending on hardware. Use one of the testnets to get started more quickly!
+        Performing a full sync of mainnet from ere files takes several days - its speed varies greatly depending on hardware. Use one of the testnets to get started more quickly!
 
     ```sh
     build/nimbus executionClient --data-dir=build/mainnet import
