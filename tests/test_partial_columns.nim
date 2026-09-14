@@ -21,15 +21,20 @@ import
 const testGroupId = gloas.PartialDataColumnGroupID(slot: Slot(3))
 
 func bits(n: int, indices: varargs[int]): BitSeq =
-  result = BitSeq.init(n)
+  var res = BitSeq.init(n)
   for i in indices:
-    result.setBit(i)
+    res.setBit(i)
+  res
 
 func cell(i: int): KzgCell =
-  result.bytes[0] = byte(i + 1)
+  var res: KzgCell
+  res.bytes[0] = byte(i + 1)
+  res
 
 func proof(i: int): KzgProof =
-  result.bytes[0] = byte(i + 1)
+  var res: KzgProof
+  res.bytes[0] = byte(i + 1)
+  res
 
 func metadata(available, requests: BitSeq): seq[byte] =
   SSZ.encode(gloas.PartialDataColumnPartsMetadata(

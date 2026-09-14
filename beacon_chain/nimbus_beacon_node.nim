@@ -2030,6 +2030,9 @@ proc partialColumnBlobCount(
     when consensusFork == ConsensusFork.Gloas:
       Opt.some(forkyBlck.message.body.signed_execution_payload_bid.message
         .blob_kzg_commitments.len)
+    elif consensusFork == ConsensusFork.Heze:
+      debugHezeComment ""
+      Opt.none(int)
     else:
       Opt.none(int)
 
