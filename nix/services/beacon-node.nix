@@ -222,6 +222,7 @@ in {
             "--jwt-secret=%d/jwt-secret";
         in ''
           ${cfg.package}/bin/nimbus_beacon_node \
+            --data-dir=${cfg.settings.data-dir} \
             --config-file=${configFile} ${jwtFlag} \
             ${escapeShellArgs cfg.extraArgs}
         '';
