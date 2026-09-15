@@ -136,6 +136,7 @@ proc forkchoiceUpdated*(
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4],
+    fork: EngineFork,
 ): Future[ForkchoiceUpdatedResponseV1] {.async: (raises: [CatchableError]).} =
   let response =
     when payloadAttributes is Opt[PayloadAttributesV4]:
@@ -145,7 +146,7 @@ proc forkchoiceUpdated*(
           payload_attributes: payloadAttributes.toSszOptional),
         restContentType = $OctetStreamMediaType,
         restAcceptType = $OctetStreamMediaType,
-        extraHeaders = c.headers(EngineFork.Amsterdam))
+        extraHeaders = c.headers(fork))
     else:
       await c.connected.postForkchoice(
         ForkchoiceUpdatePrague(
@@ -153,7 +154,7 @@ proc forkchoiceUpdated*(
           payload_attributes: payloadAttributes.toSszOptional),
         restContentType = $OctetStreamMediaType,
         restAcceptType = $OctetStreamMediaType,
-        extraHeaders = c.headers(EngineFork.Osaka))
+        extraHeaders = c.headers(fork))
 
   decodeSsz(ForkchoiceUpdateResponse, response).toWeb3.valueOr:
     raiseEngineRestError(error)
