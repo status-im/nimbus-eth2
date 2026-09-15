@@ -38,6 +38,8 @@ const
     ## Number of repeating errors before starting rewind process.
   StatusStalePeriod = 5
     ## Number of slots before peer's status information could be stale.
+  MinimalLoopTime = 50.milliseconds
+    ## Number of milliseconds for endless loop detection
   GenesisCheckpoint = Checkpoint(root: Eth2Digest(), epoch: GENESIS_EPOCH)
 
 type
@@ -1409,8 +1411,6 @@ proc getMissingEnvelopeBlocksAndRequest(
     bres: BlocksAndEnvelopeRequest
     duplicates: HashSet[Eth2Digest]
 
-  let dag = overseer.consensusManager.dag
-
   # Peer's missing sidecars
   for bid in bids:
     if len(bres.blocks) >= peerEntry.maxEnvelopesPerRequest:
@@ -1477,7 +1477,7 @@ proc doPeerPause(
     peer_speed = peer.netKbps()
 
   let doSleep =
-    if (Moment.now() - loopTime) < 50.milliseconds:
+    if (Moment.now() - loopTime) < MinimalLoopTime:
       debug "Endless idle loop detected for peer"
       true
     else:
@@ -2800,6 +2800,10 @@ proc doGloasRangeSidecarsRequest(
     if error == MissingErrorKind.Sidecars:
       return err(false)
 
+    for record in grouped:
+      overseer.gloasColumnQuarantine[].put(
+        record.block_root, record.sidecar, false)
+
     # We either missed a few blocks or envelopes, and got a number of sidecars
     # that prove it, so we need to rewind blocks queue back.
     await overseer.doRewindBlocksQueue(peer, request, direction)
@@ -2813,6 +2817,23 @@ proc doGloasRangeSidecarsRequest(
 
   peer.updateScore(PeerScoreGoodValues)
   ok()
+
+proc doCheckBlocksAndSidecarsRace(
+    overseer: SyncOverseerRef2,
+    direction: SyncQueueKind,
+    srange: SyncRange
+): bool =
+  # This procedure returns `true` if sidecars range `srange` is after last
+  # block processed by blocks queue. In this case there no way for sidecars
+  # to obtain corresponding blocks for processing.
+  case direction
+  of SyncQueueKind.Forward:
+    if srange.start_slot() >= overseer.tbsqueue(direction).inpSlot:
+      return true
+  of SyncQueueKind.Backward:
+    if srange.last_slot() <= overseer.tbsqueue(direction).inpSlot:
+      return true
+  false
 
 proc doRangeSidecarsStep(
     overseer: SyncOverseerRef2,
@@ -2878,6 +2899,13 @@ proc doRangeSidecarsStep(
   if request.isEmpty():
     debug "Empty request received from sidecars queue",
       reason = request.reason
+    return true
+
+  if overseer.doCheckBlocksAndSidecarsRace(direction, request.data):
+    debug "Blocks queue is running late"
+    overseer.tssqueue(direction).push(request)
+    # We wait for double of minimal loop detection time to avoid pauses.
+    await sleepAsync(MinimalLoopTime * 2)
     return true
 
   if direction.isBackward() and peerEntry.minBackCarSlot.isSome():
@@ -2947,11 +2975,8 @@ proc doRangeSidecarsStep(
       overseer.tssqueue(direction).push(request)
       raise exc
 
-  logScope:
-    code = response.code
-    count = response.count
-
   debug "Sidecars queue response",
+    code = response.code, count = response.count,
     bid = shortLog(response.blck),
     blocks_count = len(items),
     blocks_map = getShortMap(request, items)
