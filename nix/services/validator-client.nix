@@ -14,7 +14,7 @@ let
   removeNull = k: v: v != null;
 
   # To respect %S expansion.
-  cleanFlags = settings: removeAttrs settings ["data-dir"];
+  cleanFlags = settings: removeAttrs settings ["data-dir" "keymanager-token-file"];
   cleanNulls = settings: filterAttrs removeNull settings;
   cleanSettings = cleanNulls (cleanFlags cfg.settings);
   configFile = toml.generate "nimbus-validator-client.toml" cleanSettings;
