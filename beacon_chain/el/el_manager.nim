@@ -20,7 +20,7 @@ import
   # Local modules:
   ../spec/[engine_authentication, forks, helpers_el],
   ../networking/network_metadata,
-  ./[el_conf, engine_api_conversions]
+  ./[el_conf, engine_api_conversions, engine_rest_client]
 
 from std/sequtils import anyIt, filterIt, mapIt
 from std/times import getTime, toUnix
@@ -110,6 +110,8 @@ type
     connectingFut: Future[Result[Web3, string]].Raising([CancelledError])
       ## This future will be replaced when the connection is lost.
 
+    rest: Opt[EngineRestClient]
+
     chainIdStatus: ChainIdStatus
       ## The latest status of the `checkChainId` exchange.
 
@@ -152,6 +154,9 @@ proc close(connection: ELConnection): Future[void] {.async: (raises: []).} =
       # adopt `asyncraises`.
       debug "Failed to close execution layer", error = $exc.name,
             reason = $exc.msg
+
+  if connection.rest.isSome:
+    await connection.rest.get.close()
 
 func increaseCounterTowardsStateChange(connection: ELConnection): bool =
   result = connection.hysteresisCounter >= connectionStateChangeHysteresisThreshold
@@ -224,6 +229,8 @@ proc engineApiRequest[T](
     let statusCode =
       if request.error of ErrorResponse:
         ((ref ErrorResponse) request.error).status
+      elif request.error of EngineRestError:
+        ((ref EngineRestError) request.error).status
       else:
         0
     engine_api_responses.inc(1, [connection.engineUrl.url, requestName, $statusCode])
@@ -291,6 +298,12 @@ proc connectedRpcClient(connection: ELConnection): Future[RpcClient] {.
 
   connection.web3.get.provider
 
+template usesRest(connection: ELConnection): bool =
+  connection.rest.isSome
+
+template restClient(connection: ELConnection): EngineRestClient =
+  connection.rest.get
+
 template retryUntilCancelled(body: untyped) =
   ## Perform the same request in a loop until it is explicitly cancelled,
   ## usually due to a timeout.
@@ -340,7 +353,6 @@ proc getPayload(
 
   retryUntilCancelled:
     let
-      rpcClient = await connection.connectedRpcClient()
       # Use prepared payload if it was given or still pending; otherwise make a
       # new request. `safeBlockHash` and `finalizedBlockHash` are intentionally
       # excluded, because the payload depends on neither and the FCR safe block
@@ -363,7 +375,12 @@ proc getPayload(
           notice "Payload not prepared, sending last-minute payload request",
             url = connection.engineUrl.url
 
-          rpcClient.forkchoiceUpdated(params.state, Opt.some payloadAttributes)
+          if connection.usesRest:
+            connection.restClient.forkchoiceUpdated(
+              params.state, Opt.some payloadAttributes)
+          else:
+            let rpcClient = await connection.connectedRpcClient()
+            rpcClient.forkchoiceUpdated(params.state, Opt.some payloadAttributes)
       )
 
     payloadId = forkchoiceUpdated.payloadId.valueOr:
@@ -378,7 +395,12 @@ proc getPayload(
       # Give the EL some time to build the block
       await sleepAsync(500.milliseconds)
 
-    payload = await rpcClient.getPayload(GetPayloadResponseType, payloadId)
+    if connection.usesRest:
+      payload = await connection.restClient.getPayload(
+        GetPayloadResponseType, payloadId)
+    else:
+      let rpcClient = await connection.connectedRpcClient()
+      payload = await rpcClient.getPayload(GetPayloadResponseType, payloadId)
 
     break # retryUntilCancelled
 
@@ -567,6 +589,8 @@ proc newPayload(
     connection: ELConnection, payload: engine_api.ExecutionPayloadV1, retry: bool
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
+    if connection.usesRest:
+      return await connection.restClient.newPayload(EngineFork.Paris, payload)
     let rpcClient = await connection.connectedRpcClient()
     return await rpcClient.engine_newPayloadV1(payload)
 
@@ -574,6 +598,9 @@ proc newPayload(
     connection: ELConnection, payload: engine_api.ExecutionPayloadV2, retry: bool
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
+    if connection.usesRest:
+      return await connection.restClient.newPayload(
+        EngineFork.Shanghai, payload)
     let rpcClient = await connection.connectedRpcClient()
     return await rpcClient.engine_newPayloadV2(payload)
 
@@ -585,6 +612,9 @@ proc newPayload(
     retry: bool,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
+    if connection.usesRest:
+      return await connection.restClient.newPayload(
+        EngineFork.Cancun, payload, parent_beacon_block_root)
     let rpcClient = await connection.connectedRpcClient()
     return await rpcClient.engine_newPayloadV3(
       payload, versioned_hashes, parent_beacon_block_root
@@ -599,6 +629,10 @@ proc newPayload(
     retry: bool,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
+    if connection.usesRest:
+      return await connection.restClient.newPayload(
+        EngineFork.Osaka, payload, parent_beacon_block_root, executionRequests
+      )
     let rpcClient = await connection.connectedRpcClient()
     return await rpcClient.engine_newPayloadV4(
       payload, versioned_hashes, parent_beacon_block_root, executionRequests
@@ -613,6 +647,11 @@ proc newPayload(
     retry: bool,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
+    if connection.usesRest:
+      return await connection.restClient.newPayload(
+        EngineFork.Amsterdam, payload, parent_beacon_block_root,
+        executionRequests
+      )
     let rpcClient = await connection.connectedRpcClient()
     return await rpcClient.engine_newPayloadV5(
       payload, versioned_hashes, parent_beacon_block_root, executionRequests
@@ -622,6 +661,8 @@ proc getBlobsV2(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash]
 ): Future[GetBlobsV2Response] {.async: (raises: [CatchableError]).} =
+  if connection.usesRest:
+    return await connection.restClient.engine_getBlobsV2(versioned_hashes)
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV2(versioned_hashes)
 
@@ -629,6 +670,8 @@ proc getBlobsV3(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash]
 ): Future[GetBlobsV3Response] {.async: (raises: [CatchableError]).} =
+  if connection.usesRest:
+    return await connection.restClient.engine_getBlobsV3(versioned_hashes)
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV3(versioned_hashes)
 
@@ -637,6 +680,9 @@ proc getBlobsV4(
     versioned_hashes: seq[engine_api.VersionedHash],
     indices_bitarray: FixedBytes[16]
 ): Future[GetBlobsV4Response] {.async: (raises: [CatchableError]).} =
+  if connection.usesRest:
+    return await connection.restClient.engine_getBlobsV4(
+      versioned_hashes, indices_bitarray)
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV4(versioned_hashes, indices_bitarray)
 
@@ -1005,9 +1051,12 @@ proc forkchoiceUpdated(
     retry: bool,
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
-    let
-      rpcClient = await connection.connectedRpcClient()
-      responseFut = rpcClient.forkchoiceUpdated(state, payloadAttributes)
+    let responseFut =
+      if connection.usesRest:
+        connection.restClient.forkchoiceUpdated(state, payloadAttributes)
+      else:
+        let rpcClient = await connection.connectedRpcClient()
+        rpcClient.forkchoiceUpdated(state, payloadAttributes)
 
     if payloadAttributes.isSome:
       # Saving the future here allows the getPayload request to latch on to
@@ -1176,7 +1225,14 @@ proc checkChainId(
          completed = finished, failed = failed, timed_out = len(pending)
 
 func new*(T: type ELConnection, engineUrl: EngineApiUrl): T =
-  ELConnection(engineUrl: engineUrl)
+  ELConnection(
+    engineUrl: engineUrl,
+    rest:
+      if engineUrl.sszUrl.isSome:
+        Opt.some EngineRestClient.new(
+          engineUrl.sszUrl.get, engineUrl.jwtSecret)
+      else:
+        Opt.none(EngineRestClient))
 
 func new*(T: type ELManager,
           engineApiUrls: seq[EngineApiUrl],
