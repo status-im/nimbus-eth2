@@ -105,6 +105,14 @@ func len*(a: ColumnMap): int =
   # Returns number of columns in map.
   countOnes(a.data[0]) + countOnes(a.data[1])
 
+func toBitvectorBytes*(a: ColumnMap): array[16, byte] =
+  ## SSZ `Bitvector[NUMBER_OF_COLUMNS]` layout.
+  var res: array[16, byte]
+  for i in 0 ..< 8:
+    res[i] = byte((a.data[0] shr (8 * i)) and 0xFF'u64)
+    res[8 + i] = byte((a.data[1] shr (8 * i)) and 0xFF'u64)
+  res
+
 func `$`*(a: ColumnMap): string =
   "[" & a.items().toSeq().mapIt($it).join(",") & "]"
 

@@ -17,7 +17,7 @@ import
   web3/[primitives, conversions, engine_api_types],
   eth/common/eth_types,
   ../beacon_chain/el/[el_conf, el_manager],
-  ../beacon_chain/spec/[digest, engine_authentication, forks],
+  ../beacon_chain/spec/[column_map, digest, engine_authentication, forks],
   ../beacon_chain/networking/network_metadata,
   ./testutil
 
@@ -49,6 +49,11 @@ type
     getPayloadCallCount: int
     getPayloadV6CallCount: int
     chainIdCallCount: int
+    shouldFailGetBlobs: bool
+    getBlobsV2CallCount: int
+    lastBlobVersionedHashes: seq[Hash32]
+    getBlobsV4CallCount: int
+    lastIndicesBitarray: FixedBytes[16]
     responseDelay: Duration
     blockNumber: uint64
 
@@ -197,6 +202,23 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
       )
 
     state.chainId
+
+  server.rpc("engine_getBlobsV2", EthJson) do(
+    blobVersionedHashes: seq[Hash32]
+  ) -> GetBlobsV2Response:
+    inc state.getBlobsV2CallCount
+    state.lastBlobVersionedHashes = blobVersionedHashes
+    if state.shouldFailGetBlobs:
+      raise
+        (ref RpcResponseError)(code: -32603, msg: "Internal error: getBlobsV2 failed")
+    newSeq[BlobAndProofV2](blobVersionedHashes.len)
+
+  server.rpc("engine_getBlobsV4", EthJson) do(
+    blobVersionedHashes: seq[Hash32], indicesBitarray: FixedBytes[16]
+  ) -> GetBlobsV4Response:
+    inc state.getBlobsV4CallCount
+    state.lastIndicesBitarray = indicesBitarray
+    newSeq[OptBlobCellsAndProofsV1](blobVersionedHashes.len)
 
 proc newMockRpcServer(
     state: MockEngineState, port: Port
@@ -607,6 +629,71 @@ suite "EL Manager - newPayload":
       setup.state.newPayloadCallCount > 1
       elapsed < deadline + overhead
       resp.isNone
+
+suite "EL Manager - getBlobsV2":
+  setup:
+    let setup = mockSetup()
+
+  teardown:
+    setup.close()
+
+  test "block without blobs":
+    let
+      manager = createELManager(@[setup.url])
+      resp = waitFor manager.getBlobsV2(default(fulu.SignedBeaconBlock))
+
+    check:
+      resp.isSome()
+      resp.get().len == 0
+      setup.state.getBlobsV2CallCount == 1
+
+  test "versioned hashes derived from kzg commitments":
+    var commitments: deneb.KzgCommitments
+    for _ in 0 ..< 2:
+      check commitments.add(default(typeof(commitments[0])))
+
+    let
+      manager = createELManager(@[setup.url])
+      resp = waitFor manager.getBlobsV2(commitments)
+
+    check:
+      resp.isSome()
+      resp.get().len == 2
+      setup.state.lastBlobVersionedHashes.len == 2
+      setup.state.lastBlobVersionedHashes[0].data[0] == 0x01'u8
+
+  test "EL error yields none":
+    setup.state.shouldFailGetBlobs = true
+    let
+      manager = createELManager(@[setup.url])
+      resp = waitFor manager.getBlobsV2(default(fulu.SignedBeaconBlock))
+
+    check:
+      resp.isNone()
+      setup.state.getBlobsV2CallCount == 1
+
+suite "EL Manager - getBlobsV4":
+  setup:
+    let setup = mockSetup()
+
+  teardown:
+    setup.close()
+
+  test "custody columns are sent as indices_bitarray":
+    let manager = createELManager(@[setup.url])
+
+    let resp = waitFor manager.getBlobsV4(
+      default(gloas.SignedBeaconBlock),
+      ColumnMap.init([ColumnIndex(0), ColumnIndex(9), ColumnIndex(127)]))
+
+    var expected: array[16, byte]
+    expected[0] = 0x01
+    expected[1] = 0x02
+    expected[15] = 0x80
+    check:
+      resp.isSome()
+      setup.state.getBlobsV4CallCount == 1
+      setup.state.lastIndicesBitarray.data == expected
 
 suite "EL Manager - Payload Request Caching":
   setup:

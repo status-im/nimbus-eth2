@@ -125,6 +125,15 @@ suite "ColumnMap test suite":
         else:
           check ColumnIndex(k) in testMap == false
 
+  test "toBitvectorBytes() test":
+    var expected: array[16, byte]
+    check ColumnMap.init(newSeq[ColumnIndex]()).toBitvectorBytes() == expected
+    for i in 0 ..< NUMBER_OF_COLUMNS:
+      expected = default(array[16, byte])
+      expected[i div 8] = 1'u8 shl (i mod 8)
+      check ColumnMap.init([ColumnIndex(i)]).toBitvectorBytes() == expected
+    check supernodeMap.toBitvectorBytes().allIt(it == 0xFF'u8)
+
   test "incl()/excl() test":
     for i in 0 ..< NUMBER_OF_COLUMNS:
       var map: ColumnMap

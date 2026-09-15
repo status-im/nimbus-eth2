@@ -20,7 +20,8 @@ import
 
   # Internals
   ../consensus_object_pools/[
-     block_pools_types, block_quarantine, column_quarantine],
+     block_pools_types, block_quarantine, column_quarantine,
+     partial_column_quarantine],
   ../gossip_processing/block_processor,
   ../networking/eth2_network,
   ../spec/[column_map, forks, helpers, network, peerdas_helpers],
@@ -28,7 +29,7 @@ import
   ./el_manager
 
 from std/enumerate import enumerate
-from std/sequtils import filterIt
+from std/sequtils import filterIt, newSeqWith
 from stew/assign2 import assign
 
 declareCounter beacon_engine_getblobs_requests_total,
@@ -41,7 +42,7 @@ declareGauge beacon_engine_getblobs_slot_hit_rate,
   "engine_getBlobs hit rate (0..1) for the most recently completed slot with at least one request"
 
 declareCounter beacon_engine_getblobs_skipped_total,
-  "engine_getBlobs invocations not issued because an in-flight fetch for the same block root already retrieved the blobs"
+  "engine_getBlobs invocations not issued because the other path already claimed the attempt for the same block root"
 
 type
   GetBlobsService* = object
@@ -50,6 +51,8 @@ type
     blockProcessor: ref BlockProcessor
     fuluColumnQuarantine: ref FuluColumnQuarantine
     gloasColumnQuarantine: ref GloasColumnQuarantine
+    partialColumnQuarantine: ref PartialColumnQuarantine
+    partialColumns: bool
     validatorCustody: ValidatorCustodyRef
     network: Eth2Node
     # Per-slot engine_getBlobs accounting. `slotInFlight` is the slot whose
@@ -58,17 +61,17 @@ type
     slotInFlight: Slot
     slotRequests: uint64
     slotHits: uint64
-    # Roots for which the column-first path has already invoked the EL.
-    # Bounds the per-block fan-out: each custody column arriving via gossip
-    # would otherwise trigger a redundant getBlobsV2 roundtrip.
-    columnFirstFetched: Table[Eth2Digest, Slot]
-    # Roots with an EL fetch in flight, keeping at most one engine_getBlobs
-    # request per root outstanding across both paths. `columnFirstFetched`
-    # cannot do this: it is only written once the roundtrip completes, so
-    # both paths read it as empty for the duration of the request.
+    # Roots for which one of the two paths has claimed the single EL attempt,
+    # claimed before yielding: whichever event arrives first owns it, and the
+    # other path issues no request of its own.
+    elAttempted: Table[Eth2Digest, Slot]
+    # Column-first fetches in flight, so a block arriving mid-flight can wait
+    # and enqueue with the columns it recovers.
     elFetchInFlight: Table[Eth2Digest, Future[void]]
 
   GetBlobsServiceRef* = ref GetBlobsService
+
+  CustodyCells = seq[gloas.PartialDataColumnSidecar]
 
 proc new*(
     t: typedesc[GetBlobsServiceRef],
@@ -77,6 +80,8 @@ proc new*(
     blockProcessor: ref BlockProcessor,
     fuluColumnQuarantine: ref FuluColumnQuarantine,
     gloasColumnQuarantine: ref GloasColumnQuarantine,
+    partialColumnQuarantine: ref PartialColumnQuarantine,
+    partialColumns: bool,
     validatorCustody: ValidatorCustodyRef,
     network: Eth2Node
 ): GetBlobsServiceRef =
@@ -86,6 +91,8 @@ proc new*(
     blockProcessor: blockProcessor,
     fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
+    partialColumnQuarantine: partialColumnQuarantine,
+    partialColumns: partialColumns,
     validatorCustody: validatorCustody,
     network: network,
     slotInFlight: FAR_FUTURE_SLOT)
@@ -122,6 +129,14 @@ proc clearFetchInFlight(
   self.elFetchInFlight.del(root)
   marker.complete()
 
+proc pruneElAttempted(self: GetBlobsServiceRef, finalized: Slot) =
+  var toDelete: seq[Eth2Digest]
+  for block_root, slot in self.elAttempted:
+    if slot <= finalized:
+      toDelete.add block_root
+  for block_root in toDelete:
+    self.elAttempted.del(block_root)
+
 proc redistributeColumns[T: fulu.DataColumnSidecar | gloas.DataColumnSidecar](
     self: GetBlobsServiceRef,
     columns: seq[ref T]
@@ -154,11 +169,11 @@ proc attemptGetBlobs*(
   let sidecarlessBlock = quarantine[].getSidecarless(root).valueOr:
     return
 
+  self.pruneElAttempted(
+    self.blockProcessor[].consensusManager.dag.finalizedHead.slot)
+
   withBlck(sidecarlessBlock):
     when consensusFork == ConsensusFork.Fulu:
-      # A column sidecar arriving ahead of the block may have a fetch for this
-      # root in flight already; wait for it instead of asking the EL for the
-      # same blobs twice. `join`, so cancelling here leaves that fetch alone.
       let inFlight = self.elFetchInFlight.getOrDefault(forkyBlck.root)
       if inFlight != nil:
         await inFlight.join()
@@ -166,9 +181,8 @@ proc attemptGetBlobs*(
         if quarantine[].getSidecarless(forkyBlck.root).isNone():
           return
 
-      # If the column-first path already populated quarantine for this root,
-      # skip the EL fetch and enqueue with the existing columns.
-      if forkyBlck.root in self.columnFirstFetched:
+      if forkyBlck.root in self.elAttempted:
+        beacon_engine_getblobs_skipped_total.inc()
         let sidecarsOpt =
           self.fuluColumnQuarantine[].popSidecarsForImport(forkyBlck.root)
         if sidecarsOpt.isSome():
@@ -176,14 +190,9 @@ proc attemptGetBlobs*(
             return
           debug "Added data columns from EL blobpool to quarantine",
             root = forkyBlck.root, slot = forkyBlck.message.slot
-          self.columnFirstFetched.del(forkyBlck.root)
-          if inFlight != nil:
-            # Waiting on that fetch is what kept us from issuing our own.
-            beacon_engine_getblobs_skipped_total.inc()
           self.blockProcessor.enqueueBlock(
             MsgSource.gossip, forkyBlck, sidecarsOpt)
-          return
-        # Columns vanished (pruned?) — fall through to EL fetch as fallback.
+        return
 
       template kzg_commitments_count(): int =
         forkyBlck.message.body.blob_kzg_commitments.len
@@ -192,8 +201,7 @@ proc attemptGetBlobs*(
         blobs: seq[kzg.KzgBlob]
         flat_proof: seq[kzg.KzgProof]
 
-      let fetchMarker = self.markFetchInFlight(forkyBlck.root)
-      defer: self.clearFetchInFlight(forkyBlck.root, fetchMarker)
+      self.elAttempted[forkyBlck.root] = forkyBlck.message.slot
 
       let blobsEl = (await elManager.getBlobsV2(forkyBlck)).valueOr:
         self.recordEngineGetBlobs(forkyBlck.message.slot, hit = false)
@@ -247,6 +255,43 @@ proc attemptGetBlobs*(
     else:
       discard
 
+proc getCustodyCellsV4(
+    self: GetBlobsServiceRef,
+    blck: gloas.SignedBeaconBlock,
+    custody: ColumnMap
+): Future[Opt[CustodyCells]] {.async: (raises: [CancelledError]).} =
+  let
+    elManager = self.blockProcessor[].consensusManager.elManager
+    numBlobs = blck.message.body.signed_execution_payload_bid.message.
+      blob_kzg_commitments.len
+    resp = (await elManager.getBlobsV4(blck, custody)).valueOr:
+      return Opt.none(CustodyCells)
+  if resp.len != numBlobs:
+    return Opt.none(CustodyCells)
+
+  var sidecars = newSeqWith(custody.len, gloas.PartialDataColumnSidecar(
+    cells_present_bitmap: gloas.CellsPresentBits.init(numBlobs)))
+  for rowIndex in 0.Natural ..< resp.len.Natural:
+    if resp[rowIndex].isNone():
+      continue
+    template blob_cells(): untyped = resp[rowIndex].get().blob_cells
+    template proofs(): untyped = resp[rowIndex].get().proofs
+    if blob_cells.len != custody.len or proofs.len != custody.len:
+      return Opt.none(CustodyCells)
+    for i in 0 ..< custody.len:
+      if blob_cells[i].isNone() or proofs[i].isNone():
+        continue
+      template cellBytes(): untyped = blob_cells[i].get()
+      if cellBytes.len != fulu.BYTES_PER_CELL:
+        return Opt.none(CustodyCells)
+      var cell: kzg.KzgCell
+      assign(cell.bytes, cellBytes)
+      sidecars[i].cells_present_bitmap[rowIndex] = true
+      sidecars[i].partial_column.add cell
+      sidecars[i].kzg_proofs.add kzg.KzgProof(bytes: proofs[i].get().data)
+
+  Opt.some(sidecars)
+
 proc attemptGetBlobs*(
     self: GetBlobsServiceRef,
     blck: gloas.SignedBeaconBlock) {.async: (raises: [CancelledError]).} =
@@ -256,35 +301,59 @@ proc attemptGetBlobs*(
   ## envelope flow rather than by block processing. We populate
   ## `gloasColumnQuarantine` so the envelope verifier (which pops from it
   ## keyed by block_root) finds the reconstructed columns when it runs.
-  let elManager = self.blockProcessor[].consensusManager.elManager
-
   template kzg_commitments(): auto =
     blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
 
   if kzg_commitments.len == 0:
     return
 
-  let blobsEl = (await elManager.getBlobsV2(blck)).valueOr:
+  let custody = self.validatorCustody.getMap()
+  var custodyCells = (await self.getCustodyCellsV4(blck, custody)).valueOr:
     self.recordEngineGetBlobs(blck.message.slot, hit = false)
     return
-  if blobsEl.len != kzg_commitments.len:
-    self.recordEngineGetBlobs(blck.message.slot, hit = false)
-    return
-  self.recordEngineGetBlobs(blck.message.slot, hit = true)
 
+  let groupId = gloas.PartialDataColumnGroupID(
+    beacon_block_root: blck.root, slot: blck.message.slot)
   var
-    blobs = newSeqOfCap[kzg.KzgBlob](blobsEl.len)
-    flat_proof = newSeqOfCap[kzg.KzgProof](
-      blobsEl.len * fulu_preset.CELLS_PER_EXT_BLOB)
-  for item in blobsEl:
-    blobs.add kzg.KzgBlob(bytes: item.blob.data)
-    for proof in item.proofs:
-      flat_proof.add kzg.KzgProof(bytes: proof.data)
-  let batch = assemble_data_column_sidecars(
-    blck, blobs, flat_proof, self.validatorCustody.getMap())
+    batch = newSeqOfCap[ref gloas.DataColumnSidecar](custody.len)
+    elComplete = 0
+    partialCount = 0
+  for i, columnIndex in custody:
+    template cells(): untyped = custodyCells[i]
+    if cells.partial_column.len == kzg_commitments.len:
+      batch.add (ref gloas.DataColumnSidecar)(
+        index: columnIndex,
+        column: move(cells.partial_column),
+        kzg_proofs: move(cells.kzg_proofs),
+        slot: blck.message.slot,
+        beacon_block_root: blck.root)
+      inc elComplete
+    elif self.partialColumns and cells.partial_column.len > 0:
+      self.partialColumnQuarantine[].putGroupId(groupId)
+      discard self.partialColumnQuarantine[].getOrCreateEntry(
+        groupId, columnIndex, kzg_commitments.len)
+      self.partialColumnQuarantine[].addCells(
+        groupId, columnIndex, newClone(cells))
+      # Gossiped cells may already complete the column.
+      let sidecar = self.partialColumnQuarantine[].assembleDataColumnSidecar(
+          groupId, columnIndex).valueOr:
+        inc partialCount
+        continue
+      batch.add newClone(sidecar)
+  self.recordEngineGetBlobs(
+    blck.message.slot, hit = elComplete == custody.len)
+
+  if partialCount > 0:
+    debug "Added partial data columns from EL blobpool to partial quarantine",
+      root = blck.root,
+      slot = blck.message.slot,
+      partial_len = partialCount
 
   if batch.len == 0:
     return
+
+  if batch.len == custody.len:
+    self.partialColumnQuarantine[].pruneForBlock(groupId)
 
   asyncSpawn self.redistributeColumns(batch.filterIt(
     not self.gloasColumnQuarantine[].hasSidecar(blck.root, it[].index)))
@@ -316,33 +385,21 @@ proc attemptGetBlobsFromColumn(
     quarantine = self.blockProcessor[].consensusManager.quarantine
     dag = self.blockProcessor[].consensusManager.dag
 
-  # Prune roots whose block never showed up.
-  block:
-    var toDelete: seq[Eth2Digest]
-    for block_root, slot in self.columnFirstFetched:
-      if slot <= dag.finalizedHead.slot:
-        toDelete.add block_root
-    for block_root in toDelete:
-      self.columnFirstFetched.del(block_root)
+  self.pruneElAttempted(dag.finalizedHead.slot)
 
   let
     block_root = hash_tree_root(sidecar[].signed_block_header.message)
     slot = sidecar[].signed_block_header.message.slot
 
-  # Dedup: only fire EL fetch once per block_root. Subsequent column
-  # arrivals for the same block are no-ops on this path.
-  if block_root in self.columnFirstFetched:
+  # Only the first column seen for a block reaches the EL; if the block got
+  # here first, none of them do.
+  if block_root in self.elAttempted:
     return
-
-  # If the sidecarless block is already in the block quarantine, the
-  # block-first path (consumeBlockGossip - attemptGetBlobs) owns this
-  # block — leave it alone.
   if quarantine[].getSidecarless(block_root).isSome():
     return
 
-  # Claim the root before yielding, so a block arriving mid-flight waits for
-  # this fetch rather than issuing an identical one. Released either way, so
-  # a fetch that came up empty is still retried by later column arrivals.
+  self.elAttempted[block_root] = slot
+
   let fetchMarker = self.markFetchInFlight(block_root)
   defer: self.clearFetchInFlight(block_root, fetchMarker)
 
@@ -380,9 +437,6 @@ proc attemptGetBlobsFromColumn(
     slot = slot,
     batch_len = batch.len
   self.fuluColumnQuarantine[].put(block_root, batch, verified = true)
-  # Mark only after a successful put so failed attempts can be retried by
-  # subsequent column arrivals for the same root.
-  self.columnFirstFetched[block_root] = slot
 
 proc consumeBlockGossip(
     self: GetBlobsServiceRef) {.async: (raises: []).} =
