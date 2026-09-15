@@ -210,7 +210,9 @@ proc runLightClient*(
                 finalizedBlockHash
               )
               lightClientFcuFut = elManager.forkchoiceUpdated(
-                state, payloadAttributes = Opt.none(consensusFork.PayloadAttributes)
+                state,
+                payloadAttributes = Opt.none(consensusFork.PayloadAttributes),
+                fork = Opt.some(engineForkFor(consensusFork))
               )
               lightClientFcuFut.addCallback do (future: pointer):
                 lightClientFcuFut = nil
