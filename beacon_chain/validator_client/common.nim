@@ -97,6 +97,8 @@ type
 
   SyncCommitteeServiceRef* = ref object of ClientServiceRef
 
+  PayloadAttestationServiceRef* = ref object of ClientServiceRef
+
   DoppelgangerServiceRef* = ref object of ClientServiceRef
     enabled*: bool
 
@@ -132,6 +134,7 @@ type
     AggregatedData, AggregatedPublish,
     BlockProposalData, BlockProposalPublish,
     SyncCommitteeData, SyncCommitteePublish,
+    PayloadAttestationData, PayloadAttestationPublish,
     NoTimeCheck
 
   RestBeaconNodeFeature* {.pure.} = enum
@@ -203,6 +206,8 @@ type
     publishContributionAndProofs
     submitBeaconCommitteeSelections
     submitSyncCommitteeSelections
+    producePayloadAttestationData
+    submitPoolPayloadAttestations
 
   VCBeaconNodeMode* = array[int(high(FnKind)) + 1, ApiStrategyKind]
 
@@ -231,6 +236,10 @@ type
     blocks: seq[Eth2Digest]
     waiters*: seq[BlockWaiter]
 
+  PayloadDataItem* = object
+    available*: bool
+    waiters*: seq[Future[void]]
+
   ValidatorClient* = object
     config*: ValidatorClientConf
     metricsServer*: Opt[MetricsHttpServerRef]
@@ -241,6 +250,7 @@ type
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
+    payloadAttestationService*: PayloadAttestationServiceRef
     doppelgangerService*: DoppelgangerServiceRef
     runSlotLoopFut*: Future[void].Raising([CancelledError])
     runKeystoreCachePruningLoopFut*: Future[void]
@@ -276,6 +286,7 @@ type
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     blocksSeen*: Table[Slot, BlockDataItem]
     rootsSeen*: Table[Eth2Digest, Slot]
+    payloadsSeen*: Table[Slot, PayloadDataItem]
     processingDelay*: Opt[Duration]
     finalizedEpoch*: Opt[Epoch]
     rng*: ref HmacDrbgContext
@@ -286,7 +297,7 @@ type
   ApiFailure* {.pure.} = enum
     Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
     NotImplemented, UnexpectedCode, UnexpectedResponse, UnsupportedContentType,
-    NoError
+    NotAcceptable, NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -314,7 +325,9 @@ const
     BeaconNodeRole.BlockProposalData,
     BeaconNodeRole.BlockProposalPublish,
     BeaconNodeRole.SyncCommitteeData,
-    BeaconNodeRole.SyncCommitteePublish
+    BeaconNodeRole.SyncCommitteePublish,
+    BeaconNodeRole.PayloadAttestationData,
+    BeaconNodeRole.PayloadAttestationPublish
   }
     ## AllBeaconNodeRoles missing BeaconNodeRole.NoTimeCheck, because timecheks
     ## are enabled by default.
@@ -366,7 +379,9 @@ const
     ApiStrategyKind.First,     # submitPoolSyncCommitteeSignature
     ApiStrategyKind.First,     # publishContributionAndProofs
     ApiStrategyKind.Best,      # submitBeaconCommitteeSelections
-    ApiStrategyKind.Best       # submitSyncCommitteeSelections
+    ApiStrategyKind.Best,      # submitSyncCommitteeSelections
+    ApiStrategyKind.Best,      # producePayloadAttestationData
+    ApiStrategyKind.First,     # submitPoolPayloadAttestations
   ])
 
   FallbackMode* = VCBeaconNodeMode([
@@ -386,7 +401,9 @@ const
     ApiStrategyKind.Priority,  # submitPoolSyncCommitteeSignature
     ApiStrategyKind.Priority,  # publishContributionAndProofs
     ApiStrategyKind.Priority,  # submitBeaconCommitteeSelections
-    ApiStrategyKind.Priority   # submitSyncCommitteeSelections
+    ApiStrategyKind.Priority,  # submitSyncCommitteeSelections
+    ApiStrategyKind.Priority,  # producePayloadAttestationData
+    ApiStrategyKind.Priority   # submitPoolPayloadAttestations
   ])
 
 template `[]`*(vcs: VCBeaconNodeMode, index: FnKind): ApiStrategyKind =
@@ -456,6 +473,10 @@ proc `$`*(roles: set[BeaconNodeRole]): string =
         res.add("sync-data")
       if BeaconNodeRole.SyncCommitteePublish in roles:
         res.add("sync-publish")
+      if BeaconNodeRole.PayloadAttestationData in roles:
+        res.add("payload-attestation-data")
+      if BeaconNodeRole.PayloadAttestationPublish in roles:
+        res.add("payload-attestation-publish")
       if BeaconNodeRole.NoTimeCheck in roles:
         res.add("no-timecheck")
       res.join(",")
@@ -492,6 +513,7 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.UnexpectedCode: "unexpected-code"
   of ApiFailure.UnexpectedResponse: "unexpected-data"
   of ApiFailure.UnsupportedContentType: "unsupported-content-type"
+  of ApiFailure.NotAcceptable: "not-acceptable"
   of ApiFailure.NoError: "status-update"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
@@ -548,7 +570,7 @@ proc getFailureReason*(exc: ref ValidatorApiError): string =
     exc.msg
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
-  var r = "AGBSDT"
+  var r = "AGBSPDT"
   if BeaconNodeRole.AttestationData in roles:
     if BeaconNodeRole.AttestationPublish in roles: r[0] = 'A' else: r[0] = 'a'
   else:
@@ -567,8 +589,14 @@ proc shortLog*(roles: set[BeaconNodeRole]): string =
   else:
     if BeaconNodeRole.SyncCommitteePublish in roles:
       r[3] = '+' else: r[3] = '-'
-  if BeaconNodeRole.Duties in roles: r[4] = 'D' else: r[4] = '-'
-  if BeaconNodeRole.NoTimeCheck notin roles: r[5] = 'T' else: r[5] = '-'
+  if BeaconNodeRole.PayloadAttestationData in roles:
+    if BeaconNodeRole.PayloadAttestationPublish in roles:
+      r[4] = 'P' else: r[4] = 'p'
+  else:
+    if BeaconNodeRole.PayloadAttestationPublish in roles:
+      r[4] = '+' else: r[4] = '-'
+  if BeaconNodeRole.Duties in roles: r[5] = 'D' else: r[5] = '-'
+  if BeaconNodeRole.NoTimeCheck notin roles: r[6] = 'T' else: r[6] = '-'
   r
 
 proc `$`*(bn: BeaconNodeServerRef): string =
@@ -846,6 +874,9 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
     of "sync":
       res.incl({BeaconNodeRole.SyncCommitteeData,
                 BeaconNodeRole.SyncCommitteePublish})
+    of "payload-attestation":
+      res.incl({BeaconNodeRole.PayloadAttestationData,
+                BeaconNodeRole.PayloadAttestationPublish})
     of "attestation-data":
       res.incl(BeaconNodeRole.AttestationData)
     of "attestation-publish":
@@ -862,6 +893,10 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       res.incl(BeaconNodeRole.SyncCommitteeData)
     of "sync-publish":
       res.incl(BeaconNodeRole.SyncCommitteePublish)
+    of "payload-attestation-data":
+      res.incl(BeaconNodeRole.PayloadAttestationData)
+    of "payload-attestation-publish":
+      res.incl(BeaconNodeRole.PayloadAttestationPublish)
     of "duties":
       res.incl(BeaconNodeRole.Duties)
     of "no-timecheck":
