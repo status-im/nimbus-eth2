@@ -196,7 +196,7 @@ func cellsConsistent*(
 
   var cellIdx = 0
   for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
-    if sidecar.cells_present_bitmap[Natural(blobIdx)]:
+    if sidecar.cells_present_bitmap[blobIdx]:
       if cellIdx < sidecar.partial_column.len and
          cellIdx < sidecar.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len and
@@ -221,7 +221,7 @@ func addCells*(
   template s: untyped = sidecar[]
   var cellIdx = 0
   for blobIdx in 0 ..< s.cells_present_bitmap.len:
-    if s.cells_present_bitmap[Natural(blobIdx)]:
+    if s.cells_present_bitmap[blobIdx]:
       if cellIdx < s.partial_column.len and
          cellIdx < s.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len:

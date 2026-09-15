@@ -18,8 +18,8 @@ import
   ../consensus_object_pools/[
     attestation_pool, block_clearance, block_quarantine, blockchain_dag,
     column_quarantine, envelope_quarantine, execution_payload_pool,
-    inclusion_list_pool, payload_attestation_pool, light_client_pool,
-    sync_committee_msg_pool, validator_change_pool],
+    inclusion_list_pool, partial_column_quarantine, payload_attestation_pool,
+    light_client_pool, sync_committee_msg_pool, validator_change_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   ./[gossip_validation, block_processor, batch_validation],
@@ -54,6 +54,13 @@ declareCounter data_column_sidecars_received,
   "Number of valid data columns processed by this node"
 declareCounter data_column_sidecars_dropped,
   "Number of invalid data columns dropped by this node", labels = ["reason"]
+declareCounter partial_data_column_sidecars_received,
+  "Number of valid partial data columns processed by this node"
+declareCounter partial_data_column_sidecars_dropped,
+  "Number of invalid partial data columns dropped by this node",
+  labels = ["reason"]
+declareCounter partial_data_column_sidecars_assembled,
+  "Number of data columns assembled from partial data columns by this node"
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -184,6 +191,7 @@ type
     quarantine*: ref Quarantine
     fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine
+    partialColumnQuarantine*: ref PartialColumnQuarantine
     envelopeQuarantine*: ref EnvelopeQuarantine
 
     # Application-provided current time provider (to facilitate testing)
@@ -213,6 +221,7 @@ proc new*(T: type Eth2Processor,
           quarantine: ref Quarantine,
           fuluColumnQuarantine: ref FuluColumnQuarantine,
           gloasColumnQuarantine: ref GloasColumnQuarantine,
+          partialColumnQuarantine: ref PartialColumnQuarantine,
           envelopeQuarantine: ref EnvelopeQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
@@ -236,6 +245,7 @@ proc new*(T: type Eth2Processor,
     quarantine: quarantine,
     fuluColumnQuarantine: fuluColumnQuarantine,
     gloasColumnQuarantine: gloasColumnQuarantine,
+    partialColumnQuarantine: partialColumnQuarantine,
     envelopeQuarantine: envelopeQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
@@ -487,6 +497,66 @@ proc processDataColumnSidecar*(
   self.blockProcessor.enqueuePayload(dataColumnSidecar[].beacon_block_root)
 
   data_column_sidecars_received.inc()
+  v
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/partial-columns/p2p-interface.md#modified-data_column_sidecar_subnet_id-partial-messages
+proc processPartialDataColumnSidecar*(
+    self: ref Eth2Processor, src: MsgSource,
+    partialSidecar: ref gloas.PartialDataColumnSidecar,
+    groupId: gloas.PartialDataColumnGroupID,
+    columnIndex: ColumnIndex,
+    subnet_id: uint64
+): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
+
+  logScope:
+    blockRoot = shortLog(groupId.beacon_block_root)
+    slot = groupId.slot
+    index = columnIndex
+    cells = partialSidecar[].partial_column.len
+    wallSlot
+
+  if not afterGenesis:
+    notice "Partial data column before genesis"
+    return errIgnore("Partial data column before genesis")
+
+  debug "Partial data column received"
+
+  let v = await self.dag.validatePartialDataColumnSidecar(
+    self.batchCrypto, self.partialColumnQuarantine, partialSidecar, groupId,
+    columnIndex, subnet_id)
+
+  if v.isErr():
+    debug "Dropping partial data column", error = v.error()
+    partial_data_column_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+
+  debug "Partial data column validated"
+  partial_data_column_sidecars_received.inc()
+
+  if columnIndex notin self.gloasColumnQuarantine[].custodyMap or
+      self.gloasColumnQuarantine[].hasVerifiedSidecar(
+        groupId.beacon_block_root, columnIndex):
+    return v
+
+  template partials(): untyped = self.partialColumnQuarantine[]
+  partials.putGroupId(groupId)
+  discard partials.getOrCreateEntry(
+    groupId, columnIndex, partialSidecar[].cells_present_bitmap.len)
+  partials.addCells(groupId, columnIndex, partialSidecar)
+
+  let dataColumnSidecar =
+    partials.assembleDataColumnSidecar(groupId, columnIndex).valueOr:
+      return v
+
+  self.gloasColumnQuarantine[].put(
+    groupId.beacon_block_root, newClone(dataColumnSidecar), verified = true)
+  self.blockProcessor.enqueuePayload(groupId.beacon_block_root)
+
+  debug "Data column assembled from partial data columns"
+  partial_data_column_sidecars_assembled.inc()
   v
 
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
