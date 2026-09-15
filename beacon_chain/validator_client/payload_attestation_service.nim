@@ -34,19 +34,36 @@ proc servePayloadAttestations(
   logScope:
     slot = slot
 
-  let data =
+  await vc.waitForPayload(slot, vc.timeParams.payloadAttestationSlotOffset)
+  
+  let deadline = slot.start_beacon_time(vc.timeParams) +
+    vc.timeParams.payloadAttestationSlotOffset
+
+  proc produce(): Future[Opt[PayloadAttestationData]] {.
+       async: (raises: [CancelledError]).} =
     try:
-      (await vc.producePayloadAttestationData(
-        slot, vc.getMode()[FnKind.producePayloadAttestationData])).valueOr:
-        debug "No block seen for slot; not casting payload attestation"
-        return
+      await vc.producePayloadAttestationData(
+        slot, vc.getMode()[FnKind.producePayloadAttestationData])
     except ValidatorApiError as exc:
-      warn "Unable to produce payload attestation data",
+      warn "Unable to produce payload attesation data",
            duties_count = len(duties), reason = exc.getFailureReason()
-      return
-    except CancelledError as exc:
-      debug "Payload attestation data production was interrupted"
-      raise exc
+      Opt.none(PayloadAttestationData)
+  
+  var data = (await produce()).valueOr:
+    debug "No block seen for slot, not casting payload attestation"
+    return
+
+  # If the payload is present but blobs isn't available, we wait
+  # for the deadline and reproduce rather than cast
+  # `blob_data_available = false`
+  if data.payload_present and not data.blob_data_available:
+    let remaining = deadline - vc.beaconClock.now()
+    if remaining.nanoseconds > 0'i64:
+      debug "Payload present but blobs not yet availbale; waiting for deadline",
+            slot = slot
+      await sleepAsync(nanoseconds(remaining.nanoseconds))
+      data = (await produce()).valueOr:
+        return
 
   if data.slot != slot:
     warn "Inconsistent payload attestation data received",
@@ -171,7 +188,7 @@ proc mainLoop(service: PayloadAttestationServiceRef) {.async: (raises: []).} =
   while true:
     try:
       let slot = await vc.checkedWaitForNextSlot(
-        currentSlot, vc.timeParams.payloadAttestationSlotOffset, false)
+        currentSlot, ZeroTimeDiff, false)
       if slot.isNone():
         debug "System time adjusted backwards significantly, exiting"
         return
