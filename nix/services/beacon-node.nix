@@ -12,7 +12,11 @@ let
 
   toml = pkgs.formats.toml { };
   removeNull = k: v: v != null;
-  cleanSettings = filterAttrs removeNull cfg.settings;
+
+  # To respect %S expansion.
+  cleanFlags = settings: removeAttrs settings ["data-dir" "jwt-secret"];
+  cleanNulls = settings: filterAttrs removeNull settings;
+  cleanSettings = cleanNulls (cleanFlags cfg.settings);
   configFile = toml.generate "nimbus-beacon-node.toml" cleanSettings;
 in {
   options = {
@@ -41,7 +45,7 @@ in {
             options = {
               data-dir = mkOption {
                 type = types.path;
-                default = "/var/lib/nimbus-beacon-node";
+                default = "%S/nimbus-beacon-node";
                 description = "Directory for Nimbus Eth2 blockchain data.";
               };
 
