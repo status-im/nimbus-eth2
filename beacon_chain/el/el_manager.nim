@@ -311,6 +311,14 @@ template usesRest(connection: ELConnection): bool =
 template restClient(connection: ELConnection): EngineRestClient =
   connection.rest.get
 
+template engineForkFor*(kind: static ConsensusFork): EngineFork =
+  when kind >= ConsensusFork.Gloas: EngineFork.Amsterdam
+  elif kind >= ConsensusFork.Fulu: EngineFork.Osaka
+  elif kind >= ConsensusFork.Electra: EngineFork.Prague
+  elif kind >= ConsensusFork.Deneb: EngineFork.Cancun
+  elif kind >= ConsensusFork.Capella: EngineFork.Shanghai
+  else: EngineFork.Paris
+
 template retryUntilCancelled(body: untyped) =
   ## Perform the same request in a loop until it is explicitly cancelled,
   ## usually due to a timeout.
@@ -384,7 +392,8 @@ proc getPayload(
 
           if connection.usesRest:
             connection.restClient.forkchoiceUpdated(
-              params.state, Opt.some payloadAttributes)
+              params.state, Opt.some payloadAttributes,
+              engineFork(GetPayloadResponseType))
           else:
             let rpcClient = await connection.connectedRpcClient()
             rpcClient.forkchoiceUpdated(params.state, Opt.some payloadAttributes)
@@ -634,9 +643,15 @@ proc newPayload(
     parent_beacon_block_root: Hash32,
     executionRequests: seq[seq[byte]],
     retry: bool,
+    fork: Opt[EngineFork],
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     if connection.usesRest:
+      if fork == Opt.some(EngineFork.Prague):
+        return await connection.restClient.newPayload(
+          EngineFork.Prague, payload, parent_beacon_block_root,
+          executionRequests
+        )
       return await connection.restClient.newPayload(
         EngineFork.Osaka, payload, parent_beacon_block_root, executionRequests
       )
@@ -652,6 +667,7 @@ proc newPayload(
     parent_beacon_block_root: Hash32,
     executionRequests: seq[seq[byte]],
     retry: bool,
+    fork: Opt[EngineFork],
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     if connection.usesRest:
@@ -974,9 +990,11 @@ proc newPayload(
     execution_requests: seq[seq[byte]],
     deadline: DeadlineFuture,
     retry: bool,
+    fork: Opt[EngineFork],
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   sendNewPayload(
-    payload, blob_versioned_hashes, parent_root, execution_requests, retry)
+    payload, blob_versioned_hashes, parent_root, execution_requests, retry,
+    fork)
 
 proc newPayload*(
     m: ELManager,
@@ -1002,14 +1020,14 @@ proc newPayload*(
         .message.blob_kzg_commitments.asEngineVersionedHashes(),
       blck.parent_root.to(Hash32),
       envelope.execution_requests.asEngineExecutionRequests(),
-      deadline, retry)
+      deadline, retry, Opt.some(engineForkFor(consensusFork)))
   elif consensusFork >= ConsensusFork.Electra:
     await m.newPayload(
       payload,
       blck.body.blob_kzg_commitments.asEngineVersionedHashes(),
       blck.parent_root.to(Hash32),
       blck.body.execution_requests.asEngineExecutionRequests(),
-      deadline, retry)
+      deadline, retry, Opt.some(engineForkFor(consensusFork)))
   elif consensusFork >= ConsensusFork.Deneb:
     await m.newPayload(
       payload,
@@ -1036,7 +1054,7 @@ proc newPayload*(
     blob_versioned_hashes,
     envelope.parent_beacon_block_root.to(Hash32),
     envelope.execution_requests.asEngineExecutionRequests(),
-    deadline, retry)
+    deadline, retry, Opt.some(EngineFork.Amsterdam))
 
 proc forkchoiceUpdated(
     connection: ELConnection,
@@ -1046,11 +1064,13 @@ proc forkchoiceUpdated(
                        Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4],
     retry: bool,
+    fork: Opt[EngineFork],
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     let responseFut =
       if connection.usesRest:
-        connection.restClient.forkchoiceUpdated(state, payloadAttributes)
+        connection.restClient.forkchoiceUpdated(
+          state, payloadAttributes, fork.get(EngineFork.Osaka))
       else:
         let rpcClient = await connection.connectedRpcClient()
         rpcClient.forkchoiceUpdated(state, payloadAttributes)
@@ -1073,6 +1093,7 @@ proc forkchoiceUpdated*(
                        Opt[PayloadAttributesV4],
     deadline: DeadlineFuture,
     retry: bool,
+    fork: Opt[EngineFork],
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
    async: (raises: [CancelledError]).} =
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
@@ -1093,7 +1114,7 @@ proc forkchoiceUpdated*(
 
   var responseProcessor = ELConsensusViolationDetector.init()
   let requests = m.elConnections.mapIt:
-      let req = it.forkchoiceUpdated(state, payloadAttributes, retry)
+      let req = it.forkchoiceUpdated(state, payloadAttributes, retry, fork)
       engineApiRequest(it, req, "forkchoiceUpdated", startTime)
   var pending = requests
   let earlyDeadline = sleepAsync(multiTimeout)
@@ -1140,11 +1161,13 @@ proc forkchoiceUpdated*(
     payloadAttributes: Opt[PayloadAttributesV1] |
                        Opt[PayloadAttributesV2] |
                        Opt[PayloadAttributesV3] |
-                       Opt[PayloadAttributesV4]
+                       Opt[PayloadAttributesV4],
+    fork: Opt[EngineFork]
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
-    m, state, payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true
+    m, state, payloadAttributes, sleepAsync(FORKCHOICEUPDATED_TIMEOUT), true,
+    fork
   )
 
 const

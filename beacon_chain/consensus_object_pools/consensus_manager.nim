@@ -446,7 +446,8 @@ proc prepareNextSlot*(
               withdrawals, beaconHead.blck.bid.root)
 
         (status, _) = await self.elManager.forkchoiceUpdated(
-          state, Opt.some(attributes), deadline, false
+          state, Opt.some(attributes), deadline, false,
+          Opt.some(engineForkFor(consensusFork))
         )
       debug "Fork-choice updated for proposal", status, executionHead, attributes
 
@@ -501,7 +502,8 @@ proc forkchoiceUpdated*(
           return self.latestFcu.status
 
         let (status, _) = await self.elManager.forkchoiceUpdated(
-          state, Opt.none consensusFork.PayloadAttributes, deadline, retry)
+          state, Opt.none consensusFork.PayloadAttributes, deadline, retry,
+          Opt.some(engineForkFor(consensusFork)))
         self.latestFcu = ForkchoiceUpdate(
           wallSlot: wallSlot, state: state, status: status)
         status
