@@ -31,7 +31,6 @@ from ../beacon_chain/fork_choice/fork_choice_epbs import
   mgetPtcTally, on_execution_payload, payload_data_availability,
   payload_timeliness, should_extend_payload
 from ../beacon_chain/fork_choice/fork_choice_focil import
-  get_payload_inclusion_list_transactions,
   is_payload_inclusion_list_satisfied,
   prune_payload_inclusion_list_satisfaction,
   record_payload_inclusion_list_satisfaction
@@ -1423,7 +1422,6 @@ suite "Attestation pool heze processing" & preset():
       b1.root in backend.payload_inclusion_list_satisfaction
       staleRoot notin backend.payload_inclusion_list_satisfaction
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
   test "Constraints come from the previous slot's committee":
     let
       b1 = addTestBlock(state[], cache, cfg = cfg).hezeData
@@ -1444,9 +1442,8 @@ suite "Attestation pool heze processing" & preset():
         b1.message.slot, committee[1], committeeRoot, [makeTx([byte 0xFF])]),
       is_timely = true, b1.message.slot.start_beacon_time(cfg.timeParams))
 
-    let txs = get_payload_inclusion_list_transactions(ilPool[], dag, b1Ref)
+    let txs = getPayloadInclusionListTransactions(ilPool[], dag, b1Ref)
     check:
-      txs.isSome
       txs.get.len == 1
       txs.get[0] == makeTx([byte 0x01, 0x02])
 
@@ -1464,11 +1461,10 @@ suite "Attestation pool heze processing" & preset():
         prevSlot, committee[0], committeeRoot, [makeTx([byte 0xAA])]),
       is_timely = false, prevSlot.start_beacon_time(cfg.timeParams))
 
-    let txs = get_payload_inclusion_list_transactions(ilPool[], dag, b1Ref)
+    let txs = getPayloadInclusionListTransactions(ilPool[], dag, b1Ref)
     check:
-      txs.isSome
       txs.get.len == 0
 
   test "The genesis block has no inclusion list constraints":
-    check get_payload_inclusion_list_transactions(
+    check getPayloadInclusionListTransactions(
       ilPool[], dag, dag.head).isNone

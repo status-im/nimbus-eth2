@@ -9,8 +9,6 @@
 
 import
   std/tables,
-  ../consensus_object_pools/[blockchain_dag, inclusion_list_pool, spec_cache],
-  ../spec/inclusion_list,
   ./fork_choice_types
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
@@ -24,6 +22,9 @@ func record_payload_inclusion_list_satisfaction*(
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-is_payload_inclusion_list_satisfied
 func is_payload_inclusion_list_satisfied*(
     self: ForkChoiceBackend, root: Eth2Digest): bool =
+  ## Return whether the execution payload for the beacon block with root ``root``
+  ## satisfied the inclusion list constraints, and was locally determined to be
+  ## available.
   if root notin self.proto_array.fullBlockIndices:
     return false
   # Nothing is recorded before Heze, and an optimistically imported payload is
@@ -37,22 +38,3 @@ func prune_payload_inclusion_list_satisfaction*(self: var ForkChoiceBackend) =
       staleRoots.add root
   for root in staleRoots:
     self.payload_inclusion_list_satisfaction.del root
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#new-record_payload_inclusion_list_satisfaction
-proc get_payload_inclusion_list_transactions*(
-    pool: InclusionListPool, dag: ChainDAGRef, blck: BlockRef):
-    Opt[seq[gloas.Transaction]] =
-  ## `Opt.none` if the committee cannot be resolved, as opposed to an empty
-  ## sequence, which every payload trivially satisfies.
-  if blck.slot <= GENESIS_SLOT:
-    return Opt.none(seq[gloas.Transaction])
-  let
-    slot = blck.slot - 1
-    shufflingRef = dag.getShufflingRef(blck, slot.epoch, false).valueOr:
-      return Opt.none(seq[gloas.Transaction])
-
-  var committee: InclusionListCommittee
-  for i, validator_index in get_inclusion_list_committee(shufflingRef, slot):
-    committee[i] = validator_index
-
-  Opt.some pool.getInclusionListTransactions(slot, committee, only_timely = true)

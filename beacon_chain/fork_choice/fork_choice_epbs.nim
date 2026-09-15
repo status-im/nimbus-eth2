@@ -76,11 +76,10 @@ func should_extend_payload*(
   if root notin self.proto_array.fullBlockIndices:
     return false
   # [New in Heze:EIP7805]
-  let slot = self.proto_array.slot(root)
-  if slot.isSome and
-      cfg.consensusForkAtEpoch(slot.unsafeGet.epoch) >= ConsensusFork.Heze and
-      not self.is_payload_inclusion_list_satisfied(root):
-    return false
+  self.proto_array.slot(root).isErrOr:
+    if value.epoch >= cfg.HEZE_FORK_EPOCH and
+        not self.is_payload_inclusion_list_satisfied(root):
+      return false
   self.payload_timeliness(root, timely = true) and
     self.payload_data_availability(root, available = true)
 
@@ -279,7 +278,7 @@ func on_execution_payload*(
 
   # [New in Heze:EIP7805]
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#modified-on_execution_payload_envelope
-  if cfg.consensusForkAtEpoch(current_slot.epoch) >= ConsensusFork.Heze:
+  if current_slot.epoch >= cfg.HEZE_FORK_EPOCH:
     self.backend.record_payload_inclusion_list_satisfaction(
       beacon_block_root, inclusion_list_satisfied)
 
