@@ -30,6 +30,17 @@ AllTests-mainnet
 ## Attestation pool gloas processing [Preset: mainnet]
 ```diff
 + EL-invalid payload only invalidates the FULL variant                                       OK
++ Inclusion list satisfaction is not recorded before Heze                                    OK
+```
+## Attestation pool heze processing [Preset: mainnet]
+```diff
++ A payload missing inclusion list transactions is not extended                              OK
++ An optimistically imported payload is recorded as satisfying                               OK
++ An unrevealed payload does not satisfy the constraints                                     OK
++ Constraints come from the previous slot's committee                                        OK
++ Inclusion list satisfaction for pruned blocks is dropped                                   OK
++ The genesis block has no inclusion list constraints                                        OK
++ Untimely inclusion lists do not constrain the payload                                      OK
 ```
 ## Backfill
 ```diff

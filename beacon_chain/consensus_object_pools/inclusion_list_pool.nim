@@ -11,7 +11,8 @@ import
   std/[sets, tables],
   chronicles,
   ../spec/inclusion_list,
-  ../beacon_clock
+  ../beacon_clock,
+  ./[blockchain_dag, spec_cache]
 
 logScope: topics = "ilpool"
 
@@ -188,3 +189,23 @@ func isInclusionListBitsInclusive*(
     return true
   pool.buckets[idx].store.is_inclusion_list_bits_inclusive(
     committee, inclusion_list_bits, only_timely)
+
+proc getPayloadInclusionListTransactions*(
+    pool: InclusionListPool, dag: ChainDAGRef, blck: BlockRef):
+    Opt[seq[gloas.Transaction]] =
+  ## Transactions the payload of `blck` must include: those of the inclusion
+  ## lists collected for the previous slot, whose committee is resolved against
+  ## `blck`'s branch. `Opt.none` if the committee cannot be resolved, as opposed
+  ## to an empty sequence, which every payload trivially satisfies.
+  if blck.slot <= GENESIS_SLOT:
+    return Opt.none(seq[gloas.Transaction])
+  let
+    slot = blck.slot - 1
+    shufflingRef = dag.getShufflingRef(blck, slot.epoch, false).valueOr:
+      return Opt.none(seq[gloas.Transaction])
+
+  var committee: InclusionListCommittee
+  for i, validator_index in get_inclusion_list_committee(shufflingRef, slot):
+    committee[i] = validator_index
+
+  Opt.some pool.getInclusionListTransactions(slot, committee, only_timely = true)
