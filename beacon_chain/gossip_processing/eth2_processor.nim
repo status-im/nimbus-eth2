@@ -199,6 +199,10 @@ type
 
   ValidationRes* = Result[void, ValidationError]
 
+  PartialColumnRes* = Result[Opt[ref gloas.DataColumnSidecar], ValidationError]
+    ## On success, carries the data column assembled from the accumulated
+    ## cells, if this partial sidecar was the one that completed it.
+
 func toValidationResult*(res: ValidationRes): ValidationResult =
   if res.isOk(): ValidationResult.Accept else: res.error()[0]
 
@@ -494,6 +498,14 @@ proc processDataColumnSidecar*(
 
   self.gloasColumnQuarantine[].put(
     dataColumnSidecar[].beacon_block_root, dataColumnSidecar, verified = true)
+
+  # Cells accumulated for this column are redundant now that it is complete.
+  self.partialColumnQuarantine[].removeEntry(
+    gloas.PartialDataColumnGroupID(
+      slot: dataColumnSidecar[].slot,
+      beacon_block_root: dataColumnSidecar[].beacon_block_root),
+    dataColumnSidecar[].index)
+
   self.blockProcessor.enqueuePayload(dataColumnSidecar[].beacon_block_root)
 
   data_column_sidecars_received.inc()
@@ -506,7 +518,9 @@ proc processPartialDataColumnSidecar*(
     groupId: gloas.PartialDataColumnGroupID,
     columnIndex: ColumnIndex,
     subnet_id: uint64
-): Future[ValidationRes] {.async: (raises: [CancelledError]).} =
+): Future[PartialColumnRes] {.async: (raises: [CancelledError]).} =
+  template noColumn: PartialColumnRes = ok(Opt.none(ref gloas.DataColumnSidecar))
+
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot(self.dag.timeParams)
@@ -531,7 +545,7 @@ proc processPartialDataColumnSidecar*(
   if v.isErr():
     debug "Dropping partial data column", error = v.error()
     partial_data_column_sidecars_dropped.inc(1, [$v.error[0]])
-    return v
+    return err(v.error())
 
   debug "Partial data column validated"
   partial_data_column_sidecars_received.inc()
@@ -539,7 +553,7 @@ proc processPartialDataColumnSidecar*(
   if columnIndex notin self.gloasColumnQuarantine[].custodyMap or
       self.gloasColumnQuarantine[].hasVerifiedSidecar(
         groupId.beacon_block_root, columnIndex):
-    return v
+    return noColumn
 
   template partials(): untyped = self.partialColumnQuarantine[]
   partials.putGroupId(groupId)
@@ -549,15 +563,20 @@ proc processPartialDataColumnSidecar*(
 
   let dataColumnSidecar =
     partials.assembleDataColumnSidecar(groupId, columnIndex).valueOr:
-      return v
+      return noColumn
 
+  let sidecar = newClone(dataColumnSidecar)
   self.gloasColumnQuarantine[].put(
-    groupId.beacon_block_root, newClone(dataColumnSidecar), verified = true)
+    groupId.beacon_block_root, sidecar, verified = true)
+
+  # The accumulated cells have served their purpose.
+  partials.removeEntry(groupId, columnIndex)
+
   self.blockProcessor.enqueuePayload(groupId.beacon_block_root)
 
   debug "Data column assembled from partial data columns"
   partial_data_column_sidecars_assembled.inc()
-  v
+  ok(Opt.some(sidecar))
 
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # When another client's already running, this is very likely to detect

@@ -1613,6 +1613,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.dag.finalizedHead.slot.epoch(), backfillSlot)
     node.processor.gloasColumnQuarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch(), backfillSlot)
+    node.processor.partialColumnQuarantine[].pruneAfterFinalization(
+      node.dag.finalizedHead.slot.epoch())
     node.processor.quarantine[].pruneAfterFinalization(
       node.dag.finalizedHead.slot.epoch())
 
@@ -2040,11 +2042,10 @@ proc publishPartialColumn(
     node: BeaconNode, topic: string,
     groupId: gloas.PartialDataColumnGroupID, columnIndex: ColumnIndex
 ) {.async: (raises: []).} =
+  # The caller has already established that this column is custodied and still
+  # incomplete.
   template partials: untyped = node.processor.partialColumnQuarantine[]
   let entry = partials.getEntry(groupId, columnIndex).valueOr:
-    if node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
-        groupId.beacon_block_root, columnIndex):
-      return
     let numBlobs = node.partialColumnBlobCount(groupId).valueOr:
       return
     partials.getOrCreateEntry(groupId, columnIndex, numBlobs)
@@ -2065,29 +2066,31 @@ proc processPartialColumnRPC(
       return
     columnIndex = ColumnIndex(subnet_id)
 
+  # Nothing to accumulate or advertise for a column which is not custodied, or
+  # which is already complete.
+  if columnIndex notin node.processor.gloasColumnQuarantine[].custodyMap or
+      node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
+        groupId.beacon_block_root, columnIndex):
+    return
+
   if rpc.partialMessage.isSome():
     let
       sidecar = decodePartialDataColumnSidecar(
           rpc.partialMessage.get()).valueOr:
         penalize()
         return
-      hadColumn = node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
-        groupId.beacon_block_root, columnIndex)
-      res = await node.processor.processPartialDataColumnSidecar(
-        MsgSource.gossip, newClone(sidecar), groupId, columnIndex, subnet_id)
-    if res.isErr():
-      if res.error[0] == ValidationResult.Reject:
-        penalize()
-      return
+      assembled = (await node.processor.processPartialDataColumnSidecar(
+          MsgSource.gossip, newClone(sidecar), groupId, columnIndex,
+          subnet_id)).valueOr:
+        if error[0] == ValidationResult.Reject:
+          penalize()
+        return
 
     # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#forwarding
-    if not hadColumn and node.processor.gloasColumnQuarantine[].hasVerifiedSidecar(
-        groupId.beacon_block_root, columnIndex):
-      let dataColumnSidecar = node.processor.partialColumnQuarantine[]
-          .assembleDataColumnSidecar(groupId, columnIndex)
-      if dataColumnSidecar.isSome():
-        discard await node.network.broadcastDataColumnSidecar(
-          subnet_id, newClone(dataColumnSidecar.get()))
+    if assembled.isSome():
+      discard await node.network.broadcastDataColumnSidecar(
+        subnet_id, assembled.get())
+      return
 
   await node.publishPartialColumn(topic, groupId, columnIndex)
 

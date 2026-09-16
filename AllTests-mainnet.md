@@ -881,6 +881,8 @@ AllTests-mainnet
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
++ pruneAfterFinalization drops entries without a group id                                    OK
++ pruneAfterFinalization drops finalized group ids and entries                               OK
 + pruneForBlock drops the group id and its entries                                           OK
 + pruneForBlock leaves other group ids alone                                                 OK
 ```

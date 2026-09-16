@@ -887,3 +887,34 @@ suite "Partial Column Quarantine":
       not quarantine.hasEntry(a, ColumnIndex(0))
       quarantine.hasGroupId(b)
       quarantine.hasEntry(b, ColumnIndex(0))
+
+  # --- pruneAfterFinalization ---
+
+  test "pruneAfterFinalization drops finalized group ids and entries":
+    var quarantine = PartialColumnQuarantine.init()
+    let
+      finalized = gid(int(SLOTS_PER_EPOCH) - 1, 1)
+      unfinalized = gid(int(SLOTS_PER_EPOCH), 2)
+
+    for id in [finalized, unfinalized]:
+      quarantine.putGroupId(id)
+      discard quarantine.getOrCreateEntry(id, ColumnIndex(0), numBlobs = 2)
+
+    quarantine.pruneAfterFinalization(Epoch(1))
+
+    check:
+      not quarantine.hasGroupId(finalized)
+      not quarantine.hasEntry(finalized, ColumnIndex(0))
+      quarantine.hasGroupId(unfinalized)
+      quarantine.hasEntry(unfinalized, ColumnIndex(0))
+
+  test "pruneAfterFinalization drops entries without a group id":
+    var quarantine = PartialColumnQuarantine.init()
+    let id = gid(1, 1)
+
+    # Entries outlive their group id once the smaller group id cache rotates.
+    discard quarantine.getOrCreateEntry(id, ColumnIndex(0), numBlobs = 2)
+
+    quarantine.pruneAfterFinalization(Epoch(1))
+
+    check not quarantine.hasEntry(id, ColumnIndex(0))
