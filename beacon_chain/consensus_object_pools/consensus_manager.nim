@@ -488,7 +488,7 @@ proc forkchoiceUpdated*(
   ## Results are cached for duplicate requests during the same wall slot
 
   withConsensusFork(self[].dag.cfg.consensusForkAtEpoch(headSlot.epoch)):
-    when consensusFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Deneb:
       if headBlockHash.isZero:
         # Merge not yet activated
         PayloadExecutionStatus.valid
