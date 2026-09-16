@@ -201,7 +201,8 @@ proc runLightClient*(
               ZERO_HASH
 
           withConsensusFork(consensusFork):
-            when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+            when lcDataForkAtConsensusFork(consensusFork) == lcDataFork and
+                consensusFork >= ConsensusFork.Deneb:
               debug "Sending forkchoiceUpdated",
                 finalizedBlockHash = finalizedBlockHash
 

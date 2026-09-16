@@ -45,12 +45,6 @@ func toSsz*(attributes: PayloadAttributesV4): PayloadAttributesAmsterdam =
     target_gas_limit: attributes.targetGasLimit.uint64)
 
 func toSszOptional*(
-    attributes: Opt[PayloadAttributesV1] | Opt[PayloadAttributesV2]
-): Optional[PayloadAttributesPrague] =
-  doAssert attributes.isNone
-  default(Optional[PayloadAttributesPrague])
-
-func toSszOptional*(
     attributes: Opt[PayloadAttributesV3]): Optional[PayloadAttributesPrague] =
   if attributes.isSome:
     Optional[PayloadAttributesPrague].init(@[attributes.get.toSsz])

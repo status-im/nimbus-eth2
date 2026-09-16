@@ -57,12 +57,12 @@ proc authHeaders(c: EngineRestClient): seq[(string, string)] =
   if c.jwtSecret.isSome:
     res.add ("Authorization",
       "Bearer " & getSignedIatToken(c.jwtSecret.get, getTime().toUnix()))
-  return res
+  res
 
 proc headers(c: EngineRestClient, fork: EngineFork): seq[(string, string)] =
   var res = @[(EngineApiVersionHeader, $fork)]
   res.add c.authHeaders
-  return res
+  res
 
 proc encodeBytes*[T: ForkchoiceUpdatePrague | ForkchoiceUpdateAmsterdam |
     ExecutionPayloadEnvelopeParis | ExecutionPayloadEnvelopeShanghai |
@@ -130,9 +130,7 @@ template engineFork*(T: type GetPayloadV6Response): EngineFork =
 proc forkchoiceUpdated*(
     c: EngineRestClient,
     state: ForkchoiceStateV1,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
+    payloadAttributes: Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4],
     fork: EngineFork,
 ): Future[ForkchoiceUpdatedResponseV1] {.async: (raises: [CatchableError]).} =
