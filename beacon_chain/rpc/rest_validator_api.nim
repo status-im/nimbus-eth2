@@ -430,7 +430,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             when consensusFork >= ConsensusFork.Gloas:
               for slot in qepoch.slots():
                 var seen: HashSet[ValidatorIndex]
-                for validator_index in get_ptc(forkyState.data, slot):
+                for validator_index in get_ptc(
+                    forkyState.data, shufflingRef, slot):
                   if validator_index notin indexList or
                       seen.containsOrIncl(validator_index):
                     continue
