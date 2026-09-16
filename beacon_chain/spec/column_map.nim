@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  stew/bitops2,
+  stew/[bitops2, endians2],
   ../spec/datatypes/fulu
 
 from std/sequtils import mapIt, toSeq
@@ -108,9 +108,8 @@ func len*(a: ColumnMap): int =
 func toBitvectorBytes*(a: ColumnMap): array[16, byte] =
   ## SSZ `Bitvector[NUMBER_OF_COLUMNS]` layout.
   var res: array[16, byte]
-  for i in 0 ..< 8:
-    res[i] = byte((a.data[0] shr (8 * i)) and 0xFF'u64)
-    res[8 + i] = byte((a.data[1] shr (8 * i)) and 0xFF'u64)
+  res[0 ..< 8] = a.data[0].toBytesLE()
+  res[8 ..< 16] = a.data[1].toBytesLE()
   res
 
 func `$`*(a: ColumnMap): string =

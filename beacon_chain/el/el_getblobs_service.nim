@@ -318,6 +318,7 @@ proc attemptGetBlobs*(
     batch = newSeqOfCap[ref gloas.DataColumnSidecar](custody.len)
     elComplete = 0
     partialCount = 0
+    groupIdStored = false
   for i, columnIndex in custody:
     template cells(): untyped = custodyCells[i]
     if cells.partial_column.len == kzg_commitments.len:
@@ -329,7 +330,9 @@ proc attemptGetBlobs*(
         beacon_block_root: blck.root)
       inc elComplete
     elif self.partialColumns and cells.partial_column.len > 0:
-      self.partialColumnQuarantine[].putGroupId(groupId)
+      if not groupIdStored:
+        self.partialColumnQuarantine[].putGroupId(groupId)
+        groupIdStored = true
       discard self.partialColumnQuarantine[].getOrCreateEntry(
         groupId, columnIndex, kzg_commitments.len)
       self.partialColumnQuarantine[].addCells(

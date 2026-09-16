@@ -373,7 +373,10 @@ AllTests-mainnet
 ```
 ## EL Manager - getBlobsV4
 ```diff
++ EL error yields none                                                                       OK
++ block without blobs                                                                        OK
 + custody columns are sent as indices_bitarray                                               OK
++ versioned hashes derived from kzg commitments                                              OK
 ```
 ## EL Manager - getPayload
 ```diff

@@ -217,7 +217,11 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
     blobVersionedHashes: seq[Hash32], indicesBitarray: FixedBytes[16]
   ) -> GetBlobsV4Response:
     inc state.getBlobsV4CallCount
+    state.lastBlobVersionedHashes = blobVersionedHashes
     state.lastIndicesBitarray = indicesBitarray
+    if state.shouldFailGetBlobs:
+      raise
+        (ref RpcResponseError)(code: -32603, msg: "Internal error: getBlobsV4 failed")
     newSeq[OptBlobCellsAndProofsV1](blobVersionedHashes.len)
 
 proc newMockRpcServer(
@@ -678,6 +682,45 @@ suite "EL Manager - getBlobsV4":
 
   teardown:
     setup.close()
+
+  test "block without blobs":
+    let
+      manager = createELManager(@[setup.url])
+      resp = waitFor manager.getBlobsV4(
+        default(gloas.SignedBeaconBlock), supernodeMap)
+
+    check:
+      resp.isSome()
+      resp.get().len == 0
+      setup.state.getBlobsV4CallCount == 1
+
+  test "versioned hashes derived from kzg commitments":
+    var blck: gloas.SignedBeaconBlock
+    template commitments(): untyped =
+      blck.message.body.signed_execution_payload_bid.message.blob_kzg_commitments
+    for _ in 0 ..< 2:
+      commitments.add(default(typeof(commitments[0])))
+
+    let
+      manager = createELManager(@[setup.url])
+      resp = waitFor manager.getBlobsV4(blck, supernodeMap)
+
+    check:
+      resp.isSome()
+      resp.get().len == 2
+      setup.state.lastBlobVersionedHashes.len == 2
+      setup.state.lastBlobVersionedHashes[0].data[0] == 0x01'u8
+
+  test "EL error yields none":
+    setup.state.shouldFailGetBlobs = true
+    let
+      manager = createELManager(@[setup.url])
+      resp = waitFor manager.getBlobsV4(
+        default(gloas.SignedBeaconBlock), supernodeMap)
+
+    check:
+      resp.isNone()
+      setup.state.getBlobsV4CallCount == 1
 
   test "custody columns are sent as indices_bitarray":
     let manager = createELManager(@[setup.url])
