@@ -273,13 +273,11 @@ func on_execution_payload*(
     return err ForkChoiceError(kind: fcFinalizedNodeUnknown,
                                 blockRoot: beacon_block_root)
 
-  # Add execution payload envelope to the store
-  ? self.backend.proto_array.onPayloadVerified(beacon_block_root)
-
   # [New in Heze:EIP7805]
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/fork-choice.md#modified-on_execution_payload_envelope
   if current_slot.epoch >= cfg.HEZE_FORK_EPOCH:
     self.backend.record_payload_inclusion_list_satisfaction(
       beacon_block_root, inclusion_list_satisfied)
 
-  ok()
+  # Add execution payload envelope to the store
+  self.backend.proto_array.onPayloadVerified(beacon_block_root)
