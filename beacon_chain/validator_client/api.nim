@@ -26,7 +26,6 @@ const
   ResponseECNotInSyncError* = "Execution client not in sync"
   ResponseNotImplementedError =
     "Received endpoint not implemented error response"
-  ResponseNotAcceptableError = "Accept type is not supported"
 
 type
   ApiResponse*[T] = Result[T, string]
@@ -1853,7 +1852,7 @@ proc producePayloadAttestationData*(
         of 406:
           handle406()
           ApiResponse[Opt[PayloadAttestationData]].err(
-            ResponseNotAcceptableError)
+            ResponseContentTypeError)
         of 500:
           handle500()
           ApiResponse[Opt[PayloadAttestationData]].err(
