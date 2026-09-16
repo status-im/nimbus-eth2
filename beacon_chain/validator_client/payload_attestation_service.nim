@@ -34,7 +34,7 @@ proc servePayloadAttestations(
   logScope:
     slot = slot
 
-  await vc.waitForPayload(slot, vc.timeParams.payloadAttestationSlotOffset)
+  await vc.waitForPayload(slot, vc.timeParams.payloadSlotOffset)
   
   let deadline = slot.start_beacon_time(vc.timeParams) +
     vc.timeParams.payloadAttestationSlotOffset
