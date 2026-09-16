@@ -45,12 +45,6 @@ func toSsz*(attributes: PayloadAttributesV4): PayloadAttributesAmsterdam =
     target_gas_limit: attributes.targetGasLimit.uint64)
 
 func toSszOptional*(
-    attributes: Opt[PayloadAttributesV1] | Opt[PayloadAttributesV2]
-): Optional[PayloadAttributesPrague] =
-  doAssert attributes.isNone
-  default(Optional[PayloadAttributesPrague])
-
-func toSszOptional*(
     attributes: Opt[PayloadAttributesV3]): Optional[PayloadAttributesPrague] =
   if attributes.isSome:
     Optional[PayloadAttributesPrague].init(@[attributes.get.toSsz])
@@ -196,17 +190,6 @@ func toWeb3*(
     if not entry.available:
       return err("Missing blob in all-or-nothing response")
     res.add(? entry.contents.toWeb3)
-  ok res
-
-func toWeb3*(
-    response: BlobsV2Response, T: type GetBlobsV3Response
-): Result[T, string] =
-  var res: T
-  for entry in response.entries:
-    if entry.available:
-      res.add Opt.some(? entry.contents.toWeb3)
-    else:
-      res.add Opt.none(engine_api_types.BlobAndProofV2)
   ok res
 
 func toWeb3(cellsAndProofs: BlobCellsAndProofs): BlobCellsAndProofsV1 =

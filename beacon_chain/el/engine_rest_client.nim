@@ -57,12 +57,12 @@ proc authHeaders(c: EngineRestClient): seq[(string, string)] =
   if c.jwtSecret.isSome:
     res.add ("Authorization",
       "Bearer " & getSignedIatToken(c.jwtSecret.get, getTime().toUnix()))
-  return res
+  res
 
 proc headers(c: EngineRestClient, fork: EngineFork): seq[(string, string)] =
   var res = @[(EngineApiVersionHeader, $fork)]
   res.add c.authHeaders
-  return res
+  res
 
 proc encodeBytes*[T: ForkchoiceUpdatePrague | ForkchoiceUpdateAmsterdam |
     ExecutionPayloadEnvelopeParis | ExecutionPayloadEnvelopeShanghai |
@@ -96,8 +96,6 @@ proc getPayloadById(payloadId: string): RestPlainResponse {.
 
 proc postBlobsV2(body: BlobsRequest): RestPlainResponse {.
   rest, endpoint: "/engine/v1/blobs/v2", meth: MethodPost.}
-proc postBlobsV3(body: BlobsRequest): RestPlainResponse {.
-  rest, endpoint: "/engine/v1/blobs/v3", meth: MethodPost.}
 proc postBlobsV4(body: BlobsV4Request): RestPlainResponse {.
   rest, endpoint: "/engine/v1/blobs/v4", meth: MethodPost.}
 
@@ -132,9 +130,7 @@ template engineFork*(T: type GetPayloadV6Response): EngineFork =
 proc forkchoiceUpdated*(
     c: EngineRestClient,
     state: ForkchoiceStateV1,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
+    payloadAttributes: Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4],
     fork: EngineFork,
 ): Future[ForkchoiceUpdatedResponseV1] {.async: (raises: [CatchableError]).} =
@@ -222,19 +218,6 @@ proc engine_getBlobsV2*(
     extraHeaders = c.authHeaders)
 
   decodeSsz(BlobsV2Response, response).toWeb3(GetBlobsV2Response).valueOr:
-    raiseEngineRestError(error)
-
-proc engine_getBlobsV3*(
-    c: EngineRestClient,
-    versionedHashes: seq[VersionedHash],
-): Future[GetBlobsV3Response] {.async: (raises: [CatchableError]).} =
-  let response = await c.connected.postBlobsV3(
-    BlobsRequest(versioned_hashes: versionedHashes.toSsz),
-    restContentType = $OctetStreamMediaType,
-    restAcceptType = $OctetStreamMediaType,
-    extraHeaders = c.authHeaders)
-
-  decodeSsz(BlobsV2Response, response).toWeb3(GetBlobsV3Response).valueOr:
     raiseEngineRestError(error)
 
 proc engine_getBlobsV4*(

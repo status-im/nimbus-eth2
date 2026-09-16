@@ -499,36 +499,6 @@ func init*(
   )
 
 func init(
-    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV1
-): T =
-  PayloadParams(
-    state: state,
-    attributes: PayloadAttributesV4(
-      timestamp: attributes.timestamp,
-      prevRandao: attributes.prevRandao,
-      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
-      withdrawals: @[],
-      parentBeaconBlockRoot: static(default(Hash32)),
-      slotNumber: FAR_FUTURE_SLOT.Quantity
-    ),
-  )
-
-func init(
-    T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV2
-): T =
-  PayloadParams(
-    state: state,
-    attributes: PayloadAttributesV4(
-      timestamp: attributes.timestamp,
-      prevRandao: attributes.prevRandao,
-      suggestedFeeRecipient: attributes.suggestedFeeRecipient,
-      withdrawals: attributes.withdrawals,
-      parentBeaconBlockRoot: static(default(Hash32)),
-      slotNumber: FAR_FUTURE_SLOT.Quantity
-    ),
-  )
-
-func init(
     T: type PayloadParams, state: ForkchoiceStateV1, attributes: PayloadAttributesV3
 ): T =
   PayloadParams(
@@ -639,7 +609,7 @@ proc newPayload(
     parent_beacon_block_root: Hash32,
     executionRequests: seq[seq[byte]],
     retry: bool,
-    fork: Opt[EngineFork],
+    fork = Opt.none(EngineFork),
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     if connection.usesRest:
@@ -663,7 +633,7 @@ proc newPayload(
     parent_beacon_block_root: Hash32,
     executionRequests: seq[seq[byte]],
     retry: bool,
-    fork: Opt[EngineFork],
+    fork = Opt.none(EngineFork),
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     if connection.usesRest:
@@ -689,8 +659,6 @@ proc getBlobsV3(
     connection: ELConnection,
     versioned_hashes: seq[engine_api.VersionedHash]
 ): Future[GetBlobsV3Response] {.async: (raises: [CatchableError]).} =
-  if connection.usesRest:
-    return await connection.restClient.engine_getBlobsV3(versioned_hashes)
   let rpcClient = await connection.connectedRpcClient()
   await rpcClient.engine_getBlobsV3(versioned_hashes)
 
@@ -996,7 +964,7 @@ proc newPayload(
     execution_requests: seq[seq[byte]],
     deadline: DeadlineFuture,
     retry: bool,
-    fork: Opt[EngineFork],
+    fork = Opt.none(EngineFork),
 ): Future[Opt[PayloadExecutionStatus]] {.async: (raises: [CancelledError]).} =
   sendNewPayload(
     payload, blob_versioned_hashes, parent_root, execution_requests, retry,
@@ -1065,12 +1033,10 @@ proc newPayload*(
 proc forkchoiceUpdated(
     connection: ELConnection,
     state: ForkchoiceStateV1,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
+    payloadAttributes: Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4],
     retry: bool,
-    fork: Opt[EngineFork],
+    fork = Opt.none(EngineFork),
 ): Future[PayloadStatusV1] {.async: (raises: [CatchableError]).} =
   retryUntilCancelled:
     let responseFut =
@@ -1093,13 +1059,11 @@ proc forkchoiceUpdated(
 proc forkchoiceUpdated*(
     m: ELManager,
     state: ForkchoiceStateV1,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
+    payloadAttributes: Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4],
     deadline: DeadlineFuture,
     retry: bool,
-    fork: Opt[EngineFork],
+    fork = Opt.none(EngineFork),
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
    async: (raises: [CancelledError]).} =
   # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
@@ -1164,11 +1128,9 @@ proc forkchoiceUpdated*(
 proc forkchoiceUpdated*(
     m: ELManager,
     state: ForkchoiceStateV1,
-    payloadAttributes: Opt[PayloadAttributesV1] |
-                       Opt[PayloadAttributesV2] |
-                       Opt[PayloadAttributesV3] |
+    payloadAttributes: Opt[PayloadAttributesV3] |
                        Opt[PayloadAttributesV4],
-    fork: Opt[EngineFork]
+    fork = Opt.none(EngineFork)
 ): Future[(PayloadExecutionStatus, Opt[Hash32])] {.
     async: (raises: [CancelledError], raw: true).} =
   forkchoiceUpdated(
@@ -1254,9 +1216,9 @@ func new*(T: type ELConnection, engineUrl: EngineApiUrl): T =
   ELConnection(
     engineUrl: engineUrl,
     rest:
-      if engineUrl.sszUrl.isSome:
+      if engineUrl.restUrl.isSome:
         Opt.some EngineRestClient.new(
-          engineUrl.sszUrl.get, engineUrl.jwtSecret)
+          engineUrl.restUrl.get, engineUrl.jwtSecret)
       else:
         Opt.none(EngineRestClient))
 
