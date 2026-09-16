@@ -16,6 +16,8 @@ import
 # No `uint64` support in Sqlite
 template isSupportedBySQLite*(slot: Slot): bool =
   slot <= int64.high.Slot
+template isSupportedBySQLite*(epoch: Epoch): bool =
+  epoch <= int64.high.Epoch
 template isSupportedBySQLite*(period: SyncCommitteePeriod): bool =
   period <= int64.high.SyncCommitteePeriod
 

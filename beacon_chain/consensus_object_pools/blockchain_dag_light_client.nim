@@ -71,6 +71,16 @@ proc existingParent(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
     doAssert strictVerification notin dag.updateFlags
   parent
 
+proc existingParentOrSlot(
+    dag: ChainDAGRef, bsi: BlockSlotID): Opt[BlockSlotID] =
+  ## Wrapper around `parentOrSlot` for parents expected to exist.
+  let parent = dag.parentOrSlot(bsi)
+  if parent.isNone:
+    error "Parent bsi failed to load unexpectedly",
+      bsi, tail = dag.tail.slot, backfill = shortLog(dag.backfill)
+    doAssert strictVerification notin dag.updateFlags
+  parent
+
 proc getExistingForkedBlock(
     dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
   ## Wrapper around `getForkedBlock` for blocks expected to exist.
@@ -442,10 +452,19 @@ proc createLightClientUpdate(
     latest_signature_slot = latest_signature_slot)
 
 proc createLightClientBootstrap(
-    dag: ChainDAGRef, bid: BlockId): Opt[void] =
+    dag: ChainDAGRef, bsi: BlockSlotId): Opt[void] =
+  let lowEpoch = bsi.bid.slot.nextEpochBoundarySlot.epoch
+  var epoch = bsi.slot.epoch
+  while epoch > lowEpoch:
+    let consensusFork = dag.cfg.consensusForkAtEpoch(epoch)
+    # withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
+    #   when lcDataFork > LightClientDataFork.None:
+    #     let epochData
+
+
   let
-    bdata = ? dag.getExistingForkedBlock(bid)
-    period = bid.slot.sync_committee_period
+    bdata = ? dag.getExistingForkedBlock(bsi.bid)
+    period = bsi.bid.slot.sync_committee_period
   if not dag.lcDataStore.db.hasSyncCommittee(period):
     let didPutSyncCommittee = withState(dag.headState):
       when consensusFork >= ConsensusFork.Altair:
@@ -469,7 +488,7 @@ proc createLightClientBootstrap(
       dag.lcDataStore.db.putHeader(
         forkyBlck.toLightClientHeader(lcDataFork))
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
-        bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
+        bsi.bid.slot, dag.getLightClientData(bsi.bid).current_sync_committee_branch)
     else: raiseAssert "Unreachable"
   ok()
 
@@ -893,8 +912,9 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
 
   # Import initial `LightClientBootstrap`
   if dag.finalizedHead.slot >= dag.lcDataStore.cache.tailSlot:
-    if dag.createLightClientBootstrap(dag.finalizedHead.blck.bid).isErr:
-      dag.handleUnexpectedLightClientError(dag.finalizedHead.blck.bid.slot)
+    let bsi = dag.finalizedHead.toBlockSlotId().expect("Finalized != nil")
+    if dag.createLightClientBootstrap(bsi).isErr:
+      dag.handleUnexpectedLightClientError(bsi.bid.slot)
       res.err()
 
   let lightClientEndTick = Moment.now()
@@ -1022,16 +1042,14 @@ proc processFinalizationForLightClient*(
     lowSlot = max(firstNewSlot, dag.lcDataStore.cache.tailSlot)
   var boundarySlot = finalizedSlot
   while boundarySlot >= lowSlot:
-    let
-      bsi = dag.getExistingBlockIdAtSlot(boundarySlot).valueOr:
-        dag.handleUnexpectedLightClientError(boundarySlot)
+    let bsi = dag.getExistingBlockIdAtSlot(boundarySlot).valueOr:
+      dag.handleUnexpectedLightClientError(boundarySlot)
+      break
+    if bsi.bid.slot >= lowSlot:
+      if dag.createLightClientBootstrap(bsi).isErr:
+        dag.handleUnexpectedLightClientError(bsi.bid.slot)
         break
-      bid = bsi.bid
-    if bid.slot >= lowSlot:
-      if dag.createLightClientBootstrap(bid).isErr:
-        dag.handleUnexpectedLightClientError(bid.slot)
-        break
-    boundarySlot = bid.slot.nextEpochBoundarySlot
+    boundarySlot = bsi.bid.slot.nextEpochBoundarySlot
     if boundarySlot < SLOTS_PER_EPOCH:
       break
     boundarySlot -= SLOTS_PER_EPOCH

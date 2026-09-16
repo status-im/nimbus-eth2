@@ -623,7 +623,12 @@ proc new*(T: type BeaconChainDB,
       altairSyncCommittees: "lc_altair_sync_committees",
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
-      sealedPeriods: "lc_sealed_periods")).expectDb()
+      sealedPeriods: "lc_sealed_periods",
+      backfillData:
+        if lightClientDataImportBackfill:
+          "lc_backfill_data"
+        else:
+          "")).expectDb()
   static: doAssert LightClientDataFork.high == LightClientDataFork.Gloas
 
   let blobs = kvStore db.openKvStore("deneb_blobs").expectDb()

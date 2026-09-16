@@ -707,7 +707,7 @@ type
     epoch*: Epoch
 
     parent_block_header*: BeaconBlockHeader
-    block_data*: array[SLOTS_PER_EPOCH, LightClientBlockData]
+    block_data*: array[SLOTS_PER_EPOCH, altair.LightClientBlockData]
 
     bootstrap_data*: LightClientBootstrapData
 
