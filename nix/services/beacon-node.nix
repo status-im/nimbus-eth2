@@ -44,7 +44,7 @@ in {
             freeformType = toml.type;
             options = {
               data-dir = mkOption {
-                type = types.path;
+                type = with types; either path str;
                 default = "%S/nimbus-beacon-node";
                 description = "Directory for Nimbus Eth2 blockchain data.";
               };
@@ -222,6 +222,7 @@ in {
             "--jwt-secret=%d/jwt-secret";
         in ''
           ${cfg.package}/bin/nimbus_beacon_node \
+            --data-dir=${cfg.settings.data-dir} \
             --config-file=${configFile} ${jwtFlag} \
             ${escapeShellArgs cfg.extraArgs}
         '';
