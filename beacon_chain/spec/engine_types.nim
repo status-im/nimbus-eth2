@@ -16,6 +16,7 @@ from ./datatypes/fulu import BYTES_PER_CELL
 export eth2_ssz_serialization
 
 const
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#max_-constants
   MAX_EXECUTION_REQUESTS_PER_PAYLOAD* = 1 shl 8
   MAX_BYTES_PER_EXECUTION_REQUEST* = 1 shl 30
   MAX_BLOBS_REQUEST* = 128
@@ -30,10 +31,13 @@ type
     Osaka = "osaka"
     Amsterdam = "amsterdam"
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#engine-api-v2----ssz-container-sketches-amsterdam
   Optional*[T] = List[T, 1]
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#engine-api-v2----ssz-container-sketches-amsterdam
   EngineString* = List[byte, Limit MAX_ERROR_BYTES]
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#primitive-aliases
   ExecutionRequestsList* = List[
     ByteList[Limit MAX_BYTES_PER_EXECUTION_REQUEST],
     Limit MAX_EXECUTION_REQUESTS_PER_PAYLOAD]
@@ -44,17 +48,20 @@ type
 
   CellIndices* = BitArray[CELLS_PER_EXT_BLOB]
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#forkchoicestate
   ForkchoiceState* = object
     head_block_hash*: Eth2Digest
     safe_block_hash*: Eth2Digest
     finalized_block_hash*: Eth2Digest
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#payloadstatus
   PayloadStatusCode* {.pure.} = enum
     VALID = 0
     INVALID = 1
     SYNCING = 2
     ACCEPTED = 3
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#payloadstatus
   PayloadStatus* = object
     status*: uint8
     latest_valid_hash*: Optional[Eth2Digest]
@@ -64,6 +71,7 @@ type
     payload_status*: PayloadStatus
     payload_id*: Optional[array[8, byte]]
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#payloadattributes-per-fork
   PayloadAttributesPrague* = object
     timestamp*: uint64
     prev_randao*: Eth2Digest
@@ -89,6 +97,7 @@ type
     payload_attributes*: Optional[PayloadAttributesAmsterdam]
     custody_columns*: Optional[CellIndices]
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#executionpayloadenvelope-per-fork
   ExecutionPayloadEnvelopeParis* = object
     payload*: bellatrix.ExecutionPayload
 
@@ -109,6 +118,7 @@ type
     parent_beacon_block_root*: Eth2Digest
     execution_requests*: ExecutionRequestsList
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#blobsbundle-per-revision
   BlobsBundleV1* = deneb.BlobsBundle
 
   BlobsBundleV2* = object
@@ -117,6 +127,7 @@ type
       Limit (MAX_BLOB_COMMITMENTS_PER_BLOCK * CELLS_PER_EXT_BLOB.uint64)]
     blobs*: deneb.Blobs
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#builtpayload-per-fork
   BuiltPayloadPrague* = object
     payload*: deneb.ExecutionPayload
     block_value*: UInt256
@@ -145,6 +156,7 @@ type
     versioned_hashes*: VersionedHashes
     indices_bitarray*: CellIndices
 
+  # https://github.com/ethereum/execution-apis/blob/22e87b3c689f4fd1696baf40328d3c94c02275dd/src/engine/refactor-ssz.md#blobandproof-per-revision
   BlobAndProofV2* = object
     blob*: deneb.Blob
     proofs*: List[deneb.KzgProof, Limit CELLS_PER_EXT_BLOB]

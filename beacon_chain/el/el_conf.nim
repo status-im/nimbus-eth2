@@ -27,13 +27,13 @@ type
   EngineApiUrl* = object
     url: string
     jwtSecret: Opt[JwtSharedKey]
-    sszUrl: Opt[string]
+    restUrl: Opt[string]
 
   EngineApiUrlConfigValue* = object
     url*: string # TODO: Use the URI type here
     jwtSecret* {.serializedFieldName: "jwt-secret".}: Option[string]
     jwtSecretFile* {.serializedFieldName: "jwt-secret-file".}: Option[InputFile]
-    sszPort* {.serializedFieldName: "ssz-port".}: Option[Port]
+    restPort* {.serializedFieldName: "rest-port".}: Option[Port]
 
 const
   # https://github.com/ethereum/execution-apis/pull/302
@@ -45,8 +45,8 @@ chronicles.formatIt EngineApiUrl:
 proc init*(T: type EngineApiUrl,
            url: string,
            jwtSecret = Opt.none JwtSharedKey,
-           sszUrl = Opt.none string): T =
-  T(url: url, jwtSecret: jwtSecret, sszUrl: sszUrl)
+           restUrl = Opt.none string): T =
+  T(url: url, jwtSecret: jwtSecret, restUrl: restUrl)
 
 func url*(engineUrl: EngineApiUrl): string =
   engineUrl.url
@@ -54,8 +54,8 @@ func url*(engineUrl: EngineApiUrl): string =
 func jwtSecret*(engineUrl: EngineApiUrl): Opt[JwtSharedKey] =
   engineUrl.jwtSecret
 
-func sszUrl*(engineUrl: EngineApiUrl): Opt[string] =
-  engineUrl.sszUrl
+func restUrl*(engineUrl: EngineApiUrl): Opt[string] =
+  engineUrl.restUrl
 
 proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
                  {.raises: [ValueError].} =
@@ -63,7 +63,7 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
     uri = parseUri(input)
     jwtSecret: Option[string]
     jwtSecretFile: Option[InputFile]
-    sszPort: Option[Port]
+    restPort: Option[Port]
 
   if uri.anchor != "":
     for key, value in decodeQuery(uri.anchor):
@@ -72,8 +72,8 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
         jwtSecret = some value
       of "jwtSecretFile", "jwt-secret-file":
         jwtSecretFile = some InputFile.parseCmdArg(value)
-      of "sszPort", "ssz-port":
-        sszPort = some Port.parseCmdArg(value)
+      of "restPort", "rest-port":
+        restPort = some Port.parseCmdArg(value)
       else:
         raise newException(ValueError, "'" & key & "' is not a recognized Engine URL property")
     uri.anchor = ""
@@ -82,7 +82,7 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
     url: $uri,
     jwtSecret: jwtSecret,
     jwtSecretFile: jwtSecretFile,
-    sszPort: sszPort)
+    restPort: restPort)
 
 proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
                {.raises: [SerializationError, IOError].} =
@@ -132,24 +132,24 @@ proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
   var url = confValue.url
   fixupWeb3Urls(url)
 
-  let sszUrl =
-    if confValue.sszPort.isSome:
-      var sszUri = parseUri(url)
-      if sszUri.path notin ["", "/"] or sszUri.query != "":
-        return err "`ssz-port` cannot be combined with a path or query in the URL"
-      sszUri.scheme =
-        case toLowerAscii(sszUri.scheme)
+  let restUrl =
+    if confValue.restPort.isSome:
+      var restUri = parseUri(url)
+      if restUri.path notin ["", "/"] or restUri.query != "":
+        return err "`rest-port` cannot be combined with a path or query in the URL"
+      restUri.scheme =
+        case toLowerAscii(restUri.scheme)
         of "https", "wss": "https"
         else: "http"
-      sszUri.port = $uint16(confValue.sszPort.get)
-      Opt.some($sszUri)
+      restUri.port = $uint16(confValue.restPort.get)
+      Opt.some($restUri)
     else:
       Opt.none string
 
   ok EngineApiUrl.init(
     url = url,
     jwtSecret = jwtSecret,
-    sszUrl = sszUrl)
+    restUrl = restUrl)
 
 proc loadJwtSecret*(jwtSecret: Opt[InputFile]): Opt[JwtSharedKey] =
   if jwtSecret.isSome:
