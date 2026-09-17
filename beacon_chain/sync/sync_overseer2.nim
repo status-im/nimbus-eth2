@@ -2598,11 +2598,17 @@ proc doRewindBlocksQueue(
   case direction
   of SyncQueueKind.Forward:
     if overseer.tbsqueue(direction).inpSlot > rewindPoint:
-      overseer.fblockBuffer.invalidate(rewindPoint)
+      if request.data in overseer.fblockBuffer:
+        overseer.fblockBuffer.invalidate(rewindPoint)
+      else:
+        overseer.fblockBuffer.reset()
       await overseer.tbsqueue(direction).resetWait(rewindPoint)
   of SyncQueueKind.Backward:
     if overseer.tbsqueue(direction).inpSlot < rewindPoint:
-      overseer.bblockBuffer.invalidate(rewindPoint)
+      if request.data in overseer.bblockBuffer:
+        overseer.bblockBuffer.invalidate(rewindPoint)
+      else:
+        overseer.bblockBuffer.reset()
       await overseer.tbsqueue(direction).resetWait(rewindPoint)
 
   debug "Rewinding blocks queue, because some items are missing",
@@ -2904,6 +2910,16 @@ proc doRangeSidecarsStep(
   if overseer.doCheckBlocksAndSidecarsRace(direction, request.data):
     debug "Blocks queue is running late"
     overseer.tssqueue(direction).push(request)
+    if overseer.tsbuffer(direction).almostFull():
+      # If block buffer full of blocks and requested range is not inside -
+      # we should reset, so blocks queue could catch up.
+      if request.data notin overseer.tsbuffer(direction):
+        # TODO (cheatfate): templates does not support `var` arguments.
+        case direction
+        of SyncQueueKind.Forward:
+          overseer.fblockBuffer.reset()
+        of SyncQueueKind.Backward:
+          overseer.bblockBuffer.reset()
     return true
 
   if direction.isBackward() and peerEntry.minBackCarSlot.isSome():
