@@ -2904,8 +2904,6 @@ proc doRangeSidecarsStep(
   if overseer.doCheckBlocksAndSidecarsRace(direction, request.data):
     debug "Blocks queue is running late"
     overseer.tssqueue(direction).push(request)
-    # We wait for double of minimal loop detection time to avoid pauses.
-    await sleepAsync(MinimalLoopTime * 2)
     return true
 
   if direction.isBackward() and peerEntry.minBackCarSlot.isSome():
