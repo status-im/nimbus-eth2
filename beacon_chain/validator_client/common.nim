@@ -235,7 +235,7 @@ type
 
   PayloadDataItem* = object
     available*: bool
-    waiters*: seq[Future[void]]
+    waiters*: seq[Future[void].Raising([CancelledError])]
 
   ValidatorClient* = object
     config*: ValidatorClientConf
@@ -294,7 +294,7 @@ type
   ApiFailure* {.pure.} = enum
     Communication, Invalid, NotFound, OptSynced, NotSynced, Internal,
     NotImplemented, UnexpectedCode, UnexpectedResponse, UnsupportedContentType,
-    NotAcceptable, NoError
+    NoError
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -377,7 +377,7 @@ const
     ApiStrategyKind.First,     # publishContributionAndProofs
     ApiStrategyKind.Best,      # submitBeaconCommitteeSelections
     ApiStrategyKind.Best,      # submitSyncCommitteeSelections
-    ApiStrategyKind.Best,      # producePayloadAttestationData
+    ApiStrategyKind.First,     # producePayloadAttestationData
     ApiStrategyKind.First,     # submitPoolPayloadAttestations
   ])
 
@@ -510,7 +510,6 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.UnexpectedCode: "unexpected-code"
   of ApiFailure.UnexpectedResponse: "unexpected-data"
   of ApiFailure.UnsupportedContentType: "unsupported-content-type"
-  of ApiFailure.NotAcceptable: "not-acceptable"
   of ApiFailure.NoError: "status-update"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =

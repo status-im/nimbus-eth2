@@ -866,12 +866,6 @@ template handle415(): untyped {.dirty.} =
   node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
   failures.add(failure)
 
-template handle406(): untyped {.dirty.} =
-  let failure = ApiNodeFailure.init(ApiFailure.NotAcceptable,
-    RequestName, strategy, node, response.status, response.getErrorMessage())
-  node.updateStatus(RestBeaconNodeStatus.Incompatible, failure)
-  failures.add(failure)
-
 template handle500(): untyped {.dirty.} =
   let failure = ApiNodeFailure.init(ApiFailure.Internal, RequestName,
     strategy, node, response.status, response.getErrorMessage())
@@ -1850,7 +1844,9 @@ proc producePayloadAttestationData*(
           ApiResponse[Opt[PayloadAttestationData]].err(
             ResponseInvalidError)
         of 406:
-          handle406()
+          # 406 (Not Acceptable) is handled like 415 here, because
+          # they are both content-negotiation mismatches.
+          handle415()
           ApiResponse[Opt[PayloadAttestationData]].err(
             ResponseContentTypeError)
         of 500:
@@ -1896,7 +1892,9 @@ proc producePayloadAttestationData*(
           handle400()
           false
         of 406:
-          handle406()
+          # 406 (Not Acceptable) is handled like 415 here, because
+          # they are both content-negotiation mismatches.
+          handle415()
           false
         of 500:
           handle500()

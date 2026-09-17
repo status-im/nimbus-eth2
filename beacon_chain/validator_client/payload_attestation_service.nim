@@ -8,7 +8,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/sets,
+  std/[sets, sequtils],
   chronicles,
   ./[common, api]
 
@@ -21,15 +21,63 @@ type
     validator_index: uint64
     validator: AttachedValidator
 
+proc servePayloadAttestation(
+    service: PayloadAttestationServiceRef,
+    data: PayloadAttestationData,
+    item: PayloadAttestationItem
+): Future[bool] {.async: (raises: [CancelledError]).} =
+  let
+    vc = service.client
+    slot = data.slot
+    fork = vc.forkAtEpoch(slot.epoch())
+    consensusFork = vc.getConsensusFork(fork)
+
+  logScope:
+    slot = slot
+    validator_index = item.validator_index
+
+  let message =
+    block:
+      let sres = await getPayloadAttestationSignature(
+        item.validator, fork, vc.beaconGenesis.genesis_validators_root, data)
+      if sres.isErr():
+        warn "Unable to sign payload attestation", reason = sres.error()
+        return false
+      PayloadAttestationMessage(
+        validator_index: item.validator_index,
+        data: data,
+        signature: sres.get())
+
+  item.validator.doppelgangerActivity(slot.epoch())
+
+  logScope:
+    delay = vc.getDelay(slot.payload_attestation_deadline(vc.timeParams))
+
+  let res =
+    try:
+      await vc.submitPoolPayloadAttestations(
+        @[message], consensusFork,
+        vc.getMode()[FnKind.submitPoolPayloadAttestations])
+    except ValidatorApiError as exc:
+      warn "Unable to publish payload attestation",
+           reason = exc.getFailureReason()
+      return false
+    except CancelledError as exc:
+      debug "Payload attestation publishing was interrupted"
+      raise exc
+
+  if res:
+    notice "Payload attestation published"
+  else:
+    warn "Payload attestation was not accepted by beacon node"
+  res
+
 proc servePayloadAttestations(
     service: PayloadAttestationServiceRef,
     slot: Slot,
     duties: seq[RestPtcDuty]
 ) {.async: (raises: [CancelledError]).} =
-  let
-    vc = service.client
-    fork = vc.forkAtEpoch(slot.epoch())
-    consensusFork = vc.getConsensusFork(fork)
+  let vc = service.client
 
   logScope:
     slot = slot
@@ -72,62 +120,23 @@ proc servePayloadAttestations(
     debug "No payload attestation duties for slot"
     return
 
-  let messages =
-    block:
-      var res: seq[PayloadAttestationMessage]
-      let pending =
-        items.mapIt(
-          getPayloadAttestationSignature(
-            it.validator, fork, vc.beaconGenesis.genesis_validators_root,
-            data))
-      try:
-        await allFutures(pending)
+  let pending =
+    items.mapIt(service.servePayloadAttestation(data, it))
 
-        for index, future in pending.pairs():
-          let sres = future.value
-          if sres.isErr():
-            warn "Unable to sign payload attestation",
-                 reason = sres.error(),
-                 validator_index = items[index].validator_index
-          else:
-            res.add(PayloadAttestationMessage(
-              validator_index: items[index].validator_index,
-              data: data,
-              signature: sres.get()))
-        res
-      except CancelledError as exc:
-        debug "Payload attestation signature process was interrupted"
-        await cancelAndWait(pending)
-        raise exc
+  try:
+    await allFutures(pending)
+  except CancelledError as exc:
+    let unfinished =
+      pending.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await noCancel allFutures(unfinished)
+    raise exc
 
-  if len(messages) == 0:
-    return
-
-  logScope:
-    delay = vc.getDelay(slot.payload_attestation_deadline(vc.timeParams))
-
-  debug "Sending payload attestations", count = len(messages)
-
-  for item in items:
-    item.validator.doppelgangerActivity(slot.epoch())
-
-  let res =
-    try:
-      await vc.submitPoolPayloadAttestations(
-        messages, consensusFork,
-        vc.getMode()[FnKind.submitPoolPayloadAttestations])
-    except ValidatorApiError as exc:
-      warn "Unable to publish payload attestations",
-            count = len(messages), reason = exc.getFailureReason()
-      return
-    except CancelledError as exc:
-      debug "Payload attestation publishing was interrupted"
-      raise exc
-
-  if res:
-    notice "Payload attestations published", count = len(messages)
+  let published = pending.countIt(it.completed() and it.value)
+  if published == 0:
+    debug "No payload attestations were published", duties_count = len(items)
   else:
-    warn "Payload attestations were not accepted by beacon node"
+    debug "Payload attestations published", count = published,
+          duties_count = len(items)
 
 proc spawnPayloadAttestationTasks(
     service: PayloadAttestationServiceRef,
