@@ -399,6 +399,7 @@ proc new(
     ValidatorClientRef(
       rng: rng,
       config: config,
+      beaconNodesUnusedEvent: newAsyncEvent(),
       preGenesisEvent: newAsyncEvent(),
       genesisEvent: newAsyncEvent(),
       nodesAvailable: newAsyncEvent(),
@@ -418,6 +419,7 @@ proc new(
     ValidatorClientRef(
       rng: rng,
       config: config,
+      beaconNodesUnusedEvent: newAsyncEvent(),
       preGenesisEvent: newAsyncEvent(),
       genesisEvent: newAsyncEvent(),
       nodesAvailable: newAsyncEvent(),
@@ -721,6 +723,10 @@ proc configReloadTask(
       await vc.nodesAvailable.wait()
 
     if config.beaconNodes != vc.config.beaconNodes:
+      while vc.numBeaconNodesUsers > 0:
+        info "Beacon nodes in use - deferring beacon node configuration update"
+        await vc.waitBeaconNodesUnused()
+
       info "Updating beacon node configuration"
       (await vc.updateBeaconNodesFromUrls(config.beaconNodes)).isOkOr:
         warn "Failed to apply new beacon node configuration"

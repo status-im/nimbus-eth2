@@ -238,6 +238,8 @@ type
     configReloadFut*: Future[void].Raising([CancelledError])
     metricsServer*: Opt[MetricsHttpServerRef]
     beaconNodes*: seq[BeaconNodeServerRef]
+    numBeaconNodesUsers*: int
+    beaconNodesUnusedEvent*: AsyncEvent
     fallbackService*: FallbackServiceRef
     forkService*: ForkServiceRef
     dutiesService*: DutiesServiceRef
@@ -720,6 +722,21 @@ func getTimeParams*(c: VCRuntimeConfig): Opt[TimeParams] =
   if not res.get.isValid:
     return Opt.none TimeParams
   res
+
+template withBeaconNodes*(vc: ValidatorClientRef, body: untyped): untyped =
+  inc(vc.numBeaconNodesUsers)
+  try:
+    body
+  finally:
+    dec(vc.numBeaconNodesUsers)
+    if vc.numBeaconNodesUsers == 0:
+      vc.beaconNodesUnusedEvent.fire()
+
+proc waitBeaconNodesUnused*(vc: ValidatorClientRef) {.
+     async: (raises: [CancelledError], raw: true).} =
+  if vc.beaconNodesUnusedEvent.isSet():
+    vc.beaconNodesUnusedEvent.clear()
+  vc.beaconNodesUnusedEvent.wait()
 
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
