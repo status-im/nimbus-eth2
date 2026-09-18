@@ -341,7 +341,7 @@ proc updateBeaconNodesFromUrls(
           warn "Unable to initialize remote beacon node",
                 url = $url, error = error
           nil
-      if res != nil:
+      if not(isNil(res)):
         servers.add(res)
         missingRoles.excl(roles)
         pendingConfig[endpoint] = (isNew: isNew, roles: roles, index: index)
@@ -355,7 +355,7 @@ proc updateBeaconNodesFromUrls(
     var pending: seq[Future[void]]
     for node in servers:
       pendingConfig.withValue(node.endpoint, value):
-        if value.isNew and node.client != nil:
+        if value.isNew and not(isNil(node.client)):
           pending.add(node.client.closeWait())
     await noCancel allFutures(pending)
     return err()
@@ -380,7 +380,7 @@ proc updateBeaconNodesFromUrls(
       debug "Removing beacon node", node = node
       node.roles = {BeaconNodeRole.NoTimeCheck}
       node.index = -1
-      if node.client != nil:
+      if not(isNil(node.client)):
         pending.add(node.client.closeWait())
   await noCancel allFutures(pending)
   ok()
@@ -721,7 +721,7 @@ proc configReloadTask(
         warn "Failed to apply new beacon node configuration"
         return
       vc.config.beaconNodes = config.beaconNodes
-      if vc.fallbackService != nil:
+      if not(isNil(vc.fallbackService)):
         vc.fallbackService.changesEvent.fire()
 
     if config == vc.config:
