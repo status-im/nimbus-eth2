@@ -11,14 +11,13 @@ import
   ../crypto,
   ../datatypes/[base, constants]
 
+from ../datatypes/gloas import BuilderRequestAuthData
+
 const
   # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/builder.md#constants
   DOMAIN_BUILDER_REQUEST_AUTH* = DomainType([byte 0x0b, 0x00, 0x00, 0x01])
-  MAX_BUILDER_AUTH_DATA_SIZE: int64 = 4096
 
 type
-  BuilderRequestAuthData* = List[byte, Limit MAX_BUILDER_AUTH_DATA_SIZE]
-
   # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#builderrequestauth
   BuilderRequestAuth* = object
     data*: BuilderRequestAuthData
