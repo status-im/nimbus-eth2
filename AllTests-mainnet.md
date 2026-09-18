@@ -936,8 +936,11 @@ AllTests-mainnet
 ```diff
 + Blob                                                                                       OK
 + DenebSignedBlockContents decoding                                                          OK
++ GloasProducedBlockContents round-trip                                                      OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
++ ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
 + VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK

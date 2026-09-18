@@ -152,7 +152,9 @@ type
                     bellatrix.BeaconBlock | capella.BeaconBlock |
                     deneb.BlockContents | electra.BlockContents |
                     fulu.BlockContents | electra_mev.BlindedBeaconBlock |
-                    fulu_mev.BlindedBeaconBlock
+                    fulu_mev.BlindedBeaconBlock |
+                    gloas.BeaconBlock | heze.BeaconBlock |
+                    GloasProducedBlockContents | HezeProducedBlockContents
 
 func ethHeaders(
     consensusFork: ConsensusFork,
@@ -939,6 +941,83 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
                      "`Eth-Consensus-Version`")
         let contents = ? readSszResBytes(consensusFork.BlockContents, value)
         ok(ForkedMaybeBlindedBeaconBlock.init(contents))
+  else:
+    err("Unsupported Content-Type")
+
+proc decodeBytes*[T: ProduceBlockResponseV4](
+    t: typedesc[T],
+    value: openArray[byte],
+    contentType: Opt[ContentTypeData],
+    headerConsensusVersion: string,
+    headerPayloadIncluded: string,
+    headerPayloadValue: string,
+    headerConsensusValue: string,
+    headerBuilderUrl: string): RestResult[T] =
+  let
+    mediaType =
+      if contentType.isNone():
+        ApplicationJsonMediaType
+      else:
+        if isWildCard(contentType.get().mediaType):
+          return err("Incorrect Content-TYpe")
+        contentType.get().mediaType
+    builderUrl =
+      if len(headerBuilderUrl) == 0: Opt.none(string)
+      else: Opt.some(headerBuilderUrl)
+
+  if mediaType == ApplicationJsonMediaType:
+    try:
+      var res = RestJson.decode(value, T)
+      res.builderUrl = builderUrl
+      ok(res)
+    except SerializationError as exc:
+      debug "Failed to deserialize REST JSON data",
+            err = exc.formatMsg("<data>"), data = string.fromBytes(value)
+      err("Serialization error")
+  elif mediaType == OctetStreamMediaType:
+    let
+      fork = ConsensusFork.decodeString(headerConsensusVersion).valueOr:
+        return err("Invalid or Unsupported consensus version")
+      payloadIncluded =
+        case headerPayloadIncluded.toLowerAscii()
+        of "true": true
+        of "false": false
+        else:
+          return err("Incorrect `Eth-Execution-Payload-Included` header value")
+      executionValue =
+        try: Opt.some parse(headerPayloadValue, Uint256, 10)
+        except ValueError:
+          return err("Incorrect `Eth-Execution-Payload-Value` header value")
+      consensusValue =
+        if len(headerConsensusValue) == 0:
+          Opt.none(Uint256)
+        else:
+          try: Opt.some parse(headerConsensusValue, Uint256, 10)
+          except ValueError:
+            return err("Incorrect `Eth-Consensus-Block-Value` header value")
+    if fork < ConsensusFork.Gloas:
+      return err("produceBlockV4 supports only post-Gloas forks")
+
+    var data: ForkedProducedBlock
+    withConsensusFork(fork):
+      when consensusFork >= ConsensusFork.Gloas:
+        if payloadIncluded:
+          data = ForkedProducedBlock(
+            includePayload: true,
+            contents: ForkedProducedBlockContents.init(
+              ? readSszResBytes(consensusFork.ProducedBlockContents, value)))
+        else:
+          data = ForkedProducedBlock(
+            includePayload: false,
+            blck: ForkedBeaconBlock.init(
+              ? readSszResBytes(consensusFork.BeaconBlock, value)))
+      else:
+        return err("produceBlockV4 supports only post-Gloas forks")
+    ok(ProduceBlockResponseV4(
+      data: data,
+      consensusBlockValue: consensusValue,
+      executionPayloadValue: executionValue,
+      builderUrl: builderUrl))
   else:
     err("Unsupported Content-Type")
 
