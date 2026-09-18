@@ -513,8 +513,7 @@ func clearDoppelgangerProtection*(self: var Eth2Processor) =
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor,
     attestation:
-      phase0.Attestation | electra.Attestation | gloas.Attestation |
-      SingleAttestation,
+      electra.Attestation | gloas.Attestation | SingleAttestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
