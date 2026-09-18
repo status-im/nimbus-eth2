@@ -728,9 +728,6 @@ proc runBlockMonitor(
     debug "Block monitoring loop interrupted"
     raise exc
 
-  var pendingTasks: Table[
-    BeaconNodeServerRef, Future[void].Raising([CancelledError])]
-
   while true:
     let changesFut = vc.waitNodeChanges()
 
@@ -738,7 +735,7 @@ proc runBlockMonitor(
         fut: var Future[void].Raising([CancelledError]),
         node: BeaconNodeServerRef) =
       doAssert isNil(fut)
-      fut = pendingTasks.getOrDefault(node)
+      fut = service.pendingTasks.getOrDefault(node)
       if isNil(fut) or fut.finished():
         debug "Starting block monitoring", node = node
         fut =
@@ -760,19 +757,19 @@ proc runBlockMonitor(
         newPendingTasks.mgetOrPut(node, nil).monitor(node)
 
       var pendingCancellations: seq[Future[void]]
-      for node, fut in pendingTasks:
+      for node, fut in service.pendingTasks:
         if node notin newPendingTasks:
           debug "Stopping block monitoring", node = node
           pendingCancellations.add(fut.cancelAndWait())
       await noCancel allFutures(pendingCancellations)
 
-      pendingTasks = move(newPendingTasks)
+      service.pendingTasks = move(newPendingTasks)
 
     try:
       await changesFut
     except CancelledError as exc:
       var pending: seq[Future[void]]
-      for fut in pendingTasks.values():
+      for fut in service.pendingTasks.values():
         pending.add(fut.cancelAndWait())
       await noCancel allFutures(pending)
       debug "Block monitoring loop interrupted"

@@ -94,6 +94,8 @@ type
   AttestationServiceRef* = ref object of ClientServiceRef
 
   BlockServiceRef* = ref object of ClientServiceRef
+    pendingTasks*:
+      Table[BeaconNodeServerRef, Future[void].Raising([CancelledError])]
 
   SyncCommitteeServiceRef* = ref object of ClientServiceRef
 
