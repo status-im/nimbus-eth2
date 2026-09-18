@@ -378,8 +378,6 @@ proc updateBeaconNodesFromUrls(
   for node in servers:
     if node.endpoint notin pendingConfig:
       debug "Removing beacon node", node = node
-      node.roles = {BeaconNodeRole.NoTimeCheck}
-      node.index = -1
       if not(isNil(vc.blockService)):
         let fut = vc.blockService.pendingTasks.getOrDefault(node)
         if not(isNil(fut)):

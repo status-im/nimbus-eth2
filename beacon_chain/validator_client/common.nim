@@ -741,10 +741,6 @@ proc waitBeaconNodesUnused*(vc: ValidatorClientRef) {.
 proc updateStatus*(node: BeaconNodeServerRef,
                    status: RestBeaconNodeStatus,
                    failure: ApiNodeFailure) =
-  if node.index < 0:
-    node.status = status
-    return
-
   logScope:
     node = node
 
