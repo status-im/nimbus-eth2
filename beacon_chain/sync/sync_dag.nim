@@ -56,10 +56,14 @@ const
 proc init*(t: typedesc[RootQueue]): RootQueue =
   RootQueue(queue: initDeque[Eth2Digest](16))
 
+proc add*(rq: var RootQueue, roots: openArray[Eth2Digest]) =
+  for root in roots:
+    if root notin rq.roots:
+      rq.queue.addLast(root)
+      rq.roots.incl(root)
+
 proc add*(rq: var RootQueue, root: Eth2Digest) =
-  if root notin rq.roots:
-    rq.queue.addLast(root)
-    rq.roots.incl(root)
+  add(rq, [root])
 
 proc len*(rq: RootQueue): int =
   len(rq.queue)
@@ -162,12 +166,21 @@ func init*[T](
 
 iterator parents*(entry: SyncDagEntryRef): SyncDagEntryRef =
   doAssert(not(isNil(entry)), "Entry should not be nil")
-  var currentEntry = entry
-  while true:
-    if isNil(currentEntry.parent):
-      break
-    yield currentEntry.parent
-    currentEntry = currentEntry.parent
+  # Floyd's cycle-finding algorithm to handle potential cyclicity
+  var
+    slow = entry
+    fast = entry
+  while not isNil(slow.parent):
+    yield slow.parent
+    slow = slow.parent
+    if isNil(fast):
+      discard
+    elif isNil(fast.parent) or isNil(fast.parent.parent):
+      fast = nil
+    else:
+      fast = fast.parent.parent
+      if fast == slow:
+        break
 
 proc getPendingParent*(
     entry: SyncDagEntryRef

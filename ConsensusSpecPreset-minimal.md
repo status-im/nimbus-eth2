@@ -2573,10 +2573,12 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - fork_builder_deposit_version [Preset: minimal]                         OK
 + EF - Gloas - Fork - fork_builder_deposit_with_existing_validator_pubkey_builder_creds [Pre OK
 + EF - Gloas - Fork - fork_invalid_builder_deposit_followed_by_valid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_invalid_then_valid_validator_then_builder_deposit [Preset: minima OK
 + EF - Gloas - Fork - fork_invalid_validator_deposit_followed_by_builder_credentials [Preset OK
 + EF - Gloas - Fork - fork_many_next_epoch [Preset: minimal]                                 OK
 + EF - Gloas - Fork - fork_missed_slots_before_fork [Preset: minimal]                        OK
 + EF - Gloas - Fork - fork_mixed_pending_deposits [Preset: minimal]                          OK
++ EF - Gloas - Fork - fork_mixed_validity_validator_deposits_surrounding_builder_deposits [P OK
 + EF - Gloas - Fork - fork_multiple_builder_deposits [Preset: minimal]                       OK
 + EF - Gloas - Fork - fork_multiple_deposits_same_builder [Preset: minimal]                  OK
 + EF - Gloas - Fork - fork_next_epoch [Preset: minimal]                                      OK
@@ -2590,6 +2592,7 @@ ConsensusSpecPreset-minimal
 + EF - Gloas - Fork - fork_random_misc_balances [Preset: minimal]                            OK
 + EF - Gloas - Fork - fork_single_builder_deposit [Preset: minimal]                          OK
 + EF - Gloas - Fork - fork_valid_builder_deposit_followed_by_invalid_builder_deposit [Preset OK
++ EF - Gloas - Fork - fork_valid_then_invalid_validator_then_builder_deposit [Preset: minima OK
 + EF - Gloas - Fork - fork_validator_deposit_followed_by_builder_credentials [Preset: minima OK
 + EF - Gloas - Fork - gloas_fork_random_0 [Preset: minimal]                                  OK
 + EF - Gloas - Fork - gloas_fork_random_1 [Preset: minimal]                                  OK
@@ -2844,6 +2847,7 @@ ConsensusSpecPreset-minimal
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
++ [Invalid] EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
 + [Valid]   EF - Gloas - Operations - Execution Payload Bid - process_execution_payload_bid_ OK
@@ -2862,6 +2866,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_builder_exit_requests   OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_consolidation_requests  OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - max_withdrawal_requests     OK
++ [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
 + [Valid]   EF - Gloas - Operations - Parent Execution Payload - process_parent_execution_pa OK
@@ -3478,6 +3483,7 @@ ConsensusSpecPreset-minimal
 ## EF - Heze - Operations - Execution Payload Bid  [Preset: minimal]
 ```diff
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_b OK
++ [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_b OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
 + [Invalid] EF - Heze - Operations - Execution Payload Bid - process_execution_payload_bid_i OK
@@ -3510,6 +3516,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_builder_exit_requests    OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_consolidation_requests   OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - max_withdrawal_requests      OK
++ [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
 + [Valid]   EF - Heze - Operations - Parent Execution Payload - process_parent_execution_pay OK
@@ -4000,6 +4007,731 @@ ConsensusSpecPreset-minimal
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
 + Merkle proof - Single merkle proof - minimal/fulu/merkle_proof/single_merkle_proof/BeaconB OK
+```
+## EF - Networking - Gossip - Attester Slashing [Preset: minimal]
+```diff
++ fulu - gossip_attester_slashing__ignore_already_seen                                       OK
++ fulu - gossip_attester_slashing__ignore_empty_attesting_indices_1                          OK
++ fulu - gossip_attester_slashing__ignore_empty_attesting_indices_2                          OK
++ fulu - gossip_attester_slashing__reject_attesting_index_out_of_range_1                     OK
++ fulu - gossip_attester_slashing__reject_attesting_index_out_of_range_2                     OK
++ fulu - gossip_attester_slashing__reject_invalid_attestation_1                              OK
++ fulu - gossip_attester_slashing__reject_invalid_attestation_2                              OK
++ fulu - gossip_attester_slashing__reject_no_slashable_validators                            OK
++ fulu - gossip_attester_slashing__reject_not_slashable_data                                 OK
++ fulu - gossip_attester_slashing__reject_unsorted_indices_1                                 OK
++ fulu - gossip_attester_slashing__reject_unsorted_indices_2                                 OK
++ fulu - gossip_attester_slashing__valid                                                     OK
++ gloas - gossip_attester_slashing__ignore_already_seen                                      OK
++ gloas - gossip_attester_slashing__ignore_empty_attesting_indices_1                         OK
++ gloas - gossip_attester_slashing__ignore_empty_attesting_indices_2                         OK
++ gloas - gossip_attester_slashing__reject_attesting_index_out_of_range_1                    OK
++ gloas - gossip_attester_slashing__reject_attesting_index_out_of_range_2                    OK
++ gloas - gossip_attester_slashing__reject_invalid_attestation_1                             OK
++ gloas - gossip_attester_slashing__reject_invalid_attestation_2                             OK
++ gloas - gossip_attester_slashing__reject_no_slashable_validators                           OK
++ gloas - gossip_attester_slashing__reject_not_slashable_data                                OK
++ gloas - gossip_attester_slashing__reject_unsorted_indices_1                                OK
++ gloas - gossip_attester_slashing__reject_unsorted_indices_2                                OK
++ gloas - gossip_attester_slashing__valid                                                    OK
++ heze - gossip_attester_slashing__ignore_already_seen                                       OK
++ heze - gossip_attester_slashing__ignore_empty_attesting_indices_1                          OK
++ heze - gossip_attester_slashing__ignore_empty_attesting_indices_2                          OK
++ heze - gossip_attester_slashing__reject_attesting_index_out_of_range_1                     OK
++ heze - gossip_attester_slashing__reject_attesting_index_out_of_range_2                     OK
++ heze - gossip_attester_slashing__reject_invalid_attestation_1                              OK
++ heze - gossip_attester_slashing__reject_invalid_attestation_2                              OK
++ heze - gossip_attester_slashing__reject_no_slashable_validators                            OK
++ heze - gossip_attester_slashing__reject_not_slashable_data                                 OK
++ heze - gossip_attester_slashing__reject_unsorted_indices_1                                 OK
++ heze - gossip_attester_slashing__reject_unsorted_indices_2                                 OK
++ heze - gossip_attester_slashing__valid                                                     OK
+```
+## EF - Networking - Gossip - BLS To Execution Change [Preset: minimal]
+```diff
++ fulu - gossip_bls_to_execution_change__ignore_already_seen                                 OK
++ fulu - gossip_bls_to_execution_change__reject_bad_signature                                OK
++ fulu - gossip_bls_to_execution_change__reject_not_bls_credentials                          OK
++ fulu - gossip_bls_to_execution_change__reject_pubkey_mismatch                              OK
++ fulu - gossip_bls_to_execution_change__reject_validator_index_out_of_range                 OK
++ fulu - gossip_bls_to_execution_change__valid                                               OK
++ gloas - gossip_bls_to_execution_change__ignore_already_seen                                OK
++ gloas - gossip_bls_to_execution_change__reject_bad_signature                               OK
++ gloas - gossip_bls_to_execution_change__reject_not_bls_credentials                         OK
++ gloas - gossip_bls_to_execution_change__reject_pubkey_mismatch                             OK
++ gloas - gossip_bls_to_execution_change__reject_validator_index_out_of_range                OK
++ gloas - gossip_bls_to_execution_change__valid                                              OK
++ heze - gossip_bls_to_execution_change__ignore_already_seen                                 OK
++ heze - gossip_bls_to_execution_change__reject_bad_signature                                OK
++ heze - gossip_bls_to_execution_change__reject_not_bls_credentials                          OK
++ heze - gossip_bls_to_execution_change__reject_pubkey_mismatch                              OK
++ heze - gossip_bls_to_execution_change__reject_validator_index_out_of_range                 OK
++ heze - gossip_bls_to_execution_change__valid                                               OK
+```
+## EF - Networking - Gossip - Beacon Aggregate And Proof [Preset: minimal]
+```diff
++ fulu - gossip_beacon_aggregate_and_proof__accept_same_data_for_disjoint_committees         OK
++ fulu - gossip_beacon_aggregate_and_proof__accepts_at_slot_start                            OK
++ fulu - gossip_beacon_aggregate_and_proof__accepts_first_slot_when_epoch_window_closes      OK
++ fulu - gossip_beacon_aggregate_and_proof__accepts_first_slot_when_epoch_window_opens       OK
++ fulu - gossip_beacon_aggregate_and_proof__accepts_last_slot_at_slot_start                  OK
++ fulu - gossip_beacon_aggregate_and_proof__accepts_last_slot_one_millisecond_before_slot_st OK
++ fulu - gossip_beacon_aggregate_and_proof__accepts_last_slot_when_epoch_window_closes       OK
++ fulu - gossip_beacon_aggregate_and_proof__accepts_one_millisecond_before_slot_start        OK
++ fulu - gossip_beacon_aggregate_and_proof__ignore_already_seen_aggregate                    OK
++ fulu - gossip_beacon_aggregate_and_proof__ignore_already_seen_aggregator                   OK
++ fulu - gossip_beacon_aggregate_and_proof__ignore_block_not_seen                            OK
+  fulu - gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor                    Skip
++ fulu - gossip_beacon_aggregate_and_proof__ignore_same_data_root_without_superset           OK
++ fulu - gossip_beacon_aggregate_and_proof__ignores_first_slot_after_epoch_window_closes     OK
++ fulu - gossip_beacon_aggregate_and_proof__ignores_first_slot_before_epoch_window_opens     OK
++ fulu - gossip_beacon_aggregate_and_proof__ignores_last_slot_after_epoch_window_closes      OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_aggregation_bits_size_mismatch            OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_aggregator_index_out_of_range             OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_aggregator_not_in_committee               OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_block_failed_validation                   OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_committee_index_out_of_range              OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_epoch_mismatch                            OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_invalid_aggregate_signature               OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_invalid_aggregator_signature              OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_invalid_selection_proof                   OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_multiple_committees                       OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_no_participants                           OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_nonzero_data_index                        OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_target_not_ancestor                       OK
++ fulu - gossip_beacon_aggregate_and_proof__reject_zero_committees                           OK
++ fulu - gossip_beacon_aggregate_and_proof__valid                                            OK
++ fulu - gossip_beacon_aggregate_and_proof__valid_two_aggregators_same_data                  OK
++ fulu - gossip_beacon_aggregate_and_proof__valid_within_clock_disparity                     OK
++ gloas - gossip_beacon_aggregate_and_proof__accept_same_data_for_disjoint_committees        OK
++ gloas - gossip_beacon_aggregate_and_proof__accepts_at_slot_start                           OK
++ gloas - gossip_beacon_aggregate_and_proof__accepts_first_slot_when_epoch_window_closes     OK
++ gloas - gossip_beacon_aggregate_and_proof__accepts_first_slot_when_epoch_window_opens      OK
++ gloas - gossip_beacon_aggregate_and_proof__accepts_last_slot_at_slot_start                 OK
++ gloas - gossip_beacon_aggregate_and_proof__accepts_last_slot_one_millisecond_before_slot_s OK
++ gloas - gossip_beacon_aggregate_and_proof__accepts_last_slot_when_epoch_window_closes      OK
++ gloas - gossip_beacon_aggregate_and_proof__accepts_one_millisecond_before_slot_start       OK
++ gloas - gossip_beacon_aggregate_and_proof__ignore_already_seen_aggregate                   OK
++ gloas - gossip_beacon_aggregate_and_proof__ignore_already_seen_aggregator                  OK
++ gloas - gossip_beacon_aggregate_and_proof__ignore_block_not_seen                           OK
+  gloas - gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor                   Skip
++ gloas - gossip_beacon_aggregate_and_proof__ignore_payload_envelope_unseen                  OK
++ gloas - gossip_beacon_aggregate_and_proof__ignore_payload_pending_el_validation            OK
++ gloas - gossip_beacon_aggregate_and_proof__ignore_payload_status_without_envelope          OK
++ gloas - gossip_beacon_aggregate_and_proof__ignore_same_data_root_without_superset          OK
++ gloas - gossip_beacon_aggregate_and_proof__ignores_first_slot_after_epoch_window_closes    OK
++ gloas - gossip_beacon_aggregate_and_proof__ignores_first_slot_before_epoch_window_opens    OK
++ gloas - gossip_beacon_aggregate_and_proof__ignores_last_slot_after_epoch_window_closes     OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_aggregation_bits_size_mismatch           OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_aggregator_index_out_of_range            OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_aggregator_not_in_committee              OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_block_failed_validation                  OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_committee_index_out_of_range             OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_data_index_too_high                      OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_epoch_mismatch                           OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_invalid_aggregate_signature              OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_invalid_aggregator_signature             OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_invalid_selection_proof                  OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_multiple_committees                      OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_no_participants                          OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_payload_failed_el_validation             OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_same_slot_with_payload                   OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_target_not_ancestor                      OK
++ gloas - gossip_beacon_aggregate_and_proof__reject_zero_committees                          OK
++ gloas - gossip_beacon_aggregate_and_proof__valid                                           OK
++ gloas - gossip_beacon_aggregate_and_proof__valid_payload_validated                         OK
++ gloas - gossip_beacon_aggregate_and_proof__valid_two_aggregators_same_data                 OK
++ gloas - gossip_beacon_aggregate_and_proof__valid_within_clock_disparity                    OK
++ heze - gossip_beacon_aggregate_and_proof__accept_same_data_for_disjoint_committees         OK
++ heze - gossip_beacon_aggregate_and_proof__accepts_at_slot_start                            OK
++ heze - gossip_beacon_aggregate_and_proof__accepts_first_slot_when_epoch_window_closes      OK
++ heze - gossip_beacon_aggregate_and_proof__accepts_first_slot_when_epoch_window_opens       OK
++ heze - gossip_beacon_aggregate_and_proof__accepts_last_slot_at_slot_start                  OK
++ heze - gossip_beacon_aggregate_and_proof__accepts_last_slot_one_millisecond_before_slot_st OK
++ heze - gossip_beacon_aggregate_and_proof__accepts_last_slot_when_epoch_window_closes       OK
++ heze - gossip_beacon_aggregate_and_proof__accepts_one_millisecond_before_slot_start        OK
++ heze - gossip_beacon_aggregate_and_proof__ignore_already_seen_aggregate                    OK
++ heze - gossip_beacon_aggregate_and_proof__ignore_already_seen_aggregator                   OK
++ heze - gossip_beacon_aggregate_and_proof__ignore_block_not_seen                            OK
+  heze - gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor                    Skip
++ heze - gossip_beacon_aggregate_and_proof__ignore_payload_envelope_unseen                   OK
++ heze - gossip_beacon_aggregate_and_proof__ignore_payload_pending_el_validation             OK
++ heze - gossip_beacon_aggregate_and_proof__ignore_payload_status_without_envelope           OK
++ heze - gossip_beacon_aggregate_and_proof__ignore_same_data_root_without_superset           OK
++ heze - gossip_beacon_aggregate_and_proof__ignores_first_slot_after_epoch_window_closes     OK
++ heze - gossip_beacon_aggregate_and_proof__ignores_first_slot_before_epoch_window_opens     OK
++ heze - gossip_beacon_aggregate_and_proof__ignores_last_slot_after_epoch_window_closes      OK
++ heze - gossip_beacon_aggregate_and_proof__reject_aggregation_bits_size_mismatch            OK
++ heze - gossip_beacon_aggregate_and_proof__reject_aggregator_index_out_of_range             OK
++ heze - gossip_beacon_aggregate_and_proof__reject_aggregator_not_in_committee               OK
++ heze - gossip_beacon_aggregate_and_proof__reject_block_failed_validation                   OK
++ heze - gossip_beacon_aggregate_and_proof__reject_committee_index_out_of_range              OK
++ heze - gossip_beacon_aggregate_and_proof__reject_data_index_too_high                       OK
++ heze - gossip_beacon_aggregate_and_proof__reject_epoch_mismatch                            OK
++ heze - gossip_beacon_aggregate_and_proof__reject_invalid_aggregate_signature               OK
++ heze - gossip_beacon_aggregate_and_proof__reject_invalid_aggregator_signature              OK
++ heze - gossip_beacon_aggregate_and_proof__reject_invalid_selection_proof                   OK
++ heze - gossip_beacon_aggregate_and_proof__reject_multiple_committees                       OK
++ heze - gossip_beacon_aggregate_and_proof__reject_no_participants                           OK
++ heze - gossip_beacon_aggregate_and_proof__reject_payload_failed_el_validation              OK
++ heze - gossip_beacon_aggregate_and_proof__reject_same_slot_with_payload                    OK
++ heze - gossip_beacon_aggregate_and_proof__reject_target_not_ancestor                       OK
++ heze - gossip_beacon_aggregate_and_proof__reject_zero_committees                           OK
++ heze - gossip_beacon_aggregate_and_proof__valid                                            OK
++ heze - gossip_beacon_aggregate_and_proof__valid_payload_validated                          OK
++ heze - gossip_beacon_aggregate_and_proof__valid_two_aggregators_same_data                  OK
++ heze - gossip_beacon_aggregate_and_proof__valid_within_clock_disparity                     OK
+```
+## EF - Networking - Gossip - Beacon Attestation [Preset: minimal]
+```diff
++ fulu - gossip_beacon_attestation__accepts_at_slot_start                                    OK
++ fulu - gossip_beacon_attestation__accepts_first_slot_when_epoch_window_closes              OK
++ fulu - gossip_beacon_attestation__accepts_first_slot_when_epoch_window_opens               OK
++ fulu - gossip_beacon_attestation__accepts_last_slot_at_slot_start                          OK
++ fulu - gossip_beacon_attestation__accepts_last_slot_one_millisecond_before_slot_start      OK
++ fulu - gossip_beacon_attestation__accepts_last_slot_when_epoch_window_closes               OK
++ fulu - gossip_beacon_attestation__accepts_one_millisecond_before_slot_start                OK
++ fulu - gossip_beacon_attestation__ignore_already_seen                                      OK
++ fulu - gossip_beacon_attestation__ignore_block_not_seen                                    OK
+  fulu - gossip_beacon_attestation__ignore_finalized_not_ancestor                            Skip
++ fulu - gossip_beacon_attestation__ignores_first_slot_after_epoch_window_closes             OK
++ fulu - gossip_beacon_attestation__ignores_first_slot_before_epoch_window_opens             OK
++ fulu - gossip_beacon_attestation__ignores_last_slot_after_epoch_window_closes              OK
++ fulu - gossip_beacon_attestation__reject_attester_not_in_committee                         OK
++ fulu - gossip_beacon_attestation__reject_block_failed_validation                           OK
++ fulu - gossip_beacon_attestation__reject_committee_index_out_of_range                      OK
++ fulu - gossip_beacon_attestation__reject_epoch_mismatch                                    OK
++ fulu - gossip_beacon_attestation__reject_invalid_signature                                 OK
++ fulu - gossip_beacon_attestation__reject_nonzero_data_index                                OK
++ fulu - gossip_beacon_attestation__reject_target_not_ancestor                               OK
++ fulu - gossip_beacon_attestation__reject_wrong_subnet                                      OK
++ fulu - gossip_beacon_attestation__valid                                                    OK
++ fulu - gossip_beacon_attestation__valid_within_clock_disparity                             OK
++ gloas - gossip_beacon_attestation__accepts_at_slot_start                                   OK
++ gloas - gossip_beacon_attestation__accepts_first_slot_when_epoch_window_closes             OK
++ gloas - gossip_beacon_attestation__accepts_first_slot_when_epoch_window_opens              OK
++ gloas - gossip_beacon_attestation__accepts_last_slot_at_slot_start                         OK
++ gloas - gossip_beacon_attestation__accepts_last_slot_one_millisecond_before_slot_start     OK
++ gloas - gossip_beacon_attestation__accepts_last_slot_when_epoch_window_closes              OK
++ gloas - gossip_beacon_attestation__accepts_one_millisecond_before_slot_start               OK
++ gloas - gossip_beacon_attestation__ignore_already_seen                                     OK
++ gloas - gossip_beacon_attestation__ignore_block_not_seen                                   OK
+  gloas - gossip_beacon_attestation__ignore_finalized_not_ancestor                           Skip
++ gloas - gossip_beacon_attestation__ignore_payload_envelope_unseen                          OK
++ gloas - gossip_beacon_attestation__ignore_payload_pending_el_validation                    OK
++ gloas - gossip_beacon_attestation__ignore_payload_status_without_envelope                  OK
++ gloas - gossip_beacon_attestation__ignores_first_slot_after_epoch_window_closes            OK
++ gloas - gossip_beacon_attestation__ignores_first_slot_before_epoch_window_opens            OK
++ gloas - gossip_beacon_attestation__ignores_last_slot_after_epoch_window_closes             OK
++ gloas - gossip_beacon_attestation__reject_attester_not_in_committee                        OK
++ gloas - gossip_beacon_attestation__reject_block_failed_validation                          OK
++ gloas - gossip_beacon_attestation__reject_committee_index_out_of_range                     OK
++ gloas - gossip_beacon_attestation__reject_data_index_too_high                              OK
++ gloas - gossip_beacon_attestation__reject_epoch_mismatch                                   OK
++ gloas - gossip_beacon_attestation__reject_invalid_signature                                OK
++ gloas - gossip_beacon_attestation__reject_payload_failed_el_validation                     OK
++ gloas - gossip_beacon_attestation__reject_same_slot_with_payload                           OK
++ gloas - gossip_beacon_attestation__reject_target_not_ancestor                              OK
++ gloas - gossip_beacon_attestation__reject_wrong_subnet                                     OK
++ gloas - gossip_beacon_attestation__valid                                                   OK
++ gloas - gossip_beacon_attestation__valid_payload_validated                                 OK
++ gloas - gossip_beacon_attestation__valid_same_slot_index_zero                              OK
++ gloas - gossip_beacon_attestation__valid_within_clock_disparity                            OK
++ heze - gossip_beacon_attestation__accepts_at_slot_start                                    OK
++ heze - gossip_beacon_attestation__accepts_first_slot_when_epoch_window_closes              OK
++ heze - gossip_beacon_attestation__accepts_first_slot_when_epoch_window_opens               OK
++ heze - gossip_beacon_attestation__accepts_last_slot_at_slot_start                          OK
++ heze - gossip_beacon_attestation__accepts_last_slot_one_millisecond_before_slot_start      OK
++ heze - gossip_beacon_attestation__accepts_last_slot_when_epoch_window_closes               OK
++ heze - gossip_beacon_attestation__accepts_one_millisecond_before_slot_start                OK
++ heze - gossip_beacon_attestation__ignore_already_seen                                      OK
++ heze - gossip_beacon_attestation__ignore_block_not_seen                                    OK
+  heze - gossip_beacon_attestation__ignore_finalized_not_ancestor                            Skip
++ heze - gossip_beacon_attestation__ignore_payload_envelope_unseen                           OK
++ heze - gossip_beacon_attestation__ignore_payload_pending_el_validation                     OK
++ heze - gossip_beacon_attestation__ignore_payload_status_without_envelope                   OK
++ heze - gossip_beacon_attestation__ignores_first_slot_after_epoch_window_closes             OK
++ heze - gossip_beacon_attestation__ignores_first_slot_before_epoch_window_opens             OK
++ heze - gossip_beacon_attestation__ignores_last_slot_after_epoch_window_closes              OK
++ heze - gossip_beacon_attestation__reject_attester_not_in_committee                         OK
++ heze - gossip_beacon_attestation__reject_block_failed_validation                           OK
++ heze - gossip_beacon_attestation__reject_committee_index_out_of_range                      OK
++ heze - gossip_beacon_attestation__reject_data_index_too_high                               OK
++ heze - gossip_beacon_attestation__reject_epoch_mismatch                                    OK
++ heze - gossip_beacon_attestation__reject_invalid_signature                                 OK
++ heze - gossip_beacon_attestation__reject_payload_failed_el_validation                      OK
++ heze - gossip_beacon_attestation__reject_same_slot_with_payload                            OK
++ heze - gossip_beacon_attestation__reject_target_not_ancestor                               OK
++ heze - gossip_beacon_attestation__reject_wrong_subnet                                      OK
++ heze - gossip_beacon_attestation__valid                                                    OK
++ heze - gossip_beacon_attestation__valid_payload_validated                                  OK
++ heze - gossip_beacon_attestation__valid_same_slot_index_zero                               OK
++ heze - gossip_beacon_attestation__valid_within_clock_disparity                             OK
+```
+## EF - Networking - Gossip - Beacon Block [Preset: minimal]
+```diff
++ fulu - gossip_beacon_block__ignore_already_seen_proposer_slot                              OK
++ fulu - gossip_beacon_block__ignore_future_slot                                             OK
++ fulu - gossip_beacon_block__ignore_parent_consensus_failed_execution_known                 OK
++ fulu - gossip_beacon_block__ignore_parent_execution_verified_invalid                       OK
++ fulu - gossip_beacon_block__ignore_parent_not_seen                                         OK
++ fulu - gossip_beacon_block__ignore_slot_not_greater_than_finalized                         OK
+  fulu - gossip_beacon_block__reject_finalized_checkpoint_not_ancestor                       Skip
++ fulu - gossip_beacon_block__reject_incorrect_execution_payload_timestamp                   OK
++ fulu - gossip_beacon_block__reject_invalid_proposer_index                                  OK
++ fulu - gossip_beacon_block__reject_invalid_proposer_signature                              OK
+  fulu - gossip_beacon_block__reject_parent_consensus_failed_execution_not_verified          Skip
++ fulu - gossip_beacon_block__reject_slot_not_higher_than_parent                             OK
++ fulu - gossip_beacon_block__reject_too_many_kzg_commitments                                OK
++ fulu - gossip_beacon_block__reject_wrong_proposer_index                                    OK
++ fulu - gossip_beacon_block__valid_at_blob_parameters_limit                                 OK
++ fulu - gossip_beacon_block__valid_block                                                    OK
++ fulu - gossip_beacon_block__valid_execution_enabled                                        OK
++ fulu - gossip_beacon_block__valid_parent_execution_verified_valid                          OK
++ fulu - gossip_beacon_block__valid_parent_optimistic                                        OK
++ fulu - gossip_beacon_block__valid_with_blob_kzg_commitments                                OK
++ fulu - gossip_beacon_block__valid_within_clock_disparity                                   OK
++ gloas - gossip_beacon_block__ignore_already_seen_proposer_slot                             OK
++ gloas - gossip_beacon_block__ignore_future_slot                                            OK
++ gloas - gossip_beacon_block__ignore_parent_not_seen                                        OK
++ gloas - gossip_beacon_block__ignore_parent_payload_not_verified                            OK
++ gloas - gossip_beacon_block__ignore_slot_not_greater_than_finalized                        OK
++ gloas - gossip_beacon_block__reject_bid_not_on_parent_execution_head                       OK
++ gloas - gossip_beacon_block__reject_bid_parent_root_mismatch                               OK
++ gloas - gossip_beacon_block__reject_contains_deposits                                      OK
+  gloas - gossip_beacon_block__reject_finalized_checkpoint_not_ancestor                      Skip
++ gloas - gossip_beacon_block__reject_invalid_proposer_index                                 OK
++ gloas - gossip_beacon_block__reject_invalid_proposer_signature                             OK
++ gloas - gossip_beacon_block__reject_parent_failed_validation                               OK
++ gloas - gossip_beacon_block__reject_slot_not_higher_than_parent                            OK
++ gloas - gossip_beacon_block__reject_too_many_attestations                                  OK
++ gloas - gossip_beacon_block__reject_too_many_attester_slashings                            OK
++ gloas - gossip_beacon_block__reject_too_many_blob_commitments                              OK
++ gloas - gossip_beacon_block__reject_too_many_bls_to_execution_changes                      OK
++ gloas - gossip_beacon_block__reject_too_many_kzg_commitments                               OK
++ gloas - gossip_beacon_block__reject_too_many_parent_builder_deposit_requests               OK
++ gloas - gossip_beacon_block__reject_too_many_parent_builder_exit_requests                  OK
++ gloas - gossip_beacon_block__reject_too_many_parent_consolidation_requests                 OK
++ gloas - gossip_beacon_block__reject_too_many_parent_withdrawal_requests                    OK
++ gloas - gossip_beacon_block__reject_too_many_payload_attestations                          OK
++ gloas - gossip_beacon_block__reject_too_many_proposer_slashings                            OK
++ gloas - gossip_beacon_block__reject_too_many_voluntary_exits                               OK
++ gloas - gossip_beacon_block__reject_wrong_proposer_index                                   OK
++ gloas - gossip_beacon_block__valid_at_blob_parameters_limit                                OK
++ gloas - gossip_beacon_block__valid_block                                                   OK
++ gloas - gossip_beacon_block__valid_execution_enabled                                       OK
++ gloas - gossip_beacon_block__valid_max_attestations                                        OK
++ gloas - gossip_beacon_block__valid_max_attester_slashings                                  OK
++ gloas - gossip_beacon_block__valid_max_bls_to_execution_changes                            OK
++ gloas - gossip_beacon_block__valid_max_parent_builder_deposit_requests                     OK
++ gloas - gossip_beacon_block__valid_max_parent_builder_exit_requests                        OK
++ gloas - gossip_beacon_block__valid_max_parent_consolidation_requests                       OK
++ gloas - gossip_beacon_block__valid_max_parent_withdrawal_requests                          OK
++ gloas - gossip_beacon_block__valid_max_payload_attestations                                OK
++ gloas - gossip_beacon_block__valid_max_proposer_slashings                                  OK
++ gloas - gossip_beacon_block__valid_max_voluntary_exits                                     OK
++ gloas - gossip_beacon_block__valid_no_deposits                                             OK
++ gloas - gossip_beacon_block__valid_parent_empty                                            OK
++ gloas - gossip_beacon_block__valid_parent_full                                             OK
++ gloas - gossip_beacon_block__valid_with_blob_kzg_commitments                               OK
++ gloas - gossip_beacon_block__valid_within_clock_disparity                                  OK
++ heze - gossip_beacon_block__ignore_already_seen_proposer_slot                              OK
++ heze - gossip_beacon_block__ignore_future_slot                                             OK
++ heze - gossip_beacon_block__ignore_parent_not_seen                                         OK
++ heze - gossip_beacon_block__ignore_parent_payload_not_verified                             OK
++ heze - gossip_beacon_block__ignore_slot_not_greater_than_finalized                         OK
++ heze - gossip_beacon_block__reject_bid_not_on_parent_execution_head                        OK
++ heze - gossip_beacon_block__reject_bid_parent_root_mismatch                                OK
++ heze - gossip_beacon_block__reject_contains_deposits                                       OK
+  heze - gossip_beacon_block__reject_finalized_checkpoint_not_ancestor                       Skip
++ heze - gossip_beacon_block__reject_invalid_proposer_index                                  OK
++ heze - gossip_beacon_block__reject_invalid_proposer_signature                              OK
++ heze - gossip_beacon_block__reject_parent_failed_validation                                OK
++ heze - gossip_beacon_block__reject_slot_not_higher_than_parent                             OK
++ heze - gossip_beacon_block__reject_too_many_attestations                                   OK
++ heze - gossip_beacon_block__reject_too_many_attester_slashings                             OK
++ heze - gossip_beacon_block__reject_too_many_blob_commitments                               OK
++ heze - gossip_beacon_block__reject_too_many_bls_to_execution_changes                       OK
++ heze - gossip_beacon_block__reject_too_many_kzg_commitments                                OK
++ heze - gossip_beacon_block__reject_too_many_parent_builder_deposit_requests                OK
++ heze - gossip_beacon_block__reject_too_many_parent_builder_exit_requests                   OK
++ heze - gossip_beacon_block__reject_too_many_parent_consolidation_requests                  OK
++ heze - gossip_beacon_block__reject_too_many_parent_withdrawal_requests                     OK
++ heze - gossip_beacon_block__reject_too_many_payload_attestations                           OK
++ heze - gossip_beacon_block__reject_too_many_proposer_slashings                             OK
++ heze - gossip_beacon_block__reject_too_many_voluntary_exits                                OK
++ heze - gossip_beacon_block__reject_wrong_proposer_index                                    OK
++ heze - gossip_beacon_block__valid_at_blob_parameters_limit                                 OK
++ heze - gossip_beacon_block__valid_block                                                    OK
++ heze - gossip_beacon_block__valid_execution_enabled                                        OK
++ heze - gossip_beacon_block__valid_max_attestations                                         OK
++ heze - gossip_beacon_block__valid_max_attester_slashings                                   OK
++ heze - gossip_beacon_block__valid_max_bls_to_execution_changes                             OK
++ heze - gossip_beacon_block__valid_max_parent_builder_deposit_requests                      OK
++ heze - gossip_beacon_block__valid_max_parent_builder_exit_requests                         OK
++ heze - gossip_beacon_block__valid_max_parent_consolidation_requests                        OK
++ heze - gossip_beacon_block__valid_max_parent_withdrawal_requests                           OK
++ heze - gossip_beacon_block__valid_max_payload_attestations                                 OK
++ heze - gossip_beacon_block__valid_max_proposer_slashings                                   OK
++ heze - gossip_beacon_block__valid_max_voluntary_exits                                      OK
++ heze - gossip_beacon_block__valid_no_deposits                                              OK
++ heze - gossip_beacon_block__valid_parent_empty                                             OK
++ heze - gossip_beacon_block__valid_parent_full                                              OK
++ heze - gossip_beacon_block__valid_with_blob_kzg_commitments                                OK
++ heze - gossip_beacon_block__valid_within_clock_disparity                                   OK
+```
+## EF - Networking - Gossip - Data Column Sidecar [Preset: minimal]
+```diff
++ fulu - gossip_data_column_sidecar__ignore_already_seen                                     OK
++ fulu - gossip_data_column_sidecar__ignore_future_slot                                      OK
++ fulu - gossip_data_column_sidecar__ignore_not_later_than_finalized_slot                    OK
++ fulu - gossip_data_column_sidecar__ignore_parent_not_seen                                  OK
++ fulu - gossip_data_column_sidecar__reject_index_out_of_range                               OK
++ fulu - gossip_data_column_sidecar__reject_invalid_inclusion_proof                          OK
++ fulu - gossip_data_column_sidecar__reject_invalid_kzg_proofs                               OK
++ fulu - gossip_data_column_sidecar__reject_invalid_proposer_signature                       OK
+  fulu - gossip_data_column_sidecar__reject_non_ancestor_finalized_checkpoint                Skip
++ fulu - gossip_data_column_sidecar__reject_parent_failed_validation                         OK
++ fulu - gossip_data_column_sidecar__reject_proposer_index_out_of_range                      OK
++ fulu - gossip_data_column_sidecar__reject_slot_not_higher_than_parent                      OK
++ fulu - gossip_data_column_sidecar__reject_too_many_commitments                             OK
++ fulu - gossip_data_column_sidecar__reject_wrong_proposer_index                             OK
++ fulu - gossip_data_column_sidecar__reject_wrong_subnet                                     OK
++ fulu - gossip_data_column_sidecar__valid                                                   OK
++ fulu - gossip_data_column_sidecar__valid_slot_within_clock_disparity                       OK
++ gloas - gossip_data_column_sidecar__ignore_already_seen                                    OK
++ gloas - gossip_data_column_sidecar__ignore_block_unseen                                    OK
++ gloas - gossip_data_column_sidecar__ignore_future_slot                                     OK
++ gloas - gossip_data_column_sidecar__reject_block_failed_validation                         OK
++ gloas - gossip_data_column_sidecar__reject_invalid_kzg_proofs                              OK
++ gloas - gossip_data_column_sidecar__reject_invalid_sidecar                                 OK
++ gloas - gossip_data_column_sidecar__reject_slot_mismatch                                   OK
++ gloas - gossip_data_column_sidecar__reject_wrong_subnet                                    OK
++ gloas - gossip_data_column_sidecar__valid                                                  OK
++ gloas - gossip_data_column_sidecar__valid_slot_within_clock_disparity                      OK
++ heze - gossip_data_column_sidecar__ignore_already_seen                                     OK
++ heze - gossip_data_column_sidecar__ignore_block_unseen                                     OK
++ heze - gossip_data_column_sidecar__ignore_future_slot                                      OK
++ heze - gossip_data_column_sidecar__reject_block_failed_validation                          OK
++ heze - gossip_data_column_sidecar__reject_invalid_kzg_proofs                               OK
++ heze - gossip_data_column_sidecar__reject_invalid_sidecar                                  OK
++ heze - gossip_data_column_sidecar__reject_slot_mismatch                                    OK
++ heze - gossip_data_column_sidecar__reject_wrong_subnet                                     OK
++ heze - gossip_data_column_sidecar__valid                                                   OK
++ heze - gossip_data_column_sidecar__valid_slot_within_clock_disparity                       OK
+```
+## EF - Networking - Gossip - Execution Payload Bid [Preset: minimal]
+```diff
++ gloas - gossip_execution_payload_bid__ignore_builder_cannot_cover                          OK
++ gloas - gossip_execution_payload_bid__ignore_builder_exit_in_parent_payload                OK
++ gloas - gossip_execution_payload_bid__ignore_builder_exit_with_pending_balance             OK
++ gloas - gossip_execution_payload_bid__ignore_duplicate_from_builder                        OK
++ gloas - gossip_execution_payload_bid__ignore_equal_value                                   OK
++ gloas - gossip_execution_payload_bid__ignore_fee_recipient_mismatch                        OK
++ gloas - gossip_execution_payload_bid__ignore_gas_limit_decrease_exceeding_limit_off_by_one OK
++ gloas - gossip_execution_payload_bid__ignore_gas_limit_incompatible                        OK
++ gloas - gossip_execution_payload_bid__ignore_gas_limit_increase_exceeding_limit_off_by_one OK
++ gloas - gossip_execution_payload_bid__ignore_not_highest_value                             OK
+  gloas - gossip_execution_payload_bid__ignore_parent_block_hash_unknown                     Skip
++ gloas - gossip_execution_payload_bid__ignore_parent_block_unknown                          OK
++ gloas - gossip_execution_payload_bid__ignore_parent_state_unavailable                      OK
++ gloas - gossip_execution_payload_bid__ignore_preferences_not_seen                          OK
++ gloas - gossip_execution_payload_bid__ignore_slot_outside_lower_disparity                  OK
++ gloas - gossip_execution_payload_bid__ignore_slot_outside_upper_disparity                  OK
++ gloas - gossip_execution_payload_bid__ignore_slot_past_parent_lookahead                    OK
++ gloas - gossip_execution_payload_bid__ignore_slot_too_far_future                           OK
++ gloas - gossip_execution_payload_bid__reject_block_hash_equals_parent_block_hash           OK
++ gloas - gossip_execution_payload_bid__reject_builder_index_out_of_range                    OK
++ gloas - gossip_execution_payload_bid__reject_builder_not_active                            OK
++ gloas - gossip_execution_payload_bid__reject_builder_not_payload_version                   OK
++ gloas - gossip_execution_payload_bid__reject_execution_payment_nonzero                     OK
++ gloas - gossip_execution_payload_bid__reject_incorrect_prev_randao                         OK
++ gloas - gossip_execution_payload_bid__reject_invalid_signature                             OK
++ gloas - gossip_execution_payload_bid__reject_slot_not_higher_than_parent                   OK
++ gloas - gossip_execution_payload_bid__reject_too_many_blobs                                OK
++ gloas - gossip_execution_payload_bid__valid                                                OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_after_empty_parent                   OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_decrease_exceeding_limit             OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_decrease_within_limit                OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_increase_exceeding_limit             OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_increase_within_limit                OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_parent_under_step                    OK
++ gloas - gossip_execution_payload_bid__valid_gas_limit_target_equals_parent                 OK
++ gloas - gossip_execution_payload_bid__valid_higher_value                                   OK
++ gloas - gossip_execution_payload_bid__valid_max_blobs                                      OK
++ gloas - gossip_execution_payload_bid__valid_parent_exit_unknown_pubkey                     OK
++ gloas - gossip_execution_payload_bid__valid_parent_exit_wrong_source_address               OK
+  gloas - gossip_execution_payload_bid__valid_requires_state_advanced_across_epoch           Skip
++ gloas - gossip_execution_payload_bid__valid_slot_at_lower_disparity                        OK
++ gloas - gossip_execution_payload_bid__valid_slot_at_upper_disparity                        OK
++ gloas - gossip_execution_payload_bid__valid_zero_value_first_bid                           OK
+```
+## EF - Networking - Gossip - Execution Payload Envelope [Preset: minimal]
+```diff
++ gloas - gossip_execution_payload_envelope__ignore_block_unseen                             OK
++ gloas - gossip_execution_payload_envelope__ignore_duplicate                                OK
++ gloas - gossip_execution_payload_envelope__ignore_pre_finalized                            OK
++ gloas - gossip_execution_payload_envelope__reject_block_failed_validation                  OK
++ gloas - gossip_execution_payload_envelope__reject_block_hash_mismatch                      OK
++ gloas - gossip_execution_payload_envelope__reject_builder_index_mismatch                   OK
++ gloas - gossip_execution_payload_envelope__reject_execution_requests_root_mismatch         OK
++ gloas - gossip_execution_payload_envelope__reject_invalid_signature                        OK
++ gloas - gossip_execution_payload_envelope__reject_slot_mismatch                            OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_builder_deposit_requests        OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_builder_exit_requests           OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_consolidation_requests          OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_withdrawal_requests             OK
++ gloas - gossip_execution_payload_envelope__reject_too_many_withdrawals                     OK
++ gloas - gossip_execution_payload_envelope__valid                                           OK
++ gloas - gossip_execution_payload_envelope__valid_max_builder_deposit_requests              OK
++ gloas - gossip_execution_payload_envelope__valid_max_builder_exit_requests                 OK
++ gloas - gossip_execution_payload_envelope__valid_max_consolidation_requests                OK
++ gloas - gossip_execution_payload_envelope__valid_max_withdrawal_requests                   OK
++ gloas - gossip_execution_payload_envelope__valid_max_withdrawals                           OK
++ heze - gossip_execution_payload_envelope__ignore_block_unseen                              OK
++ heze - gossip_execution_payload_envelope__ignore_duplicate                                 OK
++ heze - gossip_execution_payload_envelope__ignore_pre_finalized                             OK
++ heze - gossip_execution_payload_envelope__reject_block_failed_validation                   OK
++ heze - gossip_execution_payload_envelope__reject_block_hash_mismatch                       OK
++ heze - gossip_execution_payload_envelope__reject_builder_index_mismatch                    OK
++ heze - gossip_execution_payload_envelope__reject_execution_requests_root_mismatch          OK
++ heze - gossip_execution_payload_envelope__reject_invalid_signature                         OK
++ heze - gossip_execution_payload_envelope__reject_slot_mismatch                             OK
++ heze - gossip_execution_payload_envelope__reject_too_many_builder_deposit_requests         OK
++ heze - gossip_execution_payload_envelope__reject_too_many_builder_exit_requests            OK
++ heze - gossip_execution_payload_envelope__reject_too_many_consolidation_requests           OK
++ heze - gossip_execution_payload_envelope__reject_too_many_withdrawal_requests              OK
++ heze - gossip_execution_payload_envelope__reject_too_many_withdrawals                      OK
++ heze - gossip_execution_payload_envelope__valid                                            OK
++ heze - gossip_execution_payload_envelope__valid_max_builder_deposit_requests               OK
++ heze - gossip_execution_payload_envelope__valid_max_builder_exit_requests                  OK
++ heze - gossip_execution_payload_envelope__valid_max_consolidation_requests                 OK
++ heze - gossip_execution_payload_envelope__valid_max_withdrawal_requests                    OK
++ heze - gossip_execution_payload_envelope__valid_max_withdrawals                            OK
+```
+## EF - Networking - Gossip - Payload Attestation Message [Preset: minimal]
+```diff
++ gloas - gossip_payload_attestation_message__ignore_block_not_at_assigned_slot              OK
++ gloas - gossip_payload_attestation_message__ignore_block_unseen                            OK
++ gloas - gossip_payload_attestation_message__ignore_duplicate                               OK
++ gloas - gossip_payload_attestation_message__ignore_not_current_slot                        OK
++ gloas - gossip_payload_attestation_message__ignore_slot_outside_lower_disparity            OK
++ gloas - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity            OK
++ gloas - gossip_payload_attestation_message__reject_block_failed_validation                 OK
++ gloas - gossip_payload_attestation_message__reject_invalid_signature                       OK
++ gloas - gossip_payload_attestation_message__reject_validator_index_out_of_range            OK
++ gloas - gossip_payload_attestation_message__reject_validator_not_in_ptc                    OK
++ gloas - gossip_payload_attestation_message__valid                                          OK
++ gloas - gossip_payload_attestation_message__valid_slot_at_lower_disparity                  OK
++ gloas - gossip_payload_attestation_message__valid_slot_at_upper_disparity                  OK
++ heze - gossip_payload_attestation_message__ignore_block_not_at_assigned_slot               OK
++ heze - gossip_payload_attestation_message__ignore_block_unseen                             OK
++ heze - gossip_payload_attestation_message__ignore_duplicate                                OK
++ heze - gossip_payload_attestation_message__ignore_not_current_slot                         OK
++ heze - gossip_payload_attestation_message__ignore_slot_outside_lower_disparity             OK
++ heze - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity             OK
++ heze - gossip_payload_attestation_message__reject_block_failed_validation                  OK
++ heze - gossip_payload_attestation_message__reject_invalid_signature                        OK
++ heze - gossip_payload_attestation_message__reject_validator_index_out_of_range             OK
++ heze - gossip_payload_attestation_message__reject_validator_not_in_ptc                     OK
++ heze - gossip_payload_attestation_message__valid                                           OK
++ heze - gossip_payload_attestation_message__valid_slot_at_lower_disparity                   OK
++ heze - gossip_payload_attestation_message__valid_slot_at_upper_disparity                   OK
+```
+## EF - Networking - Gossip - Proposer Preferences [Preset: minimal]
+```diff
++ gloas - gossip_proposer_preferences__ignore_dependent_root_not_possible                    OK
++ gloas - gossip_proposer_preferences__ignore_dependent_root_state_unavailable               OK
++ gloas - gossip_proposer_preferences__ignore_dependent_root_unseen                          OK
++ gloas - gossip_proposer_preferences__ignore_duplicate                                      OK
++ gloas - gossip_proposer_preferences__ignore_outside_lookahead_disparity                    OK
++ gloas - gossip_proposer_preferences__ignore_outside_slot_start_disparity                   OK
+  gloas - gossip_proposer_preferences__ignore_pre_gloas_epoch                                Skip
++ gloas - gossip_proposer_preferences__ignore_slot_after_lookahead                           OK
++ gloas - gossip_proposer_preferences__ignore_slot_before_lookahead                          OK
++ gloas - gossip_proposer_preferences__ignore_slot_from_past_epoch                           OK
++ gloas - gossip_proposer_preferences__reject_dependent_root_at_lookahead_epoch_start        OK
++ gloas - gossip_proposer_preferences__reject_invalid_signature                              OK
++ gloas - gossip_proposer_preferences__reject_non_genesis_dependent_root_at_lookahead_epoch  OK
++ gloas - gossip_proposer_preferences__reject_non_genesis_dependent_root_in_genesis_epoch    OK
++ gloas - gossip_proposer_preferences__reject_wrong_proposer                                 OK
++ gloas - gossip_proposer_preferences__valid                                                 OK
++ gloas - gossip_proposer_preferences__valid_at_first_lookahead_slot                         OK
+  gloas - gossip_proposer_preferences__valid_at_gloas_fork_epoch                             Skip
++ gloas - gossip_proposer_preferences__valid_at_last_lookahead_slot                          OK
++ gloas - gossip_proposer_preferences__valid_at_lookahead_disparity_edge                     OK
++ gloas - gossip_proposer_preferences__valid_at_slot_start_disparity_edge                    OK
++ gloas - gossip_proposer_preferences__valid_dependent_root_across_empty_epochs              OK
++ gloas - gossip_proposer_preferences__valid_dependent_root_on_fork                          OK
++ gloas - gossip_proposer_preferences__valid_genesis_dependent_root_at_lookahead_epoch       OK
++ gloas - gossip_proposer_preferences__valid_genesis_dependent_root_in_genesis_epoch         OK
++ heze - gossip_proposer_preferences__ignore_dependent_root_not_possible                     OK
++ heze - gossip_proposer_preferences__ignore_dependent_root_state_unavailable                OK
++ heze - gossip_proposer_preferences__ignore_dependent_root_unseen                           OK
++ heze - gossip_proposer_preferences__ignore_duplicate                                       OK
++ heze - gossip_proposer_preferences__ignore_outside_lookahead_disparity                     OK
++ heze - gossip_proposer_preferences__ignore_outside_slot_start_disparity                    OK
++ heze - gossip_proposer_preferences__ignore_slot_after_lookahead                            OK
++ heze - gossip_proposer_preferences__ignore_slot_before_lookahead                           OK
++ heze - gossip_proposer_preferences__ignore_slot_from_past_epoch                            OK
++ heze - gossip_proposer_preferences__reject_dependent_root_at_lookahead_epoch_start         OK
++ heze - gossip_proposer_preferences__reject_invalid_signature                               OK
++ heze - gossip_proposer_preferences__reject_non_genesis_dependent_root_at_lookahead_epoch   OK
++ heze - gossip_proposer_preferences__reject_non_genesis_dependent_root_in_genesis_epoch     OK
++ heze - gossip_proposer_preferences__reject_wrong_proposer                                  OK
++ heze - gossip_proposer_preferences__valid                                                  OK
++ heze - gossip_proposer_preferences__valid_at_first_lookahead_slot                          OK
++ heze - gossip_proposer_preferences__valid_at_last_lookahead_slot                           OK
++ heze - gossip_proposer_preferences__valid_at_lookahead_disparity_edge                      OK
++ heze - gossip_proposer_preferences__valid_at_slot_start_disparity_edge                     OK
++ heze - gossip_proposer_preferences__valid_dependent_root_across_empty_epochs               OK
++ heze - gossip_proposer_preferences__valid_dependent_root_on_fork                           OK
++ heze - gossip_proposer_preferences__valid_genesis_dependent_root_at_lookahead_epoch        OK
++ heze - gossip_proposer_preferences__valid_genesis_dependent_root_in_genesis_epoch          OK
+```
+## EF - Networking - Gossip - Proposer Slashing [Preset: minimal]
+```diff
++ fulu - gossip_proposer_slashing__ignore_already_seen                                       OK
++ fulu - gossip_proposer_slashing__reject_headers_identical                                  OK
++ fulu - gossip_proposer_slashing__reject_invalid_signature_1                                OK
++ fulu - gossip_proposer_slashing__reject_invalid_signature_2                                OK
++ fulu - gossip_proposer_slashing__reject_proposer_index_out_of_range                        OK
++ fulu - gossip_proposer_slashing__reject_proposer_indices_not_matching                      OK
++ fulu - gossip_proposer_slashing__reject_proposer_not_slashable                             OK
++ fulu - gossip_proposer_slashing__reject_slots_not_matching                                 OK
++ fulu - gossip_proposer_slashing__valid                                                     OK
++ gloas - gossip_proposer_slashing__ignore_already_seen                                      OK
++ gloas - gossip_proposer_slashing__reject_headers_identical                                 OK
++ gloas - gossip_proposer_slashing__reject_invalid_signature_1                               OK
++ gloas - gossip_proposer_slashing__reject_invalid_signature_2                               OK
++ gloas - gossip_proposer_slashing__reject_proposer_index_out_of_range                       OK
++ gloas - gossip_proposer_slashing__reject_proposer_indices_not_matching                     OK
++ gloas - gossip_proposer_slashing__reject_proposer_not_slashable                            OK
++ gloas - gossip_proposer_slashing__reject_slots_not_matching                                OK
++ gloas - gossip_proposer_slashing__valid                                                    OK
++ heze - gossip_proposer_slashing__ignore_already_seen                                       OK
++ heze - gossip_proposer_slashing__reject_headers_identical                                  OK
++ heze - gossip_proposer_slashing__reject_invalid_signature_1                                OK
++ heze - gossip_proposer_slashing__reject_invalid_signature_2                                OK
++ heze - gossip_proposer_slashing__reject_proposer_index_out_of_range                        OK
++ heze - gossip_proposer_slashing__reject_proposer_indices_not_matching                      OK
++ heze - gossip_proposer_slashing__reject_proposer_not_slashable                             OK
++ heze - gossip_proposer_slashing__reject_slots_not_matching                                 OK
++ heze - gossip_proposer_slashing__valid                                                     OK
+```
+## EF - Networking - Gossip - Sync Committee Contribution And Proof [Preset: minimal]
+```diff
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_duplicate_aggregator           OK
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_future_slot                    OK
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_past_slot                      OK
++ fulu - gossip_sync_committee_contribution_and_proof__ignore_superset_contribution          OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_aggregator_index_out_of_range  OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_aggregator_not_in_subcommittee OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregate_signature    OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregator_signature   OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_selection_proof        OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_invalid_subcommittee_index     OK
++ fulu - gossip_sync_committee_contribution_and_proof__reject_no_participants                OK
++ fulu - gossip_sync_committee_contribution_and_proof__valid                                 OK
++ fulu - gossip_sync_committee_contribution_and_proof__valid_at_period_boundary              OK
++ fulu - gossip_sync_committee_contribution_and_proof__valid_non_superset_contribution       OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_duplicate_aggregator          OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_future_slot                   OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_past_slot                     OK
++ gloas - gossip_sync_committee_contribution_and_proof__ignore_superset_contribution         OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_aggregator_index_out_of_range OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_aggregator_not_in_subcommitte OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregate_signature   OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregator_signature  OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_selection_proof       OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_invalid_subcommittee_index    OK
++ gloas - gossip_sync_committee_contribution_and_proof__reject_no_participants               OK
++ gloas - gossip_sync_committee_contribution_and_proof__valid                                OK
++ gloas - gossip_sync_committee_contribution_and_proof__valid_at_period_boundary             OK
++ gloas - gossip_sync_committee_contribution_and_proof__valid_non_superset_contribution      OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_duplicate_aggregator           OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_future_slot                    OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_past_slot                      OK
++ heze - gossip_sync_committee_contribution_and_proof__ignore_superset_contribution          OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_aggregator_index_out_of_range  OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_aggregator_not_in_subcommittee OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregate_signature    OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_aggregator_signature   OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_selection_proof        OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_invalid_subcommittee_index     OK
++ heze - gossip_sync_committee_contribution_and_proof__reject_no_participants                OK
++ heze - gossip_sync_committee_contribution_and_proof__valid                                 OK
++ heze - gossip_sync_committee_contribution_and_proof__valid_at_period_boundary              OK
++ heze - gossip_sync_committee_contribution_and_proof__valid_non_superset_contribution       OK
+```
+## EF - Networking - Gossip - Sync Committee Message [Preset: minimal]
+```diff
++ fulu - gossip_sync_committee_message__ignore_duplicate                                     OK
++ fulu - gossip_sync_committee_message__ignore_future_slot                                   OK
++ fulu - gossip_sync_committee_message__ignore_past_slot                                     OK
++ fulu - gossip_sync_committee_message__reject_invalid_signature                             OK
++ fulu - gossip_sync_committee_message__reject_validator_index_out_of_range                  OK
++ fulu - gossip_sync_committee_message__reject_wrong_subnet                                  OK
++ fulu - gossip_sync_committee_message__valid                                                OK
++ gloas - gossip_sync_committee_message__ignore_duplicate                                    OK
++ gloas - gossip_sync_committee_message__ignore_future_slot                                  OK
++ gloas - gossip_sync_committee_message__ignore_past_slot                                    OK
++ gloas - gossip_sync_committee_message__reject_invalid_signature                            OK
++ gloas - gossip_sync_committee_message__reject_validator_index_out_of_range                 OK
++ gloas - gossip_sync_committee_message__reject_wrong_subnet                                 OK
++ gloas - gossip_sync_committee_message__valid                                               OK
++ heze - gossip_sync_committee_message__ignore_duplicate                                     OK
++ heze - gossip_sync_committee_message__ignore_future_slot                                   OK
++ heze - gossip_sync_committee_message__ignore_past_slot                                     OK
++ heze - gossip_sync_committee_message__reject_invalid_signature                             OK
++ heze - gossip_sync_committee_message__reject_validator_index_out_of_range                  OK
++ heze - gossip_sync_committee_message__reject_wrong_subnet                                  OK
++ heze - gossip_sync_committee_message__valid                                                OK
+```
+## EF - Networking - Gossip - Voluntary Exit [Preset: minimal]
+```diff
++ fulu - gossip_voluntary_exit__ignore_already_initiated_exit                                OK
++ fulu - gossip_voluntary_exit__ignore_already_seen                                          OK
++ fulu - gossip_voluntary_exit__ignore_before_clock_disparity                                OK
++ fulu - gossip_voluntary_exit__ignore_epoch_in_future                                       OK
++ fulu - gossip_voluntary_exit__ignore_far_future_epoch                                      OK
++ fulu - gossip_voluntary_exit__reject_deneb_signature                                       OK
++ fulu - gossip_voluntary_exit__reject_invalid_signature                                     OK
++ fulu - gossip_voluntary_exit__reject_not_active_long_enough                                OK
++ fulu - gossip_voluntary_exit__reject_validator_index_out_of_range                          OK
++ fulu - gossip_voluntary_exit__reject_validator_not_active                                  OK
++ fulu - gossip_voluntary_exit__valid                                                        OK
++ fulu - gossip_voluntary_exit__valid_at_clock_disparity                                     OK
++ fulu - gossip_voluntary_exit__valid_capella_signature                                      OK
++ fulu - gossip_voluntary_exit__valid_previous_epoch                                         OK
++ gloas - gossip_voluntary_exit__ignore_already_initiated_exit                               OK
++ gloas - gossip_voluntary_exit__ignore_already_seen                                         OK
++ gloas - gossip_voluntary_exit__ignore_before_clock_disparity                               OK
++ gloas - gossip_voluntary_exit__ignore_epoch_in_future                                      OK
++ gloas - gossip_voluntary_exit__ignore_far_future_epoch                                     OK
++ gloas - gossip_voluntary_exit__reject_deneb_signature                                      OK
++ gloas - gossip_voluntary_exit__reject_invalid_signature                                    OK
++ gloas - gossip_voluntary_exit__reject_not_active_long_enough                               OK
++ gloas - gossip_voluntary_exit__reject_validator_index_out_of_range                         OK
++ gloas - gossip_voluntary_exit__reject_validator_not_active                                 OK
++ gloas - gossip_voluntary_exit__valid                                                       OK
++ gloas - gossip_voluntary_exit__valid_at_clock_disparity                                    OK
++ gloas - gossip_voluntary_exit__valid_capella_signature                                     OK
++ gloas - gossip_voluntary_exit__valid_previous_epoch                                        OK
++ heze - gossip_voluntary_exit__ignore_already_initiated_exit                                OK
++ heze - gossip_voluntary_exit__ignore_already_seen                                          OK
++ heze - gossip_voluntary_exit__ignore_before_clock_disparity                                OK
++ heze - gossip_voluntary_exit__ignore_epoch_in_future                                       OK
++ heze - gossip_voluntary_exit__ignore_far_future_epoch                                      OK
++ heze - gossip_voluntary_exit__reject_deneb_signature                                       OK
++ heze - gossip_voluntary_exit__reject_invalid_signature                                     OK
++ heze - gossip_voluntary_exit__reject_not_active_long_enough                                OK
++ heze - gossip_voluntary_exit__reject_validator_index_out_of_range                          OK
++ heze - gossip_voluntary_exit__reject_validator_not_active                                  OK
++ heze - gossip_voluntary_exit__valid                                                        OK
++ heze - gossip_voluntary_exit__valid_at_clock_disparity                                     OK
++ heze - gossip_voluntary_exit__valid_capella_signature                                      OK
++ heze - gossip_voluntary_exit__valid_previous_epoch                                         OK
 ```
 ## EF - Phase 0 - Operations - Attestation  [Preset: minimal]
 ```diff

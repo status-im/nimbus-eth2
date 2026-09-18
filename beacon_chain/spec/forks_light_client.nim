@@ -84,6 +84,24 @@ type
     electra.LightClientStore |
     gloas.LightClientStore
 
+  ForkyLightClientBlockData* =
+    altair.LightClientBlockData |
+    gloas.LightClientBlockData
+
+  ForkyLightClientBootstrapData* =
+    altair.LightClientBootstrapData |
+    capella.LightClientBootstrapData |
+    deneb.LightClientBootstrapData |
+    electra.LightClientBootstrapData |
+    gloas.LightClientBootstrapData
+
+  ForkyLightClientEpochData* =
+    altair.LightClientEpochData |
+    capella.LightClientEpochData |
+    deneb.LightClientEpochData |
+    electra.LightClientEpochData |
+    gloas.LightClientEpochData
+
   ForkedLightClientHeader* = object
     case kind*: LightClientDataFork
     of LightClientDataFork.None:
@@ -190,39 +208,66 @@ type
     of LightClientDataFork.Gloas:
       gloasData*: gloas.LightClientStore
 
+  ForkedLightClientEpochData* = object
+    case kind*: LightClientDataFork
+    of LightClientDataFork.None:
+      discard
+    of LightClientDataFork.Altair:
+      altairData*: altair.LightClientEpochData
+    of LightClientDataFork.Capella:
+      capellaData*: capella.LightClientEpochData
+    of LightClientDataFork.Deneb:
+      denebData*: deneb.LightClientEpochData
+    of LightClientDataFork.Electra:
+      electraData*: electra.LightClientEpochData
+    of LightClientDataFork.Gloas:
+      gloasData*: gloas.LightClientEpochData
+
 template kind*(
     x: typedesc[
       altair.SomeLightClientObject |
       altair.LightClientHeader |
-      altair.LightClientStore]): LightClientDataFork =
+      altair.LightClientStore |
+      altair.LightClientBlockData |
+      altair.LightClientBootstrapData |
+      altair.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Altair
 
 template kind*(
     x: typedesc[
       capella.SomeLightClientObject |
       capella.LightClientHeader |
-      capella.LightClientStore]): LightClientDataFork =
+      capella.LightClientStore |
+      capella.LightClientBootstrapData |
+      capella.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Capella
 
 template kind*(
     x: typedesc[
       deneb.SomeLightClientObject |
       deneb.LightClientHeader |
-      deneb.LightClientStore]): LightClientDataFork =
+      deneb.LightClientStore |
+      deneb.LightClientBootstrapData |
+      deneb.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Deneb
 
 template kind*(
     x: typedesc[
       electra.SomeLightClientObject |
       electra.LightClientHeader |
-      electra.LightClientStore]): LightClientDataFork =
+      electra.LightClientStore |
+      electra.LightClientBootstrapData |
+      electra.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Electra
 
 template kind*(
     x: typedesc[
       gloas.SomeLightClientObject |
       gloas.LightClientHeader |
-      gloas.LightClientStore]): LightClientDataFork =
+      gloas.LightClientStore |
+      gloas.LightClientBlockData |
+      gloas.LightClientBootstrapData |
+      gloas.LightClientEpochData]): LightClientDataFork =
   LightClientDataFork.Gloas
 
 template execution_block_hash*(
@@ -231,6 +276,15 @@ template execution_block_hash*(
       deneb.LightClientHeader |
       electra.LightClientHeader): Eth2Digest =
   forkyHeader.execution.block_hash
+
+template sync_aggregate_gindex*(
+    kind: static LightClientDataFork): GeneralizedIndex =
+  when kind >= LightClientDataFork.Gloas:
+    SYNC_AGGREGATE_GINDEX_GLOAS
+  elif kind >= LightClientDataFork.Altair:
+    SYNC_AGGREGATE_GINDEX
+  else:
+    {.error: "sync_aggregate_gindex unsupported in " & $kind.}
 
 template finalized_root_gindex*(
     kind: static LightClientDataFork): GeneralizedIndex =
@@ -298,7 +352,8 @@ template NextSyncCommitteeBranch*(
   else:
     {.error: "NextSyncCommitteeBranch unsupported in " & $kind.}
 
-template LightClientHeader*(kind: static LightClientDataFork): typedesc =
+template LightClientHeader*(
+    kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Gloas:
     gloas.LightClientHeader
   elif kind == LightClientDataFork.Electra:
@@ -312,7 +367,8 @@ template LightClientHeader*(kind: static LightClientDataFork): typedesc =
   else:
     {.error: "LightClientHeader unsupported in " & $kind.}
 
-template LightClientBootstrap*(kind: static LightClientDataFork): typedesc =
+template LightClientBootstrap*(
+    kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Gloas:
     gloas.LightClientBootstrap
   elif kind == LightClientDataFork.Electra:
@@ -326,7 +382,8 @@ template LightClientBootstrap*(kind: static LightClientDataFork): typedesc =
   else:
     {.error: "LightClientBootstrap unsupported in " & $kind.}
 
-template LightClientUpdate*(kind: static LightClientDataFork): typedesc =
+template LightClientUpdate*(
+    kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Gloas:
     gloas.LightClientUpdate
   elif kind == LightClientDataFork.Electra:
@@ -340,7 +397,8 @@ template LightClientUpdate*(kind: static LightClientDataFork): typedesc =
   else:
     {.error: "LightClientUpdate unsupported in " & $kind.}
 
-template LightClientFinalityUpdate*(kind: static LightClientDataFork): typedesc =
+template LightClientFinalityUpdate*(
+    kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Gloas:
     gloas.LightClientFinalityUpdate
   elif kind == LightClientDataFork.Electra:
@@ -354,7 +412,8 @@ template LightClientFinalityUpdate*(kind: static LightClientDataFork): typedesc 
   else:
     {.error: "LightClientFinalityUpdate unsupported in " & $kind.}
 
-template LightClientOptimisticUpdate*(kind: static LightClientDataFork): typedesc =
+template LightClientOptimisticUpdate*(
+    kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Gloas:
     gloas.LightClientOptimisticUpdate
   elif kind == LightClientDataFork.Electra:
@@ -368,7 +427,8 @@ template LightClientOptimisticUpdate*(kind: static LightClientDataFork): typedes
   else:
     {.error: "LightClientOptimisticUpdate unsupported in " & $kind.}
 
-template LightClientStore*(kind: static LightClientDataFork): typedesc =
+template LightClientStore*(
+    kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Gloas:
     gloas.LightClientStore
   elif kind == LightClientDataFork.Electra:
@@ -381,6 +441,45 @@ template LightClientStore*(kind: static LightClientDataFork): typedesc =
     altair.LightClientStore
   else:
     {.error: "LightClientStore unsupported in " & $kind.}
+
+template LightClientBlockData*(
+    kind: static LightClientDataFork): typedesc =
+  when kind >= LightClientDataFork.Gloas:
+    gloas.LightClientBlockData
+  elif kind >= LightClientDataFork.Altair:
+    altair.LightClientBlockData
+  else:
+    {.error: "LightClientBlockData unsupported in " & $kind.}
+
+template LightClientBootstrapData*(
+    kind: static LightClientDataFork): typedesc =
+  when kind == LightClientDataFork.Gloas:
+    gloas.LightClientBootstrapData
+  elif kind == LightClientDataFork.Electra:
+    electra.LightClientBootstrapData
+  elif kind == LightClientDataFork.Deneb:
+    deneb.LightClientBootstrapData
+  elif kind == LightClientDataFork.Capella:
+    capella.LightClientBootstrapData
+  elif kind == LightClientDataFork.Altair:
+    altair.LightClientBootstrapData
+  else:
+    {.error: "LightClientBootstrapData unsupported in " & $kind.}
+
+template LightClientEpochData*(
+    kind: static LightClientDataFork): typedesc =
+  when kind == LightClientDataFork.Gloas:
+    gloas.LightClientEpochData
+  elif kind == LightClientDataFork.Electra:
+    electra.LightClientEpochData
+  elif kind == LightClientDataFork.Deneb:
+    deneb.LightClientEpochData
+  elif kind == LightClientDataFork.Capella:
+    capella.LightClientEpochData
+  elif kind == LightClientDataFork.Altair:
+    altair.LightClientEpochData
+  else:
+    {.error: "LightClientEpochData unsupported in " & $kind.}
 
 template Forky*(
     x: typedesc[ForkedLightClientHeader],
@@ -412,6 +511,11 @@ template Forky*(
     kind: static LightClientDataFork): typedesc =
   kind.LightClientStore
 
+template Forky*(
+    x: typedesc[ForkedLightClientEpochData],
+    kind: static LightClientDataFork): typedesc =
+  kind.LightClientEpochData
+
 template Forked*(x: typedesc[ForkyLightClientHeader]): typedesc =
   ForkedLightClientHeader
 
@@ -429,6 +533,9 @@ template Forked*(x: typedesc[ForkyLightClientOptimisticUpdate]): typedesc =
 
 template Forked*(x: typedesc[ForkyLightClientStore]): typedesc =
   ForkedLightClientStore
+
+template Forked*(x: typedesc[ForkyLightClientEpochData]): typedesc =
+  ForkedLightClientEpochData
 
 template withAll*(
     x: typedesc[LightClientDataFork], body: untyped): untyped =
@@ -663,15 +770,44 @@ template withForkyStore*(
     const lcDataFork {.inject, used.} = LightClientDataFork.None
     body
 
+template withForkyEpochData*(
+    x: ForkedLightClientEpochData, body: untyped): untyped =
+  case x.kind
+  of LightClientDataFork.Gloas:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Gloas
+    template forkyEpochData: untyped {.inject, used.} = x.gloasData
+    body
+  of LightClientDataFork.Electra:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Electra
+    template forkyEpochData: untyped {.inject, used.} = x.electraData
+    body
+  of LightClientDataFork.Deneb:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Deneb
+    template forkyEpochData: untyped {.inject, used.} = x.denebData
+    body
+  of LightClientDataFork.Capella:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Capella
+    template forkyEpochData: untyped {.inject, used.} = x.capellaData
+    body
+  of LightClientDataFork.Altair:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
+    template forkyEpochData: untyped {.inject, used.} = x.altairData
+    body
+  of LightClientDataFork.None:
+    const lcDataFork {.inject, used.} = LightClientDataFork.None
+    body
+
 func init*(
     x: typedesc[
       ForkedLightClientHeader |
       SomeForkedLightClientObject |
-      ForkedLightClientStore],
+      ForkedLightClientStore |
+      ForkedLightClientEpochData],
     forkyData:
       ForkyLightClientHeader |
       SomeForkyLightClientObject |
-      ForkyLightClientStore): auto =
+      ForkyLightClientStore |
+      ForkyLightClientEpochData): auto =
   type ResultType = typeof(forkyData).Forked
   static: doAssert ResultType is x
   const kind = typeof(forkyData).kind
@@ -692,7 +828,8 @@ template forky*(
     x:
       ForkedLightClientHeader |
       SomeForkedLightClientObject |
-      ForkedLightClientStore,
+      ForkedLightClientStore |
+      ForkedLightClientEpochData,
     kind: static LightClientDataFork): untyped =
   when kind == LightClientDataFork.Gloas:
     x.gloasData
@@ -1236,7 +1373,7 @@ func toCapellaLightClientHeader(
     withdrawals_gindex = typeof(body).get_generalized_index(
       "execution_payload", "withdrawals")
     union_indices = get_union_indices(
-      [capella.EXECUTION_PAYLOAD_GINDEX],
+      [EXECUTION_PAYLOAD_GINDEX],
       extra_indices = [transactions_gindex, withdrawals_gindex])
   var body_root {.noinit.}: Eth2Digest
   let union_roots = body.hash_tree_root(union_indices, body_root).get
@@ -1249,7 +1386,7 @@ func toCapellaLightClientHeader(
       withdrawals_root = union_roots.extract_root(
         union_indices, withdrawals_gindex).get),
     execution_branch: union_roots.extract_branch(
-      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.4.0-alpha.0/specs/deneb/light-client/full-node.md#modified-block_to_light_client_header
 func toDenebLightClientHeader(
@@ -1281,7 +1418,7 @@ func toDenebLightClientHeader(
     withdrawals_gindex = typeof(body).get_generalized_index(
       "execution_payload", "withdrawals")
     union_indices = get_union_indices(
-      [capella.EXECUTION_PAYLOAD_GINDEX],
+      [EXECUTION_PAYLOAD_GINDEX],
       extra_indices = [transactions_gindex, withdrawals_gindex])
   var body_root {.noinit.}: Eth2Digest
   let union_roots = body.hash_tree_root(union_indices, body_root).get
@@ -1307,7 +1444,7 @@ func toDenebLightClientHeader(
       withdrawals_root: union_roots.extract_root(
         union_indices, withdrawals_gindex).get),
     execution_branch: union_roots.extract_branch(
-      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
 
 func toDenebLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1322,7 +1459,7 @@ func toDenebLightClientHeader(
     withdrawals_gindex = typeof(body).get_generalized_index(
       "execution_payload", "withdrawals")
     union_indices = get_union_indices(
-      [capella.EXECUTION_PAYLOAD_GINDEX],
+      [EXECUTION_PAYLOAD_GINDEX],
       extra_indices = [transactions_gindex, withdrawals_gindex])
   var body_root {.noinit.}: Eth2Digest
   let union_roots = body.hash_tree_root(union_indices, body_root).get
@@ -1335,7 +1472,7 @@ func toDenebLightClientHeader(
       withdrawals_root = union_roots.extract_root(
         union_indices, withdrawals_gindex).get),
     execution_branch: union_roots.extract_branch(
-      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/specs/electra/light-client/full-node.md#modified-block_to_light_client_header
 func toElectraLightClientHeader(
@@ -1367,7 +1504,7 @@ func toElectraLightClientHeader(
     withdrawals_gindex = typeof(body).get_generalized_index(
       "execution_payload", "withdrawals")
     union_indices = get_union_indices(
-      [capella.EXECUTION_PAYLOAD_GINDEX],
+      [EXECUTION_PAYLOAD_GINDEX],
       extra_indices = [transactions_gindex, withdrawals_gindex])
   var body_root {.noinit.}: Eth2Digest
   let union_roots = body.hash_tree_root(union_indices, body_root).get
@@ -1393,7 +1530,7 @@ func toElectraLightClientHeader(
       withdrawals_root: union_roots.extract_root(
         union_indices, withdrawals_gindex).get),
     execution_branch: union_roots.extract_branch(
-      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
 
 func toElectraLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1410,7 +1547,7 @@ func toElectraLightClientHeader(
     withdrawals_gindex = typeof(body).get_generalized_index(
       "execution_payload", "withdrawals")
     union_indices = get_union_indices(
-      [capella.EXECUTION_PAYLOAD_GINDEX],
+      [EXECUTION_PAYLOAD_GINDEX],
       extra_indices = [transactions_gindex, withdrawals_gindex])
   var body_root {.noinit.}: Eth2Digest
   let union_roots = body.hash_tree_root(union_indices, body_root).get
@@ -1423,7 +1560,7 @@ func toElectraLightClientHeader(
       withdrawals_root = union_roots.extract_root(
         union_indices, withdrawals_gindex).get),
     execution_branch: union_roots.extract_branch(
-      union_indices, capella.EXECUTION_PAYLOAD_GINDEX).get)
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
 
 func toGloasLightClientHeader(
     # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
@@ -1514,13 +1651,292 @@ func toLightClientHeader*(
   else:
     {.error: "toLightClientHeader unsupported in " & $kind.}
 
+func toLightClientBlockData(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
+      capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock |
+      gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
+      heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
+    kind: static LightClientDataFork,
+    sync_committee_signature_root: Eth2Digest,
+    sync_aggregate_branch:
+      altair.SyncAggregateBranch | gloas.SyncAggregateBranch): auto =
+  template sync_aggregate: auto = blck.message.body.sync_aggregate
+  kind.LightClientBlockData(
+    proposer_index: blck.message.proposer_index,
+    state_root: blck.message.state_root,
+    sync_committee_bits: sync_aggregate.sync_committee_bits,
+    sync_committee_signature_root: sync_committee_signature_root,
+    sync_aggregate_branch: normalize_merkle_branch(
+      sync_aggregate_branch, kind.sync_aggregate_gindex))
+
+func toLightClientBlockData*(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
+      capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock,
+    kind: static LightClientDataFork): auto =
+  when kind >= LightClientDataFork.Altair:
+    template body: auto = blck.message.body
+    const
+      sync_committee_signature_gindex = typeof(body).get_generalized_index(
+        "sync_aggregate", "sync_committee_signature")
+      union_indices = get_union_indices(
+        [SYNC_AGGREGATE_GINDEX],
+        extra_indices = [sync_committee_signature_gindex])
+    let union_roots = body.hash_tree_root(union_indices).get
+
+    blck.toLightClientBlockData(
+      kind,
+      sync_committee_signature_root = union_roots.extract_root(
+        union_indices, sync_committee_signature_gindex).get,
+      sync_aggregate_branch = union_roots.extract_branch(
+        union_indices, SYNC_AGGREGATE_GINDEX).get)
+  else:
+    {.error: "toLightClientBlockData unsupported in " & $kind.}
+
+func toLightClientBlockData*(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
+      heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
+    kind: static LightClientDataFork): auto =
+  when kind >= LightClientDataFork.Gloas:
+    template body: auto = blck.message.body
+    const
+      sync_committee_signature_gindex = typeof(body).get_generalized_index(
+        "sync_aggregate", "sync_committee_signature")
+      union_indices = get_union_indices(
+        [SYNC_AGGREGATE_GINDEX_GLOAS],
+        extra_indices = [sync_committee_signature_gindex])
+    let union_roots = body.hash_tree_root(union_indices).get
+
+    blck.toLightClientBlockData(
+      kind,
+      sync_committee_signature_root = union_roots.extract_root(
+        union_indices, sync_committee_signature_gindex).get,
+      sync_aggregate_branch = union_roots.extract_branch(
+        union_indices, SYNC_AGGREGATE_GINDEX_GLOAS).get)
+  else:
+    {.error: "toLightClientBlockData unsupported in " & $kind.}
+
+func toAltairLightClientBlockData(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock,
+    header: var altair.LightClientHeader
+): altair.LightClientBlockData =
+  template body: auto = blck.message.body
+  const
+    sync_committee_signature_gindex = typeof(body).get_generalized_index(
+      "sync_aggregate", "sync_committee_signature")
+    union_indices = get_union_indices(
+      [SYNC_AGGREGATE_GINDEX],
+      extra_indices = [sync_committee_signature_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
+  header = altair.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(body_root))
+  blck.toLightClientBlockData(
+    LightClientDataFork.Altair,
+    sync_committee_signature_root = union_roots.extract_root(
+      union_indices, sync_committee_signature_gindex).get,
+    sync_aggregate_branch = union_roots.extract_branch(
+      union_indices, SYNC_AGGREGATE_GINDEX).get)
+
+func toCapellaLightClientBlockData(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock,
+    header: var capella.LightClientHeader
+): altair.LightClientBlockData =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    sync_committee_signature_gindex = typeof(body).get_generalized_index(
+      "sync_aggregate", "sync_committee_signature")
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [SYNC_AGGREGATE_GINDEX, EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [
+        sync_committee_signature_gindex,
+        transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
+  header = capella.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution: payload.toExecutionPayloadHeader(
+      transactions_root = union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root = union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
+  blck.toLightClientBlockData(
+    LightClientDataFork.Capella,
+    sync_committee_signature_root = union_roots.extract_root(
+      union_indices, sync_committee_signature_gindex).get,
+    sync_aggregate_branch = union_roots.extract_branch(
+      union_indices, SYNC_AGGREGATE_GINDEX).get)
+
+func toDenebLightClientBlockData(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock,
+    header: var deneb.LightClientHeader
+): altair.LightClientBlockData =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    sync_committee_signature_gindex = typeof(body).get_generalized_index(
+      "sync_aggregate", "sync_committee_signature")
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [SYNC_AGGREGATE_GINDEX, EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [
+        sync_committee_signature_gindex,
+        transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
+  header = deneb.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution: payload.toExecutionPayloadHeader(
+      transactions_root = union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root = union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
+  blck.toLightClientBlockData(
+    LightClientDataFork.Deneb,
+    sync_committee_signature_root = union_roots.extract_root(
+      union_indices, sync_committee_signature_gindex).get,
+    sync_aggregate_branch = union_roots.extract_branch(
+      union_indices, SYNC_AGGREGATE_GINDEX).get)
+
+func toElectraLightClientBlockData(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock,
+    header: var electra.LightClientHeader
+): altair.LightClientBlockData =
+  template body: auto = blck.message.body
+  template payload: auto = body.execution_payload
+  const
+    sync_committee_signature_gindex = typeof(body).get_generalized_index(
+      "sync_aggregate", "sync_committee_signature")
+    transactions_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "transactions")
+    withdrawals_gindex = typeof(body).get_generalized_index(
+      "execution_payload", "withdrawals")
+    union_indices = get_union_indices(
+      [SYNC_AGGREGATE_GINDEX, EXECUTION_PAYLOAD_GINDEX],
+      extra_indices = [
+        sync_committee_signature_gindex,
+        transactions_gindex, withdrawals_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
+  header = electra.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution: payload.toExecutionPayloadHeader(
+      transactions_root = union_roots.extract_root(
+        union_indices, transactions_gindex).get,
+      withdrawals_root = union_roots.extract_root(
+        union_indices, withdrawals_gindex).get),
+    execution_branch: union_roots.extract_branch(
+      union_indices, EXECUTION_PAYLOAD_GINDEX).get)
+  blck.toLightClientBlockData(
+    LightClientDataFork.Electra,
+    sync_committee_signature_root = union_roots.extract_root(
+      union_indices, sync_committee_signature_gindex).get,
+    sync_aggregate_branch = union_roots.extract_branch(
+      union_indices, SYNC_AGGREGATE_GINDEX).get)
+
+func toGloasLightClientBlockData(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
+      heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
+    header: var gloas.LightClientHeader
+): gloas.LightClientBlockData =
+  template body: auto = blck.message.body
+  template bid: auto = body.signed_execution_payload_bid
+  const
+    sync_committee_signature_gindex = typeof(body).get_generalized_index(
+      "sync_aggregate", "sync_committee_signature")
+    union_indices = get_union_indices(
+      [SYNC_AGGREGATE_GINDEX_GLOAS, EXECUTION_BLOCK_HASH_GINDEX_GLOAS],
+      extra_indices = [sync_committee_signature_gindex])
+  var body_root {.noinit.}: Eth2Digest
+  let union_roots = body.hash_tree_root(union_indices, body_root).get
+
+  header = gloas.LightClientHeader(
+    beacon: blck.message.toBeaconBlockHeader(body_root),
+    execution_block_hash: bid.message.parent_block_hash,
+    execution_branch: union_roots.extract_branch(
+      union_indices, EXECUTION_BLOCK_HASH_GINDEX_GLOAS).get)
+  blck.toLightClientBlockData(
+    LightClientDataFork.Gloas,
+    sync_committee_signature_root = union_roots.extract_root(
+      union_indices, sync_committee_signature_gindex).get,
+    sync_aggregate_branch = union_roots.extract_branch(
+      union_indices, SYNC_AGGREGATE_GINDEX_GLOAS).get)
+
+func toLightClientBlockData*(
+    # `SomeSignedBeaconBlock`: https://github.com/nim-lang/Nim/issues/18095
+    blck:
+      altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
+      capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock |
+      electra.SignedBeaconBlock | electra.TrustedSignedBeaconBlock |
+      fulu.SignedBeaconBlock | fulu.TrustedSignedBeaconBlock |
+      gloas.SignedBeaconBlock | gloas.TrustedSignedBeaconBlock |
+      heze.SignedBeaconBlock | heze.TrustedSignedBeaconBlock,
+    kind: static LightClientDataFork,
+    header: var kind.LightClientHeader): auto =
+  when kind == LightClientDataFork.Gloas:
+    blck.toGloasLightClientBlockData(header)
+  elif kind == LightClientDataFork.Electra:
+    blck.toElectraLightClientBlockData(header)
+  elif kind == LightClientDataFork.Deneb:
+    blck.toDenebLightClientBlockData(header)
+  elif kind == LightClientDataFork.Capella:
+    blck.toCapellaLightClientBlockData(header)
+  elif kind == LightClientDataFork.Altair:
+    blck.toAltairLightClientBlockData(header)
+  else:
+    {.error: "toLightClientBlockData unsupported in " & $kind.}
+
 import chronicles
 
 func shortLog*[
     T:
       ForkedLightClientHeader |
       SomeForkedLightClientObject |
-      ForkedLightClientStore](
+      ForkedLightClientStore |
+      ForkedLightClientEpochData](
     x: T): auto =
   type ResultType = object
     case kind: LightClientDataFork
@@ -1555,3 +1971,4 @@ func shortLog*[
 chronicles.formatIt ForkedLightClientHeader: it.shortLog
 chronicles.formatIt SomeForkedLightClientObject: it.shortLog
 chronicles.formatIt ForkedLightClientStore: it.shortLog
+chronicles.formatIt ForkedLightClientEpochData: it.shortLog
