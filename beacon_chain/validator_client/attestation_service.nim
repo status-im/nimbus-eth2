@@ -534,6 +534,10 @@ proc spawnAttestationTasksV2(
     vc = service.client
     duties = vc.getAttesterDutiesForSlot(slot)
 
+  if len(duties) == 0:
+    debug "No attestation duties scheduled for slot", slot = slot
+    return
+
   # Waiting for blocks to be published before attesting.
   await vc.waitForBlock(slot, vc.timeParams.attestationSlotOffset)
 

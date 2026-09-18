@@ -30,6 +30,17 @@ AllTests-mainnet
 ## Attestation pool gloas processing [Preset: mainnet]
 ```diff
 + EL-invalid payload only invalidates the FULL variant                                       OK
++ Inclusion list satisfaction is not recorded before Heze                                    OK
+```
+## Attestation pool heze processing [Preset: mainnet]
+```diff
++ A payload missing inclusion list transactions is not extended                              OK
++ An optimistically imported payload is recorded as satisfying                               OK
++ An unrevealed payload does not satisfy the constraints                                     OK
++ Constraints come from the previous slot's committee                                        OK
++ Inclusion list satisfaction for pruned blocks is dropped                                   OK
++ The genesis block has no inclusion list constraints                                        OK
++ Untimely inclusion lists do not constrain the payload                                      OK
 ```
 ## Backfill
 ```diff
@@ -45,6 +56,7 @@ AllTests-mainnet
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
 + head blocks roundtrip [Preset: mainnet]                                                    OK
++ pre-Capella withdrawal credentials [Preset: mainnet]                                       OK
 + sanity check altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check altair blocks [Preset: mainnet]                                               OK
 + sanity check altair states [Preset: mainnet]                                               OK
@@ -471,6 +483,16 @@ AllTests-mainnet
 + Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
 + Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
 ```
+## Gloas Partial Columns
+```diff
++ Assemble partial data column sidecars                                                      OK
++ Assemble partial data column sidecars with missing rows                                    OK
++ Assemble rejects mismatched blob and proof counts                                          OK
++ Partial KZG inputs skip cells already verified                                             OK
++ PartialDataColumnGroupID encoding                                                          OK
++ Verify PartialDataColumnSidecar KZG proofs                                                 OK
++ Verify PartialDataColumnSidecar self-consistency                                           OK
+```
 ## Gloas block validity
 ```diff
 + Execution valid                                                                            OK
@@ -529,11 +551,6 @@ AllTests-mainnet
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
-## Gossip validation - Gloas
-```diff
-+ validateBeaconBlock - finalized head execution parent                                      OK
-+ validateBeaconBlock - mismatched execution parent                                          OK
-```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
@@ -585,9 +602,13 @@ AllTests-mainnet
 + A list past the lookback window is rejected [Preset: mainnet]                              OK
 + Accepts two distinct lists then drops the third [Preset: mainnet]                          OK
 + Byte-identical resubmission is a no-op [Preset: mainnet]                                   OK
++ Equivocators are not served [Preset: mainnet]                                              OK
++ Response is deduplicated and capped [Preset: mainnet]                                      OK
++ Serves stored lists, signature included [Preset: mainnet]                                  OK
 + Stale slots are pruned [Preset: mainnet]                                                   OK
 + Stores transactions for the slot [Preset: mainnet]                                         OK
 + Untimely lists are excluded unless requested [Preset: mainnet]                             OK
++ Untimely lists are still served over req/resp [Preset: mainnet]                            OK
 ```
 ## Key splitting
 ```diff
@@ -620,6 +641,97 @@ AllTests-mainnet
 + Init from checkpoint                                                                       OK
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
+```
+## Light client block data [Preset: mainnet]
+```diff
++ altair -> Altair                                                                           OK
++ altair -> Altair (with header)                                                             OK
++ altair -> Capella                                                                          OK
++ altair -> Capella (with header)                                                            OK
++ altair -> Deneb                                                                            OK
++ altair -> Deneb (with header)                                                              OK
++ altair -> Electra                                                                          OK
++ altair -> Electra (with header)                                                            OK
++ altair -> Gloas                                                                            OK
++ altair -> Gloas (with header)                                                              OK
++ altair -> None                                                                             OK
++ bellatrix -> Altair                                                                        OK
++ bellatrix -> Altair (with header)                                                          OK
++ bellatrix -> Capella                                                                       OK
++ bellatrix -> Capella (with header)                                                         OK
++ bellatrix -> Deneb                                                                         OK
++ bellatrix -> Deneb (with header)                                                           OK
++ bellatrix -> Electra                                                                       OK
++ bellatrix -> Electra (with header)                                                         OK
++ bellatrix -> Gloas                                                                         OK
++ bellatrix -> Gloas (with header)                                                           OK
++ bellatrix -> None                                                                          OK
++ capella -> Altair                                                                          OK
++ capella -> Altair (with header)                                                            OK
++ capella -> Capella                                                                         OK
++ capella -> Capella (with header)                                                           OK
++ capella -> Deneb                                                                           OK
++ capella -> Deneb (with header)                                                             OK
++ capella -> Electra                                                                         OK
++ capella -> Electra (with header)                                                           OK
++ capella -> Gloas                                                                           OK
++ capella -> Gloas (with header)                                                             OK
++ capella -> None                                                                            OK
++ deneb -> Altair                                                                            OK
++ deneb -> Altair (with header)                                                              OK
++ deneb -> Capella                                                                           OK
++ deneb -> Capella (with header)                                                             OK
++ deneb -> Deneb                                                                             OK
++ deneb -> Deneb (with header)                                                               OK
++ deneb -> Electra                                                                           OK
++ deneb -> Electra (with header)                                                             OK
++ deneb -> Gloas                                                                             OK
++ deneb -> Gloas (with header)                                                               OK
++ deneb -> None                                                                              OK
++ electra -> Altair                                                                          OK
++ electra -> Altair (with header)                                                            OK
++ electra -> Capella                                                                         OK
++ electra -> Capella (with header)                                                           OK
++ electra -> Deneb                                                                           OK
++ electra -> Deneb (with header)                                                             OK
++ electra -> Electra                                                                         OK
++ electra -> Electra (with header)                                                           OK
++ electra -> Gloas                                                                           OK
++ electra -> Gloas (with header)                                                             OK
++ electra -> None                                                                            OK
++ fulu -> Altair                                                                             OK
++ fulu -> Altair (with header)                                                               OK
++ fulu -> Capella                                                                            OK
++ fulu -> Capella (with header)                                                              OK
++ fulu -> Deneb                                                                              OK
++ fulu -> Deneb (with header)                                                                OK
++ fulu -> Electra                                                                            OK
++ fulu -> Electra (with header)                                                              OK
++ fulu -> Gloas                                                                              OK
++ fulu -> Gloas (with header)                                                                OK
++ fulu -> None                                                                               OK
++ gloas -> Altair                                                                            OK
++ gloas -> Altair (with header)                                                              OK
++ gloas -> Capella                                                                           OK
++ gloas -> Capella (with header)                                                             OK
++ gloas -> Deneb                                                                             OK
++ gloas -> Deneb (with header)                                                               OK
++ gloas -> Electra                                                                           OK
++ gloas -> Electra (with header)                                                             OK
++ gloas -> Gloas                                                                             OK
++ gloas -> Gloas (with header)                                                               OK
++ gloas -> None                                                                              OK
++ heze -> Altair                                                                             OK
++ heze -> Altair (with header)                                                               OK
++ heze -> Capella                                                                            OK
++ heze -> Capella (with header)                                                              OK
++ heze -> Deneb                                                                              OK
++ heze -> Deneb (with header)                                                                OK
++ heze -> Electra                                                                            OK
++ heze -> Electra (with header)                                                              OK
++ heze -> Gloas                                                                              OK
++ heze -> Gloas (with header)                                                                OK
++ heze -> None                                                                               OK
 ```
 ## Light client processor [Preset: mainnet]
 ```diff
@@ -695,7 +807,6 @@ AllTests-mainnet
 ```
 ## Nimbus remote signer/signing test (verifying-web3signer)
 ```diff
-+ Signing BeaconBlock (getBlockSignature(electra))                                           OK
 + Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
@@ -704,7 +815,7 @@ AllTests-mainnet
 + Connection timeout test                                                                    OK
 + Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
 + Public keys reload (/reload) test                                                          OK
-+ Signing BeaconBlock (getBlockSignature(electra))                                           OK
++ Signing BeaconBlock (getBlockSignature(fulu))                                              OK
 + Signing SC contribution and proof (getContributionAndProofSignature())                     OK
 + Signing SC message (getSyncCommitteeMessage())                                             OK
 + Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
@@ -721,74 +832,68 @@ AllTests-mainnet
 ```diff
 + pre-1.1.0                                                                                  OK
 ```
-## Partial Column Quarantine (Fulu)
+## Partial Column Quarantine
 ```diff
 + Assemble multiple columns for the same block independently                                 OK
 + Cell tracking is per-column                                                                OK
-+ Different block roots with same column index are independent                               OK
 + Different column indices are independent                                                   OK
++ Different group ids with same column index are independent                                 OK
 + Get entry for unknown key returns none                                                     OK
-+ Get header for unknown root returns none                                                   OK
-+ Header LRU evicts oldest entry when full                                                   OK
++ Group ID LRU evicts oldest entry when full                                                 OK
++ Group IDs with same root but different slots are distinct keys                             OK
++ Group id arriving after the cells still completes the entry                                OK
++ GroupID hash and equality                                                                  OK
 + Init creates empty quarantine                                                              OK
 + Mark all cells received                                                                    OK
 + Mark and check cell received                                                               OK
 + Mark cell received for non-existent entry is no-op                                         OK
 + Mark cell received with out-of-bounds blob index is no-op                                  OK
-+ Multiple headers for different roots                                                       OK
-+ Overwrite header with same root                                                            OK
++ Multiple group ids coexist                                                                 OK
 + PartialColumnKey equality                                                                  OK
 + PartialColumnKey hash differs for different keys                                           OK
++ Put and check group id                                                                     OK
 + Put and get entry                                                                          OK
-+ Put and get partial header                                                                 OK
 + Remove entry                                                                               OK
 + Remove entry does not affect other entries                                                 OK
-+ Remove header                                                                              OK
++ Remove group id                                                                            OK
 + Remove non-existent entry is no-op                                                         OK
-+ Remove non-existent header is no-op                                                        OK
-+ Removing entry does not remove header                                                      OK
-+ Removing header does not remove entries                                                    OK
++ Remove non-existent group id is no-op                                                      OK
++ Removing entry does not remove group id                                                    OK
++ Removing group id does not remove entries                                                  OK
++ Unknown group id is not present                                                            OK
 + addCells accumulates across multiple sidecars                                              OK
 + addCells ingests cells from a PartialDataColumnSidecar                                     OK
 + addCells is independent across columns                                                     OK
 + addCells on non-existent entry is no-op                                                    OK
 + addCells with overlapping bitmap overwrites existing cells                                 OK
-+ assembleDataColumnSidecar preserves inclusion proof from header                            OK
 + assembleDataColumnSidecar produces correct DataColumnSidecar                               OK
 + assembleDataColumnSidecar returns none for non-existent entry                              OK
 + assembleDataColumnSidecar returns none when cells incomplete                               OK
-+ assembleDataColumnSidecar returns none when header missing from cache                      OK
-+ assembleDataColumnSidecar returns none when header not validated                           OK
++ assembleDataColumnSidecar returns none when group id missing from cache                    OK
++ assembleDataColumnSidecar returns none when group id not validated                         OK
 + assembleDataColumnSidecar with cells added incrementally                                   OK
 + assembleDataColumnSidecar with markCellReceived (data overload)                            OK
++ cellsConsistent is false when an overlapping cell differs                                  OK
++ cellsConsistent is false when an overlapping proof differs                                 OK
++ cellsConsistent is true when cells do not overlap                                          OK
++ cellsConsistent is true when no entry exists                                               OK
++ cellsConsistent is true when overlapping cells match                                       OK
 + getOrCreateEntry creates new entry                                                         OK
 + getOrCreateEntry new entry has properly sized cells and proofs                             OK
-+ getOrCreateEntry reflects header validation status                                         OK
 + getOrCreateEntry returns existing entry                                                    OK
 + hasCellReceived for non-existent entry returns false                                       OK
 + hasCellReceived for out-of-bounds index returns false                                      OK
 + isComplete becomes true after incremental addCells                                         OK
 + isComplete returns false for non-existent entry                                            OK
 + isComplete returns false when cells are missing                                            OK
-+ isComplete returns false when header not validated                                         OK
-+ isComplete returns true when header validated and all cells received                       OK
++ isComplete returns false when group id not validated                                       OK
++ isComplete returns true when group id validated and all cells received                     OK
 + isComplete with single blob                                                                OK
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
-```
-## Partial Column Quarantine (Gloas)
-```diff
-+ Group IDs with same root but different slots are distinct keys                             OK
-+ GroupID hash and equality                                                                  OK
-+ Header LRU eviction (gloas, keyed by GroupID)                                              OK
-+ Init creates empty quarantine                                                              OK
-+ Remove header (group id) does not remove entries (gloas)                                   OK
-+ addCells ingests cells from a gloas PartialDataColumnSidecar                               OK
-+ assembleDataColumnSidecar returns none when group-id missing (gloas)                       OK
-+ getOrCreateEntry reflects gloas group-id validation                                        OK
-+ isComplete and assembleDataColumnSidecar (gloas)                                           OK
-+ putPartialGroupID stores group id under itself                                             OK
++ pruneForBlock drops the group id and its entries                                           OK
++ pruneForBlock leaves other group ids alone                                                 OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff
@@ -799,6 +904,7 @@ AllTests-mainnet
 + Get all payload attestations in the pool [Preset: mainnet]                                 OK
 + Multiple validators in PTC can attest [Preset: mainnet]                                    OK
 + Payload attestations get pruned [Preset: mainnet]                                          OK
++ Same validator, conflicting votes are ignored [Preset: mainnet]                            OK
 + get_ptc with ShufflingRef matches StateCache version [Preset: mainnet]                     OK
 ```
 ## PeerPool testing suite
@@ -817,15 +923,6 @@ AllTests-mainnet
 + addPeerNoWait() test                                                                       OK
 + deletePeer() test                                                                          OK
 ```
-## Proposer preferences validation  [Preset: mainnet]
-```diff
-+ validateProposerPreferences - duplicate ignored                                            OK
-+ validateProposerPreferences - happy case                                                   OK
-+ validateProposerPreferences - invalid signature rejected                                   OK
-+ validateProposerPreferences - proposal_slot already passed                                 OK
-+ validateProposerPreferences - proposal_slot outside current/next epoch                     OK
-+ validateProposerPreferences - wrong proposer rejected                                      OK
-```
 ## Pruning
 ```diff
 + prune states                                                                               OK
@@ -843,6 +940,7 @@ AllTests-mainnet
 + KzgProof                                                                                   OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
++ VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
 + Validator pubkey hack                                                                      OK
 + remote signing example AGGREGATE_AND_PROOF (DEPRECATED)                                    OK
 + remote signing example AGGREGATE_AND_PROOF_V2 (ELECTRA)                                    OK
@@ -1007,30 +1105,41 @@ AllTests-mainnet
 ```
 ## SyncManager test suite
 ```diff
-+ [SyncQueue# & Backward] Combination of missing parent and good blocks [3 peers] test       OK
-+ [SyncQueue# & Backward] Empty responses should not advance queue until other peers will no OK
-+ [SyncQueue# & Backward] Empty responses should not be accounted [3 peers] test             OK
-+ [SyncQueue# & Backward] Failure request push test                                          OK
-+ [SyncQueue# & Backward] Invalid block [3 peers] test                                       OK
-+ [SyncQueue# & Backward] Smoke [3 peers] test                                               OK
-+ [SyncQueue# & Backward] Smoke [single peer] test                                           OK
-+ [SyncQueue# & Backward] Unviable block [3 peers] test                                      OK
-+ [SyncQueue# & Backward] epochFilter() test                                                 OK
-+ [SyncQueue# & Forward] Combination of missing parent and good blocks [3 peers] test        OK
-+ [SyncQueue# & Forward] Empty responses should not advance queue until other peers will not OK
-+ [SyncQueue# & Forward] Empty responses should not be accounted [3 peers] test              OK
-+ [SyncQueue# & Forward] Failure request push test                                           OK
-+ [SyncQueue# & Forward] Invalid block [3 peers] test                                        OK
-+ [SyncQueue# & Forward] Smoke [3 peers] test                                                OK
-+ [SyncQueue# & Forward] Smoke [single peer] test                                            OK
-+ [SyncQueue# & Forward] Unviable block [3 peers] test                                       OK
-+ [SyncQueue# & Forward] epochFilter() test                                                  OK
++ [SyncQueue#Backward] Combination of missing parent and good blocks [3 peers] test          OK
++ [SyncQueue#Backward] Empty responses should not advance queue until other peers will not c OK
++ [SyncQueue#Backward] Empty responses should not be accounted [3 peers] test                OK
++ [SyncQueue#Backward] Failure request push test                                             OK
++ [SyncQueue#Backward] Invalid block [3 peers] test                                          OK
 + [SyncQueue#Backward] Missing parent and exponential rewind [3 peers] test                  OK
++ [SyncQueue#Backward] Smoke [3 peers] test                                                  OK
++ [SyncQueue#Backward] Smoke [single peer] test                                              OK
++ [SyncQueue#Backward] Unviable block [3 peers] test                                         OK
++ [SyncQueue#Backward] block completeness test                                               OK
++ [SyncQueue#Backward] data column completeness test                                         OK
++ [SyncQueue#Backward] data column max distance test                                         OK
++ [SyncQueue#Backward] epochFilter() test                                                    OK
++ [SyncQueue#Backward] finish test                                                           OK
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
++ [SyncQueue#Backward] partial range real-case test                                          OK
++ [SyncQueue#Backward] partial ranges test                                                   OK
++ [SyncQueue#Forward] Combination of missing parent and good blocks [3 peers] test           OK
++ [SyncQueue#Forward] Empty responses should not advance queue until other peers will not co OK
++ [SyncQueue#Forward] Empty responses should not be accounted [3 peers] test                 OK
++ [SyncQueue#Forward] Failure request push test                                              OK
++ [SyncQueue#Forward] Invalid block [3 peers] test                                           OK
 + [SyncQueue#Forward] Missing parent and exponential rewind [3 peers] test                   OK
++ [SyncQueue#Forward] Smoke [3 peers] test                                                   OK
++ [SyncQueue#Forward] Smoke [single peer] test                                               OK
++ [SyncQueue#Forward] Unviable block [3 peers] test                                          OK
++ [SyncQueue#Forward] block completeness test                                                OK
++ [SyncQueue#Forward] data column completeness test                                          OK
++ [SyncQueue#Forward] data column max distance test                                          OK
++ [SyncQueue#Forward] epochFilter() test                                                     OK
++ [SyncQueue#Forward] finish test                                                            OK
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
-+ [SyncQueue] checkBlobsResponse() test                                                      OK
-+ [SyncQueue] checkResponse() test                                                           OK
++ [SyncQueue#Forward] partial ranges test                                                    OK
++ [SyncQueue] getShortMap(blocks/envelopes) test                                             OK
++ [SyncQueue] getShortMap(sidecars) test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
 ## SyncRange test suite

@@ -7,18 +7,15 @@
 
 {.push raises: [], gcsafe.}
 
-import
-  ./[helpers, forks],
-  ./datatypes/base
-
+import ./[helpers, forks]
 from std/algorithm import sort, upperBound
 
 export base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/capella/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix = "proposer_slashing/ssz_snappy"
@@ -35,10 +32,10 @@ const
   # The spec now includes this as a bare uint64 as `RESP_TIMEOUT`
   RESP_TIMEOUT_DUR* = RESP_TIMEOUT.int64.seconds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/altair/light-client/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/light-client/p2p-interface.md#configs
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-compute_max_request_data_column_sidecars
   MAX_REQUEST_DATA_COLUMN_SIDECARS*: uint64 =
     MAX_REQUEST_BLOCKS_DENEB * NUMBER_OF_COLUMNS
 
@@ -79,27 +76,27 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.9/specs/capella/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-beta.0/specs/gloas/p2p-interface.md#execution_payload_bid
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload_bid
 func getExecutionPayloadBidTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicExecutionPayloadBidSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-execution_payload
 func getExecutionPayloadTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicExecutionPayloadSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/gloas/p2p-interface.md#payload_attestation_message
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-payload_attestation_message
 func getPayloadAttestationMessageTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicPayloadAttestationMessageSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#proposer_preferences
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/p2p-interface.md#new-proposer_preferences
 func getProposerPreferencesTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicProposerPreferencesSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.13/specs/heze/p2p-interface.md#new-inclusion_list
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#new-inclusion_list
 func getInclusionListTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicInclusionListSuffix
 
@@ -125,18 +122,18 @@ func getAttestationTopic*(forkDigest: ForkDigest,
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeTopic*(forkDigest: ForkDigest,
                             subcommitteeIdx: SyncSubcommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $subcommitteeIdx & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/deneb/p2p-interface.md#blob_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/deneb/p2p-interface.md#new-blob_sidecar_subnet_id
 func getBlobSidecarTopic*(forkDigest: ForkDigest,
                           subnet_id: BlobId): string =
   eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
@@ -152,19 +149,19 @@ func compute_subnet_for_blob_sidecar*(
       cfg.BLOB_SIDECAR_SUBNET_COUNT
   BlobId(blob_index mod subnetCount)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/fulu/p2p-interface.md#compute_subnet_for_data_column_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =
   # Parts of Nimbus use the subnet number and column ID semi-interchangeably
   static: doAssert DATA_COLUMN_SIDECAR_SUBNET_COUNT == NUMBER_OF_COLUMNS
 
   column_index mod DATA_COLUMN_SIDECAR_SUBNET_COUNT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/light-client/p2p-interface.md#new-light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/light-client/p2p-interface.md#new-light_client_optimistic_update
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
@@ -207,18 +204,18 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
     ENRForkID(
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,
-      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/phase0/p2p-interface.md#eth2-field
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/phase0/p2p-interface.md#eth2-field
       # "`next_fork_epoch` is the epoch at which the next fork is planned and
       # the `current_fork_version` will be updated. If no future fork is
       # planned, set `next_fork_epoch = FAR_FUTURE_EPOCH` to signal this fact"
       #
-      # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.6/specs/fulu/p2p-interface.md#eth2-field
+      # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#eth2-field
       # "`next_fork_epoch` is the epoch at which the next fork (whether a
       # regular fork *or a BPO fork*) is planned. If no future fork is planned,
       # set `next_fork_epoch = FAR_FUTURE_EPOCH` to signal this fact."
       next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/altair/p2p-interface.md#transitioning-the-gossip
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = HashSet[Epoch]
 func getTargetGossipState*(epoch: Epoch, cfg: RuntimeConfig, isBehind: bool):
     GossipState =
@@ -288,7 +285,39 @@ func getSyncSubnets*(
     res.setBit(i div (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT))
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/fulu/p2p-interface.md#data_column_sidecar_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-data_column_sidecar_subnet_id
 func getDataColumnSidecarTopic*(forkDigest: ForkDigest,
                                 subnet_id: uint64): string =
   eth2Prefix(forkDigest) & "data_column_sidecar_" & $subnet_id & "/ssz_snappy"
+
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#partial-message-group-id
+# When sending a partial message, the gossipsub group ID MUST be the SSZ encoded
+# `PartialDataColumnGroupID` prefixed with a single version byte. The version
+# byte MUST be `0x00`. Implementations MUST ignore unknown versions. Other
+# versions may be defined later.
+#
+# Gloas modifies the container -- it gains `slot` -- but not the version byte.
+const
+  PARTIAL_DATA_COLUMN_GROUP_ID_VERSION* = 0x00'u8
+
+  PARTIAL_DATA_COLUMN_GROUP_ID_LEN* =
+    1 + fixedPortionSize(gloas.PartialDataColumnGroupID)
+
+func encodePartialDataColumnGroupId*(
+    group_id: gloas.PartialDataColumnGroupID): seq[byte] =
+  var id = newSeqOfCap[byte](PARTIAL_DATA_COLUMN_GROUP_ID_LEN)
+  id.add(PARTIAL_DATA_COLUMN_GROUP_ID_VERSION)
+  id.add(SSZ.encode(group_id))
+  id
+
+func decodePartialDataColumnGroupId*(
+    id: openArray[byte]): Result[gloas.PartialDataColumnGroupID, cstring] =
+  if id.len != PARTIAL_DATA_COLUMN_GROUP_ID_LEN:
+    return err("PartialDataColumnGroupID: unexpected length")
+  # Implementations MUST ignore unknown versions.
+  if id[0] != PARTIAL_DATA_COLUMN_GROUP_ID_VERSION:
+    return err("PartialDataColumnGroupID: unsupported version")
+  try:
+    ok(SSZ.decode(id.toOpenArray(1, id.high), gloas.PartialDataColumnGroupID))
+  except SerializationError:
+    err("PartialDataColumnGroupID: malformed")

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2025 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -400,6 +400,57 @@ suite "REST encoding and decoding":
     for vector in InvalidCharsVectors2:
       let res = strictParse(vector, UInt256, 2)
       check res.isErr()
+
+  test "VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays":
+    # Beacon API getSpec returns array-valued keys as JSON arrays, not strings.
+    # Lodestar/consensus-spec expose GAS_LIMIT_SCHEDULE the same way as BLOB_SCHEDULE.
+    const emptySpec = """
+      {
+        "SECONDS_PER_SLOT": "12",
+        "BLOB_SCHEDULE": [],
+        "GAS_LIMIT_SCHEDULE": []
+      }
+    """
+    let emptyCfg = RestJson.decode(emptySpec, VCRuntimeConfig)
+    check:
+      emptyCfg["SECONDS_PER_SLOT"] == "12"
+      emptyCfg["BLOB_SCHEDULE"] == "[]"
+      emptyCfg["GAS_LIMIT_SCHEDULE"] == "[]"
+
+    const populatedSpec = """
+      {
+        "SECONDS_PER_SLOT": "12",
+        "BLOB_SCHEDULE": [
+          {"EPOCH": "269568", "MAX_BLOBS_PER_BLOCK": "6"}
+        ],
+        "GAS_LIMIT_SCHEDULE": [
+          {"EPOCH": "500000", "GAS_LIMIT": "60000000"}
+        ]
+      }
+    """
+    let populatedCfg = RestJson.decode(populatedSpec, VCRuntimeConfig)
+    check:
+      populatedCfg["SECONDS_PER_SLOT"] == "12"
+      "269568" in populatedCfg["BLOB_SCHEDULE"]
+      "MAX_BLOBS_PER_BLOCK" in populatedCfg["BLOB_SCHEDULE"]
+      "500000" in populatedCfg["GAS_LIMIT_SCHEDULE"]
+      "GAS_LIMIT" in populatedCfg["GAS_LIMIT_SCHEDULE"]
+      "60000000" in populatedCfg["GAS_LIMIT_SCHEDULE"]
+
+    const wrappedSpec = """
+      {
+        "data": {
+          "SECONDS_PER_SLOT": "12",
+          "GAS_LIMIT_SCHEDULE": [{"EPOCH": "0", "GAS_LIMIT": "60000000"}]
+        }
+      }
+    """
+    let resp = RestJson.decode(wrappedSpec, GetSpecVCResponse)
+    check:
+      resp.data["SECONDS_PER_SLOT"] == "12"
+      "EPOCH" in resp.data["GAS_LIMIT_SCHEDULE"]
+      "GAS_LIMIT" in resp.data["GAS_LIMIT_SCHEDULE"]
+      "60000000" in resp.data["GAS_LIMIT_SCHEDULE"]
 
   let examples = Json.decode(Web3SignerExamples, Table[string, Table[string, JsonString]])
 

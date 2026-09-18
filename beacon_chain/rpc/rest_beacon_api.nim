@@ -49,6 +49,8 @@ func validateBeaconApiQueries*(key: string, value: string): int =
     0
   of "{block_root}":
     0
+  of "{structure}":
+    0
   of "{pubkey}":
     int(value.len != 98)
   else:
@@ -1029,10 +1031,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             await node.router.routeSignedBeaconBlock(
               forkyBlck,
               data_columns,
-              checkValidator = true)
-          elif consensusFork == ConsensusFork.Electra:
-            await node.router.routeSignedBeaconBlock(
-              forkyBlck, forkyBlck.create_blob_sidecars(kzg_proofs, blobs),
               checkValidator = true)
           else:
             return RestApiResponse.jsonError(

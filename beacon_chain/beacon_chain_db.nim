@@ -31,6 +31,7 @@ logScope: topics = "bc_db"
 type
   DbSeq*[T] = object
     insertStmt: SqliteStmt[openArray[byte], void]
+    updateStmt: SqliteStmt[(seq[byte], int64), void]
     selectStmt: SqliteStmt[int64, openArray[byte]]
     recordCount: int64
 
@@ -104,6 +105,7 @@ type
     # queries. (v1.4.0+)
     immutableValidatorsDb*: DbSeq[ImmutableValidatorDataDb2]
     immutableValidators*: seq[ImmutableValidatorData2]
+    firstPostCapellaValidatorIndex: int
 
     checkpoint*: proc() {.gcsafe, raises: [].}
 
@@ -292,6 +294,10 @@ proc init*[T](
         "INSERT INTO '" & name & "'(value) VALUES (?);",
         openArray[byte], void, managed = false).expect("this is a valid statement")
 
+      updateStmt = db.prepareStmt(
+        "UPDATE '" & name & "' SET value = ? WHERE id = ?;",
+        (seq[byte], int64), void, managed = false).expect("this is a valid statement")
+
       selectStmt = db.prepareStmt(
         "SELECT value FROM '" & name & "' WHERE id = ?;",
         int64, openArray[byte], managed = false).expect("this is a valid statement")
@@ -310,6 +316,7 @@ proc init*[T](
     countStmt.dispose()
 
     ok(Seq(insertStmt: insertStmt,
+          updateStmt: updateStmt,
           selectStmt: selectStmt,
           recordCount: recordCount))
   else:
@@ -317,12 +324,14 @@ proc init*[T](
 
 proc close*(s: var DbSeq) =
   s.insertStmt.dispose()
+  s.updateStmt.dispose()
   s.selectStmt.dispose()
 
   reset(s)
 
 proc add*[T](s: var DbSeq[T], val: T) =
-  doAssert(distinctBase(s.insertStmt) != nil, "database closed or table not preset")
+  doAssert(distinctBase(s.insertStmt) != nil,
+    "database closed or table not preset")
   let bytes = SSZ.encode(val)
   s.insertStmt.exec(bytes).expectDb()
   inc s.recordCount
@@ -330,9 +339,16 @@ proc add*[T](s: var DbSeq[T], val: T) =
 template len*[T](s: DbSeq[T]): int64 =
   s.recordCount
 
+proc put*[T](s: var DbSeq[T], idx: int64, val: T) =
+  doAssert(distinctBase(s.updateStmt) != nil,
+    "database closed or table not preset")
+  doAssert(idx < s.len, $T & " not found at index " & $(idx))
+  s.updateStmt.exec((SSZ.encode(val), idx + 1)).expectDb()
+
 proc get*[T](s: DbSeq[T], idx: int64): T =
   # This is used only locally
-  doAssert(distinctBase(s.selectStmt) != nil, $T & " table not present for read at " & $(idx))
+  doAssert(distinctBase(s.selectStmt) != nil,
+    $T & " table not present for read at " & $(idx))
 
   let resultAddr = addr result
 
@@ -988,7 +1004,8 @@ proc delExecutionPayloadEnvelope*(db: BeaconChainDB, root: Eth2Digest): bool =
   db.envelopes.del(root.data).expectDb()
 
 proc updateImmutableValidators*(
-    db: BeaconChainDB, validators: openArray[Validator]) =
+    db: BeaconChainDB, validators: openArray[Validator],
+    afterCapella: static bool) =
   # Must be called before storing a state that references the new validators
   let numValidators = validators.len
 
@@ -1000,6 +1017,20 @@ proc updateImmutableValidators*(
         pubkey: immutableValidator.pubkey.toUncompressed(),
         withdrawal_credentials: immutableValidator.withdrawal_credentials)
     db.immutableValidators.add immutableValidator
+
+  when not afterCapella:
+    # Fix up `withdrawal_credentials` originally imported post-Capella
+    while db.firstPostCapellaValidatorIndex < numValidators:
+      let
+        i = db.firstPostCapellaValidatorIndex
+        credentials = validators[i].withdrawal_credentials
+      if db.immutableValidators[i].withdrawal_credentials != credentials:
+        if not db.db.readOnly:
+          db.immutableValidatorsDb.put(i, ImmutableValidatorDataDb2(
+            pubkey: db.immutableValidators[i].pubkey.toUncompressed(),
+            withdrawal_credentials: credentials))
+        assign(db.immutableValidators[i].withdrawal_credentials, credentials)
+      inc db.firstPostCapellaValidatorIndex
 
 template BeaconStateNoImmutableValidators(kind: static ConsensusFork): auto =
   when kind == ConsensusFork.Heze:
@@ -1029,7 +1060,8 @@ template toBeaconStateNoImmutableValidators(state: ForkyBeaconState): auto =
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: ForkyBeaconState) =
   const consensusFork = typeof(value).kind
   doAssert db.statesNoVal[consensusFork] != nil
-  db.updateImmutableValidators(value.validators.asSeq())
+  db.updateImmutableValidators(
+    value.validators.asSeq(), consensusFork >= ConsensusFork.Capella)
   when consensusFork >= ConsensusFork.Bellatrix:
     db.statesNoVal[consensusFork].putSZSSZ(
       key.data, toBeaconStateNoImmutableValidators(value))

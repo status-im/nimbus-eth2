@@ -24,20 +24,21 @@ from ../beacon_chain/spec/signatures_batch import BatchVerifier
 proc addHeadBlockImpl(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnBlockAdded
+    onBlockAdded: OnBlockAdded, optimisticStatus: OptimisticStatus
     ): Result[BlockRef, VerifierError] =
   addHeadBlockWithParent(
     dag, verifier, signedBlock, ? dag.checkHeadBlock(signedBlock),
-    OptimisticStatus.valid, onBlockAdded)
+    optimisticStatus, onBlockAdded)
 
 template addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAddedParam: untyped
+    onBlockAddedParam: untyped,
+    optimisticStatus = OptimisticStatus.valid
     ): Result[BlockRef, VerifierError] =
   let onBlockAdded: OnBlockAdded[typeof(signedBlock).kind] = onBlockAddedParam
 
-  addHeadBlockImpl(dag, verifier, signedBlock, onBlockAdded)
+  addHeadBlockImpl(dag, verifier, signedBlock, onBlockAdded, optimisticStatus)
 
 proc willSelectNewHead*(
     pool: var AttestationPool, headBlock: BlockRef): Opt[void] =

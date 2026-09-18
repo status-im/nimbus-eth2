@@ -32,15 +32,6 @@ proc dump*(dir: string, v: ForkySignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
-proc dump*(dir: string, v: BlobSidecar) =
-  logErrors:
-    let
-      slot = v.signed_block_header.message.slot
-      blck = shortLog(v.signed_block_header.message.hash_tree_root())
-      index = v.index
-      root = shortLog(v.hash_tree_root())
-    SSZ.saveFile(dir / &"blob-{slot}-{blck}-{index}-{root}.ssz", v)
-
 proc dump*(dir: string, v: gloas.SignedExecutionPayloadEnvelope) =
   logErrors:
     let

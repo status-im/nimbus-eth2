@@ -513,8 +513,7 @@ func clearDoppelgangerProtection*(self: var Eth2Processor) =
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor,
     attestation:
-      phase0.Attestation | electra.Attestation | gloas.Attestation |
-      SingleAttestation,
+      electra.Attestation | gloas.Attestation | SingleAttestation,
     attesterIndices: openArray[ValidatorIndex]) =
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
@@ -770,7 +769,8 @@ proc processSignedVoluntaryExit*(
 
   debug "Voluntary exit received"
 
-  let v = self.validatorChangePool[].validateVoluntaryExit(signedVoluntaryExit)
+  let v = self.validatorChangePool[].validateVoluntaryExit(
+    signedVoluntaryExit, self.getCurrentBeaconTime())
   if v.isOk():
     trace "Voluntary exit validated"
 
@@ -956,7 +956,7 @@ proc processPayloadAttestationMessage*(
   let
     wallTime = self.getCurrentBeaconTime()
     v = await validatePayloadAttestationMessage(
-      self.dag, self.payloadAttestationPool, self.batchCrypto,
+      self.dag, self.quarantine, self.payloadAttestationPool, self.batchCrypto,
       payload_attestation_message, wallTime, checkSignature)
 
   if v.isErr():
@@ -964,8 +964,11 @@ proc processPayloadAttestationMessage*(
     beacon_payload_attestations_dropped.inc(1, [$v.error[0]])
     return err(v.error())
 
-  discard self.payloadAttestationPool[].addPayloadAttestation(
-    payload_attestation_message, wallTime)
+  if not self.payloadAttestationPool[].addPayloadAttestation(
+      payload_attestation_message, wallTime):
+    let res = errIgnore("Duplicate payload attestation")
+    beacon_payload_attestations_dropped.inc(1, [$res.error[0]])
+    return res
 
   if not isNil(self.dag.onPayloadAttestationMessageAdded):
     self.dag.onPayloadAttestationMessageAdded(payload_attestation_message)
@@ -1012,7 +1015,7 @@ proc processSignedInclusionList*(
         timeParams.inclusionListSlotOffset
 
   discard self.inclusionListPool[].addInclusionList(
-    message, is_timely, wallTime)
+    signed_inclusion_list, is_timely, wallTime)
 
   beacon_inclusion_lists_received.inc()
 

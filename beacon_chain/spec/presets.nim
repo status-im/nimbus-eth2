@@ -35,6 +35,8 @@ const
   MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
+  MAX_SUPPORTED_REQUEST_INCLUSION_LIST*: uint64 = 16
+
 type TimeParams* = object
   SLOT_DURATION*: Duration
   PROPOSER_REORG_CUTOFF_BPS*: uint16
@@ -1155,6 +1157,9 @@ proc readRuntimeConfig*(
                        "BLOB_SIDECAR_SUBNET_COUNT" & suffix, `<=`
     checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,
                        "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
+
+  checkCompatibility MAX_SUPPORTED_REQUEST_INCLUSION_LIST,
+                     "MAX_REQUEST_INCLUSION_LIST", `<=`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value

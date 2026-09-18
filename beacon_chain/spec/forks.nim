@@ -537,6 +537,7 @@ template kind*(
       gloas.TrustedBeaconBlockBody |
       gloas.SigVerifiedSignedBeaconBlock |
       gloas.TrustedSignedBeaconBlock |
+      gloas.SignedExecutionPayloadBid |
       gloas.AggregateAndProof]): ConsensusFork =
   ConsensusFork.Gloas
 
@@ -552,7 +553,8 @@ template kind*(
       heze.SigVerifiedBeaconBlockBody |
       heze.TrustedBeaconBlockBody |
       heze.SigVerifiedSignedBeaconBlock |
-      heze.TrustedSignedBeaconBlock]): ConsensusFork =
+      heze.TrustedSignedBeaconBlock |
+      heze.SignedExecutionPayloadBid]): ConsensusFork =
   ConsensusFork.Heze
 
 template BeaconState*(kind: static ConsensusFork): typedesc =
@@ -1227,7 +1229,7 @@ func consensusForkForDigest*(
         return ok consensusFork
     err()
 
-func atConsensusFork*(
+func atConsensusFork(
     forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
   case consensusFork
   of ConsensusFork.Electra:
@@ -1533,15 +1535,20 @@ template withAttestation*(a: ForkedAttestation, body: untyped): untyped =
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock):
-    BeaconBlockHeader =
+    blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock,
+    body_root = Opt.none(Eth2Digest)): BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,
     proposer_index: blck.proposer_index,
     parent_root: blck.parent_root,
     state_root: blck.state_root,
-    body_root: blck.body.hash_tree_root())
+    body_root: body_root.valueOr(blck.body.hash_tree_root()))
+
+template toBeaconBlockHeader*(
+    blck: SomeForkyBeaconBlock | ForkyBlindedBeaconBlock,
+    body_root: Eth2Digest): BeaconBlockHeader =
+  blck.toBeaconBlockHeader(Opt.some(body_root))
 
 template toBeaconBlockHeader*(
     blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
@@ -1691,6 +1698,8 @@ static:
         template check(gindex, T: untyped, path: varargs[untyped]): untyped =
           doAssert gindex == consensusFork.T.get_generalized_index(path)
 
+        check lcDataFork.sync_aggregate_gindex,
+          BeaconBlockBody, "sync_aggregate"
         check lcDataFork.finalized_root_gindex,
           BeaconState, "finalized_checkpoint", "root"
         check lcDataFork.current_sync_committee_gindex,

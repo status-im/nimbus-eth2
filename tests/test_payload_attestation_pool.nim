@@ -135,6 +135,30 @@ suite "Payload attestation pool" & preset():
     check aggregated.get().data == message.data
     check aggregated.get().aggregation_bits.countOnes() > 0
 
+  test "Same validator, conflicting votes are ignored" & preset():
+    let members = state[].getPtcMembers(slot, 1)
+    check members.len == 1
+
+    let first = state[].makePayloadAttestationMessage(
+      beacon_block_root, members[0],
+      payload_present = true, blob_data_available = true)
+    check not pool[].isSeen(first)
+    check pool[].addPayloadAttestation(first, wallTime)
+
+    # Same validator, same slot, but conflicting votes are ignored.
+    let conflicting = state[].makePayloadAttestationMessage(
+      beacon_block_root, members[0],
+      payload_present = false, blob_data_available = false)
+    check conflicting.data != first.data
+    check pool[].isSeen(conflicting)
+    check not pool[].addPayloadAttestation(conflicting, wallTime)
+
+    # Only the first vote's data is kept; the conflicting vote is ignored.
+    check pool[].getAggregatedPayloadAttestation(
+      slot, (beacon_block_root, true, true)).isSome()
+    check pool[].getAggregatedPayloadAttestation(
+      slot, (beacon_block_root, false, false)).isNone()
+
   test "Multiple validators in PTC can attest" & preset():
     let members = state[].getPtcMembers(slot, 3)
     check members.len == 3
