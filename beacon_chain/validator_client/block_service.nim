@@ -740,7 +740,7 @@ proc runBlockMonitor(
           of BlockMonitoringType.Event:
             service.runBlockEventMonitor(node)
 
-    block:
+    vc.withBeaconNodes:
       var newPendingTasks: Table[
         BeaconNodeServerRef, Future[void].Raising([CancelledError])]
 
