@@ -374,18 +374,24 @@ proc updateBeaconNodesFromUrls(
               new_index = value.index
         node.index = value.index
 
-  var pending: seq[Future[void]]
-  for node in servers:
-    if node.endpoint notin pendingConfig:
-      debug "Removing beacon node", node = node
-      if not(isNil(vc.blockService)):
+  if not(isNil(vc.blockService)):
+    var pending: seq[Future[void]]
+    for node in servers:
+      if node.endpoint notin pendingConfig:
         let fut = vc.blockService.pendingTasks.getOrDefault(node)
         if not(isNil(fut)):
           debug "Cancelling block monitoring", node = node
           pending.add(fut.cancelAndWait())
+    await noCancel allFutures(pending)  # Ensure client is unused / no reconnect
+
+  var pending: seq[Future[void]]
+  for node in servers:
+    if node.endpoint notin pendingConfig:
+      debug "Removing beacon node", node = node
       if not(isNil(node.client)):
         pending.add(node.client.closeWait())
   await noCancel allFutures(pending)
+
   ok()
 
 proc new(
