@@ -380,6 +380,11 @@ proc updateBeaconNodesFromUrls(
       debug "Removing beacon node", node = node
       node.roles = {BeaconNodeRole.NoTimeCheck}
       node.index = -1
+      if not(isNil(vc.blockService)):
+        let fut = vc.blockService.pendingTasks.getOrDefault(node)
+        if not(isNil(fut)):
+          debug "Cancelling block monitoring", node = node
+          pending.add(fut.cancelAndWait())
       if not(isNil(node.client)):
         pending.add(node.client.closeWait())
   await noCancel allFutures(pending)

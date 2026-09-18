@@ -499,10 +499,9 @@ proc runBlockEventMonitor(service: BlockServiceRef,
   logScope:
     node = node
 
-  while node.roles * roles != {}:
-    if node.status notin statuses:
+  while true:
+    while node.status notin statuses:
       await vc.waitNodes(nil, statuses, roles, true)
-      continue
 
     let response =
       block:
@@ -528,8 +527,6 @@ proc runBlockEventMonitor(service: BlockServiceRef,
               Opt.some((resp: resp, useHeadV2: true))
             else:
               logErrorMessage(resp, "head_v2")
-              if node.roles * roles == {}:
-                continue
               resp = await node.client.subscribeEventStream({EventTopic.Head})
               if resp.status == 200:
                 Opt.some((resp: resp, useHeadV2: false))
@@ -576,9 +573,7 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
                          slot: Slot, waitTime: Duration,
                          index: int): Future[bool] {.
      async: (raises: [CancelledError]).} =
-  let
-    vc = service.client
-    roles = {BeaconNodeRole.BlockProposalData}
+  let vc = service.client
 
   logScope:
     node = node
@@ -591,8 +586,6 @@ proc pollForBlockHeaders(service: BlockServiceRef, node: BeaconNodeServerRef,
   let bres =
     try:
       await sleepAsync(waitTime)
-      if node.roles * roles == {}:
-        return false
       await node.client.getBlockHeader(BlockIdent.init(BlockIdentType.Head))
     except RestError as exc:
       debug "Unable to obtain block header",
@@ -636,7 +629,7 @@ proc runBlockPollMonitor(service: BlockServiceRef,
   logScope:
     node = node
 
-  while node.roles * roles != {}:
+  while true:
     let currentSlot {.used.} =
       (await vc.checkedWaitForNextSlot(ZeroTimeDiff, false)).valueOr:
         continue
