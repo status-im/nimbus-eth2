@@ -48,6 +48,40 @@ suite "REST encoding and decoding":
       # SSZ encoding is also used in rest!
       blck == SSZ.decode(SSZ.encode(blck), DenebSignedBlockContents)
 
+  test "GloasProducedBlockContents round-trip":
+    let contents = default(GloasProducedBlockContents)
+    check:
+      contents == RestJson.decode(
+        RestJson.encode(contents), GloasProducedBlockContents)
+      contents == SSZ.decode(SSZ.encode(contents), GloasProducedBlockContents)
+
+  test "ProduceBlockResponseV4 decodeBytes SSZ (block only)":
+    let
+      sszType = getContentType("application/octet-stream").get()
+      ssz = SSZ.encode(default(gloas.BeaconBlock))
+      res = decodeBytes(
+        ProduceBlockResponseV4, ssz, Opt.some(sszType),
+        "gloas", "false", "2", "1", "https://builder.example")
+    check res.isOk()
+    let got = res.get()
+    check:
+      not got.data.includePayload
+      got.data.blck.kind == ConsensusFork.Gloas
+      hash_tree_root(got.data.blck.gloasData) ==
+        hash_tree_root(default(gloas.BeaconBlock))
+      got.executionPayloadValue.isSome()
+      got.consensusBlockValue.isSome()
+      got.builderUrl == Opt.some("https://builder.example")
+
+  test "ProduceBlockResponseV4 decodeBytes rejects pre-Gloas":
+    let
+      sszType = getContentType("application/octet-stream").get()
+      ssz = SSZ.encode(default(gloas.BeaconBlock))
+      res = decodeBytes(
+        ProduceBlockResponseV4, ssz, Opt.some(sszType),
+        "fulu", "false", "1", "1", "")
+    check res.isErr()
+
   test "KzgCommitment":
     let
       zeroString =

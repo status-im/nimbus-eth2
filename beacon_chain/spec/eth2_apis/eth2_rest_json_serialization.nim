@@ -124,7 +124,9 @@ RestJson.useDefaultSerializationFor(
   GetStateValidatorResponse,
   GetStateValidatorsResponse,
   GetValidatorGasLimitResponse,
+  GloasProducedBlockContents,
   GloasSignedBlockContents,
+  HezeProducedBlockContents,
   HezeSignedBlockContents,
   HeadChangeInfoObject,
   HeadV2ChangeInfoObject,
@@ -1221,6 +1223,66 @@ proc writeValue*(w: var RestJsonWriter, value: ProduceBlockResponseV3) {.writer.
       if value.consensusValue.isSome():
         w.writeField("consensus_block_value", $(value.consensusValue.get()))
       w.writeField("data", forkyMaybeBlindedBlck)
+
+type
+  VersionedProducedBlock = object
+    version: ConsensusFork
+    execution_payload_included: bool
+    execution_payload_value: UInt256
+    consensus_block_value: Opt[UInt256]
+    data: JsonString
+
+RestJson.useDefaultSerializationFor VersionedProducedBlock
+
+proc readValue*(
+    r: var RestJsonReader, value: var ProduceBlockResponseV4
+) {.raises: [SerializationError, IOError].} =
+  let v = r.readValue(VersionedProducedBlock)
+  if v.version < ConsensusFork.Gloas:
+    r.raiseUnexpectedValue(&"produceBlockV4 unsupported for {v.version}")
+  var data: ForkedProducedBlock
+  withConsensusFork(v.version):
+    when consensusFork >= ConsensusFork.Gloas:
+      if v.execution_payload_included:
+        data = ForkedProducedBlock(
+          includePayload: true,
+          contents: ForkedProducedBlockContents.init(
+            RestJson.decode(
+              string(v.data), consensusFork.ProducedBlockContents)))
+      else:
+        data = ForkedProducedBlock(
+          includePayload: false,
+          blck: ForkedBeaconBlock.init(
+            RestJson.decode(string(v.data), consensusFork.BeaconBlock)))
+    else:
+      r.raiseUnexpectedValue(&"produceBlockV4 unsupported for {v.version}")
+  value = ProduceBlockResponseV4(
+    data: data,
+    consensusBlockValue: v.consensus_block_value,
+    executionPayloadValue: Opt.some(v.execution_payload_value),
+    builderUrl: Opt.none(string))
+
+proc writeValue*(w: var RestJsonWriter, value: ProduceBlockResponseV4) {.writer.} =
+  let fork =
+    if value.data.includePayload: value.data.contents.kind
+    else: value.data.blck.kind
+  w.writeObject:
+    w.writeField("version", fork.toString())
+    w.writeField("execution_payload_included",
+                 value.data.includePayload)
+    if value.executionPayloadValue.isSome():
+      w.writeField("execution_payload_value",
+                   $(value.executionPayloadValue.get()))
+    if value.consensusBlockValue.isSome():
+      w.writeField("consensus_block_value",
+                   $(value.consensusBlockValue.get()))
+    case value.data.includePayload
+    of true:
+      withForkyProducedBlockContents(value.data.contents):
+        w.writeField("data", forkyContents)
+    of false:
+      withBlck(value.data.blck):
+        w.writeField("data", forkyBlck)
 
 proc writeValue*(w: var RestJsonWriter, value: GraffitiString) {.writer.} =
   w.writeValue($value)

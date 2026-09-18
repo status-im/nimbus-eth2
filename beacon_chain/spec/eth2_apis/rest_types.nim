@@ -364,6 +364,41 @@ type
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
+  # https://github.com/ethereum/beacon-APIs/blob/master/types/gloas/block_contents.yaml
+  GloasProducedBlockContents* = object
+    `block`*:                    gloas.BeaconBlock
+    execution_payload_envelope*: gloas.ExecutionPayloadEnvelope
+    kzg_proofs*:                 fulu.KzgProofs
+    blobs*:                      deneb.Blobs
+
+  HezeProducedBlockContents* = object
+    `block`*:                    heze.BeaconBlock
+    execution_payload_envelope*: gloas.ExecutionPayloadEnvelope
+    kzg_proofs*:                 fulu.KzgProofs
+    blobs*:                      deneb.Blobs
+
+  ForkedProducedBlockContents* = object
+    case kind*: ConsensusFork
+    of ConsensusFork.Gloas:
+      gloasData*: GloasProducedBlockContents
+    of ConsensusFork.Heze:
+      hezeData*: HezeProducedBlockContents
+    else:
+      discard
+
+  ForkedProducedBlock* = object
+    case includePayload*: bool
+    of false:
+      blck*: ForkedBeaconBlock
+    of true:
+      contents*: ForkedProducedBlockContents
+
+  ProduceBlockResponseV4* = object
+    data*:                  ForkedProducedBlock
+    consensusBlockValue*:   Opt[UInt256]
+    executionPayloadValue*: Opt[UInt256]
+    builderUrl*:            Opt[string]
+
   VCRuntimeConfig* = Table[string, string]
 
   RestBlockInfo* = object
@@ -719,6 +754,35 @@ template withForkyBlck*(
     template forkyData: untyped {.inject, used.} = x.phase0Data
     template forkyBlck: untyped {.inject, used.} = x.phase0Data
     body
+
+template withForkyProducedBlockContents*(
+    x: ForkedProducedBlockContents, body: untyped): untyped =
+  case x.kind
+  of ConsensusFork.Gloas:
+    const consensusFork {.inject, used.} = ConsensusFork.Gloas
+    template forkyContents: untyped {.inject, used.} = x.gloasData
+    body
+  of ConsensusFork.Heze:
+    const consensusFork {.inject, used.} = ConsensusFork.Heze
+    template forkyContents: untyped {.inject, used.} = x.hezeData
+    body
+  else:
+    raiseAssert "produceBlockV4: unsupported fork " & $x.kind
+
+template ProducedBlockContents*(kind: static ConsensusFork): typedesc =
+  when kind == ConsensusFork.Gloas:
+    GloasProducedBlockContents
+  elif kind == ConsensusFork.Heze:
+    HezeProducedBlockContents
+  else:
+    {.error: "ProducedBlockContents unsupported in " & $kind.}
+
+template init*(T: type ForkedProducedBlockContents,
+               contents: GloasProducedBlockContents): T =
+  T(kind: ConsensusFork.Gloas, gloasData: contents)
+template init*(T: type ForkedProducedBlockContents,
+               contents: HezeProducedBlockContents): T =
+  T(kind: ConsensusFork.Heze, hezeData: contents)
 
 func init*(T: type ForkedSignedBeaconBlock,
            contents: RestPublishedSignedBlockContents): T =
