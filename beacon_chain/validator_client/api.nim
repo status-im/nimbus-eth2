@@ -133,11 +133,7 @@ proc close(dt: DoubleTimeout): Future[void] {.async: (raises: []).} =
     await cancelAndWait(dt.timeoutFuture)
 
 proc `$`*[T](s: ApiScore[T]): string =
-  var res =
-    if s.index >= 0:
-      Base10.toString(uint64(s.index))
-    else:
-      "-1"
+  var res = Base10.toString(uint64(s.index))
   res.add(": ")
   if s.score.isSome():
     res.add(shortScore(s.score.get()))
@@ -685,7 +681,7 @@ template firstSuccessSequential*(
            responseType: typedesc,
            timeout: Duration,
            statuses: set[RestBeaconNodeStatus],
-           rolesParam: set[BeaconNodeRole],
+           roles: set[BeaconNodeRole],
            body: untyped,
            handlers: untyped
          ): untyped =
@@ -705,12 +701,12 @@ template firstSuccessSequential*(
       try:
         if iterations == 0:
           # We are not going to wait for BNs if there some available.
-          await vc.waitNodes(timerFut, statuses, rolesParam, false)
+          await vc.waitNodes(timerFut, statuses, roles, false)
         else:
           # We get here only, if all the requests are failed. To avoid requests
           # spam we going to wait for changes in BNs statuses.
-          await vc.waitNodes(timerFut, statuses, rolesParam, true)
-        vc.filterNodes(statuses, rolesParam)
+          await vc.waitNodes(timerFut, statuses, roles, true)
+        vc.filterNodes(statuses, roles)
       except CancelledError as exc:
         # waitNodes do not cancel `timoutFuture`.
         if not(isNil(timerFut)) and not(timerFut.finished()):
@@ -725,74 +721,73 @@ template firstSuccessSequential*(
       debug "Request got failed", iterations_count = iterations
 
     var exitNow = false
+    vc.withBeaconNodes:
+      for node {.inject.} in onlineNodes:
+        it = node.client
+        var bodyFut = body
 
-    for node {.inject.} in onlineNodes:
-      if node.roles * rolesParam == {}:
-        continue
-      it = node.client
-      var bodyFut = body
-
-      let resOp =
-        block:
-          if isNil(timerFut):
-            try:
-              # We use `allFutures()` to keep result in `bodyFut`, but still
-              # be able to check errors.
-              await allFutures(bodyFut)
-              ApiOperation.Success
-            except CancelledError as exc:
-              # `allFutures()` could not cancel Futures.
-              if not(bodyFut.finished()):
-                await bodyFut.cancelAndWait()
-              raise exc
-          else:
-            try:
-              discard await race(bodyFut, timerFut)
-              if bodyFut.finished():
-                ApiOperation.Success
-              else:
-                await bodyFut.cancelAndWait()
-                ApiOperation.Timeout
-            except CancelledError as exc:
-              # `race()` could not cancel Futures.
-              var pending: seq[Future[void]]
-              if not(bodyFut.finished()):
-                pending.add(bodyFut.cancelAndWait())
-              if not(isNil(timerFut)) and not(timerFut.finished()):
-                pending.add(timerFut.cancelAndWait())
-              await noCancel allFutures(pending)
-              raise exc
-
-      var handlerStatus = false
-      block:
-        let apiResponse {.inject.} =
+        let resOp =
           block:
-            if bodyFut.finished():
-              if bodyFut.failed() or bodyFut.cancelled():
-                let exc = bodyFut.error
-                ApiResponse[responseType].err("[" & $exc.name & "] " & $exc.msg)
-              else:
-                ApiResponse[responseType].ok(bodyFut.value)
+            if isNil(timerFut):
+              try:
+                # We use `allFutures()` to keep result in `bodyFut`, but still
+                # be able to check errors.
+                await allFutures(bodyFut)
+                ApiOperation.Success
+              except CancelledError as exc:
+                # `allFutures()` could not cancel Futures.
+                if not(bodyFut.finished()):
+                  await bodyFut.cancelAndWait()
+                raise exc
             else:
-              case resOp
-              of ApiOperation.Interrupt:
-                ApiResponse[responseType].err("Operation was interrupted")
-              of ApiOperation.Timeout:
-                ApiResponse[responseType].err("Operation timeout exceeded")
-              of ApiOperation.Success, ApiOperation.Failure:
-                # This should not be happened, because all Futures should be
-                # finished, and `Failure` processed when Future is finished.
-                ApiResponse[responseType].err("Unexpected error")
+              try:
+                discard await race(bodyFut, timerFut)
+                if bodyFut.finished():
+                  ApiOperation.Success
+                else:
+                  await bodyFut.cancelAndWait()
+                  ApiOperation.Timeout
+              except CancelledError as exc:
+                # `race()` could not cancel Futures.
+                var pending: seq[Future[void]]
+                if not(bodyFut.finished()):
+                  pending.add(bodyFut.cancelAndWait())
+                if not(isNil(timerFut)) and not(timerFut.finished()):
+                  pending.add(timerFut.cancelAndWait())
+                await noCancel allFutures(pending)
+                raise exc
 
-        handlerStatus = handlers
+        var handlerStatus = false
+        block:
+          let apiResponse {.inject.} =
+            block:
+              if bodyFut.finished():
+                if bodyFut.failed() or bodyFut.cancelled():
+                  let exc = bodyFut.error
+                  ApiResponse[responseType].err(
+                    "[" & $exc.name & "] " & $exc.msg)
+                else:
+                  ApiResponse[responseType].ok(bodyFut.value)
+              else:
+                case resOp
+                of ApiOperation.Interrupt:
+                  ApiResponse[responseType].err("Operation was interrupted")
+                of ApiOperation.Timeout:
+                  ApiResponse[responseType].err("Operation timeout exceeded")
+                of ApiOperation.Success, ApiOperation.Failure:
+                  # This should not be happened, because all Futures should be
+                  # finished, and `Failure` processed when Future is finished.
+                  ApiResponse[responseType].err("Unexpected error")
 
-      if resOp == ApiOperation.Success:
-        if handlerStatus:
+          handlerStatus = handlers
+
+        if resOp == ApiOperation.Success:
+          if handlerStatus:
+            exitNow = true
+            break
+        else:
           exitNow = true
           break
-      else:
-        exitNow = true
-        break
 
     if exitNow:
       break
