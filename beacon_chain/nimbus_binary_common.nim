@@ -33,6 +33,9 @@ when defaultChroniclesStream.outputs.type.arity == 2:
   from ./filepath import secureCreatePath
   from stew/staticfor import staticFor
 
+when defined(windows):
+  import chronos/osutils
+
 export
   confutils, toml_serialization
 
@@ -212,7 +215,8 @@ proc loadWithBanners*(
     versions: openArray[string],
     ignoreUnknown = false,
     environment: openArray[string] = [],
-    setupLogger = false
+    setupLogger = false,
+    quitOnFailure = true
 ): Result[ConfType, string] =
   let
     version =
@@ -235,6 +239,7 @@ proc loadWithBanners*(
         copyrightBanner = helpBanner, # what is shown on top of --help
         cmdLine = cmdLine,
         ignoreUnknown = ignoreUnknown,
+        quitOnFailure = quitOnFailure,
         secondarySources = proc(
             config: ConfType, sources: ref SecondarySources
         ) {.raises: [ConfigurationError], gcsafe.} =
@@ -260,6 +265,61 @@ proc loadWithBanners*(
             "a properly formatted TOML array\p"
       return err(msg)
   ok(config)
+
+type ConfigCallbackFunc*[ConfType] =
+  proc (
+    config: ConfType
+  ): Future[void].Raising([CancelledError]) {.gcsafe, raises: [].}
+
+proc monitorConfigChanges*(
+    ConfType: type, cb: ConfigCallbackFunc
+): Future[void] {.async: (raises: [CancelledError]).} =
+  doAssert cb != nil
+
+  proc reloadConfig {.async: (raises: [CancelledError]).} =
+    let config = ConfType.loadWithBanners(
+        helpBanner = "", copyright = "", versions = [],
+        quitOnFailure = false).valueOr:
+      warn "Config reload failed - previous config applies", reason = error
+      return
+    await cb(config)
+
+  when defined(windows):
+    let hEvent = openEvent("sighup").valueOr:
+      warn "Config change monitor initialization failed", errorCode = error
+      return
+
+    try:
+      while true:
+        discard await waitForSingleObject(hEvent, InfiniteDuration)
+        await reloadConfig()
+    except AsyncError as exc:
+      warn "Config change monitor failed", exc = exc.msg
+    finally:
+      # We don't know whether `hEvent` is still in use:
+      # https://github.com/status-im/nim-chronos/issues/715
+      discard  # closeFd(hEvent)
+
+  elif declared(addSignal2):
+    let reloadEvent = newAsyncEvent()
+
+    proc continuation(udata: pointer) {.gcsafe.} =
+      reloadEvent.fire()
+
+    let signalHandle = addSignal2(SIGHUP, continuation).valueOr:
+      warn "Config change monitor initialization failed", errorCode = error
+      return
+
+    try:
+      while true:
+        await reloadEvent.wait()
+        reloadEvent.clear()
+        await reloadConfig()
+    finally:
+      discard removeSignal2(signalHandle)
+
+  else:
+    discard  # Config monitoring not supported
 
 proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
                                stopAtEpoch: uint64): bool =
