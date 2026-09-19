@@ -206,7 +206,6 @@ type
     fulu_mev.BuilderBid
 
   ForkyBlobsBundle* =
-    deneb.BlobsBundle |
     fulu.BlobsBundle
 
   ForkySignedBuilderBid* =

@@ -59,7 +59,6 @@ RestJson.useDefaultSerializationFor(
   AttestationData,
   BLSToExecutionChange,
   BeaconBlockHeader,
-  BlobSidecar,
   Builder,
   BuilderDepositRequest,
   BuilderExitRequest,

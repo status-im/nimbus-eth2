@@ -1524,25 +1524,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     node.updateEnvelopeGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
-proc pruneBlobs(node: BeaconNode, slot: Slot) =
-  let blobPruneEpoch = (slot.epoch -
-                        node.dag.cfg.MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS - 1)
-  if slot.is_epoch() and blobPruneEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-    var blocks: array[SLOTS_PER_EPOCH.int, BlockId]
-    var count = 0
-    let startIndex = node.dag.getBlockRange(
-      blobPruneEpoch.start_slot, blocks.toOpenArray(0, SLOTS_PER_EPOCH - 1))
-    for i in startIndex..<SLOTS_PER_EPOCH:
-      let blck = node.dag.getForkedBlock(blocks[int(i)]).valueOr: continue
-      withBlck(blck):
-        debugGloasComment " "
-        when typeof(forkyBlck).kind < ConsensusFork.Deneb or typeof(forkyBlck).kind in [ConsensusFork.Gloas, ConsensusFork.Heze]: continue
-        else:
-          for j in 0..len(forkyBlck.message.body.blob_kzg_commitments) - 1:
-            if node.db.delBlobSidecar(blocks[int(i)].root, BlobIndex(j)):
-              count = count + 1
-    debug "pruned blobs", count, blobPruneEpoch
-
 proc pruneDataColumnsAtSlot(node: BeaconNode, targetSlot: Slot) =
   if targetSlot.epoch < node.dag.cfg.FULU_FORK_EPOCH:
     return
@@ -1615,7 +1596,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       # The epoch slot already is "heavy" due to the epoch processing, leave
       # the pruning for later
       node.dag.pruneHistory()
-      node.pruneBlobs(slot)
       node.pruneDataColumns(slot)
 
   # The slots in the beacon node work as frames in a game: we want to make

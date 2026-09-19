@@ -32,7 +32,6 @@ const
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
-  MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT*: uint64 = 9
   MAX_SUPPORTED_REQUEST_BLOB_SIDECARS*: uint64 = 1152
 
   MAX_SUPPORTED_REQUEST_INCLUSION_LIST*: uint64 = 16
@@ -1151,12 +1150,6 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
 
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB
-
-  for suffix in ["", "_ELECTRA"]:
-    checkCompatibility MAX_SUPPORTED_BLOB_SIDECAR_SUBNET_COUNT,
-                       "BLOB_SIDECAR_SUBNET_COUNT" & suffix, `<=`
-    checkCompatibility MAX_SUPPORTED_REQUEST_BLOB_SIDECARS,
-                       "MAX_REQUEST_BLOB_SIDECARS" & suffix, `<=`
 
   checkCompatibility MAX_SUPPORTED_REQUEST_INCLUSION_LIST,
                      "MAX_REQUEST_INCLUSION_LIST", `<=`
