@@ -9,7 +9,7 @@
 
 import
   # Status libraries
-  stew/base10,
+  stew/[assign2, base10],
   chronicles,
   eth/db/kvstore_sqlite3,
   # Beacon chain internals
@@ -73,6 +73,11 @@ logScope: topics = "lcdata"
 # Mainnet data size (all columns):
 # - All forks: 8 bytes per `SyncCommitteePeriod` (~0.0 MB per month)
 #
+# `lc_period_checkpoints` contains the last checkpoint epoch per sync committee
+# period. `LightClientEpochData` for such epochs holds `current_sync_committee`.
+# Mainnet data size (all columns):
+# - All forks: 8 bytes per `SyncCommitteePeriod` (~0.0 MB per month)
+#
 # `lc_xxxxx_backfill_data` holds all information to prove to other peers that
 # backfilled light client data from our database is "canonical best", indicating
 # that no other data exists on the network that may improve it (fully synced).
@@ -125,6 +130,7 @@ logScope: topics = "lcdata"
 type
   LightClientHeaderStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
+    getBySlotStmt: SqliteStmt[int64, seq[byte]]
     putStmt: SqliteStmt[(array[32, byte], int64, seq[byte]), void]
     keepFromStmt: SqliteStmt[int64, void]
 
@@ -159,6 +165,11 @@ type
     keepFromStmt: SqliteStmt[int64, void]
 
   SealedSyncCommitteePeriodStore = object
+    containsStmt: SqliteStmt[int64, int64]
+    putStmt: SqliteStmt[int64, void]
+    keepFromStmt: SqliteStmt[int64, void]
+
+  SyncCommitteePeriodCheckpointStore = object
     containsStmt: SqliteStmt[int64, int64]
     putStmt: SqliteStmt[int64, void]
     keepFromStmt: SqliteStmt[int64, void]
@@ -201,10 +212,13 @@ type
       ## Tracks the finalized sync committee periods for which complete data
       ## has been imported (from `dag.tail.slot`).
 
+    periodCheckpoints: SyncCommitteePeriodCheckpointStore
+      ## {Epoch}
+      ## Tracks the last checkpoint epoch per sync committee period.
+
     backfillData: LightClientBackfillDataStore
       ## Epoch -> (LightClientDataFork, LightClientBackfillData)
-      ## Data for enabling other peers to sync missing "canonical best"
-      ## light client data (`LightClientBootstrap` / `LightClientUpdate`).
+      ## Data for enabling other peers to sync missing "canonical best" data.
 
 proc initHeadersStore(
     backend: SqStoreRef,
@@ -232,6 +246,11 @@ proc initHeadersStore(
       FROM `""" & name & """`
       WHERE `block_root` = ?;
     """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
+    getBySlotStmt = backend.prepareStmt("""
+      SELECT `header`
+      FROM `""" & name & """`
+      WHERE `slot` = ?;
+    """, int64, seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       REPLACE INTO `""" & name & """` (
         `block_root`, `slot`, `header`
@@ -245,11 +264,13 @@ proc initHeadersStore(
 
   ok LightClientHeaderStore(
     getStmt: getStmt,
+    getBySlotStmt: getBySlotStmt,
     putStmt: putStmt,
     keepFromStmt: keepFromStmt)
 
 func close(store: var LightClientHeaderStore) =
   store.getStmt.disposeSafe()
+  store.getBySlotStmt.disposeSafe()
   store.putStmt.disposeSafe()
   store.keepFromStmt.disposeSafe()
 
@@ -265,6 +286,21 @@ proc getHeader*[T: ForkyLightClientHeader](
     except SerializationError as exc:
       error "LC data store corrupted", store = "headers", kind = T.kind,
         blockRoot, exc = exc.msg
+      return Opt.none(T)
+
+proc getHeader[T: ForkyLightClientHeader](
+    db: LightClientDataDB, slot: Slot): Opt[T] =
+  doAssert slot.isSupportedBySQLite
+  if distinctBase(db.headers[T.kind].getBySlotStmt) == nil:
+    return Opt.none(T)
+  var header: seq[byte]
+  for res in db.headers[T.kind].getBySlotStmt.exec(slot.int64, header):
+    res.expect("SQL query OK")
+    try:
+      return ok SSZ.decode(header, T)
+    except SerializationError as exc:
+      error "LC data store corrupted", store = "headers", kind = T.kind,
+        slot, exc = exc.msg
       return Opt.none(T)
 
 func putHeader*[T: ForkyLightClientHeader](
@@ -687,7 +723,7 @@ type
   AltairLightClientBackfillData = object
     epoch {.dontSerialize.}: Epoch
     parent_block_header: BeaconBlockHeader
-    block_data: array[SLOTS_PER_EPOCH, altair.LightClientBlockData]
+    block_data: array[SLOTS_PER_EPOCH.int, altair.LightClientBlockData]
     bootstrap_data {.dontSerialize.}: altair.LightClientBootstrapData
     finalized_root: Eth2Digest
     finality_branch: altair.FinalityBranch
@@ -695,7 +731,7 @@ type
   CapellaLightClientBackfillData = object
     epoch {.dontSerialize.}: Epoch
     parent_block_header: BeaconBlockHeader
-    block_data: array[SLOTS_PER_EPOCH, altair.LightClientBlockData]
+    block_data: array[SLOTS_PER_EPOCH.int, altair.LightClientBlockData]
     bootstrap_data {.dontSerialize.}: capella.LightClientBootstrapData
     finalized_root: Eth2Digest
     finality_branch: altair.FinalityBranch
@@ -703,7 +739,7 @@ type
   DenebLightClientBackfillData = object
     epoch {.dontSerialize.}: Epoch
     parent_block_header: BeaconBlockHeader
-    block_data: array[SLOTS_PER_EPOCH, altair.LightClientBlockData]
+    block_data: array[SLOTS_PER_EPOCH.int, altair.LightClientBlockData]
     bootstrap_data {.dontSerialize.}: deneb.LightClientBootstrapData
     finalized_root: Eth2Digest
     finality_branch: altair.FinalityBranch
@@ -711,7 +747,7 @@ type
   ElectraLightClientBackfillData = object
     epoch {.dontSerialize.}: Epoch
     parent_block_header: BeaconBlockHeader
-    block_data: array[SLOTS_PER_EPOCH, altair.LightClientBlockData]
+    block_data: array[SLOTS_PER_EPOCH.int, altair.LightClientBlockData]
     bootstrap_data {.dontSerialize.}: electra.LightClientBootstrapData
     finalized_root: Eth2Digest
     finality_branch: electra.FinalityBranch
@@ -719,10 +755,69 @@ type
   GloasLightClientBackfillData = object
     epoch {.dontSerialize.}: Epoch
     parent_block_header: BeaconBlockHeader
-    block_data: array[SLOTS_PER_EPOCH, gloas.LightClientBlockData]
+    block_data: array[SLOTS_PER_EPOCH.int, gloas.LightClientBlockData]
     bootstrap_data {.dontSerialize.}: gloas.LightClientBootstrapData
     finalized_root: Eth2Digest
     finality_branch: gloas.FinalityBranch
+
+proc initPeriodCheckpointsStore(
+    backend: SqStoreRef,
+    name: string): KvResult[SyncCommitteePeriodCheckpointStore] =
+  if name == "":
+    return ok SyncCommitteePeriodCheckpointStore()
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `epoch` INTEGER PRIMARY KEY  -- `Epoch`
+      );
+    """)
+  if not ? backend.hasTable(name):
+    return ok SyncCommitteePeriodCheckpointStore()
+
+  let
+    containsStmt = backend.prepareStmt("""
+      SELECT 1 AS `exists`
+      FROM `""" & name & """`
+      WHERE `epoch` = ?;
+    """, int64, int64, managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      REPLACE INTO `""" & name & """` (
+        `epoch`
+      ) VALUES (?);
+    """, int64, void, managed = false).expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
+      WHERE `epoch` < ?;
+    """, int64, void, managed = false).expect("SQL query OK")
+
+  ok SyncCommitteePeriodCheckpointStore(
+    containsStmt: containsStmt,
+    putStmt: putStmt,
+    keepFromStmt: keepFromStmt)
+
+func close(store: var SyncCommitteePeriodCheckpointStore) =
+  store.containsStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
+
+func isLastCheckpointInPeriod(
+    db: LightClientDataDB, epoch: Epoch): bool =
+  doAssert epoch.isSupportedBySQLite
+  if distinctBase(db.periodCheckpoints.containsStmt) == nil:
+    return false
+  var exists: int64
+  for res in db.periodCheckpoints.containsStmt.exec(epoch.int64, exists):
+    res.expect("SQL query OK")
+    doAssert exists == 1
+    return true
+  false
+
+func putLastCheckpointInPeriod(
+    db: LightClientDataDB, epoch: Epoch) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+  doAssert epoch.isSupportedBySQLite
+  let res = db.periodCheckpoints.putStmt.exec(epoch.int64)
+  res.expect("SQL query OK")
 
 template LightClientBackfillData(kind: static LightClientDataFork): typedesc =
   when kind == LightClientDataFork.Gloas:
@@ -800,6 +895,30 @@ func hasEpochData*(db: LightClientDataDB, epoch: Epoch): bool =
     return true
   false
 
+proc getBootstrapData[T: ForkyLightClientBootstrapData](
+    db: LightClientDataDB, slot: Slot): Opt[T] =
+  const lcDataFork = T.kind
+  var res = T(
+    current_sync_committee:
+      if db.isLastCheckpointInPeriod(slot.epoch):
+        List[SyncCommittee, 1].init(@[
+          ? db.getSyncCommittee(slot.sync_committee_period)])
+      else:
+        List[SyncCommittee, 1].init(@[]),
+    current_sync_committee_branch:
+      ? getCurrentSyncCommitteeBranch[
+        lcDataFork.CurrentSyncCommitteeBranch](db, slot))
+
+  when lcDataFork >= LightClientDataFork.Capella:
+    let header = ? getHeader[lcDataFork.LightClientHeader](db, slot)
+    when lcDataFork >= LightClientDataFork.Gloas:
+      assign(res.execution_block_hash, header.execution_block_hash)
+    else:
+      assign(res.execution, header.execution)
+    assign(res.execution_branch, header.execution_branch)
+
+  ok res
+
 proc getEpochData*(
     db: LightClientDataDB, epoch: Epoch
 ): ForkedLightClientEpochData =
@@ -811,13 +930,21 @@ proc getEpochData*(
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
           if data[0] == ord(lcDataFork).int64:
-            let res = SSZ.decode(data[1], AltairLightClientBackfillData)
-
-            # var res = ForkedLightClientEpochData.init(
-            #   isomorphicCast[lcDataFork.LightClientEpochData](
-            #     SSZ.decode(data[1], lcDataFork.LightClientBackfillData)))
-
-            return #res
+            var res = ForkedLightClientEpochData(kind: lcDataFork)
+            template forkyEpochData: untyped = res.forky(lcDataFork)
+            data[1].readSszBytes(toLightClientBackfillData(forkyEpochData))
+            forkyEpochData.epoch = epoch
+            for i in 1 .. forkyEpochData.block_data.len:
+              if epoch == 0 and i > 1:
+                break
+              if forkyEpochData.block_data[^i].state_root.isZero:
+                continue
+              let slot = epoch.start_slot + 1 - i.uint64
+              forkyEpochData.bootstrap_data = getBootstrapData[
+                  lcDataFork.LightClientBootstrapData](db, slot).valueOr:
+                return default(ForkedLightClientEpochData)
+              break
+            return res
       warn "Unsupported LC data store kind", store = "backfillData",
         epoch, kind = data[0]
       return default(ForkedLightClientEpochData)
@@ -852,6 +979,9 @@ func keepPeriodsFrom*(
   if distinctBase(db.backfillData.keepFromStmt) != nil:
     let res = db.backfillData.keepFromStmt.exec(minEpoch.int64)
     res.expect("SQL query OK")
+  if distinctBase(db.periodCheckpoints.keepFromStmt) != nil:
+    let res = db.periodCheckpoints.keepFromStmt.exec(minEpoch.int64)
+    res.expect("SQL query OK")
   let minSlot = min(minEpoch.start_slot, int64.high.Slot)
   for branchFork, store in db.currentBranches:
     if branchFork > BranchFork.None and
@@ -877,6 +1007,7 @@ type LightClientDataDBNames* = object
   legacyAltairBestUpdates*: string
   bestUpdates*: string
   sealedPeriods*: string
+  periodCheckpoints*: string
   backfillData*: string
 
 proc initLightClientDataDB*(
@@ -925,6 +1056,8 @@ proc initLightClientDataDB*(
         names.bestUpdates, names.legacyAltairBestUpdates)
     sealedPeriods =
       ? backend.initSealedPeriodsStore(names.sealedPeriods)
+    periodCheckpoints =
+      ? backend.initPeriodCheckpointsStore(names.periodCheckpoints)
     backfillData =
       ? backend.initBackfillDataStore(names.backfillData)
 
@@ -936,6 +1069,7 @@ proc initLightClientDataDB*(
     legacyBestUpdates: legacyBestUpdates,
     bestUpdates: bestUpdates,
     sealedPeriods: sealedPeriods,
+    periodCheckpoints: periodCheckpoints,
     backfillData: backfillData)
 
 proc close*(db: LightClientDataDB) =
@@ -950,5 +1084,6 @@ proc close*(db: LightClientDataDB) =
     db.legacyBestUpdates.close()
     db.bestUpdates.close()
     db.sealedPeriods.close()
+    db.periodCheckpoints.close()
     db.backfillData.close()
     db[].reset()

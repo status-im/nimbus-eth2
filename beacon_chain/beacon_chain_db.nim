@@ -624,6 +624,11 @@ proc new*(T: type BeaconChainDB,
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods",
+      periodCheckpoints:
+        if lightClientDataImportBackfill:
+          "lc_period_checkpoints"
+        else:
+          "",
       backfillData:
         if lightClientDataImportBackfill:
           "lc_backfill_data"
