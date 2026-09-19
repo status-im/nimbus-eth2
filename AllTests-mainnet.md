@@ -892,8 +892,20 @@ AllTests-mainnet
 + markCellReceived with data on non-existent entry is no-op                                  OK
 + markCellReceived with data out-of-bounds is no-op                                          OK
 + markCellReceived with data stores cell and proof                                           OK
++ pruneAfterFinalization drops entries without a group id                                    OK
++ pruneAfterFinalization drops finalized group ids and entries                               OK
 + pruneForBlock drops the group id and its entries                                           OK
 + pruneForBlock leaves other group ids alone                                                 OK
+```
+## Partial column messages
+```diff
++ Empty metadata materializes every available cell                                           OK
++ Group id and parts metadata                                                                OK
++ Materialize only cells the peer requests and lacks                                         OK
++ Mismatched bitlist length is an error                                                      OK
++ Nothing requested yields no data                                                           OK
++ Partial RPC validation                                                                     OK
++ Union of parts metadata                                                                    OK
 ```
 ## Payload attestation pool [Preset: mainnet]
 ```diff

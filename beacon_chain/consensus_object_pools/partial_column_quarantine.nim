@@ -196,7 +196,7 @@ func cellsConsistent*(
 
   var cellIdx = 0
   for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
-    if sidecar.cells_present_bitmap[Natural(blobIdx)]:
+    if sidecar.cells_present_bitmap[blobIdx]:
       if cellIdx < sidecar.partial_column.len and
          cellIdx < sidecar.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len and
@@ -221,7 +221,7 @@ func addCells*(
   template s: untyped = sidecar[]
   var cellIdx = 0
   for blobIdx in 0 ..< s.cells_present_bitmap.len:
-    if s.cells_present_bitmap[Natural(blobIdx)]:
+    if s.cells_present_bitmap[blobIdx]:
       if cellIdx < s.partial_column.len and
          cellIdx < s.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len:
@@ -292,3 +292,16 @@ func pruneForBlock*(
   for columnIndex in 0'u64 ..< NUMBER_OF_COLUMNS:
     quarantine.entries.del(
       PartialColumnKey(groupId: groupId, columnIndex: ColumnIndex(columnIndex)))
+
+func pruneAfterFinalization*(
+    quarantine: var PartialColumnQuarantine, finalizedEpoch: Epoch) =
+  ## Drop everything from finalized slots; those columns have either been
+  ## imported already or are no longer of interest.
+  let cutoff = finalizedEpoch.start_slot()
+
+  # Entries outlive their group ID whenever the smaller group ID cache rotates
+  # first, so sweep both rather than pruning entries per group ID.
+  for groupId in toSeq(quarantine.groupIds.keys()).filterIt(it.slot < cutoff):
+    quarantine.groupIds.del(groupId)
+  for key in toSeq(quarantine.entries.keys()).filterIt(it.groupId.slot < cutoff):
+    quarantine.entries.del(key)
