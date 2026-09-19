@@ -42,6 +42,7 @@ const
 
 type
   EncodeTypes* =
+    BuilderConfig |
     DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
@@ -180,6 +181,28 @@ func ethHeaders(
     headers.add("access-control-expose-headers", static(
       "eth-consensus-version, eth-execution-payload-blinded, " &
       "eth-execution-payload-value, eth-consensus-block-value"))
+  headers
+
+func ethHeadersV4(
+    consensusFork: ConsensusFork,
+    executionValue: UInt256,
+    consensusValue: UInt256,
+    payloadIncluded: bool,
+    builderUrl: Opt[string],
+    hasRestAllowedOrigin: bool): HttpTable =
+  var headers = HttpTable.init [
+    ("eth-consensus-version", consensusFork.toString()),
+    ("eth-execution-payload-included",
+     if payloadIncluded: "true" else: "false"),
+    ("eth-execution-payload-value", toString(executionValue, 10)),
+    ("eth-consensus-block-value", toString(consensusValue, 10))]
+  if builderUrl.isSome():
+    headers.add("eth-builder-url", builderUrl.get())
+  if hasRestAllowedOrigin:
+    headers.add("access-control-expose-headers", static(
+      "eth-consensus-version, eth-execution-payload-included, " &
+      "eth-execution-payload-value, eth-consensus-block-value, " &
+      "eth-builder-url"))
   headers
 
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
@@ -601,6 +624,35 @@ proc sszResponse*(
       isBlinded, executionValue, consensusValue, hasRestAllowedOrigin)
   RestApiResponse.response(
     res, Http200, "application/octet-stream", headers = headers)
+
+# https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml
+proc produceBlockV4Response*(
+    _: typedesc[RestApiResponse],
+    response: ProduceBlockResponseV4,
+    consensusFork: ConsensusFork,
+    contentType: MediaType,
+    hasRestAllowedOrigin: bool): RestApiResponse =
+  let headers = ethHeadersV4(
+    consensusFork,
+    response.executionPayloadValue.get(0.u256),
+    response.consensusBlockValue.get(0.u256),
+    response.data.includePayload,
+    response.builderUrl,
+    hasRestAllowedOrigin)
+  if contentType == OctetStreamMediaType:
+    let res =
+      case response.data.includePayload
+      of true:
+        withForkyProducedBlockContents(response.data.contents):
+          SSZ.encode(forkyContents)
+      of false:
+        withBlck(response.data.blck):
+          SSZ.encode(forkyBlck)
+    RestApiResponse.response(
+      res, Http200, "application/octet-stream", headers = headers)
+  else:
+    let res = response.jsonPlainEncoded()
+    RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
@@ -1048,6 +1100,9 @@ proc decodeBytes*[T: DecodeTypes](
 
 func encodeString*(value: string): RestResult[string] =
   ok(value)
+
+func encodeString*(value: bool): RestResult[string] =
+  ok(if value: "true" else: "false")
 
 func encodeString*(
     value:

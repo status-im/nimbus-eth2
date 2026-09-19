@@ -54,6 +54,17 @@ proc produceBlockV3Plain*(
      accept: preferSSZ, meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV3
 
+proc produceBlockV4Plain*(
+       slot: Slot,
+       body: BuilderConfig,
+       randao_reveal: ValidatorSig,
+       graffiti: GraffitiBytes,
+       include_payload: bool
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v4/validator/blocks/{slot}",
+     accept: preferSSZ, meth: MethodPost.}
+  ## https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml
+
 proc produceAttestationDataPlain*(
        slot: Slot,
        committee_index: CommitteeIndex

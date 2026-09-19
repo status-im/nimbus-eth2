@@ -11,6 +11,8 @@ import
   std/typetraits,
   stew/byteutils,
   ".."/[crypto, keystore],
+  ../datatypes/base,
+  ../mev/gloas_mev,
   ../../validators/slashing_protection_common
 
 type
@@ -115,6 +117,21 @@ type
 
   SetGraffitiRequest* = object
     graffiti*: GraffitiString
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L54-L137
+  BuilderEntry* = object
+    url*: string
+    auth_data*: Opt[BuilderRequestAuthData]
+    builder_pubkeys*: Opt[seq[ValidatorPubKey]]
+    max_execution_payment*: Opt[Gwei]
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L1-L52
+  BuilderConfig* = object
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
+    builders*: Opt[seq[BuilderEntry]]
 
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):
