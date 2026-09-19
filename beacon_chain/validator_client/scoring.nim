@@ -241,3 +241,35 @@ proc getProduceBlockResponseV3Score*(blck: ProduceBlockResponseV3): UInt256 =
   debug "Block score", blck = shortLog(blck), consensus_value = cv,
                        execution_value = ev, score = shortScore(res)
   res
+
+proc getPayloadAttestationDataScore*(
+    rootsSeen: Table[Eth2Digest, Slot],
+    data: Opt[PayloadAttestationData]): float64 =
+  ## `payload_present` is authoritative (a node reports it only if it holds the
+  ## envelope), so it must strictly dominate; then blob availability; then a
+  ## small bonus for a block root seen at this slot. Powers of two guarantee the
+  ## ordering. A canonical, present, available response is perfect.
+  let res =
+    if data.isNone():
+      0.0
+    else:
+      let
+        d = data.get()
+        seen = rootsSeen.getOrDefault(
+          d.beacon_block_root, FAR_FUTURE_SLOT) == d.slot
+      if seen and d.payload_present and d.blob_data_available:
+        Inf
+      else:
+        var s = 0.0
+        if d.payload_present:     s += 4.0
+        if d.blob_data_available: s += 2.0
+        if seen:                  s += 1.0
+        s
+
+  debug "Payload attestation data score", score = shortScore(res)
+  res
+
+proc getPayloadAttestationDataScore*(
+    vc: ValidatorClientRef,
+    data: Opt[PayloadAttestationData]): float64 =
+  getPayloadAttestationDataScore(vc.rootsSeen, data)

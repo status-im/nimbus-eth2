@@ -416,6 +416,9 @@ proc pollForPtcDuties*(
     currentEpoch = currentSlot.epoch()
     nextEpoch = currentEpoch + 1'u64
 
+  if not vc.isPastGloasFork(currentEpoch):
+    return
+
   if vc.attachedValidators[].count() != 0:
     let counts = [
       await service.pollForPtcDuties(currentEpoch),
@@ -676,6 +679,7 @@ proc pollForBeaconProposers*(
 
   service.pruneBeaconProposers(currentEpoch)
   vc.pruneBlocksSeen(currentEpoch)
+  vc.prunePayloadsSeen(currentEpoch)
 
 proc prepareBeaconProposers*(
     service: DutiesServiceRef
