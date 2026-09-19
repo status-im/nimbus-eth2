@@ -7,7 +7,7 @@
 
 {.push raises: [], gcsafe.}
 
-import ./[helpers, forks]
+import ./helpers
 from std/algorithm import sort, upperBound
 
 export base
@@ -132,22 +132,6 @@ func getSyncCommitteeTopic*(forkDigest: ForkDigest,
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
-
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/deneb/p2p-interface.md#new-blob_sidecar_subnet_id
-func getBlobSidecarTopic*(forkDigest: ForkDigest,
-                          subnet_id: BlobId): string =
-  eth2Prefix(forkDigest) & "blob_sidecar_" & $subnet_id & "/ssz_snappy"
-
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.3/specs/deneb/validator.md#sidecar
-# https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/electra/validator.md#sidecar
-func compute_subnet_for_blob_sidecar*(
-    cfg: RuntimeConfig, slot: Slot, blob_index: BlobIndex): BlobId =
-  let subnetCount =
-    if slot >= cfg.ELECTRA_FORK_EPOCH.start_slot:
-      cfg.BLOB_SIDECAR_SUBNET_COUNT_ELECTRA
-    else:
-      cfg.BLOB_SIDECAR_SUBNET_COUNT
-  BlobId(blob_index mod subnetCount)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/p2p-interface.md#new-compute_subnet_for_data_column_sidecar
 func compute_subnet_for_data_column_sidecar*(column_index: ColumnIndex): uint64 =

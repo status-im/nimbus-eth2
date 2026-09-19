@@ -161,10 +161,9 @@ template validateRequestType(request_type_and_payload, prev_type): untyped =
       return err("Execution layer request types duplicated")
   prev_type.ok request_type
 
-func decodePayloadRequests[EPS: electra.ExecutionPayloadForSigning |
-    fulu.ExecutionPayloadForSigning | gloas.ExecutionPayloadForSigning](
-    eps: EPS
-): Result[EPS.kind.ExecutionRequests, string] =
+func decodePayloadRequests[
+    EPS: fulu.ExecutionPayloadForSigning | gloas.ExecutionPayloadForSigning](
+    eps: EPS): Result[EPS.kind.ExecutionRequests, string] =
   try:
     var
       execution_requests_buffer: EPS.kind.ExecutionRequests

@@ -494,31 +494,6 @@ func shortLog*(v: ExecutionPayloadHeader): auto =
 func shortLog*(x: seq[BlobIdentifier]): string =
   "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
 
-func kzg_commitment_inclusion_proof_gindex*(
-    index: BlobIndex): GeneralizedIndex =
-  # This index is rooted in `BeaconBlockBody`.
-  # The first member (`randao_reveal`) is 16, subsequent members +1 each.
-  # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
-  # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.3/ssz/merkle-proofs.md
-  const
-    # blob_kzg_commitments
-    BLOB_KZG_COMMITMENTS_GINDEX =
-      27.GeneralizedIndex
-    # List + 0 = items, + 1 = len
-    BLOB_KZG_COMMITMENTS_BASE_GINDEX =
-      (BLOB_KZG_COMMITMENTS_GINDEX shl 1) + 0
-    # List depth
-    BLOB_KZG_COMMITMENTS_PROOF_DEPTH =
-      log2trunc(nextPow2(deneb.KzgCommitments.maxLen.uint64))
-    # First item
-    BLOB_KZG_COMMITMENTS_FIRST_GINDEX =
-      (BLOB_KZG_COMMITMENTS_BASE_GINDEX shl BLOB_KZG_COMMITMENTS_PROOF_DEPTH)
-  static: doAssert(
-    log2trunc(BLOB_KZG_COMMITMENTS_FIRST_GINDEX) ==
-    KZG_COMMITMENT_INCLUSION_PROOF_DEPTH)
-
-  BLOB_KZG_COMMITMENTS_FIRST_GINDEX + index
-
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        TrustedSignedBeaconBlock): SignedBeaconBlock =
