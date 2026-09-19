@@ -10,7 +10,7 @@
 import results, chronos,
        ../spec/[forks_light_client, signatures_batch, weak_subjectivity],
        ../consensus_object_pools/[block_pools_types, blockchain_dag,
-         attestation_pool, blockchain_list, column_quarantine, block_quarantine,
+         attestation_pool, column_quarantine, block_quarantine,
          envelope_quarantine, consensus_manager],
        ../gossip_processing/block_processor,
        ../validators/validator_monitor,

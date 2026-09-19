@@ -26,8 +26,7 @@ import
     blockchain_dag, block_quarantine, column_quarantine,
     column_reconstruction_backfiller, consensus_manager,
     attestation_pool, execution_payload_pool, payload_attestation_pool,
-    sync_committee_msg_pool, validator_change_pool,
-    blockchain_list],
+    sync_committee_msg_pool, validator_change_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./spec/signatures_batch,
@@ -91,7 +90,6 @@ type
     lightClientFcuFut*: Future[void].Raising([CancelledError])
     lightClient*: LightClient
     dag*: ChainDAGRef
-    list*: ChainListRef
     quarantine*: ref Quarantine
     fuluColumnQuarantine*: ref FuluColumnQuarantine
     gloasColumnQuarantine*: ref GloasColumnQuarantine

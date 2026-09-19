@@ -17,7 +17,7 @@ import
   eth/enr/enr,
   eth/p2p/discoveryv5/random2,
   ./consensus_object_pools/[
-    blockchain_list, column_quarantine, column_reconstruction_backfiller,
+    column_quarantine, column_reconstruction_backfiller,
     envelope_quarantine, execution_payload_pool, inclusion_list_pool,
     payload_attestation_pool],
   ./consensus_object_pools/vanity_logs/vanity_logs,
@@ -453,7 +453,6 @@ proc initFullNode(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
-    clist: ChainListRef,
     taskpool: Taskpool,
     getBeaconTime: GetBeaconTimeFn,
 ) {.async: (raises: [CancelledError]).} =
@@ -678,7 +677,6 @@ proc initFullNode(
 
   node.dag = dag
   node.dag.eaSlot = eaSlot
-  node.list = clist
   node.fuluColumnQuarantine = fuluColumnQuarantine
   node.gloasColumnQuarantine = gloasColumnQuarantine
   node.quarantine = quarantine
@@ -842,28 +840,6 @@ proc init*(
   if ProcessState.stopIt(notice("Shutting down", reason = it)):
     return Opt.none(BeaconNode)
 
-  let clist =
-    block:
-      let res = ChainListRef.init(config.databaseDir())
-
-      debug "Backfill database has been loaded", path = config.databaseDir(),
-            head = shortLog(res.head), tail = shortLog(res.tail)
-
-      if res.handle.isSome() and res.tail().isSome():
-        if not(isSlotWithinWeakSubjectivityPeriod(dag, res.tail.get().slot())):
-          notice "Backfill database is outdated " &
-                 "(outside of weak subjectivity period), reseting database",
-                 path = config.databaseDir(),
-                 tail = shortLog(res.tail)
-          res.clear().isOkOr:
-            fatal "Unable to reset backfill database",
-                  path = config.databaseDir(), reason = error
-            return Opt.none(BeaconNode)
-      res
-
-  info "Backfill database initialized", path = config.databaseDir(),
-       head = shortLog(clist.head), tail = shortLog(clist.tail)
-
   if config.weakSubjectivityCheckpoint.isSome:
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
@@ -991,7 +967,7 @@ proc init*(
     rng, metadata.cfg, dag.forkDigests,
     getBeaconTime, dag.genesis_validators_root)
 
-  await node.initFullNode(rng, dag, clist, taskpool, getBeaconTime)
+  await node.initFullNode(rng, dag, taskpool, getBeaconTime)
 
   node.updateLightClientFromDag()
 
