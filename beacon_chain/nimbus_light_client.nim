@@ -200,7 +200,8 @@ proc runLightClient*(
               ZERO_HASH
 
           withConsensusFork(consensusFork):
-            when lcDataForkAtConsensusFork(consensusFork) == lcDataFork:
+            when lcDataForkAtConsensusFork(consensusFork) == lcDataFork and
+                consensusFork >= ConsensusFork.Deneb:
               debug "Sending forkchoiceUpdated",
                 finalizedBlockHash = finalizedBlockHash
 
@@ -210,7 +211,9 @@ proc runLightClient*(
                 finalizedBlockHash
               )
               lightClientFcuFut = elManager.forkchoiceUpdated(
-                state, payloadAttributes = Opt.none(consensusFork.PayloadAttributes)
+                state,
+                payloadAttributes = Opt.none(consensusFork.PayloadAttributes),
+                fork = Opt.some(engineForkFor(consensusFork))
               )
               lightClientFcuFut.addCallback do (future: pointer):
                 lightClientFcuFut = nil
