@@ -82,6 +82,21 @@ suite "REST encoding and decoding":
         "fulu", "false", "1", "1", "")
     check res.isErr()
 
+  test "BuilderConfig round-trip":
+    let
+      empty = default(BuilderConfig)
+      full = BuilderConfig(
+        min_bid: Opt.some(1000.Gwei),
+        builder_boost_factor: Opt.some(90'u64),
+        builders: Opt.some(@[
+          BuilderEntry(
+            url: "https://builder.example",
+            max_execution_payment: Opt.some(500.Gwei),
+            builder_boost_factor: Opt.some(80'u64))]))
+    check:
+      empty == RestJson.decode(RestJson.encode(empty), BuilderConfig)
+      full == RestJson.decode(RestJson.encode(full), BuilderConfig)
+
   test "KzgCommitment":
     let
       zeroString =
