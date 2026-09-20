@@ -778,11 +778,12 @@ func payloadFailSafeInEffect*(
   false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.4/specs/phase0/p2p-interface.md#attestation-subnet-subscription
-func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
-    SubnetId =
+func compute_subscribed_subnet(
+    node_id: UInt256, epoch: Epoch, index: uint64,
+    nodeOffset: uint64,
+    epochsPerSubnetSubscription: uint64): SubnetId =
   # Ensure neither `truncate` loses information
   static:
-    doAssert EPOCHS_PER_SUBNET_SUBSCRIPTION <= high(uint64)
     doAssert sizeof(UInt256) * 8 == NODE_ID_BITS
     doAssert ATTESTATION_SUBNET_PREFIX_BITS < sizeof(SubnetId) * 8
 
@@ -790,10 +791,8 @@ func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
     node_id_prefix = truncate(
       node_id shr (
         NODE_ID_BITS - static(ATTESTATION_SUBNET_PREFIX_BITS.int)), uint64)
-    node_offset = truncate(
-      node_id mod static(EPOCHS_PER_SUBNET_SUBSCRIPTION.u256), uint64)
     permutation_seed = eth2digest(uint_to_bytes(
-      uint64((epoch + node_offset) div EPOCHS_PER_SUBNET_SUBSCRIPTION)))
+      uint64((epoch + nodeOffset) div epochsPerSubnetSubscription)))
     permutated_prefix = compute_shuffled_index(
       node_id_prefix,
       1 shl ATTESTATION_SUBNET_PREFIX_BITS,
@@ -802,9 +801,15 @@ func compute_subscribed_subnet(node_id: UInt256, epoch: Epoch, index: uint64):
   SubnetId((permutated_prefix + index) mod ATTESTATION_SUBNET_COUNT)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.10/specs/phase0/p2p-interface.md#attestation-subnet-subscription
-iterator compute_subscribed_subnets*(node_id: UInt256, epoch: Epoch): SubnetId =
-  for index in 0'u64 ..< SUBNETS_PER_NODE:
-    yield compute_subscribed_subnet(node_id, epoch, index)
+iterator compute_subscribed_subnets*(
+    node_id: UInt256, epoch: Epoch,
+    nodeOffset: uint64,
+    epochsPerSubnetSubscription: uint64,
+    subnetsPerNode: uint64): SubnetId =
+  for index in 0'u64 ..< subnetsPerNode:
+    yield compute_subscribed_subnet(
+      node_id, epoch, index,
+      nodeOffset, epochsPerSubnetSubscription)
 
 iterator get_committee_indices*(bits: AttestationCommitteeBits): CommitteeIndex =
   for index, b in bits:

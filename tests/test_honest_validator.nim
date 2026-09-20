@@ -353,19 +353,47 @@ suite "Honest validator":
 
   test "Stability subnets":
     check:
-      toSeq(compute_subscribed_subnets(default(UInt256), 0.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 0.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 1.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 1.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 2.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 2.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 2.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 2.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 200.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 200.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[49.SubnetId, 50.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 300.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 300.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[16.SubnetId, 17.SubnetId]
-      toSeq(compute_subscribed_subnets(default(UInt256), 400.Epoch)) ==
+      toSeq(compute_subscribed_subnets(
+        default(UInt256), 400.Epoch,
+        0'u64,
+        EPOCHS_PER_SUBNET_SUBSCRIPTION,
+        SUBNETS_PER_NODE)) ==
         @[16.SubnetId, 17.SubnetId]
 
   test "Index shuffling and unshuffling invert":
