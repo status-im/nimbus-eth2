@@ -11,13 +11,14 @@ import
   ../crypto,
   ../datatypes/[base, constants]
 
-from ../datatypes/gloas import BuilderRequestAuthData
-
 const
   # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/builder.md#constants
   DOMAIN_BUILDER_REQUEST_AUTH* = DomainType([byte 0x0b, 0x00, 0x00, 0x01])
+  MAX_BUILDER_AUTH_DATA_SIZE: int64 = 4096
 
 type
+  BuilderRequestAuthData* = List[byte, Limit MAX_BUILDER_AUTH_DATA_SIZE]
+
   # https://github.com/ethereum/builder-specs/blob/5aef563dc3532a5009fef02bae97ca563ec28e5b/specs/gloas/validator.md#builderrequestauth
   BuilderRequestAuth* = object
     data*: BuilderRequestAuthData
@@ -36,3 +37,31 @@ type
   BuilderPreferencesRequest* = object
     preferences*: BuilderPreferences
     auth*: SignedBuilderRequestAuth
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L54-L137
+  BuilderEntry* = object
+    url*: string
+    auth_data*: Opt[BuilderRequestAuthData]
+    builder_pubkeys*: Opt[seq[ValidatorPubKey]]
+    max_execution_payment*: Opt[Gwei]
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
+
+  # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L1-L52
+  BuilderConfig* = object
+    min_bid*: Opt[Gwei]
+    builder_boost_factor*: Opt[uint64]
+    builders*: Opt[seq[BuilderEntry]]
+
+  ResolvedBuilderEntry* = object
+    url*: string
+    auth_data*: BuilderRequestAuthData
+    builder_pubkeys*: seq[ValidatorPubKey]
+    max_execution_payment*: Gwei
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+
+  ResolvedBuilderConfig* = object
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+    builders*: seq[ResolvedBuilderEntry]
