@@ -85,17 +85,21 @@ suite "REST encoding and decoding":
   test "BuilderConfig round-trip":
     let
       empty = default(BuilderConfig)
+      entry = BuilderEntry(
+        url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(
+          "https://builder.example".toBytes()),
+        max_execution_payment: 500.Gwei,
+        min_bid: 100.Gwei,
+        builder_boost_factor: 90'u64)
       full = BuilderConfig(
-        min_bid: Opt.some(1000.Gwei),
-        builder_boost_factor: Opt.some(90'u64),
-        builders: Opt.some(@[
-          BuilderEntry(
-            url: "https://builder.example",
-            max_execution_payment: Opt.some(500.Gwei),
-            builder_boost_factor: Opt.some(80'u64))]))
+        min_bid: 100.Gwei,
+        builder_boost_factor: 80'u64,
+        builders: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES].init(@[entry]))
     check:
       empty == RestJson.decode(RestJson.encode(empty), BuilderConfig)
       full == RestJson.decode(RestJson.encode(full), BuilderConfig)
+      empty == SSZ.decode(SSZ.encode(empty), BuilderConfig)
+      full == SSZ.decode(SSZ.encode(full), BuilderConfig)
 
   test "KzgCommitment":
     let

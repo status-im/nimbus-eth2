@@ -44,9 +44,10 @@ import
   ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
-from stew/byteutils import toBytes
+from stew/byteutils import toBytes, fromBytes
 from ../spec/beaconstate import
-  get_expected_withdrawals, latest_block_id, proposalExecutionHead
+  get_expected_withdrawals, latest_block_id, proposalExecutionHead,
+  get_block_root_at_slot
 
 export results
 
@@ -902,6 +903,83 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
     )
   )
 
+proc getBuilderEntryBid(
+    node: BeaconNode,
+    consensusFork: static ConsensusFork,
+    proposalState: ref ForkedHashedBeaconState,
+    entry: BuilderEntry,
+    slot: Slot,
+    parent_block_hash: Eth2Digest,
+    parent_block_root: Eth2Digest,
+    proposer_pubkey: ValidatorPubKey,
+): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
+    async: (raises: [CancelledError]).} =
+  ## Request an execution payload bid from a single configured builder
+  let
+    builderUrl = string.fromBytes(entry.url.asSeq())
+    payloadBuilderClient = getBuilderClientForUrl(builderUrl).valueOr:
+      debug "Invalid builder url", slot
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    reqStartedAt = Moment.now()
+    bidRes = awaitWithTimeout(
+        getExecutionPayloadBidFromBuilder(
+          payloadBuilderClient, slot, parent_block_hash, parent_block_root,
+          proposer_pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
+          reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, entry.auth),
+        BUILDER_PROPOSAL_DELAY_TOLERANCE):
+      debug "Builder-API execution payload bid request timeout", builderUrl, slot
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    signedBid = bidRes.valueOr:
+      debug "No builder-API execution payload bid", slot, err = error
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+
+  node.dag.cfg.can_process_execution_payload_bid(
+      proposalState[].forky(consensusFork).data, signedBid, slot).isOkOr:
+    notice "Discarding invalid builder-API bid", slot, err = error
+    return Opt.none(gloas.SignedExecutionPayloadBid)
+
+  Opt.some(signedBid)
+
+proc selectBestBid(
+    node: BeaconNode,
+    engineBlockValue: Wei,
+    candidates: openArray[
+      tuple[bid: gloas.SignedExecutionPayloadBid, boost: uint64, value: Gwei]],
+): Opt[gloas.SignedExecutionPayloadBid] =
+  ## Pick the highest weighted-value bid each weighted by its own `builder_boost_factor`.
+  let failsafeInEffect =
+    withState(node.dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        payloadFailSafeInEffect(
+          forkyState.data.execution_payload_availability,
+          forkyState.data.block_roots.data, forkyState.data.slot)
+      else:
+        false
+  if failsafeInEffect:
+    notice "Payload failsafe in effect, ignoring builder bids"
+    return Opt.none(gloas.SignedExecutionPayloadBid)
+
+  var
+    best = Opt.none(gloas.SignedExecutionPayloadBid)
+    bestWeighted = UInt256.zero
+    bestBoost = 0'u64
+    bestValue = UInt256.zero
+  for c in candidates:
+    let
+      valueWei = c.value.uint64.u256 * static(GWEI_TO_WEI.u256)
+      weighted = c.boost.u256 * valueWei
+    if best.isNone or weighted > bestWeighted:
+      best = Opt.some(c.bid)
+      bestWeighted = weighted
+      bestBoost = c.boost
+      bestValue = valueWei
+
+  if best.isSome and builderBetterBid(
+      BoostFactor.init(bestBoost), bestValue, engineBlockValue):
+    best
+  else:
+    Opt.none(gloas.SignedExecutionPayloadBid)
+
 proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
@@ -910,7 +988,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-    builderBoostFactor: uint64,
+    builderConfig: BuilderConfig,
 ): Future[
     Result[
       tuple[
@@ -926,9 +1004,10 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
 ] {.async: (raises: [CancelledError]).} =
   ## Build a post-Gloas block for the produceBlockV4 endpoint, choosing between
   ## the local engine payload and the best value builder execution payload bid
-  ## available. Whenthe engine payload is selected the (unsigned) execution
-  ## payload envelope is returned if the 'include_payload' parameter is set to
-  ## true; a builder bid is builder later reveals the payload.
+  ## available. When the engine payload is selected the (unsigned) execution
+  ## payload envelope is returned alongside the block; when a builder bid is
+  ## selected the block commits to that bid and the builder later reveals the
+  ## payload.
   static: doAssert consensusFork >= ConsensusFork.Gloas
 
   var
@@ -965,13 +1044,33 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       else:
         default(consensusFork.ExecutionRequests)
 
-    engineBid = (await node.getExecutionPayload(
-        consensusFork, head, state, validator_index, proposerKey,
-        shouldExtendPayload)).valueOr:
-      return err("Engine payload is not available")
+    executionHead = proposalExecutionHead(state[].forky(consensusFork).data)
+    parentBlockHash =
+      if shouldExtendPayload:
+        executionHead
+      else:
+        state[].forky(consensusFork).data
+          .latest_execution_payload_bid.parent_block_hash
+    parentBlockRoot =
+      state[].forky(consensusFork).data.get_block_root_at_slot(slot - 1)
+
+  var builderFuts:
+    seq[Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])]
+  for entry in builderConfig.builders:
+    builderFuts.add node.getBuilderEntryBid(
+      consensusFork, state, entry, slot, parentBlockHash, parentBlockRoot,
+      proposerKey)
+
+  let engineBidOpt = await node.getExecutionPayload(
+    consensusFork, head, state, validator_index, proposerKey,
+    shouldExtendPayload)
+  if engineBidOpt.isNone:
+    for fut in builderFuts:
+      fut.cancelSoon()
+    return err("Engine payload is not available")
+  let engineBid = engineBidOpt.get()
 
   let
-    executionHead = proposalExecutionHead(state[].forky(consensusFork).data)
     payloadAvailability = node.dag.payloadAvailability(head, executionHead)
     poolBid =
       if payloadAvailability.isSome:
@@ -980,11 +1079,44 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       else:
         Opt.none gloas.SignedExecutionPayloadBid
 
-  debugGloasComment "missing builder-API bid: no proposer key to sign request-auth"
+  await allFutures(builderFuts)
 
-  let selectedBuilderBid = node.selectBuilderBid(
-    Opt.none(gloas.SignedExecutionPayloadBid), poolBid,
-    engineBid.eps.blockValue, BoostFactor.init(builderBoostFactor))
+  # "Entries arrive fully resolved, so a requested bid is governed by its own BuilderEntry;
+  # the top-level min_bid and builder_boost_factor apply to bids received over p2p."
+  var candidates:
+    seq[tuple[bid: gloas.SignedExecutionPayloadBid, boost: uint64, value: Gwei]]
+  let poolValue = effectiveBidValue(poolBid)
+  if poolBid.isSome and poolValue >= builderConfig.min_bid:
+    candidates.add (poolBid.get(), builderConfig.builder_boost_factor, poolValue)
+
+  for i, fut in builderFuts:
+    let bid = fut.read().valueOr:
+      continue
+    let entry = builderConfig.builders[i]
+    # Empty accepts any builder; otherwise a bid not signed by one of them MUST
+    # NOT be accepted.
+    if entry.builder_pubkeys.len > 0:
+      let builderIndex = bid.message.builder_index
+      if builderIndex >= state[].forky(consensusFork).data.builders.lenu64:
+        continue
+      if state[].forky(consensusFork).data.builders.item(builderIndex).pubkey notin
+          entry.builder_pubkeys.asSeq():
+        continue
+
+    # Effective value caps the execution payment at the entry's
+    # `max_execution_payment`.
+    let
+      payment = min(bid.message.execution_payment, entry.max_execution_payment)
+      value =
+        if bid.message.value > Gwei(high(uint64)) - payment:
+          bid.message.value
+        else:
+          bid.message.value + payment
+    if value >= entry.min_bid:
+      candidates.add (bid, entry.builder_boost_factor, value)
+
+  let selectedBuilderBid = node.selectBestBid(
+    engineBid.eps.blockValue, candidates)
 
   let
     verificationFlags =

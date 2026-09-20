@@ -678,10 +678,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if contentBody.isNone():
           default(BuilderConfig)
         else:
-          decodeBody(BuilderConfig, contentBody.get()).valueOr:
-            return RestApiResponse.jsonError(
-              Http400, "Unable to decode BuilderConfig", $error)
-      qboostFactor = qbuilderConfig.builder_boost_factor.get(100'u64)
+          decodeBodyJsonOrSsz(BuilderConfig, contentBody.get()).valueOr:
+            return RestApiResponse.jsonError(error)
       qhead =
         block:
           let res = node.getSyncedHead(qslot)
@@ -707,7 +705,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when consensusFork >= ConsensusFork.Gloas:
         let contents = (await node.makeBlockAndMaybeEnvelopeForHeadAndSlot(
             consensusFork, proposer, qrandao, qgraffiti, qhead, qslot,
-            qboostFactor)).valueOr:
+            qbuilderConfig)).valueOr:
           # HTTP 400 error is only for incorrect parameters.
           return RestApiResponse.jsonError(Http500, error)
 

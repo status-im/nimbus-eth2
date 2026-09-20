@@ -1102,7 +1102,7 @@ func encodeString*(value: string): RestResult[string] =
   ok(value)
 
 func encodeString*(value: bool): RestResult[string] =
-  ok(if value: "true" else: "false")
+  ok($value)
 
 func encodeString*(
     value:

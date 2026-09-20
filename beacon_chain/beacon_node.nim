@@ -180,6 +180,15 @@ proc getPayloadBuilderClient*(
                     socketFlags = socketFlags,
                     userAgent = nimbusAgentStr)
 
+proc getBuilderClientForUrl*(url: string): RestResult[RestClientRef] =
+  let
+    flags = {RestClientFlag.CommaSeparatedArray,
+             RestClientFlag.ResolveAlways}
+    socketFlags = {SocketFlags.TcpNoDelay}
+
+  RestClientRef.new(url, flags = flags, socketFlags = socketFlags,
+                    userAgent = nimbusAgentStr)
+
 func init*(T: type EventBus): T =
   T(
     headQueue:
