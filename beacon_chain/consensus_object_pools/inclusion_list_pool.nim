@@ -17,19 +17,11 @@ import
 logScope: topics = "ilpool"
 
 const
-  # https://github.com/ethereum/consensus-specs/pull/5462
-  # An inclusion list for slot N constrains the block at slot N+1 and is used by
-  # that slot's proposer and attesters, so a list for slot N stays live through
-  # slot N+1. This is the spec lookback depth: at `current_slot`, lists from
-  # `[current_slot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS, current_slot]` must
-  # remain available (serving `InclusionListsByIndices` uses the same bound).
-  MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS* = 1
-
   # Live slots: `current_slot` plus the lookback behind it. This bounds the ring
   # array `buckets`, so it must stay a compile-time constant - not a RuntimeConfig
   # field. Buckets are indexed by `slot mod IL_WINDOW`; a slot leaving the window
   # is dropped when its index is reused or evicted on the next add.
-  IL_WINDOW = MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS + 1
+  IL_WINDOW = MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS.int + 1
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/p2p-interface.md#new-inclusion_list
   # [IGNORE] The `message` is either the first or second valid message

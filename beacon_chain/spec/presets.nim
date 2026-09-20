@@ -159,10 +159,10 @@ type
 
     # Networking
     # TODO MAX_PAYLOAD_SIZE*: uint64
-    # TODO MAX_REQUEST_BLOCKS*: uint64
+    MAX_REQUEST_BLOCKS*: uint64
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION*: uint64
     MIN_EPOCHS_FOR_BLOCK_REQUESTS*: uint64
-    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
+    ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY*: uint64
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte]
     # TODO MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte]
@@ -185,11 +185,6 @@ type
     MAX_BLOBS_PER_BLOCK_ELECTRA*: uint64
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA*: uint64
 
-    # Gloas
-    CHURN_LIMIT_QUOTIENT_GLOAS*: uint64
-    CONSOLIDATION_CHURN_LIMIT_QUOTIENT*: uint64
-    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS*: uint64
-
     # Fulu
     NUMBER_OF_CUSTODY_GROUPS*: uint64
     DATA_COLUMN_SIDECAR_SUBNET_COUNT*: uint64
@@ -200,6 +195,11 @@ type
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP*: uint64
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS*: uint64
     BLOB_SCHEDULE*: seq[BlobParameters]
+
+    # Gloas
+    CHURN_LIMIT_QUOTIENT_GLOAS*: uint64
+    CONSOLIDATION_CHURN_LIMIT_QUOTIENT*: uint64
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS*: uint64
 
     # Heze
     MAX_REQUEST_INCLUSION_LIST*: uint64
@@ -220,6 +220,7 @@ const
 
   # No-longer used values from legacy config files, or quirks of BPO parsing
   ignoredValues = [
+    "TERMINAL_BLOCK_HASH",  # legacy transition value; no longer consumed
     "TTFB_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "RESP_TIMEOUT",  # https://github.com/ethereum/consensus-specs/pull/4532
     "    MAX_BLOBS_PER_BLOCK",         # parsed separately
@@ -380,12 +381,12 @@ when const_preset == "mainnet":
     # `10 * 2**20` (= 10485760, 10 MiB)
     # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
-    # TODO MAX_REQUEST_BLOCKS: 1024,
+    MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
+    ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
@@ -600,12 +601,12 @@ elif const_preset == "gnosis":
     # `10 * 2**20` (= 10485760, 10 MiB)
     # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
-    # TODO MAX_REQUEST_BLOCKS: 1024,
+    MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 33024, ~5 months)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 33024,
-    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
+    ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
@@ -642,11 +643,6 @@ elif const_preset == "gnosis":
     # MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK_ELECTRA
     MAX_REQUEST_BLOB_SIDECARS_ELECTRA: 256,
 
-    # Gloas
-    CHURN_LIMIT_QUOTIENT_GLOAS: 32768'u64,
-    CONSOLIDATION_CHURN_LIMIT_QUOTIENT: 65536'u64,
-    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS: 256000000000'u64,
-
     # Fulu
     NUMBER_OF_CUSTODY_GROUPS: 128,
     DATA_COLUMN_SIDECAR_SUBNET_COUNT: 128,
@@ -656,6 +652,11 @@ elif const_preset == "gnosis":
     VALIDATOR_CUSTODY_REQUIREMENT: 8,
     BALANCE_PER_ADDITIONAL_CUSTODY_GROUP: 32000000000'u64,
     MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS: 4096,
+
+    # Gloas
+    CHURN_LIMIT_QUOTIENT_GLOAS: 32768'u64,
+    CONSOLIDATION_CHURN_LIMIT_QUOTIENT: 65536'u64,
+    MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT_GLOAS: 256000000000'u64,
 
     # Heze
     # 2**4 (= 16)
@@ -693,7 +694,6 @@ elif const_preset == "minimal":
     TERMINAL_BLOCK_HASH:
       hash32"0x0000000000000000000000000000000000000000000000000000000000000000",
 
-
     # Genesis
     # ---------------------------------------------------------------
     # [customized]
@@ -704,7 +704,6 @@ elif const_preset == "minimal":
     GENESIS_FORK_VERSION: Version [byte 0x00, 0x00, 0x00, 0x01],
     # [customized] Faster to spin up testnets, but does not give validator reasonable warning time for genesis
     GENESIS_DELAY: 300,
-
 
     # Forking
     # ---------------------------------------------------------------
@@ -815,12 +814,12 @@ elif const_preset == "minimal":
     # `10 * 2**20` (= 10485760, 10 MiB)
     # TODO MAX_PAYLOAD_SIZE: 10485760,
     # `2**10` (= 1024)
-    # TODO MAX_REQUEST_BLOCKS: 1024,
+    MAX_REQUEST_BLOCKS: 1024,
     # `2**8` (= 256)
     # TODO EPOCHS_PER_SUBNET_SUBSCRIPTION: 256,
     # [customized] `MIN_VALIDATOR_WITHDRAWABILITY_DELAY + CHURN_LIMIT_QUOTIENT // 2` (= 272)
     MIN_EPOCHS_FOR_BLOCK_REQUESTS: 272,
-    # TODO ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
+    ATTESTATION_PROPAGATION_SLOT_RANGE: 32,
     # 500ms
     # TODO MAXIMUM_GOSSIP_CLOCK_DISPARITY: 500,
     # TODO MESSAGE_DOMAIN_INVALID_SNAPPY: [byte 0x00, 0x00, 0x00, 0x00],
@@ -1137,9 +1136,7 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_PAYLOAD_SIZE
   checkCompatibility MAX_PAYLOAD_SIZE, "GOSSIP_MAX_SIZE"
   checkCompatibility MAX_PAYLOAD_SIZE, "MAX_CHUNK_SIZE"
-  checkCompatibility MAX_REQUEST_BLOCKS
   checkCompatibility EPOCHS_PER_SUBNET_SUBSCRIPTION
-  checkCompatibility ATTESTATION_PROPAGATION_SLOT_RANGE
   checkCompatibility MAXIMUM_GOSSIP_CLOCK_DISPARITY.milliseconds.uint64,
                      "MAXIMUM_GOSSIP_CLOCK_DISPARITY"
   checkCompatibility MESSAGE_DOMAIN_INVALID_SNAPPY
@@ -1150,9 +1147,11 @@ proc readRuntimeConfig*(
   checkCompatibility ATTESTATION_SUBNET_PREFIX_BITS
 
   checkCompatibility MAX_REQUEST_BLOCKS_DENEB
+  checkCompatibility MAX_REQUEST_PAYLOADS
 
   checkCompatibility MAX_SUPPORTED_REQUEST_INCLUSION_LIST,
                      "MAX_REQUEST_INCLUSION_LIST", `<=`
+  checkCompatibility MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/phase0/fork-choice.md#configuration
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
