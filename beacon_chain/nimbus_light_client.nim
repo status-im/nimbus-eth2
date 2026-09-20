@@ -128,13 +128,14 @@ proc runLightClient*(
   for consensusFork in ConsensusFork:
     for forkDigest in consensusFork.forkDigests(forkDigests[]):
       withConsensusFork(consensusFork):
-        network.addValidator(
-          getBeaconBlocksTopic(forkDigest), proc (
-              signedBlock: consensusFork.SignedBeaconBlock,
-              src: PeerId
-          ): ValidationResult =
-            toValidationResult(
-              lightBlockProcessor.processSignedBeaconBlock(signedBlock)))
+        when consensusFork >= ConsensusFork.Electra:
+          network.addValidator(
+            getBeaconBlocksTopic(forkDigest), proc (
+                signedBlock: consensusFork.SignedBeaconBlock,
+                src: PeerId
+            ): ValidationResult =
+              toValidationResult(
+                lightBlockProcessor.processSignedBeaconBlock(signedBlock)))
 
         when consensusFork >= ConsensusFork.Gloas:
           network.addValidator(

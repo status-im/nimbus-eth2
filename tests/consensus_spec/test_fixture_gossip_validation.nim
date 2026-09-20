@@ -15,28 +15,36 @@ import
   yaml/tojson,
   ../../beacon_chain/spec/forks,
   ../../beacon_chain/beacon_chain_db,
-  ../../beacon_chain/consensus_object_pools/blockchain_dag,
+  ../../beacon_chain/consensus_object_pools/[blockchain_dag, column_quarantine],
   ../../beacon_chain/gossip_processing/[batch_validation, gossip_validation],
   ../testutil,
   ./fixtures_utils, ./os_ops
 
 from std/json import
   JsonNode, getBiggestInt, getBool, getStr, hasKey, items, len, `[]`
+from std/sequtils import toSeq
+from std/strutils import parseEnum, startsWith
 from chronos/unittest2/asynctests import asyncTest
 from libp2p/protocols/pubsub/errors import ValidationResult
+from minilru import contains
 from snappy import decode
+from ../../beacon_chain/consensus_object_pools/attestation_pool import
+  AttestationPool, init, addAttestation
 from ../../beacon_chain/consensus_object_pools/block_clearance import
   checkHeadBlock
 from ../../beacon_chain/consensus_object_pools/block_quarantine import
   Quarantine, UnviableKind, addOrphan, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
-  EnvelopeQuarantine, init
+  EnvelopeQuarantine, addUnviable, init
+from ../../beacon_chain/consensus_object_pools/execution_payload_pool import
+  ExecutionPayloadBidPool, addBid, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
   PayloadAttestationPool, addPayloadAttestation, init
 from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
   SyncCommitteeMsgPool, init, addSyncCommitteeMessage, addContribution
 from ../../beacon_chain/consensus_object_pools/validator_change_pool import
   ValidatorChangePool, init, addMessage
+from ../../beacon_chain/fork_choice/fork_choice import on_execution_payload
 from ../../beacon_chain/spec/signatures_batch import BatchVerifier, init
 from ../testbcutil import addHeadBlock
 
@@ -45,6 +53,8 @@ type
     name: string
     failed: bool
     pending: bool
+    payload: string
+    payloadStatus: OptimisticStatus
 
   GossipMessage = object
     name: string
@@ -58,9 +68,20 @@ type
     messages: seq[GossipMessage]
 
 const SKIP = [
+  # Finalized checkpoint root that is not a known block
+  "gossip_beacon_aggregate_and_proof__ignore_finalized_not_ancestor",
+  "gossip_beacon_attestation__ignore_finalized_not_ancestor",
+  "gossip_beacon_block__reject_finalized_checkpoint_not_ancestor",
+  "gossip_data_column_sidecar__reject_non_ancestor_finalized_checkpoint",
   # Gloas state before Gloas fork epoch
   "gossip_proposer_preferences__ignore_pre_gloas_epoch",
-  "gossip_proposer_preferences__valid_at_gloas_fork_epoch"]
+  "gossip_proposer_preferences__valid_at_gloas_fork_epoch",
+  # Invalid parent's execution payload status is not tracked
+  "gossip_beacon_block__reject_parent_consensus_failed_execution_not_verified",
+  # Block payload envelope is referenced by meta.yaml but not provided
+  "gossip_execution_payload_bid__ignore_parent_block_hash_unknown",
+  # Parent state is not advanced to the bid's slot
+  "gossip_execution_payload_bid__valid_requires_state_advanced_across_epoch"]
 
 func toValidationResult(expected: string): ValidationResult =
   case expected
@@ -81,7 +102,12 @@ proc loadMeta(path: string): GossipTestMeta {.raises: [KeyError, ValueError].} =
       res.blocks.add GossipBlock(
         name: blck["block"].getStr(),
         failed: blck.hasKey"failed" and blck["failed"].getBool(),
-        pending: blck.hasKey"pending" and blck["pending"].getBool())
+        pending: blck.hasKey"pending" and blck["pending"].getBool(),
+        payload: if blck.hasKey"payload": blck["payload"].getStr() else: "",
+        payloadStatus:
+          if blck.hasKey"payload_status":
+            parseEnum[OptimisticStatus](blck["payload_status"].getStr())
+          else: OptimisticStatus.valid)
   if meta.hasKey"finalized_checkpoint":
     res.finalizedEpoch =
       Opt.some(Epoch(meta["finalized_checkpoint"]["epoch"].getBiggestInt()))
@@ -134,13 +160,13 @@ func addBlockRef(dag: ChainDAGRef, root: Eth2Digest, slot: Slot) =
 template gossipTest(
     suiteName: static string, path: string,
     consensusFork: static ConsensusFork, MsgType: typedesc,
-    validate, accept: untyped) =
+    setup, validate, accept: untyped) =
   asyncTest $consensusFork & " - " & os_ops.splitPath(path).tail:
     if os_ops.splitPath(path).tail in SKIP:
       skip()
       return
     let
-      meta = loadMeta(path)
+      meta {.inject.} = loadMeta(path)
       dag {.inject, used.} = initDag(path, meta, consensusFork)
       rng = HmacDrbgContext.new()
     var taskpool = Taskpool.new()
@@ -154,15 +180,14 @@ template gossipTest(
       pool {.inject, used.} = newClone(ValidatorChangePool.init(dag))
       syncCommitteePool {.inject, used.} =
         newClone(SyncCommitteeMsgPool.init(rng, dag.cfg))
-      ptcPool {.inject, used.} =
-        newClone(PayloadAttestationPool.init(dag))
-    var seenPrefs {.inject, used.}: SeenProposerPreferences
     defer:
       dag.db.close()
       batchCrypto.close()
       taskpool.shutdown()
 
-    var verifier = BatchVerifier.init(rng, taskpool)
+    var
+      verifier = BatchVerifier.init(rng, taskpool)
+      headRef {.inject.} = dag.head
     for blck in meta.blocks.toOpenArray(1, meta.blocks.high):
       let signedBlock = loadBlock(path/blck.name & ".ssz_snappy", consensusFork)
       if blck.failed:
@@ -171,13 +196,40 @@ template gossipTest(
       elif blck.pending:
         check quarantine[].addOrphan(dag.finalizedHead.slot, signedBlock).isOk
       else:
-        check dag.addHeadBlock(
-          verifier, signedBlock, OnBlockAdded[consensusFork](nil)).expect(
-            "block imports").root == signedBlock.root
-    if meta.finalizedEpoch.isSome:
-      dag.finalizedHead.slot = meta.finalizedEpoch.get.start_slot
+        headRef = dag.addHeadBlock(
+          verifier, signedBlock, OnBlockAdded[consensusFork](nil),
+          blck.payloadStatus).expect("block imports")
+        check headRef.root == signedBlock.root
+        if blck.payloadStatus == OptimisticStatus.invalidated:
+          envQuarantine[].addUnviable(signedBlock.root)
+    for blck in meta.blocks:
+      if blck.payload.len > 0:
+        dag.db.putExecutionPayloadEnvelope(parseTest(
+          path/blck.payload & ".ssz_snappy", SSZ,
+          SignedExecutionPayloadEnvelope))
+    when MsgType is SingleAttestation | electra.SignedAggregateAndProof |
+        gloas.SignedAggregateAndProof:
+      let attPool {.inject.} = newClone(AttestationPool.init(dag, quarantine))
+    setup
+    meta.finalizedEpoch.isErrOr:
+      when MsgType is gloas.SignedExecutionPayloadBid:
+        withState(dag.headState):
+          when consensusFork >= ConsensusFork.Gloas:
+            forkyState.data.finalized_checkpoint.epoch = value
+      else:
+        dag.finalizedHead.slot = value.start_slot
 
     for msg in meta.messages:
+      when MsgType is gloas.SignedExecutionPayloadBid:
+        if msg.name.startsWith("proposer_preferences_"):
+          check dag.validateProposerPreferences(seenPrefs, parseTest(
+            path/msg.name & ".ssz_snappy", SSZ, SignedProposerPreferences),
+            msg.time).isOk
+          continue
+        if msg.name.startsWith("execution_payload_envelope_"):
+          dag.db.putExecutionPayloadEnvelope(parseTest(
+            path/msg.name & ".ssz_snappy", SSZ, SignedExecutionPayloadEnvelope))
+          continue
       let
         message {.inject.} =
           try:
@@ -188,20 +240,37 @@ template gossipTest(
             check msg.expected == ValidationResult.Reject
             continue
         wallTime {.inject, used.} = msg.time
-        subcommitteeIdx {.inject, used.} =
-          SyncSubcommitteeIndex.init(msg.subnetId).expect("valid subnet id")
       when MsgType is SyncCommitteeMessage:
+        let subcommitteeIdx {.inject.} =
+          SyncSubcommitteeIndex.init(msg.subnetId).expect("valid subnet id")
         dag.addBlockRef(message.beacon_block_root, message.slot)
+      elif MsgType is SingleAttestation:
+        let subnetId {.inject.} = SubnetId(msg.subnetId)
+      elif MsgType is fulu.DataColumnSidecar | gloas.DataColumnSidecar:
+        let
+          subnetId {.inject.} = msg.subnetId
+          sidecar {.inject.} = newClone(message)
       elif MsgType is SignedContributionAndProof:
         dag.addBlockRef(
           message.message.contribution.beacon_block_root,
           message.message.contribution.slot)
+      elif MsgType is ForkySignedBeaconBlock:
+        let signedBlock {.inject.} = MsgType(
+          message: message.message, signature: message.signature,
+          root: hash_tree_root(message.message))
       let res {.inject.} = validate
       if res.isOk:
         accept
 
       check (if res.isOk: ValidationResult.Accept else: res.error[0]) ==
         msg.expected
+
+template gossipTest(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork, MsgType: typedesc,
+    validate, accept: untyped) =
+  gossipTest(
+    suiteName, path, consensusFork, MsgType, (discard), validate, accept)
 
 proc runGossipVoluntaryExit(
     suiteName: static string, path: string,
@@ -269,6 +338,7 @@ proc runGossipPayloadAttestationMessage(
     consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, PayloadAttestationMessage,
+      (let ptcPool = newClone(PayloadAttestationPool.init(dag))),
       await dag.validatePayloadAttestationMessage(
         quarantine, ptcPool, batchCrypto, message, wallTime)):
     check ptcPool[].addPayloadAttestation(message, wallTime)
@@ -282,14 +352,113 @@ proc runGossipExecutionPayloadEnvelope(
         quarantine, envQuarantine, message, wallTime)):
     dag.db.putExecutionPayloadEnvelope(message)
 
+proc runGossipBeaconAttestation(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, SingleAttestation,
+      await attPool.validateAttestation(
+        batchCrypto, envQuarantine, message, wallTime, subnetId,
+        checkSignature = true)):
+    let (attesterIndex, committeeLen, indexInCommittee, sig) = res.get()
+    attPool[].addAttestation(
+      message, [attesterIndex], committeeLen, indexInCommittee, sig, wallTime)
+
+proc runGossipBeaconAggregateAndProof(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  when consensusFork >= ConsensusFork.Gloas:
+    type SignedAggregateAndProof = gloas.SignedAggregateAndProof
+  else:
+    type SignedAggregateAndProof = electra.SignedAggregateAndProof
+  gossipTest(
+      suiteName, path, consensusFork, SignedAggregateAndProof,
+      await attPool.validateAggregate(
+        batchCrypto, envQuarantine, message, wallTime)):
+    template aggregate: untyped = message.message.aggregate
+    let (attestingIndices, sig) = res.get()
+    attPool[].addAttestation(
+      aggregate, attestingIndices, aggregate.aggregation_bits.len, -1, sig,
+      wallTime)
+
+proc runGossipDataColumnSidecar(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  when consensusFork >= ConsensusFork.Gloas:
+    gossipTest(
+        suiteName, path, consensusFork, gloas.DataColumnSidecar, (
+          let
+            colQuarantine = newClone(GloasColumnQuarantine.init(
+              dag.cfg, toSeq(ColumnIndex(0) ..< ColumnIndex(NUMBER_OF_COLUMNS)),
+              dag.db.getQuarantineDB(), 10, nil))
+            bidPool = newClone(ExecutionPayloadBidPool.init(dag))),
+        await dag.validateDataColumnSidecar(
+          batchCrypto, quarantine, colQuarantine, bidPool, sidecar,
+          wallTime, subnetId)):
+      colQuarantine[].put(
+        sidecar[].beacon_block_root, sidecar, verified = true)
+  else:
+    gossipTest(
+        suiteName, path, consensusFork, fulu.DataColumnSidecar,
+        (let colQuarantine = newClone(FuluColumnQuarantine.init(
+          dag.cfg, toSeq(ColumnIndex(0) ..< ColumnIndex(NUMBER_OF_COLUMNS)),
+          dag.db.getQuarantineDB(), 10, nil))),
+        await dag.validateDataColumnSidecar(
+          batchCrypto, quarantine, colQuarantine, sidecar, wallTime,
+          subnetId)):
+      colQuarantine[].put(
+        hash_tree_root(sidecar[].signed_block_header.message), sidecar,
+        verified = true)
+
+proc runGossipBeaconBlock(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  gossipTest(
+      suiteName, path, consensusFork, consensusFork.SignedBeaconBlock,
+      dag.validateBeaconBlock(
+        quarantine, envQuarantine, signedBlock, wallTime, {})):
+    dag.addBlockRef(signedBlock.root, signedBlock.message.slot)
+
 proc runGossipProposerPreferences(
     suiteName: static string, path: string,
     consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SignedProposerPreferences,
+      (var seenPrefs: SeenProposerPreferences),
       dag.validateProposerPreferences(seenPrefs, message, wallTime)):
     check dag.validateProposerPreferences(
       seenPrefs, message, wallTime).error[0] == ValidationResult.Ignore
+
+template bidAttestationPool(
+    dag: ChainDAGRef, meta: GossipTestMeta, path: string, headRef: BlockRef,
+    quarantine: ref Quarantine): ref AttestationPool =
+  dag.updateHead(headRef, quarantine[], [])
+  dag.updateHeadExecutionPayload(
+    dag.db.containsExecutionPayloadEnvelope(headRef.root), true)
+  let pool = newClone(
+    AttestationPool.init(dag, quarantine, meta.messages[0].time))
+  for blck in meta.blocks:
+    if blck.payload.len > 0:
+      check pool.forkChoice.on_execution_payload(
+        dag.cfg, dag.timeParams, parseTest(
+          path/blck.payload & ".ssz_snappy", SSZ,
+          SignedExecutionPayloadEnvelope)).isOk
+  pool
+
+proc runGossipExecutionPayloadBid(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  debugHezeComment "Heze `SignedExecutionPayloadBid` adds `inclusion_list_bits`"
+  when consensusFork == ConsensusFork.Gloas:
+    gossipTest(
+        suiteName, path, consensusFork, gloas.SignedExecutionPayloadBid, (
+          let
+            attPool = dag.bidAttestationPool(meta, path, headRef, quarantine)
+            bidPool = newClone(ExecutionPayloadBidPool.init(dag))
+          var seenPrefs: SeenProposerPreferences),
+        dag.validateExecutionPayloadBid(
+          attPool.forkChoice, bidPool, seenPrefs, message, wallTime)):
+      bidPool[].addBid(message, res.get(), wallTime)
 
 template gossipSuite(
     topic: static[string], handler: static[string], runner: untyped) =
@@ -335,3 +504,17 @@ gossipSuite(
 gossipSuite(
   "Proposer Preferences", "gossip_proposer_preferences",
   runGossipProposerPreferences)
+gossipSuite(
+  "Beacon Attestation", "gossip_beacon_attestation",
+  runGossipBeaconAttestation)
+gossipSuite(
+  "Beacon Aggregate And Proof", "gossip_beacon_aggregate_and_proof",
+  runGossipBeaconAggregateAndProof)
+gossipSuite(
+  "Data Column Sidecar", "gossip_data_column_sidecar",
+  runGossipDataColumnSidecar)
+gossipSuite(
+  "Beacon Block", "gossip_beacon_block", runGossipBeaconBlock)
+gossipSuite(
+  "Execution Payload Bid", "gossip_execution_payload_bid",
+  runGossipExecutionPayloadBid)

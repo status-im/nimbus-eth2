@@ -30,6 +30,17 @@ AllTests-mainnet
 ## Attestation pool gloas processing [Preset: mainnet]
 ```diff
 + EL-invalid payload only invalidates the FULL variant                                       OK
++ Inclusion list satisfaction is not recorded before Heze                                    OK
+```
+## Attestation pool heze processing [Preset: mainnet]
+```diff
++ A payload missing inclusion list transactions is not extended                              OK
++ An optimistically imported payload is recorded as satisfying                               OK
++ An unrevealed payload does not satisfy the constraints                                     OK
++ Constraints come from the previous slot's committee                                        OK
++ Inclusion list satisfaction for pruned blocks is dropped                                   OK
++ The genesis block has no inclusion list constraints                                        OK
++ Untimely inclusion lists do not constrain the payload                                      OK
 ```
 ## Backfill
 ```diff
@@ -544,11 +555,6 @@ AllTests-mainnet
 + Period boundary                                                                            OK
 + validateSyncCommitteeMessage - Duplicate pubkey                                            OK
 ```
-## Gossip validation - Gloas
-```diff
-+ validateBeaconBlock - finalized head execution parent                                      OK
-+ validateBeaconBlock - mismatched execution parent                                          OK
-```
 ## Graffiti management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the graffiti [Beacon Node] [Preset: mainnet]                                   OK
@@ -933,9 +939,13 @@ AllTests-mainnet
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
++ BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
++ GloasProducedBlockContents round-trip                                                      OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
++ ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
 + VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
