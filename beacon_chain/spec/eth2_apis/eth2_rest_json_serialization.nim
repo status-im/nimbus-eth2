@@ -1372,8 +1372,9 @@ RestJson.useDefaultSerializationFor(RawBuilderEntry)
 proc readValue*(
     r: var RestJsonReader, value: var gloas_mev.BuilderEntry) {.reader.} =
   let v = r.readValue(RawBuilderEntry)
-  if v.url.len > int(MAX_BUILDER_URL_SIZE):
-    r.raiseUnexpectedValue("BuilderEntry url exceeds MAX_BUILDER_URL_SIZE")
+  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml#L29
+  if v.url.len == 0 or v.url.len > int(MAX_BUILDER_URL_SIZE):
+    r.raiseUnexpectedValue("BuilderEntry url length is invalid")
   value = gloas_mev.BuilderEntry(
     url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(v.url.toBytes()),
     auth: v.auth,

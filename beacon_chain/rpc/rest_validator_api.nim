@@ -676,7 +676,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               Http400, "Invalid include_payload value")
       qbuilderConfig =
         if contentBody.isNone():
-          default(BuilderConfig)
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         else:
           decodeBodyJsonOrSsz(BuilderConfig, contentBody.get()).valueOr:
             return RestApiResponse.jsonError(error)
@@ -727,7 +727,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 blck: ForkedBeaconBlock.init(contents.blck))
 
         if contents.payloadAvailable and not payloadIncluded:
-          node.producedEnvelope = Opt.some(contents.envelope)
+          node.producedPayloadContents = Opt.some(
+            gloas.SignedExecutionPayloadEnvelopeContents(
+              signed_execution_payload_envelope:
+                gloas.SignedExecutionPayloadEnvelope(
+                  message: contents.envelope,
+                  signature: ValidatorSig.infinity()),
+              kzg_proofs: contents.kzg_proofs,
+              blobs: contents.blobs))
 
         let response = ProduceBlockResponseV4(
           data: data,
@@ -761,9 +768,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       consensusFork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
 
       envelope =
-        if node.producedEnvelope.isSome and
-           node.producedEnvelope.get.beacon_block_root == qroot:
-          node.producedEnvelope.get
+        if node.producedPayloadContents.isSome and
+           node.producedPayloadContents.get.signed_execution_payload_envelope
+             .message.beacon_block_root == qroot:
+          node.producedPayloadContents.get.signed_execution_payload_envelope
+            .message
         else:
           return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
 

@@ -1798,6 +1798,8 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   node.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
 
+  reset(node.producedPayloadContents)
+
   block:
     logScope:
       slot = shortLog(wallSlot)

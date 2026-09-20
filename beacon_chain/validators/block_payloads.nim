@@ -44,10 +44,11 @@ import
   ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
-from stew/byteutils import toBytes, fromBytes
+from std/sequtils import mapIt
+from stew/byteutils import fromBytes, toBytes
 from ../spec/beaconstate import
-  get_expected_withdrawals, latest_block_id, proposalExecutionHead,
-  get_block_root_at_slot
+  get_block_root_at_slot, get_expected_withdrawals, latest_block_id,
+  proposalExecutionHead
 
 export results
 
@@ -679,11 +680,6 @@ proc makeBuilderBlock*(
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
   )
 
-func isExcludedTestnet(cfg: RuntimeConfig): bool =
-  ## Ensure that builder API testing can still occur in certain circumstances.
-  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID == 560048'u64
-    # Hoodi
-
 proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
     node: BeaconNode,
     builderApiBid, poolBid: Opt[T],
@@ -693,6 +689,7 @@ proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
     withState(node.dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
         payloadFailSafeInEffect(
+          node.dag.cfg,
           forkyState.data.execution_payload_availability,
           forkyState.data.block_roots.data, forkyState.data.slot)
       else:
@@ -940,45 +937,49 @@ proc getBuilderEntryBid(
 
   Opt.some(signedBid)
 
+type SelectedBid =
+  tuple[bid: gloas.SignedExecutionPayloadBid, effectiveValue: Gwei]
+
 proc selectBestBid(
     node: BeaconNode,
     engineBlockValue: Wei,
     candidates: openArray[
       tuple[bid: gloas.SignedExecutionPayloadBid, boost: uint64, value: Gwei]],
-): Opt[gloas.SignedExecutionPayloadBid] =
+): Opt[SelectedBid] =
   ## Pick the highest weighted-value bid each weighted by its own `builder_boost_factor`.
   let failsafeInEffect =
     withState(node.dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
         payloadFailSafeInEffect(
+          node.dag.cfg,
           forkyState.data.execution_payload_availability,
           forkyState.data.block_roots.data, forkyState.data.slot)
       else:
         false
   if failsafeInEffect:
     notice "Payload failsafe in effect, ignoring builder bids"
-    return Opt.none(gloas.SignedExecutionPayloadBid)
+    return Opt.none(SelectedBid)
 
   var
-    best = Opt.none(gloas.SignedExecutionPayloadBid)
+    best = Opt.none(SelectedBid)
     bestWeighted = UInt256.zero
     bestBoost = 0'u64
-    bestValue = UInt256.zero
+    bestValueWei = UInt256.zero
   for c in candidates:
     let
       valueWei = c.value.uint64.u256 * static(GWEI_TO_WEI.u256)
       weighted = c.boost.u256 * valueWei
     if best.isNone or weighted > bestWeighted:
-      best = Opt.some(c.bid)
+      best = Opt.some((bid: c.bid, effectiveValue: c.value))
       bestWeighted = weighted
       bestBoost = c.boost
-      bestValue = valueWei
+      bestValueWei = valueWei
 
   if best.isSome and builderBetterBid(
-      BoostFactor.init(bestBoost), bestValue, engineBlockValue):
+      BoostFactor.init(bestBoost), bestValueWei, engineBlockValue):
     best
   else:
-    Opt.none(gloas.SignedExecutionPayloadBid)
+    Opt.none(SelectedBid)
 
 proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     node: BeaconNode,
@@ -1010,7 +1011,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
   ## payload.
   static: doAssert consensusFork >= ConsensusFork.Gloas
 
-  var
+  let
     cache = new StateCache
     state = node.dag.getProposalState(head, slot, cache[]).valueOr:
       return err("Proposal state is not available")
@@ -1054,12 +1055,9 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     parentBlockRoot =
       state[].forky(consensusFork).data.get_block_root_at_slot(slot - 1)
 
-  var builderFuts:
-    seq[Future[Opt[gloas.SignedExecutionPayloadBid]].Raising([CancelledError])]
-  for entry in builderConfig.builders:
-    builderFuts.add node.getBuilderEntryBid(
-      consensusFork, state, entry, slot, parentBlockHash, parentBlockRoot,
-      proposerKey)
+  let builderFuts = builderConfig.builders.mapIt(node.getBuilderEntryBid(
+    consensusFork, state, it, slot, parentBlockHash, parentBlockRoot,
+    proposerKey))
 
   let engineBidOpt = await node.getExecutionPayload(
     consensusFork, head, state, validator_index, proposerKey,
@@ -1115,8 +1113,13 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     if value >= entry.min_bid:
       candidates.add (bid, entry.builder_boost_factor, value)
 
-  let selectedBuilderBid = node.selectBestBid(
-    engineBid.eps.blockValue, candidates)
+  let
+    selected = node.selectBestBid(engineBid.eps.blockValue, candidates)
+    selectedBuilderBid =
+      if selected.isSome:
+        Opt.some(selected.get.bid)
+      else:
+        Opt.none(gloas.SignedExecutionPayloadBid)
 
   let
     verificationFlags =
@@ -1138,9 +1141,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     ).valueOr:
       return err(error)
 
-    blockRoot = hash_tree_root(engineBlock.blck)
-
-  selectedBuilderBid.isErrOr:
+  selected.isErrOr:
     return ok((
       blck: engineBlock.blck,
       payloadAvailable: false,
@@ -1148,15 +1149,14 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
       kzg_proofs: default(fulu.KzgProofs),
       blobs: default(deneb.Blobs),
       executionValue:
-        effectiveBidValue(Opt.some(value)).uint64.u256 *
-          static(GWEI_TO_WEI.u256),
+        value.effectiveValue.uint64.u256 * static(GWEI_TO_WEI.u256),
       consensusValue: engineBlock.consensusValue,
     ))
 
   let envelope = makeExecutionPayloadEnvelope(
     engineBid.eps,
     engineBid.execution_requests,
-    blockRoot,
+    hash_tree_root(engineBlock.blck),
     engineBlock.blck.parent_root)
 
   ok((

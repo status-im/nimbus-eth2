@@ -192,12 +192,11 @@ func ethHeadersV4(
     hasRestAllowedOrigin: bool): HttpTable =
   var headers = HttpTable.init [
     ("eth-consensus-version", consensusFork.toString()),
-    ("eth-execution-payload-included",
-     if payloadIncluded: "true" else: "false"),
+    ("eth-execution-payload-included", $payloadIncluded),
     ("eth-execution-payload-value", toString(executionValue, 10)),
     ("eth-consensus-block-value", toString(consensusValue, 10))]
-  if builderUrl.isSome():
-    headers.add("eth-builder-url", builderUrl.get())
+  builderUrl.isErrOr:
+    headers.add("eth-builder-url", value)
   if hasRestAllowedOrigin:
     headers.add("access-control-expose-headers", static(
       "eth-consensus-version, eth-execution-payload-included, " &
