@@ -164,3 +164,53 @@ proc submitSyncCommitteeSelectionsPlain*(
      rest, endpoint: "/eth/v1/validator/sync_committee_selections",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/submitSyncCommitteeSelections
+
+proc getExecutionPayloadEnvelopePlain*(
+       slot: Slot,
+       beacon_block_root: Eth2Digest
+     ): RestPlainResponse {.
+     rest, endpoint:
+       "/eth/v1/validator/execution_payload_envelopes/{slot}/{beacon_block_root}",
+     accept: preferSSZ, meth: MethodGet.}
+  ## https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/execution_payload_envelope.yaml
+
+proc getExecutionPayloadEnvelope*(
+    client: RestClientRef, slot: Slot, beacon_block_root: Eth2Digest
+): Future[Opt[ExecutionPayloadEnvelope]] {.async.} =
+  let resp = await client.getExecutionPayloadEnvelopePlain(
+    slot, beacon_block_root)
+  return
+    case resp.status
+    of 200:
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
+      else:
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let envelope =
+            decodeBytes(DataVersionEnclosedObject[ExecutionPayloadEnvelope],
+              resp.data, resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          Opt.some(envelope.data)
+        elif mediaType == OctetStreamMediaType:
+          try:
+            Opt.some(SSZ.decode(resp.data, ExecutionPayloadEnvelope))
+          except CatchableError as exc:
+            raise newException(RestError, exc.msg)
+        else:
+          raise newException(RestError, "Unsupported Content-Type")
+    of 404:
+      Opt.none(ExecutionPayloadEnvelope)
+    of 400, 406, 500:
+      let error = decodeBytes(RestErrorMessage, resp.data,
+                              resp.contentType).valueOr:
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $error & "]"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
+      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
+      raise (ref RestResponseError)(
+        msg: msg, status: error.code, message: error.message)
+    else:
+      raise (ref RestResponseError)(
+        msg: "Unexpected response status", status: resp.status)
