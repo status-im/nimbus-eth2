@@ -56,7 +56,6 @@ type
     signed_block_header*: SignedBeaconBlockHeader
     kzg_commitment_inclusion_proof*:
       array[KZG_COMMITMENT_INCLUSION_PROOF_DEPTH, Eth2Digest]
-  BlobSidecars* = seq[ref BlobSidecar]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-alpha.8/specs/deneb/p2p-interface.md#blobidentifier
   BlobIdentifier* = object

@@ -23,19 +23,16 @@ const
 
   Block0Root =
     "4bbd1c7468626d6520e27a534ce9f3ee305160860367431528404697c60ce222".toDigest
-  Block0BlobsCount = 1
   Block0BlockChunkSize = 45127
   Block0Blob0ChunkSize = 7043
   Block1Root =
     "133a92629a94cb9664eea57a649ee2d4a16fa48cac93aa5ccc0e9df727b5d9bd".toDigest
-  Block1BlobsCount = 3
   Block1BlockChunkSize = 36321
   Block1Blob0ChunkSize = 7090
   Block1Blob1ChunkSize = 7016
   Block1Blob2ChunkSize = 131886
   Block2Root =
     "f92b453230c5b1914c5b8f868bdd9692d38b5231b8e365f2b8049b1d22cca396".toDigest
-  Block2BlobsCount = 3
   Block2BlockChunkSize = 36248
   Block2Blob0ChunkSize = 7090
   Block2Blob1ChunkSize = 7090
@@ -95,12 +92,8 @@ suite "Beacon chain file test suite":
       tailRoot = withBlck(tail.blck): forkyBlck.root
 
     check:
-      head.blob.isSome()
-      tail.blob.isSome()
       headRoot == Block0Root
       tailRoot == Block1Root
-      len(head.blob.get()) == Block0BlobsCount
-      len(tail.blob.get()) == Block1BlobsCount
       adata.size == Block0FullSize + Block1FullSize
 
   template check0(adata: untyped): untyped =
@@ -114,12 +107,8 @@ suite "Beacon chain file test suite":
       tailRoot = withBlck(tail.blck): forkyBlck.root
 
     check:
-      head.blob.isSome()
-      tail.blob.isSome()
       headRoot == Block0Root
       tailRoot == Block0Root
-      len(head.blob.get()) == Block0BlobsCount
-      len(tail.blob.get()) == Block0BlobsCount
       adata.size == Block0FullSize
 
   test "Fixture file validation":
@@ -140,12 +129,8 @@ suite "Beacon chain file test suite":
       headRoot = withBlck(head.blck): forkyBlck.root
       tailRoot = withBlck(tail.blck): forkyBlck.root
     check:
-      head.blob.isSome()
-      tail.blob.isSome()
       headRoot == Block0Root
       tailRoot == Block2Root
-      len(head.blob.get()) == Block0BlobsCount
-      len(tail.blob.get()) == Block2BlobsCount
     let cres = close(handle)
     check cres.isOk()
 
