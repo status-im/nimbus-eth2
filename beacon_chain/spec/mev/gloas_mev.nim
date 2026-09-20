@@ -37,3 +37,24 @@ type
   BuilderPreferencesRequest* = object
     preferences*: BuilderPreferences
     auth*: SignedBuilderRequestAuth
+
+const
+  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml
+  MAX_BUILDER_ENTRIES*: int64 = 64
+  MAX_BUILDER_URL_SIZE*: int64 = 2048
+  MAX_BUILDER_PUBKEYS*: int64 = 64
+
+type
+  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml
+  BuilderEntry* = object
+    url*: List[byte, Limit MAX_BUILDER_URL_SIZE]
+    auth*: SignedBuilderRequestAuth
+    builder_pubkeys*: List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
+    max_execution_payment*: Gwei
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+
+  BuilderConfig* = object
+    min_bid*: Gwei
+    builder_boost_factor*: uint64
+    builders*: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]

@@ -1358,3 +1358,39 @@ proc writeValue*(w: var RestJsonWriter, value: ForkedAttestation) {.writer.} =
     w.writeField("version", value.kind.toString())
     withAttestation(value):
       w.writeField("data", forkyAttestation)
+
+type RawBuilderEntry = object
+  url: string
+  auth: gloas_mev.SignedBuilderRequestAuth
+  builder_pubkeys: List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
+  max_execution_payment: Gwei
+  min_bid: Gwei
+  builder_boost_factor: uint64
+
+RestJson.useDefaultSerializationFor(RawBuilderEntry)
+
+proc readValue*(
+    r: var RestJsonReader, value: var gloas_mev.BuilderEntry) {.reader.} =
+  let v = r.readValue(RawBuilderEntry)
+  # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml#L29
+  if v.url.len == 0 or v.url.len > int(MAX_BUILDER_URL_SIZE):
+    r.raiseUnexpectedValue("BuilderEntry url length is invalid")
+  value = gloas_mev.BuilderEntry(
+    url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(v.url.toBytes()),
+    auth: v.auth,
+    builder_pubkeys: v.builder_pubkeys,
+    max_execution_payment: v.max_execution_payment,
+    min_bid: v.min_bid,
+    builder_boost_factor: v.builder_boost_factor)
+
+proc writeValue*(
+    w: var RestJsonWriter, value: gloas_mev.BuilderEntry) {.writer.} =
+  w.writeObject:
+    w.writeField("url", string.fromBytes(value.url.asSeq()))
+    w.writeField("auth", value.auth)
+    w.writeField("builder_pubkeys", value.builder_pubkeys)
+    w.writeField("max_execution_payment", value.max_execution_payment)
+    w.writeField("min_bid", value.min_bid)
+    w.writeField("builder_boost_factor", value.builder_boost_factor)
+
+RestJson.useDefaultSerializationFor(gloas_mev.BuilderConfig)

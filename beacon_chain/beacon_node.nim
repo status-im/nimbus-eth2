@@ -132,6 +132,7 @@ type
     lastValidAttestedBlock*: Opt[BlockSlot]
     lastColumnCustodyIndices*: seq[CustodyIndex]
     sentProposerPreferences*: array[2, HashSet[(uint64, Slot)]]
+    producedPayloadContents*: Opt[gloas.SignedExecutionPayloadEnvelopeContents]
     shutdownEvent*: AsyncEvent
 
 proc currentSlot*(node: BeaconNode): Slot =
@@ -177,6 +178,15 @@ proc getPayloadBuilderClient*(
 
   RestClientRef.new(payloadBuilderAddress.get, flags = flags,
                     socketFlags = socketFlags,
+                    userAgent = nimbusAgentStr)
+
+proc getBuilderClientForUrl*(url: string): RestResult[RestClientRef] =
+  let
+    flags = {RestClientFlag.CommaSeparatedArray,
+             RestClientFlag.ResolveAlways}
+    socketFlags = {SocketFlags.TcpNoDelay}
+
+  RestClientRef.new(url, flags = flags, socketFlags = socketFlags,
                     userAgent = nimbusAgentStr)
 
 func init*(T: type EventBus): T =

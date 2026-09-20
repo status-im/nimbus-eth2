@@ -13,6 +13,7 @@ import
   ./[crypto, helpers]
 from std/sequtils import mapIt
 from std/math import `^`
+from ./presets import RuntimeConfig
 export helpers
 
 const
@@ -722,12 +723,21 @@ func livenessFailsafeInEffect*(
 
   false
 
+func isExcludedTestnet*(cfg: RuntimeConfig): bool =
+  ## Ensure that builder API testing can still occur in certain circumstances.
+  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID == 560048'u64
+    # Hoodi
+
 func payloadFailSafeInEffect*(
+    cfg: RuntimeConfig,
     execution_payload_availability: BitArray[int(SLOTS_PER_HISTORICAL_ROOT)],
     block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
     slot: Slot): bool =
   ## Gloas counterpart to `livenessFailsafeInEffect`. A withheld
   ## payload costs a payload rather than a block
+  if cfg.isExcludedTestnet:
+    return false
+
   const
     MAX_MISSING_CONTIGUOUS = 3
     MAX_MISSING_WINDOW = 8

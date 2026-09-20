@@ -1731,6 +1731,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             else:
               if kzgLen == 0:
                 Opt.some(default(gloas.DataColumnSidecars))
+              elif node.producedPayloadContents.isSome and
+                   node.producedPayloadContents.get.signed_execution_payload_envelope
+                     .message.beacon_block_root == signedBlck.root:
+                let cached = node.producedPayloadContents.get
+                Opt.some(signedBlck.assemble_data_column_sidecars(
+                  cached.blobs.mapIt(kzg.KzgBlob(bytes: it)),
+                  cached.kzg_proofs.mapIt(kzg.KzgProof(it)),
+                  supernodeMap))
               else:
                 node.gloasColumnQuarantine[].popSidecars(
                   signedBlck.root, allColumns = true)
