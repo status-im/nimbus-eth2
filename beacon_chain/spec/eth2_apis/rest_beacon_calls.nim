@@ -451,16 +451,17 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
 
-proc getExecutionPayloadEnvelopePlain*(block_id: BlockIdent): RestPlainResponse {.
+proc getSignedExecutionPayloadEnvelopePlain*(
+       block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes/{block_id}",
      accept: preferSSZ,
      meth: MethodGet.}
   ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
 
-proc getExecutionPayloadEnvelope*(
+proc getSignedExecutionPayloadEnvelope*(
     client: RestClientRef, block_id: BlockIdent):
     Future[Opt[SignedExecutionPayloadEnvelope]] {.async.} =
-  let resp = await client.getExecutionPayloadEnvelopePlain(block_id)
+  let resp = await client.getSignedExecutionPayloadEnvelopePlain(block_id)
   return
     case resp.status
     of 200:
