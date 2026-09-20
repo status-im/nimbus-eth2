@@ -1088,7 +1088,9 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     candidates.add (poolBid.get(), builderConfig.builder_boost_factor, poolValue)
 
   for i, fut in builderFuts:
-    let bid = fut.read().valueOr:
+    if not fut.completed():
+      continue
+    let bid = fut.value().valueOr:
       continue
     let entry = builderConfig.builders[i]
     # Empty accepts any builder; otherwise a bid not signed by one of them MUST
