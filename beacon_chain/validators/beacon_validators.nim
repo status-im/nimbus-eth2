@@ -738,7 +738,6 @@ proc proposeBlockAux(
         validator = shortLog(validator)
       return newBlockRef.get()
 
-    debugGloasComment("check if slot/slot_number is set properly in eps")
     # The envelope is published immediately after the block. Peers may receive
     # this envelope before they have validated the block. Per the p2p-interface
     # spec the block_root-not-seen case is `[IGNORE]` and client MAY queue, but

@@ -430,7 +430,6 @@ proc validateDataColumnSidecar*(
     data_column_sidecar: ref gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
-
   template blockRoot(): auto = data_column_sidecar[].beacon_block_root
 
   if data_column_sidecar[].index >= NUMBER_OF_COLUMNS:
@@ -453,6 +452,11 @@ proc validateDataColumnSidecar*(
   # [IGNORE] A block for the sidecar has been seen (via gossip or non-gossip
   # sources) (MAY be queued until block is retrieved)
   # (SHOULD queue at least one sidecar per peer per subnet)
+  if gloasColumnQuarantine[].hasVerifiedSidecar(
+      blockRoot, data_column_sidecar[].index):
+    return errIgnore(
+      "DataColumnSidecar: already seen sidecar for this block root and index")
+
   #
   # [REJECT] The block for the sidecar passes validation
   let (blockSlot, blob_kzg_commitments) =

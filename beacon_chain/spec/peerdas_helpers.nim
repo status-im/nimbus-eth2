@@ -471,7 +471,6 @@ proc assemble_partial_data_column_sidecars*(
   (group_id, sidecars)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/fulu/partial-columns/p2p-interface.md#new-verify_partial_data_column_sidecar_kzg_proofs
-# Gloas sources the commitments from the bid instead of the header.
 func partial_data_column_kzg_inputs*(
     sidecar: gloas.PartialDataColumnSidecar,
     all_commitments: gloas.KzgCommitments,

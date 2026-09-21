@@ -354,7 +354,6 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-debugGloasComment ""
 func is_merge_transition_complete*(
     state: gloas.BeaconState | heze.BeaconState): bool =
   not state.latest_block_hash.isZero

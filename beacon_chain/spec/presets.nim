@@ -28,7 +28,6 @@ const
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
 
   # Not used anywhere; only for network preset checking
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION: uint64 = 256
   MESSAGE_DOMAIN_INVALID_SNAPPY*: array[4, byte] = [0x00, 0x00, 0x00, 0x00]
   MESSAGE_DOMAIN_VALID_SNAPPY*: array[4, byte] = [0x01, 0x00, 0x00, 0x00]
 
@@ -1124,7 +1123,6 @@ proc readRuntimeConfig*(
   checkCompatibility MAX_VOLUNTARY_EXITS
 
   checkCompatibility TARGET_AGGREGATORS_PER_COMMITTEE
-  checkCompatibility EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION
 
   checkCompatibility DOMAIN_BEACON_PROPOSER
   checkCompatibility DOMAIN_BEACON_ATTESTER

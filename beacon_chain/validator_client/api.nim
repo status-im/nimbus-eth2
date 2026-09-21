@@ -2735,20 +2735,15 @@ proc publishBlindedBlockV2*(
                               ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
-        of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-          raiseAssert "Unable to publish block of that kind"
         of ConsensusFork.Electra:
           publishJsonBlindedBlockV2(it, some(broadcast_validation),
             data.electraData)
         of ConsensusFork.Fulu:
           publishJsonBlindedBlockV2(it, some(broadcast_validation),
             data.fuluData)
-        of ConsensusFork.Gloas:
-          debugGloasComment ""
-          return false
-        of ConsensusFork.Heze:
-          debugHezeComment ""
-          return false
+        else:
+          # ePBS (Gloas and later) doesn't use blinded blocks this way
+          raiseAssert "Unable to publish block of that kind"
       do:
         if apiResponse.isErr():
           handleCommunicationError()
@@ -2787,20 +2782,15 @@ proc publishBlindedBlockV2*(
                               ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
       case data.kind
-      of ConsensusFork.Phase0 .. ConsensusFork.Deneb:
-        raiseAssert "Unable to publish block of that kind"
       of ConsensusFork.Electra:
         publishJsonBlindedBlockV2(it, some(broadcast_validation),
           data.electraData)
       of ConsensusFork.Fulu:
         publishJsonBlindedBlockV2(it, some(broadcast_validation),
           data.fuluData)
-      of ConsensusFork.Gloas:
-        debugGloasComment ""
-        return false
-      of ConsensusFork.Heze:
-        debugHezeComment ""
-        return false
+      else:
+        # ePBS (Gloas and later) doesn't use blinded blocks this way
+        raiseAssert "Unable to publish block of that kind"
     do:
       if apiResponse.isErr():
         handleCommunicationError()
