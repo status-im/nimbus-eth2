@@ -80,7 +80,9 @@ type
     fulu_mev.SignedBlindedBeaconBlock |
     BuilderPreferencesRequest |
     SignedBuilderRequestAuth |
-    gloas.SignedBeaconBlock
+    gloas.SignedBeaconBlock |
+    SignedExecutionPayloadEnvelope |
+    SignedExecutionPayloadEnvelopeContents
 
   EncodeArrays* =
     seq[phase0.Attestation] |

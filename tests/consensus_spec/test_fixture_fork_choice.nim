@@ -295,7 +295,6 @@ proc stepOnBlock(
   # adding this mock of the block processor is realistic and sufficient.
   when consensusFork >= ConsensusFork.Bellatrix and
        consensusFork notin [ConsensusFork.Gloas, ConsensusFork.Heze]:
-    debugGloasComment "skip execution payload for Gloas?"
     let executionBlockHash =
       signedBlock.message.body.execution_payload.block_hash
     if executionBlockHash in invalidatedHashes:
@@ -310,7 +309,6 @@ proc stepOnBlock(
 
       return err VerifierError.Invalid
 
-  debugGloasComment " "
   # Mock the block processor's verified-store check: a block idx present in
   # fullBlockIndices is guaranteed to have its payload already verified.
   # TODO: the spec enforces this assert in `on_block`, but onBlock falls

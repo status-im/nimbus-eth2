@@ -123,32 +123,32 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    timeParams: TimeParams,
+    cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let futureSlot =
-    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Attestation slot in the future")
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/deneb/p2p-interface.md#new-is_current_or_previous_epoch
-  if (msgSlot.epoch + 2).start_slot.start_beacon_time(timeParams) +
-      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
+  if (msgSlot.epoch + 2).start_slot.start_beacon_time(cfg.timeParams) +
+      cfg.gossipClockDisparityDuration < wallTime:
     return errIgnore("Attestation slot in the past")
 
   ok()
 
 func check_slot_exact(
-    timeParams: TimeParams,
+    cfg: RuntimeConfig,
     msgSlot: Slot,
     wallTime: BeaconTime): Result[Slot, ValidationError] =
   let futureSlot =
-    (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(timeParams)
+    (wallTime + cfg.gossipClockDisparityDuration).toSlot(cfg.timeParams)
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return errIgnore("Sync committee slot in the future")
 
-  if (msgSlot + 1).start_beacon_time(timeParams) +
-      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
+  if (msgSlot + 1).start_beacon_time(cfg.timeParams) +
+      cfg.gossipClockDisparityDuration < wallTime:
     return errIgnore("Sync committee slot in the past")
 
   ok(msgSlot)
@@ -307,7 +307,7 @@ proc validateDataColumnSidecar*(
   # [IGNORE] The sidecar is not from a future slot
   # (MAY be queued for processing at the appropriate slot)
   if not (block_header.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("DataColumnSidecar: sidecar is from a future slot")
 
   # [IGNORE] The sidecar is from a slot greater than the latest finalized slot
@@ -430,7 +430,6 @@ proc validateDataColumnSidecar*(
     data_column_sidecar: ref gloas.DataColumnSidecar,
     wallTime: BeaconTime, subnet_id: uint64
 ): Future[Result[void, ValidationError]] {.async: (raises: [CancelledError]).} =
-
   template blockRoot(): auto = data_column_sidecar[].beacon_block_root
 
   if data_column_sidecar[].index >= NUMBER_OF_COLUMNS:
@@ -447,12 +446,17 @@ proc validateDataColumnSidecar*(
   # [IGNORE] The sidecar is not from a future slot
   # (MAY be queued for processing at the appropriate slot)
   if not (data_column_sidecar[].slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("DataColumnSidecar: sidecar is from a future slot")
 
   # [IGNORE] A block for the sidecar has been seen (via gossip or non-gossip
   # sources) (MAY be queued until block is retrieved)
   # (SHOULD queue at least one sidecar per peer per subnet)
+  if gloasColumnQuarantine[].hasVerifiedSidecar(
+      blockRoot, data_column_sidecar[].index):
+    return errIgnore(
+      "DataColumnSidecar: already seen sidecar for this block root and index")
+
   #
   # [REJECT] The block for the sidecar passes validation
   let (blockSlot, blob_kzg_commitments) =
@@ -655,7 +659,7 @@ proc validateBeaconBlock*(
   # signed_beacon_block.message.slot <= current_slot (a client MAY queue future
   # blocks for processing at the appropriate slot).
   if not (signed_beacon_block.message.slot <=
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams)):
+      (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams)):
     return errIgnore("BeaconBlock: block is from a future slot")
 
   # [IGNORE] The block is from a slot greater than the latest finalized slot --
@@ -853,7 +857,7 @@ proc validateExecutionPayload*(
         "ExecutionPayload: envelope's block failed validation")
     # No matching block can exist: blocks [IGNORE] future slots.
     if envelope.slot <=
-        (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(dag.timeParams):
+        (wallTime + dag.cfg.gossipClockDisparityDuration).slotOrZero(dag.timeParams):
       # TODO: when the envelope arrives before its block, we return IGNORE
       # which prevents it from being forwarded to peers. The envelope is
       # quarantined and processed locally once the block arrives, but never
@@ -985,7 +989,7 @@ proc validateAttestation*(
   # [IGNORE]
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.2/specs/deneb/p2p-interface.md#beacon_attestation_subnet_id
   # modifies this for Deneb and newer forks.
-  ?pool.dag.timeParams.check_propagation_slot_range(slot, wallTime)
+  ?pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue attestations
@@ -1165,7 +1169,7 @@ proc validateAggregate*(
       return pool.checkedReject(error)
     consensusFork = pool.dag.cfg.consensusForkAtEpoch(slot.epoch)
 
-  ?pool.dag.timeParams.check_propagation_slot_range(slot, wallTime)
+  ?pool.dag.cfg.check_propagation_slot_range(slot, wallTime)
 
   let aggregator_index = ValidatorIndex.init(aggregate_and_proof.aggregator_index).valueOr:
     return pool.checkedReject("Aggregate: invalid aggregator index")
@@ -1484,7 +1488,7 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit epoch is not in the future
   block:
     let futureSlot =
-      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot(pool.dag.timeParams)
+      (wallTime + pool.dag.cfg.gossipClockDisparityDuration).toSlot(pool.dag.timeParams)
     if not futureSlot.afterGenesis or
         voluntary_exit.epoch > futureSlot.slot.epoch:
       return errIgnore("VoluntaryExit: voluntary exit epoch is in the future")
@@ -1541,7 +1545,7 @@ proc validateSyncCommitteeMessage*(
     Future[Result[
       (BlockId, CookedSig, seq[uint64]), ValidationError]] {.async: (raises: [CancelledError]).} =
   # [IGNORE] The message's slot is for the current slot
-  dag.timeParams.check_slot_exact(msg.slot, wallTime).isOkOr:
+  dag.cfg.check_slot_exact(msg.slot, wallTime).isOkOr:
     return err(error)
 
   # [REJECT] The validator index is valid
@@ -1624,7 +1628,7 @@ proc validateContribution*(
 ): Future[Result[
     (BlockId, CookedSig, seq[ValidatorIndex]), ValidationError]] {.async: (raises: [CancelledError]).} =
   # [IGNORE] The contribution's slot is for the current slot
-  dag.timeParams.check_slot_exact(
+  dag.cfg.check_slot_exact(
       msg.message.contribution.slot, wallTime).isOkOr:
     return err(error)
 
@@ -1780,7 +1784,7 @@ proc validateLightClientFinalityUpdate*(
         forkyFinalityUpdate.signature_slot
       else:
         GENESIS_SLOT
-    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    currentTime = wallTime + dag.cfg.gossipClockDisparityDuration
     forwardTime = signature_slot
       .light_client_finality_update_time(dag.timeParams)
   if currentTime < forwardTime:
@@ -1818,7 +1822,7 @@ proc validateLightClientOptimisticUpdate*(
         forkyOptimisticUpdate.signature_slot
       else:
         GENESIS_SLOT
-    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    currentTime = wallTime + dag.cfg.gossipClockDisparityDuration
     forwardTime = signature_slot
       .light_client_optimistic_update_time(dag.timeParams)
   if currentTime < forwardTime:
@@ -1922,9 +1926,9 @@ proc validateExecutionPayloadBid*(
         return errIgnore("ExecutionPayloadBid: matching proposer preferences have not been seen")
 
       # [IGNORE] The bid's slot is the current slot or the next slot
-      if dag.timeParams.check_slot_exact(bid.slot, wallTime).isErr and
+      if dag.cfg.check_slot_exact(bid.slot, wallTime).isErr and
           (bid.slot == GENESIS_SLOT or
-            dag.timeParams.check_slot_exact(bid.slot - 1, wallTime).isErr):
+            dag.cfg.check_slot_exact(bid.slot - 1, wallTime).isErr):
         return errIgnore("ExecutionPayloadBid: bid's slot is not the current or next slot")
 
       # [REJECT] The bid's blob KZG commitment count is within the per-epoch limit
@@ -2020,7 +2024,7 @@ proc validatePayloadAttestationMessage*(
   template data: untyped = payload_attestation_message.data
 
   # [IGNORE] The payload attestation's slot is for the current slot
-  dag.timeParams.check_slot_exact(data.slot, wallTime).isOkOr:
+  dag.cfg.check_slot_exact(data.slot, wallTime).isOkOr:
     return err(error)
 
   # [IGNORE] This is the first valid payload attestation from this validator
@@ -2102,14 +2106,14 @@ proc validateProposerPreferences*(
 
   # [IGNORE] The proposal slot has not started yet
   if preferences.proposal_slot.start_beacon_time(dag.timeParams) +
-      MAXIMUM_GOSSIP_CLOCK_DISPARITY < wallTime:
+      dag.cfg.gossipClockDisparityDuration < wallTime:
     return errIgnore("ProposerPreferences: proposal slot has already started")
 
   # [IGNORE] The proposer for the proposal slot is known
   let lookaheadEpoch =
     if proposalEpoch <= MIN_SEED_LOOKAHEAD: GENESIS_EPOCH
     else: proposalEpoch - MIN_SEED_LOOKAHEAD
-  if wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY <
+  if wallTime + dag.cfg.gossipClockDisparityDuration <
       lookaheadEpoch.start_slot.start_beacon_time(dag.timeParams):
     return errIgnore(
       "ProposerPreferences: proposer for the proposal slot is not yet known")
@@ -2183,7 +2187,7 @@ proc validateInclusionList*(
   # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
   # `message.slot == current_slot`.
   block:
-    let v = dag.timeParams.check_slot_exact(message.slot, wallTime)
+    let v = dag.cfg.check_slot_exact(message.slot, wallTime)
     if v.isErr():
       return err(v.error())
 
