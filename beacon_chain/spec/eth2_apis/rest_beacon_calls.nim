@@ -486,7 +486,7 @@ proc getSignedExecutionPayloadEnvelope*(
           raise newException(RestError, "Unsupported Content-Type")
     of 404:
       Opt.none(SignedExecutionPayloadEnvelope)
-    of 400, 500:
+    of 400, 406, 500:
       let error = decodeBytes(RestErrorMessage, resp.data,
                               resp.contentType).valueOr:
         let msg = "Incorrect response error format (" & $resp.status &
