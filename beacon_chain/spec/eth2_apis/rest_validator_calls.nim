@@ -56,7 +56,7 @@ proc produceBlockV3Plain*(
 
 proc produceBlockV4Plain*(
        slot: Slot,
-       body: BuilderConfig,
+       body: BuilderConfigAtSlot,
        randao_reveal: ValidatorSig,
        graffiti: GraffitiBytes,
        include_payload: bool

@@ -82,24 +82,24 @@ suite "REST encoding and decoding":
         "fulu", "false", "1", "1", "")
     check res.isErr()
 
-  test "BuilderConfig round-trip":
+  test "BuilderConfigAtSlot round-trip":
     let
-      empty = default(BuilderConfig)
-      entry = BuilderEntry(
+      empty = default(BuilderConfigAtSlot)
+      entry = BuilderEntryAtSlot(
         url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(
           "https://builder.example".toBytes()),
         max_execution_payment: 500.Gwei,
         min_bid: 100.Gwei,
         builder_boost_factor: 90'u64)
-      full = BuilderConfig(
+      full = BuilderConfigAtSlot(
         min_bid: 100.Gwei,
         builder_boost_factor: 80'u64,
-        builders: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES].init(@[entry]))
+        builders: List[BuilderEntryAtSlot, Limit MAX_BUILDER_ENTRIES].init(@[entry]))
     check:
-      empty == RestJson.decode(RestJson.encode(empty), BuilderConfig)
-      full == RestJson.decode(RestJson.encode(full), BuilderConfig)
-      empty == SSZ.decode(SSZ.encode(empty), BuilderConfig)
-      full == SSZ.decode(SSZ.encode(full), BuilderConfig)
+      empty == RestJson.decode(RestJson.encode(empty), BuilderConfigAtSlot)
+      full == RestJson.decode(RestJson.encode(full), BuilderConfigAtSlot)
+      empty == SSZ.decode(SSZ.encode(empty), BuilderConfigAtSlot)
+      full == SSZ.decode(SSZ.encode(full), BuilderConfigAtSlot)
 
   test "KzgCommitment":
     let

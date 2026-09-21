@@ -72,7 +72,7 @@ type
     builders*: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
 
   # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml
-  BuilderEntryForSlot* = object
+  BuilderEntryAtSlot* = object
     url*: List[byte, Limit MAX_BUILDER_URL_SIZE]
     auth*: SignedBuilderRequestAuth
     builder_pubkeys*: List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
@@ -80,7 +80,7 @@ type
     min_bid*: Gwei
     builder_boost_factor*: uint64
 
-  BuilderConfigForSlot* = object
+  BuilderConfigAtSlot* = object
     min_bid*: Gwei
     builder_boost_factor*: uint64
-    builders*: List[BuilderEntryForSlot, Limit MAX_BUILDER_ENTRIES]
+    builders*: List[BuilderEntryAtSlot, Limit MAX_BUILDER_ENTRIES]
