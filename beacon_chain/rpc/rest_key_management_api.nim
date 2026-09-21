@@ -552,7 +552,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       let builderSet = block:
         let keyFields = builders.mapIt:
           if len(it.url) == 0 or len(it.url) > MAX_BUILDER_URL_SIZE:
-            return keymanagerApiError(Http400, "InvalidBuilderConfigUrl")
+            return keymanagerApiError(Http400, InvalidBuilderEntry)
 
           let auth =
             if it.auth_data.isSome():
@@ -562,7 +562,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
           (it.url, auth)
         keyFields.toHashSet()
       if len(builders) != len(builderSet):
-        return keymanagerApiError(Http400, "InvalidBuilderUrlOrAuth")
+        return keymanagerApiError(Http400, InvalidBuilderEntry)
 
     let res = host.setGloasBuilderConfig(pubkey, builderConfig)
     if res.isOk:
