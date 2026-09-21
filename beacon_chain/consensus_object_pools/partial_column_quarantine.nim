@@ -40,6 +40,12 @@ type
     proofs*: seq[KzgProof]
       ## Accumulated KZG proofs, indexed by blob index.
 
+  PartialColumnEntryRef* = ref PartialColumnEntry
+    ## Entries are held and handed out by reference: a `KzgCell` is 2 kB, so
+    ## copying an entry in and out of the cache on every cell that arrives
+    ## would dominate the cost of tracking one. Callers mutate the entry in
+    ## place and the cache observes the change without a write-back.
+
   PartialColumnKey* = object
     groupId*: PartialDataColumnGroupID
     columnIndex*: ColumnIndex
@@ -49,7 +55,10 @@ type
     ## for each (group_id, column_index) pair. Validating a group ID on any
     ## subnet makes it available to all of them.
     groupIds*: LruCache[PartialDataColumnGroupID, PartialDataColumnGroupID]
-    entries*: LruCache[PartialColumnKey, PartialColumnEntry]
+    entries*: LruCache[PartialColumnKey, PartialColumnEntryRef]
+    noCells: BitSeq
+      ## Borrowed by `receivedCells` when no entry exists, so that the common
+      ## case can return a reference to the stored bitmap rather than a copy.
 
 func hash*(gid: PartialDataColumnGroupID): Hash =
   var h: Hash = 0
@@ -69,12 +78,21 @@ func hash*(key: PartialColumnKey): Hash =
 func `==`*(a, b: PartialColumnKey): bool =
   a.groupId == b.groupId and a.columnIndex == b.columnIndex
 
+func init*(T: typedesc[PartialColumnEntryRef], numBlobs: int): T =
+  ## A fresh entry sized for `numBlobs` blobs, with no cell received yet.
+  let entry = PartialColumnEntryRef()
+  entry.cellsReceived = BitSeq.init(numBlobs)
+  entry.cells = newSeq[KzgCell](numBlobs)
+  entry.proofs = newSeq[KzgProof](numBlobs)
+  entry
+
 func init*(T: typedesc[PartialColumnQuarantine]): T =
   T(
     groupIds: LruCache[PartialDataColumnGroupID, PartialDataColumnGroupID].init(
       MaxPartialGroupIds),
-    entries: LruCache[PartialColumnKey, PartialColumnEntry].init(
-      MaxPartialEntries))
+    entries: LruCache[PartialColumnKey, PartialColumnEntryRef].init(
+      MaxPartialEntries),
+    noCells: BitSeq.init(0))
 
 # --- Group ID management ---
 
@@ -102,7 +120,8 @@ func hasEntry*(
 func getEntry*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
-    columnIndex: ColumnIndex): Opt[PartialColumnEntry] =
+    columnIndex: ColumnIndex): Opt[PartialColumnEntryRef] =
+  ## The cached entry itself - writes through it are seen by the quarantine.
   quarantine.entries.get(
     PartialColumnKey(groupId: groupId, columnIndex: columnIndex))
 
@@ -110,7 +129,10 @@ func putEntry*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex,
-    entry: PartialColumnEntry) =
+    entry: PartialColumnEntryRef) =
+  ## Take ownership of `entry` - the quarantine stores this very object, so
+  ## later writes through the caller's ref are seen by the quarantine too.
+  doAssert not entry.isNil, "partial column entries are never nil"
   quarantine.entries.put(
     PartialColumnKey(groupId: groupId, columnIndex: columnIndex), entry)
 
@@ -118,15 +140,12 @@ func getOrCreateEntry*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex,
-    numBlobs: int): PartialColumnEntry =
+    numBlobs: int): PartialColumnEntryRef =
   let key = PartialColumnKey(groupId: groupId, columnIndex: columnIndex)
   quarantine.entries.get(key).isErrOr:
     return value
 
-  let entry = PartialColumnEntry(
-    cellsReceived: BitSeq.init(numBlobs),
-    cells: newSeq[KzgCell](numBlobs),
-    proofs: newSeq[KzgProof](numBlobs))
+  let entry = PartialColumnEntryRef.init(numBlobs)
   quarantine.entries.put(key, entry)
   entry
 
@@ -135,12 +154,11 @@ func markCellReceived*(
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex,
     blobIndex: int) =
-  let key = PartialColumnKey(groupId: groupId, columnIndex: columnIndex)
-  var entry = quarantine.entries.get(key).valueOr:
+  let entry = quarantine.entries.get(
+      PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return
   if blobIndex < entry.cellsReceived.len:
     entry.cellsReceived.setBit(blobIndex)
-    quarantine.entries.put(key, entry)
 
 func markCellReceived*(
     quarantine: var PartialColumnQuarantine,
@@ -150,14 +168,13 @@ func markCellReceived*(
     cell: KzgCell,
     proof: KzgProof) =
   ## Mark a cell as received, storing the cell data and proof.
-  let key = PartialColumnKey(groupId: groupId, columnIndex: columnIndex)
-  var entry = quarantine.entries.get(key).valueOr:
+  let entry = quarantine.entries.get(
+      PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return
   if blobIndex < entry.cellsReceived.len:
     entry.cellsReceived.setBit(blobIndex)
     entry.cells[blobIndex] = cell
     entry.proofs[blobIndex] = proof
-    quarantine.entries.put(key, entry)
 
 func hasCellReceived*(
     quarantine: var PartialColumnQuarantine,
@@ -176,34 +193,36 @@ func hasCellReceived*(
 func receivedCells*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
-    columnIndex: ColumnIndex): BitSeq =
+    columnIndex: ColumnIndex): lent BitSeq =
   ## Blob indices whose cells are already stored, and so already KZG-verified.
+  ## Borrowed from the entry: valid until the entry is removed or evicted.
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
-    return BitSeq.init(0)
+    return quarantine.noCells
   entry.cellsReceived
 
 func cellsConsistent*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex,
-    sidecar: PartialDataColumnSidecar): bool =
+    sidecar: ref PartialDataColumnSidecar): bool =
   ## Every cell in `sidecar` that is already populated locally must match
   ## the stored copy. True when no entry exists yet or all overlaps agree.
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return true
 
+  template s: untyped = sidecar[]
   var cellIdx = 0
-  for blobIdx in 0 ..< sidecar.cells_present_bitmap.len:
-    if sidecar.cells_present_bitmap[Natural(blobIdx)]:
-      if cellIdx < sidecar.partial_column.len and
-         cellIdx < sidecar.kzg_proofs.len and
+  for blobIdx in 0 ..< s.cells_present_bitmap.len:
+    if s.cells_present_bitmap[Natural(blobIdx)]:
+      if cellIdx < s.partial_column.len and
+         cellIdx < s.kzg_proofs.len and
          blobIdx < entry.cellsReceived.len and
          entry.cellsReceived[blobIdx]:
-        if entry.cells[blobIdx] != sidecar.partial_column[cellIdx]:
+        if entry.cells[blobIdx] != s.partial_column[cellIdx]:
           return false
-        if entry.proofs[blobIdx] != sidecar.kzg_proofs[cellIdx]:
+        if entry.proofs[blobIdx] != s.kzg_proofs[cellIdx]:
           return false
       cellIdx.inc
   true
@@ -214,8 +233,8 @@ func addCells*(
     columnIndex: ColumnIndex,
     sidecar: ref PartialDataColumnSidecar) =
   ## Ingest cells and proofs from a validated partial data column sidecar.
-  let key = PartialColumnKey(groupId: groupId, columnIndex: columnIndex)
-  var entry = quarantine.entries.get(key).valueOr:
+  let entry = quarantine.entries.get(
+      PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return
 
   template s: untyped = sidecar[]
@@ -229,8 +248,6 @@ func addCells*(
         entry.cells[blobIdx] = s.partial_column[cellIdx]
         entry.proofs[blobIdx] = s.kzg_proofs[cellIdx]
       cellIdx.inc
-
-  quarantine.entries.put(key, entry)
 
 func isComplete*(
     quarantine: var PartialColumnQuarantine,
@@ -248,25 +265,30 @@ func isComplete*(
 func assembleDataColumnSidecar*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
-    columnIndex: ColumnIndex): Opt[DataColumnSidecar] =
-  ## Assemble a full DataColumnSidecar from accumulated partial cells.
-  ## None if the entry is incomplete or the group ID is not cached.
+    columnIndex: ColumnIndex): Opt[ref DataColumnSidecar] =
+  ## Assemble a full DataColumnSidecar from accumulated partial cells. The
+  ## sidecar is returned by reference, as the rest of the column plumbing
+  ## passes them around. None if the entry is incomplete or the group ID is
+  ## not cached.
   if not quarantine.hasGroupId(groupId):
-    return Opt.none(DataColumnSidecar)
+    return Opt.none(ref DataColumnSidecar)
 
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
-    return Opt.none(DataColumnSidecar)
+    return Opt.none(ref DataColumnSidecar)
 
   if not entry.cellsReceived.allIt(it):
-    return Opt.none(DataColumnSidecar)
+    return Opt.none(ref DataColumnSidecar)
 
-  Opt.some(DataColumnSidecar(
-    index: columnIndex,
-    column: entry.cells,
-    kzg_proofs: entry.proofs,
-    slot: groupId.slot,
-    beacon_block_root: groupId.beacon_block_root))
+  # The cells stay in quarantine until the block is pruned, so this is the one
+  # place a copy is unavoidable - assign field by field to keep it to that one.
+  let sidecar = (ref DataColumnSidecar)()
+  sidecar.index = columnIndex
+  sidecar.column = entry.cells
+  sidecar.kzg_proofs = entry.proofs
+  sidecar.slot = groupId.slot
+  sidecar.beacon_block_root = groupId.beacon_block_root
+  Opt.some(sidecar)
 
 # --- Cleanup ---
 
