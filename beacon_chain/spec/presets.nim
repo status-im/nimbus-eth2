@@ -204,7 +204,7 @@ type
 
     # Heze
     MAX_REQUEST_INCLUSION_LIST*: uint64
-    MAX_BYTES_PER_INCLUSION_LIST*: uint64
+    MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST*: uint64
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD*: uint64
@@ -445,7 +445,7 @@ when const_preset == "mainnet":
     # 2**4 (= 16)
     MAX_REQUEST_INCLUSION_LIST: 16,
     # 2**13 (= 8192) bytes
-    MAX_BYTES_PER_INCLUSION_LIST: 8192,
+    MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST: 8192,
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD: 25,
@@ -662,7 +662,7 @@ elif const_preset == "gnosis":
     # 2**4 (= 16)
     MAX_REQUEST_INCLUSION_LIST: 16,
     # 2**13 (= 8192) bytes
-    MAX_BYTES_PER_INCLUSION_LIST: 8192,
+    MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST: 8192,
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD: 25,
@@ -880,7 +880,7 @@ elif const_preset == "minimal":
     # 2**4 (= 16)
     MAX_REQUEST_INCLUSION_LIST: 16,
     # 2**13 (= 8192) bytes
-    MAX_BYTES_PER_INCLUSION_LIST: 8192,
+    MAX_TRANSACTIONS_BYTES_PER_INCLUSION_LIST: 8192,
 
     # Fast Confirmation Rule
     CONFIRMATION_BYZANTINE_THRESHOLD: 25,

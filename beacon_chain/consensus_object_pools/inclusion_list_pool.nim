@@ -12,51 +12,34 @@ import
   chronicles,
   ../spec/inclusion_list,
   ../beacon_clock,
-  ./[blockchain_dag, spec_cache]
+  ./blockchain_dag
 
 logScope: topics = "ilpool"
 
 const
-  # https://github.com/ethereum/consensus-specs/pull/5462
-  # An inclusion list for slot N constrains the block at slot N+1 and is used by
-  # that slot's proposer and attesters, so a list for slot N stays live through
-  # slot N+1. This is the spec lookback depth: at `current_slot`, lists from
-  # `[current_slot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS, current_slot]` must
-  # remain available (serving `InclusionListsByIndices` uses the same bound).
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#configs
   MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS* = 1
 
-  # Live slots: `current_slot` plus the lookback behind it. This bounds the ring
-  # array `buckets`, so it must stay a compile-time constant - not a RuntimeConfig
-  # field. Buckets are indexed by `slot mod IL_WINDOW`; a slot leaving the window
-  # is dropped when its index is reused or evicted on the next add.
-  IL_WINDOW = MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS + 1
+  # Lookback slots, the current slot and the next slot within gossip clock
+  # disparity. Buckets are indexed by `slot mod IL_WINDOW`.
+  IL_WINDOW = MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS + 2
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/heze/p2p-interface.md#new-inclusion_list
-  # [IGNORE] The `message` is either the first or second valid message
-  # received from the validator with index `message.validator_index`.
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#new-inclusion_list
   MAX_INCLUSION_LISTS_PER_VALIDATOR* = 2
 
 type
   IlBucket = object
     slot: Slot
     store: InclusionListStore
-    # Distinct inclusion lists already seen per validator, enforcing the gossip
-    # "first or second valid message" bound. The spec `InclusionListStore` keeps
-    # only the unsigned message, but `InclusionListsByIndices` has to serve the
-    # signature back along with it, so the signed form is retained here.
-    seen: Table[uint64, seq[SignedInclusionList]]
+    # Distinct lists accepted per validator, for the gossip per-validator bound
+    seen: Table[uint64, seq[InclusionList]]
 
   InclusionListPool* = object
-    ## Node-level wrapper around the spec `InclusionListStore` (EIP-7805 /
-    ## FOCIL). The spec store is keyed by inclusion-list committee root; here it
-    ## is bucketed into a fixed ring of the `IL_WINDOW` live slots. The pool
-    ## tracks a single (canonical) view, not competing forks: within this window
-    ## the inclusion-list committee is seed-frozen and identical across forks, so
-    ## a branch-specific slice is recovered at read time from the caller's state.
+    ## Spec `InclusionListStore`, split into a ring of per-slot buckets
     timeParams: TimeParams
     buckets: array[IL_WINDOW, IlBucket]
 
-const emptySeen = default(seq[SignedInclusionList])
+const emptySeen = default(seq[InclusionList])
 
 func init*(T: type InclusionListPool, timeParams: TimeParams): T =
   T(timeParams: timeParams)
@@ -66,8 +49,7 @@ func bucketIdx(slot: Slot): int =
 
 func numSeen*(
     pool: InclusionListPool, slot: Slot, validator_index: uint64): int =
-  ## Number of distinct inclusion lists already accepted from `validator_index`
-  ## for `slot`. Gossip validation uses this to enforce the per-validator bound.
+  ## Number of distinct lists accepted from `validator_index` for `slot`
   let idx = bucketIdx(slot)
   if pool.buckets[idx].slot != slot:
     return 0
@@ -77,26 +59,23 @@ func addInclusionList*(
     pool: var InclusionListPool,
     signed_inclusion_list: SignedInclusionList,
     is_timely: bool, wallTime: BeaconTime): bool =
-  ## Record an (already validated) inclusion list into its slot's bucket.
-  ##
-  ## Returns true if it was newly processed, false if it repeats a message
-  ## already held, exceeded the per-validator bound of two distinct messages, or
-  ## fell outside the live window.
+  ## Record an already-validated list. Returns false for duplicates, lists
+  ## over the per-validator bound and slots outside the live window.
   template inclusion_list: untyped = signed_inclusion_list.message
 
   let
     current_slot = wallTime.slotOrZero(pool.timeParams)
+    latest_slot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(
+      pool.timeParams)
     slot = inclusion_list.slot
     validator_index = inclusion_list.validator_index
 
-  # Drop buckets that have fallen out of the live window (bounded: `IL_WINDOW`).
   for bucket in pool.buckets.mitems:
     if bucket.slot + MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS < current_slot:
       reset(bucket)
 
-  # Only the live window maps to a bucket; an out-of-window slot would otherwise
-  # clobber a live one through the ring aliasing.
-  if slot > current_slot or slot + MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS < current_slot:
+  if slot > latest_slot or
+      slot + MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS < current_slot:
     return false
 
   let bucket = addr pool.buckets[bucketIdx(slot)]
@@ -105,107 +84,81 @@ func addInclusionList*(
 
   let seen = addr bucket.seen.mgetOrPut(
     validator_index,
-    newSeqOfCap[SignedInclusionList](MAX_INCLUSION_LISTS_PER_VALIDATOR))
+    newSeqOfCap[InclusionList](MAX_INCLUSION_LISTS_PER_VALIDATOR))
 
-  # The first two distinct lists from a validator already cover any equivocation;
-  # drop any further ones before comparing against what is held.
-  if seen[].len >= MAX_INCLUSION_LISTS_PER_VALIDATOR:
+  if seen[].len >= MAX_INCLUSION_LISTS_PER_VALIDATOR or
+      inclusion_list in seen[]:
     return false
 
-  # Resubmitting a message already held is a no-op.
-  for entry in seen[]:
-    if entry.message == inclusion_list:
-      return false
-
-  seen[].add signed_inclusion_list
-  bucket.store.process_inclusion_list(inclusion_list, is_timely)
+  seen[].add inclusion_list
+  bucket.store.process_inclusion_list(signed_inclusion_list, is_timely)
 
   true
 
 func getInclusionListTransactions*(
-    pool: InclusionListPool, slot: Slot, committee: InclusionListCommittee,
+    pool: InclusionListPool, slot: Slot, dependent_root: Eth2Digest,
     only_timely: bool): seq[gloas.Transaction] =
-  ## Transactions a proposer must include for `slot`, drawn from the valid,
-  ## non-equivocating inclusion lists collected for that slot's committee.
   let idx = bucketIdx(slot)
   if pool.buckets[idx].slot != slot:
     return
   pool.buckets[idx].store.get_inclusion_list_transactions(
-    committee, only_timely)
+    slot, dependent_root, only_timely)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.14/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#inclusionlistsbyindices-v1
 func getInclusionLists*(
-    pool: InclusionListPool, slot: Slot,
-    inclusion_list_committee_root: Eth2Digest,
+    pool: InclusionListPool, slot: Slot, dependent_root: Eth2Digest,
     validator_indices: openArray[uint64],
     maxLists: int): seq[SignedInclusionList] =
-  ## Inclusion lists held for `slot` by the validators at the requested
-  ## committee positions. Everything here has already passed gossip validation.
-  ## Timeliness is not consulted: it is a fork choice notion, not one of the
-  ## gossip validation rules, so untimely lists are served too.
+  ## Lists held for the requested validators, skipping equivocators and
+  ## serving each validator at most once
   let idx = bucketIdx(slot)
   if pool.buckets[idx].slot != slot:
     return
 
-  template bucket: untyped = pool.buckets[idx]
+  template store: untyped = pool.buckets[idx].store
+  let key = (slot, dependent_root)
 
-  # Clients SHOULD NOT respond with inclusion lists from equivocators for the
-  # requested `slot` and `inclusion_list_committee_root`.
-  let equivocators =
-    bucket.store.equivocators.getOrDefault(inclusion_list_committee_root)
-
-  # A small committee cycles its members to fill `INCLUSION_LIST_COMMITTEE_SIZE`,
-  # so one validator can occupy several requested positions - serve it once.
   var
     res = newSeqOfCap[SignedInclusionList](min(maxLists, validator_indices.len))
     served: HashSet[uint64]
 
-  for validator_index in validator_indices:
-    if res.len >= maxLists:
-      break
-    if validator_index in equivocators:
-      continue
-    if served.containsOrIncl(validator_index):
-      continue
-
-    for entry in bucket.seen.getOrDefault(validator_index, emptySeen):
-      # A non-equivocator has at most one list here, collected under this node's
-      # committee view - skip it if that isn't the committee being asked about.
-      if entry.message.inclusion_list_committee_root ==
-          inclusion_list_committee_root:
-        res.add entry
+  store.inclusion_lists.withValue(key, lists):
+    for validator_index in validator_indices:
+      if res.len >= maxLists:
         break
+      if served.containsOrIncl(validator_index) or
+          store.isEquivocator(key, validator_index):
+        continue
+      lists.withValue(validator_index, entry):
+        res.add entry.signed_inclusion_list
 
   res
 
 func isInclusionListBitsInclusive*(
-    pool: InclusionListPool, slot: Slot, committee: InclusionListCommittee,
-    inclusion_list_bits: InclusionListBits, only_timely: bool): bool =
-  ## Whether `inclusion_list_bits` covers every inclusion list this node has
-  ## collected for `slot`. With nothing collected the local bits are empty, so
-  ## any bits trivially satisfy this.
+    pool: InclusionListPool, slot: Slot, dependent_root: Eth2Digest,
+    committee: InclusionListCommittee, inclusion_list_bits: InclusionListBits,
+    only_timely: bool): bool =
+  ## With nothing collected for `slot`, any bits are trivially inclusive
   let idx = bucketIdx(slot)
   if pool.buckets[idx].slot != slot:
     return true
   pool.buckets[idx].store.is_inclusion_list_bits_inclusive(
-    committee, inclusion_list_bits, only_timely)
+    committee, slot, dependent_root, inclusion_list_bits, only_timely)
 
 proc getPayloadInclusionListTransactions*(
     pool: InclusionListPool, dag: ChainDAGRef, blck: BlockRef):
     Opt[seq[gloas.Transaction]] =
-  ## Transactions the payload of `blck` must include: those of the inclusion
-  ## lists collected for the previous slot, whose committee is resolved against
-  ## `blck`'s branch. `Opt.none` if the committee cannot be resolved, as opposed
-  ## to an empty sequence, which every payload trivially satisfies.
+  ## Transactions the payload of `blck` must include, from the previous slot's
+  ## lists on `blck`'s branch.
+  ## `Opt.none` if the dependent root cannot be resolved, as opposed to an empty
+  ## sequence, which every payload trivially satisfies.
   if blck.slot <= GENESIS_SLOT:
     return Opt.none(seq[gloas.Transaction])
   let
     slot = blck.slot - 1
-    shufflingRef = dag.getShufflingRef(blck, slot.epoch, false).valueOr:
+    dependent_root = dag.get_shuffling_dependent_root(
+        blck.bid, slot.epoch).valueOr:
       return Opt.none(seq[gloas.Transaction])
 
-  var committee: InclusionListCommittee
-  for i, validator_index in get_inclusion_list_committee(shufflingRef, slot):
-    committee[i] = validator_index
-
-  Opt.some pool.getInclusionListTransactions(slot, committee, only_timely = true)
+  Opt.some pool.getInclusionListTransactions(
+    slot, dependent_root, only_timely = true)

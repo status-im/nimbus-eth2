@@ -38,6 +38,8 @@ from ../../beacon_chain/consensus_object_pools/envelope_quarantine import
   EnvelopeQuarantine, addUnviable, init
 from ../../beacon_chain/consensus_object_pools/execution_payload_pool import
   ExecutionPayloadBidPool, addBid, init
+from ../../beacon_chain/consensus_object_pools/inclusion_list_pool import
+  InclusionListPool, addInclusionList, init
 from ../../beacon_chain/consensus_object_pools/payload_attestation_pool import
   PayloadAttestationPool, addPayloadAttestation, init
 from ../../beacon_chain/consensus_object_pools/sync_committee_msg_pool import
@@ -460,6 +462,18 @@ proc runGossipExecutionPayloadBid(
           attPool.forkChoice, bidPool, seenPrefs, message, wallTime)):
       bidPool[].addBid(message, res.get(), wallTime)
 
+proc runGossipInclusionList(
+    suiteName: static string, path: string,
+    consensusFork: static ConsensusFork) =
+  when consensusFork >= ConsensusFork.Heze:
+    gossipTest(
+        suiteName, path, consensusFork, SignedInclusionList, (
+          dag.updateHead(headRef, quarantine[], []);
+          let ilPool = newClone(InclusionListPool.init(dag.timeParams))),
+        await dag.validateInclusionList(
+          ilPool, batchCrypto, message, wallTime)):
+      check ilPool[].addInclusionList(message, is_timely = true, wallTime)
+
 template gossipSuite(
     topic: static[string], handler: static[string], runner: untyped) =
   const name = "EF - Networking - Gossip - " & topic & preset()
@@ -518,3 +532,5 @@ gossipSuite(
 gossipSuite(
   "Execution Payload Bid", "gossip_execution_payload_bid",
   runGossipExecutionPayloadBid)
+gossipSuite(
+  "Inclusion List", "gossip_inclusion_list", runGossipInclusionList)
