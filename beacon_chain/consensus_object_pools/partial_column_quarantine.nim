@@ -41,10 +41,6 @@ type
       ## Accumulated KZG proofs, indexed by blob index.
 
   PartialColumnEntryRef* = ref PartialColumnEntry
-    ## Entries are held and handed out by reference: a `KzgCell` is 2 kB, so
-    ## copying an entry in and out of the cache on every cell that arrives
-    ## would dominate the cost of tracking one. Callers mutate the entry in
-    ## place and the cache observes the change without a write-back.
 
   PartialColumnKey* = object
     groupId*: PartialDataColumnGroupID
@@ -57,8 +53,7 @@ type
     groupIds*: LruCache[PartialDataColumnGroupID, PartialDataColumnGroupID]
     entries*: LruCache[PartialColumnKey, PartialColumnEntryRef]
     noCells: BitSeq
-      ## Borrowed by `receivedCells` when no entry exists, so that the common
-      ## case can return a reference to the stored bitmap rather than a copy.
+
 
 func hash*(gid: PartialDataColumnGroupID): Hash =
   var h: Hash = 0
@@ -121,7 +116,6 @@ func getEntry*(
     quarantine: var PartialColumnQuarantine,
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex): Opt[PartialColumnEntryRef] =
-  ## The cached entry itself - writes through it are seen by the quarantine.
   quarantine.entries.get(
     PartialColumnKey(groupId: groupId, columnIndex: columnIndex))
 
@@ -130,8 +124,7 @@ func putEntry*(
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex,
     entry: PartialColumnEntryRef) =
-  ## Take ownership of `entry` - the quarantine stores this very object, so
-  ## later writes through the caller's ref are seen by the quarantine too.
+
   doAssert not entry.isNil, "partial column entries are never nil"
   quarantine.entries.put(
     PartialColumnKey(groupId: groupId, columnIndex: columnIndex), entry)
@@ -195,7 +188,6 @@ func receivedCells*(
     groupId: PartialDataColumnGroupID,
     columnIndex: ColumnIndex): lent BitSeq =
   ## Blob indices whose cells are already stored, and so already KZG-verified.
-  ## Borrowed from the entry: valid until the entry is removed or evicted.
   let entry = quarantine.entries.get(
       PartialColumnKey(groupId: groupId, columnIndex: columnIndex)).valueOr:
     return quarantine.noCells
@@ -280,8 +272,7 @@ func assembleDataColumnSidecar*(
   if not entry.cellsReceived.allIt(it):
     return Opt.none(ref DataColumnSidecar)
 
-  # The cells stay in quarantine until the block is pruned, so this is the one
-  # place a copy is unavoidable - assign field by field to keep it to that one.
+  # The cells stay in quarantine until the block is pruned.
   let sidecar = (ref DataColumnSidecar)()
   sidecar.index = columnIndex
   sidecar.column = entry.cells
