@@ -43,39 +43,45 @@ type
     preferences*: BuilderPreferences
     auth*: SignedBuilderRequestAuth
 
+  BuilderPubkeyList* = List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
+
   # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L54-L137
   BuilderEntry* = object
-    url*: List[byte, Limit MAX_BUILDER_URL_SIZE]
+    url*: string
     auth_data*: Opt[BuilderRequestAuthData]
-    builder_pubkeys*: Opt[List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]]
+    builder_pubkeys*: Opt[BuilderPubkeyList]
     max_execution_payment*: Opt[Gwei]
     min_bid*: Opt[Gwei]
     builder_boost_factor*: Opt[uint64]
+
+  BuilderEntryList* = List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
 
   # https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/types/builder_entry.yaml#L1-L52
   BuilderConfig* = object
     min_bid*: Opt[Gwei]
     builder_boost_factor*: Opt[uint64]
-    builders*: Opt[List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]]
+    builders*: Opt[BuilderEntryList]
 
   ResolvedBuilderEntry* = object
-    url*: List[byte, Limit MAX_BUILDER_URL_SIZE]
+    url*: string
     auth_data*: BuilderRequestAuthData
-    builder_pubkeys*: List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
+    builder_pubkeys*: BuilderPubkeyList
     max_execution_payment*: Gwei
     min_bid*: Gwei
     builder_boost_factor*: uint64
 
+  ResolvedBuilderEntryList* = List[ResolvedBuilderEntry, Limit MAX_BUILDER_ENTRIES]
+
   ResolvedBuilderConfig* = object
     min_bid*: Gwei
     builder_boost_factor*: uint64
-    builders*: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
+    builders*: ResolvedBuilderEntryList
 
   # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml
   BuilderEntryAtSlot* = object
     url*: List[byte, Limit MAX_BUILDER_URL_SIZE]
     auth*: SignedBuilderRequestAuth
-    builder_pubkeys*: List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]
+    builder_pubkeys*: BuilderPubkeyList
     max_execution_payment*: Gwei
     min_bid*: Gwei
     builder_boost_factor*: uint64

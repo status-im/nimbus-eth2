@@ -990,7 +990,7 @@ proc getGloasBuilderConfig(
   let
     builderConfig =
       try:
-        Json.loadFile(builderConfigPath, gloas.BuilderConfig)
+        Json.loadFile(builderConfigPath, gloas_mev.BuilderConfig)
       except IOError as err:
         error "Failed to read gloas builder config",
           err = err.msg, path = builderConfigPath
@@ -1007,7 +1007,7 @@ proc getGloasBuilderConfig(
         defaultBuilderConfig.builder_boost_factor
     resolvedBuilderEntries =
       if builderConfig.builders.isSome():
-        builderConfig.builders.get().mapIt:
+        let builders = builderConfig.builders.get().mapIt:
           var res: ResolvedBuilderEntry
           res.url = it.url
           res.auth_data =
@@ -1029,6 +1029,7 @@ proc getGloasBuilderConfig(
             res.max_execution_payment =
               it.max_execution_payment.get()
           res
+        ResolvedBuilderEntryList.init(builders)
       else:
         defaultBuilderConfig.builders
 
@@ -1627,7 +1628,7 @@ proc setGraffiti*(host: KeymanagerHost,
 
 proc setGloasBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey,
-    builderConfig: gloas.BuilderConfig):
+    builderConfig: gloas_mev.BuilderConfig):
     Result[void, string] =
   let
     validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
@@ -1729,7 +1730,7 @@ proc getGloasDefaultBuilderConfig(
     builder_boost_factor: 100.uint64,
   )
   if builderUrl.isSome():
-    res.builders.add(ResolvedBuilderEntry(
+    discard res.builders.add(ResolvedBuilderEntry(
       url: builderUrl.get(),
       auth_data: BuilderRequestAuthData.init(toBytes(builderUrl.get())),
       min_bid: 0.Gwei,

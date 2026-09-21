@@ -11,7 +11,6 @@ import
   std/typetraits,
   stew/byteutils,
   ../[crypto, keystore],
-  ../datatypes/gloas_mev,
   ../../validators/slashing_protection_common
 
 type
