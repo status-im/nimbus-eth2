@@ -49,6 +49,8 @@ func validateBeaconApiQueries*(key: string, value: string): int =
     0
   of "{block_root}":
     0
+  of "{beacon_block_root}":
+    0
   of "{structure}":
     0
   of "{pubkey}":
