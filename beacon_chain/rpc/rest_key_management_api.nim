@@ -21,6 +21,10 @@ import ../validators/[slashing_protection, keystore_management,
                         validator_pool]
 import ../rpc/rest_constants
 
+from std/sets import toHashSet
+from std/sequtils import mapIt
+from stew/byteutils import fromBytes
+
 export rest_constants, results
 
 func validateKeymanagerApiQueries*(key: string, value: string): int =
@@ -542,7 +546,24 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
           return keymanagerApiError(Http400, InvalidBuilderConfig)
         dres.get()
 
-    debugGloasComment("builder config validations")
+    if builderConfig.builders.isSome():
+      template builders(): auto = builderConfig.builders.unsafeGet()
+
+      let builderSet = block:
+        let keyFields = builders.mapIt:
+          if len(it.url) == 0 or len(it.url) > MAX_BUILDER_URL_SIZE:
+            return keymanagerApiError(Http400, "InvalidBuilderConfigUrl")
+
+          let auth =
+            if it.auth_data.isSome():
+              string.fromBytes(it.auth_data.get().asSeq())
+            else:
+              ""
+          (it.url, auth)
+        keyFields.toHashSet()
+      if len(builders) != len(builderSet):
+        return keymanagerApiError(Http400, "InvalidBuilderUrlOrAuth")
+
     let res = host.setGloasBuilderConfig(pubkey, builderConfig)
     if res.isOk:
       RestApiResponse.response(Http202)
