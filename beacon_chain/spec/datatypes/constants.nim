@@ -24,8 +24,6 @@ const
   NODE_ID_BITS* = 256
 
   # https://github.com/ethereum/consensus-specs/blob/v1.6.0-alpha.0/specs/phase0/p2p-interface.md#configuration
-  EPOCHS_PER_SUBNET_SUBSCRIPTION* = 256'u64
-  SUBNETS_PER_NODE* = 2'u64
   ATTESTATION_SUBNET_COUNT*: uint64 = 64
   ATTESTATION_SUBNET_EXTRA_BITS* = 0'u64
   ATTESTATION_SUBNET_PREFIX_BITS* = 6'u64 ## \
@@ -72,9 +70,7 @@ const
   REORG_PARENT_WEIGHT_THRESHOLD*: uint64 = 160
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
-  MAX_REQUEST_BLOCKS* = 1024'u64
   RESP_TIMEOUT* = 10'u64
-  ATTESTATION_PROPAGATION_SLOT_RANGE*: uint64 = 32
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#configuration
@@ -112,4 +108,12 @@ const
   BUILDER_INDEX_FLAG* = 1'u64 shl 40
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/p2p-interface.md#configuration
-  MAX_REQUEST_PAYLOADS* = 128
+  MAX_REQUEST_PAYLOADS* = 128'u64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#configs
+  # An inclusion list for slot N constrains the block at slot N+1 and is used by
+  # that slot's proposer and attesters, so a list for slot N stays live through
+  # slot N+1. This is the spec lookback depth: at `current_slot`, lists from
+  # `[current_slot - MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS, current_slot]` must
+  # remain available (serving `InclusionListsByIndices` uses the same bound).
+  MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS* = 1'u64

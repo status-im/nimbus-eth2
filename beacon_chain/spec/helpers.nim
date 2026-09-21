@@ -214,30 +214,6 @@ func has_flag*(flags: ParticipationFlags, flag_index: TimelyFlag): bool =
   let flag = ParticipationFlags(1'u8 shl ord(flag_index))
   (flags and flag) == flag
 
-func create_blob_sidecars*(
-    forkyBlck: deneb.SignedBeaconBlock | electra.SignedBeaconBlock,
-    kzg_proofs: deneb.KzgProofs,
-    blobs: Blobs): seq[BlobSidecar] =
-  template kzg_commitments: untyped =
-    forkyBlck.message.body.blob_kzg_commitments
-  doAssert kzg_proofs.len == blobs.len
-  doAssert kzg_proofs.len == kzg_commitments.len
-
-  var res = newSeqOfCap[BlobSidecar](blobs.len)
-  let signedBlockHeader = forkyBlck.toSignedBeaconBlockHeader()
-  for i in 0 ..< blobs.lenu64:
-    var sidecar = BlobSidecar(
-      index: i,
-      blob: blobs[i],
-      kzg_commitment: kzg_commitments[i],
-      kzg_proof: kzg_proofs[i],
-      signed_block_header: signedBlockHeader)
-    forkyBlck.message.body.build_proof(
-      kzg_commitment_inclusion_proof_gindex(i),
-      sidecar.kzg_commitment_inclusion_proof).expect("Valid gindex")
-    res.add(sidecar)
-  res
-
 # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithSyncCommittee:
@@ -378,7 +354,6 @@ func is_merge_transition_complete*(
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-debugGloasComment ""
 func is_merge_transition_complete*(
     state: gloas.BeaconState | heze.BeaconState): bool =
   not state.latest_block_hash.isZero

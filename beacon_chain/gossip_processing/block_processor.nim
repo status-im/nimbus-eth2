@@ -130,7 +130,7 @@ type
 
   NoSidecars* = typeof(())
   SomeOptSidecars =
-    NoSidecars | Opt[BlobSidecars] | Opt[fulu.DataColumnSidecarsForImport] |
+    NoSidecars | Opt[fulu.DataColumnSidecarsForImport] |
     Opt[gloas.DataColumnSidecars]
 
 const noSidecars* = default(NoSidecars)
@@ -983,7 +983,7 @@ proc addBlock*(
         # In Gloas, block is enqueued with NoSidecar so we need not to care
         # about quarantine.
         discard
-      elif sidecarsOpt is NoSidecars | Opt[BlobSidecars]:
+      elif sidecarsOpt is NoSidecars:
         discard
       else:
         {.error: "Incorrect sidecar type".}

@@ -173,6 +173,11 @@ if canEnableDebuggingSymbols:
   # add debugging symbols and original files and line numbers
   --debugger:native
 
+block:
+  const v = ["2.2.12", "2.2.13"]
+  doAssert [$NimMajor, $NimMinor, $NimPatch].join(".") in v,
+    "nimbus-eth2 requires one of Nim versions " & $v
+
 switch("warningAsError", "BareExcept:on")
 switch("warningAsError", "CaseTransition:on")
 switch("warningAsError", "CStringConv:on")

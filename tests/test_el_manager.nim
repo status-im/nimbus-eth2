@@ -164,7 +164,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
           Opt.none(Bytes8),
     )
 
-  server.rpc("engine_getPayloadV4", EthJson) do(payloadId: Bytes8) -> GetPayloadV4Response:
+  server.rpc("engine_getPayloadV5", EthJson) do(payloadId: Bytes8) -> GetPayloadV5Response:
     inc state.getPayloadCallCount
     if state.responseDelay > 0.milliseconds:
       await sleepAsync(state.responseDelay)
@@ -173,7 +173,7 @@ func setupMockEngineAPI(server: RpcServer, state: MockEngineState) =
       raise
         (ref RpcResponseError)(code: -32603, msg: "Internal error: getPayloadV4 failed")
 
-    GetPayloadV4Response()
+    GetPayloadV5Response()
 
   server.rpc("engine_getPayloadV6", EthJson) do(payloadId: Bytes8) -> GetPayloadV6Response:
     inc state.getPayloadV6CallCount
@@ -399,7 +399,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, payload) = waitFor manager.forkchoiceUpdated(
+    let (status, _) = waitFor manager.forkchoiceUpdated(
       state, Opt.none(PayloadAttributesV3), sleepAsync(5.seconds), false
     )
 
@@ -416,7 +416,7 @@ suite "EL Manager - forkchoiceUpdated":
 
     let state =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status, payload) = waitFor manager.forkchoiceUpdated(
+    let (status, _) = waitFor manager.forkchoiceUpdated(
       state, Opt.none(PayloadAttributesV4), sleepAsync(5.seconds), false
     )
 
@@ -458,7 +458,7 @@ suite "EL Manager - forkchoiceUpdated":
     let startTime = Moment.now()
     let state2 =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
-    let (status2, payload2) = waitFor manager.forkchoiceUpdated(
+    let (status2, _) = waitFor manager.forkchoiceUpdated(
       state2, Opt.none(PayloadAttributesV3), deadline, false
     )
     let duration = Moment.now() - startTime
@@ -529,7 +529,7 @@ suite "EL Manager - getPayload":
         0'u64, ZERO_HASH, default(Eth1Address),
         default(seq[capella.Withdrawal]), ZERO_HASH)
       resp =
-        waitFor manager.getPayload(electra.ExecutionPayloadForSigning, state, attrs)
+        waitFor manager.getPayload(fulu.ExecutionPayloadForSigning, state, attrs)
 
     check:
       setup.state.getPayloadCallCount == 1
@@ -643,7 +643,7 @@ suite "EL Manager - Payload Request Caching":
     let stateForGet =
       ForkchoiceStateV1.init(Eth2Digest.default, Eth2Digest.default, Eth2Digest.default)
     let payload = waitFor manager.getPayload(
-      electra.ExecutionPayloadForSigning, stateForGet, attrsPayload
+      fulu.ExecutionPayloadForSigning, stateForGet, attrsPayload
     )
 
     check:
@@ -680,7 +680,7 @@ suite "EL Manager - Payload Request Caching":
       1234567999, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
     )
     let payload = waitFor manager.getPayload(
-      electra.ExecutionPayloadForSigning, stateForGet2, attrsGet2
+      fulu.ExecutionPayloadForSigning, stateForGet2, attrsGet2
     )
 
     check:
@@ -791,7 +791,7 @@ suite "EL Manager - Payload Request Caching":
       1000, Eth2Digest.default, Eth1Address.default, withdrawals, Eth2Digest.default
     )
     discard waitFor manager.getPayload(
-      electra.ExecutionPayloadForSigning, stateGet1, attrsGet1
+      fulu.ExecutionPayloadForSigning, stateGet1, attrsGet1
     )
 
     check setup.state.forkchoiceCallCount == 1 # Should still be 1
@@ -816,7 +816,7 @@ suite "EL Manager - Payload Request Caching":
       2000, Eth2Digest.default, Eth1Address.default, withdrawals, Eth2Digest.default
     )
     discard waitFor manager.getPayload(
-      electra.ExecutionPayloadForSigning, stateGet2, attrsGet2b
+      fulu.ExecutionPayloadForSigning, stateGet2, attrsGet2b
     )
 
     check setup.state.forkchoiceCallCount == 2 # Should still be 2
@@ -871,7 +871,7 @@ suite "EL Manager - Multiple Engines":
       1000, Eth2Digest.default, Eth1Address.default, @[], Eth2Digest.default
     )
     let payload = waitFor manager.getPayload(
-      electra.ExecutionPayloadForSigning, stateMultiGet, attrsMulti
+      fulu.ExecutionPayloadForSigning, stateMultiGet, attrsMulti
     )
 
     check:

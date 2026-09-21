@@ -3000,15 +3000,6 @@ proc broadcastBeaconBlock*(
     node.forkDigestAtEpoch(blck.message.slot.epoch))
   node.broadcast(topic, blck)
 
-proc broadcastBlobSidecar*(
-    node: Eth2Node, subnet_id: BlobId, blob: deneb.BlobSidecar):
-    Future[SendResult] {.async: (raises: [CancelledError], raw: true).} =
-  let
-    contextEpoch = blob.signed_block_header.message.slot.epoch
-    topic = getBlobSidecarTopic(
-      node.forkDigestAtEpoch(contextEpoch), subnet_id)
-  node.broadcast(topic, blob)
-
 proc broadcastDataColumnSidecar*(
     node: Eth2Node, subnet_id: uint64,
     data_column: ref fulu.DataColumnSidecar):

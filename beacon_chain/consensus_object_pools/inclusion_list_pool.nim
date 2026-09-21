@@ -23,6 +23,11 @@ const
   # Lookback slots, the current slot and the next slot within gossip clock
   # disparity. Buckets are indexed by `slot mod IL_WINDOW`.
   IL_WINDOW = MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS + 2
+  # Live slots: `current_slot` plus the lookback behind it. This bounds the ring
+  # array `buckets`, so it must stay a compile-time constant - not a RuntimeConfig
+  # field. Buckets are indexed by `slot mod IL_WINDOW`; a slot leaving the window
+  # is dropped when its index is reused or evicted on the next add.
+  IL_WINDOW = MIN_SLOTS_FOR_INCLUSION_LISTS_REQUESTS.int + 1
 
   # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/heze/p2p-interface.md#new-inclusion_list
   MAX_INCLUSION_LISTS_PER_VALIDATOR* = 2

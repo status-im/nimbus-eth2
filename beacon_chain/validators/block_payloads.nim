@@ -36,14 +36,19 @@ import
   chronicles,
   results,
   ../consensus_object_pools/
-    [attestation_pool, consensus_manager, payload_attestation_pool],
-  ../spec/[forks, state_transition],
+    [attestation_pool, consensus_manager, execution_payload_pool,
+     payload_attestation_pool],
+  ../spec/[forks, state_transition, state_transition_block],
   ../spec/mev/rest_mev_calls,
+  ../beacon_chain_db,
   ../beacon_node
 
 from eth/async_utils import awaitWithTimeout
-from stew/byteutils import toBytes
-from ../spec/beaconstate import get_expected_withdrawals
+from std/sequtils import mapIt
+from stew/byteutils import fromBytes, toBytes
+from ../spec/beaconstate import
+  get_block_root_at_slot, get_expected_withdrawals, latest_block_id,
+  proposalExecutionHead
 
 export results
 
@@ -161,10 +166,9 @@ template validateRequestType(request_type_and_payload, prev_type): untyped =
       return err("Execution layer request types duplicated")
   prev_type.ok request_type
 
-func decodePayloadRequests[EPS: electra.ExecutionPayloadForSigning |
-    fulu.ExecutionPayloadForSigning | gloas.ExecutionPayloadForSigning](
-    eps: EPS
-): Result[EPS.kind.ExecutionRequests, string] =
+func decodePayloadRequests[
+    EPS: fulu.ExecutionPayloadForSigning | gloas.ExecutionPayloadForSigning](
+    eps: EPS): Result[EPS.kind.ExecutionRequests, string] =
   try:
     var
       execution_requests_buffer: EPS.kind.ExecutionRequests
@@ -470,7 +474,7 @@ proc makeSignedRequestAuth*(
     message: msg,
     signature: sig))
 
-# https://github.com/ethereum/builder-specs/blob/78a5546d9d8253beabf7db8baf988a58abdec87f/apis/builder/execution_payload_bid.yaml
+# https://github.com/ethereum/builder-specs/blob/38f11441c194d150386f567b4d7087ec86d4118c/apis/builder/execution_payload_bid.yaml
 proc getExecutionPayloadBidFromBuilder*(
     payloadBuilderClient: RestClientRef,
     slot: Slot,
@@ -478,6 +482,8 @@ proc getExecutionPayloadBidFromBuilder*(
     parent_root: Eth2Digest,
     proposer_pubkey: ValidatorPubKey,
     consensus_version: ConsensusFork,
+    req_started_at: Moment,
+    timeout_ms: Duration,
     request_auth: SignedBuilderRequestAuth,
 ): Future[Result[gloas.SignedExecutionPayloadBid, string]] {.
     async: (raises: [CancelledError]).} =
@@ -488,7 +494,7 @@ proc getExecutionPayloadBidFromBuilder*(
     try:
       await payloadBuilderClient.getExecutionPayloadBid(
         slot, parent_hash, parent_root, proposer_pubkey,
-        consensus_version, request_auth)
+        consensus_version, req_started_at, timeout_ms, request_auth)
     except RestDecodingError as exc:
       return err("getExecutionPayloadBid REST decoding error: " & exc.msg)
     except RestError as exc:
@@ -499,12 +505,19 @@ proc getExecutionPayloadBidFromBuilder*(
   if response.status != 200:
     return err("getExecutionPayloadBid: HTTP error " & $response.status)
 
-  let bid =
-    try:
-      SSZ.decode(response.data, gloas.SignedExecutionPayloadBid)
-    except SerializationError as exc:
-      return err("getExecutionPayloadBid SSZ decode error: " & exc.msg)
-  ok(bid)
+  debugHezeComment("")
+  let res = decodeBytesJsonOrSsz(
+    GetExecutionPayloadBidResponseGloas,
+    response.data,
+    response.contentType,
+    response.headers.getString("eth-consensus-version"),
+  ).valueOr:
+    return err(
+      "Unable to decode bid response from builder: " & $error & " with HTTP status " &
+        $response.status & ", Content-Type " & $response.contentType & " and content " &
+        $response.data
+    )
+  ok(res.data)
 
 proc getBuilderExecutionPayloadBid*(
     node: BeaconNode,
@@ -518,20 +531,21 @@ proc getBuilderExecutionPayloadBid*(
 ): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
     async: (raises: [CancelledError]).} =
   let
-    requestAuth = block:
-      let builderUrl = node.getPayloadBuilderAddress(proposer.pubkey).valueOr:
-        return Opt.none(gloas.SignedExecutionPayloadBid)
-      (await makeSignedRequestAuth(
-          proposer, builderUrl, slot,
-          node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
-        return Opt.none(gloas.SignedExecutionPayloadBid)
+    builderUrl = node.getPayloadBuilderAddress(proposer.pubkey).valueOr:
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    requestAuth = (await makeSignedRequestAuth(
+        proposer, builderUrl, slot,
+        node.dag.cfg.GENESIS_FORK_VERSION)).valueOr:
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    reqStartedAt = Moment.now()
     bidRes = awaitWithTimeout(
-      getExecutionPayloadBidFromBuilder(
-        payloadBuilderClient, slot, parent_block_hash, parent_block_root,
-        proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
-        requestAuth),
-      BUILDER_PROPOSAL_DELAY_TOLERANCE):
-        return Opt.none(gloas.SignedExecutionPayloadBid)
+        getExecutionPayloadBidFromBuilder(
+          payloadBuilderClient, slot, parent_block_hash, parent_block_root,
+          proposer.pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
+          reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, requestAuth),
+        BUILDER_PROPOSAL_DELAY_TOLERANCE):
+      debug "Builder-API execution payload bid request timeout", builderUrl, slot
+      return Opt.none(gloas.SignedExecutionPayloadBid)
 
     signedBid = bidRes.valueOr:
       debug "No builder-API execution payload bid", slot, err = error
@@ -666,11 +680,6 @@ proc makeBuilderBlock*(
     consensusValue: blockAndRewards.rewards.blockConsensusValue(),
   )
 
-func isExcludedTestnet(cfg: RuntimeConfig): bool =
-  ## Ensure that builder API testing can still occur in certain circumstances.
-  cfg.DEPOSIT_CHAIN_ID == cfg.DEPOSIT_NETWORK_ID and cfg.DEPOSIT_CHAIN_ID == 560048'u64
-    # Hoodi
-
 proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
     node: BeaconNode,
     builderApiBid, poolBid: Opt[T],
@@ -680,6 +689,7 @@ proc selectBuilderBid*[T: ForkySignedExecutionPayloadBid](
     withState(node.dag.headState):
       when consensusFork >= ConsensusFork.Gloas:
         payloadFailSafeInEffect(
+          node.dag.cfg,
           forkyState.data.execution_payload_availability,
           forkyState.data.block_roots.data, forkyState.data.slot)
       else:
@@ -889,3 +899,274 @@ proc makeMaybeBlindedBeaconBlockForHeadAndSlot*(
       consensusValue: engineBlock.consensusValue,
     )
   )
+
+proc getBuilderEntryBid(
+    node: BeaconNode,
+    consensusFork: static ConsensusFork,
+    proposalState: ref ForkedHashedBeaconState,
+    entry: BuilderEntry,
+    slot: Slot,
+    parent_block_hash: Eth2Digest,
+    parent_block_root: Eth2Digest,
+    proposer_pubkey: ValidatorPubKey,
+): Future[Opt[gloas.SignedExecutionPayloadBid]] {.
+    async: (raises: [CancelledError]).} =
+  ## Request an execution payload bid from a single configured builder
+  let
+    builderUrl = string.fromBytes(entry.url.asSeq())
+    payloadBuilderClient = getBuilderClientForUrl(builderUrl).valueOr:
+      debug "Invalid builder url", slot
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    reqStartedAt = Moment.now()
+    bidRes = awaitWithTimeout(
+        getExecutionPayloadBidFromBuilder(
+          payloadBuilderClient, slot, parent_block_hash, parent_block_root,
+          proposer_pubkey, node.dag.cfg.consensusForkAtEpoch(slot.epoch()),
+          reqStartedAt, BUILDER_PROPOSAL_DELAY_TOLERANCE, entry.auth),
+        BUILDER_PROPOSAL_DELAY_TOLERANCE):
+      debug "Builder-API execution payload bid request timeout", builderUrl, slot
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+    signedBid = bidRes.valueOr:
+      debug "No builder-API execution payload bid", slot, err = error
+      return Opt.none(gloas.SignedExecutionPayloadBid)
+
+  node.dag.cfg.can_process_execution_payload_bid(
+      proposalState[].forky(consensusFork).data, signedBid, slot).isOkOr:
+    notice "Discarding invalid builder-API bid", slot, err = error
+    return Opt.none(gloas.SignedExecutionPayloadBid)
+
+  Opt.some(signedBid)
+
+type SelectedBid =
+  tuple[bid: gloas.SignedExecutionPayloadBid, effectiveValue: Gwei]
+
+proc selectBestBid(
+    node: BeaconNode,
+    engineBlockValue: Wei,
+    candidates: openArray[
+      tuple[bid: gloas.SignedExecutionPayloadBid, boost: uint64, value: Gwei]],
+): Opt[SelectedBid] =
+  ## Pick the highest weighted-value bid each weighted by its own `builder_boost_factor`.
+  let failsafeInEffect =
+    withState(node.dag.headState):
+      when consensusFork >= ConsensusFork.Gloas:
+        payloadFailSafeInEffect(
+          node.dag.cfg,
+          forkyState.data.execution_payload_availability,
+          forkyState.data.block_roots.data, forkyState.data.slot)
+      else:
+        false
+  if failsafeInEffect:
+    notice "Payload failsafe in effect, ignoring builder bids"
+    return Opt.none(SelectedBid)
+
+  var
+    best = Opt.none(SelectedBid)
+    bestWeighted = UInt256.zero
+    bestBoost = 0'u64
+    bestValueWei = UInt256.zero
+  for c in candidates:
+    let
+      valueWei = c.value.uint64.u256 * static(GWEI_TO_WEI.u256)
+      weighted = c.boost.u256 * valueWei
+    if best.isNone or weighted > bestWeighted:
+      best = Opt.some((bid: c.bid, effectiveValue: c.value))
+      bestWeighted = weighted
+      bestBoost = c.boost
+      bestValueWei = valueWei
+
+  if best.isSome and builderBetterBid(
+      BoostFactor.init(bestBoost), bestValueWei, engineBlockValue):
+    best
+  else:
+    Opt.none(SelectedBid)
+
+proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
+    node: BeaconNode,
+    consensusFork: static ConsensusFork,
+    validator_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    graffiti: GraffitiBytes,
+    head: BlockRef,
+    slot: Slot,
+    builderConfig: BuilderConfig,
+): Future[
+    Result[
+      tuple[
+        blck: consensusFork.BeaconBlock,
+        payloadAvailable: bool,
+        envelope: gloas.ExecutionPayloadEnvelope,
+        kzg_proofs: fulu.KzgProofs,
+        blobs: deneb.Blobs,
+        executionValue, consensusValue: UInt256,
+      ],
+      string,
+    ]
+] {.async: (raises: [CancelledError]).} =
+  ## Build a post-Gloas block for the produceBlockV4 endpoint, choosing between
+  ## the local engine payload and the best value builder execution payload bid
+  ## available. When the engine payload is selected the (unsigned) execution
+  ## payload envelope is returned alongside the block; when a builder bid is
+  ## selected the block commits to that bid and the builder later reveals the
+  ## payload.
+  static: doAssert consensusFork >= ConsensusFork.Gloas
+
+  let
+    cache = new StateCache
+    state = node.dag.getProposalState(head, slot, cache[]).valueOr:
+      return err("Proposal state is not available")
+
+  let
+    shouldExtendPayload = node.attestationPool[].forkChoice.should_build_on_full(
+      node.dag, head, node.dag.headPayloadFull, slot)
+    proposerKey = node.dag.validatorKey(validator_index).get().toPubKey()
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.0/specs/gloas/validator.md#parent-execution-requests
+    parentExecutionRequests =
+      if shouldExtendPayload:
+        let
+          parentId = state[].latest_block_id
+          parentRequests =
+            if parentId.slot.epoch() >= node.dag.cfg.GLOAS_FORK_EPOCH:
+              let envelope = node.dag.db.getExecutionPayloadEnvelope(
+                  parentId.root).valueOr:
+                return err("Proposal parent payload is missing")
+              envelope.message.execution_requests
+            else:
+              default(consensusFork.ExecutionRequests)
+        apply_parent_execution_payload(
+          node.dag.cfg,
+          state[].forky(consensusFork).data,
+          parentRequests,
+          cache[],
+        ).isOkOr:
+          return err("Proposal failed to apply parent payload")
+        parentRequests
+      else:
+        default(consensusFork.ExecutionRequests)
+
+    executionHead = proposalExecutionHead(state[].forky(consensusFork).data)
+    parentBlockHash =
+      if shouldExtendPayload:
+        executionHead
+      else:
+        state[].forky(consensusFork).data
+          .latest_execution_payload_bid.parent_block_hash
+    parentBlockRoot =
+      state[].forky(consensusFork).data.get_block_root_at_slot(slot - 1)
+
+  let builderFuts = builderConfig.builders.mapIt(node.getBuilderEntryBid(
+    consensusFork, state, it, slot, parentBlockHash, parentBlockRoot,
+    proposerKey))
+
+  let engineBidOpt = await node.getExecutionPayload(
+    consensusFork, head, state, validator_index, proposerKey,
+    shouldExtendPayload)
+  if engineBidOpt.isNone:
+    for fut in builderFuts:
+      fut.cancelSoon()
+    return err("Engine payload is not available")
+  let engineBid = engineBidOpt.get()
+
+  let
+    payloadAvailability = node.dag.payloadAvailability(head, executionHead)
+    poolBid =
+      if payloadAvailability.isSome:
+        node.executionPayloadBidPool[].getHighestBidForProposalState(
+          state[].forky(consensusFork).data, payloadAvailability.unsafeGet)
+      else:
+        Opt.none gloas.SignedExecutionPayloadBid
+
+  await allFutures(builderFuts)
+
+  # "Entries arrive fully resolved, so a requested bid is governed by its own BuilderEntry;
+  # the top-level min_bid and builder_boost_factor apply to bids received over p2p."
+  var candidates:
+    seq[tuple[bid: gloas.SignedExecutionPayloadBid, boost: uint64, value: Gwei]]
+  let poolValue = effectiveBidValue(poolBid)
+  if poolBid.isSome and poolValue >= builderConfig.min_bid:
+    candidates.add (poolBid.get(), builderConfig.builder_boost_factor, poolValue)
+
+  for i, fut in builderFuts:
+    if not fut.completed():
+      continue
+    let bid = fut.value().valueOr:
+      continue
+    let entry = builderConfig.builders[i]
+    # Empty accepts any builder; otherwise a bid not signed by one of them MUST
+    # NOT be accepted.
+    if entry.builder_pubkeys.len > 0:
+      let builderIndex = bid.message.builder_index
+      if builderIndex >= state[].forky(consensusFork).data.builders.lenu64:
+        continue
+      if state[].forky(consensusFork).data.builders.item(builderIndex).pubkey notin
+          entry.builder_pubkeys.asSeq():
+        continue
+
+    # Effective value caps the execution payment at the entry's
+    # `max_execution_payment`.
+    let
+      payment = min(bid.message.execution_payment, entry.max_execution_payment)
+      value =
+        if bid.message.value > Gwei(high(uint64)) - payment:
+          bid.message.value
+        else:
+          bid.message.value + payment
+    if value >= entry.min_bid:
+      candidates.add (bid, entry.builder_boost_factor, value)
+
+  let
+    selected = node.selectBestBid(engineBid.eps.blockValue, candidates)
+    selectedBuilderBid =
+      if selected.isSome:
+        Opt.some(selected.get.bid)
+      else:
+        Opt.none(gloas.SignedExecutionPayloadBid)
+
+  let
+    verificationFlags =
+      if shouldExtendPayload: {skipApplyParentExecutionPayload} else: {}
+    engineBlock = node.makeEngineBlock(
+      consensusFork,
+      state[].forky(consensusFork),
+      cache[],
+      validator_index,
+      randao_reveal,
+      graffiti,
+      head,
+      slot,
+      engineBid.eps,
+      engineBid.execution_requests,
+      parentExecutionRequests,
+      verificationFlags,
+      selectedBuilderBid,
+    ).valueOr:
+      return err(error)
+
+  selected.isErrOr:
+    return ok((
+      blck: engineBlock.blck,
+      payloadAvailable: false,
+      envelope: default(gloas.ExecutionPayloadEnvelope),
+      kzg_proofs: default(fulu.KzgProofs),
+      blobs: default(deneb.Blobs),
+      executionValue:
+        value.effectiveValue.uint64.u256 * static(GWEI_TO_WEI.u256),
+      consensusValue: engineBlock.consensusValue,
+    ))
+
+  let envelope = makeExecutionPayloadEnvelope(
+    engineBid.eps,
+    engineBid.execution_requests,
+    hash_tree_root(engineBlock.blck),
+    engineBlock.blck.parent_root)
+
+  ok((
+    blck: engineBlock.blck,
+    payloadAvailable: true,
+    envelope: envelope,
+    kzg_proofs: engineBid.eps.blobsBundle.proofs,
+    blobs: engineBid.eps.blobsBundle.blobs,
+    executionValue: engineBlock.executionValue,
+    consensusValue: engineBlock.consensusValue,
+  ))

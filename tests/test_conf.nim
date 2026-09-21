@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022-2024 Status Research & Development GmbH
+# Copyright (c) 2022-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,9 @@
 
 import
   unittest2,
-  ../beacon_chain/conf
+  chronos,
+  ../beacon_chain/conf,
+  ../beacon_chain/spec/presets
 
 template reject(val: string) =
   expect CatchableError:
@@ -68,3 +70,51 @@ suite "Configuration parsing":
 
     test "negative epoch":
       reject "3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb500:-1000"
+
+suite "Runtime network configuration":
+  test "custom networking values":
+    let
+      base = "PRESET_BASE: " & const_preset & "\n"
+      (cfg, unknowns) = readRuntimeConfig(
+        base &
+        "EPOCHS_PER_SUBNET_SUBSCRIPTION: 64\n" &
+        "MAXIMUM_GOSSIP_CLOCK_DISPARITY: 1000\n" &
+        "SUBNETS_PER_NODE: 1\n",
+        "runtime-config-custom")
+
+    check:
+      unknowns.len == 0
+      cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION == 64
+      cfg.SUBNETS_PER_NODE == 1
+      cfg.MAXIMUM_GOSSIP_CLOCK_DISPARITY == 1000
+      cfg.gossipClockDisparityDuration == milliseconds(1000)
+
+  test "networking guardrails reject invalid values":
+    let base = "PRESET_BASE: " & const_preset & "\n"
+
+    expect PresetFileError:
+      discard readRuntimeConfig(
+        base & "EPOCHS_PER_SUBNET_SUBSCRIPTION: 0\n",
+        "runtime-config-epochs-zero")
+
+    let (zeroSubnetCfg, zeroSubnetUnknowns) = readRuntimeConfig(
+      base & "SUBNETS_PER_NODE: 0\n",
+      "runtime-config-subnets-zero")
+
+    check:
+      zeroSubnetUnknowns.len == 0
+      zeroSubnetCfg.SUBNETS_PER_NODE == 0
+
+    expect PresetFileError:
+      discard readRuntimeConfig(
+        base &
+        "SUBNETS_PER_NODE: " &
+        $(ATTESTATION_SUBNET_COUNT + 1) & "\n",
+        "runtime-config-subnets-too-large")
+
+    expect PresetFileError:
+      discard readRuntimeConfig(
+        base &
+        "MAXIMUM_GOSSIP_CLOCK_DISPARITY: " &
+        $(high(uint64)) & "\n",
+        "runtime-config-gossip-disparity-too-large")

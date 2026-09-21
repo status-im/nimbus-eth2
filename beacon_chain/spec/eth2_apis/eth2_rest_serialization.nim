@@ -42,6 +42,7 @@ const
 
 type
   EncodeTypes* =
+    BuilderConfig |
     DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |
@@ -78,7 +79,9 @@ type
     fulu_mev.SignedBlindedBeaconBlock |
     BuilderPreferencesRequest |
     SignedBuilderRequestAuth |
-    gloas.SignedBeaconBlock
+    gloas.SignedBeaconBlock |
+    SignedExecutionPayloadEnvelope |
+    SignedExecutionPayloadEnvelopeContents
 
   EncodeArrays* =
     seq[phase0.Attestation] |
@@ -99,7 +102,8 @@ type
     seq[RestSyncCommitteeSelection]
 
   MevDecodeTypes* =
-    GetHeaderResponseFulu
+    GetHeaderResponseFulu |
+    GetExecutionPayloadBidResponseGloas
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -151,7 +155,9 @@ type
                     bellatrix.BeaconBlock | capella.BeaconBlock |
                     deneb.BlockContents | electra.BlockContents |
                     fulu.BlockContents | electra_mev.BlindedBeaconBlock |
-                    fulu_mev.BlindedBeaconBlock
+                    fulu_mev.BlindedBeaconBlock |
+                    gloas.BeaconBlock | heze.BeaconBlock |
+                    GloasProducedBlockContents | HezeProducedBlockContents
 
 func ethHeaders(
     consensusFork: ConsensusFork,
@@ -177,6 +183,27 @@ func ethHeaders(
     headers.add("access-control-expose-headers", static(
       "eth-consensus-version, eth-execution-payload-blinded, " &
       "eth-execution-payload-value, eth-consensus-block-value"))
+  headers
+
+func ethHeadersV4(
+    consensusFork: ConsensusFork,
+    executionValue: UInt256,
+    consensusValue: UInt256,
+    payloadIncluded: bool,
+    builderUrl: Opt[string],
+    hasRestAllowedOrigin: bool): HttpTable =
+  var headers = HttpTable.init [
+    ("eth-consensus-version", consensusFork.toString()),
+    ("eth-execution-payload-included", $payloadIncluded),
+    ("eth-execution-payload-value", toString(executionValue, 10)),
+    ("eth-consensus-block-value", toString(consensusValue, 10))]
+  builderUrl.isErrOr:
+    headers.add("eth-builder-url", value)
+  if hasRestAllowedOrigin:
+    headers.add("access-control-expose-headers", static(
+      "eth-consensus-version, eth-execution-payload-included, " &
+      "eth-execution-payload-value, eth-consensus-block-value, " &
+      "eth-builder-url"))
   headers
 
 func readStrictHexChar(c: char, radix: static[uint8]): Result[int8, cstring] =
@@ -599,6 +626,35 @@ proc sszResponse*(
   RestApiResponse.response(
     res, Http200, "application/octet-stream", headers = headers)
 
+# https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml
+proc produceBlockV4Response*(
+    _: typedesc[RestApiResponse],
+    response: ProduceBlockResponseV4,
+    consensusFork: ConsensusFork,
+    contentType: MediaType,
+    hasRestAllowedOrigin: bool): RestApiResponse =
+  let headers = ethHeadersV4(
+    consensusFork,
+    response.executionPayloadValue.get(0.u256),
+    response.consensusBlockValue.get(0.u256),
+    response.data.includePayload,
+    response.builderUrl,
+    hasRestAllowedOrigin)
+  if contentType == OctetStreamMediaType:
+    let res =
+      case response.data.includePayload
+      of true:
+        withForkyProducedBlockContents(response.data.contents):
+          SSZ.encode(forkyContents)
+      of false:
+        withBlck(response.data.blck):
+          SSZ.encode(forkyBlck)
+    RestApiResponse.response(
+      res, Http200, "application/octet-stream", headers = headers)
+  else:
+    let res = response.jsonPlainEncoded()
+    RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
@@ -941,6 +997,83 @@ proc decodeBytes*[T: ProduceBlockResponseV3](
   else:
     err("Unsupported Content-Type")
 
+proc decodeBytes*[T: ProduceBlockResponseV4](
+    t: typedesc[T],
+    value: openArray[byte],
+    contentType: Opt[ContentTypeData],
+    headerConsensusVersion: string,
+    headerPayloadIncluded: string,
+    headerPayloadValue: string,
+    headerConsensusValue: string,
+    headerBuilderUrl: string): RestResult[T] =
+  let
+    mediaType =
+      if contentType.isNone():
+        ApplicationJsonMediaType
+      else:
+        if isWildCard(contentType.get().mediaType):
+          return err("Incorrect Content-TYpe")
+        contentType.get().mediaType
+    builderUrl =
+      if len(headerBuilderUrl) == 0: Opt.none(string)
+      else: Opt.some(headerBuilderUrl)
+
+  if mediaType == ApplicationJsonMediaType:
+    try:
+      var res = RestJson.decode(value, T)
+      res.builderUrl = builderUrl
+      ok(res)
+    except SerializationError as exc:
+      debug "Failed to deserialize REST JSON data",
+            err = exc.formatMsg("<data>"), data = string.fromBytes(value)
+      err("Serialization error")
+  elif mediaType == OctetStreamMediaType:
+    let
+      fork = ConsensusFork.decodeString(headerConsensusVersion).valueOr:
+        return err("Invalid or Unsupported consensus version")
+      payloadIncluded =
+        case headerPayloadIncluded.toLowerAscii()
+        of "true": true
+        of "false": false
+        else:
+          return err("Incorrect `Eth-Execution-Payload-Included` header value")
+      executionValue =
+        try: Opt.some parse(headerPayloadValue, Uint256, 10)
+        except ValueError:
+          return err("Incorrect `Eth-Execution-Payload-Value` header value")
+      consensusValue =
+        if len(headerConsensusValue) == 0:
+          Opt.none(Uint256)
+        else:
+          try: Opt.some parse(headerConsensusValue, Uint256, 10)
+          except ValueError:
+            return err("Incorrect `Eth-Consensus-Block-Value` header value")
+    if fork < ConsensusFork.Gloas:
+      return err("produceBlockV4 supports only post-Gloas forks")
+
+    var data: ForkedProducedBlock
+    withConsensusFork(fork):
+      when consensusFork >= ConsensusFork.Gloas:
+        if payloadIncluded:
+          data = ForkedProducedBlock(
+            includePayload: true,
+            contents: ForkedProducedBlockContents.init(
+              ? readSszResBytes(consensusFork.ProducedBlockContents, value)))
+        else:
+          data = ForkedProducedBlock(
+            includePayload: false,
+            blck: ForkedBeaconBlock.init(
+              ? readSszResBytes(consensusFork.BeaconBlock, value)))
+      else:
+        return err("produceBlockV4 supports only post-Gloas forks")
+    ok(ProduceBlockResponseV4(
+      data: data,
+      consensusBlockValue: consensusValue,
+      executionPayloadValue: executionValue,
+      builderUrl: builderUrl))
+  else:
+    err("Unsupported Content-Type")
+
 proc decodeBytes*[T: DecodeTypes](
        t: typedesc[T],
        value: openArray[byte],
@@ -968,6 +1101,9 @@ proc decodeBytes*[T: DecodeTypes](
 
 func encodeString*(value: string): RestResult[string] =
   ok(value)
+
+func encodeString*(value: bool): RestResult[string] =
+  ok($value)
 
 func encodeString*(
     value:

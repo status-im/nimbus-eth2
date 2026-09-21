@@ -938,9 +938,13 @@ AllTests-mainnet
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
++ BuilderConfig round-trip                                                                   OK
 + DenebSignedBlockContents decoding                                                          OK
++ GloasProducedBlockContents round-trip                                                      OK
 + KzgCommitment                                                                              OK
 + KzgProof                                                                                   OK
++ ProduceBlockResponseV4 decodeBytes SSZ (block only)                                        OK
++ ProduceBlockResponseV4 decodeBytes rejects pre-Gloas                                       OK
 + RestErrorMessage parser tests                                                              OK
 + RestErrorMessage writer tests                                                              OK
 + VCRuntimeConfig getSpec BLOB_SCHEDULE and GAS_LIMIT_SCHEDULE arrays                        OK
@@ -987,6 +991,11 @@ AllTests-mainnet
 + validateBlocks(SyncRange, SyncResponseItem, FuluColumnSidecarResponseRecord) [supernode] t OK
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [node] test  OK
 + validateBlocks(SyncRange, SyncResponseItem, GloasColumnSidecarResponseRecord) [supernode]  OK
+```
+## Runtime network configuration
+```diff
++ custom networking values                                                                   OK
++ networking guardrails reject invalid values                                                OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
@@ -1348,6 +1357,7 @@ AllTests-mainnet
 + should register sync committee duties                                                      OK
 + should subscribe to all subnets when flag is enabled                                       OK
 + should track PTC duties in slot bitmaps                                                    OK
++ should use runtime stability subnet parameters                                             OK
 ```
 ## toPeerAddr port handling
 ```diff

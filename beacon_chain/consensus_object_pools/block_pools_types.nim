@@ -352,7 +352,6 @@ type
 
   BlockData* = object
     blck*: ForkedSignedBeaconBlock
-    blob*: Opt[BlobSidecars]
 
   OnBlockAdded*[consensusFork: static ConsensusFork] = proc(
     blckRef: BlockRef, blck: consensusFork.TrustedSignedBeaconBlock,
