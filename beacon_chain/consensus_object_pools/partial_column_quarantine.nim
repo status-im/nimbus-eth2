@@ -54,7 +54,6 @@ type
     entries*: LruCache[PartialColumnKey, PartialColumnEntryRef]
     noCells: BitSeq
 
-
 func hash*(gid: PartialDataColumnGroupID): Hash =
   var h: Hash = 0
   h = h !& hash(uint64(gid.slot))
@@ -75,11 +74,10 @@ func `==`*(a, b: PartialColumnKey): bool =
 
 func init*(T: typedesc[PartialColumnEntryRef], numBlobs: int): T =
   ## A fresh entry sized for `numBlobs` blobs, with no cell received yet.
-  let entry = PartialColumnEntryRef()
-  entry.cellsReceived = BitSeq.init(numBlobs)
-  entry.cells = newSeq[KzgCell](numBlobs)
-  entry.proofs = newSeq[KzgProof](numBlobs)
-  entry
+  PartialColumnEntryRef(
+    cellsReceived: BitSeq.init(numBlobs),
+    cells: newSeq[KzgCell](numBlobs),
+    proofs: newSeq[KzgProof](numBlobs))
 
 func init*(T: typedesc[PartialColumnQuarantine]): T =
   T(
@@ -273,13 +271,12 @@ func assembleDataColumnSidecar*(
     return Opt.none(ref DataColumnSidecar)
 
   # The cells stay in quarantine until the block is pruned.
-  let sidecar = (ref DataColumnSidecar)()
-  sidecar.index = columnIndex
-  sidecar.column = entry.cells
-  sidecar.kzg_proofs = entry.proofs
-  sidecar.slot = groupId.slot
-  sidecar.beacon_block_root = groupId.beacon_block_root
-  Opt.some(sidecar)
+  Opt.some((ref DataColumnSidecar)(
+    index: columnIndex,
+    column: entry.cells,
+    kzg_proofs: entry.proofs,
+    slot: groupId.slot,
+    beacon_block_root: groupId.beacon_block_root))
 
 # --- Cleanup ---
 
