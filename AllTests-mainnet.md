@@ -992,7 +992,6 @@ AllTests-mainnet
 ## Runtime network configuration
 ```diff
 + custom networking values                                                                   OK
-+ defaults preserve compiled networking values                                               OK
 + networking guardrails reject invalid values                                                OK
 ```
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]

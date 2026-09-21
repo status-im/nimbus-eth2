@@ -72,19 +72,6 @@ suite "Configuration parsing":
       reject "3c1e98bf132530c669723f58aa3d395be0d0bfaa653152eecb04605e203bfeb500:-1000"
 
 suite "Runtime network configuration":
-  test "defaults preserve compiled networking values":
-    let (cfg, unknowns) = readRuntimeConfig(
-      "PRESET_BASE: " & const_preset & "\n",
-      "runtime-config-defaults")
-
-    check:
-      unknowns.len == 0
-      cfg.EPOCHS_PER_SUBNET_SUBSCRIPTION ==
-        EPOCHS_PER_SUBNET_SUBSCRIPTION
-      cfg.SUBNETS_PER_NODE == SUBNETS_PER_NODE
-      cfg.gossipClockDisparityDuration ==
-        MAXIMUM_GOSSIP_CLOCK_DISPARITY
-
   test "custom networking values":
     let
       base = "PRESET_BASE: " & const_preset & "\n"

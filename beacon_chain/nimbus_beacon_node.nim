@@ -593,10 +593,10 @@ proc initFullNode(
 
   let
     fuluColumnQuarantine = newClone(FuluColumnQuarantine.init(
-      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 12,
       onColumnSidecarAdded, onFuluColumnSidecarAdded))
     gloasColumnQuarantine = newClone(GloasColumnQuarantine.init(
-      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 10,
+      dag.cfg, validatorCustody.getMap(), dag.db.getQuarantineDB(), 12,
       onColumnSidecarAdded))
 
   validatorCustody.setQuarantine(fuluColumnQuarantine)

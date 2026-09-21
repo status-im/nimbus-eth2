@@ -352,6 +352,9 @@ suite "Honest validator":
       (128 + (MAX_MISSING_WINDOW + 1) * 2).Slot)
 
   test "Stability subnets":
+    const
+      EPOCHS_PER_SUBNET_SUBSCRIPTION = 256'u64
+      SUBNETS_PER_NODE = 2
     check:
       toSeq(compute_subscribed_subnets(
         default(UInt256), 0.Epoch,
