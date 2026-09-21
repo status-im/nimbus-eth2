@@ -536,6 +536,7 @@ proc publishExecutionPayloadEnvelope*(
   # Envelope carried with its blob data + Kzg proofs when `Eth-Blob-Data-Included` is `true`.
   client.publishExecutionPayloadEnvelope(
     contents,
+    restContentType = $OctetStreamMediaType,
     extraHeaders = @[
       ("eth-consensus-version", consensusFork.toString()),
       ("eth-blob-data-included", "true")])
