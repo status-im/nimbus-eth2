@@ -71,15 +71,16 @@ type
     DenebSignedBlockContents |
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
-    GloasSignedBlockContents |
-    HezeSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
     fulu_mev.SignedBlindedBeaconBlock |
     BuilderPreferencesRequest |
     SignedBuilderRequestAuth |
-    gloas.SignedBeaconBlock
+    gloas.SignedBeaconBlock |
+    heze.SignedBeaconBlock |
+    SignedExecutionPayloadEnvelope |
+    SignedExecutionPayloadEnvelopeContents
 
   EncodeArrays* =
     seq[phase0.Attestation] |

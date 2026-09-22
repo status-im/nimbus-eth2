@@ -154,6 +154,7 @@ suite "EF - Electra - SSZ consensus objects " & preset():
             checkSSZ(electra.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
             checkSSZ(electra.LightClientOptimisticUpdate, path, hash)
+          of "NewPayloadRequest": checkSSZ(ElectraNewPayloadRequest, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PendingConsolidation": checkSSZ(PendingConsolidation, path, hash)
           of "PendingDeposit": checkSSZ(PendingDeposit, path, hash)

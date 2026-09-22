@@ -23,8 +23,8 @@ type
     DenebSignedBlockContents |
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
-    GloasSignedBlockContents |
-    HezeSignedBlockContents
+    gloas.SignedBeaconBlock |
+    heze.SignedBeaconBlock
 
 proc getGenesis*(): RestResponse[GetGenesisResponse] {.
      rest, endpoint: "/eth/v1/beacon/genesis",
@@ -190,14 +190,14 @@ proc publishBlockV2(
 
 proc publishBlockV2(
     broadcast_validation: Option[BroadcastValidationType],
-    body: GloasSignedBlockContents
+    body: gloas.SignedBeaconBlock
 ): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blocks",
    meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
 
 proc publishBlockV2(
     broadcast_validation: Option[BroadcastValidationType],
-    body: HezeSignedBlockContents
+    body: heze.SignedBeaconBlock
 ): RestPlainResponse {.rest, endpoint: "/eth/v2/beacon/blocks",
    meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlockV2
@@ -216,10 +216,6 @@ proc publishBlockV2*(
       ConsensusFork.Electra.toString()
     elif blck is FuluSignedBlockContents:
       ConsensusFork.Fulu.toString()
-    elif blck is GloasSignedBlockContents:
-      ConsensusFork.Gloas.toString()
-    elif blck is HezeSignedBlockContents:
-      ConsensusFork.Heze.toString()
     else:
       typeof(blck).kind.toString()
   client.publishBlockV2(
@@ -451,16 +447,17 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
 
-proc getExecutionPayloadEnvelopePlain*(block_id: BlockIdent): RestPlainResponse {.
+proc getSignedExecutionPayloadEnvelopePlain*(
+       block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes/{block_id}",
      accept: preferSSZ,
      meth: MethodGet.}
   ## https://github.com/ethereum/beacon-APIs/blob/v5.0.0-alpha.2/apis/beacon/execution_payload/envelope_get.yaml
 
-proc getExecutionPayloadEnvelope*(
+proc getSignedExecutionPayloadEnvelope*(
     client: RestClientRef, block_id: BlockIdent):
     Future[Opt[SignedExecutionPayloadEnvelope]] {.async.} =
-  let resp = await client.getExecutionPayloadEnvelopePlain(block_id)
+  let resp = await client.getSignedExecutionPayloadEnvelopePlain(block_id)
   return
     case resp.status
     of 200:
@@ -485,7 +482,7 @@ proc getExecutionPayloadEnvelope*(
           raise newException(RestError, "Unsupported Content-Type")
     of 404:
       Opt.none(SignedExecutionPayloadEnvelope)
-    of 400, 500:
+    of 400, 406, 500:
       let error = decodeBytes(RestErrorMessage, resp.data,
                               resp.contentType).valueOr:
         let msg = "Incorrect response error format (" & $resp.status &
@@ -496,3 +493,46 @@ proc getExecutionPayloadEnvelope*(
         msg: msg, status: error.code, message: error.message)
     else:
       raiseRestResponseError(resp)
+
+proc publishExecutionPayloadEnvelope(
+       body: SignedExecutionPayloadEnvelope
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
+
+proc publishExecutionPayloadEnvelope*(
+    client: RestClientRef,
+    envelope: SignedExecutionPayloadEnvelope,
+    consensusFork: ConsensusFork
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  # Envelope only when `Eth-Blob-Data-Included` is `false`.
+  client.publishExecutionPayloadEnvelope(
+    envelope,
+    extraHeaders = @[
+      ("eth-consensus-version", consensusFork.toString()),
+      ("eth-blob-data-included", "false")])
+
+proc publishExecutionPayloadEnvelope(
+       body: SignedExecutionPayloadEnvelopeContents
+     ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/execution_payload_envelopes",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishExecutionPayloadEnvelope
+
+proc publishExecutionPayloadEnvelope*(
+    client: RestClientRef,
+    contents: SignedExecutionPayloadEnvelopeContents,
+    consensusFork: ConsensusFork
+): Future[RestPlainResponse] {.
+   async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
+                    RestCommunicationError], raw: true).} =
+  # Envelope carried with its blob data + Kzg proofs when `Eth-Blob-Data-Included` is `true`.
+  client.publishExecutionPayloadEnvelope(
+    contents,
+    restContentType = $OctetStreamMediaType,
+    extraHeaders = @[
+      ("eth-consensus-version", consensusFork.toString()),
+      ("eth-blob-data-included", "true")])

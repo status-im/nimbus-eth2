@@ -171,7 +171,7 @@ template epochProcessingSuite(consensusFork: static ConsensusFork): untyped =
         "Pending deposits churn"):
       process_pending_deposits(cfg, state, cache)
 
-  when consensusFork == ConsensusFork.Gloas:
+  when consensusFork >= ConsensusFork.Gloas:
     const PtcWindowDir = RootDir/"ptc_window"
 
     runSuite(consensusFork, PtcWindowDir, "PTC window"):
@@ -200,7 +200,7 @@ template epochProcessingSuite(consensusFork: static ConsensusFork): untyped =
     when consensusFork >= ConsensusFork.Gloas:
       s.add(BuilderPendingPaymentsDir)
       s.add(PendingDepositsChurnDir)
-    when consensusFork == ConsensusFork.Gloas:
+    when consensusFork >= ConsensusFork.Gloas:
       s.add(PtcWindowDir)
     s
 

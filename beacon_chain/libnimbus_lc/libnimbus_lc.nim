@@ -18,8 +18,7 @@ import
   secp256k1,
   web3/[engine_api_types, eth_api_types, conversions],
   ../el/engine_api_conversions,
-  ../spec/eth2_apis/[
-    eth2_rest_serialization, rest_light_client_calls, rest_types],
+  ../spec/eth2_apis/[eth2_rest_serialization, rest_light_client_calls],
   ../spec/[helpers, light_client_sync],
   ../sync/light_client_sync_helpers,
   ../beacon_clock

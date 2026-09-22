@@ -76,9 +76,9 @@ proc produceAttestationDataPlain*(
 proc producePayloadAttestationDataPlain*(
        slot: Slot
      ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/validator/payload_attestation_data/{slot}",
+     rest, endpoint: "/eth/v1/validator/payload_attestation_data",
      meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/producePayloadAttestationData
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/producePayloadAttestationData
 
 proc getAggregatedAttestationPlainV2*(
     attestation_data_root: Eth2Digest,
@@ -164,3 +164,12 @@ proc submitSyncCommitteeSelectionsPlain*(
      rest, endpoint: "/eth/v1/validator/sync_committee_selections",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/submitSyncCommitteeSelections
+
+proc getExecutionPayloadEnvelopePlain*(
+       slot: Slot,
+       beacon_block_root: Eth2Digest
+     ): RestPlainResponse {.
+     rest, endpoint:
+       "/eth/v1/validator/execution_payload_envelopes/{slot}/{beacon_block_root}",
+     accept: preferSSZ, meth: MethodGet.}
+  ## https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/execution_payload_envelope.yaml
