@@ -839,6 +839,7 @@ AllTests-mainnet
 + Different column indices are independent                                                   OK
 + Different group ids with same column index are independent                                 OK
 + Entries under different keys are distinct objects                                          OK
++ Entry LRU evicts oldest entry when full                                                    OK
 + Get entry for unknown key returns none                                                     OK
 + Group ID LRU evicts oldest entry when full                                                 OK
 + Group IDs with same root but different slots are distinct keys                             OK

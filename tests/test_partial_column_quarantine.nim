@@ -52,11 +52,10 @@ func genSidecar(
     bitmap[Natural(blobIdx)] = true
     cells.add(gen[KzgCell](startCellId + i))
     proofs.add(gen[KzgProof](startCellId + i))
-  let sidecar = new gloas.PartialDataColumnSidecar
-  sidecar.cells_present_bitmap = bitmap
-  sidecar.partial_column = cells
-  sidecar.kzg_proofs = proofs
-  sidecar
+  (ref gloas.PartialDataColumnSidecar)(
+    cells_present_bitmap: bitmap,
+    partial_column: cells,
+    kzg_proofs: proofs)
 
 suite "Partial Column Quarantine":
   test "Init creates empty quarantine":
@@ -132,6 +131,16 @@ suite "Partial Column Quarantine":
       quarantine.hasEntry(id, colIdx)
       quarantine.getEntry(id, colIdx).isSome()
       quarantine.getEntry(id, colIdx).get().cellsReceived.len == 4
+
+  test "Entry LRU evicts oldest entry when full":
+    var quarantine = PartialColumnQuarantine.init()
+    for i in 0 ..< MaxPartialEntries + 5:
+      quarantine.putEntry(
+        gid(i, i), ColumnIndex(0), PartialColumnEntryRef.init(1))
+    check:
+      quarantine.hasEntry(
+        gid(MaxPartialEntries + 4, MaxPartialEntries + 4), ColumnIndex(0))
+      not quarantine.hasEntry(gid(0, 0), ColumnIndex(0))
 
   test "Get entry for unknown key returns none":
     var quarantine = PartialColumnQuarantine.init()

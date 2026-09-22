@@ -26,7 +26,7 @@ export results
 const
   MaxPartialGroupIds* = 3 * int(SLOTS_PER_EPOCH)
     ## Maximum number of validated group IDs to cache.
-  MaxPartialEntries = 3 * int(SLOTS_PER_EPOCH) * NUMBER_OF_COLUMNS
+  MaxPartialEntries* = int(SLOTS_PER_EPOCH * NUMBER_OF_COLUMNS) div 4
     ## Maximum number of (group_id, column_index) entries to cache.
 
 type
