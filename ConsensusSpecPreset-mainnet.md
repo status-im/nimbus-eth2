@@ -549,6 +549,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
++   Testing    NewPayloadRequest                                                             OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -940,6 +941,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
++   Testing    NewPayloadRequest                                                             OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1354,6 +1356,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
++   Testing    NewPayloadRequest                                                             OK
 +   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
@@ -1874,6 +1877,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
++   Testing    NewPayloadRequest                                                             OK
 +   Testing    PendingConsolidation                                                          OK
 +   Testing    PendingDeposit                                                                OK
 +   Testing    PendingPartialWithdrawal                                                      OK
@@ -2379,6 +2383,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    NewPayloadRequest                                                             OK
 +   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnHeader                                                       OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
@@ -2741,6 +2746,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_inva OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_no_a OK
++ [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_pre_ OK
 + [Invalid] EF - Gloas - Operations - Payload Attestation - process_payload_attestation_too_ OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_part OK
 + [Valid]   EF - Gloas - Operations - Payload Attestation - process_payload_attestation_payl OK
@@ -2994,6 +3000,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    NewPayloadRequest                                                             OK
 +   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
@@ -3062,6 +3069,8 @@ ConsensusSpecPreset-mainnet
 + EF - Gloas - Transition - transition_with_attester_slashing_right_before_fork [Preset: mai OK
 + EF - Gloas - Transition - transition_with_btec_right_after_fork [Preset: mainnet]          OK
 + EF - Gloas - Transition - transition_with_btec_right_before_fork [Preset: mainnet]         OK
++ EF - Gloas - Transition - transition_with_consolidation_request_right_after_fork [Preset:  OK
++ EF - Gloas - Transition - transition_with_deposit_request_right_after_fork [Preset: mainne OK
 + EF - Gloas - Transition - transition_with_finality [Preset: mainnet]                       OK
 + EF - Gloas - Transition - transition_with_leaking_at_fork [Preset: mainnet]                OK
 + EF - Gloas - Transition - transition_with_leaking_pre_fork [Preset: mainnet]               OK
@@ -3597,6 +3606,7 @@ ConsensusSpecPreset-mainnet
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    MatrixEntry                                                                   OK
++   Testing    NewPayloadRequest                                                             OK
 +   Testing    PartialDataColumnGroupID                                                      OK
 +   Testing    PartialDataColumnPartsMetadata                                                OK
 +   Testing    PartialDataColumnSidecar                                                      OK
@@ -3666,6 +3676,8 @@ ConsensusSpecPreset-mainnet
 + EF - Heze - Transition - transition_with_attester_slashing_right_before_fork [Preset: main OK
 + EF - Heze - Transition - transition_with_btec_right_after_fork [Preset: mainnet]           OK
 + EF - Heze - Transition - transition_with_btec_right_before_fork [Preset: mainnet]          OK
++ EF - Heze - Transition - transition_with_consolidation_request_right_after_fork [Preset: m OK
++ EF - Heze - Transition - transition_with_deposit_request_right_after_fork [Preset: mainnet OK
 + EF - Heze - Transition - transition_with_finality [Preset: mainnet]                        OK
 + EF - Heze - Transition - transition_with_leaking_at_fork [Preset: mainnet]                 OK
 + EF - Heze - Transition - transition_with_leaking_pre_fork [Preset: mainnet]                OK
@@ -3994,6 +4006,7 @@ ConsensusSpecPreset-mainnet
 + fulu - gossip_beacon_block__reject_incorrect_execution_payload_timestamp                   OK
 + fulu - gossip_beacon_block__reject_invalid_proposer_index                                  OK
 + fulu - gossip_beacon_block__reject_invalid_proposer_signature                              OK
++ fulu - gossip_beacon_block__reject_next_epoch_blob_limit_at_epoch_end                      OK
   fulu - gossip_beacon_block__reject_parent_consensus_failed_execution_not_verified          Skip
 + fulu - gossip_beacon_block__reject_slot_not_higher_than_parent                             OK
 + fulu - gossip_beacon_block__reject_too_many_kzg_commitments                                OK
@@ -4003,6 +4016,7 @@ ConsensusSpecPreset-mainnet
 + fulu - gossip_beacon_block__valid_execution_enabled                                        OK
 + fulu - gossip_beacon_block__valid_parent_execution_verified_valid                          OK
 + fulu - gossip_beacon_block__valid_parent_optimistic                                        OK
++ fulu - gossip_beacon_block__valid_previous_epoch_blob_limit_plus_one_at_epoch_start        OK
 + fulu - gossip_beacon_block__valid_with_blob_kzg_commitments                                OK
 + fulu - gossip_beacon_block__valid_within_clock_disparity                                   OK
 + gloas - gossip_beacon_block__ignore_already_seen_proposer_slot                             OK
@@ -4016,6 +4030,7 @@ ConsensusSpecPreset-mainnet
   gloas - gossip_beacon_block__reject_finalized_checkpoint_not_ancestor                      Skip
 + gloas - gossip_beacon_block__reject_invalid_proposer_index                                 OK
 + gloas - gossip_beacon_block__reject_invalid_proposer_signature                             OK
++ gloas - gossip_beacon_block__reject_next_epoch_blob_limit_at_epoch_end                     OK
 + gloas - gossip_beacon_block__reject_parent_failed_validation                               OK
 + gloas - gossip_beacon_block__reject_slot_not_higher_than_parent                            OK
 + gloas - gossip_beacon_block__reject_too_many_attestations                                  OK
@@ -4047,6 +4062,7 @@ ConsensusSpecPreset-mainnet
 + gloas - gossip_beacon_block__valid_no_deposits                                             OK
 + gloas - gossip_beacon_block__valid_parent_empty                                            OK
 + gloas - gossip_beacon_block__valid_parent_full                                             OK
++ gloas - gossip_beacon_block__valid_previous_epoch_blob_limit_plus_one_at_epoch_start       OK
 + gloas - gossip_beacon_block__valid_with_blob_kzg_commitments                               OK
 + gloas - gossip_beacon_block__valid_within_clock_disparity                                  OK
 + heze - gossip_beacon_block__ignore_already_seen_proposer_slot                              OK
@@ -4060,6 +4076,7 @@ ConsensusSpecPreset-mainnet
   heze - gossip_beacon_block__reject_finalized_checkpoint_not_ancestor                       Skip
 + heze - gossip_beacon_block__reject_invalid_proposer_index                                  OK
 + heze - gossip_beacon_block__reject_invalid_proposer_signature                              OK
++ heze - gossip_beacon_block__reject_next_epoch_blob_limit_at_epoch_end                      OK
 + heze - gossip_beacon_block__reject_parent_failed_validation                                OK
 + heze - gossip_beacon_block__reject_slot_not_higher_than_parent                             OK
 + heze - gossip_beacon_block__reject_too_many_attestations                                   OK
@@ -4091,6 +4108,7 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_beacon_block__valid_no_deposits                                              OK
 + heze - gossip_beacon_block__valid_parent_empty                                             OK
 + heze - gossip_beacon_block__valid_parent_full                                              OK
++ heze - gossip_beacon_block__valid_previous_epoch_blob_limit_plus_one_at_epoch_start        OK
 + heze - gossip_beacon_block__valid_with_blob_kzg_commitments                                OK
 + heze - gossip_beacon_block__valid_within_clock_disparity                                   OK
 ```
@@ -4173,6 +4191,7 @@ ConsensusSpecPreset-mainnet
 + gloas - gossip_execution_payload_bid__valid_gas_limit_target_equals_parent                 OK
 + gloas - gossip_execution_payload_bid__valid_higher_value                                   OK
 + gloas - gossip_execution_payload_bid__valid_max_blobs                                      OK
++ gloas - gossip_execution_payload_bid__valid_on_head_parent_uses_parent_randao              OK
 + gloas - gossip_execution_payload_bid__valid_parent_exit_unknown_pubkey                     OK
 + gloas - gossip_execution_payload_bid__valid_parent_exit_wrong_source_address               OK
   gloas - gossip_execution_payload_bid__valid_requires_state_advanced_across_epoch           Skip
@@ -4233,6 +4252,7 @@ ConsensusSpecPreset-mainnet
 + gloas - gossip_payload_attestation_message__ignore_slot_outside_upper_disparity            OK
 + gloas - gossip_payload_attestation_message__reject_block_failed_validation                 OK
 + gloas - gossip_payload_attestation_message__reject_invalid_signature                       OK
++ gloas - gossip_payload_attestation_message__reject_pre_fork_slot                           OK
 + gloas - gossip_payload_attestation_message__reject_validator_index_out_of_range            OK
 + gloas - gossip_payload_attestation_message__reject_validator_not_in_ptc                    OK
 + gloas - gossip_payload_attestation_message__valid                                          OK
@@ -4254,9 +4274,9 @@ ConsensusSpecPreset-mainnet
 ```
 ## EF - Networking - Gossip - Proposer Preferences [Preset: mainnet]
 ```diff
-+ gloas - gossip_proposer_preferences__ignore_dependent_root_not_possible                    OK
-+ gloas - gossip_proposer_preferences__ignore_dependent_root_state_unavailable               OK
-+ gloas - gossip_proposer_preferences__ignore_dependent_root_unseen                          OK
++ gloas - gossip_proposer_preferences__ignore_dependent_block_not_possible                   OK
++ gloas - gossip_proposer_preferences__ignore_dependent_block_state_unavailable              OK
++ gloas - gossip_proposer_preferences__ignore_dependent_block_unseen                         OK
 + gloas - gossip_proposer_preferences__ignore_duplicate                                      OK
 + gloas - gossip_proposer_preferences__ignore_outside_lookahead_disparity                    OK
 + gloas - gossip_proposer_preferences__ignore_outside_slot_start_disparity                   OK
@@ -4264,7 +4284,7 @@ ConsensusSpecPreset-mainnet
 + gloas - gossip_proposer_preferences__ignore_slot_after_lookahead                           OK
 + gloas - gossip_proposer_preferences__ignore_slot_before_lookahead                          OK
 + gloas - gossip_proposer_preferences__ignore_slot_from_past_epoch                           OK
-+ gloas - gossip_proposer_preferences__reject_dependent_root_at_lookahead_epoch_start        OK
++ gloas - gossip_proposer_preferences__reject_dependent_block_at_lookahead_epoch_start       OK
 + gloas - gossip_proposer_preferences__reject_invalid_signature                              OK
 + gloas - gossip_proposer_preferences__reject_non_genesis_dependent_root_at_lookahead_epoch  OK
 + gloas - gossip_proposer_preferences__reject_non_genesis_dependent_root_in_genesis_epoch    OK
@@ -4275,20 +4295,21 @@ ConsensusSpecPreset-mainnet
 + gloas - gossip_proposer_preferences__valid_at_last_lookahead_slot                          OK
 + gloas - gossip_proposer_preferences__valid_at_lookahead_disparity_edge                     OK
 + gloas - gossip_proposer_preferences__valid_at_slot_start_disparity_edge                    OK
-+ gloas - gossip_proposer_preferences__valid_dependent_root_across_empty_epochs              OK
-+ gloas - gossip_proposer_preferences__valid_dependent_root_on_fork                          OK
++ gloas - gossip_proposer_preferences__valid_dependent_block_across_empty_epochs             OK
++ gloas - gossip_proposer_preferences__valid_dependent_block_is_head                         OK
++ gloas - gossip_proposer_preferences__valid_dependent_block_on_fork                         OK
 + gloas - gossip_proposer_preferences__valid_genesis_dependent_root_at_lookahead_epoch       OK
 + gloas - gossip_proposer_preferences__valid_genesis_dependent_root_in_genesis_epoch         OK
-+ heze - gossip_proposer_preferences__ignore_dependent_root_not_possible                     OK
-+ heze - gossip_proposer_preferences__ignore_dependent_root_state_unavailable                OK
-+ heze - gossip_proposer_preferences__ignore_dependent_root_unseen                           OK
++ heze - gossip_proposer_preferences__ignore_dependent_block_not_possible                    OK
++ heze - gossip_proposer_preferences__ignore_dependent_block_state_unavailable               OK
++ heze - gossip_proposer_preferences__ignore_dependent_block_unseen                          OK
 + heze - gossip_proposer_preferences__ignore_duplicate                                       OK
 + heze - gossip_proposer_preferences__ignore_outside_lookahead_disparity                     OK
 + heze - gossip_proposer_preferences__ignore_outside_slot_start_disparity                    OK
 + heze - gossip_proposer_preferences__ignore_slot_after_lookahead                            OK
 + heze - gossip_proposer_preferences__ignore_slot_before_lookahead                           OK
 + heze - gossip_proposer_preferences__ignore_slot_from_past_epoch                            OK
-+ heze - gossip_proposer_preferences__reject_dependent_root_at_lookahead_epoch_start         OK
++ heze - gossip_proposer_preferences__reject_dependent_block_at_lookahead_epoch_start        OK
 + heze - gossip_proposer_preferences__reject_invalid_signature                               OK
 + heze - gossip_proposer_preferences__reject_non_genesis_dependent_root_at_lookahead_epoch   OK
 + heze - gossip_proposer_preferences__reject_non_genesis_dependent_root_in_genesis_epoch     OK
@@ -4298,8 +4319,9 @@ ConsensusSpecPreset-mainnet
 + heze - gossip_proposer_preferences__valid_at_last_lookahead_slot                           OK
 + heze - gossip_proposer_preferences__valid_at_lookahead_disparity_edge                      OK
 + heze - gossip_proposer_preferences__valid_at_slot_start_disparity_edge                     OK
-+ heze - gossip_proposer_preferences__valid_dependent_root_across_empty_epochs               OK
-+ heze - gossip_proposer_preferences__valid_dependent_root_on_fork                           OK
++ heze - gossip_proposer_preferences__valid_dependent_block_across_empty_epochs              OK
++ heze - gossip_proposer_preferences__valid_dependent_block_is_head                          OK
++ heze - gossip_proposer_preferences__valid_dependent_block_on_fork                          OK
 + heze - gossip_proposer_preferences__valid_genesis_dependent_root_at_lookahead_epoch        OK
 + heze - gossip_proposer_preferences__valid_genesis_dependent_root_in_genesis_epoch          OK
 ```
@@ -6656,6 +6678,10 @@ ConsensusSpecPreset-mainnet
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
+## EF - heze - Epoch Processing - PTC window [Preset: mainnet]
+```diff
++ PTC window - process_ptc_window__shifts_all_epochs [Preset: mainnet]                       OK
+```
 ## EF - heze - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -7279,6 +7305,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_is_first_block  OK
 + ForkChoice - mainnet/fulu/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot_ OK
 + ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greate OK
++ ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_no OK
 + ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
 + ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
 + ForkChoice - mainnet/gloas/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK

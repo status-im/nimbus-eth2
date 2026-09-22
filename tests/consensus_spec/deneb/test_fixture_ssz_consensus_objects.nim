@@ -36,6 +36,14 @@ const
   SSZDir = SszTestsDir/const_preset/"deneb"/"ssz_static"
 
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/specs/deneb/beacon-chain.md#newpayloadrequest
+  NewPayloadRequest = object
+    execution_payload: deneb.ExecutionPayload
+    # [New in Deneb:EIP4844]
+    versioned_hashes: VersionedHashes
+    # [New in Deneb:EIP4788]
+    parent_beacon_block_root: Eth2Digest
+
   SSZHashTreeRoot = object
     # The test files have the values at the "root"
     # so we **must** use "root" as a field name
@@ -149,6 +157,7 @@ suite "EF - Deneb - SSZ consensus objects " & preset():
             checkSSZ(deneb.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
             checkSSZ(deneb.LightClientOptimisticUpdate, path, hash)
+          of "NewPayloadRequest": checkSSZ(NewPayloadRequest, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)

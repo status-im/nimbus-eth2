@@ -33,6 +33,10 @@ const
   SSZDir = SszTestsDir/const_preset/"capella"/"ssz_static"
 
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/specs/bellatrix/beacon-chain.md#newpayloadrequest
+  NewPayloadRequest = object
+    execution_payload: capella.ExecutionPayload
+
   SSZHashTreeRoot = object
     # The test files have the values at the "root"
     # so we **must** use "root" as a field name
@@ -144,6 +148,7 @@ suite "EF - Capella - SSZ consensus objects " & preset():
             checkSSZ(capella.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
             checkSSZ(capella.LightClientOptimisticUpdate, path, hash)
+          of "NewPayloadRequest": checkSSZ(NewPayloadRequest, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)

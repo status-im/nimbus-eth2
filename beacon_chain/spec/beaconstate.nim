@@ -2406,7 +2406,7 @@ iterator compute_ptc*(
 
 # {.closure.} prevents stack overflow from inline expansion.
 # See: https://github.com/nim-lang/Nim/issues/25287
-# https://github.com/ethereum/consensus-specs/blob/v1.7.0-alpha.12/specs/gloas/beacon-chain.md#new-get_ptc
+# https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/specs/gloas/beacon-chain.md#new-get_ptc
 iterator get_ptc*(state: gloas.BeaconState | heze.BeaconState, slot: Slot):
     ValidatorIndex {.closure.} =
   ## Get the payload timeliness committee for the given ``slot``
@@ -2414,6 +2414,10 @@ iterator get_ptc*(state: gloas.BeaconState | heze.BeaconState, slot: Slot):
     epoch = slot.epoch()
     state_epoch = get_current_epoch(state)
     slot_in_epoch = slot mod SLOTS_PER_EPOCH
+
+  when state is gloas.BeaconState:
+    if epoch < state.fork.epoch:
+      return
 
   if epoch < state_epoch and epoch + 1 != state_epoch:
     return
