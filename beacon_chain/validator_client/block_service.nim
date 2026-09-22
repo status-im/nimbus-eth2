@@ -142,10 +142,20 @@ proc publishBlockV3(
     when isBlinded:
       let
         blockRoot = hash_tree_root(forkyMaybeBlindedBlck)
+        blockSlot = forkyMaybeBlindedBlck.slot
+
+      if blockSlot != slot:
+        warn "Produced block data slot is not equal to proposer duty slot",
+          block_type = "blinded",
+          bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
+          blck = shortLog(maybeBlock),
+          execution_value = shortLog(maybeBlock.executionValue),
+          consensus_value = shortLog(maybeBlock.consensusValue)
+        return
 
       debug "Block produced",
             block_type = "blinded",
-            block_root = shortLog(blockRoot),
+            bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
             blck = shortLog(maybeBlock),
             execution_value = shortLog(maybeBlock.executionValue),
             consensus_value = shortLog(maybeBlock.consensusValue)
@@ -212,10 +222,24 @@ proc publishBlockV3(
           else:
             forkyMaybeBlindedBlck.`block`
         )
+        blockSlot =
+          when consensusFork < ConsensusFork.Deneb:
+            forkyMaybeBlindedBlck.slot
+          else:
+            forkyMaybeBlindedBlck.`block`.slot
+
+      if blockSlot != slot:
+        warn "Produced block data slot is not equal to proposer duty slot",
+          block_type = "non-blinded",
+          bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
+          blck = shortLog(maybeBlock),
+          execution_value = shortLog(maybeBlock.executionValue),
+          consensus_value = shortLog(maybeBlock.consensusValue)
+        return
 
       debug "Block produced",
             block_type = "non-blinded",
-            block_root = shortLog(blockRoot),
+            bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
             blck = shortLog(maybeBlock),
             execution_value = shortLog(maybeBlock.executionValue),
             consensus_value = shortLog(maybeBlock.consensusValue)
