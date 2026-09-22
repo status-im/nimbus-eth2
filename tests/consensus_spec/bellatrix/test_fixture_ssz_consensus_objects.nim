@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2025 Status Research & Development GmbH
+# Copyright (c) 2018-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -31,6 +31,10 @@ const
   SSZDir = SszTestsDir/const_preset/"bellatrix"/"ssz_static"
 
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.7.0-beta.1/specs/bellatrix/beacon-chain.md#newpayloadrequest
+  NewPayloadRequest = object
+    execution_payload: bellatrix.ExecutionPayload
+
   SSZHashTreeRoot = object
     # The test files have the values at the "root"
     # so we **must** use "root" as a field name
@@ -140,6 +144,7 @@ suite "EF - Bellatrix - SSZ consensus objects " & preset():
             checkSSZ(altair.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
             checkSSZ(altair.LightClientOptimisticUpdate, path, hash)
+          of "NewPayloadRequest": checkSSZ(NewPayloadRequest, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
