@@ -85,7 +85,7 @@ suite "REST encoding and decoding":
   test "BuilderConfig round-trip":
     let
       empty = default(gloas_mev.BuilderConfig)
-      entry = BuilderEntry(
+      entry = gloas_mev.BuilderEntry(
         url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(
           "https://builder.example".toBytes()),
         max_execution_payment: 500.Gwei,
@@ -94,7 +94,7 @@ suite "REST encoding and decoding":
       full = gloas_mev.BuilderConfig(
         min_bid: 100.Gwei,
         builder_boost_factor: 80'u64,
-        builders: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES].init(@[entry]))
+        builders: List[gloas_mev.BuilderEntry, Limit MAX_BUILDER_ENTRIES].init(@[entry]))
     check:
       empty == RestJson.decode(RestJson.encode(empty), gloas_mev.BuilderConfig)
       full == RestJson.decode(RestJson.encode(full), gloas_mev.BuilderConfig)
