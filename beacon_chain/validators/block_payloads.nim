@@ -904,7 +904,7 @@ proc getBuilderEntryBid(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
     proposalState: ref ForkedHashedBeaconState,
-    entry: BuilderEntryAtSlot,
+    entry: gloas_mev.BuilderEntry,
     slot: Slot,
     parent_block_hash: Eth2Digest,
     parent_block_root: Eth2Digest,
@@ -989,7 +989,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-    builderConfig: BuilderConfigAtSlot,
+    builderConfig: gloas_mev.BuilderConfig,
 ): Future[
     Result[
       tuple[

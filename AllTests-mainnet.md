@@ -939,7 +939,7 @@ AllTests-mainnet
 ## REST encoding and decoding
 ```diff
 + Blob                                                                                       OK
-+ BuilderConfigAtSlot round-trip                                                             OK
++ BuilderEntry round-trip                                                                    OK
 + DenebSignedBlockContents decoding                                                          OK
 + GloasProducedBlockContents round-trip                                                      OK
 + KzgCommitment                                                                              OK

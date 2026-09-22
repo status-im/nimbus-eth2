@@ -43,7 +43,7 @@ const
 type
   EncodeTypes* =
     BuilderConfig |
-    BuilderConfigAtSlot |
+    gloas_mev.BuilderConfig |
     DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |

@@ -1374,12 +1374,12 @@ type RawBuilderEntry = object
 RestJson.useDefaultSerializationFor(RawBuilderEntry)
 
 proc readValue*(
-    r: var RestJsonReader, value: var gloas_mev.BuilderEntryAtSlot) {.reader.} =
+    r: var RestJsonReader, value: var gloas_mev.BuilderEntry) {.reader.} =
   let v = r.readValue(RawBuilderEntry)
   # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/types/gloas/builder_entry.yaml#L29
   if v.url.len == 0 or v.url.len > int(MAX_BUILDER_URL_SIZE):
-    r.raiseUnexpectedValue("BuilderEntryAtSlot url length is invalid")
-  value = gloas_mev.BuilderEntryAtSlot(
+    r.raiseUnexpectedValue("BuilderEntry url length is invalid")
+  value = gloas_mev.BuilderEntry(
     url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(v.url.toBytes()),
     auth: v.auth,
     builder_pubkeys: v.builder_pubkeys,
@@ -1388,7 +1388,7 @@ proc readValue*(
     builder_boost_factor: v.builder_boost_factor)
 
 proc writeValue*(
-    w: var RestJsonWriter, value: gloas_mev.BuilderEntryAtSlot) {.writer.} =
+    w: var RestJsonWriter, value: gloas_mev.BuilderEntry) {.writer.} =
   w.writeObject:
     w.writeField("url", string.fromBytes(value.url.asSeq()))
     w.writeField("auth", value.auth)
@@ -1397,4 +1397,4 @@ proc writeValue*(
     w.writeField("min_bid", value.min_bid)
     w.writeField("builder_boost_factor", value.builder_boost_factor)
 
-RestJson.useDefaultSerializationFor(gloas_mev.BuilderConfigAtSlot)
+RestJson.useDefaultSerializationFor(gloas_mev.BuilderConfig)
