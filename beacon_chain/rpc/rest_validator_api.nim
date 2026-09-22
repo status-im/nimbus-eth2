@@ -1239,9 +1239,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     RestApiResponse.response(Http200)
 
-  # https://github.com/ethereum/beacon-APIs/blob/31140d7d11fa0bf9aa0017c67c54ab5b1809bede/apis/validator/proposer_preferences.yaml
+  # https://github.com/ethereum/beacon-APIs/blob/08b8c64e757395ab77273999a5598bb6ee81a926/apis/validator/proposer_preferences.yaml
   router.api2(MethodPost,
-              "/eth/v1/validator/submit_proposer_preferences") do (
+              "/eth/v1/validator/proposer_preferences") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     if contentBody.isNone():
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
