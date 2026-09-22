@@ -147,6 +147,7 @@ proc publishBlockV3(
       if blockSlot != slot:
         warn "Produced block data slot is not equal to proposer duty slot",
           block_type = "blinded",
+          duty_slot = slot,
           bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
           blck = shortLog(maybeBlock),
           execution_value = shortLog(maybeBlock.executionValue),
@@ -231,6 +232,7 @@ proc publishBlockV3(
       if blockSlot != slot:
         warn "Produced block data slot is not equal to proposer duty slot",
           block_type = "non-blinded",
+          duty_slot = slot,
           bid = shortLog(BlockId(slot: blockSlot, root: blockRoot)),
           blck = shortLog(maybeBlock),
           execution_value = shortLog(maybeBlock.executionValue),
