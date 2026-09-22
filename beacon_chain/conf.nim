@@ -102,11 +102,6 @@ type
     Archive = "archive"
     Prune = "prune"
 
-  IncludePayloadMode* {.pure.} = enum
-    Auto = "auto"
-    True = "true"
-    False = "false"
-
   SlashProtCmd* {.pure.} = enum
     `import` = "Import a EIP-3076 slashing protection interchange file"
     `export` = "Export a EIP-3076 slashing protection interchange file"
@@ -1088,14 +1083,7 @@ type
 
     payloadBuilderUrl* {.
       desc: "Payload builder URL"
-      defaultValue: ""
-      name: "payload-builder-url" .}: string
-
-    includePayload* {.
-      desc: "Whether to request the Gloas execution payload envelope inline"
-      defaultValue: IncludePayloadMode.Auto
-      defaultValueDesc: "auto"
-      name: "include-payload" .}: IncludePayloadMode
+      name: "payload-builder-url" .}: Option[string]
 
     distributedEnabled* {.
       desc: "Enable usage of Obol middleware (BETA)"

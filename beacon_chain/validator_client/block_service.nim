@@ -299,7 +299,7 @@ proc buildBuilderConfig(
 
   # If no builder is configured, we return a BuilderConfig with no builder entries.
   # The builder_boost_factor still applies to p2p bids, so they can still compete.
-  if not vc.config.payloadBuilderEnable or vc.config.payloadBuilderUrl.len == 0:
+  if not vc.config.payloadBuilderEnable or vc.config.payloadBuilderUrl.isNone:
     return noConfiguredBuilder()
 
   let
@@ -316,7 +316,7 @@ proc buildBuilderConfig(
   var builders: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
   if not builders.add(BuilderEntry(
       url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(
-        vc.config.payloadBuilderUrl.toBytes()),
+        vc.config.payloadBuilderUrl.get().toBytes()),
       auth: SignedBuilderRequestAuth(message: requestAuth, signature: signature),
       builder_pubkeys: default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
       max_execution_payment: high(uint64).Gwei,
@@ -492,16 +492,10 @@ proc publishBlockV4(
     slot = slot
     wall_slot = currentSlot
 
-  # `auto` derives `include_payload` from node topology. A multi-node VC should
-  # carry the envelope itself so it can reveal on any node, while a single-node VC
-  # lets that node cache it. `true`/`false` override this. Defaulting to auto avoids
-  # silently orphaning payloads if a multi-node operator forgets to set it to `true`.
+  # Derive include_payload from node topology. A multi-node VC
+  # should carry the envelope itself so it can reveal on any node.
   # https://github.com/ethereum/beacon-APIs/blob/e76cf1c173be80101e130266cd08f9a108442a97/apis/validator/block.v4.yaml#L59-L72
-  let includePayload =
-    case vc.config.includePayload
-    of IncludePayloadMode.Auto:  vc.beaconNodes.len > 1
-    of IncludePayloadMode.True:  true
-    of IncludePayloadMode.False: false
+  let includePayload = vc.beaconNodes.len > 1
 
   let response =
     try:
