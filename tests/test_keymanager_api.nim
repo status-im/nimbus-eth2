@@ -2062,6 +2062,21 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           rest_keymanager_types.BuilderConfig(
             builders: Opt.some(BuilderEntryList.init(
               @[
+                rest_keymanager_types.BuilderEntry(
+                  url: "http://builder.com",
+                  auth_data: Opt.some(default(BuilderRequestAuthData)))
+              ])),
+          ),
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+        check:
+          res.status == 400
+
+      block:
+        let res = await client.setBuilderConfigPlain(
+          pubkey,
+          rest_keymanager_types.BuilderConfig(
+            builders: Opt.some(BuilderEntryList.init(
+              @[
                 rest_keymanager_types.BuilderEntry(url: "")
               ])),
           ),

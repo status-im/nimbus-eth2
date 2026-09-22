@@ -554,6 +554,8 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         let keyFields = builders.mapIt:
           if len(it.url) == 0 or len(it.url) > MAX_BUILDER_URL_SIZE:
             return keymanagerApiError(Http400, InvalidBuilderEntry)
+          if it.auth_data.isSome() and len(it.auth_data.unsafeGet()) == 0:
+            return keymanagerApiError(Http400, InvalidBuilderEntry)
 
           let auth =
             if it.auth_data.isSome():
