@@ -2016,13 +2016,13 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         await client.listGasLimit(publicKey, correctTokenValue)
       check secondResultFromApi == localGasLimit
 
-  suite "Builder config management " & testFlavour:
+  suite "Builder config management" & testFlavour:
     let pubkey = ValidatorPubKey.fromHex(newPublicKeys[0]).expect("valid key")
     const globalBuilderConfig = ResolvedBuilderConfig(
       min_bid: 0.Gwei,
       builder_boost_factor: 100.uint64)
 
-    asyncTest "Invalid builder config entries " & testFlavour:
+    asyncTest "Invalid builder config entries" & testFlavour:
       block:
         let res = await client.setBuilderConfigPlain(
           pubkey,
@@ -2069,7 +2069,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         check:
           res.status == 400
 
-    asyncTest "Configuring builder config " & testFlavour:
+    asyncTest "Configuring builder config" & testFlavour:
       block:
         let res = await client.setBuilderConfigPlain(
           pubkey,
