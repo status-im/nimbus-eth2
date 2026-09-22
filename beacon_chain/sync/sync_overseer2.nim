@@ -618,12 +618,14 @@ proc createQueues(
             if commitmentsLen > 0:
               (await overseer.blockProcessor.addPayload(
                 forkyBlck, item.signedEnvelope[],
-                Opt.none(gloas.DataColumnSidecars))).
+                Opt.none(gloas.DataColumnSidecars),
+                maybeFinalized = maybeFinalized)).
                 mapErr(toSyncVerifierError)
             else:
               (await overseer.blockProcessor.addPayload(
                 forkyBlck, item.signedEnvelope[],
-                Opt.some(default(gloas.DataColumnSidecars)))).
+                Opt.some(default(gloas.DataColumnSidecars)),
+                maybeFinalized = maybeFinalized)).
                 mapErr(toSyncVerifierError)
         else:
           raiseAssert "Unsupported fork"
@@ -740,7 +742,8 @@ proc createQueues(
             # Block does not have envelope and sidecars.
             return ok()
           return (await overseer.blockProcessor.addPayload(
-            forkyBlck, item.signedEnvelope[], cres)).mapErr(toSyncVerifierError)
+            forkyBlck, item.signedEnvelope[], cres,
+            maybeFinalized = maybeFinalized)).mapErr(toSyncVerifierError)
 
         let res = await overseer.blockProcessor.addBlock(
           MsgSource.sync, forkyBlck, noSidecars,
@@ -760,7 +763,8 @@ proc createQueues(
 
         let pres =
           await overseer.blockProcessor.addPayload(
-            forkyBlck, item.signedEnvelope[], cres)
+            forkyBlck, item.signedEnvelope[], cres,
+            maybeFinalized = maybeFinalized)
 
         if pres.isOk():
           debug "Execution payload envelope verification response",
@@ -2006,7 +2010,8 @@ proc doGloasEnvelopeVerification(
         Opt.none(gloas.DataColumnSidecars)
     res =
       (await overseer.blockProcessor.addPayload(
-        signedBlock, signedEnvelope, sidecars)).mapErr(toSyncVerifierError)
+        signedBlock, signedEnvelope, sidecars,
+        maybeFinalized = false)).mapErr(toSyncVerifierError)
 
   if res.isOk() or (res.error == SyncVerifierError.Duplicate):
     peer.updateScore(PeerScoreGoodValues)
@@ -3857,7 +3862,7 @@ proc doLateBlockProcessing(
           let eres =
             (await overseer.blockProcessor.addPayload(
               gloasBlock, envelope.get(),
-              sidecars)).mapErr(toSyncVerifierError)
+              sidecars, maybeFinalized = false)).mapErr(toSyncVerifierError)
           if eres.isOk() or (eres.error == SyncVerifierError.Duplicate):
             debug "Late envelope and sidecars processor response",
               reason = "ok"
