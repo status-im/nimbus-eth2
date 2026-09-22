@@ -7,8 +7,6 @@
 
 {.push raises: [], gcsafe.}
 
-import chronos/timer
-
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64
@@ -71,7 +69,6 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/phase0/p2p-interface.md#configuration
   RESP_TIMEOUT* = 10'u64
-  MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   # https://github.com/ethereum/consensus-specs/blob/v1.5.0-beta.2/specs/phase0/p2p-interface.md#configuration
   MAX_PAYLOAD_SIZE* = 10'u64 * 1024 * 1024 # bytes
