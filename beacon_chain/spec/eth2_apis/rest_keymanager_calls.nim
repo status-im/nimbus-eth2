@@ -138,7 +138,7 @@ proc getBuilderConfigPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
   ## https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L1-L62
 
 proc setBuilderConfigPlain*(pubkey: ValidatorPubKey,
-                            body: BuilderConfig): RestPlainResponse {.
+                            body: rest_keymanager_types.BuilderConfig): RestPlainResponse {.
      rest, endpoint: "/eth/v1/validator/{pubkey}/builder_config",
      meth: MethodPost.}
   ## https://github.com/ethereum/keymanager-APIs/blob/d1c9bb46914be4e80f0cd7d5a225695ba94d8751/apis/builder_config.yaml#L64-L119

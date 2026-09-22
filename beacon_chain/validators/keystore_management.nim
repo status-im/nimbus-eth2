@@ -990,7 +990,7 @@ proc getGloasBuilderConfig(
   let
     builderConfig =
       try:
-        Json.loadFile(builderConfigPath, gloas_mev.BuilderConfig)
+        Json.loadFile(builderConfigPath, rest_keymanager_types.BuilderConfig)
       except IOError as err:
         error "Failed to read gloas builder config",
           err = err.msg, path = builderConfigPath
@@ -1628,7 +1628,7 @@ proc setGraffiti*(host: KeymanagerHost,
 
 proc setGloasBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey,
-    builderConfig: gloas_mev.BuilderConfig):
+    builderConfig: rest_keymanager_types.BuilderConfig):
     Result[void, string] =
   let
     validatorKeystoreDir = host.validatorKeystoreDir(pubkey)

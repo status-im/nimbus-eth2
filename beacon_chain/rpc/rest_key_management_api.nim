@@ -541,7 +541,8 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       builderConfig = block:
         if contentBody.isNone():
           return keymanagerApiError(Http400, InvalidBuilderConfig)
-        let dres = decodeBody(BuilderConfig, contentBody.get())
+        let dres = decodeBody(
+          rest_keymanager_types.BuilderConfig, contentBody.get())
         if dres.isErr():
           return keymanagerApiError(Http400, InvalidBuilderConfig)
         dres.get()

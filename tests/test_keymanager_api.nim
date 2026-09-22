@@ -2028,7 +2028,8 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         let res = await client.setBuilderConfigPlain(
           pubkey,
           BuilderConfig(
-            builders: Opt.some(@[BuilderEntry(url: "http://01.builder.com")]),
+            builders: Opt.some(BuilderEntryList.init(
+              @[BuilderEntry(url: "http://01.builder.com")])),
           ),
           extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
         check:
@@ -2045,12 +2046,12 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           decoded.data == ResolvedBuilderConfig(
             min_bid: globalBuilderConfig.min_bid,
             builder_boost_factor: globalBuilderConfig.builder_boost_factor,
-            builders: @[ResolvedBuilderEntry(
+            builders: ResolvedBuilderEntryList.init(@[ResolvedBuilderEntry(
               url: "http://01.builder.com",
               auth_data: BuilderRequestAuthData.init(toBytes("http://01.builder.com")),
               min_bid: globalBuilderConfig.min_bid,
               builder_boost_factor: globalBuilderConfig.builder_boost_factor,
-            )]
+            )])
           )
 
       block:
