@@ -768,13 +768,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       consensusFork = node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
 
       envelope =
-        if node.producedPayloadContents.isSome and
-           node.producedPayloadContents.get.signed_execution_payload_envelope
-             .message.beacon_block_root == qroot:
-          node.producedPayloadContents.get.signed_execution_payload_envelope
-            .message
-        else:
-          return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
+        block:
+          if node.producedPayloadContents.isSome and
+             node.producedPayloadContents.get.signed_execution_payload_envelope
+               .message.beacon_block_root == qroot:
+            node.producedPayloadContents.get.signed_execution_payload_envelope
+              .message
+          else:
+            return RestApiResponse.jsonError(Http404, EnvelopeNotFoundError)
 
     if contentType == sszMediaType:
       RestApiResponse.sszResponse(

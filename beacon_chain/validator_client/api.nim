@@ -2768,6 +2768,328 @@ proc produceBlockV3*(
     raise (ref ValidatorApiError)(
       msg: "Failed to produce block", data: failures)
 
+proc produceBlockV4*(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    randao_reveal: ValidatorSig,
+    graffiti: GraffitiBytes,
+    builderConfig: BuilderConfig,
+    includePayload: bool,
+    strategy: ApiStrategyKind
+): Future[ProduceBlockResponseV4] {.
+   async: (raises: [CancelledError, ValidatorApiError]).} =
+  const RequestName = "produceBlockV4"
+
+  let requestVersion =
+    vc.getConsensusFork(vc.forkAtEpoch(slot.epoch())).toString()
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.Best:
+    let res = vc.bestSuccess(
+      RestPlainResponse,
+      ProduceBlockResponseV4,
+      UInt256,
+      vc.BlockProposalDurationSoft,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
+      produceBlockV4Plain(it, slot, builderConfig, randao_reveal, graffiti,
+                          includePayload,
+                          extraHeaders = @[("eth-consensus-version", requestVersion)]),
+      getProduceBlockResponseV4Score(itresponse)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceBlockResponseV4].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let
+            version = response.headers.getString("eth-consensus-version")
+            payloadIncluded =
+              response.headers.getString("eth-execution-payload-included")
+            executionValue =
+              response.headers.getString("eth-execution-payload-value")
+            consensusValue =
+              response.headers.getString("eth-consensus-block-value")
+            builderUrl = response.headers.getString("eth-builder-url")
+            res = decodeBytes(ProduceBlockResponseV4, response.data,
+                              response.contentType, version, payloadIncluded,
+                              executionValue, consensusValue, builderUrl)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceBlockResponseV4].err($res.error)
+          else:
+            ApiResponse[ProduceBlockResponseV4].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseNoSyncError)
+        of 406, 415:
+          handle415()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseContentTypeError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseUnexpectedError)
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.First:
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse,
+      ProduceBlockResponseV4,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
+      produceBlockV4Plain(it, slot, builderConfig, randao_reveal, graffiti,
+                          includePayload,
+                          extraHeaders = @[("eth-consensus-version", requestVersion)])):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[ProduceBlockResponseV4].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let
+            version = response.headers.getString("eth-consensus-version")
+            payloadIncluded =
+              response.headers.getString("eth-execution-payload-included")
+            executionValue =
+              response.headers.getString("eth-execution-payload-value")
+            consensusValue =
+              response.headers.getString("eth-consensus-block-value")
+            builderUrl = response.headers.getString("eth-builder-url")
+            res = decodeBytes(ProduceBlockResponseV4, response.data,
+                              response.contentType, version, payloadIncluded,
+                              executionValue, consensusValue, builderUrl)
+          if res.isErr():
+            handleUnexpectedData()
+            ApiResponse[ProduceBlockResponseV4].err($res.error)
+          else:
+            ApiResponse[ProduceBlockResponseV4].ok(res.get())
+        of 400:
+          handle400()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseNoSyncError)
+        of 406, 415:
+          handle415()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseContentTypeError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[ProduceBlockResponseV4].err(ResponseUnexpectedError)
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestPlainResponse,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
+      produceBlockV4Plain(it, slot, builderConfig, randao_reveal, graffiti,
+                          includePayload,
+                          extraHeaders = @[("eth-consensus-version", requestVersion)])):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          let
+            version = response.headers.getString("eth-consensus-version")
+            payloadIncluded =
+              response.headers.getString("eth-execution-payload-included")
+            executionValue =
+              response.headers.getString("eth-execution-payload-value")
+            consensusValue =
+              response.headers.getString("eth-consensus-block-value")
+            builderUrl = response.headers.getString("eth-builder-url")
+            res = decodeBytes(ProduceBlockResponseV4, response.data,
+                              response.contentType, version, payloadIncluded,
+                              executionValue, consensusValue, builderUrl)
+          if res.isOk(): return res.get()
+          handleUnexpectedData()
+          false
+        of 400:
+          handle400()
+          false
+        of 500:
+          handle500()
+          false
+        of 503:
+          handle503()
+          false
+        of 406, 415:
+          handle415()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to produce V4 block", data: failures)
+
+proc getExecutionPayloadEnvelope*(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    beacon_block_root: Eth2Digest
+): Future[Opt[ExecutionPayloadEnvelope]] {.
+   async: (raises: [CancelledError, ValidatorApiError]).} =
+  const RequestName = "getExecutionPayloadEnvelope"
+
+  let strategy = ApiStrategyKind.Priority
+
+  var failures: seq[ApiNodeFailure]
+
+  vc.firstSuccessSequential(
+    RestPlainResponse,
+    vc.SlotDuration,
+    ViableNodeStatus,
+    {BeaconNodeRole.BlockProposalData},
+    getExecutionPayloadEnvelopePlain(it, slot, beacon_block_root)):
+    if apiResponse.isErr():
+      handleCommunicationError()
+      false
+    else:
+      let response = apiResponse.get()
+      case response.status:
+      of 200:
+        let res =
+          if response.contentType.isSome() and
+             response.contentType.get().mediaType == OctetStreamMediaType:
+            try:
+              Result[ExecutionPayloadEnvelope, string].ok(
+                SSZ.decode(response.data, ExecutionPayloadEnvelope))
+            except CatchableError as exc:
+              Result[ExecutionPayloadEnvelope, string].err(exc.msg)
+          else:
+            let jsonRes = decodeBytes(
+              DataVersionEnclosedObject[ExecutionPayloadEnvelope],
+              response.data, response.contentType)
+            if jsonRes.isOk():
+              Result[ExecutionPayloadEnvelope, string].ok(jsonRes.get().data)
+            else:
+              Result[ExecutionPayloadEnvelope, string].err($jsonRes.error)
+        if res.isOk():
+          return Opt.some(res.get())
+        handleUnexpectedData()
+        false
+      of 404:
+        return Opt.none(ExecutionPayloadEnvelope)
+      of 400:
+        handle400()
+        false
+      of 406:
+        handle415()
+        false
+      of 500:
+        handle500()
+        false
+      else:
+        handleUnexpectedCode()
+        false
+
+  raise (ref ValidatorApiError)(
+    msg: "Failed to get execution payload envelope", data: failures)
+
+proc publishExecutionPayloadEnvelope*(
+    vc: ValidatorClientRef,
+    payload: SignedExecutionPayloadEnvelope |
+             SignedExecutionPayloadEnvelopeContents,
+    consensusFork: ConsensusFork,
+    strategy: ApiStrategyKind
+): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
+  const
+    RequestName = "publishExecutionPayloadEnvelope"
+
+  var failures: seq[ApiNodeFailure]
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestPlainResponse,
+      bool,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalPublish},
+      publishExecutionPayloadEnvelope(it, payload, consensusFork)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        ApiResponse[bool].err(apiResponse.error)
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200, 202:
+          ApiResponse[bool].ok(true)
+        of 400:
+          handle400()
+          ApiResponse[bool].err(ResponseInvalidError)
+        of 500:
+          handle500()
+          ApiResponse[bool].err(ResponseInternalError)
+        of 503:
+          handle503()
+          ApiResponse[bool].err(ResponseNoSyncError)
+        of 415:
+          handle415()
+          ApiResponse[bool].err(ResponseContentTypeError)
+        else:
+          handleUnexpectedCode()
+          ApiResponse[bool].err(ResponseUnexpectedError)
+    if res.isErr():
+      raise (ref ValidatorApiError)(msg: res.error, data: failures)
+    return res.get()
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestPlainResponse,
+      vc.SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalPublish},
+      publishExecutionPayloadEnvelope(it, payload, consensusFork)):
+      if apiResponse.isErr():
+        handleCommunicationError()
+        false
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200, 202:
+          return true
+        of 400:
+          handle400()
+          false
+        of 500:
+          handle500()
+          false
+        of 503:
+          handle503()
+          false
+        of 415:
+          handle415()
+          false
+        else:
+          handleUnexpectedCode()
+          false
+
+    raise (ref ValidatorApiError)(
+      msg: "Failed to publish execution payload envelope", data: failures)
+
 proc publishBlockV2*(
     vc: ValidatorClientRef,
     data: RestPublishedSignedBlockContents,
