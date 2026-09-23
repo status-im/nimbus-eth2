@@ -424,7 +424,8 @@ proc runGossipProposerPreferences(
     consensusFork: static ConsensusFork) =
   gossipTest(
       suiteName, path, consensusFork, SignedProposerPreferences,
-      (var seenPrefs: SeenProposerPreferences),
+      ( dag.updateHead(headRef, quarantine[], []);
+        var seenPrefs: SeenProposerPreferences),
       dag.validateProposerPreferences(seenPrefs, message, wallTime)):
     check dag.validateProposerPreferences(
       seenPrefs, message, wallTime).error[0] == ValidationResult.Ignore

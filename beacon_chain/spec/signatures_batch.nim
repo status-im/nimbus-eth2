@@ -17,13 +17,18 @@ import
   blscurve,
   stew/byteutils,
   results,
-  taskpools,
   bearssl/rand,
   # Internal
   ./[helpers, beaconstate, forks, signatures],
   ./datatypes/[altair, bellatrix, phase0]
 
-export results, rand, altair, phase0, taskpools, signatures
+export results, rand, altair, phase0, signatures
+
+const hasThreadSupport = compileOption("threads")
+
+when hasThreadSupport:
+  import taskpools
+  export taskpools
 
 type
   BatchVerifier* = object
@@ -31,25 +36,34 @@ type
       ## A cache for batch BLS signature verification contexts
     rng*: ref HmacDrbgContext
       ## A reference to the Nimbus application-wide RNG
-    taskpool*: Taskpool
+    when hasThreadSupport:
+      taskpool*: Taskpool
 
-proc init*(
-    T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: Taskpool): BatchVerifier =
-  BatchVerifier(
-    sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
-    rng: rng,
-    taskpool: taskpool,
-  )
+when hasThreadSupport:
+  proc init*(
+      T: type BatchVerifier, rng: ref HmacDrbgContext, taskpool: Taskpool
+  ): BatchVerifier =
+    BatchVerifier(
+      sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
+      rng: rng,
+      taskpool: taskpool,
+    )
 
-proc new*(
-    T: type BatchVerifier, rng: ref HmacDrbgContext,
-    taskpool: Taskpool): ref BatchVerifier =
-  (ref BatchVerifier)(
-    sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
-    rng: rng,
-    taskpool: taskpool,
-  )
+  proc new*(
+      T: type BatchVerifier, rng: ref HmacDrbgContext, taskpool: Taskpool
+  ): ref BatchVerifier =
+    (ref BatchVerifier)(
+      sigVerifCache: BatchedBLSVerifierCache.init(taskpool),
+      rng: rng,
+      taskpool: taskpool,
+    )
+
+else:
+  proc init*(T: type BatchVerifier, rng: ref HmacDrbgContext): BatchVerifier =
+    BatchVerifier(sigVerifCache: BatchedBLSVerifierCache.init(), rng: rng)
+
+  proc new*(T: type BatchVerifier, rng: ref HmacDrbgContext): ref BatchVerifier =
+    (ref BatchVerifier)(sigVerifCache: BatchedBLSVerifierCache.init(), rng: rng)
 
 func `$`*(s: SignatureSet): string =
   "(pubkey: 0x" & s.pubkey.toHex() &
@@ -501,4 +515,7 @@ proc collectSignatureSets*(
 proc batchVerify*(verifier: var BatchVerifier, sigs: openArray[SignatureSet]): bool =
   let bytes = verifier.rng[].generate(array[32, byte])
 
-  verifier.taskpool.batchVerify(verifier.sigVerifCache, sigs, bytes)
+  when hasThreadSupport:
+    verifier.taskpool.batchVerify(verifier.sigVerifCache, sigs, bytes)
+  else:
+    verifier.sigVerifCache.batchVerifySerial(sigs, bytes)
