@@ -1025,14 +1025,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let builderUrl = request.headers.getString("eth-builder-url")
             if builderUrl.len > 0:
               let builderClient = getBuilderClientForUrl(builderUrl)
-              if builderClient.isOk:
+              if builderClient.isErr:
+                warn "Unable to reach winning builder; not forwarding block",
+                      builderUrl, reason = builderClient.error
+              else:
                 try:
                   discard await builderClient.get.submitSignedBeaconBlock(
                     forkyBlck)
                 except CancelledError as exc:
                   raise exc
-                except CatchableError:
-                  discard
+                except CatchableError as exc:
+                  warn "Failed to forward signed block to winning builder",
+                       builderUrl, reason = exc.msg
             routed
           elif consensusFork == ConsensusFork.Fulu:
             if blobs.len !=
