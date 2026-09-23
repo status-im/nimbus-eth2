@@ -510,7 +510,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
               pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
-      return keymanagerApiError(Http403, InvalidAuthorizationError)
+      return authErrorResponse(authStatus.error)
 
     let pubkey = pubkey.valueOr:
       return keymanagerApiError(Http400, InvalidValidatorPublicKey)
@@ -533,7 +533,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
               contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
-      return keymanagerApiError(Http403, InvalidAuthorizationError)
+      return authErrorResponse(authStatus.error)
 
     let
       pubkey = pubkey.valueOr:
@@ -578,7 +578,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
               pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
-      return keymanagerApiError(Http403, InvalidAuthorizationError)
+      return authErrorResponse(authStatus.error)
 
     let pubkey = pubkey.valueOr:
       return keymanagerApiError(Http400, InvalidValidatorPublicKey)
@@ -587,7 +587,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     if res.isOk:
       RestApiResponse.response(Http204)
     else:
-      keymanagerApiError(Http500, "Failed to remove builder config: " & res.error())
+      keymanagerApiError(Http403, "Failed to remove builder config: " & res.error())
 
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.
