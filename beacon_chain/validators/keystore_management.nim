@@ -1005,33 +1005,38 @@ proc getGloasBuilderConfig(
     resolvedBuilderBoostFactor =
       builderConfig.builder_boost_factor.valueOr:
         defaultBuilderConfig.builder_boost_factor
-    resolvedBuilderEntries =
-      if builderConfig.builders.isSome():
-        let builders = builderConfig.builders.get().mapIt:
-          var res: ResolvedBuilderEntry
-          res.url = it.url
-          res.auth_data =
-            it.auth_data.valueOr:
-              BuilderRequestAuthData.init(toBytes(it.url))
-          res.min_bid =
-            it.min_bid.valueOr:
-              resolvedMinBid
-          res.builder_boost_factor =
-            it.builder_boost_factor.valueOr:
-              resolvedBuilderBoostFactor
+    resolvedBuilderEntries = block:
+      let builders =
+        if builderConfig.builders.isSome():
+          builderConfig.builders.get().mapIt:
+            var res: ResolvedBuilderEntry
+            res.url = it.url
+            res.auth_data =
+              it.auth_data.valueOr:
+                BuilderRequestAuthData.init(toBytes(it.url))
+            res.min_bid =
+              it.min_bid.valueOr:
+                resolvedMinBid
+            res.builder_boost_factor =
+              it.builder_boost_factor.valueOr:
+                resolvedBuilderBoostFactor
 
-          debugGloasComment("pubkeys may allow to be empty; revisit")
-          if it.builder_pubkeys.isSome():
-            res.builder_pubkeys =
-              it.builder_pubkeys.get()
-          debugGloasComment("resolve max_execution_payment from global config")
-          res.max_execution_payment =
-            it.max_execution_payment.valueOr:
-              high(Gwei)
-          res
-        ResolvedBuilderEntryList.init(builders)
-      else:
-        defaultBuilderConfig.builders
+            debugGloasComment("pubkeys may allow to be empty; revisit")
+            if it.builder_pubkeys.isSome():
+              res.builder_pubkeys =
+                it.builder_pubkeys.get()
+            debugGloasComment("resolve max_execution_payment from global config")
+            res.max_execution_payment =
+              it.max_execution_payment.valueOr:
+                high(Gwei)
+            res
+        else:
+          defaultBuilderConfig.builders.mapIt:
+            var res = it
+            res.min_bid = resolvedMinBid
+            res.builder_boost_factor = resolvedBuilderBoostFactor
+            res
+      ResolvedBuilderEntryList.init(builders)
 
   ok(ResolvedBuilderConfig(
     min_bid: resolvedMinBid,
@@ -1735,6 +1740,7 @@ proc getGloasDefaultBuilderConfig(
       auth_data: BuilderRequestAuthData.init(toBytes(builderUrl.unsafeGet())),
       min_bid: 0.Gwei,
       builder_boost_factor: 100.uint64,
+      max_execution_payment: high(Gwei),
     ))
   res
 

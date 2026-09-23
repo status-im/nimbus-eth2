@@ -2112,6 +2112,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
               auth_data: BuilderRequestAuthData.init(toBytes("http://01.builder.com")),
               min_bid: globalBuilderConfig.min_bid,
               builder_boost_factor: globalBuilderConfig.builder_boost_factor,
+              max_execution_payment: high(Gwei),
             )])
           )
 
