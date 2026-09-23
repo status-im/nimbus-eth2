@@ -1029,14 +1029,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 warn "Unable to reach winning builder; not forwarding block",
                       builderUrl, reason = builderClient.error
               else:
-                try:
-                  discard await builderClient.get.submitSignedBeaconBlock(
-                    forkyBlck)
-                except CancelledError as exc:
-                  raise exc
-                except CatchableError as exc:
-                  warn "Failed to forward signed block to winning builder",
-                       builderUrl, reason = exc.msg
+                (await submitBlockToBuilder(
+                  builderClient.get, forkyBlck)).isOkOr:
+                  warn "Failed to forward block to winning builder",
+                       builderUrl, reason = error
             routed
           elif consensusFork == ConsensusFork.Fulu:
             if blobs.len !=

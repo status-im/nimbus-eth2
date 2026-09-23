@@ -2957,6 +2957,9 @@ proc getExecutionPayloadEnvelope*(
 
   var failures: seq[ApiNodeFailure]
 
+  # In practice only a single-BN self-build reaches here because a
+  # multi-node VC would carry the envelope inline from the produceBlockV4
+  # response, making just a sequential priority-order walk here sufficient.
   vc.firstSuccessSequential(
     RestPlainResponse,
     vc.SlotDuration,
