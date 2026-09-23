@@ -3094,7 +3094,8 @@ proc publishBlockV2*(
     vc: ValidatorClientRef,
     data: RestPublishedSignedBlockContents,
     broadcast_validation: BroadcastValidationType,
-    strategy: ApiStrategyKind
+    strategy: ApiStrategyKind,
+    builderUrl = Opt.none(string)
 ): Future[bool] {.async: (raises: [CancelledError, ValidatorApiError]).} =
   const
     RequestName = "publishBlockV2"
@@ -3126,9 +3127,11 @@ proc publishBlockV2*(
         of ConsensusFork.Fulu:
           publishBlockV2(it, some(broadcast_validation), data.fuluData)
         of ConsensusFork.Gloas:
-          publishBlockV2(it, some(broadcast_validation), data.gloasData)
+          publishBlockV2(it, some(broadcast_validation), data.gloasData,
+                         builderUrl)
         of ConsensusFork.Heze:
-          publishBlockV2(it, some(broadcast_validation), data.hezeData)
+          publishBlockV2(it, some(broadcast_validation), data.hezeData,
+                         builderUrl)
       do:
         if apiResponse.isErr():
           handleCommunicationError()

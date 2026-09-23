@@ -365,7 +365,8 @@ proc signAndPublishBlock(
     genesisRoot: Eth2Digest,
     vindex: ValidatorIndex,
     validator: AttachedValidator,
-    forkyBlck: ForkyBeaconBlock
+    forkyBlck: ForkyBeaconBlock,
+    builderUrl = Opt.none(string)
 ): Future[Opt[Eth2Digest]] {.async: (raises: [CancelledError]).} =
   const consensusFork = typeof(forkyBlck).kind
   static: doAssert consensusFork >= ConsensusFork.Gloas
@@ -400,12 +401,11 @@ proc signAndPublishBlock(
       blobs: default(deneb.Blobs)),
     blockRoot, signature)
 
-  debugGloasComment "Eth-Builder-Url should be echoed here"
   let accepted =
     try:
       await vc.publishBlockV2(
         signedBlockContents, BroadcastValidationType.Gossip,
-        vc.getMode()[FnKind.publishBlock])
+        vc.getMode()[FnKind.publishBlock], builderUrl)
     except ValidatorApiError as exc:
       warn "Unable to publish block", reason = exc.getFailureReason()
       return Opt.none(Eth2Digest)
@@ -545,7 +545,7 @@ proc publishBlockV4(
       when consensusFork >= ConsensusFork.Gloas:
         let blockRoot = (await vc.signAndPublishBlock(
           slot, fork, genesisRoot, vindex, validator,
-          forkyContents.`block`)).valueOr:
+          forkyContents.`block`, response.builderUrl)).valueOr:
           return
         await vc.revealPayloadEnvelopeContents(
           slot, blockRoot, fork, consensusFork,
@@ -557,7 +557,8 @@ proc publishBlockV4(
     withBlck(response.data.blck):
       when consensusFork >= ConsensusFork.Gloas:
         let blockRoot = (await vc.signAndPublishBlock(
-          slot, fork, genesisRoot, vindex, validator, forkyBlck)).valueOr:
+          slot, fork, genesisRoot, vindex, validator, forkyBlck,
+          response.builderUrl)).valueOr:
           return
         if forkyBlck.body.signed_execution_payload_bid.message.builder_index !=
            BUILDER_INDEX_SELF_BUILD:

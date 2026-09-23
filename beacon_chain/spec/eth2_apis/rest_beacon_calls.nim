@@ -205,7 +205,8 @@ proc publishBlockV2(
 proc publishBlockV2*(
     client: RestClientRef,
     broadcast_validation: Option[BroadcastValidationType],
-    blck: ForkySignedBlockContents
+    blck: ForkySignedBlockContents,
+    builderUrl = Opt.none(string)
 ): Future[RestPlainResponse] {.
    async: (raises: [CancelledError, RestEncodingError, RestDnsResolveError,
                     RestCommunicationError], raw: true).} =
@@ -218,10 +219,14 @@ proc publishBlockV2*(
       ConsensusFork.Fulu.toString()
     else:
       typeof(blck).kind.toString()
+
+  var headers = @[("eth-consensus-version", consensus)]
+  if builderUrl.isSome:
+    headers.add(("eth-builder-url", builderUrl.get()))
   client.publishBlockV2(
     broadcast_validation,
     blck,
-    extraHeaders = @[("eth-consensus-version", consensus)])
+    extraHeaders = headers)
 
 proc publishSszBlockV2*(
     client: RestClientRef,
