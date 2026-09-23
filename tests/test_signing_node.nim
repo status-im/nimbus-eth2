@@ -17,7 +17,7 @@ import
   ../beacon_chain/validators/validator_pool
 
 from std/os import getEnv, osErrorMsg
-from stew/byteutils import hexToByteArray
+from stew/byteutils import hexToByteArray, toBytes
 from ../beacon_chain/filepath import secureCreatePath, secureWriteFile
 
 const
@@ -801,10 +801,101 @@ block:
           GenesisValidatorsRoot, payloadData)
         sres3 = await validator3.getPayloadAttestationSignature(SigningFork,
           GenesisValidatorsRoot, payloadData)
+        rres1 = await validator4.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+        rres2 = await validator5.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+        rres3 = await validator6.getPayloadAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, payloadData)
+
       check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
+        sres1.get() == rres1.get()
+        sres2.get() == rres2.get()
+        sres3.get() == rres3.get()
+
+    asyncTest "Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())":
+      let
+        slot = Slot(10)
+        envelope = gloas.ExecutionPayloadEnvelope(
+          payload: gloas.ExecutionPayload(
+            fee_recipient: ExecutionAddress.fromHex(
+              SigningExpectedFeeRecipient),
+            slot_number: slot),
+          builder_index: 1'u64,
+          beacon_block_root: SomeOtherRoot,
+          parent_beacon_block_root: GenesisValidatorsRoot)
+
+        sres1 = await validator1.getExecutionPayloadEnvelopeSignature(
+          SigningFork, GenesisValidatorsRoot, slot, envelope)
+        sres2 = await validator2.getExecutionPayloadEnvelopeSignature(
+          SigningFork, GenesisValidatorsRoot, slot, envelope)
+        sres3 = await validator3.getExecutionPayloadEnvelopeSignature(
+          SigningFork, GenesisValidatorsRoot, slot, envelope)
+        rres1 = await validator4.getExecutionPayloadEnvelopeSignature(
+          SigningFork, GenesisValidatorsRoot, slot, envelope)
+        rres2 = await validator5.getExecutionPayloadEnvelopeSignature(
+          SigningFork, GenesisValidatorsRoot, slot, envelope)
+        rres3 = await validator6.getExecutionPayloadEnvelopeSignature(
+          SigningFork, GenesisValidatorsRoot, slot, envelope)
+
+      check:
+        sres1.get() == rres1.get()
+        sres2.get() == rres2.get()
+        sres3.get() == rres3.get()
+
+    asyncTest "Signing proposer preferences (getProposerPreferencesSignature())":
+      let
+        preferences = ProposerPreferences(
+          dependent_root: SomeOtherRoot,
+          proposal_slot: Slot(32),
+          validator_index: 100'u64,
+          fee_recipient: ExecutionAddress.fromHex(SigningExpectedFeeRecipient),
+          target_gas_limit: 60_000_000'u64)
+
+        sres1 = await validator1.getProposerPreferencesSignature(SigningFork,
+          GenesisValidatorsRoot, preferences)
+        sres2 = await validator2.getProposerPreferencesSignature(SigningFork,
+          GenesisValidatorsRoot, preferences)
+        sres3 = await validator3.getProposerPreferencesSignature(SigningFork,
+          GenesisValidatorsRoot, preferences)
+        rres1 = await validator4.getProposerPreferencesSignature(SigningFork,
+          GenesisValidatorsRoot, preferences)
+        rres2 = await validator5.getProposerPreferencesSignature(SigningFork,
+          GenesisValidatorsRoot, preferences)
+        rres3 = await validator6.getProposerPreferencesSignature(SigningFork,
+          GenesisValidatorsRoot, preferences)
+
+      check:
+        sres1.get() == rres1.get()
+        sres2.get() == rres2.get()
+        sres3.get() == rres3.get()
+
+    asyncTest "Signing builder request auth (getBuilderRequestAuthSignature())":
+      # mainnet version used by default in nimbus_signing_node
+      const genesis_fork_version = defaultRuntimeConfig.GENESIS_FORK_VERSION
+      let
+        requestAuth = BuilderRequestAuth(
+          data: BuilderRequestAuthData.init(
+            @(toBytes("https://builder.example.org"))),
+          slot: Slot(32))
+
+        sres1 = await validator1.getBuilderRequestAuthSignature(
+          genesis_fork_version, requestAuth)
+        sres2 = await validator2.getBuilderRequestAuthSignature(
+          genesis_fork_version, requestAuth)
+        sres3 = await validator3.getBuilderRequestAuthSignature(
+          genesis_fork_version, requestAuth)
+        rres1 = await validator4.getBuilderRequestAuthSignature(
+          genesis_fork_version, requestAuth)
+        rres2 = await validator5.getBuilderRequestAuthSignature(
+          genesis_fork_version, requestAuth)
+        rres3 = await validator6.getBuilderRequestAuthSignature(
+          genesis_fork_version, requestAuth)
+
+      check:
+        sres1.get() == rres1.get()
+        sres2.get() == rres2.get()
+        sres3.get() == rres3.get()
 
     asyncTest "Connection timeout test":
       let

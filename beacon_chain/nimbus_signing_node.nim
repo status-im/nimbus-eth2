@@ -354,6 +354,43 @@ proc installApiHandlers*(node: SigningNodeRef) =
             ),
             validator.data.privateKey).toHex()
         signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.ExecutionPayloadEnvelope:
+        # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L886-L891
+        # SSZ container signed by a builder, or by a proposer for self-builds, using
+        # DOMAIN_BEACON_BUILDER (0x0B000000) in Gloas when revealing the actual execution
+        # payload.
+        let
+          forkInfo = request.forkInfo.get()
+          msg = request.executionPayloadEnvelope
+        signatureResponse(Http200, get_execution_payload_envelope_signature(
+          forkInfo.fork, forkInfo.genesis_validators_root, msg.slot.epoch,
+          msg, validator.data.privateKey).toHex())
+      of Web3SignerRequestKind.PayloadAttestationMessage:
+        # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L1069-L1073
+        # The data component of a PayloadAttestationMessage, signed by a PTC
+        # validator using DOMAIN_PTC_ATTESTER (0x0C000000).
+        let forkInfo = request.forkInfo.get()
+        signatureResponse(Http200, get_payload_attestation_message_signature(
+          forkInfo.fork, forkInfo.genesis_validators_root,
+          request.payloadAttestationData,
+          validator.data.privateKey).toHex())
+      of Web3SignerRequestKind.ProposerPreferences:
+        # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L1089-L1094
+        # Container signed by a proposer using DOMAIN_PROPOSER_PREFERENCES
+        # (0x0D000000)
+        let forkInfo = request.forkInfo.get()
+        signatureResponse(Http200, get_proposer_preferences_signature(
+          forkInfo.fork, forkInfo.genesis_validators_root,
+          request.proposerPreferences,
+          validator.data.privateKey).toHex())
+      of Web3SignerRequestKind.BuilderRequestAuth:
+        # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L1111-L1119
+        # Signed with DOMAIN_BUILDER_REQUEST_AUTH (0x0B000001) computed from the genesis
+        # fork version and a zero genesis_validators_root (no fork_info required),
+        # not the proposer's current fork.
+        signatureResponse(Http200, get_builder_request_auth_signature(
+          node.genesis_fork_version, request.builderRequestAuth,
+          validator.data.privateKey).toHex())
 
 proc asyncInit(sn: SigningNodeRef) {.async: (raises: [SigningNodeError]).} =
   notice "Launching signing node", version = fullVersionStr,

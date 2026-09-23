@@ -822,7 +822,10 @@ AllTests-mainnet
 + Signing aggregate and proof (getAggregateAndProofSignature(electra))                       OK
 + Signing aggregation slot (getSlotSignature())                                              OK
 + Signing attestation (getAttestationSignature())                                            OK
++ Signing builder request auth (getBuilderRequestAuthSignature())                            OK
++ Signing execution payload envelope (getExecutionPayloadEnvelopeSignature())                OK
 + Signing payload attestation (getPayloadAttestationSignature())                             OK
++ Signing proposer preferences (getProposerPreferencesSignature())                           OK
 + Signing randao reveal (getEpochSignature())                                                OK
 + Signing validator registration (getBuilderSignature())                                     OK
 + Signing voluntary exit (getValidatorExitSignature())                                       OK
