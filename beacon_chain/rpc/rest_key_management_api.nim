@@ -548,7 +548,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         dres.get()
 
     if builderConfig.builders.isSome():
-      template builders(): auto = builderConfig.builders.unsafeGet()
+      template builders(): auto = builderConfig.builders.get()
 
       if len(builders) > MAX_BUILDER_ENTRIES:
         return keymanagerApiError(Http400, InvalidBuilderEntryMax)
@@ -557,7 +557,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         let keyFields = builders.mapIt:
           if len(it.url) == 0 or len(it.url) > MAX_BUILDER_URL_SIZE:
             return keymanagerApiError(Http400, InvalidBuilderEntry)
-          if it.auth_data.isSome() and len(it.auth_data.unsafeGet()) == 0:
+          if it.auth_data.isSome() and len(it.auth_data.get()) == 0:
             return keymanagerApiError(Http400, InvalidBuilderEntry)
 
           let auth =

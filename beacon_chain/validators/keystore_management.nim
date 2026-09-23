@@ -1022,9 +1022,8 @@ proc getGloasBuilderConfig(
                 resolvedBuilderBoostFactor
 
             debugGloasComment("pubkeys may allow to be empty; revisit")
-            if it.builder_pubkeys.isSome():
-              res.builder_pubkeys =
-                it.builder_pubkeys.get()
+            it.builder_pubkeys.isErrOr:
+              res.builder_pubkeys = value
             debugGloasComment("resolve max_execution_payment from global config")
             res.max_execution_payment =
               it.max_execution_payment.valueOr:
@@ -1734,10 +1733,10 @@ proc getGloasDefaultBuilderConfig(
     min_bid: 0.Gwei,
     builder_boost_factor: 100.uint64,
   )
-  if builderUrl.isSome():
+  builderUrl.isErrOr:
     discard res.builders.add(ResolvedBuilderEntry(
-      url: builderUrl.unsafeGet(),
-      auth_data: BuilderRequestAuthData.init(toBytes(builderUrl.unsafeGet())),
+      url: value,
+      auth_data: BuilderRequestAuthData.init(toBytes(value)),
       min_bid: 0.Gwei,
       builder_boost_factor: 100.uint64,
       max_execution_payment: high(Gwei),
