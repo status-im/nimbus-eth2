@@ -234,6 +234,7 @@ RestJson.useDefaultSerializationFor(
   Web3SignerStatusResponse,
   Web3SignerSyncCommitteeMessageData,
   Web3SignerValidatorRegistration,
+  Web3SignerVersioned,
   Withdrawal,
   WithdrawalRequest,
   altair.BeaconBlock,
@@ -739,6 +740,15 @@ proc readValue*[T: SomeForkedLightClientObject](
     else:
       r.raiseUnexpectedValue("Unsupported fork " & $v.version)
 
+# https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L425-L428
+proc writeWeb3SignerVersionedField(
+    w: var RestJsonWriter, name: string, fork: ConsensusFork, data: auto
+) {.raises: [IOError].} =
+  w.writeMember(name):
+    w.writeObject:
+      w.writeField("version", fork.toString.toUpperAscii)
+      w.writeField("data", data)
+
 proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
   w.writeObject:
     w.writeField("type", value.kind)
@@ -790,6 +800,25 @@ proc writeValue*(w: var RestJsonWriter, value: Web3SignerRequest) {.writer.} =
     of Web3SignerRequestKind.ValidatorRegistration:
       # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
       w.writeField("validator_registration", value.validatorRegistration)
+    of Web3SignerRequestKind.ExecutionPayloadEnvelope:
+      doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L410-L421
+      w.writeWeb3SignerVersionedField("execution_payload_envelope",
+        ConsensusFork.Gloas, value.executionPayloadEnvelope)
+    of Web3SignerRequestKind.PayloadAttestationMessage:
+      doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L448-L459
+      w.writeWeb3SignerVersionedField("payload_attestation_message",
+        ConsensusFork.Gloas, value.payloadAttestationData)
+    of Web3SignerRequestKind.ProposerPreferences:
+      doAssert(value.forkInfo.isSome(), "forkInfo should be set for " & $value.kind)
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L486-L497
+      w.writeWeb3SignerVersionedField("proposer_preferences",
+        ConsensusFork.Gloas, value.proposerPreferences)
+    of Web3SignerRequestKind.BuilderRequestAuth:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L526-L537
+      w.writeWeb3SignerVersionedField("builder_request_auth",
+        ConsensusFork.Gloas, value.builderRequestAuth)
 
 type RawWeb3SignerRequest = object
   `type`: Web3SignerRequestKind
@@ -809,6 +838,12 @@ type RawWeb3SignerRequest = object
   sync_aggregator_selection_data: Opt[SyncAggregatorSelectionData]
   contribution_and_proof: Opt[ContributionAndProof]
   validator_registration: Opt[Web3SignerValidatorRegistration]
+  execution_payload_envelope:
+    Opt[Web3SignerVersioned[gloas.ExecutionPayloadEnvelope]]
+  payload_attestation_message:
+    Opt[Web3SignerVersioned[gloas.PayloadAttestationData]]
+  proposer_preferences: Opt[Web3SignerVersioned[gloas.ProposerPreferences]]
+  builder_request_auth: Opt[Web3SignerVersioned[gloas_mev.BuilderRequestAuth]]
 
 RestJson.useDefaultSerializationFor RawWeb3SignerRequest
 proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} =
@@ -824,6 +859,14 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
 
     v.name.valueOr:
       r.raiseUnexpectedValue("Field `" & fieldName & "` is missing")
+
+  template expectedVersionedField(name: untyped, fork: ConsensusFork): untyped =
+    let versioned = expectedField(name)
+    if versioned.version != fork:
+      r.raiseUnexpectedValue(
+        "Unsupported `" & astToStr(name) & "` version: " &
+        versioned.version.toString())
+    versioned.data
 
   value =
     case v.`type`
@@ -934,6 +977,41 @@ proc readValue*(r: var RestJsonReader, value: var Web3SignerRequest) {.reader.} 
         kind: Web3SignerRequestKind.ValidatorRegistration,
         signingRoot: v.signingRoot,
         validatorRegistration: expectedField(validator_registration),
+      )
+    of Web3SignerRequestKind.ExecutionPayloadEnvelope:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L397-L434
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.ExecutionPayloadEnvelope,
+        forkInfo: expectedForkInfo,
+        signingRoot: v.signingRoot,
+        executionPayloadEnvelope: expectedVersionedField(
+          execution_payload_envelope, ConsensusFork.Gloas),
+      )
+    of Web3SignerRequestKind.PayloadAttestationMessage:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L435-L472
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.PayloadAttestationMessage,
+        forkInfo: expectedForkInfo,
+        signingRoot: v.signingRoot,
+        payloadAttestationData: expectedVersionedField(
+          payload_attestation_message, ConsensusFork.Gloas),
+      )
+    of Web3SignerRequestKind.ProposerPreferences:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L473-L510
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.ProposerPreferences,
+        forkInfo: expectedForkInfo,
+        signingRoot: v.signingRoot,
+        proposerPreferences: expectedVersionedField(
+          proposer_preferences, ConsensusFork.Gloas),
+      )
+    of Web3SignerRequestKind.BuilderRequestAuth:
+      # https://github.com/ethereum/remote-signing-api/blob/44e9e0dcc115c91f8b739684f4789a8310476bd9/signing/schemas.yaml#L511-L550
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.BuilderRequestAuth,
+        signingRoot: v.signingRoot,
+        builderRequestAuth: expectedVersionedField(
+          builder_request_auth, ConsensusFork.Gloas),
       )
 
 proc writeValue*(w: var RestJsonWriter, value: RemoteKeystoreStatus) {.writer.} =
