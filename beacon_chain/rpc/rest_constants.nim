@@ -213,6 +213,8 @@ const
     "Invalid builder config found"
   InvalidBuilderEntry* =
     "Invalid builder entry found, may be missing or duplicate url/auth_data"
+  InvalidBuilderEntryMax* =
+    "Invalid builder entries, exceed the maximum allowed entries"
   InvalidAuthorizationError* =
     "Invalid Authorization Header"
   PrunedStateError* =

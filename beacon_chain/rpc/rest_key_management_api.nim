@@ -550,6 +550,9 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     if builderConfig.builders.isSome():
       template builders(): auto = builderConfig.builders.unsafeGet()
 
+      if len(builders) > MAX_BUILDER_ENTRIES:
+        return keymanagerApiError(Http400, InvalidBuilderEntryMax)
+
       let builderSet = block:
         let keyFields = builders.mapIt:
           if len(it.url) == 0 or len(it.url) > MAX_BUILDER_URL_SIZE:

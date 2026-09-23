@@ -990,7 +990,7 @@ proc getGloasBuilderConfig(
   let
     builderConfig =
       try:
-        Json.loadFile(builderConfigPath, rest_keymanager_types.BuilderConfig)
+        RestJson.loadFile(builderConfigPath, rest_keymanager_types.BuilderConfig)
       except IOError as err:
         error "Failed to read gloas builder config",
           err = err.msg, path = builderConfigPath
@@ -1025,9 +1025,9 @@ proc getGloasBuilderConfig(
             res.builder_pubkeys =
               it.builder_pubkeys.get()
           debugGloasComment("resolve max_execution_payment from global config")
-          if it.max_execution_payment.isSome():
-            res.max_execution_payment =
-              it.max_execution_payment.get()
+          res.max_execution_payment =
+            it.max_execution_payment.valueOr:
+              high(Gwei)
           res
         ResolvedBuilderEntryList.init(builders)
       else:
@@ -1731,8 +1731,8 @@ proc getGloasDefaultBuilderConfig(
   )
   if builderUrl.isSome():
     discard res.builders.add(ResolvedBuilderEntry(
-      url: builderUrl.get(),
-      auth_data: BuilderRequestAuthData.init(toBytes(builderUrl.get())),
+      url: builderUrl.unsafeGet(),
+      auth_data: BuilderRequestAuthData.init(toBytes(builderUrl.unsafeGet())),
       min_bid: 0.Gwei,
       builder_boost_factor: 100.uint64,
     ))
