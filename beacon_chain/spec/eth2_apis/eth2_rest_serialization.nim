@@ -71,8 +71,6 @@ type
     DenebSignedBlockContents |
     ElectraSignedBlockContents |
     FuluSignedBlockContents |
-    GloasSignedBlockContents |
-    HezeSignedBlockContents |
     ForkedMaybeBlindedBeaconBlock |
     deneb_mev.SignedBlindedBeaconBlock |
     electra_mev.SignedBlindedBeaconBlock |
@@ -80,6 +78,7 @@ type
     BuilderPreferencesRequest |
     SignedBuilderRequestAuth |
     gloas.SignedBeaconBlock |
+    heze.SignedBeaconBlock |
     SignedExecutionPayloadEnvelope |
     SignedExecutionPayloadEnvelopeContents
 

@@ -340,16 +340,6 @@ type
     kzg_proofs*: fulu.KzgProofs
     blobs*: deneb.Blobs
 
-  GloasSignedBlockContents* = object
-    signed_block*: gloas.SignedBeaconBlock
-    kzg_proofs*: fulu.KzgProofs
-    blobs*: deneb.Blobs
-
-  HezeSignedBlockContents* = object
-    signed_block*: heze.SignedBeaconBlock
-    kzg_proofs*: fulu.KzgProofs
-    blobs*: deneb.Blobs
-
   RestPublishedSignedBlockContents* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
@@ -359,8 +349,8 @@ type
     of ConsensusFork.Deneb:     denebData*:     DenebSignedBlockContents
     of ConsensusFork.Electra:   electraData*:   ElectraSignedBlockContents
     of ConsensusFork.Fulu:      fuluData*:      FuluSignedBlockContents
-    of ConsensusFork.Gloas:     gloasData*:     GloasSignedBlockContents
-    of ConsensusFork.Heze:      hezeData*:      HezeSignedBlockContents
+    of ConsensusFork.Gloas:     gloasData*:     gloas.SignedBeaconBlock
+    of ConsensusFork.Heze:      hezeData*:      heze.SignedBeaconBlock
 
   ProduceBlockResponseV3* = ForkedMaybeBlindedBeaconBlock
 
@@ -704,16 +694,12 @@ template withForkyBlck*(
   of ConsensusFork.Heze:
     const consensusFork {.inject, used.} = ConsensusFork.Heze
     template forkyData: untyped {.inject, used.} = x.hezeData
-    template forkyBlck: untyped {.inject, used.} = x.hezeData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.hezeData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.hezeData.blobs
+    template forkyBlck: untyped {.inject, used.} = x.hezeData
     body
   of ConsensusFork.Gloas:
     const consensusFork {.inject, used.} = ConsensusFork.Gloas
     template forkyData: untyped {.inject, used.} = x.gloasData
-    template forkyBlck: untyped {.inject, used.} = x.gloasData.signed_block
-    template kzg_proofs: untyped {.inject, used.} = x.gloasData.kzg_proofs
-    template blobs: untyped {.inject, used.} = x.gloasData.blobs
+    template forkyBlck: untyped {.inject, used.} = x.gloasData
     body
   of ConsensusFork.Fulu:
     const consensusFork {.inject, used.} = ConsensusFork.Fulu
@@ -803,9 +789,9 @@ func init*(T: type ForkedSignedBeaconBlock,
     of ConsensusFork.Fulu:
       ForkedSignedBeaconBlock.init(contents.fuluData.signed_block)
     of ConsensusFork.Gloas:
-      ForkedSignedBeaconBlock.init(contents.gloasData.signed_block)
+      ForkedSignedBeaconBlock.init(contents.gloasData)
     of ConsensusFork.Heze:
-      ForkedSignedBeaconBlock.init(contents.hezeData.signed_block)
+      ForkedSignedBeaconBlock.init(contents.hezeData)
 
 func init*(t: typedesc[RestPublishedSignedBlockContents],
            blck: phase0.BeaconBlock, root: Eth2Digest,
@@ -900,14 +886,10 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
            signature: ValidatorSig): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Gloas,
-    gloasData: GloasSignedBlockContents(
-      signed_block: gloas.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
-      ),
-      kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
+    gloasData: gloas.SignedBeaconBlock(
+      message: contents.`block`,
+      root: root,
+      signature: signature
     )
   )
 
@@ -916,14 +898,10 @@ func init*(t: typedesc[RestPublishedSignedBlockContents],
            signature: ValidatorSig): RestPublishedSignedBlockContents =
   RestPublishedSignedBlockContents(
     kind: ConsensusFork.Heze,
-    hezeData: HezeSignedBlockContents(
-      signed_block: heze.SignedBeaconBlock(
-        message: contents.`block`,
-        root: root,
-        signature: signature
-      ),
-      kzg_proofs: contents.kzg_proofs,
-      blobs: contents.blobs
+    hezeData: heze.SignedBeaconBlock(
+      message: contents.`block`,
+      root: root,
+      signature: signature
     )
   )
 
