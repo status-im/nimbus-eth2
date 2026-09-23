@@ -238,7 +238,7 @@ type
 
   PayloadDataItem* = object
     available*: bool
-    waiters*: seq[Future[void].Raising([CancelledError])]
+    waiters*: seq[Future[void]]
 
   ValidatorClient* = object
     config*: ValidatorClientConf

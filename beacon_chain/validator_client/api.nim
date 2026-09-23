@@ -1900,9 +1900,9 @@ proc producePayloadAttestationData*(
           ApiResponse[Opt[PayloadAttestationData]].err(
             ResponseInvalidError)
         of 406:
-          handle406()
+          handle415()
           ApiResponse[Opt[PayloadAttestationData]].err(
-            ResponseNotAcceptableError)
+            ResponseContentTypeError)
         of 500:
           handle500()
           ApiResponse[Opt[PayloadAttestationData]].err(
