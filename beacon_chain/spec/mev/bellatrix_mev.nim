@@ -7,10 +7,10 @@
 
 {.push raises: [], gcsafe.}
 
-import ".."/datatypes/altair
-from ".."/datatypes/phase0 import Attestation, AttesterSlashing
-from ".."/datatypes/bellatrix import ExecutionPayloadHeader
-from ".."/eth2_merkleization import hash_tree_root
+import ../datatypes/altair
+from ../datatypes/phase0 import Attestation, AttesterSlashing
+from ../datatypes/bellatrix import ExecutionPayloadHeader
+from ../eth2_merkleization import hash_tree_root
 
 type
   # https://github.com/ethereum/builder-specs/blob/v0.6.0/specs/bellatrix/builder.md#blindedbeaconblockbody
