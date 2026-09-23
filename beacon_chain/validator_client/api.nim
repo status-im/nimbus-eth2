@@ -2951,9 +2951,9 @@ proc getExecutionPayloadEnvelope*(
     beacon_block_root: Eth2Digest
 ): Future[Opt[ExecutionPayloadEnvelope]] {.
    async: (raises: [CancelledError, ValidatorApiError]).} =
-  const RequestName = "getExecutionPayloadEnvelope"
-
-  let strategy = ApiStrategyKind.Priority
+  const
+    RequestName = "getExecutionPayloadEnvelope"
+    strategy = ApiStrategyKind.Priority
 
   var failures: seq[ApiNodeFailure]
 

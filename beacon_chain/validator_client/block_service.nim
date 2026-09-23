@@ -328,10 +328,14 @@ proc buildBuilderConfig(
   if not vc.config.payloadBuilderEnable or vc.config.payloadBuilderUrl.isNone:
     return noConfiguredBuilder()
 
+  let urlBytes = vc.config.payloadBuilderUrl.get().toBytes()
+  if urlBytes.len == 0 or urlBytes.len > MAX_BUILDER_URL_SIZE:
+    return noConfiguredBuilder()
+
   let
     genesis_fork_version = vc.forks[0].current_version
     requestAuth = BuilderRequestAuth(
-      data: default(BuilderRequestAuthData),
+      data: BuilderRequestAuthData.init(urlBytes),
       slot: slot)
     signature = (await validator.getBuilderRequestAuthSignature(
         genesis_fork_version, requestAuth)).valueOr:
@@ -341,8 +345,7 @@ proc buildBuilderConfig(
 
   var builders: List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]
   if not builders.add(BuilderEntry(
-      url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(
-        vc.config.payloadBuilderUrl.get().toBytes()),
+      url: List[byte, Limit MAX_BUILDER_URL_SIZE].init(urlBytes),
       auth: SignedBuilderRequestAuth(message: requestAuth, signature: signature),
       builder_pubkeys: default(List[ValidatorPubKey, Limit MAX_BUILDER_PUBKEYS]),
       max_execution_payment: high(uint64).Gwei,
@@ -397,6 +400,7 @@ proc signAndPublishBlock(
       blobs: default(deneb.Blobs)),
     blockRoot, signature)
 
+  debugGloasComment "Eth-Builder-Url should be echoed here"
   let accepted =
     try:
       await vc.publishBlockV2(
