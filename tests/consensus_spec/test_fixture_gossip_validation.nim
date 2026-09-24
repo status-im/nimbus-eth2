@@ -74,6 +74,7 @@ const SKIP = [
   "gossip_beacon_block__reject_finalized_checkpoint_not_ancestor",
   "gossip_data_column_sidecar__reject_non_ancestor_finalized_checkpoint",
   # Gloas state before Gloas fork epoch
+  "gossip_payload_attestation_message__reject_pre_fork_slot",
   "gossip_proposer_preferences__ignore_pre_gloas_epoch",
   "gossip_proposer_preferences__valid_at_gloas_fork_epoch",
   # Invalid parent's execution payload status is not tracked

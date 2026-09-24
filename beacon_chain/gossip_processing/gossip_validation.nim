@@ -2052,7 +2052,7 @@ proc validatePayloadAttestationMessage*(
   withState(dag.headState):
     when consensusFork >= ConsensusFork.Gloas:
       var present = false
-      for idx in get_ptc(forkyState.data, data.slot):
+      for idx in get_ptc(dag.cfg, forkyState.data, data.slot):
         if idx == vidx:
           present = true
           break
