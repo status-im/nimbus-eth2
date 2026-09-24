@@ -317,9 +317,9 @@ proc buildBuilderConfig(
     vc: ValidatorClientRef,
     slot: Slot,
     validator: AttachedValidator
-): Future[BuilderConfig] {.async: (raises: [CancelledError]).} =
-  template noConfiguredBuilder(): BuilderConfig =
-    BuilderConfig(
+): Future[gloas_mev.BuilderConfig] {.async: (raises: [CancelledError]).} =
+  template noConfiguredBuilder(): gloas_mev.BuilderConfig =
+    gloas_mev.BuilderConfig(
       min_bid: 0.Gwei,
       builder_boost_factor: vc.config.builderBoostFactor,
       builders: default(List[BuilderEntry, Limit MAX_BUILDER_ENTRIES]))
@@ -356,7 +356,7 @@ proc buildBuilderConfig(
       builder_boost_factor: vc.config.builderBoostFactor)):
     return noConfiguredBuilder()
 
-  BuilderConfig(
+  gloas_mev.BuilderConfig(
     min_bid: 0.Gwei,
     builder_boost_factor: vc.config.builderBoostFactor,
     builders: builders)
