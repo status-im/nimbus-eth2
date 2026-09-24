@@ -258,13 +258,17 @@ proc installApiHandlers*(node: SigningNodeRef) =
 
         let (feeRecipientIndex, blockHeader) =
           withConsensusFork(request.beaconBlockHeader.kind):
-            when consensusFork in ConsensusFork.Deneb ..< ConsensusFork.Gloas:
+            when consensusFork >= ConsensusFork.Gloas:
+              const gindex = get_generalized_index(
+                consensusFork.BeaconBlockBody,
+                "signed_execution_payload_bid", "message", "fee_recipient")
+              (gindex, request.beaconBlockHeader.data)
+            elif consensusFork >= ConsensusFork.Deneb:
               const gindex = get_generalized_index(
                 consensusFork.BeaconBlockBody,
                 "execution_payload", "fee_recipient")
               (gindex, request.beaconBlockHeader.data)
             else:
-              debugGloasComment "do not this"
               return errorResponse(Http400, BlockIncorrectFork)
 
         if request.proofs.isNone() or len(request.proofs.get()) == 0:
