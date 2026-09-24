@@ -13,7 +13,7 @@ import
   libp2p/peerid,
   presto/common as presto_common,
   ../eth2_ssz_serialization,
-  ./eth2_rest_json_serialization
+  ./[eth2_rest_json_serialization, rest_keymanager_types]
 
 export peerid, presto_common, eth2_ssz_serialization, eth2_rest_json_serialization
 
@@ -42,7 +42,8 @@ const
 
 type
   EncodeTypes* =
-    BuilderConfig |
+    gloas_mev.BuilderConfig |
+    rest_keymanager_types.BuilderConfig |
     DataColumnSidecarInfoObject |
     DeleteKeystoresBody |
     EmptyBody |

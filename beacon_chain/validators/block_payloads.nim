@@ -465,7 +465,9 @@ proc makeSignedRequestAuth*(
     {.async: (raises: [CancelledError]).} =
   let
     msg = BuilderRequestAuth(
-      data: BuilderRequestAuthData.init(toBytes(builder_url)),
+      data: block:
+        get_default_auth_data(builder_url).valueOr:
+          return err("invalid builder url"),
       slot: slot)
     sig = (await proposer.getBuilderRequestAuthSignature(
         genesis_fork_version, msg)).valueOr:
@@ -904,7 +906,7 @@ proc getBuilderEntryBid(
     node: BeaconNode,
     consensusFork: static ConsensusFork,
     proposalState: ref ForkedHashedBeaconState,
-    entry: BuilderEntry,
+    entry: gloas_mev.BuilderEntry,
     slot: Slot,
     parent_block_hash: Eth2Digest,
     parent_block_root: Eth2Digest,
@@ -989,7 +991,7 @@ proc makeBlockAndMaybeEnvelopeForHeadAndSlot*(
     graffiti: GraffitiBytes,
     head: BlockRef,
     slot: Slot,
-    builderConfig: BuilderConfig,
+    builderConfig: gloas_mev.BuilderConfig,
 ): Future[
     Result[
       tuple[
