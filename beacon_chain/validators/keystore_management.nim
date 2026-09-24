@@ -13,12 +13,12 @@ import
   bearssl/rand,
   serialization, blscurve, confutils,
   nimbus_security_resources,
-  ".."/spec/[eth2_merkleization, keystore, crypto],
-  ".."/spec/datatypes/base,
+  ../spec/[eth2_merkleization, keystore, crypto],
+  ../spec/datatypes/base,
   stew/[io2, byteutils], libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  ".."/[conf, filepath, beacon_clock],
-  ".."/networking/network_metadata,
+  ../[conf, filepath, beacon_clock],
+  ../networking/network_metadata,
   ./validator_pool
 
 from std/terminal import
@@ -1544,7 +1544,7 @@ proc setGraffiti*(host: KeymanagerHost,
       "Failed to write graffiti file," &
         " reason: (" & $int(e) & ") " & ioErrorMsg(e))
 
-from ".."/spec/beaconstate import has_eth1_withdrawal_credential
+from ../spec/beaconstate import has_eth1_withdrawal_credential
 
 proc getValidatorWithdrawalAddress*(
     host: KeymanagerHost, pubkey: ValidatorPubKey): Opt[Eth1Address] =
