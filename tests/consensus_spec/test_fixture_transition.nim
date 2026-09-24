@@ -51,7 +51,18 @@ proc runTest(
 
     # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
     # so purely lexicographic sorting wouldn't sort properly.
-    let numBlocks = walkPattern(testPath/"blocks_*.ssz_snappy").countIt(true)
+    let
+      numBlocks = walkPattern(testPath/"blocks_*.ssz_snappy").countIt(true)
+      hasPostState = fileExists(testPath/"post.ssz_snappy")
+    template checkResult(res: untyped, i: int) =
+      if hasPostState or i + 1 < numBlocks:
+        # The return value is the block rewards, which aren't tested here;
+        # the .expect() already handles the validaty check.
+        discard res.expect("no failure when applying block " & $i)
+      else:
+        doAssert res.isErr(),
+          "We didn't expect this invalid block to be processed"
+
     for i in 0 ..< numBlocks:
       if i <= fork_block:
         let
@@ -59,26 +70,21 @@ proc runTest(
             testPath/"blocks_" & $i & ".ssz_snappy", AnteBeaconBlock.kind)
           res = state_transition(
             cfg, fhPreState[], blck, cache, info, {}, noRollback)
-
-        # The return value is the block rewards, which aren't tested here;
-        # the .expect() already handles the validaty check.
-        discard res.expect("no failure when applying block " & $i)
+        checkResult(res, i)
       else:
         let
           blck = loadBlock(
             testPath/"blocks_" & $i & ".ssz_snappy", PostBeaconBlock.kind)
           res = state_transition(
             cfg, fhPreState[], blck, cache, info, {}, noRollback)
+        checkResult(res, i)
 
-        # The return value is the block rewards, which aren't tested here;
-        # the .expect() already handles the validaty check.
-        discard res.expect("no failure when applying block " & $i)
-
-    let postState = newClone(
-      parseTest(testPath/"post.ssz_snappy", SSZ, PostBeaconState))
-    when false:
-      reportDiff(fhPreState.data, postState)
-    doAssert fhPreState[].root == postState[].hash_tree_root()
+    if hasPostState:
+      let postState = newClone(
+        parseTest(testPath/"post.ssz_snappy", SSZ, PostBeaconState))
+      when false:
+        reportDiff(fhPreState.data, postState)
+      doAssert fhPreState[].root == postState[].hash_tree_root()
 
 suite "EF - Altair - Transition " & preset():
   const TransitionDir =

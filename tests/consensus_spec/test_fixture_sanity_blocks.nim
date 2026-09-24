@@ -15,7 +15,8 @@ import
   ../testutil
 
 from std/sequtils import countIt
-from ../../beacon_chain/spec/presets import const_preset, defaultRuntimeConfig
+from ../../beacon_chain/spec/presets import
+  const_preset, defaultRuntimeConfig, readRuntimeConfig
 from ./fixtures_utils import
   SSZ, SszTestsDir, hash_tree_root, loadBlock, parseTest,
   readSszBytes, toSszType
@@ -30,8 +31,14 @@ proc runTest(
     prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
   test prefix & testName & " - " & unitTestName & preset():
-    let preState = newClone(parseTest(testPath/"pre.ssz_snappy",
-      SSZ, consensusFork.BeaconState))
+    let
+      cfg =
+        if fileExists(testPath/"config.yaml"):
+          readRuntimeConfig(testPath/"config.yaml")[0]
+        else:
+          defaultRuntimeConfig
+      preState = newClone(parseTest(testPath/"pre.ssz_snappy",
+        SSZ, consensusFork.BeaconState))
     var
       fhPreState = ForkedHashedBeaconState.new(preState[])
       cache = StateCache()
@@ -49,11 +56,11 @@ proc runTest(
         # The return value is the block rewards, which aren't tested here;
         # the .expect() already handles the validaty check.
         discard state_transition(
-          defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
+          cfg, fhPreState[], blck, cache, info, flags = {},
           noRollback).expect("should apply block")
       else:
         let res = state_transition(
-          defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
+          cfg, fhPreState[], blck, cache, info, flags = {},
           noRollback)
         doAssert (i + 1 < numBlocks) or not res.isOk(),
           "We didn't expect these invalid blocks to be processed"
