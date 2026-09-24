@@ -1013,7 +1013,8 @@ proc getGloasBuilderConfig(
             res.url = it.url
             res.auth_data =
               it.auth_data.valueOr:
-                BuilderRequestAuthData.init(toBytes(it.url))
+                get_default_auth_data(it.url).valueOr:
+                  return err(malformedConfigFile)
             res.min_bid =
               it.min_bid.valueOr:
                 resolvedMinBid
@@ -1722,7 +1723,7 @@ proc getBuilderConfig*(
 
 proc getGloasDefaultBuilderConfig(
     host: KeymanagerHost, pubkey: ValidatorPubKey):
-    ResolvedBuilderConfig =
+    Result[ResolvedBuilderConfig, ValidatorConfigFileStatus] =
   debugGloasComment("should need a new config structure for gloas")
   let builderUrl =
     host.getBuilderConfig(pubkey).valueOr:
@@ -1735,19 +1736,21 @@ proc getGloasDefaultBuilderConfig(
   )
   builderUrl.isErrOr:
     discard res.builders.add(ResolvedBuilderEntry(
-      url: value,
-      auth_data: BuilderRequestAuthData.init(toBytes(value)),
+      url: value(),
+      auth_data: block:
+        get_default_auth_data(value()).valueOr:
+          return err(malformedConfigFile),
       min_bid: 0.Gwei,
       builder_boost_factor: 100.uint64,
       max_execution_payment: high(Gwei),
     ))
-  res
+  ok(res)
 
 proc getGloasBuilderConfig*(
     host: KeymanagerHost, pubkey: ValidatorPubKey):
     Result[ResolvedBuilderConfig, ValidatorConfigFileStatus] =
   let
-    defaultBuilderConfig = host.getGloasDefaultBuilderConfig(pubkey)
+    defaultBuilderConfig = ?host.getGloasDefaultBuilderConfig(pubkey)
     res = getGloasBuilderConfig(
         host.validatorsDir, pubkey, defaultBuilderConfig).valueOr:
       if error == ValidatorConfigFileStatus.noSuchValidator:

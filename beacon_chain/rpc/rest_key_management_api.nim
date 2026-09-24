@@ -555,6 +555,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
       let builderSet = block:
         let keyFields = builders.mapIt:
+          debugGloasComment("validate the url, to avoid errors from getting the default auth_data")
           if len(it.url) == 0 or len(it.url) > MAX_BUILDER_URL_SIZE:
             return keymanagerApiError(Http400, InvalidBuilderEntry)
           if it.auth_data.isSome() and len(it.auth_data.get()) == 0:
