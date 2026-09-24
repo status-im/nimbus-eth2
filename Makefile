@@ -223,6 +223,7 @@ local-testnet-minimal:
 		--remote-validators-count 512 \
 		--signer-type $(SIGNER_TYPE) \
 		--fulu-fork-epoch 0 \
+		--gloas-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp false \
@@ -252,6 +253,7 @@ local-testnet-mainnet:
 		--data-dir $@ \
 		--nodes 2 \
 		--fulu-fork-epoch 0 \
+		--gloas-fork-epoch 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--debug-tcp true \
