@@ -2182,7 +2182,7 @@ proc validateInclusionList*(
       return err(v.error())
 
   let epoch = message.slot.epoch
-  if dag.cfg.consensusForkAtEpoch(epoch) < ConsensusFork.Heze:
+  if epoch < dag.cfg.HEZE_FORK_EPOCH:
     return dag.checkedReject("InclusionList: only valid for Heze fork or later")
 
   # [IGNORE] The `message` is either the first or second valid message received
