@@ -469,7 +469,7 @@ proc runGossipInclusionList(
     gossipTest(
         suiteName, path, consensusFork, SignedInclusionList, (
           dag.updateHead(headRef, quarantine[], []);
-          let ilPool = newClone(InclusionListPool.init(dag.timeParams))),
+          let ilPool = newClone(InclusionListPool.init(dag.cfg))),
         await dag.validateInclusionList(
           ilPool, batchCrypto, message, wallTime)):
       check ilPool[].addInclusionList(message, is_timely = true, wallTime)

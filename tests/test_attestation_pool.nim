@@ -1316,7 +1316,7 @@ suite "Attestation pool heze processing" & preset():
     let
       quarantine = newClone(Quarantine.init(dag.cfg))
       pool = newClone(AttestationPool.init(dag, quarantine))
-      ilPool = newClone(InclusionListPool.init(dag.timeParams))
+      ilPool = newClone(InclusionListPool.init(dag.cfg))
       state = newClone(dag.headState)
     var
       cache: StateCache

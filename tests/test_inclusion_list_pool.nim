@@ -46,7 +46,7 @@ suite "Inclusion list pool" & preset():
         ChainDAGRef, cfg,
         cfg.makeTestDB(TOTAL_COMMITTEES * PTC_SIZE),
         validatorMonitor, {})
-      pool = newClone(InclusionListPool.init(dag.timeParams))
+      pool = newClone(InclusionListPool.init(dag.cfg))
       state = newClone(dag.headState)
     var
       cache: StateCache
@@ -195,7 +195,7 @@ suite "Inclusion list pool" & preset():
       next = makeInclusionList(
         slot + 1, committee[1], dependentRoot, [makeTx([byte 0x02])])
       wallEarly = (slot + 1).start_beacon_time(dag.cfg.timeParams) -
-        MAXIMUM_GOSSIP_CLOCK_DISPARITY
+        dag.cfg.gossipClockDisparityDuration
 
     check:
       pool[].addInclusionList(il, is_timely = true, wallTime)

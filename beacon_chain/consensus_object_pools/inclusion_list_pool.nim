@@ -35,12 +35,14 @@ type
   InclusionListPool* = object
     ## Spec `InclusionListStore`, split into a ring of per-slot buckets
     timeParams: TimeParams
+    gossipClockDisparity: Duration
     buckets: array[IL_WINDOW, IlBucket]
 
 const emptySeen = default(seq[InclusionList])
 
-func init*(T: type InclusionListPool, timeParams: TimeParams): T =
-  T(timeParams: timeParams)
+func init*(T: type InclusionListPool, cfg: RuntimeConfig): T =
+  T(timeParams: cfg.timeParams,
+    gossipClockDisparity: cfg.gossipClockDisparityDuration)
 
 func bucketIdx(slot: Slot): int =
   int(uint64(slot) mod uint64(IL_WINDOW))
@@ -63,7 +65,7 @@ func addInclusionList*(
 
   let
     current_slot = wallTime.slotOrZero(pool.timeParams)
-    latest_slot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero(
+    latest_slot = (wallTime + pool.gossipClockDisparity).slotOrZero(
       pool.timeParams)
     slot = inclusion_list.slot
     validator_index = inclusion_list.validator_index
