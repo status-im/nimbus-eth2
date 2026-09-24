@@ -11,6 +11,7 @@
 import
   # Status libraries
   stew/bitops2,
+  stew/byteutils,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
   ./teststateutil,
@@ -65,3 +66,23 @@ suite "Spec helpers":
           process(fieldVar, i shl childDepth)
         i += 1
     process(state, state.numLeaves)
+
+  test "get_default_auth_data":
+    const testCases = @[
+      ("https://builder.example.com/", "builder.example.com"),
+      ("HTTPS://Builder.Example.com:443/bids?x=1", "builder.example.com"),
+      ("https://builder.example.com:8080", "builder.example.com"),
+      ("https://user:pw@builder.example.com/", "builder.example.com"),
+      ("https://10.0.0.5:18550/eth/v1/builder", "10.0.0.5"),
+      ("https://[0:0:0:0:0:0:0:1]:8443/", "[::1]"),
+      ("https://[::ffff:192.0.2.1]/", "[::ffff:c000:201]"),
+      # Extra cases
+      ("https://[0:0:0:0:0:0:0:0]/", "[::]"),
+      ("https://[1:0:0:0:0:0:0:0]/", "[1::]"),
+    ]
+
+    for i in 0 ..< len(testCases):
+      let res = get_default_auth_data(testCases[i][0])
+      check:
+        res.isOk()
+        string.fromBytes(res.get().asSeq()) == testCases[i][1]
