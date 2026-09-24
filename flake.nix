@@ -98,7 +98,23 @@
           ncli         = build ["ncli"]               null;
           ncli_db      = build ["ncli_db"]            null;
 
-          inherit (pkgs) go-ethereum;
+          # Can't use overrideAttrs due to how buildGoModule overwrites arguments.
+          go-ethereum = pkgs.go-ethereum.override {
+            buildGoModule = args: pkgs.buildGo125Module ( args // rec {
+              version = "1.17.6";
+              src = pkgs.fetchFromGitHub {
+                owner = "ethereum";
+                repo = args.pname;
+                rev = "v${version}";
+                sha256 = "sha256-3dAzJitCXMP1fdrNKRWBYOEPfwQFOnQgLC08f/7+YwY=";
+              };
+              vendorHash = "sha256-AsKicppcvr7xZ2sZ1pvsu8inXBRM1W3lFMlWAvV/EL0=";
+              subPackages = ["cmd/geth"];
+              outputs = ["out"];
+              postInstall = "";
+            });
+          };
+
           default = beacon_node;
         }
       );
