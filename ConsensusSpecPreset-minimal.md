@@ -4533,6 +4533,34 @@ ConsensusSpecPreset-minimal
 + heze - gossip_execution_payload_envelope__valid_max_withdrawal_requests                    OK
 + heze - gossip_execution_payload_envelope__valid_max_withdrawals                            OK
 ```
+## EF - Networking - Gossip - Inclusion List [Preset: minimal]
+```diff
++ heze - gossip_inclusion_list__ignore_dependent_block_not_possible                          OK
++ heze - gossip_inclusion_list__ignore_dependent_block_state_unavailable                     OK
++ heze - gossip_inclusion_list__ignore_dependent_block_unseen                                OK
++ heze - gossip_inclusion_list__ignore_not_current_slot                                      OK
++ heze - gossip_inclusion_list__ignore_slot_outside_lower_disparity                          OK
++ heze - gossip_inclusion_list__ignore_slot_outside_upper_disparity                          OK
++ heze - gossip_inclusion_list__ignore_third_message_from_validator                          OK
++ heze - gossip_inclusion_list__ignore_transactions_empty                                    OK
++ heze - gossip_inclusion_list__reject_dependent_block_at_lookahead_epoch_start              OK
++ heze - gossip_inclusion_list__reject_empty_transaction                                     OK
++ heze - gossip_inclusion_list__reject_includer_not_in_committee                             OK
++ heze - gossip_inclusion_list__reject_invalid_signature                                     OK
++ heze - gossip_inclusion_list__reject_non_genesis_dependent_root_at_lookahead_epoch         OK
++ heze - gossip_inclusion_list__reject_non_genesis_dependent_root_in_genesis_epoch           OK
++ heze - gossip_inclusion_list__reject_transactions_too_large                                OK
++ heze - gossip_inclusion_list__reject_transactions_too_large_multiple_transactions          OK
++ heze - gossip_inclusion_list__valid                                                        OK
++ heze - gossip_inclusion_list__valid_dependent_block_across_empty_epochs                    OK
++ heze - gossip_inclusion_list__valid_dependent_block_is_head                                OK
++ heze - gossip_inclusion_list__valid_dependent_block_on_fork                                OK
++ heze - gossip_inclusion_list__valid_genesis_dependent_root_at_lookahead_epoch              OK
++ heze - gossip_inclusion_list__valid_genesis_dependent_root_in_genesis_epoch                OK
++ heze - gossip_inclusion_list__valid_slot_at_lower_disparity                                OK
++ heze - gossip_inclusion_list__valid_slot_at_upper_disparity                                OK
++ heze - gossip_inclusion_list__valid_transactions_at_size_limit                             OK
+```
 ## EF - Networking - Gossip - Payload Attestation Message [Preset: minimal]
 ```diff
 + gloas - gossip_payload_attestation_message__ignore_block_not_at_assigned_slot              OK
